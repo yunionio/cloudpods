@@ -63,7 +63,7 @@ func (u Usage) Include(nus ...Usage) Usage {
 	return u
 }
 
-type objUsageFunc func(rbacutils.TRbacScope, mcclient.IIdentityProvider, db.IStandaloneModel, []string, []string, []string, string) (Usage, error)
+type objUsageFunc func(rbacutils.TRbacScope, mcclient.IIdentityProvider, bool, db.IStandaloneModel, []string, []string, []string, string) (Usage, error)
 
 func getRangeObjId(ctx context.Context) (string, error) {
 	params := appctx.AppContextParams(ctx)
@@ -105,14 +105,18 @@ func rangeObjHandler(
 			httperrors.GeneralServerError(w, err)
 			return
 		}
-		log.Debugf("%s %s", ownerId, scope)
+		isOwner := false
+		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(obj, userCred, policy.PolicyActionGet, "usage") {
+			isOwner = true
+		}
+		log.Debugf("%s %v %s", ownerId, isOwner, scope)
 		query := getQuery(r)
 		hostTypes := json.GetQueryStringArray(query, "host_type")
 		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
 		providers := json.GetQueryStringArray(query, "provider")
 		brands := json.GetQueryStringArray(query, "brand")
 		cloudEnv, _ := query.GetString("cloud_env")
-		usage, err := reporter(scope, ownerId, obj, hostTypes, providers, brands, cloudEnv)
+		usage, err := reporter(scope, ownerId, isOwner, obj, hostTypes, providers, brands, cloudEnv)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
@@ -162,32 +166,32 @@ func getQuery(r *http.Request) json.JSONObject {
 	return query
 }
 
-func ReportHostUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, host db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, host, hostTypes, providers, brands, cloudEnv)
+func ReportHostUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, host db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, host, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportWireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, wire db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, wire, hostTypes, providers, brands, cloudEnv)
+func ReportWireUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, wire db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, wire, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportCloudAccountUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, account db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, account, hostTypes, providers, brands, cloudEnv)
+func ReportCloudAccountUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, account db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, account, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportCloudProviderUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, provider db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, provider, hostTypes, providers, brands, cloudEnv)
+func ReportCloudProviderUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, provider db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, provider, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportSchedtagUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, schedtag db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, schedtag, hostTypes, providers, brands, cloudEnv)
+func ReportSchedtagUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, schedtag db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, schedtag, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportZoneUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, zone db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, zone, hostTypes, providers, brands, cloudEnv)
+func ReportZoneUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, zone db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, zone, hostTypes, providers, brands, cloudEnv)
 }
 
-func ReportCloudRegionUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, cloudRegion db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	return ReportGeneralUsage(scope, userCred, cloudRegion, hostTypes, providers, brands, cloudEnv)
+func ReportCloudRegionUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, cloudRegion db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
+	return ReportGeneralUsage(scope, userCred, isOwner, cloudRegion, hostTypes, providers, brands, cloudEnv)
 }
 
 func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (count Usage, err error) {
@@ -328,10 +332,10 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 	return
 }
 
-func ReportGeneralUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (count Usage, err error) {
+func ReportGeneralUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, isOwner bool, rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (count Usage, err error) {
 	count = make(map[string]interface{})
 
-	if scope == rbacutils.ScopeSystem {
+	if scope == rbacutils.ScopeSystem || isOwner {
 		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes, providers, brands, cloudEnv)
 		if err != nil {
 			return
