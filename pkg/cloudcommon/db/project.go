@@ -42,13 +42,9 @@ func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeProject:
-			if len(owner.GetProjectId()) > 0 {
-				q = q.Equals("tenant_id", owner.GetProjectId())
-			}
+			q = q.Equals("tenant_id", owner.GetProjectId())
 		case rbacutils.ScopeDomain:
-			if len(owner.GetProjectDomainId()) > 0 {
-				q = q.Equals("domain_id", owner.GetProjectDomainId())
-			}
+			q = q.Equals("domain_id", owner.GetProjectDomainId())
 		}
 		/*if len(owner.GetProjectId()) > 0 {
 			q = q.Equals("tenant_id", owner.GetProjectId())
