@@ -115,12 +115,11 @@ func (self *SStoragecache) GetPath() string {
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 
 	if len(image.ExternalId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
-
 		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
+		log.Debugf("UploadImage: Image external ID %s exists, status %s", image.ExternalId, status)
 		if status == ImageStatusAvailable && !isForce {
 			return image.ExternalId, nil
 		}
