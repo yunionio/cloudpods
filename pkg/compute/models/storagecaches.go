@@ -263,7 +263,7 @@ func (self *SStoragecache) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return extra
 }
 
-func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string) []SCachedimage {
+func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string, status []string) []SCachedimage {
 	images := make([]SCachedimage, 0)
 
 	cachedImages := CachedimageManager.Query().SubQuery()
@@ -278,6 +278,9 @@ func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType str
 	}
 	if len(imageType) > 0 {
 		q = q.Filter(sqlchemy.Equals(cachedImages.Field("image_type"), imageType))
+	}
+	if len(status) > 0 {
+		q = q.Filter(sqlchemy.In(storagecachedImages.Field("status"), status))
 	}
 
 	err := db.FetchModelObjects(CachedimageManager, q, &images)
@@ -584,20 +587,29 @@ func (cache *SStoragecache) SyncCloudImages(
 func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
 	imgObj, _ := CachedimageManager.FetchById(imageId)
 	if imgObj == nil {
+		log.Debugf("no such cached image %s", imageId)
 		return false
 	}
 	cachedImage := imgObj.(*SCachedimage)
 	if cachedImage.ImageType != cloudprovider.CachedImageTypeCustomized {
 		// no need to cache
+		log.Debugf("image %s is not a customized image, no need to cache", imageId)
 		return false
 	}
-	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized)
+	cachedImages := self.getCachedImageList(nil, cloudprovider.CachedImageTypeCustomized, []string{api.CACHED_IMAGE_STATUS_READY})
+	for i := range cachedImages {
+		if cachedImages[i].Id == imageId {
+			// already cached
+			log.Debugf("image %s has been cached in storage cache %s(%s)", imageId, self.Id, self.Name)
+			return false
+		}
+	}
 	host, _ := self.GetHost()
 	return host.GetHostDriver().IsReachStoragecacheCapacityLimit(host, cachedImages)
 }
 
 func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
-	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized)
+	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized, []string{api.CACHED_IMAGE_STATUS_READY})
 	leastUsedIdx := -1
 	leastRefCount := -1
 	for i := range cachedImages {
