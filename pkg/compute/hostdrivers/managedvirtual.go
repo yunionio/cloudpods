@@ -63,6 +63,8 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
 		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
 
+		log.Debugf("XXX Hold lockman key %p cachedimages %s-%s", ctx, storageCache.Id, image.ImageId)
+
 		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, image.ImageId, "")
 
 		cachedImage := scimg.GetCachedimage()
@@ -91,7 +93,10 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 			return nil, err
 		}
 
-		// scimg.SetExternalId(extImgId)
+		// should record the externalId immediately
+		// so the waiting goroutine could pick the new externalId
+		// and avoid duplicate uploading
+		scimg.SetExternalId(image.ExternalId)
 
 		ret := jsonutils.NewDict()
 		ret.Add(jsonutils.NewString(image.ExternalId), "image_id")
@@ -337,7 +342,7 @@ func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx co
 func (driver *SManagedVirtualizationHostDriver) IsReachStoragecacheCapacityLimit(host *models.SHost, cachedImages []models.SCachedimage) bool {
 	quota := host.GetHostDriver().GetStoragecacheQuota(host)
 	log.Debugf("Cached image total: %d quota: %d", len(cachedImages), quota)
-	if quota > 0 && len(cachedImages)+1 >= quota {
+	if quota > 0 && len(cachedImages) >= quota {
 		return true
 	}
 	return false
