@@ -1970,6 +1970,31 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
+func (guest *SGuest) SyncAllWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
+	if host == nil {
+		return errors.Error("guest has no host")
+	}
+
+	provider := host.GetCloudprovider()
+	if provider == nil {
+		return errors.Error("host has no provider")
+	}
+
+	driver, err := provider.GetProvider()
+	if err != nil {
+		return errors.Wrap(err, "provider.GetProvider")
+	}
+
+	err = guest.syncWithCloudVM(ctx, userCred, driver, host, extVM, provider.GetOwnerId())
+	if err != nil {
+		return errors.Wrap(err, "guest.syncWithCloudVM")
+	}
+
+	syncVMPeripherals(ctx, userCred, guest, extVM, host, provider, driver)
+
+	return nil
+}
+
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) error {
 	recycle := false
 
