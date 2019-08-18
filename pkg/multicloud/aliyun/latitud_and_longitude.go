@@ -28,6 +28,7 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"cn-shanghai":    {Latitude: 31.230391, Longitude: 121.473701, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-shenzhen":    {Latitude: 22.543097, Longitude: 114.057861, City: api.CITY_SHEN_ZHEN, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-hongkong":    {Latitude: 22.396427, Longitude: 114.109497, City: api.CITY_HONG_KONG, CountryCode: api.COUNTRY_CODE_CN},
+	"cn-chengdu":     {Latitude: 30.572815, Longitude: 104.066803, City: api.CITY_CHENG_DU, CountryCode: api.COUNTRY_CODE_CN},
 	"ap-northeast-1": {Latitude: 35.709026, Longitude: 139.731995, City: api.CITY_TOKYO, CountryCode: api.COUNTRY_CODE_JP},
 	"ap-southeast-1": {Latitude: 1.352083, Longitude: 103.819839, City: api.CITY_SINGAPORE, CountryCode: api.COUNTRY_CODE_SG},
 	"ap-southeast-2": {Latitude: -33.868820, Longitude: 151.209290, City: api.CITY_SYDNEY, CountryCode: api.COUNTRY_CODE_AU},
