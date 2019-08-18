@@ -912,7 +912,10 @@ func (region *SRegion) DeleteIBucket(name string) error {
 	input.Bucket = &name
 	_, err = s3cli.DeleteBucket(input)
 	if err != nil {
-		if strings.Index(err.Error(), "NoSuchBucket") >= 0 {
+		if region.client.debug {
+			log.Debugf("%#v %s", err, err)
+		}
+		if strings.Index(err.Error(), "NoSuchBucket:") >= 0 {
 			return nil
 		}
 		return errors.Wrap(err, "DeleteBucket")
@@ -930,6 +933,12 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	input.Bucket = &name
 	_, err = s3cli.HeadBucket(input)
 	if err != nil {
+		if region.client.debug {
+			log.Debugf("%#v %s", err, err)
+		}
+		if strings.Index(err.Error(), "NotFound:") >= 0 {
+			return false, nil
+		}
 		return false, errors.Wrap(err, "IsBucketExist")
 	}
 	return true, nil
