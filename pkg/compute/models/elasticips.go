@@ -96,19 +96,6 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		return nil, err
 	}
 
-	/*managerFilter, _ := query.GetString("manager")
-	if len(managerFilter) > 0 {
-		managerI, err := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("manager_id", managerI.GetId())
-	}*/
-
 	regionFilter, _ := query.GetString("region")
 	if len(regionFilter) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
@@ -153,25 +140,6 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
 		}
 	}
-
-	/*accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}*/
 
 	if query.Contains("usable") {
 		usable := jsonutils.QueryBoolean(query, "usable", false)
@@ -584,7 +552,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
-		self.Delete(ctx, userCred)
+		self.RealDelete(ctx, userCred)
 	}
 	return nil
 }

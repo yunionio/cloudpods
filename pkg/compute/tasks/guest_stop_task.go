@@ -79,7 +79,8 @@ func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, o
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	if !self.IsSubtask() {
-		guest.SetStatus(self.UserCred, api.VM_READY, "")
+		guest.StartSyncstatus(ctx, self.UserCred, "")
+		// guest.SetStatus(self.UserCred, api.VM_READY, "")
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
