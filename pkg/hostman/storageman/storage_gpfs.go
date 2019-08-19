@@ -48,6 +48,5 @@ func (s *SGPFSStorage) StorageType() string {
 func NewGPFSStorage(manager *SStorageManager, path string) *SGPFSStorage {
 	ret := &SGPFSStorage{}
 	ret.SNasStorage = *NewNasStorage(manager, path, ret)
-	StartSnapshotRecycle(ret)
 	return ret
 }

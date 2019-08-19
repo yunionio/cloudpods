@@ -113,10 +113,6 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
-		} else if !snapshot.FakeDeleted {
-			snapshot.SetStatus(task.GetUserCred(), compute.SNAPSHOT_READY, "snapshot fake_delete")
-			task.SetStageComplete(ctx, nil)
-			return snapshot.FakeDelete(task.GetUserCred())
 		}
 	}
 
@@ -126,6 +122,12 @@ func (self *SBaseStorageDriver) RequestDeleteSnapshot(ctx context.Context, snaps
 		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 		return guest.GetDriver().RequestReloadDiskSnapshot(ctx, guest, task, params)
 	} else {
+		if !snapshot.FakeDeleted {
+			snapshot.SetStatus(task.GetUserCred(), compute.SNAPSHOT_READY, "snapshot fake_delete")
+			task.SetStageComplete(ctx, nil)
+			return snapshot.FakeDelete(task.GetUserCred())
+		}
+
 		convertSnapshot, _ := models.SnapshotManager.GetConvertSnapshot(snapshot)
 		if convertSnapshot == nil {
 			return fmt.Errorf("snapshot dose not have convert snapshot")

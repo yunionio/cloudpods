@@ -31,10 +31,6 @@ type SnapshotCreateTask struct {
 	taskman.STask
 }
 
-type GuestDiskSnapshotTask struct {
-	SGuestBaseTask
-}
-
 func init() {
 	taskman.RegisterTask(SnapshotCreateTask{})
 	taskman.RegisterTask(GuestDiskSnapshotTask{})
@@ -101,6 +97,10 @@ func (self *SnapshotCreateTask) OnCreateSnapshotFailed(ctx context.Context, snap
 
 // =================================================================================================================
 
+type GuestDiskSnapshotTask struct {
+	SGuestBaseTask
+}
+
 func (self *GuestDiskSnapshotTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, api.VM_START_SNAPSHOT, "StartDiskSnapshot")
@@ -153,7 +153,6 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotCompleteFailed(ctx context.Cont
 
 func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DISK_CREATE_SNAPSHOT, nil, self.UserCred, true)
-	self.TaskComplete(ctx, guest, nil)
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
