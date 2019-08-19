@@ -79,6 +79,18 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketExistOptions struct {
+		NAME string `help:"name of bucket to delete"`
+	}
+	shellutils.R(&BucketExistOptions{}, "bucket-exist", "Test existence of a bucket", func(cli cloudprovider.ICloudRegion, args *BucketExistOptions) error {
+		exist, err := cli.IBucketExist(args.NAME)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Exist: %v\n", exist)
+		return nil
+	})
+
 	type BucketObjectsOptions struct {
 		BUCKET    string `help:"name of bucket to list objects"`
 		Prefix    string `help:"prefix"`
