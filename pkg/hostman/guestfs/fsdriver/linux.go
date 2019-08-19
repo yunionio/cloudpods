@@ -277,16 +277,16 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 	var udevPath = "/etc/udev/rules.d/"
 	var nicRules string
 	for _, nic := range nicsStandby {
-		if len(nic.NicType) == 0 || nic.NicType != "impi" {
+		if len(nic.NicType) == 0 || nic.NicType != types.NIC_TYPE_IPMI {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
 			mac := nic.Mac
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
 			idx := nic.Index
-			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
+			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
 		}
 	}
-	if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
+	if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, true, false); err != nil {
 		return err
 	}
 	return nil
