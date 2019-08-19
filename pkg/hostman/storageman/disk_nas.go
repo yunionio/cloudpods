@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -80,6 +82,26 @@ func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocat
 		return err
 	}
 	return nil
+}
+
+func (d *SNasDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	resetParams, ok := params.(*SDiskReset)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	outOfChain, err := resetParams.Input.Bool("out_of_chain")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("out_of_chain")
+	}
+
+	location, err := resetParams.Input.GetString("location")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("location")
+	}
+	snapshotPath := path.Join(d.Storage.GetPath(), location)
+	log.Infof("Snapshot path is %s", snapshotPath)
+	return d.resetFromSnapshot(snapshotPath, outOfChain)
 }
 
 func (d *SNasDisk) GetSnapshotLocation() string {
