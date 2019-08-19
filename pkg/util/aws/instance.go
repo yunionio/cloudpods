@@ -310,6 +310,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.InstanceId = self.InstanceId
 		eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
 		eip.Bandwidth = 10000
+		eip.Status = EIP_STATUS_INUSE
 		return &eip, nil
 	} else {
 		return nil, nil
