@@ -59,3 +59,7 @@ func (self *SBaremetalServerRebuildTask) DoDeploys(term *ssh.Client) (jsonutils.
 	data.Update(deployInfo)
 	return data, nil
 }
+
+func (self *SBaremetalServerRebuildTask) PostDeploys(term *ssh.Client) error {
+	return doPoweroff(term)
+}
