@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * config.go - config file definitions
+ * mod_config.go - config file definitions
  *
  * @author Yaroslav Pogrebnyak <yyyaroslav@gmail.com>
  * @author Gene Ponomarenko <kikomdev@gmail.com>

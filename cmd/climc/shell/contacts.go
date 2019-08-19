@@ -29,8 +29,8 @@ func init() {
 	 */
 	type ContactsUpdateOptions struct {
 		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type" choices:"email|mobile"`
-		CONTACT     string `help:"The contacts details mobile number or email address, if set it the empty str means delete"`
+		CONTACTTYPE string `help:"The contact type email|mobile" choices:"email|mobile|dingtalk"`
+		CONTACT     string `help:"The contacts details mobile number or email address or dingtalk's userid, if set it the empty str means delete"`
 		Status      string `help:"Enabled or disabled contact status" choices:"enable|disable"`
 	}
 	R(&ContactsUpdateOptions{}, "contact-update", "Create, delete or update contact for user", func(s *mcclient.ClientSession, args *ContactsUpdateOptions) error {
@@ -40,9 +40,9 @@ func init() {
 		tmpObj.Add(jsonutils.NewString(args.CONTACT), "contact")
 		if len(args.Status) > 0 {
 			if args.Status == "disable" {
-				tmpObj.Add(jsonutils.JSONFalse, "enabled")
+				tmpObj.Add(jsonutils.NewInt(0), "enabled")
 			} else {
-				tmpObj.Add(jsonutils.JSONTrue, "enabled")
+				tmpObj.Add(jsonutils.NewInt(1), "enabled")
 			}
 		}
 
@@ -63,7 +63,7 @@ func init() {
 
 	type ContactsDeleteOptions struct {
 		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type" choices:"email|mobile"`
+		CONTACTTYPE string `help:"The contact type email|mobile|dingtalk" choices:"email|mobile|dingtalk"`
 	}
 	R(&ContactsDeleteOptions{}, "contact-delete", "Delete contact for user", func(s *mcclient.ClientSession, args *ContactsDeleteOptions) error {
 		arr := jsonutils.NewArray()
