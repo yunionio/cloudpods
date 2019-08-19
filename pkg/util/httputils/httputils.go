@@ -241,7 +241,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 	}
 
 	var jrbody jsonutils.JSONObject = nil
-	if len(rbody) > 0 {
+	if len(rbody) > 0 && string(rbody[0]) == "{" {
 		var err error
 		jrbody, err = jsonutils.Parse(rbody)
 		if err != nil && debug {
@@ -263,6 +263,9 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		if jrbody == nil {
 			ce.Code = resp.StatusCode
 			ce.Details = resp.Status
+			if len(rbody) > 0 {
+				ce.Details = string(rbody)
+			}
 			return nil, nil, &ce
 		}
 
