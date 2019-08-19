@@ -570,10 +570,10 @@ func (self *SRegion) doStartVM(instanceId string) error {
 func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 	params := make(map[string]string)
 	if isForce {
-		params["ForceStop"] = "TRUE"
+		// params["ForceStop"] = "FALSE"
 		params["StopType"] = "HARD"
 	} else {
-		params["ForceStop"] = "FALSE"
+		// params["ForceStop"] = "FALSE"
 		params["StopType"] = "SOFT"
 	}
 	return self.instanceOperation(instanceId, "StopInstances", params, true)

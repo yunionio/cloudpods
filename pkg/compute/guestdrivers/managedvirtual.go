@@ -717,7 +717,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			}
 			status := iVM.GetStatus()
 			if status == api.VM_READY || status == api.VM_RUNNING {
-				return true
+				if len(instanceType) > 0 {
+					if instanceType == iVM.GetInstanceType() {
+						return true
+					}
+				} else {
+					if iVM.GetVcpuCount() == int(vcpuCount) && iVM.GetVmemSizeMB() == int(vmemSize) {
+						return true
+					}
+				}
 			}
 			return false
 		})
