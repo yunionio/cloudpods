@@ -620,6 +620,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		return nil, err
 	}
 
+	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+	if err != nil {
+		return nil, err
+	}
+
 	status := ivm.GetStatus()
 	switch status {
 	case api.VM_RUNNING:

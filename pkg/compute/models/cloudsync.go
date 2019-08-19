@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -595,82 +596,107 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 			lockman.LockObject(ctx, syncVMPairs[i].Local)
 			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
 
-			syncMetadata(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote)
-			syncVMNics(ctx, userCred, provider, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote)
-			syncVMDisks(ctx, userCred, provider, driver, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote, syncRange)
-			syncVMEip(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
-			syncVMSecgroups(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMPeripherals(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote, localHost, provider, driver)
+			// syncMetadata(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			// syncVMNics(ctx, userCred, provider, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			// syncVMDisks(ctx, userCred, provider, driver, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote, syncRange)
+			// syncVMEip(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			// syncVMSecgroups(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
 
 		}()
 	}
 }
 
-func syncVMNics(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, host *SHost, localVM *SGuest, remoteVM cloudprovider.ICloudVM) {
+func syncVMPeripherals(ctx context.Context, userCred mcclient.TokenCredential, local *SGuest, remote cloudprovider.ICloudVM, host *SHost, provider *SCloudprovider, driver cloudprovider.ICloudProvider) {
+	syncMetadata(ctx, userCred, local, remote)
+	err := syncVMNics(ctx, userCred, provider, host, local, remote)
+	if err != nil {
+		log.Errorf("syncVMNics error %s", err)
+	}
+	err = syncVMDisks(ctx, userCred, provider, driver, host, local, remote)
+	if err != nil {
+		log.Errorf("syncVMDisks error %s", err)
+	}
+	err = syncVMEip(ctx, userCred, provider, local, remote)
+	if err != nil {
+		log.Errorf("syncVMEip error %s", err)
+	}
+	err = syncVMSecgroups(ctx, userCred, provider, local, remote)
+	if err != nil {
+		log.Errorf("syncVMSecgroups error %s", err)
+	}
+}
+
+func syncVMNics(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, host *SHost, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
 	nics, err := remoteVM.GetINics()
 	if err != nil {
-		msg := fmt.Sprintf("GetINics for VM %s failed %s", remoteVM.GetName(), err)
-		log.Errorf(msg)
-		return
+		// msg := fmt.Sprintf("GetINics for VM %s failed %s", remoteVM.GetName(), err)
+		// log.Errorf(msg)
+		return errors.Wrap(err, "remoteVM.GetINics")
 	}
 	result := localVM.SyncVMNics(ctx, userCred, host, nics, nil)
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMNics for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	return nil
 }
 
-func syncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, driver cloudprovider.ICloudProvider, host *SHost, localVM *SGuest, remoteVM cloudprovider.ICloudVM, syncRange *SSyncRange) {
+func syncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, driver cloudprovider.ICloudProvider, host *SHost, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
 	disks, err := remoteVM.GetIDisks()
 	if err != nil {
-		msg := fmt.Sprintf("GetIDisks for VM %s failed %s", remoteVM.GetName(), err)
-		log.Errorf(msg)
-		return
+		// msg := fmt.Sprintf("GetIDisks for VM %s failed %s", remoteVM.GetName(), err)
+		// log.Errorf(msg)
+		return errors.Wrap(err, "remoteVM.GetIDisks")
 	}
 	result := localVM.SyncVMDisks(ctx, userCred, driver, host, disks, provider.GetOwnerId())
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	return nil
 }
 
-func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) {
+func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
 	eip, err := remoteVM.GetIEIP()
 	if err != nil {
-		msg := fmt.Sprintf("GetIEIP for VM %s failed %s", remoteVM.GetName(), err)
-		log.Errorf(msg)
-		return
+		// msg := fmt.Sprintf("GetIEIP for VM %s failed %s", remoteVM.GetName(), err)
+		// log.Errorf(msg)
+		return errors.Wrap(err, "remoteVM.GetIEIP")
 	}
 	result := localVM.SyncVMEip(ctx, userCred, provider, eip, provider.GetOwnerId())
 	msg := result.Result()
 	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	return nil
 }
 
-func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) {
+func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) error {
 	secgroupIds, err := remoteVM.GetSecurityGroupIds()
 	if err != nil {
-		msg := fmt.Sprintf("GetSecurityGroupIds for VM %s failed %s", remoteVM.GetName(), err)
-		log.Errorf(msg)
-		return
+		// msg := fmt.Sprintf("GetSecurityGroupIds for VM %s failed %s", remoteVM.GetName(), err)
+		// log.Errorf(msg)
+		return errors.Wrap(err, "remoteVM.GetSecurityGroupIds")
 	}
 	result := localVM.SyncVMSecgroups(ctx, userCred, provider, secgroupIds)
 	msg := result.Result()
 	log.Infof("SyncVMSecgroups for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {
-		return
+		return result.AllError()
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	return nil
 }
 
 func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localZone *SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
