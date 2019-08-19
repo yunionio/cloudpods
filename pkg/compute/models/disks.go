@@ -618,7 +618,7 @@ func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mccli
 	return ret, nil
 }
 
-// On disk reset, auto delete snapshots after the reset snapshot(reserve manualed snapshot)
+// make snapshot after reset out of chain
 func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, snapshot *SSnapshot) error {
 	dest := make([]SSnapshot, 0)
 	query := SnapshotManager.Query()
@@ -632,7 +632,7 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 	for i := 0; i < len(dest); i++ {
 		if !dest[i].FakeDeleted && !dest[i].OutOfChain {
 			convertSnapshots.Add(jsonutils.NewString(dest[i].Id))
-		} else {
+		} else if dest[i].FakeDeleted {
 			deleteSnapshots.Add(jsonutils.NewString(dest[i].Id))
 		}
 	}
@@ -667,7 +667,10 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		if guests[0].Status != api.VM_READY {
 			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
 		}
+	} else {
+		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest")
 	}
+
 	iSnapshot, err := SnapshotManager.FetchById(snapshotId)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)

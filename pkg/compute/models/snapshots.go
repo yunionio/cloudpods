@@ -513,8 +513,8 @@ func (self *SSnapshotManager) GetPropertyMaxCount(ctx context.Context, userCred 
 
 func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SSnapshot, error) {
 	dest := &SSnapshot{}
-	q := self.Query().SubQuery()
-	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), deleteSnapshot.DiskId),
+	q := self.Query()
+	err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), deleteSnapshot.DiskId),
 		sqlchemy.In(q.Field("status"), []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}),
 		sqlchemy.Equals(q.Field("out_of_chain"), false),
 		sqlchemy.GT(q.Field("created_at"), deleteSnapshot.CreatedAt))).
