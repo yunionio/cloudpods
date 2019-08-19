@@ -54,7 +54,6 @@ func NewNFSStorage(manager *SStorageManager, path string) *SNFSStorage {
 	if !fileutils2.Exists(path) {
 		procutils.NewCommand("mkdir", "-p", path).Run()
 	}
-	StartSnapshotRecycle(ret)
 	return ret
 }
 

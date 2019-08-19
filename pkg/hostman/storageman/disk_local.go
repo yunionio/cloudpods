@@ -20,6 +20,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -429,32 +431,40 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, resetParams.SnapshotId)
+	return d.resetFromSnapshot(snapshotPath, outOfChain)
+}
+
+func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (jsonutils.JSONObject, error) {
 	diskTmpPath := d.GetPath() + "_reset.tmp"
-	if _, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Run(); err != nil {
-		log.Errorln(err)
+	if output, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Run(); err != nil {
+		err = errors.Wrapf(err, "mv disk to tmp failed: %s", output)
 		return nil, err
 	}
 	if !outOfChain {
 		img, err := qemuimg.NewQemuImage(d.GetPath())
 		if err != nil {
-			log.Errorln(err)
+			err = errors.Wrap(err, "new qemu img")
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
 		if err := img.CreateQcow2(0, false, snapshotPath); err != nil {
-			log.Errorln(err)
+			err = errors.Wrap(err, "qemu-img create disk by snapshot")
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
 	} else {
-		if _, err := procutils.NewCommand("cp", "-f", snapshotPath, d.GetPath()).Run(); err != nil {
-			log.Errorln(err)
+		if output, err := procutils.NewCommand("cp", "-f", snapshotPath, d.GetPath()).Run(); err != nil {
+			err = errors.Wrapf(err, "cp snapshot to disk %s", output)
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
 	}
-	_, err = procutils.NewCommand("rm", "-f", diskTmpPath).Run()
-	return nil, err
+	output, err := procutils.NewCommand("rm", "-f", diskTmpPath).Run()
+	if err != nil {
+		err = errors.Wrapf(err, "rm disk tmp path %s", output)
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

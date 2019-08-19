@@ -50,6 +50,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
 			auth.Authenticate(storageDeleteSnapshots))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/<storageId>/snapshots-recycle", prefix, keyWords),
+			auth.Authenticate(storageSnapshotsRecycle))
 		app.AddHandler("GET",
 			fmt.Sprintf("%s/%s/is-mount-point", prefix, keyWords),
 			auth.Authenticate(storageVerifyMountPoint))
@@ -177,5 +180,17 @@ func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.
 		return
 	}
 	hostutils.DelayTask(ctx, storage.DeleteSnapshots, diskId)
+	hostutils.ResponseOk(ctx, w)
+}
+
+func storageSnapshotsRecycle(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	var storageId = params["<storageId>"]
+	storage := storageman.GetManager().GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Stroage Not found"))
+		return
+	}
+	go storageman.StorageRequestSnapshotRecycle(ctx, auth.AdminCredential(), storage)
 	hostutils.ResponseOk(ctx, w)
 }

@@ -47,7 +47,7 @@ func (s *SNasStorage) GetComposedName() string {
 }
 
 func (s *SNasStorage) GetSnapshotDir() string {
-	return path.Join(s.Path, s.GetComposedName(), _SNAPSHOT_PATH_)
+	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }
 
 func (s *SNasStorage) CreateDisk(diskId string) IDisk {
