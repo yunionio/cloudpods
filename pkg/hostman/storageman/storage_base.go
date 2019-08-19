@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"path"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -319,6 +320,19 @@ func StartSnapshotRecycle(storage IStorage) {
 		func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 			snapshotRecycle(ctx, userCred, isStart, storage)
 		})
+}
+
+func StorageRequestSnapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, storage IStorage) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("On storage request snapshot recycle %s \n %s", r, debug.Stack())
+		}
+	}()
+
+	if !fileutils2.Exists(storage.GetSnapshotDir()) {
+		procutils.NewCommand("mkdir", "-p", storage.GetSnapshotDir()).Run()
+	}
+	snapshotRecycle(ctx, userCred, false, storage)
 }
 
 func snapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool, storage IStorage) {
