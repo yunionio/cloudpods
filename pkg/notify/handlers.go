@@ -21,21 +21,25 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/notify/cache"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
 func InitHandlers(app *appsrv.Application) {
+	db.AddProjectResourceCountHandler("api/v1", app)
 	db.RegisterModelManager(models.ContactManager)
 	db.RegisterModelManager(models.VerifyManager)
 	db.RegisterModelManager(models.NotificationManager)
 	db.RegisterModelManager(models.ConfigManager)
+	db.RegisterModelManager(cache.UserCacheManager)
+	db.RegisterModelManager(cache.UserGroupCacheManager)
 	AddNotifyDispatcher("/api/v1/", app)
 }
 
@@ -46,105 +50,86 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 	// Contact Handler
 	modelDispatcher := NewNotifyModelDispatcher(models.ContactManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
-	h := app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<uid>/update-contact", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(contactUpdateHandler), metadata, "contact_update", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 	// List
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(listManyHandler), metadata, "list_contacts", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
+		modelDispatcher.Filter(listHandler), metadata, "list_contacts", tags)
 
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<uid>", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(listOneHandler), metadata, "list_by_uid", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
+		modelDispatcher.Filter(getHandler), metadata, "list_by_uid", tags)
 
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/delete-contact", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(deleteContactHandler), metadata, "delete", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
 	// verify-trigger
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<uid>/verify", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(verifyTriggerHandler), metadata, "verify_trigger", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
 	// Verify Handler, this modelDispatcher need db.DBModelDispatcher'Create function to create Contact so this modelDispatcher is
 	// NotifyModelDispatcher whose DBModelDispatcher has modelManager models.ContactManager
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": models.VerifyManager.KeywordPlural()}
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<id>", prefix, models.VerifyManager.KeywordPlural()),
 		modelDispatcher.Filter(verifyHandler), metadata, "verify", tags)
 
 	// notification Handler
 	modelDispatcher = NewNotifyModelDispatcher(models.NotificationManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(notificationHandler), metadata, "send_notifications", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(listHandler), metadata, "send_notifications", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<id>", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(listHandler), metadata, "list_notification_by_id", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
 	// config Handler
 	modelDispatcher = NewNotifyModelDispatcher(models.ConfigManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(configUpdateHandler), metadata, "update_configs", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(configGetHandler), metadata, "get_configs", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("DELETE",
+	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(configDeleteHandler), metadata, "delete_configs", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
 	// email handler for being compatible
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, EMAIL_KEYWORDPLURAL),
 		modelDispatcher.Filter(emailConfigUpdateHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
 		modelDispatcher.Filter(emailConfigGetHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("DELETE",
+	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
 		modelDispatcher.Filter(emailConfigDeleteHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("PUT",
+	app.AddHandler2("PUT",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
 		modelDispatcher.Filter(emailConfigUpdateHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
-	h = app.AddHandler2("POST",
+	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, SMS_KEYWORDPLURAL),
 		modelDispatcher.Filter(smsConfigUpdateHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("GET",
+	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
 		modelDispatcher.Filter(smsConfigGetHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("DELETE",
+	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
 		modelDispatcher.Filter(smsConfigDeleteHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
-	h = app.AddHandler2("PUT",
+	app.AddHandler2("PUT",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
 		modelDispatcher.Filter(smsConfigUpdateHandler), metadata, "", tags)
-	modelDispatcher.CustomizeHandlerInfo(h)
 
 }
 
@@ -167,13 +152,12 @@ func configGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 
 func configUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, _, _, body := fetchEnv(ctx, w, r)
-	if body.Contains("config") {
-		body, _ = body.Get("config")
+	body, err := body.Get(models.ConfigManager.Keyword())
+	if err != nil {
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need config or configs"))
+		return
 	}
-	if body.Contains("configs") {
-		body, _ = body.Get("config")
-	}
-	err := manager.UpdateConfig(ctx, body)
+	err = manager.UpdateConfig(ctx, body)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
@@ -204,31 +188,30 @@ func verifyHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 // contact update handler
 func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, params, _, body := fetchEnv(ctx, w, r)
+	manager, params, query, body := fetchEnv(ctx, w, r)
 
-	var data jsonutils.JSONObject
-	if body != nil {
-		if body.Contains(manager.Keyword()) {
-			data, _ = body.Get(manager.Keyword())
-			if data == nil {
-				data = body.(*jsonutils.JSONDict)
-			}
-		} else {
-			data = body
-		}
-	} else {
-		data = jsonutils.NewDict()
+	var data []jsonutils.JSONObject
+	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
+	if err != nil {
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s or %s", manager.Keyword(),
+			manager.KeywordPlural()))
+		return
 	}
-
 	// check that if the uid is exist
 	uid := params["<uid>"]
-	_, err := utils.GetUserByID(uid)
+	_, err = utils.GetUserByID(ctx, uid)
 	if err != nil {
 		log.Errorf(`uid %q not found`, uid)
 		httperrors.NotFoundError(w, "Uid Not Found")
 		return
 	}
-	_, err = manager.UpdateContacts(ctx, uid, jsonutils.JSONNull, data, nil)
+	queryDict := mergeQueryParams(params, query)
+	update, _ := body.Bool(manager.Keyword(), "update_dingtalk")
+	if update {
+		dict := queryDict.(*jsonutils.JSONDict)
+		dict.Add(jsonutils.JSONTrue, "update_dingtalk")
+	}
+	err = manager.UpdateContacts(ctx, uid, queryDict, data, nil)
 	if err != nil {
 		log.Errorf(err.Error())
 		httperrors.BadRequestError(w, "")
@@ -280,7 +263,7 @@ func listManyHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	listResult = arrangeList(listResult)
+	listResult = arrangeList(ctx, listResult)
 	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
@@ -295,6 +278,22 @@ func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
+func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, _ := fetchEnv(ctx, w, r)
+	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	var data jsonutils.JSONObject
+	if len(listResult.Data) == 0 {
+		data = jsonutils.NewDict()
+	} else {
+		data = listResult.Data[0]
+	}
+	appsrv.SendJSON(w, wrap(data, manager.Keyword()))
+}
+
 func listOneHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
@@ -302,7 +301,7 @@ func listOneHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, wrap(arrangeOne(listResult), manager.Keyword()))
+	appsrv.SendJSON(w, wrap(arrangeOne(ctx, listResult), manager.Keyword()))
 }
 
 func wrap(data jsonutils.JSONObject, key string) jsonutils.JSONObject {
@@ -314,7 +313,7 @@ func wrap(data jsonutils.JSONObject, key string) jsonutils.JSONObject {
 // For limit option, there is a bug but don't fix it for now.
 // This limit point to contact record, but these contact records whose uid are same
 // are considered as one record.
-func arrangeList(listResult *modulebase.ListResult) *modulebase.ListResult {
+func arrangeList(ctx context.Context, listResult *modulebase.ListResult) *modulebase.ListResult {
 	ret := make(map[string]*jsonutils.JSONArray)
 	for _, data := range listResult.Data {
 		uid, _ := data.GetString("uid")
@@ -327,7 +326,7 @@ func arrangeList(listResult *modulebase.ListResult) *modulebase.ListResult {
 	data := make([]jsonutils.JSONObject, len(ret))
 	index := 0
 	for uid, value := range ret {
-		cr := models.NewSContactResponse(uid, value.String())
+		cr := models.NewSContactResponse(ctx, uid, value.String())
 		data[index] = jsonutils.Marshal(cr)
 		index++
 	}
@@ -336,7 +335,7 @@ func arrangeList(listResult *modulebase.ListResult) *modulebase.ListResult {
 	return listResult
 }
 
-func arrangeOne(listResult *modulebase.ListResult) jsonutils.JSONObject {
+func arrangeOne(ctx context.Context, listResult *modulebase.ListResult) jsonutils.JSONObject {
 	if len(listResult.Data) == 0 {
 		return jsonutils.NewDict()
 	}
@@ -345,5 +344,5 @@ func arrangeOne(listResult *modulebase.ListResult) jsonutils.JSONObject {
 	for _, data := range listResult.Data {
 		details.Add(data)
 	}
-	return jsonutils.Marshal(models.NewSContactResponse(uid, details.String()))
+	return jsonutils.Marshal(models.NewSContactResponse(ctx, uid, details.String()))
 }

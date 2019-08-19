@@ -32,7 +32,7 @@ var (
 type SStandaloneResourceBase struct {
 	SResourceBase
 
-	ID string `width:"128" charset:"ascii" primary:"true" list:"user" create:"optional"`
+	ID string `width:"128" charset:"ascii" primary:"true" create:"optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {

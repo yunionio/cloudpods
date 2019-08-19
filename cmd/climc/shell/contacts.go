@@ -29,10 +29,11 @@ func init() {
 	 * 操作用户的通信地址（如果用户的通信地址不存在则进行添加；如果已存在则进行修改；如果设置空则进行删除。）
 	 */
 	type ContactsUpdateOptions struct {
-		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type email|mobile" choices:"email|mobile|dingtalk"`
-		CONTACT     string `help:"The contacts details mobile number or email address or dingtalk's userid, if set it the empty str means delete"`
-		Status      string `help:"Enabled or disabled contact status" choices:"enable|disable"`
+		UID            string `help:"The user you wanna add contact to (Keystone User ID)"`
+		CONTACTTYPE    string `help:"The contact type email|mobile" choices:"email|mobile|dingtalk"`
+		CONTACT        string `help:"The contacts details mobile number or email address or dingtalk's userid, if set it the empty str means delete"`
+		Status         string `help:"Enabled or disabled contact status" choices:"enable|disable"`
+		UpdateDingtalk bool   `help:"if update dingtalk"`
 	}
 	R(&ContactsUpdateOptions{}, "contact-update", "Create, delete or update contact for user", func(s *mcclient.ClientSession, args *ContactsUpdateOptions) error {
 		arr := jsonutils.NewArray()
@@ -51,6 +52,9 @@ func init() {
 
 		params := jsonutils.NewDict()
 		params.Add(arr, "contacts")
+		if args.UpdateDingtalk {
+			params.Add(jsonutils.JSONTrue, "update_dingtalk")
+		}
 
 		contact, err := modules.Contacts.PerformAction(s, args.UID, "update-contact", params)
 
@@ -98,6 +102,7 @@ func init() {
 
 			}
 		}
+		params.Add(jsonutils.JSONTrue, "details")
 
 		result, err := modules.Contacts.List(s, params)
 		if err != nil {
@@ -126,6 +131,8 @@ func init() {
 			}
 		}
 
+		params.Add(jsonutils.JSONTrue, "details")
+
 		result, err := modules.Contacts.Get(s, args.UID, params)
 		if err != nil {
 			return err
@@ -133,7 +140,7 @@ func init() {
 
 		contactsStr, err := result.GetString("details")
 		if err != nil {
-			return err
+			return nil
 		}
 
 		contactsJson, err := jsonutils.ParseString(contactsStr)

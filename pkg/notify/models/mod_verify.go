@@ -16,18 +16,14 @@ package models
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
@@ -77,6 +73,7 @@ func NewSVerify(contactType string, cid string) *SVerify {
 		SendAt:   now,
 	}
 	ret.ID = DefaultUUIDGenerator()
+	ret.SetModelManager(VerifyManager, ret)
 	return ret
 }
 
@@ -87,9 +84,10 @@ func (self *SVerifyManager) InitializeData() error {
 	return nil
 }
 
-func (self *SVerifyManager) FetchByCID(cid string) ([]SVerify, error) {
+func (self *SVerifyManager) FetchByCID(cid string, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SVerify, error) {
 	q := self.Query()
 	q.Filter(sqlchemy.Equals(q.Field("cid"), cid))
+	q = filter(q)
 	records := make([]SVerify, 0, 1)
 	err := db.FetchModelObjects(self, q, &records)
 	if err != nil {
@@ -120,34 +118,4 @@ func (self *SVerifyManager) Create(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	return nil
-}
-
-func SendVerifyMessage(processId, uid, contactType, contact, token string) {
-	var err error
-	var msg string
-	if contactType == "email" {
-		emailUrl := strings.Replace(options.Options.VerifyEmailUrl, "{0}", processId, 1)
-		emailUrl = strings.Replace(emailUrl, "{1}", token, 1)
-
-		// get uName
-		uName, err := utils.GetUsernameByID(uid)
-		if err != nil || len(uName) == 0 {
-			uName = "用户"
-		}
-		data := struct {
-			Name string
-			Link string
-		}{uName, emailUrl}
-		jsonStr, _ := json.Marshal(data)
-		msg = string(jsonStr)
-	} else if contactType == "mobile" {
-		msg = fmt.Sprintf(`{"code": "%s"}`, token)
-	} else {
-		//todo
-	}
-
-	err = RpcService.Send(contactType, contact, "verify", msg, "")
-	if err != nil {
-		log.Errorf("Send verify message failed because that %s.", err.Error())
-	}
 }

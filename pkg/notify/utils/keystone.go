@@ -17,43 +17,41 @@ package utils
 import (
 	"context"
 
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/notify/cache"
 )
 
-var (
-	session *mcclient.ClientSession
-)
-
-func InitSession(options *options.CommonOptions) {
-	session = auth.GetAdminSession(context.Background(), options.Region, "v3")
+func GetUserByID(ctx context.Context, id string) (*cache.SUser, error) {
+	return cache.UserCacheManager.FetchUserByID(ctx, id, false)
 }
 
-func GetUserByID(id string) (jsonutils.JSONObject, error) {
-	return modules.UsersV3.Get(session, id, jsonutils.NewDict())
-}
-
-func GetUsersByGroupID(gid string) ([]string, error) {
-	ret, err := modules.Groups.GetUsers(session, gid)
+func GetUserIdsLikeName(ctx context.Context, name string) ([]string, error) {
+	users, err := cache.UserCacheManager.FetchUserLikeName(ctx, name, true)
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]string, len(ret.Data))
-	for i := range ret.Data {
-		ids[i], _ = ret.Data[i].GetString("id")
+	ret := make([]string, len(users))
+	for i := range users {
+		ret[i] = users[i].Id
+	}
+	return ret, nil
+}
+
+func GetUsersByGroupID(ctx context.Context, gid string) ([]string, error) {
+	ret, err := cache.UserGroupCacheManager.FetchByGroupId(ctx, gid)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, len(ret))
+	for i := range ret {
+		ids[i] = ret[i].UserId
 	}
 	return ids, nil
 }
 
-func GetUsernameByID(id string) (string, error) {
-	user, err := GetUserByID(id)
+func GetUsernameByID(ctx context.Context, id string) (string, error) {
+	user, err := GetUserByID(ctx, id)
 	if err != nil {
 		return "", err
 	}
-	name, _ := user.GetString("name")
-	return name, nil
+	return user.Name, nil
 }

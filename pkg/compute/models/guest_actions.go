@@ -727,7 +727,7 @@ func (self *SGuest) NotifyServerEvent(
 			}
 		}
 	}
-	notifyclient.Notify(userCred.GetUserId(), false, priority, event, kwargs)
+	notifyclient.Notify([]string{userCred.GetUserId()}, false, priority, event, kwargs)
 	if notifyAdmin {
 		notifyclient.SystemNotify(priority, event, kwargs)
 	}
