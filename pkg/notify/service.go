@@ -15,18 +15,23 @@
 package notify
 
 import (
+	"context"
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/notify/cache"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
-	"yunion.io/x/onecloud/pkg/notify/utils"
+	"yunion.io/x/onecloud/pkg/notify/rpc"
 )
 
 func StartService() {
@@ -42,9 +47,6 @@ func StartService() {
 		log.Infof("Auth complete!")
 	})
 
-	// Session for user manager in keystone
-	utils.InitSession(commonOpts)
-
 	// init handler
 	applicaion := app.InitApp(baseOpts, true)
 	InitHandlers(applicaion)
@@ -53,14 +55,23 @@ func StartService() {
 	db.EnsureAppInitSyncDB(applicaion, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	// init rpc service
-	models.RpcService = models.NewSRpcService(opts.SocketFileDir)
-	models.RpcService.InitAll()
-	defer models.RpcService.StopAll()
-	go models.RpcService.UpdateServices(opts.UpdateInterval)
+	// init cache
+	cache.RegistUserCredCacheUpdater()
 
-	// start ReSend service
-	go models.ReSend(opts.ReSendScope)
+	// init notify service
+	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager)
+	models.NotifyService.InitAll()
+	defer models.NotifyService.StopAll()
+
+	cron := cronman.GetCronJobManager(true)
+	// update service
+	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Second, models.NotifyService.UpdateServices)
+
+	// resend notifications
+	resend := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+		models.ReSend(opts.ReSendScope)
+	}
+	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Minute, resend)
 
 	app.ServeForever(applicaion, baseOpts)
 }

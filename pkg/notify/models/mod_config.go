@@ -17,12 +17,14 @@ package models
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	_interface "yunion.io/x/onecloud/pkg/notify/interface"
 )
 
 type SConfigManager struct {
@@ -80,19 +82,6 @@ func (self *SConfigManager) GetValue(key, contactType string) (*SConfig, error) 
 	return &configs[0], nil
 }
 
-// Get all (k, v) whose type is contactType.
-func (self *SConfigManager) GetVauleByType(contactType string) (map[string]string, error) {
-	configs, err := self.GetConfigByType(contactType)
-	if err != nil {
-		return nil, err
-	}
-	ret := make(map[string]string)
-	for i := range configs {
-		ret[configs[i].KeyText] = configs[i].ValueText
-	}
-	return ret, nil
-}
-
 func (self *SConfigManager) InitializeData() error {
 	sql := fmt.Sprintf("update %s set updated_at=gmt_modified, deleted=is_deleted, created_at=gmt_create, deleted_at=gmt_deleted, update_by=modified_by, delete_by=deleted_by", self.TableSpec().Name())
 	q := sqlchemy.NewRawQuery(sql, "")
@@ -116,4 +105,20 @@ func (self *SConfigManager) GetConfigByType(contactType string) ([]SConfig, erro
 	//	return nil, errors.Error("There is no SConfig whose type meet the requirement")
 	//}
 	return configs, nil
+}
+
+func (self *SConfigManager) GetConfig(contactType string) (_interface.SConfig, error) {
+	configs, err := self.GetConfigByType(contactType)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string)
+	for i := range configs {
+		ret[configs[i].KeyText] = configs[i].ValueText
+	}
+	return ret, nil
+}
+
+func (self *SConfigManager) SetConfig(contactType string, config _interface.SConfig) error {
+	return fmt.Errorf("SetConfig Not Implemented")
 }

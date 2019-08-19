@@ -51,10 +51,11 @@ var (
 
 	notifySystemResources = []string{
 		"configs",
-		"contacts",
 	}
 	notifyDomainResources = []string{}
-	notifyUserResources   = []string{}
+	notifyUserResources   = []string{
+		"contacts",
+	}
 
 	meterSystemResources = []string{
 		"rates",

@@ -16,6 +16,8 @@ package db
 
 import (
 	"time"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 type SKeystoneCacheObjectManager struct {
@@ -42,4 +44,15 @@ func NewKeystoneCacheObject(id string, name string, domainId string, domain stri
 	obj.Domain = domain
 	obj.DomainId = domainId
 	return obj
+}
+
+func (t *SKeystoneCacheObject) IsExpired() bool {
+	if t.LastCheck.IsZero() {
+		return true
+	}
+	now := time.Now().UTC()
+	if t.LastCheck.Add(consts.GetTenantCacheExpireSeconds()).Before(now) {
+		return true
+	}
+	return false
 }

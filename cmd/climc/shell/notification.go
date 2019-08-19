@@ -29,20 +29,20 @@ func init() {
 	 */
 
 	type NotificationCreateOptions struct {
-		UID         string `help:"The user you wanna sent to (Keystone User ID)"`
-		CONTACTTYPE string `help:"User's contacts type" choices:"email|mobile|dingtalk|webconsole"`
-		TOPIC       string `help:"Title or topic of the notification"`
-		PRIORITY    string `help:"Priority of the notification" choices:"normal|important|fatal"`
-		MSG         string `help:"The content of the notification"`
-		Remark      string `help:"Remark or description of the notification"`
-		Group       bool   `help:"Send to group"`
+		Uid         []string `help:"The user you wanna sent to (Keystone User ID)"`
+		CONTACTTYPE string   `help:"User's contacts type" choices:"email|mobile|dingtalk|webconsole"`
+		TOPIC       string   `help:"Title or topic of the notification"`
+		PRIORITY    string   `help:"Priority of the notification" choices:"normal|important|fatal"`
+		MSG         string   `help:"The content of the notification"`
+		Remark      string   `help:"Remark or description of the notification"`
+		Group       bool     `help:"Send to group"`
 	}
 	R(&NotificationCreateOptions{}, "notify", "Send a notification to sb", func(s *mcclient.ClientSession, args *NotificationCreateOptions) error {
 		msg := notify.SNotifyMessage{}
 		if args.Group {
-			msg.Gid = args.UID
+			msg.Gid = args.Uid
 		} else {
-			msg.Uid = args.UID
+			msg.Uid = args.Uid
 		}
 
 		msg.ContactType = notify.TNotifyChannel(args.CONTACTTYPE)

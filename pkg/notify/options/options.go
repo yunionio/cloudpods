@@ -22,11 +22,12 @@ type NotifyOption struct {
 	options.CommonOptions
 	options.DBOptions
 
-	DingtalkEnabled bool   `help:"Enable dingtalk"`
-	SocketFileDir   string `help:"Socket file directory" default:"/etc/yunion/notify"`
-	UpdateInterval  int    `help:"Update send services interval(unit:s)" default:30`
-	VerifyEmailUrl  string
-	ReSendScope     int `help:"Resend all messages that have not been sent successfully within ReSendScope minutes"`
+	DingtalkEnabled       bool   `help:"Enable dingtalk"`
+	SocketFileDir         string `help:"Socket file directory" default:"/etc/yunion/notify"`
+	UpdateInterval        int    `help:"Update send services interval(unit:s)" default:30`
+	VerifyEmailUrl        string `help:"url of verify email"`
+	ReSendScope           int    `help:"Resend all messages that have not been sent successfully within ReSendScope minutes"`
+	InitNotificationScope int    `help:"initialize data of notification with in InitNotificationScope hours" default:100`
 }
 
 var Options NotifyOption

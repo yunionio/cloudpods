@@ -12,31 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package apis
 
-import (
-	"yunion.io/x/log"
+import "google.golang.org/grpc"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-)
+type SendNotificationClient struct {
+	sendAgentClient
+	Conn *grpc.ClientConn
+}
 
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
-
-		ContactManager,
-		VerifyManager,
-		NotificationManager,
-		ConfigManager,
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
+func NewSendNotificationClient(cc *grpc.ClientConn) *SendNotificationClient {
+	return &SendNotificationClient{
+		sendAgentClient: sendAgentClient{cc},
+		Conn:            cc,
 	}
-	return nil
 }

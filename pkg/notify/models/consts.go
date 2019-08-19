@@ -19,28 +19,26 @@ const (
 	MOBILE     = "mobile"
 	DINGTALK   = "dingtalk"
 	WEBCONSOLE = "webconsole"
-	// Received a task about sending a notification
-	NOTIFY_RECEIVED = "received"
-	// Nofity module hasn't sent the notification
-	NOTIFY_UNSENT = "unsent"
-	// Nofity module has sent notification, but result unkown
-	NOTIFY_SENT = "sent"
-	// Notification was sent successfully
-	NOTIFY_OK = "sent_ok"
-	// That sent a notification is failed
-	NOTIFY_FAIL = "sent_fail"
-	// Contact's status is init which means no verifying
-	CONTACT_INIT = "init"
-	// Contact's status is verifying
-	CONTACT_VERIFYING = "verifying"
-	// Contact's status is verified
-	CONTACT_VERIFIED = "verified"
-	// Verification was sent
-	VERIFICATION_SENT = "sent"
-	// Verification was verified
-	VERIFICATION_VERIFIED = "verified"
 
+	NOTIFY_RECEIVED = "received"  // Received a task about sending a notification
+	NOTIFY_SENT     = "sent"      // Nofity module has sent notification, but result unkown
+	NOTIFY_OK       = "sent_ok"   // Notification was sent successfully
+	NOTIFY_FAIL     = "sent_fail" // That sent a notification is failed
+
+	CONTACT_INIT      = "init"      // Contact's status is init which means no verifying
+	CONTACT_VERIFYING = "verifying" // Contact's status is verifying
+	CONTACT_VERIFIED  = "verified"  // Contact's status is verified
+
+	VERIFICATION_SENT          = "sent"      // Verification was sent
+	VERIFICATION_SENT_FAIL     = "sent_fail" // Verification was sent failed
+	VERIFICATION_VERIFIED      = "verified"  // Verification was verified
 	VERIFICATION_TOKEN_EXPIRED = "Verification code expired"
-
 	VERIFICATION_TOKEN_INVALID = "Incorrect verification code"
 )
+
+// Dingtalk account will be update automatically as mobile number change so that update dingtalk is not allowed
+// In webconsole, uid is the same as contact.
+var UpdateNotAllow = map[string]struct{}{
+	DINGTALK:   {},
+	WEBCONSOLE: {},
+}
