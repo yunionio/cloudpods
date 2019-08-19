@@ -134,11 +134,22 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		instanceType, _ := self.Params.GetString("instance_type")
 		vcpuCount, _ := self.Params.Int("vcpu_count")
 		vmemSize, _ := self.Params.Int("vmem_size")
-		if vcpuCount == 0 {
-			vcpuCount = int64(guest.VcpuCount)
-		}
-		if vmemSize == 0 {
-			vmemSize = int64(guest.VmemSize)
+		if len(instanceType) > 0 {
+			provider := guest.GetDriver().GetProvider()
+			sku, err := models.ServerSkuManager.FetchSkuByNameAndProvider(instanceType, provider, false)
+			if err != nil {
+				self.markStageFailed(ctx, guest, fmt.Sprintf("models.ServerSkuManager.FetchSkuByNameAndProvider error %s", err))
+				return
+			}
+			vcpuCount = int64(sku.CpuCoreCount)
+			vmemSize = int64(sku.MemorySizeMB)
+		} else {
+			if vcpuCount == 0 {
+				vcpuCount = int64(guest.VcpuCount)
+			}
+			if vmemSize == 0 {
+				vmemSize = int64(guest.VmemSize)
+			}
 		}
 		self.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, vmemSize)
 	} else {
@@ -160,9 +171,6 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	instanceType, _ := self.Params.GetString("instance_type")
 	vcpuCount, _ := self.Params.Int("vcpu_count")
 	vmemSize, _ := self.Params.Int("vmem_size")
-
-	addCpu := int(vcpuCount - int64(guest.VcpuCount))
-	addMem := int(vmemSize - int64(guest.VmemSize))
 
 	if len(instanceType) == 0 {
 		skus, err := models.ServerSkuManager.GetSkus(api.CLOUD_PROVIDER_ONECLOUD, int(vcpuCount), int(vmemSize))
@@ -195,6 +203,8 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	var cancelUsage models.SQuota
+	addCpu := int(vcpuCount - int64(guest.VcpuCount))
+	addMem := int(vmemSize - int64(guest.VmemSize))
 	if addCpu > 0 {
 		cancelUsage.Cpu = addCpu
 	}

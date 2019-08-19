@@ -718,6 +718,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 		// no InstanceType
 		// or InstanceType failed but retry with raw cpu/mem config
 		if len(instanceType) == 0 || err != nil {
+			instanceType = ""
 			err = iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
 			if err != nil {
 				return nil, err
@@ -731,7 +732,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			}
 			status := iVM.GetStatus()
 			if status == api.VM_READY || status == api.VM_RUNNING {
-				return true
+				if len(instanceType) > 0 {
+					if instanceType == iVM.GetInstanceType() {
+						return true
+					}
+				} else {
+					if iVM.GetVcpuCount() == int(vcpuCount) && iVM.GetVmemSizeMB() == int(vmemSize) {
+						return true
+					}
+				}
 			}
 			return false
 		})
