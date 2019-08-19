@@ -223,15 +223,6 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	res := self.SVirtualResourceBase.GetShortDesc(ctx)
 	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
-	/*if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
-		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
-	}
-	if len(self.CloudregionId) > 0 {
-		cloudRegion := CloudregionManager.FetchRegionById(self.CloudregionId)
-		if cloudRegion != nil {
-			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
-		}
-	}*/
 	info := self.getCloudProviderInfo()
 	res.Update(jsonutils.Marshal(&info))
 	return res
