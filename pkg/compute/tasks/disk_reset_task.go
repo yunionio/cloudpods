@@ -139,7 +139,14 @@ func (self *DiskCleanUpSnapshotsTask) OnInit(ctx context.Context, obj db.IStanda
 func (self *DiskCleanUpSnapshotsTask) StartCleanUpSnapshots(ctx context.Context, disk *models.SDisk) {
 	db.OpsLog.LogEvent(disk, db.ACT_DISK_CLEAN_UP_SNAPSHOTS,
 		fmt.Sprintf("start clean up disk snapshots: %s", self.Params.String()), self.UserCred)
-	host := disk.GetStorage().GetMasterHost()
+	var host *models.SHost
+	guests := disk.GetGuests()
+	if len(guests) == 1 {
+		host = guests[0].GetHost()
+	} else {
+		self.SetStageFailed(ctx, "Disk can't get guest")
+		return
+	}
 	self.SetStage("OnCleanUpSnapshots", nil)
 	err := host.GetHostDriver().RequestCleanUpDiskSnapshots(ctx, host, disk, self.Params, self)
 	if err != nil {
