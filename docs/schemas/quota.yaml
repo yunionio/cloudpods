@@ -28,16 +28,106 @@ quota:
       description: CPU配额
     memory:
       type: integer
-      description: 内存配额
+      description: 内存配额(MB)
+    storage:
+      type: integer
+      description: 虚拟机磁盘配额（MB）
+    port:
+      type: integer
+      description: 内网网口配额（个数）
+    eip:
+      type: integer
+      description: 公网IP配额（个数）
+    secgroup:
+      type: integer
+      description: 安全组配额（个数）
+    isolated_device:
+      type: integer
+      description: 透传设备（GPU）配额
+    snapshot:
+      type: integer
+      description: 快照配额（个数）
+    bucket:
+      type: integer
+      description: 对象存储存储桶配额（个数）
+    object_gb:
+      type: integer
+      description: 对象存储容量配额（GB）
+    object_cnt:
+      type: integer
+      description: 对象存储个数配额（个数）
+    image:
+      type: integer
+      description: 镜像配额
     usage.cpu:
       type: integer
       description: CPU使用量
     usage.memory:
       type: integer
       description: 内存使用量
+    usage.storage:
+      type: integer
+      description: 虚拟机磁盘使用量（MB）
+    usage.port:
+      type: integer
+      description: 内网网口使用量（个数）
+    usage.eip:
+      type: integer
+      description: 公网IP使用量（个数）
+    usage.secgroup:
+      type: integer
+      description: 安全组使用量（个数）
+    usage.isolated_device:
+      type: integer
+      description: 透传设备（GPU）使用量
+    usage.snapshot:
+      type: integer
+      description: 快照使用量（个数）
+    usage.bucket:
+      type: integer
+      description: 对象存储存储桶使用量（个数）
+    usage.object_gb:
+      type: integer
+      description: 对象存储容量使用量（GB）
+    usage.object_cnt:
+      type: integer
+      description: 对象存储个数使用量（个数）
+    usage.image:
+      type: integer
+      description: 镜像使用量
     total.cpu:
       type: integer
       description: 该字段只有域配额才有，代表该域分配给下属项目的CPU配额的总和
     total.memory:
       type: integer
       description: 该字段只有域配额才有，代表该域分配给下属项目的内存配额的总和
+    total.storage:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的虚拟机磁盘配额（MB）的总和
+    total.port:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的内网网口配额（个数）的总和
+    total.eip:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的公网IP配额（个数）的总和
+    total.secgroup:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的安全组配额（个数）的总和
+    total.isolated_device:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的透传设备（GPU）配额的总和
+    total.snapshot:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的快照配额（个数）的总和
+    total.bucket:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的对象存储存储桶配额（个数）的总和
+    total.object_gb:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的对象存储容量配额（GB）的总和
+    total.object_cnt:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的对象存储个数配额（个数）的总和
+    total.image:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的镜像配额的总和

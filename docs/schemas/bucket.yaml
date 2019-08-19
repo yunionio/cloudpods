@@ -110,9 +110,15 @@ Bucket:
     object_cnt:
       type: integer
       description: 对象总数量
+    object_cnt_limit:
+      type: integer
+      description: 该bucket允许的最大对象数，为0则无对象数限制
     size_bytes:
       type: integer
       description: 对象的总大小(bytes)
+    size_bytes_limit:
+      type: integer
+      description: 该bucket允许的最大容量，为0则无容量限制
     tenant_id:
       type: string
       description: 存储桶归属的项目ID
@@ -206,3 +212,17 @@ BucketSetACLInput:
       key:
         type: string
         description: 如果设置对象的ACL，则此字段指定对象的key
+
+BucketSetLimitInput:
+  type: object
+  properties:
+    limit:
+      type: object
+      description: 桶的存储限制
+      properties:
+        size_bytes:
+          type: integer
+          description: 容量上限，为0则无限制
+        object_count:
+          type: integer
+          description: 对象数量限制，为0则无限制
