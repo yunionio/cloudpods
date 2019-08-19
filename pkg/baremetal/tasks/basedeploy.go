@@ -29,6 +29,7 @@ import (
 type IServerBaseDeployTask interface {
 	IPXEBootTask
 	DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error)
+	PostDeploys(term *ssh.Client) error
 }
 
 type SBaremetalServerBaseDeployTask struct {
@@ -62,6 +63,10 @@ func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
 	return ""
 }
 
+func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ *ssh.Client) error {
+	return nil
+}
+
 func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {
 	log.Infof("%s called on stage pxeboot, args: %v", self.GetName(), args)
 	result, err := self.serverDeployTask.DoDeploys(term)
@@ -74,6 +79,9 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	)
 	if err != nil {
 		return errors.Wrap(err, "Sync disk")
+	}
+	if err := self.serverDeployTask.PostDeploys(term); err != nil {
+		return errors.Wrap(err, "post deploy")
 	}
 	onFinishAction := self.GetFinishAction()
 	if utils.IsInStringArray(onFinishAction, []string{"restart", "shutdown"}) {
