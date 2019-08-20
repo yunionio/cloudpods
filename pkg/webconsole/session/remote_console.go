@@ -123,6 +123,10 @@ func (info *RemoteConsoleInfo) GetPassword() string {
 	return info.VncPassword
 }
 
+func (info *RemoteConsoleInfo) GetId() string {
+	return info.Id
+}
+
 func (info *RemoteConsoleInfo) getConnParamsURL(baseURL string, params url.Values) string {
 	if params == nil {
 		params = url.Values{}
@@ -142,7 +146,7 @@ func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 	if info.OsName == "Windows" {
 		isWindows = "True"
 	}
-	base := "https://g.alicdn.com/aliyun/ecs-console-vnc/0.0.7/index.html"
+	base := "https://g.alicdn.com/aliyun/ecs-console-vnc2/0.0.5/index.html"
 	params := url.Values{
 		"vncUrl":     {info.Url},
 		"instanceId": {info.InstanceId},
