@@ -258,7 +258,7 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 		}
 	}
 	devices := self.GetIsolatedDevices()
-	if devices != nil && len(devices) > 0 {
+	if len(devices) > 0 {
 		return nil, httperrors.NewBadRequestError("Cannot migrate with isolated devices")
 	}
 	var preferHostId string
