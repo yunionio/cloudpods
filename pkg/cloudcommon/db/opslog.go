@@ -213,6 +213,7 @@ const (
 	ACT_GUEST_CREATE_FROM_IMPORT_SUCC    = "guest_create_from_import_succ"
 	ACT_GUEST_CREATE_FROM_IMPORT_FAIL    = "guest_create_from_import_fail"
 	ACT_GUEST_PANICKED                   = "guest_panicked"
+	ACT_HOST_MAINTENANCE                 = "host_maintenance"
 )
 
 type SOpsLogManager struct {
