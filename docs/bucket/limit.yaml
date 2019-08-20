@@ -1,0 +1,16 @@
+post:
+  summary: 设置存储桶的储存限制，该限制只有在使用OneCloud作为访问对象存储网关才生效。
+  parameters:
+    - $ref: '../parameters/bucket.yaml#/bucket_name'
+    - name: bucket
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketSetLimitInput"
+  responses:
+    200:
+      description: 指定存储桶的Limit响应
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketGetResponse"
+  tags:
+    - buckets
