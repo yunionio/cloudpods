@@ -189,7 +189,7 @@ func (manager *SUserManager) initSysUser() error {
 	usr.Name = api.SystemAdminUser
 	usr.DomainId = api.DEFAULT_DOMAIN_ID
 	usr.Enabled = tristate.True
-	usr.IsSystemAccount = tristate.False
+	usr.IsSystemAccount = tristate.True
 	usr.AllowWebConsole = tristate.False
 	usr.EnableMfa = tristate.False
 	usr.Description = "Boostrap system default admin user"
