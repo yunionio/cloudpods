@@ -2874,7 +2874,9 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 		_, err := self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
 			self.HostStatus = api.HOST_ONLINE
-			self.Status = api.BAREMETAL_RUNNING
+			if !self.IsMaintaining() {
+				self.Status = api.BAREMETAL_RUNNING
+			}
 			return nil
 		})
 		if err != nil {
@@ -3419,6 +3421,9 @@ func (self *SHost) AllowPerformSyncstatus(ctx context.Context,
 }
 
 func (self *SHost) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.HostType != api.HOST_TYPE_BAREMETAL {
+		return nil, httperrors.NewBadRequestError("Cannot sync status a non-baremetal host")
+	}
 	self.SetStatus(userCred, api.BAREMETAL_SYNCING_STATUS, "")
 	return nil, self.StartSyncstatus(ctx, userCred, "")
 }
@@ -3994,4 +3999,112 @@ func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCre
 
 func (host *SHost) GetSchedtagJointManager() ISchedtagJointManager {
 	return HostschedtagManager
+}
+
+func (host *SHost) AllowPerformHostExitMaintenance(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, host, "host maintenance")
+}
+
+func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(host.Status, []string{api.HOST_MAINTAIN_FAILE, api.HOST_MAINTAINING}) {
+		return nil, httperrors.NewInvalidStatusError("host status %s can't exit maintenance", host.Status)
+	}
+	err := host.SetStatus(userCred, api.HOST_STATUS_RUNNING, "exit maintenance")
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (host *SHost) AllowPerformHostMaintenance(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, host, "host maintenance")
+}
+
+func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if host.HostType != api.HOST_TYPE_HYPERVISOR {
+		return nil, httperrors.NewBadRequestError("host type %s can't do host maintenance", host.HostType)
+	}
+	if host.HostStatus == api.HOST_START_MAINTAIN {
+		return nil, httperrors.NewBadRequestError("unsupport on host status %s", host.HostStatus)
+	}
+
+	var preferHostId string
+	preferHost, _ := data.GetString("prefer_host")
+	if len(preferHost) > 0 {
+		if !db.IsAdminAllowPerform(userCred, host, "assign-host") {
+			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
+		if iHost == nil {
+			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
+		}
+		host := iHost.(*SHost)
+		preferHostId = host.Id
+	}
+
+	guests := host.GetGuests()
+	for i := 0; i < len(guests); i++ {
+		if !utils.IsInStringArray(guests[i].Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_UNKNOWN}) {
+			return nil, httperrors.NewBadRequestError(
+				"guest %s(%s) status %s can't do migrate",
+				guests[i].Name, guests[i].Id, guests[i].Status)
+		}
+		if len(guests[i].BackupHostId) > 0 {
+			return nil, httperrors.NewBadRequestError("Guest %s(%s) has backup guest", guests[i].Name, guests[i].Id)
+		}
+		if guests[i].Status == api.VM_RUNNING {
+			if len(guests[i].GetIsolatedDevices()) > 0 {
+				return nil, httperrors.NewBadRequestError(
+					"guest %s(%s) attach isolated device, can't migrate",
+					guests[i].Name, guests[i].Id)
+			}
+			cdrom := guests[i].getCdrom(false)
+			if cdrom != nil && len(cdrom.ImageId) > 0 {
+				return nil, httperrors.NewBadRequestError(
+					"Cannot migrate %s(%s) with cdrom", guests[i].Name, guests[i].Id)
+			}
+		}
+		if guests[i].Status == api.VM_UNKNOWN {
+			if guests[i].getDefaultStorageType() == api.STORAGE_LOCAL {
+				return nil, httperrors.NewBadRequestError(
+					"Cannot migrate guest %s(%s) status %s with local storage",
+					guests[i].Name, guests[i].Id, guests[i].Status)
+			}
+		}
+
+	}
+
+	kwargs := jsonutils.NewDict()
+	kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	return nil, host.StartMaintainTask(ctx, userCred, kwargs)
+}
+
+func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+	err := host.SEnabledStatusStandaloneResourceBase.SetStatus(userCred, status, reason)
+	if err != nil {
+		return err
+	}
+	host.ClearSchedDescCache()
+	return nil
+}
+
+func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	host.SetStatus(userCred, api.HOST_START_MAINTAIN, "start maintenance")
+	if task, err := taskman.TaskManager.NewTask(ctx, "HostMaintainTask", host, userCred, data, "", "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (host *SHost) IsMaintaining() bool {
+	return utils.IsInStringArray(host.Status, []string{api.HOST_START_MAINTAIN, api.HOST_MAINTAINING, api.HOST_MAINTAIN_FAILE})
 }
