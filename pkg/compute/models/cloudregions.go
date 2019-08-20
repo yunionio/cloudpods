@@ -344,7 +344,6 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 	}
 
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Name = cloudRegion.GetName()
 		self.Status = cloudRegion.GetStatus()
 		self.SGeographicInfo = cloudRegion.GetGeographicInfo()
 		self.Provider = cloudRegion.GetProvider()
@@ -604,7 +603,7 @@ func (self *SCloudregion) isManaged() bool {
 }
 
 func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
-	if len(self.ExternalId) > 0 {
+	if len(self.ExternalId) > 0 && len(self.ManagerId) == 0 {
 		return httperrors.NewConflictError("Cannot update external resource")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)

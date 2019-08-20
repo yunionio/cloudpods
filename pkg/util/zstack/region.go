@@ -58,7 +58,7 @@ func (region *SRegion) GetGlobalId() string {
 }
 
 func (region *SRegion) IsEmulated() bool {
-	return true
+	return false
 }
 
 func (region *SRegion) GetProvider() string {
