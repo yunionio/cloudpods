@@ -108,8 +108,7 @@ func (p *Partition) Format(fs string, uuid string) error {
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4":
 		// for baremetal, force 64bit support large disks
-		//cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
-		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1"}
+		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1", "-T", "largefile"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4dev":
 		cmd = []string{"/usr/sbin/mkfs.ext4dev", "-E", "lazy_itable_init=1"}
@@ -206,6 +205,10 @@ func (p *Partition) GetSizeMB() (int64, error) {
 	return p.count * 512 / 1024 / 1024, nil
 }
 
+func (p *Partition) GetDisk() *DiskPartitions {
+	return p.disk
+}
+
 type DiskPartitions struct {
 	driver     string
 	adapter    int
@@ -241,6 +244,10 @@ func (p *DiskPartitions) IsRaidDriver() bool {
 		baremetal.DISK_DRIVER_MARVELRAID,
 		baremetal.DISK_DRIVER_MPT2SAS,
 	})
+}
+
+func (p *DiskPartitions) GetDev() string {
+	return p.dev
 }
 
 func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {

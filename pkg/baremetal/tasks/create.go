@@ -73,6 +73,19 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 	return data, nil
 }
 
+func doPoweroff(term *ssh.Client) error {
+	if _, err := term.Run("/sbin/poweroff"); err != nil {
+		log.Errorf("poweroff error: %s", err)
+		return nil
+	}
+	time.Sleep(2 * time.Second)
+	return nil
+}
+
+func (self *SBaremetalServerCreateTask) PostDeploys(term *ssh.Client) error {
+	return doPoweroff(term)
+}
+
 func (self *SBaremetalServerCreateTask) onError(term *ssh.Client, err error) error {
 	log.Errorf("Create server error: %+v", err)
 	if err1 := self.Baremetal.GetServer().DoEraseDisk(term); err1 != nil {
