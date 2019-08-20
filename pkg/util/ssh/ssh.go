@@ -125,7 +125,7 @@ func (s *Client) run(parseOutput bool, cmds ...string) ([]string, error) {
 			return nil, err
 		}
 		defer session.Close()
-		log.Debugf("Run command: %q", cmd)
+		log.Debugf("Run command: %s", cmd)
 		var stdOut bytes.Buffer
 		var stdErr bytes.Buffer
 		session.Stdout = &stdOut

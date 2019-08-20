@@ -100,6 +100,12 @@ func TestEscapeEchoString(t *testing.T) {
 			want:    `abcd\n\"Te\\\\rst\"ddd\"\$Test\"aaa\n\$TTT`,
 			wantErr: false,
 		},
+		{
+			name:    "echoInput",
+			args:    args{"SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1d6b\", ATTRS{idProduct}==\"0001\", RUN+=\"/bin/sh -c 'echo enabled > /sys$env{DEVPATH}/../power/wakeup'\""},
+			want:    `SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"1d6b\", ATTRS{idProduct}==\"0001\", RUN+=\"/bin/sh -c 'echo enabled > /sys\$env{DEVPATH}/../power/wakeup'\"`,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

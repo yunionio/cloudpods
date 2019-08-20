@@ -40,13 +40,15 @@ type SSHPartition struct {
 	term      *ssh.Client
 	partDev   string
 	mountPath string
+	part      *disktool.Partition
 }
 
-func NewSSHPartition(term *ssh.Client, dev string) *SSHPartition {
+func NewSSHPartition(term *ssh.Client, part *disktool.Partition) *SSHPartition {
 	p := new(SSHPartition)
 	p.term = term
-	p.partDev = dev
+	p.partDev = part.GetDev()
 	p.mountPath = fmt.Sprintf("/tmp/%s", strings.Replace(p.partDev, "/", "_", -1))
+	p.part = part
 	return p
 }
 
@@ -169,12 +171,17 @@ func (p *SSHPartition) Umount() bool {
 			"/sbin/sysctl -w vm.drop_caches=3",
 			fmt.Sprintf("/bin/umount %s", p.mountPath),
 			fmt.Sprintf("/sbin/hdparm -f %s", p.partDev),
+			//fmt.Sprintf("/usr/bin/sg_sync %s", p.part.GetDisk().GetDev()),
 		}
 		_, err = p.term.Run(cmds...)
 		if err != nil {
 			log.Errorf("umount %s error: %v", p.mountPath, err)
 			time.Sleep(1 * time.Second)
 		} else {
+			if err := p.osRmDir(p.mountPath); err != nil {
+				log.Errorf("remove mount path %s: %v", p.mountPath, err)
+				return false
+			}
 			return true
 		}
 	}
@@ -300,11 +307,6 @@ func (p *SSHPartition) sshFilePutContents(sPath, content string, modAppend bool)
 		op = ">>"
 	}
 
-	if len(content) == 0 {
-		_, err := p.term.Run(fmt.Sprintf("echo '' %s %s", op, sPath))
-		return err
-	}
-
 	cmds := []string{}
 	var chunkSize int = 8192
 	for offset := 0; offset < len(content); offset += chunkSize {
@@ -316,7 +318,7 @@ func (p *SSHPartition) sshFilePutContents(sPath, content string, modAppend bool)
 		if err != nil {
 			return fmt.Errorf("EscapeEchoString %q error: %v", content[offset:end], err)
 		}
-		cmd := fmt.Sprintf("echo -n -e \"%s\" %s %s", ll, op, sPath)
+		cmd := fmt.Sprintf(`echo -n -e "%s" %s %s`, ll, op, sPath)
 		cmds = append(cmds, cmd)
 		if op == ">" {
 			op = ">>"
@@ -534,7 +536,7 @@ func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition
 		return nil, nil, fmt.Errorf("Not found root disk partitions")
 	}
 	for _, part := range parts {
-		dev := NewSSHPartition(term, part.GetDev())
+		dev := NewSSHPartition(term, part)
 		if !dev.Mount() {
 			continue
 		}
