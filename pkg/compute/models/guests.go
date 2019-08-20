@@ -114,7 +114,7 @@ type SGuest struct {
 
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default=HYPERVISOR_DEFAULT)
 
-	InstanceType string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
