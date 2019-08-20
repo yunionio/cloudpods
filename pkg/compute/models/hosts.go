@@ -3995,3 +3995,67 @@ func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCre
 func (host *SHost) GetSchedtagJointManager() ISchedtagJointManager {
 	return HostschedtagManager
 }
+
+func (host *SHost) AllowPerformMigrate(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, host, "migrate")
+}
+
+func (host *SHost) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if host.HostType != api.HOST_TYPE_HYPERVISOR {
+		return nil, httperrors.NewBadRequestError("host type %s can't do migrate", host.HostType)
+	}
+	if !host.Enabled {
+		return nil, httperrors.NewBadRequestError("host is not enable")
+	}
+	if host.HostStatus != api.HOST_ONLINE {
+		return nil, httperrors.NewBadRequestError("unsupport on host status %s", host.HostStatus)
+	}
+
+	var preferHostId string
+	preferHost, _ := data.GetString("prefer_host")
+	if len(preferHost) > 0 {
+		if !db.IsAdminAllowPerform(userCred, host, "assign-host") {
+			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
+		if iHost == nil {
+			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
+		}
+		host := iHost.(*SHost)
+		preferHostId = host.Id
+	}
+
+	guests := host.GetGuests()
+	for i := 0; i < len(guests); i++ {
+		if !utils.IsInStringArray(guests[i].Status, []string{api.VM_READY, api.VM_RUNNING}) {
+			return nil, httperrors.NewBadRequestError(
+				"guest %s(%s) status %s can't do migrate",
+				guests[i].Name, guests[i].Id, guests[i].Status)
+		}
+		if len(guests[i].BackupHostId) > 0 {
+			return nil, httperrors.NewBadRequestError("Guest %s(%s) has backup guest", guests[i].Name, guests[i].Id)
+		}
+		if len(guests[i].GetIsolatedDevices()) > 0 {
+			return nil, httperrors.NewBadRequestError(
+				"guest %s(%s) attach isolated device, can't migrate",
+				guests[i].Name, guests[i].Id)
+		}
+	}
+
+	kwargs := jsonutils.NewDict()
+	kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	return nil, host.StartMigrateTask(ctx, userCred, kwargs)
+}
+
+func (host *SHost) StartMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "HostMigrateTask", host, userCred, data, "", "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
