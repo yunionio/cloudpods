@@ -55,7 +55,7 @@ func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *mode
 		snapshot.Status = api.SNAPSHOT_READY
 		return nil
 	})
-	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, "", self.UserCred)
+	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
