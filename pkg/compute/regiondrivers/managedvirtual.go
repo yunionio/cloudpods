@@ -1147,20 +1147,25 @@ func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotCreate(ctx conte
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
-	iDisk, _ := models.DiskManager.FetchById(snapshot.DiskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
+	disk, err := snapshot.GetDisk()
+	if err != nil {
+		return err
+	}
+	iDisk, err := disk.GetIDisk()
 	if err != nil {
 		return err
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
+		iSnapshot, err := iDisk.CreateISnapshot(ctx, snapshot.Name, "")
 		if err != nil {
 			return nil, err
 		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		return res, nil
+		_, err = db.Update(snapshot, func() error {
+			snapshot.Size = int(iSnapshot.GetSizeMb())
+			snapshot.ExternalId = iSnapshot.GetGlobalId()
+			return nil
+		})
+		return nil, err
 	})
 	return nil
 }
