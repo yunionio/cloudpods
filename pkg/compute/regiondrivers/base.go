@@ -195,3 +195,7 @@ func (self *SBaseRegionDriver) OnDiskReset(ctx context.Context, userCred mcclien
 func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
 	return fmt.Errorf("Not Implement ValidateCreateSnapshotpolicyDiskData")
 }
+
+func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	return fmt.Errorf("Not implement OnSnapshotDelete")
+}

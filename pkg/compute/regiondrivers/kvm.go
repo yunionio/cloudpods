@@ -808,3 +808,9 @@ func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, u
 	})
 	return nil
 }
+
+func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	task.SetStage("OnKvmSnapshotDelete", nil)
+	task.ScheduleRun(nil)
+	return nil
+}
