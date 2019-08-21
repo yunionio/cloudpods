@@ -134,6 +134,14 @@ func IsAdminAllowList(userCred mcclient.TokenCredential, manager IResource) bool
 	return IsAllowList(rbacutils.ScopeSystem, userCred, manager)
 }
 
+func IsDomainAllowList(userCred mcclient.TokenCredential, manager IResource) bool {
+	return IsAllowList(rbacutils.ScopeDomain, userCred, manager)
+}
+
+func IsProjectAllowList(userCred mcclient.TokenCredential, manager IResource) bool {
+	return IsAllowList(rbacutils.ScopeProject, userCred, manager)
+}
+
 func IsAllowCreate(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, manager IResource) bool {
 	if userCred == nil {
 		return false
@@ -143,6 +151,14 @@ func IsAllowCreate(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential
 
 func IsAdminAllowCreate(userCred mcclient.TokenCredential, manager IResource) bool {
 	return IsAllowCreate(rbacutils.ScopeSystem, userCred, manager)
+}
+
+func IsDomainAllowCreate(userCred mcclient.TokenCredential, manager IResource) bool {
+	return IsAllowCreate(rbacutils.ScopeDomain, userCred, manager)
+}
+
+func IsProjectAllowCreate(userCred mcclient.TokenCredential, manager IResource) bool {
+	return IsAllowCreate(rbacutils.ScopeProject, userCred, manager)
 }
 
 func IsAllowClassPerform(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, manager IResource, action string) bool {
@@ -156,6 +172,14 @@ func IsAdminAllowClassPerform(userCred mcclient.TokenCredential, manager IResour
 	return IsAllowClassPerform(rbacutils.ScopeSystem, userCred, manager, action)
 }
 
+func IsDomainAllowClassPerform(userCred mcclient.TokenCredential, manager IResource, action string) bool {
+	return IsAllowClassPerform(rbacutils.ScopeDomain, userCred, manager, action)
+}
+
+func IsProjectAllowClassPerform(userCred mcclient.TokenCredential, manager IResource, action string) bool {
+	return IsAllowClassPerform(rbacutils.ScopeProject, userCred, manager, action)
+}
+
 func IsAllowGet(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource) bool {
 	if userCred == nil {
 		return false
@@ -165,6 +189,14 @@ func IsAllowGet(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, o
 
 func IsAdminAllowGet(userCred mcclient.TokenCredential, obj IResource) bool {
 	return IsAllowGet(rbacutils.ScopeSystem, userCred, obj)
+}
+
+func IsDomainAllowGet(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowGet(rbacutils.ScopeDomain, userCred, obj)
+}
+
+func IsProjectAllowGet(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowGet(rbacutils.ScopeProject, userCred, obj)
 }
 
 func IsAllowGetSpec(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource, spec string) bool {
@@ -178,6 +210,14 @@ func IsAdminAllowGetSpec(userCred mcclient.TokenCredential, obj IResource, spec 
 	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, obj, spec)
 }
 
+func IsDomainAllowGetSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowGetSpec(rbacutils.ScopeDomain, userCred, obj, spec)
+}
+
+func IsProjectAllowGetSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowGetSpec(rbacutils.ScopeProject, userCred, obj, spec)
+}
+
 func IsAllowPerform(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource, action string) bool {
 	if userCred == nil {
 		return false
@@ -187,6 +227,14 @@ func IsAllowPerform(scope rbacutils.TRbacScope, userCred mcclient.TokenCredentia
 
 func IsAdminAllowPerform(userCred mcclient.TokenCredential, obj IResource, action string) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, obj, action)
+}
+
+func IsDomainAllowPerform(userCred mcclient.TokenCredential, obj IResource, action string) bool {
+	return IsAllowPerform(rbacutils.ScopeDomain, userCred, obj, action)
+}
+
+func IsProjectAllowPerform(userCred mcclient.TokenCredential, obj IResource, action string) bool {
+	return IsAllowPerform(rbacutils.ScopeProject, userCred, obj, action)
 }
 
 func IsAllowUpdate(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource) bool {
@@ -200,6 +248,14 @@ func IsAdminAllowUpdate(userCred mcclient.TokenCredential, obj IResource) bool {
 	return IsAllowUpdate(rbacutils.ScopeSystem, userCred, obj)
 }
 
+func IsDomainAllowUpdate(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowUpdate(rbacutils.ScopeDomain, userCred, obj)
+}
+
+func IsProjectAllowUpdate(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowUpdate(rbacutils.ScopeProject, userCred, obj)
+}
+
 func IsAllowUpdateSpec(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource, spec string) bool {
 	if userCred == nil {
 		return false
@@ -209,6 +265,14 @@ func IsAllowUpdateSpec(scope rbacutils.TRbacScope, userCred mcclient.TokenCreden
 
 func IsAdminAllowUpdateSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
 	return IsAllowUpdateSpec(rbacutils.ScopeSystem, userCred, obj, spec)
+}
+
+func IsDomainAllowUpdateSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowUpdateSpec(rbacutils.ScopeDomain, userCred, obj, spec)
+}
+
+func IsProjectAllowUpdateSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowUpdateSpec(rbacutils.ScopeProject, userCred, obj, spec)
 }
 
 func IsAllowDelete(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource) bool {
@@ -222,6 +286,14 @@ func IsAdminAllowDelete(userCred mcclient.TokenCredential, obj IResource) bool {
 	return IsAllowDelete(rbacutils.ScopeSystem, userCred, obj)
 }
 
+func IsDomainAllowDelete(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowDelete(rbacutils.ScopeDomain, userCred, obj)
+}
+
+func IsProjectAllowDelete(userCred mcclient.TokenCredential, obj IResource) bool {
+	return IsAllowDelete(rbacutils.ScopeProject, userCred, obj)
+}
+
 func IsAllowDeleteSpec(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, obj IResource, spec string) bool {
 	if userCred == nil {
 		return false
@@ -231,4 +303,12 @@ func IsAllowDeleteSpec(scope rbacutils.TRbacScope, userCred mcclient.TokenCreden
 
 func IsAdminAllowDeleteSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
 	return IsAllowDeleteSpec(rbacutils.ScopeSystem, userCred, obj, spec)
+}
+
+func IsDomainAllowDeleteSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowDeleteSpec(rbacutils.ScopeDomain, userCred, obj, spec)
+}
+
+func IsProjectAllowDeleteSpec(userCred mcclient.TokenCredential, obj IResource, spec string) bool {
+	return IsAllowDeleteSpec(rbacutils.ScopeProject, userCred, obj, spec)
 }
