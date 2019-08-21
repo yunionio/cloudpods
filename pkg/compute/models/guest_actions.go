@@ -3474,3 +3474,47 @@ func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mccl
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SGuest) AllowPerformIoThrottle(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "io-throttle")
+}
+
+func (self *SGuest) PerformIoThrottle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewBadRequestError("Hypervisor %s can't do io throttle", self.Hypervisor)
+	}
+	if self.Status != api.VM_RUNNING {
+		return nil, httperrors.NewServerStatusError("Cannot do io throttle in status %s", self.Status)
+	}
+	bpsMb, err := data.Int("bps")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("bps")
+	}
+	if bpsMb < 0 {
+		return nil, httperrors.NewInputParameterError("bps must > 0")
+	}
+	iops, err := data.Int("iops")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("iops")
+	}
+	if iops < 0 {
+		return nil, httperrors.NewInputParameterError("iops must > 0")
+	}
+	return nil, self.StartBlockIoThrottleTask(ctx, userCred, bpsMb, iops)
+}
+
+func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mcclient.TokenCredential, bpsMb, iops int64) error {
+	params := jsonutils.NewDict()
+	params.Set("bps", jsonutils.NewInt(bpsMb))
+	params.Set("iops", jsonutils.NewInt(iops))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestBlockIoThrottleTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		log.Errorf("%s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}

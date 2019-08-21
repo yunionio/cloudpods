@@ -1422,3 +1422,8 @@ func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string,
 	task := NewGuestOnlineResizeDiskTask(ctx, s, diskId, sizeMB)
 	task.Start()
 }
+
+func (s *SKVMGuestInstance) BlockIoThrottle(ctx context.Context, bps, iops int64) error {
+	task := SGuestBlockIoThrottleTask{s, ctx, bps, iops}
+	return task.Start()
+}
