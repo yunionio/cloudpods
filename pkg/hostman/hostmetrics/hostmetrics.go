@@ -177,6 +177,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 			gm, ok := s.monitors[guestId]
 			if ok && gm.Pid == pid {
 				delete(s.monitors, guestId)
+				gm.UpdateVmName(guestName)
 				gm.UpdateNicsDesc(nics)
 				gm.UpdateCpuCount(int(vcpuCount))
 			} else {
@@ -399,6 +400,10 @@ func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuC
 		return nil, err
 	}
 	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc}, nil
+}
+
+func (m *SGuestMonitor) UpdateVmName(name string) {
+	m.Name = name
 }
 
 func (m *SGuestMonitor) UpdateNicsDesc(nics []jsonutils.JSONObject) {
