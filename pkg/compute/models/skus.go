@@ -710,13 +710,7 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 }
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-
 	publicCloud := false
-	provider, _ := query.GetString("provider")
 
 	cloudEnvStr, _ := query.GetString("cloud_env")
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
@@ -742,17 +736,25 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		)
 	}
 
+	data := query.(*jsonutils.JSONDict)
 	providers := jsonutils.GetQueryStringArray(query, "provider")
 	if len(providers) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("provider"), providers))
+		if len(providers) == 1 && utils.IsInStringArray(providers[0], cloudprovider.GetPublicProviders()) {
+			publicCloud = true
+		}
+		data.Remove("provider")
 	}
+
 	brands := jsonutils.GetQueryStringArray(query, "brand")
 	if len(brands) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
+		data.Remove("brand")
 	}
 
-	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
-		publicCloud = true
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, data)
+	if err != nil {
+		return nil, err
 	}
 
 	if usable, _ := query.Bool("usable"); usable {
@@ -760,7 +762,6 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.IsTrue("enabled")
 	}
 
-	data := query.(*jsonutils.JSONDict)
 	if data.Contains("zone") {
 		zoneStr, _ := data.GetString("zone")
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
