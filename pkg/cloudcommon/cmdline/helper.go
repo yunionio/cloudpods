@@ -294,6 +294,10 @@ func FetchServerConfigsByJSON(obj jsonutils.JSONObject) (*compute.ServerConfigs,
 		return nil, err
 	}
 
+	if instanceType, _ := obj.GetString("sku"); instanceType != "" {
+		conf.InstanceType = instanceType
+	}
+
 	var err error
 	conf.Disks, err = FetchDiskConfigsByJSON(obj)
 	if err != nil {
