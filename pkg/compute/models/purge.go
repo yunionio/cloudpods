@@ -995,6 +995,28 @@ func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) e
 	return vpc.RealDelete(ctx, userCred)
 }
 
+func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, dn)
+	defer lockman.ReleaseObject(ctx, dn)
+
+	err := dn.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return dn.RealDelete(ctx, userCred)
+}
+
+func (sn *SNatSEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, sn)
+	defer lockman.ReleaseObject(ctx, sn)
+
+	err := sn.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return sn.RealDelete(ctx, userCred)
+}
+
 func (manager *SCloudproviderregionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	cprs, err := CloudproviderRegionManager.fetchRecordsByCloudproviderId(providerId)
 	if err != nil {
