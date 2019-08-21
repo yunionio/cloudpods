@@ -359,3 +359,9 @@ func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient
 	storage := disk.GetStorage()
 	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
 }
+
+func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	task.SetStage("OnKvmSnapshotDelete", nil)
+	task.ScheduleRun(nil)
+	return nil
+}

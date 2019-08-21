@@ -89,6 +89,7 @@ type IRegionDriver interface {
 	SnapshotIsOutOfChain(disk *SDisk) bool
 	GetDiskResetParams(snapshot *SSnapshot) *jsonutils.JSONDict
 	OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, snapshot *SSnapshot, data jsonutils.JSONObject) error
+	OnSnapshotDelete(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
 }
 
 var regionDrivers map[string]IRegionDriver
