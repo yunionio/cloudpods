@@ -534,7 +534,7 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", diskId)
 	}
 	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].CreatedBy == api.SNAPSHOT_MANUAL && snapshots[i].FakeDeleted == false {
+		if snapshots[i].FakeDeleted == false {
 			return nil, httperrors.NewBadRequestError("Can not delete disk snapshots, have manual snapshot")
 		}
 	}

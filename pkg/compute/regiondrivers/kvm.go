@@ -773,3 +773,38 @@ func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient
 	storage := disk.GetStorage()
 	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
 }
+
+func (self *SKVMRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
+	err := self.SBaseRegionDriver.ValidateCreateSnapshotPolicyData(ctx, userCred, input, ownerId, data)
+	if err != nil {
+		return err
+	}
+	// TODO: kvm retention days
+	if input.RetentionDays < -1 || input.RetentionDays == 0 || input.RetentionDays > 10 {
+		return httperrors.NewInputParameterError("Retention days must in 1~10 or -1")
+	}
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		return nil, nil
+	})
+	return nil
+}

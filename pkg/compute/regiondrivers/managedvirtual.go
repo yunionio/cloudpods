@@ -25,11 +25,11 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1207,27 +1207,18 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
-	var err error
-
-	if len(data.RepeatWeekdays) == 0 {
-		return httperrors.NewMissingParameterError("repeat_weekdays")
-	}
-	data.RepeatWeekdays, err = daysValidate(data.RepeatWeekdays, 1, 7)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
-	}
-
-	if len(data.TimePoints) == 0 {
-		return httperrors.NewInputParameterError("time_points")
-	}
-	data.TimePoints, err = daysValidate(data.TimePoints, 0, 23)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
-	}
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
+
+	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
+	err := cloudregionV.Validate(data)
+	if err != nil {
+		return err
+	}
+	cloudregion := cloudregionV.Model.(*models.SCloudregion)
+	input.CloudregionId = cloudregion.GetId()
 	return nil
 }

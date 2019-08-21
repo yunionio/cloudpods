@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -70,14 +69,9 @@ func (self *SSnapshotPolicyDisk) Detach(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
-	err := cloudregionV.Validate(data)
-	if err != nil {
-		return nil, err
-	}
-	cloudregion := cloudregionV.Model.(*SCloudregion)
-	diskId, _ := data.GetString(self.GetMasterManager().Keyword())
-	err = cloudregion.GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, diskId)
+	diskId, _ := data.GetString(self.GetMasterFieldName())
+	disk := DiskManager.FetchDiskById(diskId)
+	err := disk.GetStorage().GetRegion().GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, diskId)
 	if err != nil {
 		return nil, err
 	}
