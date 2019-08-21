@@ -185,7 +185,7 @@ func (self *SNatDEntry) syncRemoveCloudNatDTable(ctx context.Context, userCred m
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 	}
-	return self.Delete(ctx, userCred)
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SNatDEntry) SyncWithCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatDEntry) error {
@@ -279,21 +279,27 @@ func (self *SNatDEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error)
 	return natgateway.GetINatGateway()
 }
 
+func (self *SNatDEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("DNAT delete do nothing")
+	self.SetStatus(userCred, api.NAT_STATUS_START_DELETE, "")
+	return nil
+}
+
 func (self *SNatDEntry) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if len(self.ExternalId) > 0 {
-		return self.startDeleteVpcTask(ctx, userCred)
+		return self.StartDeleteVpcTask(ctx, userCred)
 	} else {
-		return self.realDelete(ctx, userCred)
+		return self.RealDelete(ctx, userCred)
 	}
 }
 
-func (self *SNatDEntry) realDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SNatDEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
 	return nil
 }
 
-func (self *SNatDEntry) startDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SNatDEntry) StartDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "SNatDEntryDeleteTask", self, userCred, nil, "", "", nil)
 	if err != nil {
 		log.Errorf("Start dnatEntry deleteTask fail %s", err)

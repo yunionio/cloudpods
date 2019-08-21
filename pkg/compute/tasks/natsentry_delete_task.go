@@ -58,7 +58,12 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 	if err != nil {
 		self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Delete SNat Entry '%s' failed", snatEntry.ExternalId))
 	}
-	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETED, "")
+
+	err = snatEntry.Purge(ctx, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, snatEntry, err)
+		return
+	}
 
 	logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
