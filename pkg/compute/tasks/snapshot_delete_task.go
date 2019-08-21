@@ -43,18 +43,25 @@ func (self *SnapshotDeleteTask) OnRequestSnapshotFailed(ctx context.Context, sna
 }
 
 func (self *SnapshotDeleteTask) OnRequestSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	if len(snapshot.ExternalId) > 0 {
-		snapshot.RealDelete(ctx, self.GetUserCred())
-		self.TaskComplete(ctx, snapshot, nil)
+	err := snapshot.GetRegionDriver().OnSnapshotDelete(ctx, snapshot, self)
+	if err != nil {
+		self.TaskFailed(ctx, snapshot, err.Error())
+	}
+}
+
+func (self *SnapshotDeleteTask) OnManagedSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
+	snapshot.RealDelete(ctx, self.GetUserCred())
+	self.TaskComplete(ctx, snapshot, nil)
+}
+
+func (self *SnapshotDeleteTask) OnKvmSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
+	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
+	if jsonutils.QueryBoolean(self.Params, "reload_disk", false) && snapshot.OutOfChain {
+		self.SetStage("OnReloadDiskSnapshot", nil)
+		self.OnReloadDiskSnapshot(ctx, snapshot, data)
 	} else {
-		snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
-		if jsonutils.QueryBoolean(self.Params, "reload_disk", false) && snapshot.OutOfChain {
-			self.SetStage("OnReloadDiskSnapshot", nil)
-			self.OnReloadDiskSnapshot(ctx, snapshot, data)
-		} else {
-			self.SetStage("OnDeleteSnapshot", nil)
-			self.OnDeleteSnapshot(ctx, snapshot, data)
-		}
+		self.SetStage("OnDeleteSnapshot", nil)
+		self.OnDeleteSnapshot(ctx, snapshot, data)
 	}
 }
 

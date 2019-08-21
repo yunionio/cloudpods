@@ -1123,23 +1123,27 @@ func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotDelete(ctx conte
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
-	cloudRegion, err := snapshot.GetISnapshotRegion()
-	if err != nil {
-		log.Errorln(err, cloudRegion, snapshot.CloudregionId)
-		return err
-	}
-	cloudSnapshot, err := cloudRegion.GetISnapshotById(snapshot.ExternalId)
-	if err != nil {
-		if err == cloudprovider.ErrNotFound {
-			return nil
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		cloudRegion, err := snapshot.GetISnapshotRegion()
+		if err != nil {
+			return nil, err
 		}
-		log.Errorln(err, cloudSnapshot)
-		return err
-	}
-	if err := cloudSnapshot.Delete(); err != nil {
-		return err
-	}
-	return cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second)
+		cloudSnapshot, err := cloudRegion.GetISnapshotById(snapshot.ExternalId)
+		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
+		}
+		if err := cloudSnapshot.Delete(); err != nil {
+			return nil, err
+		}
+		if err := cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
@@ -1220,5 +1224,11 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData
 	}
 	cloudregion := cloudregionV.Model.(*models.SCloudregion)
 	input.CloudregionId = cloudregion.GetId()
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	task.SetStage("OnManagedSnapshotDelete", nil)
+	task.ScheduleRun(nil)
 	return nil
 }
