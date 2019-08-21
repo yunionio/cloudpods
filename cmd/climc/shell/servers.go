@@ -1001,4 +1001,19 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerResizeDiskOptions struct {
+		Server string `help:"ID or name of VM" json:"-" optional:"false" positional:"true"`
+		Disk   string `help:"ID or name of disk to resize" json:"disk" optional:"false" positional:"true"`
+		Size   string `help:"new size of disk in MB" json:"size" optional:"false" positional:"true"`
+	}
+	R(&ServerResizeDiskOptions{}, "server-resize-disk", "Resize attached disk of a server", func(s *mcclient.ClientSession, args *ServerResizeDiskOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Servers.PerformAction(s, args.Server, "resize-disk", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

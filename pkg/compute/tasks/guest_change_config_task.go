@@ -98,9 +98,9 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 				self.markStageFailed(ctx, guest, fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err))
 				return
 			}
-			err = disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage, guest)
+			err = guest.StartGuestDiskResizeTask(ctx, self.UserCred, disk.Id, size, self.GetTaskId(), &pendingUsage)
 			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("disk.StartDiskResizeTask fail %s", err))
+				self.markStageFailed(ctx, guest, fmt.Sprintf("guest.StartGuestDiskResizeTask fail %s", err))
 				return
 			}
 			return
