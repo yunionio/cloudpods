@@ -391,6 +391,13 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 			sqlchemy.In(vpcs.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
 		))
+		if isPublic.Bool() {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+				sqlchemy.AND(
+					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+					sqlchemy.Equals(q.Field("domain_id"), domainId))))
+		}
 	}
 	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
