@@ -27,75 +27,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type SnapshotCreateTask struct {
-	taskman.STask
-}
-
 func init() {
-	taskman.RegisterTask(SnapshotCreateTask{})
 	taskman.RegisterTask(GuestDiskSnapshotTask{})
 }
-
-func (self *SnapshotCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	snapshot := obj.(*models.SSnapshot)
-	self.DoDiskSnapshot(ctx, snapshot)
-}
-
-func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {
-	db.Update(snapshot, func() error {
-		snapshot.Status = api.SNAPSHOT_FAILED
-		return nil
-	})
-	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
-	self.SetStageFailed(ctx, reason)
-}
-
-func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	db.Update(snapshot, func() error {
-		snapshot.Status = api.SNAPSHOT_READY
-		return nil
-	})
-	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), self.UserCred)
-	self.SetStageComplete(ctx, nil)
-}
-
-func (self *SnapshotCreateTask) DoDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
-	self.SetStage("OnCreateSnapshot", nil)
-	if err := snapshot.GetRegionDriver().RequestCreateSnapshot(ctx, snapshot, self); err != nil {
-		self.TaskFailed(ctx, snapshot, err.Error())
-	}
-}
-
-func (self *SnapshotCreateTask) OnCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	extSnapshotId, err := data.GetString("snapshot_id")
-	if err == nil { // Managed snapshot
-		_, err := db.Update(snapshot, func() error {
-			snapshot.ExternalId = extSnapshotId
-			snapshot.Status = api.SNAPSHOT_READY
-			return nil
-		})
-		if err != nil {
-			self.TaskFailed(ctx, snapshot, err.Error())
-			return
-		}
-	} else {
-		_, err = db.Update(snapshot, func() error {
-			snapshot.Status = api.SNAPSHOT_READY
-			return nil
-		})
-		if err != nil {
-			self.TaskFailed(ctx, snapshot, err.Error())
-			return
-		}
-	}
-	self.TaskComplete(ctx, snapshot, nil)
-}
-
-func (self *SnapshotCreateTask) OnCreateSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.TaskFailed(ctx, snapshot, data.String())
-}
-
-// =================================================================================================================
 
 type GuestDiskSnapshotTask struct {
 	SGuestBaseTask
