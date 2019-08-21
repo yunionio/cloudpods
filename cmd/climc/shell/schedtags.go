@@ -129,4 +129,24 @@ func init() {
 		return nil
 	})
 
+	type SetScopeOptions struct {
+		ID      []string `help:"ID or Name of schetag"`
+		Project string   `help:"ID or Name of project"`
+		Domain  string   `help:"ID or Name of domain"`
+		System  bool     `help:"Set to system scope"`
+	}
+	R(&SetScopeOptions{}, "schedtag-set-scope", "Set schedtag scope", func(s *mcclient.ClientSession, args *SetScopeOptions) error {
+		params := jsonutils.NewDict()
+		domainId := args.Domain
+		projectId := args.Project
+		if args.System {
+			domainId = ""
+			projectId = ""
+		}
+		params.Add(jsonutils.NewString(domainId), "domain")
+		params.Add(jsonutils.NewString(projectId), "project")
+		ret := modules.Schedtags.BatchPerformAction(s, args.ID, "set-scope", params)
+		printBatchResults(ret, modules.Schedtags.GetColumns(s))
+		return nil
+	})
 }
