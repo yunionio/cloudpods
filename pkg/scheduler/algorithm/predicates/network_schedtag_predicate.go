@@ -59,6 +59,10 @@ func (n netW) ResourceKeyword() string {
 	return "network"
 }
 
+func (n netW) IsSpecifyResource() bool {
+	return n.Network != ""
+}
+
 func (n netW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return n.NetworkConfig.Schedtags
 }
