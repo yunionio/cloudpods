@@ -454,6 +454,18 @@ func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (j
 	return nil, nil
 }
 
+func (m *SGuestManager) GuestIoThrottle(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	guestIoThrottle, ok := params.(*SGuestIoThrottle)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := m.Servers[guestIoThrottle.Sid]
+	if guest.IsRunning() {
+		return nil, guest.BlockIoThrottle(ctx, guestIoThrottle.BPS, guestIoThrottle.IOPS)
+	}
+	return nil, httperrors.NewInvalidStatusError("Guest not running")
+}
+
 func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	migParams, ok := params.(*SSrcPrepareMigrate)
 	if !ok {

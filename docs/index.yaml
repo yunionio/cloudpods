@@ -165,6 +165,8 @@ paths:
     $ref: "./instance/user-data.yaml"
   /servers/{instanceId}/vnc:
     $ref: "./instance/vnc.yaml"
+  /servers/{instanceId}/io-throttle:
+    $ref: "./instance/io-throttle.yaml"
 
   /images:
     $ref: "./image/images.yaml"

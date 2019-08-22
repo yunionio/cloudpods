@@ -71,6 +71,7 @@ type Monitor interface {
 	StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback)
 
 	ResizeDisk(driveName string, sizeMB int64, callback StringCallback)
+	BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)
