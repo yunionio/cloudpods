@@ -807,3 +807,8 @@ func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 	}
 	m.HumanMonitorCommand("info memory-devices", cb)
 }
+
+func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {
+	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
+	m.HumanMonitorCommand(cmd, callback)
+}
