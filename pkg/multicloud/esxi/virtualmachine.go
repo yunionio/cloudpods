@@ -133,7 +133,7 @@ func (self *SVirtualMachine) GetInstanceType() string {
 	return ""
 }
 
-func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
