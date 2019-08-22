@@ -302,6 +302,7 @@ func (self *SDisk) GetGuestdisks() []SGuestdisk {
 	}
 	return guestdisks
 }
+
 func (self *SDisk) GetGuests() []SGuest {
 	result := make([]SGuest, 0)
 	query := GuestManager.Query()
@@ -316,6 +317,14 @@ func (self *SDisk) GetGuests() []SGuest {
 		return nil
 	}
 	return result
+}
+
+func (self *SDisk) GetGuest() *SGuest {
+	guests := self.GetGuests()
+	if len(guests) > 0 {
+		return &guests[0]
+	}
+	return nil
 }
 
 func (self *SDisk) GetGuestsCount() (int, error) {
@@ -712,54 +721,60 @@ func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.Tok
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "resize")
 }
 
-func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	sizeStr, err := data.GetString("size")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("size")
-	}
-	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
+func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guest := disk.GetGuest()
+	err := disk.doResize(ctx, userCred, data, guest)
 	if err != nil {
 		return nil, err
 	}
-	if self.Status != api.DISK_READY {
-		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
+	return nil, nil
+}
+
+func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, guest *SGuest) error {
+	sizeStr, err := data.GetString("size")
+	if err != nil {
+		return httperrors.NewMissingParameterError("size")
 	}
-	if sizeMb < self.DiskSize {
-		return nil, httperrors.NewUnsupportOperationError("Disk cannot be thrink")
+	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
+	if err != nil {
+		return err
 	}
-	if sizeMb == self.DiskSize {
-		return nil, nil
+	if disk.Status != api.DISK_READY {
+		return httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
 	}
-	addDisk := sizeMb - self.DiskSize
-	storage := self.GetStorage()
+	if sizeMb < disk.DiskSize {
+		return httperrors.NewUnsupportOperationError("Disk cannot be thrink")
+	}
+	if sizeMb == disk.DiskSize {
+		return nil
+	}
+	addDisk := sizeMb - disk.DiskSize
+	storage := disk.GetStorage()
 	if host := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			return httperrors.NewInputParameterError(err.Error())
 		}
 	}
 	if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
-		return nil, httperrors.NewOutOfResourceError("Not enough free space")
+		return httperrors.NewOutOfResourceError("Not enough free space")
 	}
-	if guests := self.GetGuests(); len(guests) > 0 {
-		if err := guests[0].ValidateResizeDisk(self, storage); err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+	if guest != nil {
+		if err := guest.ValidateResizeDisk(disk, storage); err != nil {
+			return httperrors.NewInputParameterError(err.Error())
 		}
 	}
 	pendingUsage := SQuota{Storage: int(addDisk)}
 
 	quotaName := storage.getQuotaPlatformID()
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaName, &pendingUsage); err != nil {
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
+		return httperrors.NewOutOfQuotaError(err.Error())
 	}
 
-	guests := self.GetGuests()
-
-	var guest *SGuest
-	if len(guests) == 1 {
-		guest = &guests[0]
+	if guest != nil {
+		return guest.StartGuestDiskResizeTask(ctx, userCred, disk.Id, int64(sizeMb), "", &pendingUsage)
+	} else {
+		return disk.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage)
 	}
-
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, guest)
 }
 
 func (self *SDisk) AllowPerformApplySnapshotPolicy(ctx context.Context,
@@ -1672,17 +1687,15 @@ func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return self.getMoreDetails(extra)
 }
 
-func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota, guest *SGuest) error {
+func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
+	self.SetStatus(userCred, api.DISK_START_RESIZE, "StartDiskResizeTask")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(sizeMb), "size")
-	if guest != nil {
-		params.Add(jsonutils.NewString(guest.Id), "guest_id")
-	}
-	if task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage); err != nil {
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage)
+	if err != nil {
 		return err
-	} else {
-		task.ScheduleRun(nil)
 	}
+	task.ScheduleRun(nil)
 	return nil
 }
 

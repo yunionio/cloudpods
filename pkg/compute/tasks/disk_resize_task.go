@@ -39,30 +39,16 @@ func init() {
 
 func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk, userCred mcclient.TokenCredential, reason string) {
 	// 此函数主要避免虚机更改配置时，虚机可能出现中间状态
-	if self.HasParentTask() {
-		// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
-		disk.SetStatus(userCred, api.DISK_READY, reason)
-	} else {
-		// 若不是子任务，由于扩容时设置了关联的虚机状态，虚机的状态也由自己恢复
-		disk.SetDiskReady(ctx, userCred, reason)
-	}
+	// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
+	disk.SetStatus(userCred, api.DISK_READY, reason)
+	// 若不是子任务，由于扩容时设置了关联的虚机状态，虚机的状态也由自己恢复
 }
 
 func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 
-	guestId, _ := self.Params.GetString("guest_id")
-	var masterGuest *models.SGuest
-	if len(guestId) > 0 {
-		masterGuest = models.GuestManager.FetchGuestById(guestId)
-	}
-
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
-
-	if masterGuest != nil {
-		host = masterGuest.GetHost()
-	}
 
 	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != api.HOST_ONLINE {
@@ -74,17 +60,14 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 
 	disk.SetStatus(self.GetUserCred(), api.DISK_START_RESIZE, "")
-	if masterGuest != nil {
-		masterGuest.SetStatus(self.GetUserCred(), api.VM_RESIZE_DISK, "")
-	}
-	self.StartResizeDisk(ctx, host, storage, disk, masterGuest)
+	self.StartResizeDisk(ctx, host, storage, disk)
 }
 
-func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest) {
+func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk) {
 	log.Infof("Resizing disk on host %s ...", host.GetName())
 	self.SetStage("OnDiskResizeComplete", nil)
 	sizeMb, _ := self.GetParams().Int("size")
-	if err := host.GetHostDriver().RequestResizeDiskOnHost(ctx, host, storage, disk, guest, sizeMb, self); err != nil {
+	if err := host.GetHostDriver().RequestResizeDiskOnHost(ctx, host, storage, disk, sizeMb, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
@@ -137,37 +120,13 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 }
 
 func (self *DiskResizeTask) OnDiskResized(ctx context.Context, disk *models.SDisk) {
-	guestId, _ := self.Params.GetString("guest_id")
-	if len(guestId) > 0 {
-		self.SetStage("TaskComplete", nil)
-		masterGuest := models.GuestManager.FetchGuestById(guestId)
-		if self.HasParentTask() {
-			masterGuest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetId())
-		} else {
-			masterGuest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
-		}
-	} else {
-		self.TaskComplete(ctx, disk, nil)
-	}
-}
-
-func (self *DiskResizeTask) TaskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, disk.GetShortDesc(ctx))
 	self.finalReleasePendingUsage(ctx)
-}
-
-func (self *DiskResizeTask) TaskCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetDiskReady(ctx, disk, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
-	guestId, _ := self.Params.GetString("guest_id")
-	if len(guestId) > 0 {
-		masterGuest := models.GuestManager.FetchGuestById(guestId)
-		masterGuest.SetStatus(self.UserCred, api.VM_RESIZE_DISK_FAILED, data.String())
-	}
 	self.SetStageFailed(ctx, data.String())
 }

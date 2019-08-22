@@ -62,7 +62,7 @@ func (self *SBaremetalHostDriver) RequestRebuildDiskOnStorage(ctx context.Contex
 	return fmt.Errorf("not supported")
 }
 
-func (self *SBaremetalHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
+func (self *SBaremetalHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
 	return fmt.Errorf("not supported")
 }
 

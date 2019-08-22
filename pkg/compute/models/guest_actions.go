@@ -1963,7 +1963,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 
 	disks := self.GetDisks()
 	var addDisk int
-	var diskIdx = 1
 	var newDiskIdx = 0
 	var diskSizes = make(map[string]int, 0)
 	var newDisks = make([]*api.DiskConfig, 0)
@@ -1976,6 +1975,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 
+	var diskIdx = 1
 	for _, diskConf := range inputDisks {
 		diskConf, err = parseDiskInfo(ctx, userCred, diskConf)
 		if err != nil {
@@ -3426,4 +3426,46 @@ func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.T
 		}
 	}
 	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+}
+
+func (guest *SGuest) AllowPerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return guest.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, guest, "resize-disk")
+}
+
+func (guest *SGuest) PerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	diskStr, _ := data.GetString("disk")
+	if len(diskStr) == 0 {
+		return nil, httperrors.NewMissingParameterError("disk")
+	}
+	diskObj, err := DiskManager.FetchByIdOrName(userCred, diskStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(DiskManager.Keyword(), diskStr)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	guestdisk := guest.GetGuestDisk(diskObj.GetId())
+	if guestdisk == nil {
+		return nil, httperrors.NewInvalidStatusError("disk %s not attached to server", diskStr)
+	}
+	disk := diskObj.(*SDisk)
+	err = disk.doResize(ctx, userCred, data, guest)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, diskId string, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
+	guest.SetStatus(userCred, api.VM_START_RESIZE_DISK, "StartGuestDiskResizeTask")
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewInt(sizeMb), "size")
+	params.Add(jsonutils.NewString(diskId), "disk_id")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestResizeDiskTask", guest, userCred, params, parentTaskId, "", pendingUsage)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

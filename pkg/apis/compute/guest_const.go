@@ -88,11 +88,13 @@ const (
 	VM_SYNC_CONFIG    = "sync_config"
 	VM_SYNC_FAIL      = "sync_fail"
 
+	VM_START_RESIZE_DISK  = "start_resize_disk"
 	VM_RESIZE_DISK        = "resize_disk"
 	VM_RESIZE_DISK_FAILED = "resize_disk_fail"
-	VM_START_SAVE_DISK    = "start_save_disk"
-	VM_SAVE_DISK          = "save_disk"
-	VM_SAVE_DISK_FAILED   = "save_disk_failed"
+
+	VM_START_SAVE_DISK  = "start_save_disk"
+	VM_SAVE_DISK        = "save_disk"
+	VM_SAVE_DISK_FAILED = "save_disk_failed"
 
 	VM_RESTORING_SNAPSHOT = "restoring_snapshot"
 	VM_RESTORE_DISK       = "restore_disk"
