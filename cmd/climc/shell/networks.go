@@ -210,6 +210,7 @@ func init() {
 		NETMASK     int64  `help:"Length of network mask"`
 		Gateway     string `help:"Default gateway"`
 		VlanId      int64  `help:"Vlan ID" default:"1"`
+		IfnameHint  string `help:"Hint for ifname generation"`
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
 		ServerType  string `help:"Server type" choices:"baremetal|guest|container|pxe|ipmi"`
 		Desc        string `help:"Description" metavar:"DESCRIPTION"`
@@ -228,6 +229,9 @@ func init() {
 		}
 		if len(args.ServerType) > 0 {
 			params.Add(jsonutils.NewString(args.ServerType), "server_type")
+		}
+		if len(args.IfnameHint) > 0 {
+			params.Add(jsonutils.NewString(args.IfnameHint), "ifname_hint")
 		}
 		if len(args.AllocPolicy) > 0 {
 			params.Add(jsonutils.NewString(args.AllocPolicy), "alloc_policy")
