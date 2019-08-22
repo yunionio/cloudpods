@@ -72,7 +72,7 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 }
 
 func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
-	return isObjectRbacAllowed(item.Master(), userCred, action, extra...) && isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
+	return isObjectRbacAllowed(item.Master(), userCred, action, extra...) || isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
 }
 
 func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential, objOwnerId mcclient.IIdentityProvider, action string, extra ...string) bool {
