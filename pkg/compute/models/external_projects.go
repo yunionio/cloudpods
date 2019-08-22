@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -58,8 +58,6 @@ type SExternalProject struct {
 	db.SProjectizedResourceBase
 
 	db.SExternalizedResourceBase
-
-	//ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
 }
 
 func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -67,21 +65,7 @@ func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, user
 }
 
 func (self *SExternalProject) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if project := jsonutils.GetAnyString(data, []string{"project_id", "project", "tenant_id", "tenant"}); len(project) > 0 {
-		_project, err := db.TenantCacheManager.FetchByIdOrName(userCred, project)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewTenantNotFoundError("tenant %s not find", project)
-			}
-			return nil, err
-		}
-		data.Set("tenant_id", jsonutils.NewString(_project.GetId()))
-	}
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	return false
 }
 
 func (manager *SExternalProjectManager) getProjectsByProviderId(providerId string) ([]SExternalProject, error) {
@@ -234,6 +218,58 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 
 	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
 	return &project, nil
+}
+
+func (self *SExternalProject) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "change-project")
+}
+
+func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	project, err := data.GetString("project")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("project")
+	}
+
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("project %s not found", project)
+	}
+
+	if self.ProjectId == tenant.Id {
+		return nil, nil
+	}
+
+	if self.DomainId != tenant.DomainId {
+		return nil, httperrors.NewForbiddenError("not allow change project across domain")
+	}
+
+	notes := struct {
+		OldProjectId string
+		OldDomainId  string
+		NewProjectId string
+		NewProject   string
+		NewDomainId  string
+		NewDomain    string
+	}{
+		OldProjectId: self.ProjectId,
+		OldDomainId:  self.DomainId,
+		NewProjectId: tenant.Id,
+		NewProject:   tenant.Name,
+		NewDomainId:  tenant.DomainId,
+		NewDomain:    tenant.Domain,
+	}
+
+	_, err = db.Update(self, func() error {
+		self.ProjectId = tenant.Id
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update external project error: %v", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
+	return nil, nil
 }
 
 func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
