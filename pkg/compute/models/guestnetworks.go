@@ -224,7 +224,7 @@ func (self *SGuestnetwork) getVirtualRand(width int, randomized bool) string {
 
 func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, randomized bool) string {
 	pattern := regexp.MustCompile(`\W+`)
-	nName := pattern.ReplaceAllString(network.Name, "")
+	nName := pattern.ReplaceAllString(network.IfnameHint, "")
 	if len(nName) > MAX_IFNAME_SIZE-4 {
 		nName = nName[:(MAX_IFNAME_SIZE - 4)]
 	}
