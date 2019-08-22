@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -76,14 +77,14 @@ func init() {
 			"networks",
 		),
 	}
-	NetworkManager.NameLength = 9
-	NetworkManager.NameRequireAscii = true
 	NetworkManager.SetVirtualObject(NetworkManager)
 }
 
 type SNetwork struct {
 	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
+
+	IfnameHint string `width:"9" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
 	GuestIpEnd   string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
@@ -1107,6 +1108,39 @@ func isValidMaskLen(maskLen int64) bool {
 	}
 }
 
+func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
+	r := ""
+	// sanitize hint
+	for _, c := range hint {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			r += string(c)
+		}
+	}
+	newHint := func() (string, error) {
+		for i := 0; i < 3; i++ {
+			r := rand.String(7)
+			cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError()
+			if err == nil && cnt == 0 {
+				return r, nil
+			}
+		}
+		return "", fmt.Errorf("failed finding ifname hint after 3 tries")
+	}
+	if len(r) < 3 {
+		return newHint()
+	}
+	if len(r) > 9 {
+		r = r[:9]
+	}
+	if cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError(); err != nil {
+		return "", err
+	} else if cnt > 0 {
+		r, err := newHint()
+		return r, err
+	}
+	return r, nil
+}
+
 func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	prefixStr, _ := data.GetString("guest_ip_prefix")
 	var maskLen64 int64
@@ -1145,6 +1179,18 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	data.Add(jsonutils.NewInt(maskLen64), "guest_ip_mask")
 	data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
 	data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
+
+	{
+		hint, _ := data.GetString("ifname_hint")
+		if hint == "" {
+			hint, _ = data.GetString("name")
+		}
+		hint, err = manager.newIfnameHint(hint)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("cannot derive valid ifname hint: %v", err)
+		}
+		data.Set("ifname_hint", jsonutils.NewString(hint))
+	}
 
 	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
 		ipStr, _ := data.GetString(key)
@@ -1703,9 +1749,26 @@ func (manager *SNetworkManager) InitializeData() error {
 		return err
 	}
 	for _, n := range networks {
-		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == api.NETWORK_STATUS_INIT {
+		if n.ExternalId != "" {
+			var statusNew string
+			if n.WireId != "" && n.Status == api.NETWORK_STATUS_INIT {
+				statusNew = api.NETWORK_STATUS_AVAILABLE
+			}
 			db.Update(&n, func() error {
-				n.Status = api.NETWORK_STATUS_AVAILABLE
+				if statusNew != "" {
+					n.Status = statusNew
+				}
+				return nil
+			})
+		} else {
+			var ifnameHintNew string
+			if n.IfnameHint == "" {
+				ifnameHintNew = n.Name
+			}
+			db.Update(&n, func() error {
+				if ifnameHintNew != "" {
+					n.IfnameHint = ifnameHintNew
+				}
 				return nil
 			})
 		}
