@@ -12,12 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rbacutils
 
 import (
-	"yunion.io/x/onecloud/pkg/notify"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func main() {
-	notify.StartService()
-}
+const (
+	ActionList    = "list"
+	ActionGet     = "get"
+	ActionUpdate  = "update"
+	ActionCreate  = "create"
+	ActionDelete  = "delete"
+	ActionPerform = "perform"
+
+	ActionPatch = "patch"
+)
+
+var (
+	AllActions = []string{
+		ActionList,
+		ActionGet,
+		ActionUpdate,
+		ActionCreate,
+		ActionDelete,
+		ActionPerform,
+	}
+
+	AllSortedActions = stringutils2.NewSortedStrings(AllActions)
+)
