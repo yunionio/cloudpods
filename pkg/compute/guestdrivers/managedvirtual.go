@@ -722,7 +722,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 						return true
 					}
 				} else {
-					if iVM.GetVcpuCount() == int(vcpuCount) && iVM.GetVmemSizeMB() == int(vmemSize) {
+					// aws 目前取不到内存。返回值永远为0
+					if iVM.GetVcpuCount() == int(vcpuCount) && (iVM.GetVmemSizeMB() == int(vmemSize) || iVM.GetVmemSizeMB() == 0) {
 						return true
 					}
 				}
