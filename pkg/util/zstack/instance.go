@@ -333,7 +333,7 @@ func (region *SRegion) UpdateVM(instanceId string, params jsonutils.JSONObject) 
 	return err
 }
 
-func (instance *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	if instance.Name != name || instance.Description != description {
 		params := map[string]interface{}{
 			"updateVmInstance": map[string]string{
@@ -349,7 +349,7 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, password s
 	if len(password) > 0 {
 		params := map[string]interface{}{
 			"changeVmPassword": map[string]string{
-				"account":  api.VM_ZSTACK_DEFAULT_LOGIN_USER,
+				"account":  username,
 				"password": password,
 			},
 		}

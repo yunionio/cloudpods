@@ -432,7 +432,7 @@ func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (instance *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (instance *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return instance.host.zone.region.DeployVM(instance.ID, name, password, publicKey, deleteKeypair, description)
 }
 
