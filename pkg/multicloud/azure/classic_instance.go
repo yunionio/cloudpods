@@ -319,7 +319,7 @@ func (self *SClassicInstance) ChangeConfig(ctx context.Context, config *cloudpro
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SClassicInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SClassicInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 	//return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
 }

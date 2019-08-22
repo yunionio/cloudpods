@@ -451,7 +451,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 			desc.Password = ""
 		}
 
-		e := iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
+		e := iVM.DeployVM(ctx, desc.Name, desc.Account, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
 		if e != nil {
 			return e
 		}
@@ -459,7 +459,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 		//解绑秘钥后需要重置密码
 		if deleteKeypair {
 			desc.Password = seclib2.RandomPassword2(12)
-			return iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, false, desc.Description)
+			return iVM.DeployVM(ctx, desc.Name, desc.Account, desc.Password, desc.PublicKey, false, desc.Description)
 		}
 		return nil
 	}()
