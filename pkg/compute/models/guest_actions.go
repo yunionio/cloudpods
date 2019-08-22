@@ -1721,7 +1721,7 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 
 	netStr, _ := data.GetString("net_id")
 	if len(netStr) > 0 {
-		netObj, err := NetworkManager.FetchById(netStr)
+		netObj, err := NetworkManager.FetchByIdOrName(userCred, netStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), netStr)
