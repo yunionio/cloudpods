@@ -56,6 +56,10 @@ func (d diskW) ResourceKeyword() string {
 	return "storage"
 }
 
+func (d diskW) IsSpecifyResource() bool {
+	return d.Storage != ""
+}
+
 func (d diskW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return d.DiskConfig.Schedtags
 }
