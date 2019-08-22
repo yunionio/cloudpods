@@ -831,7 +831,10 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 			}
 		}
 		net := netObj.(*SNetwork)
-		if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) ||
+		if net.IsPublic ||
+			net.ProjectId == userCred.GetProjectId() ||
+			(db.IsDomainAllowGet(userCred, net) && net.DomainId == userCred.GetProjectDomainId()) ||
+			db.IsAdminAllowGet(userCred, net) ||
 			utils.IsInStringArray(userCred.GetProjectId(), net.GetSharedProjects()) {
 			info.Network = netObj.GetId()
 		} else {
