@@ -316,14 +316,24 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	requestURL := cli.getURL(resource, resourceId, spec)
-	err := cli.sign(requestURL, "GET", header)
-	if err != nil {
-		return nil, err
+	var resp jsonutils.JSONObject
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*5 {
+		err := cli.sign(requestURL, "GET", header)
+		if err != nil {
+			return nil, err
+		}
+		_, resp, err = httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded while awaiting headers") {
+				time.Sleep(time.Second * 5)
+				continue
+			}
+			return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s %s", resource, resourceId, spec))
+		}
+		break
 	}
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s %s", resource, resourceId, spec))
-	}
+
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
 		return cli.wait(client, header, "get", requestURL, jsonutils.NewDict(), location)
