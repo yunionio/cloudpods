@@ -484,7 +484,7 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	var keypairName string
 	if len(publicKey) > 0 {
 		var err error
