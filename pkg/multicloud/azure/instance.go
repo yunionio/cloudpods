@@ -660,7 +660,7 @@ func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, nc
 	return instacen.ChangeConfig(ctx, &cloudprovider.SManagedVMChangeConfig{Cpu: ncpu, MemoryMB: vmem})
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	if len(publicKey) > 0 || len(password) > 0 {
 		// 先判断系统是否安装了vmAgent,然后等待扩展准备完成后再重置密码
 		err := self.WaitEnableVMAccessReady()
