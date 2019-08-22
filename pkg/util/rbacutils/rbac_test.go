@@ -475,10 +475,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			true,
 		},
 	}
-	for _, c := range cases {
-		got := c.policy.Match(c.userCred)
+	for i, c := range cases {
+		got, _ := c.policy.Match(c.userCred)
 		if got != c.want {
-			t.Errorf("%#v %#v got %v want %v", c.policy, c.userCred, got, c.want)
+			t.Errorf("[%d]: %#v %#v got %v want %v", i, c.policy, c.userCred, got, c.want)
 		}
 	}
 }
