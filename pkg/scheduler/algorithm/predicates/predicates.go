@@ -282,6 +282,7 @@ func (p *PredicatedSchedtagResource) hasAvoidTags() bool {
 type ISchedtagCustomer interface {
 	JSON(interface{}) *jsonutils.JSONDict
 	Keyword() string
+	IsSpecifyResource() bool
 	GetSchedtags() []*computeapi.SchedtagConfig
 	ResourceKeyword() string
 }
@@ -330,7 +331,7 @@ func (p *BaseSchedtagPredicate) check(input ISchedtagCustomer, candidate ISchedt
 	res := &PredicatedSchedtagResource{
 		ISchedtagCandidateResource: candidate,
 	}
-	if shouldExec {
+	if shouldExec && !input.IsSpecifyResource() {
 		if err := tagPredicate.Check(
 			SchedtagResourceW{
 				candidater: candidate,
