@@ -784,8 +784,12 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html#ZH-CN_TOPIC_0020212668__table761103195216
-	params.KeyName = keypair
-	params.AdminPass = passwd
+	if len(keypair) > 0 {
+		params.KeyName = keypair
+	} else {
+		params.AdminPass = passwd
+	}
+
 	if len(userData) > 0 {
 		pwd := ""
 		k := ""
