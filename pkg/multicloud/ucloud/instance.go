@@ -477,7 +477,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	}
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	if len(publicKey) > 0 {
 		return fmt.Errorf("DeployVM not support assign ssh keypair")
 	}

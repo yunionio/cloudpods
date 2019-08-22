@@ -460,7 +460,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	return diskId, nil
 }
 
-func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, publicKey, deleteKeypair, description)
 }
 
