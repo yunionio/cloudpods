@@ -259,7 +259,7 @@ type ICloudVM interface {
 
 	RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error)
 
-	DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error
+	DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error
 
 	ChangeConfig(ctx context.Context, ncpu int, vmem int) error
 	ChangeConfig2(ctx context.Context, instanceType string) error // instanceType support
