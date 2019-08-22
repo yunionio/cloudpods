@@ -38,13 +38,13 @@ import (
 const (
 	PolicyDelegation = "delegate"
 
-	PolicyActionList    = "list"
-	PolicyActionGet     = "get"
-	PolicyActionUpdate  = "update"
-	PolicyActionPatch   = "patch"
-	PolicyActionCreate  = "create"
-	PolicyActionDelete  = "delete"
-	PolicyActionPerform = "perform"
+	PolicyActionList    = rbacutils.ActionList
+	PolicyActionGet     = rbacutils.ActionGet
+	PolicyActionUpdate  = rbacutils.ActionUpdate
+	PolicyActionPatch   = rbacutils.ActionPatch
+	PolicyActionCreate  = rbacutils.ActionCreate
+	PolicyActionDelete  = rbacutils.ActionDelete
+	PolicyActionPerform = rbacutils.ActionPerform
 )
 
 type PolicyFetchFunc func() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error)
@@ -307,25 +307,53 @@ func (manager *SPolicyManager) findPolicyByName(scope rbacutils.TRbacScope, name
 	return nil
 }
 
+func getMatchedPolicyNames(policies map[string]*rbacutils.SRbacPolicy, userCred rbacutils.IRbacIdentity) []string {
+	matchNames := make([]string, 0)
+	maxMatchWeight := 0
+	for k := range policies {
+		isMatched, matchWeight := policies[k].Match(userCred)
+		if !isMatched || matchWeight < maxMatchWeight {
+			continue
+		}
+		if maxMatchWeight < matchWeight {
+			maxMatchWeight = matchWeight
+			matchNames = matchNames[:0]
+		}
+		matchNames = append(matchNames, k)
+	}
+	return matchNames
+}
+
+func getMatchedPolicyRules(policies map[string]*rbacutils.SRbacPolicy, userCred rbacutils.IRbacIdentity, service string, resource string, action string, extra ...string) ([]rbacutils.SRbacRule, bool) {
+	matchRules := make([]rbacutils.SRbacRule, 0)
+	findMatchPolicy := false
+	maxMatchWeight := 0
+	for k := range policies {
+		isMatched, matchWeight := policies[k].Match(userCred)
+		if !isMatched || matchWeight < maxMatchWeight {
+			continue
+		}
+		if maxMatchWeight < matchWeight {
+			maxMatchWeight = matchWeight
+			matchRules = matchRules[:0]
+		}
+		findMatchPolicy = true
+		rule := policies[k].GetMatchRule(service, resource, action, extra...)
+		if rule != nil {
+			matchRules = append(matchRules, *rule)
+		}
+	}
+	return matchRules, findMatchPolicy
+}
+
 func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	matchRules := make([]rbacutils.SRbacRule, 0)
-
 	findMatchPolicy := false
-
 	policies, ok := manager.policies[scope]
 	if !ok {
 		log.Warningf("no policies fetched for scope %s", scope)
 	} else {
-		for i := range policies {
-			if !policies[i].Match(userCred) {
-				continue
-			}
-			findMatchPolicy = true
-			rule := policies[i].GetMatchRule(service, resource, action, extra...)
-			if rule != nil {
-				matchRules = append(matchRules, *rule)
-			}
-		}
+		matchRules, findMatchPolicy = getMatchedPolicyRules(policies, userCred, service, resource, action, extra...)
 	}
 
 	scopedDeny := false
@@ -358,7 +386,8 @@ func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, use
 	defaultPolicies, ok := manager.defaultPolicies[scope]
 	if ok {
 		for i := range defaultPolicies {
-			if !defaultPolicies[i].Match(userCred) {
+			isMatched, _ := defaultPolicies[i].Match(userCred)
+			if !isMatched {
 				continue
 			}
 			rule := defaultPolicies[i].GetMatchRule(service, resource, action, extra...)
@@ -476,10 +505,9 @@ func (manager *SPolicyManager) IsScopeCapable(userCred mcclient.TokenCredential,
 	}
 
 	if policies, ok := manager.policies[scope]; ok {
-		for _, p := range policies {
-			if p.Match(userCred) {
-				return true
-			}
+		pnames := getMatchedPolicyNames(policies, userCred)
+		if len(pnames) > 0 {
+			return true
 		}
 	}
 	return false
@@ -491,12 +519,7 @@ func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userC
 	if !ok {
 		return ret
 	}
-	for k, p := range policies {
-		if p.Match(userCred) {
-			ret = append(ret, k)
-		}
-	}
-	return ret
+	return getMatchedPolicyNames(policies, userCred)
 }
 
 func (manager *SPolicyManager) AllPolicies() map[string][]string {
