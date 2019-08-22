@@ -294,13 +294,14 @@ func (driver *SKVMHostDriver) RequestDeallocateBackupDiskOnHost(ctx context.Cont
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
 	header := task.GetTaskRequestHeader()
 
 	url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	content := jsonutils.NewDict()
 	content.Add(jsonutils.NewInt(sizeMb), "size")
+	guest := disk.GetGuest()
 	if guest != nil {
 		content.Add(jsonutils.NewString(guest.Id), "server_id")
 	}
@@ -308,33 +309,6 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *m
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
-
-/*
-func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
-	header := task.GetTaskRequestHeader()
-
-	guests := disk.GetAttachedGuests()
-	if len(guests) == 0 {
-		return fmt.Errorf("no valid guest")
-	}
-	if len(guests) > 1 {
-		return fmt.Errorf("cannot resize across more than 1 guest")
-	}
-	guest := guests[0]
-
-	guestdisk := guest.GetGuestDisk(disk.GetId())
-	url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())
-	body := jsonutils.NewDict()
-	cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, sizeMb)
-	body.Add(jsonutils.NewString(cmd), "cmd")
-
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
-	})
-
-	return nil
-}
-*/
 
 func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
 	body := jsonutils.NewDict()
