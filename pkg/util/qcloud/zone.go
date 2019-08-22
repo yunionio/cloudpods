@@ -127,14 +127,20 @@ func (self *SZone) fetchStorages() error {
 	}
 	storageTypes := []string{}
 	for _, diskConfig := range diskConfigSet {
-		if diskConfig.Available && !utils.IsInStringArray(diskConfig.DiskType, storageTypes) {
-			storageTypes = append(storageTypes, diskConfig.DiskType)
-			storage := SStorage{zone: self, storageType: diskConfig.DiskType}
+		if !utils.IsInStringArray(strings.ToUpper(diskConfig.DiskType), storageTypes) {
+			storageTypes = append(storageTypes, strings.ToUpper(diskConfig.DiskType))
+			storage := SStorage{zone: self, storageType: diskConfig.DiskType, available: diskConfig.Available}
+			self.istorages = append(self.istorages, &storage)
+		}
+	}
+	for _, storageType := range []string{"CLOUD_PREMIUM", "CLOUD_SSD", "CLOUD_BASIC"} {
+		if !utils.IsInStringArray(storageType, storageTypes) {
+			storage := SStorage{zone: self, storageType: storageType, available: false}
 			self.istorages = append(self.istorages, &storage)
 		}
 	}
 	for _, localstorageType := range []string{"LOCAL_BASIC", "LOCAL_SSD"} {
-		storage := SLocalStorage{zone: self, storageType: localstorageType}
+		storage := SLocalStorage{zone: self, storageType: localstorageType, available: self.region.GetId() == "ap-hongkong"} //仅有香港本地存储可用
 		self.istorages = append(self.istorages, &storage)
 	}
 	return nil
@@ -172,7 +178,7 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 			//return &SStorage{zone: self, storageType: strings.ToUpper(storages[i].GetStorageType())}, nil
 		}
 		storage := storages[i].(*SStorage)
-		if storage.storageType == category {
+		if strings.ToLower(storage.storageType) == strings.ToLower(category) {
 			return storage, nil
 		}
 	}
