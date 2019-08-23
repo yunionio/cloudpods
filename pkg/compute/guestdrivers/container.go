@@ -143,12 +143,6 @@ func (self *SContainerDriver) RequestUndeployGuestOnHost(ctx context.Context, gu
 	return err
 }
 
-func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	guest.SetStatus(task.GetUserCred(), api.VM_RUNNING, "on deploy complete")
-	task.SetStageComplete(ctx, nil)
-	return nil
-}
-
 func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
