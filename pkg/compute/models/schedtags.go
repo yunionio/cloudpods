@@ -63,6 +63,7 @@ type IModelWithSchedtag interface {
 
 type SSchedtagManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SScopedResourceBaseManager
 
 	jointsManager map[string]ISchedtagJointManager
 }
@@ -121,6 +122,7 @@ func (manager *SSchedtagManager) GetResourceTypes() []string {
 
 type SSchedtag struct {
 	db.SStandaloneResourceBase
+	db.SScopedResourceBase
 
 	DefaultStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 	ResourceType    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`                                 // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
@@ -301,6 +303,7 @@ func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
 }
 
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	extra = self.SScopedResourceBase.GetMoreColumns(extra)
 	cnt, _ := self.GetObjectCount()
 	extra.Add(jsonutils.NewInt(int64(cnt)), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
 	cnt, _ = self.getDynamicSchedtagCount()
@@ -457,4 +460,12 @@ func GetSchedtagsDetailsToResource(obj IModelWithSchedtag, ctx context.Context, 
 		extra.Add(jsonutils.NewArray(info...), "schedtags")
 	}
 	return extra
+}
+
+func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (s *SSchedtag) PerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return SchedtagManager.PerformSetScope(ctx, s, userCred, data)
 }
