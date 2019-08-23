@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -51,8 +52,8 @@ type SSnapshotPolicy struct {
 	// 0~6, 0 is Monday
 	RepeatWeekdays uint8 `charset:"utf8" create:"required"`
 	// 0~23
-	TimePoints  uint32 `charset:"utf8" create:"required"`
-	IsActivated bool   `list:"user" get:"user" create:"optional" default:"true"`
+	TimePoints  uint32            `charset:"utf8" create:"required"`
+	IsActivated tristate.TriState `list:"user" get:"user" create:"optional" default:"true"`
 }
 
 var SnapshotPolicyManager *SSnapshotPolicyManager
