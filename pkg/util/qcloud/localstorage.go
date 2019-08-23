@@ -13,6 +13,7 @@ import (
 type SLocalStorage struct {
 	zone        *SZone
 	storageType string
+	available   bool
 }
 
 func (self *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
@@ -70,6 +71,9 @@ func (self *SLocalStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (self *SLocalStorage) GetStatus() string {
+	if !self.available {
+		return api.STORAGE_OFFLINE
+	}
 	return api.STORAGE_ONLINE
 }
 
@@ -79,7 +83,7 @@ func (self *SLocalStorage) Refresh() error {
 }
 
 func (self *SLocalStorage) GetEnabled() bool {
-	return true
+	return self.available == true
 }
 
 func (self *SLocalStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
