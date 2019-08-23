@@ -25,7 +25,6 @@ var (
 		"vpcs",
 		"route_tables",
 		"cloudregions",
-		"schedtags",
 		"serverskus",
 		"cachedimages",
 		"dynamicschedtags",
