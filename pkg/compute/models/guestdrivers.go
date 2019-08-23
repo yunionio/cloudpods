@@ -96,8 +96,6 @@ type IGuestDriver interface {
 
 	OnGuestDeployTaskDataReceived(ctx context.Context, guest *SGuest, task taskman.ITask, data jsonutils.JSONObject) error
 
-	OnGuestDeployTaskComplete(ctx context.Context, guest *SGuest, task taskman.ITask) error
-
 	StartGuestSyncstatusTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error
 
 	RequestSyncConfigOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
