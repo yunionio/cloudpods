@@ -6,6 +6,9 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
-RUN apk add --no-cache sshpass ipmitool openssh-client
+RUN apk add --no-cache sshpass ipmitool openssh-client tzdata ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
 ADD ./_output/bin/webconsole /opt/yunion/bin/webconsole
