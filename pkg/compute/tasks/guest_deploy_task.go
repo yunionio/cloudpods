@@ -108,7 +108,6 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	log.Infof("on_guest_deploy_task_data_received %s", data)
 	guest := obj.(*models.SGuest)
 	guest.GetDriver().OnGuestDeployTaskDataReceived(ctx, guest, self, data)
-	guest.GetDriver().OnGuestDeployTaskComplete(ctx, guest, self)
 	action, _ := self.Params.GetString("deploy_action")
 	keypair, _ := self.Params.GetString("keypair")
 	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
@@ -132,6 +131,19 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	if !_log {
 		// 如果 deploy 有其他事件，统一记在这里。
 		logclient.AddActionLogWithStartable(self, guest, "misc部署", "", self.UserCred, true)
+	}
+
+	if self.HasParentTask() {
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	if jsonutils.QueryBoolean(self.GetParams(), "restart", false) {
+		self.SetStage("OnDeployStartGuestComplete", nil)
+		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
+	} else {
+		self.SetStage("OnDeployGuestSyncstatusComplete", nil)
+		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 	}
 }
 
