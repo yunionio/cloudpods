@@ -39,11 +39,9 @@ func (self *SGuestBaseTask) SetStageFailed(ctx context.Context, reason string) {
 func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage)
-	if err != nil {
-		if !pendingUsage.IsEmpty() {
-			guest := self.getGuest()
-			quotaPlatform := guest.GetQuotaPlatformID()
-			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
-		}
+	if err == nil && !pendingUsage.IsEmpty() {
+		guest := self.getGuest()
+		quotaPlatform := guest.GetQuotaPlatformID()
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
 	}
 }
