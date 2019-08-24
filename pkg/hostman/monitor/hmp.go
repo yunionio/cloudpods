@@ -453,3 +453,8 @@ func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, call
 	cmd := fmt.Sprintf("object_add %s,%s", objectType, strings.Join(paramsKvs, ","))
 	m.Query(cmd, callback)
 }
+
+func (m *HmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback StringCallback) {
+	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
+	m.Query(cmd, callback)
+}

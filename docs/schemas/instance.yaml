@@ -114,6 +114,17 @@ InstanceAddSecgroup:
       example: 38dc8e80-14e5-4629-81c1-3847320ae821
       description: 待绑定的安全组名称或ID
 
+InstanceIoThrottle:
+  type: object
+  properties:
+    iops:
+      type: integer
+      example: 1000
+      description: 最高iops
+    bps:
+      type: integer
+      example: 1000
+      description: 最高bps，单位MB
 
 InstanceRevokeSecgroup:
   type: object

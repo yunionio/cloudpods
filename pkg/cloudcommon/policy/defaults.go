@@ -92,18 +92,6 @@ var (
 				},
 				{
 					Service:  "compute",
-					Resource: "schedtags",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "schedtags",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "compute",
 					Resource: "cloudregions",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,

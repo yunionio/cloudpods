@@ -1155,3 +1155,54 @@ func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
 func (task *SGuestHotplugCpuMemTask) onSucc() {
 	hostutils.TaskComplete(task.ctx, nil)
 }
+
+type SGuestBlockIoThrottleTask struct {
+	*SKVMGuestInstance
+
+	ctx  context.Context
+	bps  int64
+	iops int64
+}
+
+func (task *SGuestBlockIoThrottleTask) Start() error {
+	task.findBlockDevices()
+	return nil
+}
+
+func (task *SGuestBlockIoThrottleTask) findBlockDevices() {
+	task.Monitor.GetBlocks(task.onBlockDriversSucc)
+}
+
+func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(res *jsonutils.JSONArray) {
+	drivers := make([]string, 0)
+	for i := 0; i < res.Length(); i++ {
+		device, err := res.GetAt(i)
+		if err == nil {
+			driver, err := device.GetString("device")
+			if err == nil {
+				if strings.HasPrefix(driver, "drive_") {
+					drivers = append(drivers, driver)
+				}
+			}
+		}
+	}
+	log.Infof("Drivers %s do io throttle bps %d iops %d", drivers, task.bps, task.iops)
+	task.doIoThrottle(drivers)
+}
+
+func (task *SGuestBlockIoThrottleTask) doIoThrottle(drivers []string) {
+	if len(drivers) == 0 {
+		hostutils.TaskComplete(task.ctx, nil)
+	} else {
+		driver := drivers[0]
+		drivers = drivers[1:]
+		_cb := func(res string) {
+			if len(res) > 0 {
+				hostutils.TaskFailed(task.ctx, res)
+			} else {
+				task.doIoThrottle(drivers)
+			}
+		}
+		task.Monitor.BlockIoThrottle(driver, task.bps, task.iops, _cb)
+	}
+}

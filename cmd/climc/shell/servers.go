@@ -1016,4 +1016,19 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerIoThrottle struct {
+		ID   string `help:"ID or name of VM" json:"-"`
+		BPS  int    `help:"bps(MB) of throttle" json:"bps"`
+		IOPS int    `help:"iops of throttle" json:"iops"`
+	}
+	R(&ServerIoThrottle{}, "server-io-throttle", "Guest io set throttle", func(s *mcclient.ClientSession, opts *ServerIoThrottle) error {
+		params := jsonutils.Marshal(opts)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "io-throttle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

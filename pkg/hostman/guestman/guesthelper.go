@@ -105,3 +105,9 @@ type SGuestCreateFromLibvirt struct {
 	GuestDesc   *jsonutils.JSONDict
 	DisksPath   *jsonutils.JSONDict
 }
+
+type SGuestIoThrottle struct {
+	Sid  string
+	BPS  int64
+	IOPS int64
+}

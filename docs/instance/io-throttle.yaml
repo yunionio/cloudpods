@@ -1,0 +1,16 @@
+post:
+  summary: 虚拟机磁盘IO限速
+  parameters: 
+    - $ref: '../parameters/instance.yaml#/instanceId'
+    - in: body
+      name: server
+      required: true
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceIoThrottle' 
+  responses:
+    200:
+      description: 实例信息
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceResponse'
+  tags:
+    - instance

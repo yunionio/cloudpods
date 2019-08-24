@@ -787,20 +787,26 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html#ZH-CN_TOPIC_0020212668__table761103195216
-	params.KeyName = keypair
 	if len(keypair) > 0 {
-		udata, err := updateUserData(userData, "root", "", publicKey)
-		if err != nil {
-			return "", errors.Wrap(err, "region.CreateInstance.UpdateUserData")
-		}
-		params.AdminPass = passwd
-		params.UserData = udata
+		params.KeyName = keypair
 	} else {
-		udata, err := updateUserData(userData, "root", passwd, "")
+		params.AdminPass = passwd
+	}
+
+	if len(userData) > 0 {
+		pwd := ""
+		k := ""
+		if len(keypair) > 0 {
+			k = keypair
+		} else {
+			pwd = passwd
+		}
+
+		udata, err := updateUserData(userData, "root", pwd, k)
 		if err != nil {
 			return "", errors.Wrap(err, "region.CreateInstance.UpdateUserData")
 		}
-		params.AdminPass = passwd
+
 		params.UserData = udata
 	}
 

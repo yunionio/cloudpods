@@ -40,20 +40,19 @@ type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}
 var (
 	keyWords    = []string{"servers"}
 	actionFuncs = map[string]actionFunc{
-		"create":  guestCreate,
-		"deploy":  guestDeploy,
-		"start":   guestStart,
-		"stop":    guestStop,
-		"monitor": guestMonitor,
-		"sync":    guestSync,
-		"suspend": guestSuspend,
+		"create":      guestCreate,
+		"deploy":      guestDeploy,
+		"start":       guestStart,
+		"stop":        guestStop,
+		"monitor":     guestMonitor,
+		"sync":        guestSync,
+		"suspend":     guestSuspend,
+		"io-throttle": guestIoThrottle,
 
 		"snapshot":             guestSnapshot,
 		"delete-snapshot":      guestDeleteSnapshot,
 		"reload-disk-snapshot": guestReloadDiskSnapshot,
 		// "remove-statefile":     guestRemoveStatefile,
-		// "io-throttle":          guestIoThrottle,
-
 		"src-prepare-migrate":  guestSrcPrepareMigrate,
 		"dest-prepare-migrate": guestDestPrepareMigrate,
 		"live-migrate":         guestLiveMigrate,
@@ -241,6 +240,26 @@ func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GuestSuspend, sid)
+	return nil, nil
+}
+
+func guestIoThrottle(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	guest, ok := guestman.GetGuestManager().Servers[sid]
+	if !ok {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	if !guest.IsRunning() {
+		return nil, httperrors.NewInvalidStatusError("Not running")
+	}
+	bps, err := body.Int("bps")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("bps")
+	}
+	iops, err := body.Int("iops")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("iops")
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GuestIoThrottle, &guestman.SGuestIoThrottle{sid, bps, iops})
 	return nil, nil
 }
 
