@@ -283,6 +283,7 @@ func (self *SGuest) StartMigrateTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	isRescueMode, autoStart bool, guestStatus, preferHostId, parentTaskId string,
 ) error {
+	self.SetStatus(userCred, api.VM_START_MIGRATE, "")
 	data := jsonutils.NewDict()
 	if isRescueMode {
 		data.Set("is_rescue_mode", jsonutils.JSONTrue)
@@ -3517,4 +3518,107 @@ func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mccli
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "batch-guest-migrate")
+}
+
+func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	params := new(api.GuestBatchMigrateRequest)
+	err := data.Unmarshal(params)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input error %s", err)
+	}
+	if len(params.GuestIds) == 0 {
+		return nil, httperrors.NewInputParameterError("missing guest id")
+	}
+
+	var preferHostId string
+	if len(params.PreferHost) > 0 {
+		if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
+			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHost)
+		if iHost == nil {
+			return nil, httperrors.NewBadRequestError("Host %s not found", params.PreferHost)
+		}
+		host := iHost.(*SHost)
+		preferHostId = host.Id
+	}
+
+	guests := make([]SGuest, 0)
+	q := GuestManager.Query().In("id", params.GuestIds)
+	err = db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError(err.Error())
+	}
+	if len(guests) != len(params.GuestIds) {
+		return nil, httperrors.NewBadRequestError("Check input guests is exist")
+	}
+	for i := 0; i < len(guests); i++ {
+		if guests[i].Hypervisor != api.HYPERVISOR_KVM {
+			return nil, httperrors.NewBadRequestError("guest %s hypervisor %s can't migrate",
+				guests[i].Name, guests[i].Hypervisor)
+		}
+		if len(guests[i].BackupHostId) > 0 {
+			return nil, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guests[i].Name)
+		}
+		if !utils.IsInStringArray(guests[i].Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_UNKNOWN}) {
+			return nil, httperrors.NewBadRequestError("guest %s status %s can't migrate", guests[i].Name, guests[i].Status)
+		}
+		if guests[i].Status == api.VM_RUNNING {
+			if len(guests[i].GetIsolatedDevices()) > 0 {
+				return nil, httperrors.NewBadRequestError(
+					"guest %s status %s has isolated device, can't do migrate",
+					guests[i].Name, guests[i].Status,
+				)
+			}
+			cdrom := guests[i].getCdrom(false)
+			if cdrom != nil && len(cdrom.ImageId) > 0 {
+				return nil, httperrors.NewBadRequestError("cannot migrate with cdrom")
+			}
+		} else if guests[i].Status == api.VM_UNKNOWN {
+			if guests[i].getDefaultStorageType() == api.STORAGE_LOCAL {
+				return nil, httperrors.NewBadRequestError(
+					"guest %s status %s can't migrate with local storage",
+					guests[i].Name, guests[i].Status,
+				)
+			}
+		}
+	}
+
+	var hostGuests = map[string][]*api.GuestBatchMigrateParams{}
+	for i := 0; i < len(guests); i++ {
+		bmp := &api.GuestBatchMigrateParams{
+			Id:          guests[i].Id,
+			LiveMigrate: guests[i].Status == api.VM_RUNNING,
+			RescueMode:  guests[i].Status == api.VM_UNKNOWN,
+			OldStatus:   guests[i].Status,
+		}
+		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
+		if _, ok := hostGuests[guests[i].HostId]; ok {
+			hostGuests[guests[i].HostId] = append(hostGuests[guests[i].HostId], bmp)
+		} else {
+			hostGuests[guests[i].HostId] = []*api.GuestBatchMigrateParams{bmp}
+		}
+	}
+	for hostId, params := range hostGuests {
+		kwargs := jsonutils.NewDict()
+		kwargs.Set("guests", jsonutils.Marshal(params))
+		if len(preferHostId) > 0 {
+			kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+		}
+		host := HostManager.FetchHostById(hostId)
+		task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, "", "", nil)
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
 }
