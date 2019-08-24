@@ -630,10 +630,7 @@ func (bucket *SBucket) PerformMakedir(
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	key, _ := data.GetString("key")
-	for len(key) > 0 && key[len(key)-1] == '/' {
-		key = key[:len(key)-1]
-	}
-
+	key = strings.Trim(key, " /")
 	if len(key) == 0 {
 		return nil, httperrors.NewInputParameterError("empty directory name")
 	}
