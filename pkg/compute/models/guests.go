@@ -4083,6 +4083,18 @@ func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId stri
 	return cache.GetSecgroup()
 }
 
+func (self *SGuest) setSecgroupPublicScope(secgroup *SSecurityGroup) error {
+	if self.ProjectId == secgroup.ProjectId || (secgroup.IsPublic && secgroup.PublicScope == string(rbacutils.ScopeSystem)) {
+		return nil
+	}
+	_, err := db.Update(secgroup, func() error {
+		secgroup.IsPublic = true
+		secgroup.PublicScope = string(rbacutils.ScopeSystem)
+		return nil
+	})
+	return err
+}
+
 func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroupIds []string) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
@@ -4094,6 +4106,10 @@ func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			syncResult.AddError(err)
 			continue
+		}
+		err = self.setSecgroupPublicScope(secgroup)
+		if err != nil {
+			log.Warningf("failed to set secgroup %s(%s) public scope", secgroup.Name, secgroup.Id)
 		}
 		_secgroupIds = append(_secgroupIds, secgroup.Id)
 		if !utils.IsInStringArray(secgroupId, secgroupExternalIds) {
