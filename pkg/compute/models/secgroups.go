@@ -514,9 +514,18 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		srs.AddRule(rules[i])
 	}
 
-	// 查询所有的安全组，比对寻找一个与云上安全组规则相同的安全组
+	// 查询所有共享或与provider在同一项目的安全组，比对寻找一个与云上安全组规则相同的安全组
 	secgroups := []SSecurityGroup{}
 	q := manager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(q.Field("tenant_id"), provider.ProjectId),
+			sqlchemy.AND(
+				sqlchemy.IsTrue(q.Field("is_public")),
+				sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+			),
+		),
+	)
 	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {
 		log.Errorf("failed to fetch secgroups %v", err)
 	}
@@ -538,8 +547,8 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	}
 	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
-	secgroup.ProjectId = userCred.GetProjectId()
-	secgroup.DomainId = userCred.GetProjectDomainId()
+	secgroup.ProjectId = provider.ProjectId
+	secgroup.DomainId = provider.DomainId
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
