@@ -62,18 +62,15 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	guest.DetachDisk(ctx, disk, self.UserCred)
 	host := guest.GetHost()
-	purge := false
 	if host != nil && !host.Enabled && jsonutils.QueryBoolean(self.Params, "purge", false) {
-		purge = true
+		self.OnDetachDiskComplete(ctx, guest, nil)
+		return
 	}
 
-	if !purge {
-		self.SetStage("OnDetachDiskComplete", nil)
-		if err := guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self); err != nil {
-			self.OnTaskFail(ctx, guest, disk, err)
-		}
-	} else {
-		self.OnDetachDiskComplete(ctx, guest, nil)
+	self.SetStage("OnDetachDiskComplete", nil)
+	err = guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self)
+	if err != nil {
+		self.OnDetachDiskCompleteFailed(ctx, guest, jsonutils.Marshal(map[string]string{"error": err.Error()}))
 	}
 }
 

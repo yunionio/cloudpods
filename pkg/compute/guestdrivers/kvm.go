@@ -319,6 +319,9 @@ func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models
 
 func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	host := guest.GetHost()
+	if !host.Enabled {
+		return fmt.Errorf("host %s(%s) is disabled", host.Name, host.Id)
+	}
 	header := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
 	_, res, _ := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
