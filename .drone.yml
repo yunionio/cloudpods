@@ -2,49 +2,131 @@
 kind: pipeline
 name: build
 
+clone:
+  depth: 1
+
 workspace:
-  base: /go
+  base: /home/build/go
   path: src/yunion.io/x/onecloud
 
 steps:
 - name: build
-  image: d3lx/golang:yunion
+  image: yunion/onecloud-ci:latest
   commands:
-  - make
-  when:
-    event:
-    - pull_request
-    - tag
+  - CGO_ENABLED=0 make -j 4 cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
+  - CGO_ENABLED=0 make -j 4 cmd/logger cmd/region cmd/scheduler cmd/webconsole
+  - CGO_ENABLED=0 make -j 4 cmd/yunionconf cmd/glance cmd/torrent
 
-trigger:
-  event:
-  - pull_request
-  - tag
-
----
-kind: pipeline
-name: release
-
-steps:
-- name: release-img
+- name: image-baremetal-agent
   image: plugins/docker
   settings:
-    repo: registry.cn-beijing.aliyuncs.com/yunionio/onecloud
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/baremetal-agent
     registry: registry.cn-beijing.aliyuncs.com
-    tags: "{DRONE_TAG}"
+    dockerfile: build/docker/Dockerfile.baremetal-agent
+    tags: "${DRONE_TAG}"
     username:
       from_secret: docker_username
     password:
       from_secret: docker_password
-  when:
-    event:
-    - tag
+
+- name: image-climc
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/climc
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.climc
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-keystone
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/keystone
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.keystone
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-logger
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/logger
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.logger
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-region
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/region
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.region
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-scheduler
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/scheduler
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.scheduler
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-yunionconf
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/yunionconf
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.yunionconf
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-apigateway
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/apigateway
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.apigateway
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+
+- name: image-glance
+  image: plugins/docker
+  settings:
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/glance
+    registry: registry.cn-beijing.aliyuncs.com
+    dockerfile: build/docker/Dockerfile.glance
+    tags: "${DRONE_TAG}"
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
 
 trigger:
   event:
   - tag
   status:
   - success
-
-depends_on:
-- build
