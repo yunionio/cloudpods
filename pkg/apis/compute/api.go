@@ -216,6 +216,20 @@ type ServerDeployInput struct {
 	AutoStart     *bool           `json:"auto_start"`
 }
 
+type GuestBatchMigrateRequest struct {
+	apis.Meta
+
+	GuestIds   []string
+	PreferHost string
+}
+
+type GuestBatchMigrateParams struct {
+	Id          string
+	LiveMigrate bool
+	RescueMode  bool
+	OldStatus   string
+}
+
 type HostLoginInfo struct {
 	apis.Meta
 
