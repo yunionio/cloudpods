@@ -84,6 +84,24 @@ func (ss SSortedStrings) ContainsAll(needles ...string) bool {
 	return true
 }
 
+func Contains(a, b SSortedStrings) bool {
+	_, _, bNoA := Split(a, b)
+	if len(bNoA) == 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func Equals(a, b SSortedStrings) bool {
+	aNoB, _, bNoA := Split(a, b)
+	if len(aNoB) == 0 && len(bNoA) == 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func Split(a, b SSortedStrings) (aNoB SSortedStrings, aAndB SSortedStrings, bNoA SSortedStrings) {
 	a_b := make([]string, 0)
 	b_a := make([]string, 0)
