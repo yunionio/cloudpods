@@ -76,6 +76,10 @@ func (r1 TRbacResult) StricterThan(r2 TRbacResult) bool {
 	return r1.Strictness() < r2.Strictness()
 }
 
+func (r1 TRbacResult) LooserThan(r2 TRbacResult) bool {
+	return r1.Strictness() > r2.Strictness()
+}
+
 func (s1 TRbacScope) HigherEqual(s2 TRbacScope) bool {
 	return scopeScore[s1] >= scopeScore[s2]
 }
@@ -113,6 +117,15 @@ type SRbacRule struct {
 	Result   TRbacResult
 }
 
+func (r SRbacRule) clone() SRbacRule {
+	nr := r
+	nr.Extra = make([]string, len(r.Extra))
+	if len(r.Extra) > 0 {
+		copy(nr.Extra, r.Extra)
+	}
+	return nr
+}
+
 func isWildMatch(str string) bool {
 	return len(str) == 0 || str == WILD_MATCH
 }
@@ -142,6 +155,10 @@ func (rule *SRbacRule) contains(rule2 *SRbacRule) bool {
 
 func (rule *SRbacRule) stricterThan(r2 *SRbacRule) bool {
 	return rule.Result.StricterThan(r2.Result)
+}
+
+func (rule *SRbacRule) looserThan(r2 *SRbacRule) bool {
+	return rule.Result.LooserThan(r2.Result)
 }
 
 func (rule *SRbacRule) match(service string, resource string, action string, extra ...string) (bool, int, int) {
@@ -215,7 +232,7 @@ func GetMatchRule(rules []SRbacRule, service string, resource string, action str
 		match, matchCnt, weight := rules[i].match(service, resource, action, extra...)
 		if match && (maxMatchCnt < matchCnt ||
 			(maxMatchCnt == matchCnt && minWeight > weight) ||
-			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&rules[i]))) {
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.looserThan(&rules[i]))) {
 			maxMatchCnt = matchCnt
 			minWeight = weight
 			matchRule = &rules[i]
@@ -228,7 +245,7 @@ func CompactRules(rules []SRbacRule) []SRbacRule {
 	if len(rules) == 0 {
 		return nil
 	}
-	output := make([]SRbacRule, 1)
+	/*output := make([]SRbacRule, 1)
 	output[0] = rules[0]
 	for i := 1; i < len(rules); i += 1 {
 		isContains := false
@@ -246,8 +263,8 @@ func CompactRules(rules []SRbacRule) []SRbacRule {
 		if !isContains {
 			output = append(output, rules[i])
 		}
-	}
-	return output
+	}*/
+	return reduceRules(rules)
 }
 
 var (
@@ -332,9 +349,10 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		return err
 	}
 
-	rules, err := decode(ruleJson, SRbacRule{}, levelService)
+	/*rules, err := decode(ruleJson, SRbacRule{}, levelService)*/
+	rules, err := json2Rules(ruleJson)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "json2Rules")
 	}
 
 	if len(rules) == 0 {
@@ -459,14 +477,16 @@ func addRule2Json(nodeJson *jsonutils.JSONDict, keys []string, result TRbacResul
 }
 
 func (policy *SRbacPolicy) Encode() (jsonutils.JSONObject, error) {
-	rules := jsonutils.NewDict()
+	/*rules := jsonutils.NewDict()
 	for i := 0; i < len(policy.Rules); i += 1 {
 		keys := policy.Rules[i].toStringArray()
 		err := addRule2Json(rules, keys, policy.Rules[i].Result)
 		if err != nil {
 			return nil, errors.Wrap(err, "addRule2Json")
 		}
-	}
+	}*/
+
+	rules := rules2Json(policy.Rules)
 
 	ret := jsonutils.NewDict()
 	// ret.Add(jsonutils.NewString(policy.Condition), "condition")
@@ -564,20 +584,44 @@ func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
 	return len(policy.Roles) == 0 && len(policy.Projects) == 0
 }
 
-func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
-	if !policy.Auth && len(policy.Projects) == 0 && len(policy.Roles) == 0 && len(policy.Ips) == 0 {
-		return true
+// check whether policy maches a userCred
+// return value
+// bool isMatched
+// int  match weight, the higher the value, the more exact the match
+// the more exact match wins
+func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
+	if !policy.Auth && len(policy.Roles) == 0 && len(policy.Projects) == 0 && len(policy.Ips) == 0 {
+		return true, 1
 	}
 	if userCred == nil {
-		return false
+		return false, 0
 	}
-	if !policy.IsPublic && len(policy.DomainId) > 0 && policy.DomainId != userCred.GetProjectDomainId() {
-		return false
+	weight := 0
+	if policy.IsPublic || len(policy.DomainId) == 0 || policy.DomainId == userCred.GetProjectDomainId() {
+		if len(policy.DomainId) > 0 {
+			weight += 10
+		}
+		if !policy.IsPublic {
+			weight += 10
+		}
+		if len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles()) {
+			if len(policy.Roles) != 0 {
+				weight += 100
+			}
+			if len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName()) {
+				if len(policy.Projects) > 0 {
+					weight += 1000
+				}
+				if len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp()) {
+					if len(policy.Ips) > 0 {
+						weight += 10000
+					}
+					return true, weight
+				}
+			}
+		}
 	}
-	if (len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName())) && (len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles())) && (len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp())) {
-		return true
-	}
-	return false
+	return false, 0
 }
 
 func (policy *SRbacPolicy) MatchRole(roleName string) bool {
