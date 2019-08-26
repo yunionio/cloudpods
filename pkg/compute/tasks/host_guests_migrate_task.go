@@ -58,7 +58,11 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, obj db.IStandalon
 		}
 	}
 	if !guestMigrating {
-		self.SetStageComplete(ctx, nil)
+		if jsonutils.QueryBoolean(self.Params, "some_guest_migrate_failed", false) {
+			self.SetStageFailed(ctx, "some guest migrate failed")
+		} else {
+			self.SetStageComplete(ctx, nil)
+		}
 	} else {
 		guests := append(guests[:migrateIndex], guests[migrateIndex+1:]...)
 		params := jsonutils.NewDict()
@@ -68,6 +72,8 @@ func (self *HostGuestsMigrateTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *HostGuestsMigrateTask) OnInitFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	log.Errorf("HostGuestsMigrateTask on failed %s", data)
+	kwargs := jsonutils.NewDict()
+	kwargs.Set("some_guest_migrate_failed", jsonutils.JSONTrue)
+	self.SaveParams(kwargs)
 	self.OnInit(ctx, obj, data)
 }
