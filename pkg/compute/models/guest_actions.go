@@ -3471,14 +3471,14 @@ func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
+func (manager *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "batch-guest-migrate")
+	return db.IsAdminAllowPerform(userCred, manager, "batch-guest-migrate")
 }
 
-func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := new(api.GuestBatchMigrateRequest)
 	err := data.Unmarshal(params)
 	if err != nil {
@@ -3490,7 +3490,7 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 
 	var preferHostId string
 	if len(params.PreferHost) > 0 {
-		if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
+		if !db.IsAdminAllowPerform(userCred, manager, "assign-host") {
 			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
 		}
 		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHost)
@@ -3550,7 +3550,7 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 			RescueMode:  guests[i].Status == api.VM_UNKNOWN,
 			OldStatus:   guests[i].Status,
 		}
-		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "batch migrate")
+		guests[i].SetStatusWithLock(ctx, userCred, api.VM_START_MIGRATE, "batch migrate")
 		if _, ok := hostGuests[guests[i].HostId]; ok {
 			hostGuests[guests[i].HostId] = append(hostGuests[guests[i].HostId], bmp)
 		} else {
@@ -3564,12 +3564,20 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 			kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 		}
 		host := HostManager.FetchHostById(hostId)
-		task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, "", "", nil)
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
-		task.ScheduleRun(nil)
+		manager.StartHostGuestsMigrateTask(ctx, userCred, host, kwargs, "")
 	}
 	return nil, nil
+}
+
+func (manager *SGuestManager) StartHostGuestsMigrateTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	host *SHost, kwargs *jsonutils.JSONDict, parentTaskId string,
+) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

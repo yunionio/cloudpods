@@ -4558,3 +4558,9 @@ func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient
 	// ret.Set("vnics", jsonutils.Marshal(nics))
 	return jsonutils.Marshal(nics), nil
 }
+
+func (self *SGuest) SetStatusWithLock(ctx context.Context, userCred mcclient.TokenCredential, status string, reason string) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+	return self.SetStatus(userCred, status, reason)
+}
