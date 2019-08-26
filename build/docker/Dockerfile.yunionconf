@@ -4,6 +4,12 @@ MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 
 ENV TZ Asia/Shanghai
 
+RUN apk update && \
+    apk add --no-cache tzdata ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
 RUN mkdir -p /opt/yunion/bin
 
 ADD ./_output/bin/yunionconf /opt/yunion/bin/yunionconf
