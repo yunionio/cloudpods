@@ -34,6 +34,8 @@ var (
 		"reservedips",
 		"dnsrecords",
 		"metadatas",
+		"loadbalancerclusters",
+		"loadbalanceragents",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
