@@ -241,7 +241,7 @@ func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connPa
 }
 
 func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(cmd, w, nil)
+	handleDataSession(session.WrapCommandSession(cmd), w, nil)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
