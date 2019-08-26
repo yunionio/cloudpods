@@ -96,7 +96,12 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 	if host != nil && !host.Enabled && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
-	if !keepDisk && disk.AutoDelete {
+	waitSnapshotsDelete, err := disk.IsNeedWaitSnapshotsDeleted()
+	if err != nil {
+		self.OnTaskFail(ctx, guest, disk, err)
+		return
+	}
+	if !keepDisk && disk.AutoDelete && !waitSnapshotsDelete {
 		cnt, _ := disk.GetGuestDiskCount()
 		if cnt == 0 {
 			self.SetStage("OnDiskDeleteComplete", nil)
@@ -107,6 +112,9 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 			}
 			return
 		}
+	}
+	if waitSnapshotsDelete {
+		disk.SetMetadata(ctx, "disk_delete_after_snapshots", "true", self.UserCred)
 	}
 	self.OnDiskDeleteComplete(ctx, guest, nil)
 }

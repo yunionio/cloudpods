@@ -1227,8 +1227,8 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	task.SetStage("OnManagedSnapshotDelete", nil)
-	task.ScheduleRun(nil)
+	task.ScheduleRun(data)
 	return nil
 }
