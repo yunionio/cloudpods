@@ -3471,14 +3471,48 @@ func (guest *SGuest) StartGuestDiskResizeTask(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
+func (manager *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "batch-guest-migrate")
+	return db.IsAdminAllowPerform(userCred, manager, "batch-guest-migrate")
 }
 
-func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) validateForBatchMigrate(ctx context.Context) (*SGuest, error) {
+	guest := GuestManager.FetchGuestById(self.Id)
+	if guest.Hypervisor != api.HYPERVISOR_KVM {
+		return guest, httperrors.NewBadRequestError("guest %s hypervisor %s can't migrate",
+			guest.Name, guest.Hypervisor)
+	}
+	if len(guest.BackupHostId) > 0 {
+		return guest, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guest.Name)
+	}
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_UNKNOWN}) {
+		return guest, httperrors.NewBadRequestError("guest %s status %s can't migrate", guest.Name, guest.Status)
+	}
+	if guest.Status == api.VM_RUNNING {
+		if len(guest.GetIsolatedDevices()) > 0 {
+			return guest, httperrors.NewBadRequestError(
+				"guest %s status %s has isolated device, can't do migrate",
+				guest.Name, guest.Status,
+			)
+		}
+		cdrom := guest.getCdrom(false)
+		if cdrom != nil && len(cdrom.ImageId) > 0 {
+			return guest, httperrors.NewBadRequestError("cannot migrate with cdrom")
+		}
+	} else if guest.Status == api.VM_UNKNOWN {
+		if guest.getDefaultStorageType() == api.STORAGE_LOCAL {
+			return guest, httperrors.NewBadRequestError(
+				"guest %s status %s can't migrate with local storage",
+				guest.Name, guest.Status,
+			)
+		}
+	}
+	return guest, nil
+}
+
+func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := new(api.GuestBatchMigrateRequest)
 	err := data.Unmarshal(params)
 	if err != nil {
@@ -3490,7 +3524,7 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 
 	var preferHostId string
 	if len(params.PreferHost) > 0 {
-		if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
+		if !db.IsAdminAllowPerform(userCred, manager, "assign-host") {
 			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
 		}
 		iHost, _ := HostManager.FetchByIdOrName(userCred, params.PreferHost)
@@ -3511,35 +3545,13 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 		return nil, httperrors.NewBadRequestError("Check input guests is exist")
 	}
 	for i := 0; i < len(guests); i++ {
-		if guests[i].Hypervisor != api.HYPERVISOR_KVM {
-			return nil, httperrors.NewBadRequestError("guest %s hypervisor %s can't migrate",
-				guests[i].Name, guests[i].Hypervisor)
+		lockman.LockObject(ctx, &guests[i])
+		defer lockman.ReleaseObject(ctx, &guests[i])
+		guest, err := guests[i].validateForBatchMigrate(ctx)
+		if err != nil {
+			return nil, err
 		}
-		if len(guests[i].BackupHostId) > 0 {
-			return nil, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guests[i].Name)
-		}
-		if !utils.IsInStringArray(guests[i].Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_UNKNOWN}) {
-			return nil, httperrors.NewBadRequestError("guest %s status %s can't migrate", guests[i].Name, guests[i].Status)
-		}
-		if guests[i].Status == api.VM_RUNNING {
-			if len(guests[i].GetIsolatedDevices()) > 0 {
-				return nil, httperrors.NewBadRequestError(
-					"guest %s status %s has isolated device, can't do migrate",
-					guests[i].Name, guests[i].Status,
-				)
-			}
-			cdrom := guests[i].getCdrom(false)
-			if cdrom != nil && len(cdrom.ImageId) > 0 {
-				return nil, httperrors.NewBadRequestError("cannot migrate with cdrom")
-			}
-		} else if guests[i].Status == api.VM_UNKNOWN {
-			if guests[i].getDefaultStorageType() == api.STORAGE_LOCAL {
-				return nil, httperrors.NewBadRequestError(
-					"guest %s status %s can't migrate with local storage",
-					guests[i].Name, guests[i].Status,
-				)
-			}
-		}
+		guests[i] = *guest
 	}
 
 	var hostGuests = map[string][]*api.GuestBatchMigrateParams{}
@@ -3564,12 +3576,20 @@ func (self *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred mcc
 			kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 		}
 		host := HostManager.FetchHostById(hostId)
-		task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, "", "", nil)
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
-		task.ScheduleRun(nil)
+		manager.StartHostGuestsMigrateTask(ctx, userCred, host, kwargs, "")
 	}
 	return nil, nil
+}
+
+func (manager *SGuestManager) StartHostGuestsMigrateTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	host *SHost, kwargs *jsonutils.JSONDict, parentTaskId string,
+) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "HostGuestsMigrateTask", host, userCred, kwargs, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
