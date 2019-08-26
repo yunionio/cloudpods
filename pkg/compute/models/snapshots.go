@@ -554,6 +554,20 @@ func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mc
 }
 
 func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(self.DiskId) > 0 {
+		disk := DiskManager.FetchDiskById(self.DiskId)
+		if disk != nil && disk.GetStorage().StorageType == api.STORAGE_RBD {
+			cnt, err := disk.GetGuestsCount()
+			if err == nil {
+				val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
+				if cnt == 0 && val == "true" {
+					disk.StartDiskDeleteTask(ctx, userCred, "", false, true)
+				}
+			} else {
+				log.Errorln(err)
+			}
+		}
+	}
 	return db.DeleteModel(ctx, userCred, self)
 }
 
