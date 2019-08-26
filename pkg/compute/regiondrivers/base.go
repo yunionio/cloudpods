@@ -196,6 +196,6 @@ func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.C
 	return fmt.Errorf("Not Implement ValidateCreateSnapshotpolicyDiskData")
 }
 
-func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	return fmt.Errorf("Not implement OnSnapshotDelete")
 }

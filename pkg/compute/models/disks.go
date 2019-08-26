@@ -1985,3 +1985,17 @@ func (self *SDisk) GetDynamicConditionInput() *jsonutils.JSONDict {
 	conf := self.ToDiskConfig()
 	return conf.JSON(conf)
 }
+
+func (self *SDisk) IsNeedWaitSnapshotsDeleted() (bool, error) {
+	storage := self.GetStorage()
+	if storage.StorageType == api.STORAGE_RBD {
+		scnt, err := self.GetSnapshotCount()
+		if err != nil {
+			return false, err
+		}
+		if scnt > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}

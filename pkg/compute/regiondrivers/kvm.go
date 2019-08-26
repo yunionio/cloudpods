@@ -779,7 +779,7 @@ func (self *SKVMRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	// TODO: kvm retention days
+	// TODO: To be determined
 	if input.RetentionDays < -1 || input.RetentionDays == 0 || input.RetentionDays > 10 {
 		return httperrors.NewInputParameterError("Retention days must in 1~10 or -1")
 	}
@@ -809,8 +809,8 @@ func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, u
 	return nil
 }
 
-func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	task.SetStage("OnKvmSnapshotDelete", nil)
-	task.ScheduleRun(nil)
+	task.ScheduleRun(data)
 	return nil
 }
