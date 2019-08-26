@@ -21,9 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-plus/uuid"
-
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/webconsole/command"
@@ -52,23 +51,26 @@ func NewSessionManager() *SSessionManager {
 	return s
 }
 
-func (man *SSessionManager) Save(data ISessionData) (session *SSession, err error) {
-	key, err := uuid.NewV4()
-	if err != nil {
-		return
+func (man *SSessionManager) Save(data ISessionData) (*SSession, error) {
+	idStr := data.GetId()
+	if os, ok := man.Load(idStr); ok {
+		oldSession := os.(*SSession)
+		if oldSession.duplicateHook != nil {
+			log.Warningf("session %s already exists, execute dupliate hook", idStr)
+			oldSession.duplicateHook()
+		}
 	}
-	idStr := key.String()
 	token, err := utils.EncryptAESBase64Url(AES_KEY, idStr)
 	if err != nil {
-		return
+		return nil, err
 	}
-	session = &SSession{
+	session := &SSession{
 		Id:           idStr,
 		ISessionData: data,
 		AccessToken:  token,
 	}
 	man.Store(idStr, session)
-	return
+	return session, nil
 }
 
 func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
@@ -92,13 +94,31 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 
 type ISessionData interface {
 	command.ICommand
+	GetId() string
+}
+
+type RandomSessionData struct {
+	command.ICommand
+	id string
+}
+
+func WrapCommandSession(cmd command.ICommand) *RandomSessionData {
+	return &RandomSessionData{
+		ICommand: cmd,
+		id:       stringutils.UUID4(),
+	}
+}
+
+func (s *RandomSessionData) GetId() string {
+	return s.id
 }
 
 type SSession struct {
 	ISessionData
-	Id          string
-	AccessToken string
-	AccessedAt  time.Time
+	Id            string
+	AccessToken   string
+	AccessedAt    time.Time
+	duplicateHook func()
 }
 
 func (s SSession) GetConnectParams(params url.Values) (string, error) {
@@ -117,4 +137,8 @@ func (s *SSession) Close() error {
 	}
 	Manager.Delete(s.Id)
 	return nil
+}
+
+func (s *SSession) RegisterDuplicateHook(f func()) {
+	s.duplicateHook = f
 }

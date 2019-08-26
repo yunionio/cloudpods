@@ -89,6 +89,10 @@ func (s *WebsockifyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebsockifyServer) doProxy(wsConn *websocket.Conn, tcpConn net.Conn) {
+	s.Session.RegisterDuplicateHook(func() {
+		wsConn.Close()
+		tcpConn.Close()
+	})
 	go s.wsToTcp(wsConn, tcpConn)
 	s.tcpToWs(wsConn, tcpConn)
 }
