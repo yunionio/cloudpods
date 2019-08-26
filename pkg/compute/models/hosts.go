@@ -4050,37 +4050,33 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 
 	guests := host.GetGuests()
 	for i := 0; i < len(guests); i++ {
-		if !utils.IsInStringArray(guests[i].Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_UNKNOWN}) {
-			return nil, httperrors.NewBadRequestError(
-				"guest %s(%s) status %s can't do migrate",
-				guests[i].Name, guests[i].Id, guests[i].Status)
+		lockman.LockObject(ctx, &guests[i])
+		defer lockman.ReleaseObject(ctx, &guests[i])
+		guest, err := guests[i].validateForBatchMigrate(ctx)
+		if err != nil {
+			return nil, err
 		}
-		if len(guests[i].BackupHostId) > 0 {
-			return nil, httperrors.NewBadRequestError("Guest %s(%s) has backup guest", guests[i].Name, guests[i].Id)
+		guests[i] = *guest
+		if host.HostStatus == api.HOST_OFFLINE && guests[i].Status != api.VM_UNKNOWN {
+			return nil, httperrors.NewBadRequestError("Host %s can't migrate guests %s in status %s",
+				host.HostStatus, guests[i].Name, guests[i].Status)
 		}
-		if guests[i].Status == api.VM_RUNNING {
-			if len(guests[i].GetIsolatedDevices()) > 0 {
-				return nil, httperrors.NewBadRequestError(
-					"guest %s(%s) attach isolated device, can't migrate",
-					guests[i].Name, guests[i].Id)
-			}
-			cdrom := guests[i].getCdrom(false)
-			if cdrom != nil && len(cdrom.ImageId) > 0 {
-				return nil, httperrors.NewBadRequestError(
-					"Cannot migrate %s(%s) with cdrom", guests[i].Name, guests[i].Id)
-			}
-		}
-		if guests[i].Status == api.VM_UNKNOWN {
-			if guests[i].getDefaultStorageType() == api.STORAGE_LOCAL {
-				return nil, httperrors.NewBadRequestError(
-					"Cannot migrate guest %s(%s) status %s with local storage",
-					guests[i].Name, guests[i].Id, guests[i].Status)
-			}
-		}
+	}
 
+	var hostGuests = []*api.GuestBatchMigrateParams{}
+	for i := 0; i < len(guests); i++ {
+		bmp := &api.GuestBatchMigrateParams{
+			Id:          guests[i].Id,
+			LiveMigrate: guests[i].Status == api.VM_RUNNING,
+			RescueMode:  guests[i].Status == api.VM_UNKNOWN,
+			OldStatus:   guests[i].Status,
+		}
+		guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "host maintainence")
+		hostGuests = append(hostGuests, bmp)
 	}
 
 	kwargs := jsonutils.NewDict()
+	kwargs.Set("guests", jsonutils.Marshal(hostGuests))
 	kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 	return nil, host.StartMaintainTask(ctx, userCred, kwargs)
 }
