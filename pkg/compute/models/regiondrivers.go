@@ -96,7 +96,7 @@ type IRegionDriver interface {
 	OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, snapshot *SSnapshot, data jsonutils.JSONObject) error
 	RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskId string) error
 	RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskId string) error
-	OnSnapshotDelete(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
+	OnSnapshotDelete(ctx context.Context, snapshot *SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error
 }
 
 var regionDrivers map[string]IRegionDriver

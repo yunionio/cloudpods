@@ -519,21 +519,6 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 	if !isPurge && guest.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
-	gd := guest.GetDisks()
-	for i := 0; i < len(gd); i++ {
-		d := gd[i].GetDisk()
-		storage := d.GetStorage()
-		if storage.StorageType == api.STORAGE_RBD {
-			scnt, err := d.GetSnapshotCount()
-			if err != nil {
-				return err
-			}
-			if scnt > 0 {
-				return httperrors.NewBadRequestError(
-					"not allow to delete guest with %s disk has snapshots", storage.StorageType)
-			}
-		}
-	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -1177,6 +1162,11 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 		}
 	}
 	return nil
+}
+
+func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.StartSyncTask(ctx, userCred, true, "")
 }
 
 func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ServerCreateInput, hasBackup bool) error {
