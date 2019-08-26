@@ -241,7 +241,12 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
-	return self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
+	err := self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 5*time.Second, 5*time.Second, 90*time.Second)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
