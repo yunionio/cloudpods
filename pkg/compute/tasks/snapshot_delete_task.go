@@ -43,7 +43,7 @@ func (self *SnapshotDeleteTask) OnRequestSnapshotFailed(ctx context.Context, sna
 }
 
 func (self *SnapshotDeleteTask) OnRequestSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	err := snapshot.GetRegionDriver().OnSnapshotDelete(ctx, snapshot, self)
+	err := snapshot.GetRegionDriver().OnSnapshotDelete(ctx, snapshot, self, data)
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
 	}
