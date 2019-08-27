@@ -16,6 +16,8 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -120,9 +122,43 @@ func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 }
 
 func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if !data.Contains("external_ip_id") {
-		return nil, errors.Error("Request body should contain key 'externalIpId'")
+	input := &api.SNatDCreateInput{}
+	err := data.Unmarshal(input)
+	if len(input.NatgatewayId) == 0 {
+		return nil, httperrors.NewMissingParameterError("natgatewayId")
 	}
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
+	}
+	if len(input.ExternalIpId) == 0 {
+		return nil, httperrors.NewMissingParameterError("Request body should contain key 'externalIpId'")
+	}
+	if len(input.ExternalIp) == 0 {
+		return nil, httperrors.NewMissingParameterError("Request body should contain key 'external_ip'")
+	}
+	if input.ExternalPort < 1 || input.ExternalPort > 65535 {
+		return nil, httperrors.NewInputParameterError("Port value error")
+	}
+	if input.InternalPort < 1 || input.InternalPort > 65535 {
+		return nil, httperrors.NewInputParameterError("Port value error")
+	}
+	if !regutils.MatchIPAddr(input.InternalIp) {
+		return nil, httperrors.NewInputParameterError("invalid internal ip address: %s", input.InternalIp)
+	}
+
+	model, err := ElasticipManager.FetchById(input.ExternalIp)
+	if err != nil {
+		return nil, err
+	}
+	if model == nil {
+		return nil, httperrors.NewInputParameterError("No such eip")
+	}
+	eip := model.(*SElasticip)
+	if eip.IpAddr != input.ExternalIp {
+		return nil, errors.Error("No such eip")
+	}
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
 	return data, nil
 }
 

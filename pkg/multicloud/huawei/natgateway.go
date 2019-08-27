@@ -55,18 +55,19 @@ func (gateway *SNatGateway) GetStatus() string {
 }
 
 func (gateway *SNatGateway) GetNatSpec() string {
-	switch gateway.Spec {
-	case "1":
-		return "small"
-	case "2":
-		return "middle"
-	case "3":
-		return "large"
-	case "4":
-		return "xlarge"
-	}
-	// can't arrive
-	return ""
+	return gateway.Spec
+	//switch gateway.Spec {
+	//case "1":
+	//	return "small"
+	//case "2":
+	//	return "middle"
+	//case "3":
+	//	return "large"
+	//case "4":
+	//	return "xlarge"
+	//}
+	//// can't arrive
+	//return ""
 }
 
 func (gateway *SNatGateway) GetDescription() string {

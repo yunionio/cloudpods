@@ -16,6 +16,8 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -126,9 +128,37 @@ func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 }
 
 func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if !data.Contains("external_ip_id") {
-		return nil, errors.Error("Request body should contain key 'externalIpId'")
+	input := &api.SNatSCreateInput{}
+	err := data.Unmarshal(input)
+	if len(input.NatgatewayId) == 0 || len(input.NetWorkId) == 0 {
+		return nil, httperrors.NewMissingParameterError("natgatewayId or networkId")
 	}
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
+	}
+	if len(input.ExternalIpId) == 0 {
+		return nil, httperrors.NewMissingParameterError("externalIpId")
+	}
+	if len(input.Ip) == 0 {
+		return nil, httperrors.NewMissingParameterError("ip")
+	}
+	if !regutils.MatchCIDR(input.SourceCidr) {
+		return nil, httperrors.NewInputParameterError("invalid sourcecidr: %s", input.SourceCidr)
+	}
+
+	model, err := ElasticipManager.FetchById(input.Ip)
+	if err != nil {
+		return nil, err
+	}
+	if model == nil {
+		return nil, httperrors.NewInputParameterError("No such eip")
+	}
+	eip := model.(*SElasticip)
+	if eip.IpAddr != input.Ip {
+		return nil, errors.Error("No such eip")
+	}
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
 	return data, nil
 }
 

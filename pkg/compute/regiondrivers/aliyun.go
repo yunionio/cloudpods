@@ -841,3 +841,19 @@ func (self *SAliyunRegionDriver) ValidateSnapshotCreate(ctx context.Context, use
 	}
 	return nil
 }
+
+func (self *SAliyunRegionDriver) DealNatGatwaySpec(spec string) string {
+
+	switch spec {
+	case "Small":
+		return "small"
+	case "Midele":
+		return "middle"
+	case "Large":
+		return "large"
+	case "XLarge":
+		return "xlarge"
+	}
+	//can arrive
+	return ""
+}
