@@ -1232,3 +1232,7 @@ func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Con
 	task.ScheduleRun(data)
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) DealNatGatewaySpec(spec string) string {
+	return spec
+}

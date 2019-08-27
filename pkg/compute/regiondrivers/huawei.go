@@ -1457,3 +1457,19 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 	})
 	return nil
 }
+
+func (self *SHuaWeiRegionDriver) DealNatGatwaySpec(spec string) string {
+
+	switch spec {
+	case "1":
+		return "small"
+	case "2":
+		return "middle"
+	case "3":
+		return "large"
+	case "4":
+		return "xlarge"
+	}
+	//can arrive
+	return ""
+}
