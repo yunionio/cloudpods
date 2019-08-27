@@ -814,3 +814,7 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 	task.ScheduleRun(data)
 	return nil
 }
+
+func (self *SKVMRegionDriver) DealNatGatewaySpec(spec string) string {
+	return spec
+}

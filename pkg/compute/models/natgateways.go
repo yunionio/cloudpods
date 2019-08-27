@@ -58,7 +58,7 @@ type SNatGateway struct {
 	SBillingResourceBase
 
 	VpcId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NatSpec string `list:"user" get:"user" list:"user" create:"optional"` // NAT规格
+	NatSpec string `list:"user" create:"optional"` // NAT规格
 }
 
 func (manager *SNatGetewayManager) GetContextManagers() [][]db.IModelManager {
@@ -153,6 +153,8 @@ func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, err
 	}
+	spec := self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
+	extra.Add(jsonutils.NewString(spec), "nat_spec")
 	return extra, nil
 }
 
@@ -172,6 +174,8 @@ func (self *SNatGateway) GetCustomizeColumns(ctx context.Context, userCred mccli
 		return extra
 	}
 	extra.Add(jsonutils.NewString(vpc.Name), "vpc")
+	spec := self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
+	extra.Add(jsonutils.NewString(spec), "nat_spec")
 	return extra
 }
 

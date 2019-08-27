@@ -123,6 +123,21 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	if !data.Contains("external_ip_id") {
 		return nil, errors.Error("Request body should contain key 'externalIpId'")
 	}
+	if !data.Contains("external_ip") {
+		return nil, errors.Error("Request body should contain key 'external_ip'")
+	}
+	eipId, _ := data.GetString("external_ip_id")
+	model, err := ElasticipManager.FetchById(eipId)
+	if err != nil {
+		return nil, err
+	}
+	eip := model.(*SElasticip)
+	ipAddr, _ := data.GetString("external_ip")
+	if eip.IpAddr != ipAddr {
+		return nil, errors.Error("No such eip")
+	}
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
 	return data, nil
 }
 
