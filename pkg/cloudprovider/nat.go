@@ -22,6 +22,7 @@ package cloudprovider
 
 type SNatSRule struct {
 	SourceCIDR string
+	NetworkID  string
 
 	ExternalIP   string
 	ExternalIPID string
