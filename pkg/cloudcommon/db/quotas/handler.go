@@ -474,6 +474,10 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			// fetch without cache expiration check
 			project, err := db.TenantCacheManager.FetchTenantByIdWithoutExpireCheck(ctx, projectId)
 			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					continue
+				}
+				log.Errorf("fail to query project %s", projectId)
 				return nil, err
 			}
 			quota.Set("tenant", jsonutils.NewString(project.Name))
@@ -483,6 +487,10 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			// fetch without cache expiration check
 			domain, err := db.TenantCacheManager.FetchDomainByIdWithoutExpireCheck(ctx, domainId)
 			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					continue
+				}
+				log.Errorf("fail to query domain %s", domainId)
 				return nil, err
 			}
 			quota.Set("project_domain", jsonutils.NewString(domain.Name))
@@ -508,6 +516,7 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 		// fetch without cache expiration check
 		domain, err := db.TenantCacheManager.FetchDomainByIdWithoutExpireCheck(ctx, targetDomainId)
 		if err != nil {
+			log.Errorf("fail to query target domain %s", targetDomainId)
 			return nil, err
 		}
 		quota.Set("project_domain", jsonutils.NewString(domain.Name))
