@@ -51,7 +51,7 @@ NatGateway:
     nat_spec:
       type: string
       description: NAT网关规格
-      example: Small
+      example: small
     region:
       type: string
       description: 所属的区域
@@ -335,7 +335,7 @@ SNatEntryCreate:
         network_id:
           type: string
           example: 648a6baa-9827-49b1-8831-278a889154a1
-          description: 所属网络ID
+          description: 所属网络ID(与source_cidr互斥，只需要传入一个)
         ip:
           type: string
           example: 49.4.12.184
@@ -343,8 +343,8 @@ SNatEntryCreate:
         external_ip_id:
           type: string
           example: ""
-          description: 公网IP对应的ID，除了华为云，可以为空
+          description: 公网IP对应的ID
         source_cidr:
           type: string
           example: 192.168.1.0/24
-          description: 映射到公网IP的内网网段
+          description: 映射到公网IP的内网网段(和network_id互斥，只需要传入一个）
