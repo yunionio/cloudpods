@@ -60,7 +60,8 @@ func init() {
 		params.Add(jsonutils.NewString(args.NATGATEWAYID), "natgateway_id")
 		params.Add(jsonutils.NewString(args.IP), "ip")
 		params.Add(jsonutils.NewString(args.EXTERNALIPID), "external_ip_id")
-		params.Add(jsonutils.NewString(args.SOURCECIDR), "source_cidr")
+		params.Add(jsonutils.NewString(args.SourceCIDR), "source_cidr")
+		params.Add(jsonutils.NewString(args.NetworkID), "network_id")
 
 		result, err := modules.NatSTable.Create(s, params)
 		if err != nil {
