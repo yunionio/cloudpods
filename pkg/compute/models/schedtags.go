@@ -203,6 +203,10 @@ func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCre
 	if !utils.IsInStringArray(resourceType, manager.GetResourceTypes()) {
 		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
 	}
+	data, err := manager.SScopedResourceBaseManager.ValidateCreateData(manager, ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -216,6 +220,10 @@ func (manager *SSchedtagManager) GetResourceSchedtags(resType string) ([]SSchedt
 		return nil, err
 	}
 	return tags, nil
+}
+
+func (self *SSchedtag) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.SScopedResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
