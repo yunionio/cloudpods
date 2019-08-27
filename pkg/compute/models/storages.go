@@ -1132,11 +1132,25 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if jsonutils.QueryBoolean(query, "usable", false) {
 		hostStorageTable := HoststorageManager.Query().SubQuery()
 		hostTable := HostManager.Query().SubQuery()
-		sq := hostStorageTable.Query(hostStorageTable.Field("storage_id")).Join(hostTable,
-			sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
-			Filter(sqlchemy.Equals(hostTable.Field("host_status"), api.HOST_ONLINE))
+		sq1 := hostStorageTable.Query(hostStorageTable.Field("storage_id")).
+			Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
+			Filter(sqlchemy.Equals(hostTable.Field("host_status"), api.HOST_ONLINE)).
+			Filter(sqlchemy.IsTrue(hostTable.Field("enabled"))).
+			Filter(sqlchemy.IsNullOrEmpty(hostTable.Field("manager_id")))
 
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq)).
+		providerTable := CloudproviderManager.Query().SubQuery()
+		sq2 := hostStorageTable.Query(hostStorageTable.Field("storage_id")).
+			Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
+			Join(providerTable, sqlchemy.Equals(hostTable.Field("manager_id"), providerTable.Field("id"))).
+			Filter(sqlchemy.IsTrue(providerTable.Field("enabled"))).
+			Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS)).
+			Filter(sqlchemy.In(providerTable.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
+
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(q.Field("id"), sq1),
+				sqlchemy.In(q.Field("id"), sq2),
+			)).
 			Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
 			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
