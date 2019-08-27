@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -46,6 +47,29 @@ func (self *SNatDEntryCreateTask) TaskFailed(ctx context.Context, dnatEntry *mod
 func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	dnatEntry := obj.(*models.SNatDEntry)
 	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_ALLOCATE, "")
+
+	natgateway, err := dnatEntry.GetNatgateway()
+	if err != nil {
+		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "fetch natgateway failed"))
+	}
+	var needBind bool
+	if self.Params.Contains("need_bind") {
+		needBind = true
+	}
+
+	self.SetStage("OnBindIPComplete", nil)
+	externalIPID, _ := self.Params.GetString("external_ip_id")
+	if err := natgateway.GetRegion().GetDriver().RequestBindIPToNatgateway(ctx, self, natgateway, needBind,
+		externalIPID); err != nil {
+		self.TaskFailed(ctx, dnatEntry, err)
+		return
+	}
+
+}
+
+func (self *SNatDEntryCreateTask) OnBindIPComplete(ctx context.Context, dnatEntry *models.SNatDEntry,
+	body jsonutils.JSONObject) {
+
 	cloudNatGateway, err := dnatEntry.GetINatGateway()
 	if err != nil {
 		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "Get NatGateway failed"))
@@ -62,14 +86,25 @@ func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		ExternalIPID: externalIPID,
 		ExternalPort: dnatEntry.ExternalPort,
 	}
-	_, err = cloudNatGateway.CreateINatDEntry(dnatRule)
+	extDnat, err := cloudNatGateway.CreateINatDEntry(dnatRule)
 	if err != nil {
 		self.TaskFailed(ctx, dnatEntry, errors.Wrapf(err, "Create DNat Entry '%s' failed", dnatEntry.ExternalId))
 		return
 	}
+	err = db.SetExternalId(dnatEntry, self.UserCred, extDnat.GetGlobalId())
+	if err != nil {
+		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "set external id failed"))
+		return
+	}
+
+	err = cloudprovider.WaitStatus(extDnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 300*time.Second)
+	if err != nil {
+		self.TaskFailed(ctx, dnatEntry, err)
+		return
+	}
 
 	dnatEntry.SetStatus(self.UserCred, api.NAT_STAUTS_AVAILABLE, "")
-
+	db.OpsLog.LogEvent(dnatEntry, db.ACT_ALLOCATE, dnatEntry.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
