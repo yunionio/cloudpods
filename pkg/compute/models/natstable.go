@@ -21,9 +21,11 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -57,7 +59,7 @@ type SNatSEntry struct {
 	IP         string `width:"17" charset:"ascii" list:"user" create:"required"`
 	SourceCIDR string `width:"22" charset:"ascii" list:"user" create:"required"`
 
-	NetworkId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkId    string `width:"36" charset:"ascii" list:"user" create:"optional"`
 	NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
@@ -126,9 +128,62 @@ func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 }
 
 func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if !data.Contains("external_ip_id") {
-		return nil, errors.Error("Request body should contain key 'externalIpId'")
+	input := &api.SNatSCreateInput{}
+	err := data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
 	}
+	if len(input.NatgatewayId) == 0 || len(input.ExternalIpId) == 0 || len(input.Ip) == 0 {
+		return nil, httperrors.NewMissingParameterError("natgateway_id or external_ip_id or ip")
+	}
+	if len(input.SourceCidr) == 0 && len(input.NetworkId) == 0 {
+		return nil, httperrors.NewMissingParameterError("sourceCIDR or network_id")
+	}
+	if len(input.SourceCidr) != 0 && len(input.NetworkId) != 0 {
+		return nil, httperrors.NewInputParameterError("Only one of that sourceCIDR and netword_id is needed")
+	}
+	if len(input.SourceCidr) != 0 {
+		if !regutils.MatchCIDR(input.SourceCidr) {
+			return nil, httperrors.NewInputParameterError("invalid sourcecidr: %s", input.SourceCidr)
+		}
+		//todo check cidr is in range vpc
+	} else {
+		model, err := NetworkManager.FetchById(input.NetworkId)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetch network error")
+		}
+		if model == nil {
+			return nil, httperrors.NewInputParameterError("no such network")
+		}
+		network := model.(*SNetwork)
+		data.Add(jsonutils.NewString(network.GetExternalId()), "network_ext_id")
+	}
+
+	model, err := ElasticipManager.FetchById(input.ExternalIpId)
+	if err != nil {
+		return nil, err
+	}
+	if model == nil {
+		return nil, httperrors.NewInputParameterError("No such eip")
+	}
+	eip := model.(*SElasticip)
+	if eip.IpAddr != input.Ip {
+		return nil, errors.Error("No such eip")
+	}
+
+	// check that eip is suitable
+	if len(eip.AssociateId) != 0 {
+		if eip.AssociateId != input.NatgatewayId {
+			return nil, httperrors.NewInputParameterError("eip has been binding to another instance")
+		} else if !man.canBindIP(eip.IpAddr) {
+			return nil, httperrors.NewInputParameterError("eip has been binding to dnat rules")
+		}
+	} else {
+		data.Add(jsonutils.NewBool(true), "need_bind")
+	}
+
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
 	return data, nil
 }
 
@@ -280,9 +335,7 @@ func (self *SNatSEntry) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		return
 	}
 	// ValidateCreateData function make data must contain 'externalIpId' key
-	externalIPID, _ := data.GetString("external_ip_id")
-	taskData := jsonutils.NewDict()
-	taskData.Set("external_ip_id", jsonutils.NewString(externalIPID))
+	taskData := data.(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "SNatSEntryCreateTask", self, userCred, taskData, "", "", nil)
 	if err != nil {
 		log.Errorf("SNatSEntryCreateTask newTask error %s", err)
@@ -310,12 +363,15 @@ func (self *SNatSEntry) CustomizeDelete(ctx context.Context, userCred mcclient.T
 
 func (self *SNatSEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SNAT delete do nothing")
-	self.SetStatus(userCred, api.NAT_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
 	return nil
 }
 
 func (self *SNatSEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
+	err := db.DeleteModel(ctx, userCred, self)
+	if err != nil {
+		return err
+	}
 	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
 	return nil
 }
@@ -328,4 +384,13 @@ func (self *SNatSEntry) StartDeleteVpcTask(ctx context.Context, userCred mcclien
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SNatSEntryManager) canBindIP(ipAddr string) bool {
+	q := NatDEntryManager.Query().Equals("external_ip", ipAddr)
+	count, _ := q.CountWithError()
+	if count != 0 {
+		return false
+	}
+	return true
 }

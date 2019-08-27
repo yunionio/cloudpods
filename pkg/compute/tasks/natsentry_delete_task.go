@@ -16,8 +16,10 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,19 +46,37 @@ func (self *SNatSEntryDeleteTask) taskFailed(ctx context.Context, snatEntry *mod
 
 func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	snatEntry := obj.(*models.SNatSEntry)
-	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_ALLOCATE, "")
+	snatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETING, "")
 	cloudNatGateway, err := snatEntry.GetINatGateway()
 	if err != nil {
 		self.taskFailed(ctx, snatEntry, errors.Wrap(err, "Get NatGateway failed"))
 		return
 	}
-	cloudNatDEntry, err := cloudNatGateway.GetINatSEntryByID(snatEntry.ExternalId)
+	cloudNatSEntry, err := cloudNatGateway.GetINatSEntryByID(snatEntry.ExternalId)
 	if err != nil {
 		self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Get SNat Entry by ID '%s' failed", snatEntry.ExternalId))
+		return
 	}
-	err = cloudNatDEntry.Delete()
+	if cloudNatSEntry == nil {
+		err = snatEntry.Purge(ctx, self.UserCred)
+		if err != nil {
+			self.taskFailed(ctx, snatEntry, err)
+			return
+		}
+		logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
+		self.SetStageComplete(ctx, nil)
+	}
+
+	err = cloudNatSEntry.Delete()
 	if err != nil {
 		self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Delete SNat Entry '%s' failed", snatEntry.ExternalId))
+		return
+	}
+
+	err = cloudprovider.WaitDeleted(cloudNatSEntry, 10*time.Second, 300*time.Second)
+	if err != nil {
+		self.taskFailed(ctx, snatEntry, err)
+		return
 	}
 
 	err = snatEntry.Purge(ctx, self.UserCred)
@@ -65,6 +85,7 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
+	db.OpsLog.LogEvent(snatEntry, db.ACT_DELETE, snatEntry.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

@@ -16,8 +16,10 @@ package tasks
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -44,7 +46,7 @@ func (self *SNatDEntryDeleteTask) taskFailed(ctx context.Context, dnatEntry *mod
 
 func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	dnatEntry := obj.(*models.SNatDEntry)
-	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_ALLOCATE, "")
+	dnatEntry.SetStatus(self.UserCred, api.NAT_STATUS_DELETING, "")
 	cloudNatGateway, err := dnatEntry.GetINatGateway()
 	if err != nil {
 		self.taskFailed(ctx, dnatEntry, errors.Wrap(err, "Get NatGateway failed"))
@@ -53,10 +55,29 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 	cloudNatDEntry, err := cloudNatGateway.GetINatDEntryByID(dnatEntry.ExternalId)
 	if err != nil {
 		self.taskFailed(ctx, dnatEntry, errors.Wrapf(err, "Get DNat Entry by ID '%s' failed", dnatEntry.ExternalId))
+		return
 	}
+	if cloudNatDEntry == nil {
+		err = dnatEntry.Purge(ctx, self.UserCred)
+		if err != nil {
+			self.taskFailed(ctx, dnatEntry, err)
+			return
+		}
+		logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
+		self.SetStageComplete(ctx, nil)
+
+	}
+
 	err = cloudNatDEntry.Delete()
 	if err != nil {
 		self.taskFailed(ctx, dnatEntry, errors.Wrapf(err, "Delete DNat Entry '%s' failed", dnatEntry.ExternalId))
+		return
+	}
+
+	err = cloudprovider.WaitDeleted(cloudNatDEntry, 10*time.Second, 300*time.Second)
+	if err != nil {
+		self.taskFailed(ctx, dnatEntry, err)
+		return
 	}
 
 	err = dnatEntry.Purge(ctx, self.UserCred)
@@ -65,6 +86,7 @@ func (self *SNatDEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
+	db.OpsLog.LogEvent(dnatEntry, db.ACT_DELETE, dnatEntry.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, dnatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

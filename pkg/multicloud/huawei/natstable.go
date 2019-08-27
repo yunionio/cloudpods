@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -108,4 +109,12 @@ func (region *SRegion) DeleteNatSEntry(entryID string) error {
 		return errors.Wrapf(err, `delete snat rule %q failed`, entryID)
 	}
 	return nil
+}
+
+func (nat *SNatSEntry) Refresh() error {
+	new, err := nat.gateway.region.GetNatSEntryByID(nat.ID)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(nat, new)
 }

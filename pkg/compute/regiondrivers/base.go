@@ -199,3 +199,13 @@ func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.C
 func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	return fmt.Errorf("Not implement OnSnapshotDelete")
 }
+
+func (self *SBaseRegionDriver) DealNatGatewaySpec(spec string) string {
+	return spec
+}
+
+func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task taskman.ITask,
+	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+
+	return fmt.Errorf("Not implement RequestBingToNatgateway")
+}

@@ -814,3 +814,12 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 	task.ScheduleRun(data)
 	return nil
 }
+
+func (self *SKVMRegionDriver) DealNatGatewaySpec(spec string) string {
+	return spec
+}
+func (self *SKVMRegionDriver) RequestBingToNatgateway(ctx context.Context, task taskman.ITask,
+	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+
+	return nil
+}

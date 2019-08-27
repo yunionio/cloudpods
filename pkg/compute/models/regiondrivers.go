@@ -97,6 +97,10 @@ type IRegionDriver interface {
 	RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskId string) error
 	RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskId string) error
 	OnSnapshotDelete(ctx context.Context, snapshot *SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error
+
+	//Nat gateway
+	DealNatGatewaySpec(spec string) string
+	RequestBingToNatgateway(ctx context.Context, task taskman.ITask, natgateway *SNatGateway, needBind bool, eipID string) error
 }
 
 var regionDrivers map[string]IRegionDriver

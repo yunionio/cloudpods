@@ -62,5 +62,6 @@ type NatSCreateOptions struct {
 	NATGATEWAYID string `help:"The nat gateway'id to which SNat belongs"`
 	IP           string `help:"External IP"`
 	EXTERNALIPID string `help:"External IP ID, can be empty except huawei Cloud"`
-	SOURCECIDR   string `help:"Source CIDR"`
+	SourceCIDR   string `help:"Source CIDR"`
+	NetworkID    string `help:"Network id"`
 }
