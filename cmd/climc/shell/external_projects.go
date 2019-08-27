@@ -57,10 +57,10 @@ func init() {
 		PROJECT string `help:"Local project ID or Name"`
 	}
 
-	R(&ExternalProjectUpdateOptions{}, "external-project-update", "Update external project point to local project", func(s *mcclient.ClientSession, args *ExternalProjectUpdateOptions) error {
+	R(&ExternalProjectUpdateOptions{}, "external-project-change-project", "Change external project point to local project", func(s *mcclient.ClientSession, args *ExternalProjectUpdateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.PROJECT), "project")
-		result, err := modules.ExternalProjects.Update(s, args.ID, params)
+		result, err := modules.ExternalProjects.PerformAction(s, args.ID, "change-project", params)
 		if err != nil {
 			return err
 		}
