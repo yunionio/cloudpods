@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -58,7 +59,7 @@ type SNatGateway struct {
 	SBillingResourceBase
 
 	VpcId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NatSpec string `list:"user" get:"user" list:"user" create:"optional"` // NAT规格
+	NatSpec string `list:"user" create:"optional"` // NAT规格
 }
 
 func (manager *SNatGetewayManager) GetContextManagers() [][]db.IModelManager {
@@ -148,12 +149,17 @@ func (self *SNatGateway) GetSTable() ([]SNatSEntry, error) {
 	return tables, nil
 }
 
+type sEIPPair struct {
+	IpId   string
+	IpAddr string
+}
+
 func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	return extra, nil
+	return self.getMoreDetails(ctx, userCred, extra)
 }
 
 func (self *SNatGateway) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -172,7 +178,25 @@ func (self *SNatGateway) GetCustomizeColumns(ctx context.Context, userCred mccli
 		return extra
 	}
 	extra.Add(jsonutils.NewString(vpc.Name), "vpc")
+	extra, _ = self.getMoreDetails(ctx, userCred, extra)
 	return extra
+}
+
+func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
+	spec := self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
+	extra.Add(jsonutils.NewString(spec), "nat_spec")
+	//eips, err := self.GetEips()
+	//if err != nil {
+	//	return extra, errors.Wrap(err, "fetch all eips failed")
+	//}
+	//eipPairs := make([]sEIPPair, len(eips))
+	//for i := range eips {
+	//	eipPairs[i] = sEIPPair{eips[i].GetId(), eips[i].IpAddr}
+	//}
+	//extra.Add(jsonutils.Marshal(eipPairs), "eips")
+	return extra, nil
 }
 
 func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
@@ -386,4 +410,40 @@ func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error
 		}
 	}
 	return nil, errors.Error("CloudNatGateway Not Found")
+}
+
+func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	dnats, err := self.GetDTable()
+	if err != nil {
+		return errors.Wrap(err, "fetch dnat table failed")
+	}
+	snats, err := self.GetSTable()
+	if err != nil {
+		return errors.Wrap(err, "fetch snat table failed")
+	}
+	for i := range dnats {
+		err = dnats[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete dnat %s failed", dnats[i].GetId())
+		}
+	}
+	for i := range snats {
+		err = snats[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete snat %s failed", snats[i].GetId())
+		}
+	}
+	return self.Delete(ctx, userCred)
+}
+
+func (self *SNatGateway) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovider for sp %s: %s", self.Name, err)
+	}
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for sp %s", self.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
 }

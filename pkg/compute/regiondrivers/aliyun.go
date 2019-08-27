@@ -20,19 +20,22 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/util/choices"
-	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SAliyunRegionDriver struct {
@@ -839,5 +842,48 @@ func (self *SAliyunRegionDriver) ValidateSnapshotCreate(ctx context.Context, use
 		return httperrors.NewBadRequestError(
 			"Snapshot for %s name can't start with auto, http:// or https://", self.GetProvider())
 	}
+	return nil
+}
+
+func (self *SAliyunRegionDriver) DealNatGatewaySpec(spec string) string {
+	switch spec {
+	case "Small":
+		return api.NAT_SPEC_SMALL
+	case "Midele":
+		return api.NAT_SPEC_MIDDLE
+	case "Large":
+		return api.NAT_SPEC_LARGE
+	case "XLarge.1":
+		return api.NAT_SPEC_XLARGE
+	}
+	//can't arrive
+	return ""
+}
+
+func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
+	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if !needBind {
+			return nil, nil
+		}
+		iregion, err := natgateway.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		ieip, err := iregion.GetIEipById(eipID)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetch eip failed")
+		}
+		err = ieip.Associate(natgateway.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "bind eip to natgateway")
+		}
+
+		cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
 	return nil
 }

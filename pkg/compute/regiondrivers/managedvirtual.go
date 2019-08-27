@@ -1232,3 +1232,14 @@ func (self *SManagedVirtualizationRegionDriver) OnSnapshotDelete(ctx context.Con
 	task.ScheduleRun(data)
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) DealNatGatewaySpec(spec string) string {
+	return spec
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
+	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+
+	task.ScheduleRun(nil)
+	return nil
+}
