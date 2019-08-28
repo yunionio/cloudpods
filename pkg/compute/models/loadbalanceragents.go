@@ -529,12 +529,15 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 func (lbagent *SLoadbalancerAgent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := lbagent.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	{
-		lbcluster, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
+		m, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
 		if err != nil {
 			log.Errorf("loadbalancer agent %s(%s): fetch cluster (%s) error: %s",
 				lbagent.Name, lbagent.Id, lbagent.ClusterId, err)
 		} else {
+			lbcluster := m.(*SLoadbalancerCluster)
 			extra.Set("cluster", jsonutils.NewString(lbcluster.GetName()))
+			zoneInfo := lbcluster.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+			extra.Update(zoneInfo)
 		}
 	}
 	return extra
