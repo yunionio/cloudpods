@@ -17,9 +17,12 @@ package cloudprovider
 import (
 	"context"
 	"io"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"fmt"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
@@ -75,6 +78,43 @@ type SListObjectResult struct {
 	IsTruncated    bool
 }
 
+type SGetObjectRange struct {
+	Start int64
+	End   int64
+}
+
+func (r SGetObjectRange) SizeBytes() int64 {
+	return r.End - r.Start + 1
+}
+
+var (
+	rangeExp = regexp.MustCompile(`(bytes=)?(\d*)-(\d*)`)
+)
+
+func ParseRange(rangeStr string) SGetObjectRange {
+	objRange := SGetObjectRange{}
+	if len(rangeStr) > 0 {
+		find := rangeExp.FindAllStringSubmatch(rangeStr, -1)
+		if len(find) > 0 && len(find[0]) > 3 {
+			objRange.Start, _ = strconv.ParseInt(find[0][2], 10, 64)
+			objRange.End, _ = strconv.ParseInt(find[0][3], 10, 64)
+		}
+	}
+	return objRange
+}
+
+func (r SGetObjectRange) String() string {
+	if r.Start > 0 && r.End > 0 {
+		return fmt.Sprintf("bytes=%d-%d", r.Start, r.End)
+	} else if r.Start > 0 && r.End <= 0 {
+		return fmt.Sprintf("bytes=%d-", r.Start)
+	} else if r.Start <= 0 && r.End > 0 {
+		return fmt.Sprintf("bytes=0-%d", r.End)
+	} else {
+		return ""
+	}
+}
+
 type ICloudBucket interface {
 	IVirtualResource
 
@@ -98,12 +138,16 @@ type ICloudBucket interface {
 	ListObjects(prefix string, marker string, delimiter string, maxCount int) (SListObjectResult, error)
 	GetIObjects(prefix string, isRecursive bool) ([]ICloudObject, error)
 
+	CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl TBucketACLType, storageClassStr string) error
+	GetObject(ctx context.Context, key string, rangeOpt *SGetObjectRange) (io.ReadCloser, error)
+
 	DeleteObject(ctx context.Context, keys string) error
 	GetTempUrl(method string, key string, expire time.Duration) (string, error)
 
 	PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl TBucketACLType, storageClassStr string) error
 	NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl TBucketACLType, storageClassStr string) (string, error)
 	UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error)
+	CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucketName string, srcKey string, srcOffset int64, srcLength int64) (string, error)
 	CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error
 	AbortMultipartUpload(ctx context.Context, key string, uploadId string) error
 }
@@ -349,4 +393,111 @@ func DeletePrefix(ctx context.Context, bucket ICloudBucket, prefix string) error
 		}
 	}
 	return nil
+}
+
+func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, debug bool) error {
+	srcObj, err := GetIObject(srcBucket, srcKey)
+	if err != nil {
+		return errors.Wrap(err, "GetIObject")
+	}
+	if blocksz <= 0 {
+		blocksz = MAX_PUT_OBJECT_SIZEBYTES
+	}
+	sizeBytes := srcObj.GetSizeBytes()
+	if sizeBytes < blocksz {
+		if debug {
+			log.Debugf("too small, copy object in one shot")
+		}
+		srcStream, err := srcBucket.GetObject(ctx, srcKey, nil)
+		if err != nil {
+			return errors.Wrap(err, "srcBucket.GetObject")
+		}
+		defer srcStream.Close()
+		err = dstBucket.PutObject(ctx, dstKey, srcStream, sizeBytes, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+		if err != nil {
+			return errors.Wrap(err, "dstBucket.PutObject")
+		}
+		return nil
+	}
+	partSize := blocksz
+	partCount := sizeBytes / partSize
+	if partCount*partSize < sizeBytes {
+		partCount += 1
+	}
+	if partCount > int64(dstBucket.MaxPartCount()) {
+		partCount = int64(dstBucket.MaxPartCount())
+		partSize = sizeBytes / partCount
+		if partSize*partCount < sizeBytes {
+			partSize += 1
+		}
+		if partSize > dstBucket.MaxPartSizeBytes() {
+			return errors.Error("too larget object")
+		}
+	}
+	if debug {
+		log.Debugf("multipart upload part count %d part size %d", partCount, partSize)
+	}
+	uploadId, err := dstBucket.NewMultipartUpload(ctx, dstKey, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+	if err != nil {
+		return errors.Wrap(err, "bucket.NewMultipartUpload")
+	}
+	etags := make([]string, partCount)
+	// offset := int64(0)
+	for i := 0; i < int(partCount); i += 1 {
+		start := int64(i) * partSize
+		if i == int(partCount)-1 {
+			partSize = sizeBytes - partSize*(partCount-1)
+		}
+		end := start + partSize - 1
+		rangeOpt := SGetObjectRange{
+			Start: start,
+			End:   end,
+		}
+		if debug {
+			log.Debugf("UploadPart %d %d range: %s (%d)", i+1, partSize, rangeOpt.String(), rangeOpt.SizeBytes())
+		}
+		srcStream, err := srcBucket.GetObject(ctx, srcKey, &rangeOpt)
+		if err == nil {
+			defer srcStream.Close()
+			var etag string
+			etag, err = dstBucket.UploadPart(ctx, dstKey, uploadId, i+1, io.LimitReader(srcStream, partSize), partSize)
+			if err == nil {
+				etags[i] = etag
+				continue
+			}
+		}
+		if err != nil {
+			err2 := dstBucket.AbortMultipartUpload(ctx, dstKey, uploadId)
+			if err2 != nil {
+				log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+			}
+			return errors.Wrap(err, "bucket.UploadPart")
+		}
+	}
+	err = dstBucket.CompleteMultipartUpload(ctx, dstKey, uploadId, etags)
+	if err != nil {
+		err2 := dstBucket.AbortMultipartUpload(ctx, dstKey, uploadId)
+		if err2 != nil {
+			log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+		}
+		return errors.Wrap(err, "CompleteMultipartUpload")
+	}
+	return nil
+}
+
+func CopyPart(ctx context.Context,
+	iDstBucket ICloudBucket, dstKey string, uploadId string, partNumber int,
+	iSrcBucket ICloudBucket, srcKey string, rangeOpt *SGetObjectRange,
+) (string, error) {
+	srcReader, err := iSrcBucket.GetObject(ctx, srcKey, rangeOpt)
+	if err != nil {
+		return "", errors.Wrap(err, "iSrcBucket.GetObject")
+	}
+	defer srcReader.Close()
+
+	etag, err := iDstBucket.UploadPart(ctx, dstKey, uploadId, partNumber, io.LimitReader(srcReader, rangeOpt.SizeBytes()), rangeOpt.SizeBytes())
+	if err != nil {
+		return "", errors.Wrap(err, "iDstBucket.UploadPart")
+	}
+	return etag, nil
 }

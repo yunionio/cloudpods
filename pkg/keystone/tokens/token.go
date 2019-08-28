@@ -243,8 +243,10 @@ func (t *SAuthToken) getTokenV3(
 	user *api.SUserExtended,
 	project *models.SProjectExtended,
 	domain *models.SDomain,
+	akskInfo api.SAccessKeySecretInfo,
 ) (*mcclient.TokenCredentialV3, error) {
 	token := mcclient.TokenCredentialV3{}
+	token.Token.AccessKey = akskInfo
 	token.Token.ExpiresAt = t.ExpiresAt
 	token.Token.IssuedAt = t.ExpiresAt.Add(-time.Duration(options.Options.TokenExpirationSeconds) * time.Second)
 	token.Token.AuditIds = t.AuditIds

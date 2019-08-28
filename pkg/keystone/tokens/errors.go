@@ -27,4 +27,6 @@ const (
 	ErrDomainDisabled     = errors.Error("domain is disabled")
 	ErrEmptyAuth          = errors.Error("empty auth request")
 	ErrUserNotInProject   = errors.Error("user not in project")
+	ErrInvalidAccessKeyId = errors.Error("invalid access key id")
+	ErrExpiredAccessKey   = errors.Error("expired access key")
 )

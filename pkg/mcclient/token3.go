@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -81,6 +82,8 @@ type KeystoneTokenV3 struct {
 	User      KeystoneUserV3           `json:"user"`
 	Catalog   KeystoneServiceCatalogV3 `json:"catalog"`
 	Context   SAuthContext             `json:"context"`
+
+	AccessKey api.SAccessKeySecretInfo `json:"access_key"`
 }
 
 type TokenCredentialV3 struct {

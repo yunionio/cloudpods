@@ -142,7 +142,7 @@ func (manager *SIdentityBaseResourceManager) OrderByExtraFields(ctx context.Cont
 	return q, nil
 }
 
-func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
@@ -154,9 +154,14 @@ func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, d
 			return nil, httperrors.NewGeneralError(err)
 		}
 		owner := db.SOwnerId{DomainId: domain.Id, Domain: domain.Name}
+		data.(*jsonutils.JSONDict).Set("project_domain", jsonutils.NewString(domain.Id))
 		return &owner, nil
 	}
 	return nil, nil
+}
+
+func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return fetchDomainInfo(data)
 }
 
 func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

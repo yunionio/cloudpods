@@ -280,4 +280,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type BucketAccessInfoOptions struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketAccessInfoOptions{}, "bucket-access-info", "Show backend access info of a bucket", func(s *mcclient.ClientSession, args *BucketAccessInfoOptions) error {
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "access-info", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
