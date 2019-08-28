@@ -75,6 +75,7 @@ func init() {
 		NAME     string `help:"Name of new schedtag"`
 		Strategy string `help:"Policy" choices:"require|exclude|prefer|avoid"`
 		Desc     string `help:"Description"`
+		Scope    string `help:"Resource scope" choices:"system|domain|project"`
 		Type     string `help:"Resource type" choices:"hosts|storages|networks"`
 	}
 	R(&SchedtagCreateOptions{}, "schedtag-create", "Create a schedule tag", func(s *mcclient.ClientSession, args *SchedtagCreateOptions) error {
@@ -88,6 +89,9 @@ func init() {
 		}
 		if len(args.Type) > 0 {
 			params.Add(jsonutils.NewString(args.Type), "resource_type")
+		}
+		if len(args.Scope) > 0 {
+			params.Add(jsonutils.NewString(args.Scope), "scope")
 		}
 		schedtag, err := modules.Schedtags.Create(s, params)
 		if err != nil {

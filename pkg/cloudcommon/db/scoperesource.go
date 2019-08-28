@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -47,6 +48,33 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 		q = q.Filter(sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()))
 	}
 	return q
+}
+
+func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	scope, _ := data.GetString("scope")
+	if scope == "" {
+		scope = string(rbacutils.ScopeSystem)
+	}
+	if !utils.IsInStringArray(scope, []string{
+		string(rbacutils.ScopeSystem),
+		string(rbacutils.ScopeDomain),
+		string(rbacutils.ScopeProject)}) {
+		return nil, httperrors.NewInputParameterError("invalid scope %s", scope)
+	}
+	var allowCreate bool
+	switch rbacutils.TRbacScope(scope) {
+	case rbacutils.ScopeSystem:
+		allowCreate = IsAdminAllowCreate(userCred, man)
+	case rbacutils.ScopeDomain:
+		allowCreate = IsDomainAllowCreate(userCred, man)
+	case rbacutils.ScopeProject:
+		allowCreate = IsProjectAllowCreate(userCred, man)
+	}
+	if !allowCreate {
+		return nil, httperrors.NewForbiddenError("not allow create %s in scope %s", man.ResourceScope(), scope)
+	}
+	data.Set("scope", jsonutils.NewString(scope))
+	return data, nil
 }
 
 func getScopedResourceScope(domainId, projectId string) rbacutils.TRbacScope {
@@ -84,6 +112,18 @@ func (s *SScopedResourceBase) GetProjectId() string {
 func (s *SScopedResourceBase) SetResourceScope(domainId, projectId string) error {
 	s.DomainId = domainId
 	s.ProjectId = projectId
+	return nil
+}
+
+func (s *SScopedResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	scope, _ := data.GetString("scope")
+	switch rbacutils.TRbacScope(scope) {
+	case rbacutils.ScopeDomain:
+		s.DomainId = ownerId.GetDomainId()
+	case rbacutils.ScopeProject:
+		s.DomainId = ownerId.GetDomainId()
+		s.ProjectId = ownerId.GetProjectId()
+	}
 	return nil
 }
 
