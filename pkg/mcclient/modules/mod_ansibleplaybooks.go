@@ -37,5 +37,5 @@ func init() {
 			[]string{},
 		),
 	}
-	register(&AnsiblePlaybooks)
+	registerV2(&AnsiblePlaybooks)
 }
