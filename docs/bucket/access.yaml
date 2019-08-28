@@ -1,0 +1,11 @@
+get:
+  summary: 获取存储桶的后端访问信息，例如ceph RADOS的endpint/ak/sk信息等
+  parameters:
+    - $ref: '../parameters/bucket.yaml#/bucket_name'
+  responses:
+    200:
+      description: 指定存储桶访问信息
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketAccessInfoResponse"
+  tags:
+    - buckets

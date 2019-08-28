@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"sync"
 	"time"
 )
@@ -54,6 +55,7 @@ const (
 	HASH_ALG_MD5 int = iota
 	HASH_ALG_SHA1
 	HASH_ALG_SHA256
+	HASH_ALG_SHA512
 )
 
 func bytes2int(b []byte) uint32 {
@@ -72,6 +74,9 @@ func checksum(alg int, key string) uint32 {
 	case HASH_ALG_SHA256:
 		v := sha256.Sum224([]byte(key))
 		hash = bytes2int(v[0:4])
+	case HASH_ALG_SHA512:
+		v := sha512.Sum512([]byte(key))
+		hash = bytes2int(v[0:4])
 	}
 	return hash
 }
@@ -79,7 +84,7 @@ func checksum(alg int, key string) uint32 {
 func (c *Cache) find(key string) (bool, uint32) {
 	var idx uint32
 	now := time.Now()
-	for _, alg := range []int{HASH_ALG_MD5, HASH_ALG_SHA1, HASH_ALG_SHA256} {
+	for _, alg := range []int{HASH_ALG_MD5, HASH_ALG_SHA1, HASH_ALG_SHA256, HASH_ALG_SHA512} {
 		idx = checksum(alg, key) % c.size
 		if c.table[idx].key == key {
 			if c.table[idx].expire.IsZero() || c.table[idx].expire.After(now) {
@@ -124,6 +129,20 @@ func (c *Cache) AtomicSet(key string, val interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.Set(key, val)
+}
+
+func (c *Cache) Remove(key string) {
+	find, idx := c.find(key)
+	if !find {
+		return
+	}
+	c.table[idx].reset()
+}
+
+func (c *Cache) AtomicRemove(key string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.Remove(key)
 }
 
 func (c *Cache) Invalidate() {

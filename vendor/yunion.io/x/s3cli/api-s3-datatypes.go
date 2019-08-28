@@ -103,6 +103,15 @@ type ListBucketResult struct {
 	Prefix     string
 }
 
+type ListMultipartUploadsInput struct {
+	Delimiter      string
+	MaxUploads     int64
+	KeyMarker      string
+	Prefix         string
+	UploadIdMarker string
+	EncodingType   string
+}
+
 // ListMultipartUploadsResult container for ListMultipartUploads response
 type ListMultipartUploadsResult struct {
 	Bucket             string
@@ -127,7 +136,13 @@ type initiator struct {
 }
 
 // copyObjectResult container for copy object response.
-type copyObjectResult struct {
+type CopyObjectResult struct {
+	ETag         string
+	LastModified time.Time // time string format "2006-01-02T15:04:05.000Z"
+}
+
+// copyPartResult container for copy part response
+type CopyPartResult struct {
 	ETag         string
 	LastModified time.Time // time string format "2006-01-02T15:04:05.000Z"
 }
@@ -207,10 +222,13 @@ type CompleteMultipartUpload struct {
 }
 
 // createBucketConfiguration container for bucket configuration.
-type createBucketConfiguration struct {
+type CreateBucketConfiguration struct {
 	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CreateBucketConfiguration" json:"-"`
 	Location string   `xml:"LocationConstraint"`
 }
+
+// LocationConstraint
+type LocationConstraint string
 
 // deleteObject container for Delete element in MultiObjects Delete XML request
 type deleteObject struct {
@@ -246,4 +264,10 @@ type deleteMultiObjectsResult struct {
 	XMLName          xml.Name           `xml:"DeleteResult"`
 	DeletedObjects   []deletedObject    `xml:"Deleted"`
 	UnDeletedObjects []nonDeletedObject `xml:"Error"`
+}
+
+type VersioningConfiguration struct {
+	XMLName   xml.Name `xmlns:"http://s3.amazonaws.com/doc/2006-03-01/" xml:"VersioningConfiguration"`
+	Status    string   `xml:"Status,omitempty"`
+	MfaDelete string   `xml:"MfaDelete,omitempty"`
 }

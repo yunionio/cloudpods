@@ -226,3 +226,10 @@ BucketSetLimitInput:
         object_count:
           type: integer
           description: 对象数量限制，为0则无限制
+
+BucketAccessInfoResponse:
+  type: object
+  properties:
+    bucket:
+      type: object
+      description: 桶的后端访问信息，例如ceph RADOS的endpoint/access_key/secret信息等。具体形式由存储后端决定。
