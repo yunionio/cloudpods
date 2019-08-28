@@ -15,11 +15,15 @@
 package modules
 
 import (
+	"encoding/base64"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/seclib"
 
+	"github.com/pkg/errors"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -31,8 +35,9 @@ type SCredentialManager struct {
 const (
 	DEFAULT_PROJECT = "default"
 
-	TOTP_TYPE             = "totp"
-	RECOVERY_SECRETS_TYPE = "recovery_secret"
+	ACCESS_SECRET_TYPE    = api.ACCESS_SECRET_TYPE
+	TOTP_TYPE             = api.TOTP_TYPE
+	RECOVERY_SECRETS_TYPE = api.RECOVERY_SECRETS_TYPE
 )
 
 type STotpSecret struct {
@@ -45,15 +50,26 @@ type SRecoverySecret struct {
 	Answer   string
 }
 
+type SAccessKeySecret struct {
+	KeyId     string    `json:"-"`
+	ProjectId string    `json:"-"`
+	TimeStamp time.Time `json:"-"`
+	api.SAccessKeySecretBlob
+}
+
 type SRecoverySecretSet struct {
 	Questions []SRecoverySecret
 	Timestamp int64
 }
 
-func (manager *SCredentialManager) fetchCredentials(s *mcclient.ClientSession, secType string, uid string) ([]jsonutils.JSONObject, error) {
+func (manager *SCredentialManager) fetchCredentials(s *mcclient.ClientSession, secType string, uid string, pid string) ([]jsonutils.JSONObject, error) {
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewString(secType), "type")
+	query.Add(jsonutils.NewString("system"), "scope")
 	query.Add(jsonutils.NewString(uid), "user_id")
+	if len(pid) > 0 {
+		query.Add(jsonutils.NewString(pid), "project_id")
+	}
 	results, err := manager.List(s, query)
 	if err != nil {
 		return nil, err
@@ -61,12 +77,16 @@ func (manager *SCredentialManager) fetchCredentials(s *mcclient.ClientSession, s
 	return results.Data, nil
 }
 
+func (manager *SCredentialManager) FetchAccessKeySecrets(s *mcclient.ClientSession, uid string, pid string) ([]jsonutils.JSONObject, error) {
+	return manager.fetchCredentials(s, ACCESS_SECRET_TYPE, uid, pid)
+}
+
 func (manager *SCredentialManager) FetchTotpSecrets(s *mcclient.ClientSession, uid string) ([]jsonutils.JSONObject, error) {
-	return manager.fetchCredentials(s, TOTP_TYPE, uid)
+	return manager.fetchCredentials(s, TOTP_TYPE, uid, "")
 }
 
 func (manager *SCredentialManager) FetchRecoverySecrets(s *mcclient.ClientSession, uid string) ([]jsonutils.JSONObject, error) {
-	return manager.fetchCredentials(s, RECOVERY_SECRETS_TYPE, uid)
+	return manager.fetchCredentials(s, RECOVERY_SECRETS_TYPE, uid, "")
 }
 
 func (manager *SCredentialManager) GetTotpSecret(s *mcclient.ClientSession, uid string) (string, error) {
@@ -119,6 +139,89 @@ func (manager *SCredentialManager) GetRecoverySecrets(s *mcclient.ClientSession,
 	return latestQ.Questions, nil
 }
 
+func DecodeAccessKeySecret(secret jsonutils.JSONObject) (SAccessKeySecret, error) {
+	curr := SAccessKeySecret{}
+	blobStr, err := secret.GetString("blob")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString")
+	}
+	blobJson, err := jsonutils.ParseString(blobStr)
+	if err != nil {
+		return curr, errors.Wrap(err, "jsonutils.ParseString")
+	}
+	err = blobJson.Unmarshal(&curr)
+	if err != nil {
+		return curr, errors.Wrap(err, "blobJson.Unmarshal")
+	}
+	curr.ProjectId, err = secret.GetString("project_id")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('project_id')")
+	}
+	curr.TimeStamp, err = secret.GetTime("created_at")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetTime('created_at')")
+	}
+	curr.KeyId, err = secret.GetString("id")
+	if err != nil {
+		return curr, errors.Wrap(err, "secret.GetString('id')")
+	}
+	return curr, nil
+}
+
+func (manager *SCredentialManager) GetAccessKeySecrets(s *mcclient.ClientSession, uid string, pid string) ([]SAccessKeySecret, error) {
+	secrets, err := manager.FetchAccessKeySecrets(s, uid, pid)
+	if err != nil {
+		return nil, err
+	}
+	aksk := make([]SAccessKeySecret, 0)
+	for i := range secrets {
+		curr, err := DecodeAccessKeySecret(secrets[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "DecodeAccessKeySecret")
+		}
+		aksk = append(aksk, curr)
+	}
+	return aksk, nil
+}
+
+func (manager *SCredentialManager) DoCreateAccessKeySecret(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	key, err := manager.CreateAccessKeySecret(s, "", "", time.Time{})
+	if err != nil {
+		return nil, err
+	}
+	result := jsonutils.Marshal(key)
+	result.(*jsonutils.JSONDict).Add(jsonutils.NewString(key.KeyId), "key_id")
+	return result, nil
+}
+
+func (manager *SCredentialManager) CreateAccessKeySecret(s *mcclient.ClientSession, uid string, pid string, expireAt time.Time) (SAccessKeySecret, error) {
+	aksk := SAccessKeySecret{}
+	aksk.Secret = base64.URLEncoding.EncodeToString([]byte(seclib.RandomPassword(32)))
+	if !expireAt.IsZero() {
+		aksk.Expire = expireAt.Unix()
+	}
+	blobJson := jsonutils.Marshal(&aksk)
+	params := jsonutils.NewDict()
+	name := fmt.Sprintf("%s-%s-%d", uid, pid, time.Now().Unix())
+	if len(pid) > 0 {
+		params.Add(jsonutils.NewString(pid), "project_id")
+	}
+	params.Add(jsonutils.NewString(ACCESS_SECRET_TYPE), "type")
+	if len(uid) > 0 {
+		params.Add(jsonutils.NewString(uid), "user_id")
+	}
+	params.Add(jsonutils.NewString(blobJson.String()), "blob")
+	params.Add(jsonutils.NewString(name), "name")
+	result, err := manager.Create(s, params)
+	if err != nil {
+		return aksk, err
+	}
+	aksk.ProjectId = pid
+	aksk.TimeStamp, _ = result.GetTime("created_at")
+	aksk.KeyId, _ = result.GetString("id")
+	return aksk, nil
+}
+
 func (manager *SCredentialManager) CreateTotpSecret(s *mcclient.ClientSession, uid string) (string, error) {
 	_, err := manager.GetTotpSecret(s, uid)
 	if err == nil {
@@ -163,8 +266,8 @@ func (manager *SCredentialManager) SaveRecoverySecrets(s *mcclient.ClientSession
 	return nil
 }
 
-func (manager *SCredentialManager) removeCredentials(s *mcclient.ClientSession, secType string, uid string) error {
-	secrets, err := manager.fetchCredentials(s, secType, uid)
+func (manager *SCredentialManager) removeCredentials(s *mcclient.ClientSession, secType string, uid string, pid string) error {
+	secrets, err := manager.fetchCredentials(s, secType, uid, pid)
 	if err != nil {
 		return err
 	}
@@ -180,12 +283,16 @@ func (manager *SCredentialManager) removeCredentials(s *mcclient.ClientSession, 
 	return nil
 }
 
+func (manager *SCredentialManager) RemoveAccessKeySecrets(s *mcclient.ClientSession, uid string, pid string) error {
+	return manager.removeCredentials(s, ACCESS_SECRET_TYPE, uid, pid)
+}
+
 func (manager *SCredentialManager) RemoveTotpSecrets(s *mcclient.ClientSession, uid string) error {
-	return manager.removeCredentials(s, TOTP_TYPE, uid)
+	return manager.removeCredentials(s, TOTP_TYPE, uid, "")
 }
 
 func (manager *SCredentialManager) RemoveRecoverySecrets(s *mcclient.ClientSession, uid string) error {
-	return manager.removeCredentials(s, RECOVERY_SECRETS_TYPE, uid)
+	return manager.removeCredentials(s, RECOVERY_SECRETS_TYPE, uid, "")
 }
 
 var (
@@ -198,4 +305,6 @@ func init() {
 			[]string{},
 			[]string{"ID", "Type", "user_id", "project_id", "blob"}),
 	}
+
+	register(&Credentials)
 }

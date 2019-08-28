@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 
+	"net/url"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -377,4 +378,63 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 		return "", errors.Wrap(err, "request.PresignRequest")
 	}
 	return url, nil
+}
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	log.Debugf("copy from %s/%s to %s/%s", srcBucket, srcKey, b.Name, destKey)
+	input := &s3.CopyObjectInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(destKey)
+	input.SetCopySource(fmt.Sprintf("%s/%s", srcBucket, url.PathEscape(srcKey)))
+	input.SetStorageClass(storageClassStr)
+	input.SetACL(string(cannedAcl))
+	input.SetContentType(contType)
+	_, err = s3cli.CopyObject(input)
+	if err != nil {
+		return errors.Wrap(err, "CopyObject")
+	}
+	return nil
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.GetObjectInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	if rangeOpt != nil {
+		input.SetRange(rangeOpt.String())
+	}
+	output, err := s3cli.GetObject(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetObject")
+	}
+	return output.Body, nil
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partNumber int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return "", errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.UploadPartCopyInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	input.SetUploadId(uploadId)
+	input.SetPartNumber(int64(partNumber))
+	input.SetCopySource(fmt.Sprintf("/%s/%s", srcBucket, url.PathEscape(srcKey)))
+	if srcLength > 0 {
+		input.SetCopySourceRange(fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1))
+	}
+	output, err := s3cli.UploadPartCopy(input)
+	if err != nil {
+		return "", errors.Wrap(err, "s3cli.UploadPartCopy")
+	}
+	return *output.CopyPartResult.ETag, nil
 }

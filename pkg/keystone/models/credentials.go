@@ -16,15 +16,21 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SCredentialManager struct {
@@ -62,14 +68,16 @@ func init() {
 type SCredential struct {
 	db.SStandaloneResourceBase
 
-	UserId    string `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	ProjectId string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
-	Type      string `width:"255" charset:"utf8" nullable:"false" list:"admin" create:"admin_required"`
-	KeyHash   string `width:"64" charset:"ascii" nullable:"false" create:"admin_required"`
+	UserId    string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	ProjectId string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"required"`
+	Type      string `width:"255" charset:"utf8" nullable:"false" list:"user" create:"required"`
+	KeyHash   string `width:"64" charset:"ascii" nullable:"false" create:"required"`
 
 	Extra *jsonutils.JSONDict `nullable:"true" list:"admin"`
 
-	EncryptedBlob string `nullable:"false" create:"admin_required"`
+	EncryptedBlob string `nullable:"false" create:"required"`
+
+	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SCredentialManager) InitializeData() error {
@@ -99,10 +107,36 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 	if !data.Contains("type") {
 		return nil, httperrors.NewInputParameterError("missing input feild type")
 	}
+	userId, _ := data.GetString("user_id")
+	projectId, _ := data.GetString("project_id")
+	if len(userId) == 0 {
+		userId = userCred.GetUserId()
+		data.Set("user_id", jsonutils.NewString(userId))
+	} else {
+		_, err := UserManager.FetchById(userId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), userId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+	if len(projectId) == 0 {
+		projectId = userCred.GetProjectId()
+		data.Set("project_id", jsonutils.NewString(projectId))
+	} else {
+		_, err := ProjectManager.FetchById(projectId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
 	if !data.Contains("name") {
 		typeStr, _ := data.GetString("type")
-		userId, _ := data.GetString("user_id")
-		projectId, _ := data.GetString("project_id")
 		data.Add(jsonutils.NewString(fmt.Sprintf("%s-%s-%s", typeStr, projectId, userId)), "name")
 	}
 	blob, _ := data.GetString("blob")
@@ -124,6 +158,7 @@ func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -141,8 +176,7 @@ func (self *SCredential) GetExtraDetails(ctx context.Context, userCred mcclient.
 }
 
 func credentialExtra(cred *SCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	blob := keys.CredentialKeyManager.Decrypt([]byte(cred.EncryptedBlob), time.Duration(-1))
-	extra.Add(jsonutils.NewString(string(blob)), "blob")
+	extra.Add(jsonutils.NewString(string(cred.getBlob())), "blob")
 
 	usr, _ := UserManager.FetchUserExtended(cred.UserId, "", "", "")
 	if usr != nil {
@@ -151,4 +185,74 @@ func credentialExtra(cred *SCredential, extra *jsonutils.JSONDict) *jsonutils.JS
 		extra.Add(jsonutils.NewString(usr.DomainName), "domain")
 	}
 	return extra
+}
+
+func (self *SCredential) getBlob() []byte {
+	return keys.CredentialKeyManager.Decrypt([]byte(self.EncryptedBlob), time.Duration(-1))
+}
+
+func (self *SCredential) GetAccessKeySecret() (*api.SAccessKeySecretBlob, error) {
+	if self.Type == api.ACCESS_SECRET_TYPE {
+		blobJson, err := jsonutils.Parse(self.getBlob())
+		if err != nil {
+			return nil, errors.Wrap(err, "jsonutils.Parse")
+		}
+		akBlob := api.SAccessKeySecretBlob{}
+		err = blobJson.Unmarshal(&akBlob)
+		if err != nil {
+			return nil, errors.Wrap(err, "blobJson.Unmarshal")
+		}
+		return &akBlob, nil
+	}
+	return nil, errors.Error("no an AK/SK credential")
+}
+
+func (manager *SCredentialManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (manager *SCredentialManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		if scope == rbacutils.ScopeUser {
+			if len(owner.GetUserId()) > 0 {
+				q = q.Equals("user_id", owner.GetUserId())
+			}
+		}
+	}
+	return q
+}
+
+func (self *SCredential) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{UserId: self.UserId}
+	return &owner
+}
+
+func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
+	if len(userStr) > 0 {
+		domainOwner, err := fetchDomainInfo(data)
+		if err != nil {
+			return nil, err
+		}
+		if domainOwner == nil {
+			domainOwner = &db.SOwnerId{DomainId: api.DEFAULT_DOMAIN_ID}
+		}
+		data.(*jsonutils.JSONDict).Remove(key)
+		usrObj, err := UserManager.FetchByIdOrName(domainOwner, userStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("user", userStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		usr := usrObj.(*SUser)
+		ownerId := db.SOwnerId{
+			UserDomainId: usr.DomainId,
+			UserId:       usr.Id,
+		}
+		data.(*jsonutils.JSONDict).Set("user", jsonutils.NewString(usr.Id))
+		return &ownerId, nil
+	}
+	return nil, nil
 }

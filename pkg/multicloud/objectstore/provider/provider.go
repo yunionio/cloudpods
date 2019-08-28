@@ -91,9 +91,9 @@ func (self *SObjectStoreProviderFactory) GetProvider(providerId, providerName, u
 
 func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
 	return map[string]string{
-		"OBJECTSTORE_ACCESSKEY": account,
-		"OBJECTSTORE_SECRET":    secret,
-		"OBJECTSTORE_ENDPOINT":  url,
+		"S3_ACCESS_KEY": account,
+		"S3_SECRET":     secret,
+		"S3_ACCESS_URL": url,
 	}, nil
 }
 
