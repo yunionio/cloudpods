@@ -122,10 +122,15 @@ func findVNCPort(results string) int {
 
 func findVNCPort2(results string) int {
 	vncInfo := strings.Split(results, "\n")
-	addrParts := strings.Split(vncInfo[3], ":")
-	v := addrParts[len(addrParts)-1]
-	port, _ := strconv.Atoi(v[0 : len(v)-7])
-	return port
+	for i := 0; i < len(vncInfo); i++ {
+		if strings.HasSuffix(vncInfo[i], "(ipv4)") {
+			addrParts := strings.Split(vncInfo[3], ":")
+			v := addrParts[len(addrParts)-1]
+			port, _ := strconv.Atoi(v[0 : len(v)-7])
+			return port
+		}
+	}
+	return -1
 }
 
 func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
@@ -152,15 +157,17 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 	// info_vnc = result['results'].split('\n')
 	// port = int(info_vnc[1].split(':')[-1].split()[0])
 
-	/*													QEMU 2.9.1
-	info spice			QEMU 2.12.1 monitor				Server:
+	/*													$ QEMU 2.9.1
+	info spice			$ QEMU 2.12.1 monitor			Server:
 	Server:				(qemu) info vnc					address: 0.0.0.0:5901
 	address: *:5921		info vnc						auth: none
 	migrated: false		default:						Client: none
-	auth: spice			Server: :::5902 (ipv6)
-	compiled: 0.13.3	Auth: none (Sub: none)
-	mouse-mode: server	Server: 0.0.0.0:5902 (ipv4)
-	Channels: none		Auth: none (Sub: none)
+	auth: spice			Server: :::5902 (ipv6)			$ QEMU 2.12.1 monitor without ipv6
+	compiled: 0.13.3	Auth: none (Sub: none)			(qemu) info vnc
+	mouse-mode: server	Server: 0.0.0.0:5902 (ipv4)		info vnc
+	Channels: none		Auth: none (Sub: none)			default:
+														Server: 0.0.0.0:5902 (ipv4)
+														Auth: none (Sub: none)
 	*/
 	var port int
 	if guest.CheckQemuVersion(guest.GetMetadata("__qemu_version", userCred), "2.12.1") && strings.HasSuffix(cmd, "vnc") {
