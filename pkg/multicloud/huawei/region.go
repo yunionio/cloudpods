@@ -919,7 +919,7 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range iBuckets {
-		if iBuckets[i].GetLocation() == region.GetId() {
+		if iBuckets[i].GetLocation() == region.GetId() && region.client.isMainProject {
 			ret = append(ret, iBuckets[i])
 		}
 	}
