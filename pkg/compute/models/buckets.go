@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -650,6 +651,11 @@ func (bucket *SBucket) PerformMakedir(
 		return nil, httperrors.NewInternalServerError("fail to mkdir: %s", err)
 	}
 
+	db.OpsLog.LogEvent(bucket, db.ACT_MKDIR, key, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_MKDIR, key, userCred, true)
+
+	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
+
 	return nil, nil
 }
 
@@ -693,6 +699,9 @@ func (bucket *SBucket) PerformDelete(
 			return ok, nil
 		}
 	})
+
+	db.OpsLog.LogEvent(bucket, db.ACT_DELETE_OBJECT, keyStrs, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_DELETE_OBJECT, keyStrs, userCred, true)
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 
@@ -790,6 +799,9 @@ func (bucket *SBucket) PerformUpload(
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}
+
+	db.OpsLog.LogEvent(bucket, db.ACT_UPLOAD_OBJECT, key, userCred)
+	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_UPLOAD_OBJECT, key, userCred, true)
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 

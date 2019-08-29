@@ -57,6 +57,8 @@ type SHuaweiClient struct {
 	accessKey    string
 	secret       string
 
+	isMainProject bool // whether the project is the main project in the region
+
 	ownerId   string
 	ownerName string
 
@@ -133,6 +135,9 @@ func (self *SHuaweiClient) fetchRegions() error {
 			if region.ID == regionId {
 				filtedRegions = append(filtedRegions, region)
 			}
+		}
+		if regionId == project.Name {
+			self.isMainProject = true
 		}
 	} else {
 		filtedRegions = regions
