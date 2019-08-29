@@ -172,6 +172,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	defer imageCacheManager.ReleaseImage(imageId)
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
+	storage.deleteImage(destPool, d.Id) //重装系统时，需要删除以前的系统盘
 	if err := storage.cloneImage(imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
 		return nil, err
 	}
