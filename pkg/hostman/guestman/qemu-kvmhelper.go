@@ -39,6 +39,7 @@ const (
 	OS_NAME_MACOS   = "macOS"
 	OS_NAME_ANDROID = "Android"
 	OS_NAME_VMWARE  = "VMWare"
+	OS_NAME_CIRROS  = "Cirros"
 
 	MODE_READLINE = "readline"
 	MODE_CONTROL  = "control"
@@ -69,14 +70,16 @@ func (s *SKVMGuestInstance) getMonitorDesc(idstr string, port int, mode string) 
 }
 
 func (s *SKVMGuestInstance) getOsname() string {
-	if s.Desc.Contains("metadata") {
-		metadata, _ := s.Desc.Get("metadata")
-		if metadata.Contains("os_name") {
-			osname, _ := metadata.GetString("os_name")
-			return osname
-		}
+	osName, err := s.Desc.GetString("metadata", "os_name")
+	if err != nil {
+		return OS_NAME_LINUX
 	}
-	return OS_NAME_LINUX
+	return osName
+}
+
+func (s *SKVMGuestInstance) getOsDistribution() string {
+	osDis, _ := s.Desc.GetString("metadata", "os_distribution")
+	return osDis
 }
 
 func (s *SKVMGuestInstance) getMachine() string {
@@ -468,7 +471,9 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	// cmd += " -device usb-kbd"
+	if s.getOsDistribution() != OS_NAME_CIRROS {
+		cmd += " -device usb-kbd"
+	}
 	// # if osname == self.OS_NAME_ANDROID:
 	// #     cmd += " -device usb-mouse"
 	// # else:
