@@ -404,9 +404,9 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
 	cmd := exec.Command("ionice", args...)
-	err := cmd.Run()
+	output, err := cmd.Output()
 	if err != nil {
-		log.Errorf("create error %s", err)
+		log.Errorf("%v create error %s %s", args, output, err)
 		return err
 	}
 	return img.parse()
