@@ -68,7 +68,7 @@ type SBucket struct {
 
 	SManagedResourceBase
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	StorageClass string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	Location     string `width:"36" charset:"ascii" nullable:"false" list:"user"`

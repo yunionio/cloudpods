@@ -15,9 +15,11 @@
 package objectstore
 
 import (
-	"github.com/pkg/errors"
+	"strings"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 )
 
 type SObject struct {
@@ -42,7 +44,11 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	err := o.bucket.client.SetObjectAcl(o.bucket.Name, o.Key, aclStr)
 	if err != nil {
-		return errors.Wrap(err, "o.bucket.client.SetObjectAcl")
+		if strings.Contains(err.Error(), "not implemented") {
+			return cloudprovider.ErrNotImplemented
+		} else {
+			return errors.Wrap(err, "o.bucket.client.SetObjectAcl")
+		}
 	}
 	return nil
 }
