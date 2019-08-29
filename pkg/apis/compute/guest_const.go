@@ -84,6 +84,12 @@ const (
 	VM_DISK_RESET        = "disk_reset"
 	VM_DISK_RESET_FAIL   = "disk_reset_failed"
 
+	VM_START_INSTANCE_SNAPSHOT   = "start_instance_snapshot"
+	VM_INSTANCE_SNAPSHOT_FAILED  = "instance_snapshot_failed"
+	VM_START_SNAPSHOT_RESET      = "start_snapshot_reset"
+	VM_SNAPSHOT_RESET_FAILED     = "snapshot_reset_failed"
+	VM_SNAPSHOT_AND_CLONE_FAILED = "clone_from_snapshot_failed"
+
 	VM_SYNCING_STATUS = "syncing"
 	VM_SYNC_CONFIG    = "sync_config"
 	VM_SYNC_FAIL      = "sync_fail"
