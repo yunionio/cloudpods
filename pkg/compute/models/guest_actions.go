@@ -3757,3 +3757,237 @@ func (manager *SGuestManager) StartHostGuestsMigrateTask(
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SGuest) AllowPerformInstanceSnapshot(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "instance-snapshot")
+}
+
+func (self *SGuest) validateCreateInstanceSnapshot(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (*SQuota, error) {
+
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewBadRequestError("guest hypervisor %s can't create instance snapshot", self.Hypervisor)
+	}
+
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Can't do instance snapshot with backup guest")
+	}
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
+	}
+
+	ownerId := self.GetOwnerId()
+	dataDict := data.(*jsonutils.JSONDict)
+	name, err := dataDict.GetString("name")
+	if err != nil || len(name) == 0 {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+	err = db.NewNameValidator(InstanceSnapshotManager, ownerId, name, "")
+	if err != nil {
+		return nil, err
+	}
+
+	disks := self.GetDisks()
+	for i := 0; i < len(disks); i++ {
+		count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError(err.Error())
+		}
+		if count >= options.Options.DefaultMaxManualSnapshotCount {
+			return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+		}
+	}
+	quotaPlatform := self.GetQuotaPlatformID()
+	pendingUsage := &SQuota{Snapshot: len(disks)}
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+	}
+	return pendingUsage, nil
+}
+
+// 1. validate guest status, guest hypervisor
+// 2. validate every disk manual snapshot count
+// 3. validate snapshot quota with disk count
+func (self *SGuest) PerformInstanceSnapshot(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	name, _ := data.GetString("name")
+	ownerId := self.GetOwnerId()
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(
+			ctx, userCred, rbacutils.ScopeProject, ownerId, self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
+		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
+	}
+	err = self.InstaceCreateSnapshot(ctx, userCred, ownerId, instanceSnapshot, pendingUsage)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(
+			ctx, userCred, rbacutils.ScopeProject, ownerId, self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
+		return nil, httperrors.NewInternalServerError("start create snapshot task failed: %s", err)
+	}
+	return nil, nil
+}
+
+func (self *SGuest) InstaceCreateSnapshot(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	instanceSnapshot *SInstanceSnapshot, pendingUsage *SQuota) error {
+
+	self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
+	return instanceSnapshot.StartCreateInstanceSnapshotTask(ctx, userCred, ownerId, pendingUsage, "")
+}
+
+func (self *SGuest) AllowPerformInstanceSnapshotReset(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "instance-snapshot")
+}
+
+func (self *SGuest) PerformInstanceSnapshotReset(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status ", self.Status)
+	}
+
+	dataDict := data.(*jsonutils.JSONDict)
+	instanceSnapshotV := validators.NewModelIdOrNameValidator(
+		"instance_snapshot", "instance_snapshot", self.GetOwnerId(),
+	)
+	err := instanceSnapshotV.Validate(dataDict)
+	if err != nil {
+		return nil, err
+	}
+	instanceSnapshot := instanceSnapshotV.Model.(*SInstanceSnapshot)
+	if instanceSnapshot.Status != api.INSTANCE_SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Instance sanpshot not ready")
+	}
+
+	err = self.StartSnapshotResetTask(ctx, userCred, instanceSnapshot)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("start snapshot reset failed %s", err)
+	}
+
+	return nil, nil
+}
+
+func (self *SGuest) StartSnapshotResetTask(
+	ctx context.Context, userCred mcclient.TokenCredential, instanceSnapshot *SInstanceSnapshot) error {
+
+	self.SetStatus(userCred, api.VM_START_SNAPSHOT_RESET, "start snapshot reset task")
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "InstanceSnapshotResetTask", instanceSnapshot, userCred, nil, "", "", nil,
+	); err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SGuest) AllowPerformSnapshotAndClone(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "snapshot-and-clone")
+}
+
+func (self *SGuest) PerformSnapshotAndClone(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	newlyGuestName, err := data.GetString("name")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+	err = db.NewNameValidator(GuestManager, self.GetOwnerId(), newlyGuestName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	lockman.LockClass(ctx, InstanceSnapshotManager, self.ProjectId)
+	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, self.ProjectId)
+
+	instanceSnapshotName, err := db.GenerateName(InstanceSnapshotManager, self.GetOwnerId(), "Snapshot-For-"+newlyGuestName)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(
+			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+			self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
+		return nil, httperrors.NewInternalServerError("Generate snapshot name failed %s", err)
+	}
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, self.GetOwnerId(), self, instanceSnapshotName)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(
+			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+			self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
+		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
+	}
+
+	err = self.StartInstanceSnapshotAndCloneTask(
+		ctx, userCred, newlyGuestName, pendingUsage, instanceSnapshot, data.(*jsonutils.JSONDict))
+	if err != nil {
+		QuotaManager.CancelPendingUsage(
+			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+			self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartInstanceSnapshotAndCloneTask(
+	ctx context.Context, userCred mcclient.TokenCredential, newlyGuestName string,
+	pendingUsage *SQuota, instanceSnapshot *SInstanceSnapshot, data *jsonutils.JSONDict) error {
+
+	params := jsonutils.NewDict()
+	params.Set("guest_params", data)
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "InstanceSnapshotAndCloneTask", instanceSnapshot, userCred, params, "", "", pendingUsage); err != nil {
+		return err
+	} else {
+		self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
+		task.ScheduleRun(nil)
+		return nil
+	}
+}
+
+func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
+	ctx context.Context, userCred mcclient.TokenCredential, guestParams *jsonutils.JSONDict,
+	isp *SInstanceSnapshot, index int,
+) (*SGuest, *jsonutils.JSONDict, error) {
+	lockman.LockClass(ctx, manager, isp.ProjectId)
+	defer lockman.ReleaseClass(ctx, manager, isp.ProjectId)
+
+	guestName, err := guestParams.GetString("name")
+	if err != nil {
+		return nil, nil, fmt.Errorf("No new guest name provider")
+	}
+	if err := db.NewNameValidator(manager, isp.GetOwnerId(), guestName, ""); err != nil {
+		guestName, err = db.GenerateName2(manager, isp.GetOwnerId(), guestName, nil, index)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	guestParams.Set("name", jsonutils.NewString(guestName))
+	guestParams.Set("instance_snapshot_id", jsonutils.NewString(isp.Id))
+	iGuest, err := db.DoCreate(manager, ctx, userCred, nil, guestParams, isp.GetOwnerId())
+	if err != nil {
+		return nil, nil, err
+	}
+	guest := iGuest.(*SGuest)
+	return guest, guestParams, nil
+}

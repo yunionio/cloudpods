@@ -1180,6 +1180,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 		diskpath, _ := disk.GetString("path")
 		d := storageman.GetManager().GetDiskByPath(diskpath)
 		if d != nil {
+			log.Infof("Disk %s do post create from fuse", d.GetId())
 			d.PostCreateFromImageFuse()
 		}
 		if jsonutils.QueryBoolean(disk, "merge_snapshot", false) {

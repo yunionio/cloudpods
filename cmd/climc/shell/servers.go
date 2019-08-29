@@ -156,6 +156,25 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerCreateFromInstanceSnapshot{}, "server-create-from-instance-snapshot", "server create from instance snapshot",
+		func(s *mcclient.ClientSession, opts *options.ServerCreateFromInstanceSnapshot) error {
+			params := &compute.ServerCreateInput{}
+			params.InstanceSnapshotId = opts.InstaceSnapshotId
+			params.Name = opts.NAME
+			params.AutoStart = opts.AutoStart
+			params.Eip = opts.Eip
+			params.EipChargeType = opts.EipChargeType
+			params.EipBw = opts.EipBw
+
+			server, err := modules.Servers.Create(s, params.JSON(params))
+			if err != nil {
+				return err
+			}
+			printObject(server)
+			return nil
+		},
+	)
+
 	R(&options.ServerCreateOptions{}, "server-create", "Create a server", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
 		params, err := opts.Params()
 		if err != nil {
@@ -1055,6 +1074,55 @@ func init() {
 			return err
 		}
 		printObject(ret)
+		return nil
+	})
+
+	type ServerCreateSnapshot struct {
+		ID       string `help:"ID or name of VM" json:"-"`
+		SNAPSHOT string `help:"Instance snapshot name" json:"name"`
+	}
+	R(&ServerCreateSnapshot{}, "instance-snapshot-create", "create instance snapshot", func(s *mcclient.ClientSession, opts *ServerCreateSnapshot) error {
+		params := jsonutils.Marshal(opts)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "instance-snapshot", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ServerSnapshotAndClone struct {
+		ID          string `help:"ID or name of VM" json:"-"`
+		NAME        string `help:"Newly instance name" json:"name"`
+		AutoStart   bool   `help:"Auto start new guest"`
+		AllowDelete bool   `help:"Allow new guest delete" json:"-"`
+		Count       int    `help:"Guest count"`
+	}
+	R(&ServerSnapshotAndClone{}, "instance-snapshot-and-clone", "create instance snapshot and clone new instance", func(s *mcclient.ClientSession, opts *ServerSnapshotAndClone) error {
+		params := jsonutils.Marshal(opts)
+		dictParams := params.(*jsonutils.JSONDict)
+		if opts.AllowDelete {
+			dictParams.Set("disable_delete", jsonutils.JSONFalse)
+		}
+		result, err := modules.Servers.PerformAction(s, opts.ID, "snapshot-and-clone", dictParams)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ServerRollBackSnapshot struct {
+		ID               string `help:"ID or name of VM" json:"-"`
+		InstanceSnapshot string `help:"Instance snapshot id or name" json:"instance_snapshot"`
+	}
+	R(&ServerRollBackSnapshot{}, "instance-snapshot-reset", "reset instance snapshot", func(s *mcclient.ClientSession, opts *ServerRollBackSnapshot) error {
+		params := jsonutils.Marshal(opts)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "instance-snapshot-reset", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

@@ -234,9 +234,6 @@ func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
-	if config.Contains("container") {
-		// ...
-	}
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
