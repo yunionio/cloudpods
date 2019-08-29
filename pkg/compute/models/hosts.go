@@ -1369,6 +1369,13 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 		if err == nil {
 			_, err = self.PerformDisable(ctx, userCred, nil, nil)
 		}
+		guests := self.GetGuests()
+		for _, guest := range guests {
+			err = guest.SetStatus(userCred, api.VM_UNKNOWN, "sync to delete")
+			if err != nil {
+				return err
+			}
+		}
 	} else {
 		err = self.RealDelete(ctx, userCred)
 	}
