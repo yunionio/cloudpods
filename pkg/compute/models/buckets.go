@@ -1060,3 +1060,29 @@ func (bucket *SBucket) PerformLimit(
 
 	return nil, nil
 }
+
+func (bucket *SBucket) AllowGetDetailsAccessInfo(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsAccessInfo(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	manager := bucket.GetCloudprovider()
+	if manager == nil {
+		return nil, httperrors.NewInternalServerError("missing manager?")
+	}
+	info, err := manager.GetDetailsClirc(ctx, userCred, nil)
+	if err != nil {
+		return nil, err
+	}
+	account := manager.GetCloudaccount()
+	info.(*jsonutils.JSONDict).Add(jsonutils.NewString(account.Brand), "PROVIDER")
+	return info, err
+}

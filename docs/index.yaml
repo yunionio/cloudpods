@@ -461,6 +461,8 @@ paths:
     $ref: "./bucket/acl.yaml"
   /buckets/{bucketName}/limit:
     $ref: "./bucket/limit.yaml"
+  /buckets/{bucketName}/access-info:
+    $ref: "./bucket/access.yaml"
 
   /ansibleplaybooks:
     $ref: "./ansibleplaybook/ansibleplaybooks.yaml"

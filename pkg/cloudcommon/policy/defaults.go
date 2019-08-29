@@ -205,6 +205,36 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "identity",
+					Resource: "credentials",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "identity",
+					Resource: "credentials",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "identity",
+					Resource: "credentials",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "identity",
+					Resource: "credentials",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "identity",
+					Resource: "credentials",
+					Action:   PolicyActionDelete,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "yunionconf",
 					Resource: "parameters",
 					Action:   PolicyActionGet,

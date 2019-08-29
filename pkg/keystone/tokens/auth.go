@@ -25,10 +25,12 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/s3auth"
 )
 
 func authUserByTokenV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*api.SUserExtended, error) {
@@ -162,26 +164,77 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	return usr, nil
 }
 
+func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, string, api.SAccessKeySecretInfo, error) {
+	var aksk api.SAccessKeySecretInfo
+
+	akskRequest, err := s3auth.Decode(input.Auth.Identity.AccessKeyRequest)
+	if err != nil {
+		return nil, "", aksk, errors.Wrap(err, "s3auth.Decode")
+	}
+	keyId := akskRequest.GetAccessKey()
+	obj, err := models.CredentialManager.FetchById(keyId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, "", aksk, ErrInvalidAccessKeyId
+		} else {
+			return nil, "", aksk, errors.Wrap(err, "CredentialManager.FetchById")
+		}
+	}
+	credential := obj.(*models.SCredential)
+	if !credential.Enabled.IsTrue() {
+		return nil, "", aksk, errors.Wrap(httperrors.ErrInvalidStatus, "Access Key disabled")
+	}
+	akBlob, err := credential.GetAccessKeySecret()
+	if err != nil {
+		return nil, "", aksk, errors.Wrap(err, "credential.GetAccessKeySecret")
+	}
+	if !akBlob.IsValid() {
+		return nil, "", aksk, ErrExpiredAccessKey
+	}
+	aksk.AccessKey = keyId
+	aksk.Secret = akBlob.Secret
+	aksk.Expire = akBlob.Expire
+
+	err = akskRequest.Verify(akBlob.Secret)
+	if err != nil {
+		return nil, "", aksk, errors.Wrap(err, "Verify")
+	}
+	usrExt, err := models.UserManager.FetchUserExtended(credential.UserId, "", "", "")
+	if err != nil {
+		return nil, "", aksk, errors.Wrap(err, "UserManager.FetchUserExtended")
+	}
+	return usrExt, credential.ProjectId, aksk, nil
+}
+
 func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*mcclient.TokenCredentialV3, error) {
+	var akskInfo api.SAccessKeySecretInfo
 	var user *api.SUserExtended
 	var err error
 	if len(input.Auth.Identity.Methods) != 1 {
 		return nil, ErrInvalidAuthMethod
 	}
 	method := input.Auth.Identity.Methods[0]
-	if method == api.AUTH_METHOD_TOKEN {
+	switch method {
+	case api.AUTH_METHOD_TOKEN:
 		// auth by token
 		user, err = authUserByTokenV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByTokenV3")
 		}
-	} else {
+	case api.AUTH_METHOD_AKSK:
+		// auth by aksk
+		user, input.Auth.Scope.Project.Id, akskInfo, err = authUserByAccessKeyV3(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByAccessKeyV3")
+		}
+	default:
 		// auth by other methods, password, openid, saml, etc...
 		user, err = authUserByIdentityV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByIdentityV3")
 		}
 	}
+
 	// user not found
 	if user == nil {
 		return nil, ErrUserNotFound
@@ -205,7 +258,7 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 
 	if len(input.Auth.Scope.Project.Id) == 0 && len(input.Auth.Scope.Project.Name) == 0 && len(input.Auth.Scope.Domain.Id) == 0 && len(input.Auth.Scope.Domain.Name) == 0 {
 		// unscoped auth
-		return token.getTokenV3(ctx, user, nil, nil)
+		return token.getTokenV3(ctx, user, nil, nil, akskInfo)
 	}
 	var projExt *models.SProjectExtended
 	var domain *models.SDomain
@@ -238,7 +291,11 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		}
 		token.DomainId = domain.Id
 	}
-	return token.getTokenV3(ctx, user, projExt, domain)
+	tokenV3, err := token.getTokenV3(ctx, user, projExt, domain, akskInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "getTokenV3")
+	}
+	return tokenV3, nil
 }
 
 func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {

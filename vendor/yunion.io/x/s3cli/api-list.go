@@ -28,6 +28,16 @@ import (
 	"github.com/minio/minio-go/v6/pkg/s3utils"
 )
 
+type ListBucketsInput struct {
+}
+
+type ListObjectInput struct {
+	Prefix    string
+	Marker    string
+	Delimiter string
+	MaxKeys   int64
+}
+
 // ListBuckets list all buckets owned by this authenticated user.
 //
 // This call requires explicit authentication, no anonymous requests are
@@ -307,7 +317,7 @@ func (c Client) ListObjects(bucketName, objectPrefix string, recursive bool, don
 		var marker string
 		for {
 			// Get list of objects a maximum of 1000 per request.
-			result, err := c.listObjectsQuery(bucketName, objectPrefix, marker, delimiter, 1000)
+			result, err := c.ListObjectsQuery(bucketName, objectPrefix, marker, delimiter, 1000)
 			if err != nil {
 				objectStatCh <- ObjectInfo{
 					Err: err,
@@ -366,7 +376,7 @@ func (c Client) ListObjects(bucketName, objectPrefix string, recursive bool, don
 // ?delimiter - A delimiter is a character you use to group keys.
 // ?prefix - Limits the response to keys that begin with the specified prefix.
 // ?max-keys - Sets the maximum number of keys returned in the response body.
-func (c Client) listObjectsQuery(bucketName, objectPrefix, objectMarker, delimiter string, maxkeys int) (ListBucketResult, error) {
+func (c Client) ListObjectsQuery(bucketName, objectPrefix, objectMarker, delimiter string, maxkeys int) (ListBucketResult, error) {
 	// Validate bucket name.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
 		return ListBucketResult{}, err

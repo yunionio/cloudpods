@@ -12,4 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models // import "yunion.io/x/onecloud/pkg/s3gateway/models"
+package session
+
+import (
+	"context"
+	"yunion.io/x/onecloud/pkg/image/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+)
+
+func GetSession(ctx context.Context, token mcclient.TokenCredential) *mcclient.ClientSession {
+	return auth.GetSession(ctx, token, options.Options.Region, "")
+}
+
+func GetAdminSession(ctx context.Context) *mcclient.ClientSession {
+	return auth.GetAdminSession(ctx, options.Options.Region, "")
+}

@@ -26,6 +26,8 @@ const (
 	CloudVMStatusDeploying    = "deploying"
 	CloudVMStatusOther        = "other"
 
+	ErrUnauthenticated     = errors.Error("not authenticated")
+	ErrUnauthorized        = errors.Error("not authorized")
 	ErrNotFound            = errors.Error("id not found")
 	ErrDuplicateId         = errors.Error("duplicate id")
 	ErrInvalidStatus       = errors.Error("invalid status")
@@ -34,4 +36,5 @@ const (
 	ErrNotSupported        = errors.Error("Not supported")
 	ErrInvalidProvider     = errors.Error("Invalid provider")
 	ErrNoBalancePermission = errors.Error("No balance permission")
+	ErrBadRequest          = errors.Error("bad request")
 )

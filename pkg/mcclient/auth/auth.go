@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/cache"
 
+	"net/http"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -131,6 +132,7 @@ type authManager struct {
 	info             *AuthInfo
 	adminCredential  mcclient.TokenCredential
 	tokenCacheVerify *TokenCacheVerify
+	accessKeyCache   *sAccessKeyCache
 }
 
 func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
@@ -138,7 +140,19 @@ func newAuthManager(cli *mcclient.Client, info *AuthInfo) *authManager {
 		client:           cli,
 		info:             info,
 		tokenCacheVerify: NewTokenCacheVerify(),
+		accessKeyCache:   newAccessKeyCache(),
 	}
+}
+
+func (a *authManager) verifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
+	if a.adminCredential == nil {
+		return nil, fmt.Errorf("No valid admin token credential")
+	}
+	cred, err := a.accessKeyCache.Verify(a.client, req, virtualHost)
+	if err != nil {
+		return nil, err
+	}
+	return cred, nil
 }
 
 func (a *authManager) verify(token string) (mcclient.TokenCredential, error) {
@@ -227,6 +241,10 @@ func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
 
 func Verify(tokenId string) (mcclient.TokenCredential, error) {
 	return manager.verify(tokenId)
+}
+
+func VerifyRequest(req http.Request, virtualHost bool) (mcclient.TokenCredential, error) {
+	return manager.verifyRequest(req, virtualHost)
 }
 
 func GetServiceURL(service, region, zone, endpointType string) (string, error) {

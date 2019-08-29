@@ -94,6 +94,7 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 		return
 	}
 	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, token.Id)
+
 	appsrv.SendJSON(w, jsonutils.Marshal(token))
 
 	models.UserManager.TraceLoginV3(ctx, token)
@@ -166,7 +167,7 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	v3token, err := token.getTokenV3(ctx, user, projExt, domain)
+	v3token, err := token.getTokenV3(ctx, user, projExt, domain, api.SAccessKeySecretInfo{})
 	if err != nil {
 		httperrors.InternalServerError(w, "internal server error %s", err)
 		return

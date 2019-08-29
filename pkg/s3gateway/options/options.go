@@ -21,7 +21,7 @@ import (
 type SS3GatewayOptions struct {
 	common_options.CommonOptions
 
-	common_options.DBOptions
+	DomainName string `help:"s3 domain name"`
 }
 
 var (
