@@ -133,8 +133,12 @@ func (b *SBucket) getFullName() string {
 	return fmt.Sprintf("%s-%s", b.Name, b.region.client.AppID)
 }
 
+func (b *SBucket) getBucketUrlHost() string {
+	return fmt.Sprintf("%s.%s", b.getFullName(), b.region.getCosEndpoint())
+}
+
 func (b *SBucket) getBucketUrl() string {
-	return fmt.Sprintf("https://%s.%s", b.getFullName(), b.region.getCosEndpoint())
+	return fmt.Sprintf("https://%s", b.getBucketUrlHost())
 }
 
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -350,4 +354,70 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 		return "", errors.Wrap(err, "coscli.Object.GetPresignedURL")
 	}
 	return url.String(), nil
+}
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.ObjectCopyOptions{
+		ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{},
+		ACLHeaderOptions:        &cos.ACLHeaderOptions{},
+	}
+	if len(cannedAcl) > 0 {
+		opts.XCosACL = string(cannedAcl)
+	}
+	if len(storageClassStr) > 0 {
+		opts.XCosStorageClass = storageClassStr
+	}
+	if len(contType) > 0 {
+		opts.ContentType = contType
+	}
+	srcBucket := SBucket{
+		region: b.region,
+		Name:   srcBucketName,
+	}
+	srcUrl := fmt.Sprintf("%s/%s", srcBucket.getBucketUrlHost(), srcKey)
+	log.Debugf("source url: %s", srcUrl)
+	_, _, err = coscli.Object.Copy(ctx, destKey, srcUrl, opts)
+	if err != nil {
+		return errors.Wrap(err, "coscli.Object.Copy")
+	}
+	return nil
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.ObjectGetOptions{}
+	if rangeOpt != nil {
+		opts.Range = rangeOpt.String()
+	}
+	resp, err := coscli.Object.Get(ctx, key, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "coscli.Object.Get")
+	}
+	return resp.Body, nil
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucketName string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return "", errors.Wrap(err, "GetCosClient")
+	}
+	srcBucket := SBucket{
+		region: b.region,
+		Name:   srcBucketName,
+	}
+	opts := cos.ObjectCopyPartOptions{}
+	opts.XCosCopySource = fmt.Sprintf("%s/%s", srcBucket.getBucketUrlHost(), srcKey)
+	opts.XCosCopySourceRange = fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1)
+	result, _, err := coscli.Object.CopyPart(ctx, key, uploadId, partIndex, &opts)
+	if err != nil {
+		return "", errors.Wrap(err, "coscli.Object.CopyPart")
+	}
+	return result.ETag, nil
 }

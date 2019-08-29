@@ -247,7 +247,7 @@ func (c Client) copyObjectDo(ctx context.Context, srcBucket, srcObject, destBuck
 		return ObjectInfo{}, httpRespToErrorResponse(resp, srcBucket, srcObject)
 	}
 
-	cpObjRes := copyObjectResult{}
+	cpObjRes := CopyObjectResult{}
 	err = xmlDecoder(resp.Body, &cpObjRes)
 	if err != nil {
 		return ObjectInfo{}, err
@@ -261,7 +261,7 @@ func (c Client) copyObjectDo(ctx context.Context, srcBucket, srcObject, destBuck
 	return objInfo, nil
 }
 
-func (c Client) copyObjectPartDo(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string,
+func (c Client) CopyObjectPartDo(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string,
 	partID int, startOffset int64, length int64, metadata map[string]string) (p CompletePart, err error) {
 
 	headers := make(http.Header)
@@ -302,7 +302,7 @@ func (c Client) copyObjectPartDo(ctx context.Context, srcBucket, srcObject, dest
 	}
 
 	// Decode copy-part response on success.
-	cpObjRes := copyObjectResult{}
+	cpObjRes := CopyObjectResult{}
 	err = xmlDecoder(resp.Body, &cpObjRes)
 	if err != nil {
 		return p, err
@@ -340,7 +340,7 @@ func (c Client) uploadPartCopy(ctx context.Context, bucket, object, uploadID str
 	}
 
 	// Decode copy-part response on success.
-	cpObjRes := copyObjectResult{}
+	cpObjRes := CopyObjectResult{}
 	err = xmlDecoder(resp.Body, &cpObjRes)
 	if err != nil {
 		return p, err

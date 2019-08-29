@@ -30,9 +30,10 @@ const (
 
 	AUTH_METHOD_PASSWORD = "password"
 	AUTH_METHOD_TOKEN    = "token"
+	AUTH_METHOD_AKSK     = "aksk"
 
-	AUTH_METHOD_ID_PASSWORD = 1
-	AUTH_METHOD_ID_TOKEN    = 2
+	// AUTH_METHOD_ID_PASSWORD = 1
+	// AUTH_METHOD_ID_TOKEN    = 2
 
 	AUTH_TOKEN_HEADER         = "X-Auth-Token"
 	AUTH_SUBJECT_TOKEN_HEADER = "X-Subject-Token"
@@ -73,7 +74,7 @@ const (
 )
 
 var (
-	AUTH_METHODS = []string{AUTH_METHOD_PASSWORD, AUTH_METHOD_TOKEN}
+	AUTH_METHODS = []string{AUTH_METHOD_PASSWORD, AUTH_METHOD_TOKEN, AUTH_METHOD_AKSK}
 
 	SensitiveDomainConfigMap = map[string]string{
 		"ldap": "password",

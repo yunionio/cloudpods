@@ -338,6 +338,10 @@ paths:
     $ref: "./bucket/tempurl.yaml"
   /buckets/{bucketName}/acl:
     $ref: "./bucket/acl.yaml"
+  /buckets/{bucketName}/limit:
+    $ref: "./bucket/limit.yaml"
+  /buckets/{bucketName}/access-info:
+    $ref: "./bucket/access.yaml"
 
   /dbinstances:
     $ref: "./dbinstance/dbinstances.yaml"

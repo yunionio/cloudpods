@@ -70,7 +70,7 @@ func (c Client) MakeBucket(bucketName string, location string) (err error) {
 
 	// If location is not 'us-east-1' create bucket location config.
 	if location != "us-east-1" && location != "" {
-		createBucketConfig := createBucketConfiguration{}
+		createBucketConfig := CreateBucketConfiguration{}
 		createBucketConfig.Location = location
 		var createBucketConfigBytes []byte
 		createBucketConfigBytes, err = xml.Marshal(createBucketConfig)

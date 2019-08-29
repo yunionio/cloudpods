@@ -22,40 +22,31 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/s3gateway"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/s3gateway/models"
+	"yunion.io/x/onecloud/pkg/s3gateway/handlers"
 	"yunion.io/x/onecloud/pkg/s3gateway/options"
+
+	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider"
 )
 
 func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
 	baseOpts := &opts.BaseOptions
-	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "s3gateway.conf", api.SERVICE_TYPE)
 
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
-	cloudcommon.InitDB(dbOpts)
-
-	app := app_common.InitApp(&opts.BaseOptions, true)
-	initHandlers(app)
-
-	cloudcommon.InitDB(&opts.DBOptions)
-
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
-
-	models.InitDB()
-
-	if opts.ExitAfterDBInit {
-		log.Infof("Exiting after db initialization ...")
-		os.Exit(0)
-	}
+	app := app_common.InitApp(&opts.BaseOptions, false)
+	handlers.InitHandlers(app)
 
 	/*if !opts.IsSlaveNode {
 		cron := cronman.GetCronJobManager(true)
