@@ -268,9 +268,22 @@ func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string
 // 速度快
 func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool string, destImage string) error {
 	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
-		snapshot, err := src.CreateSnapshot(destImage)
+		snapInfos, err := src.GetSnapshotNames()
 		if err != nil {
-			return nil, errors.Wrap(err, "src.CreateSnapshot")
+			return nil, errors.Wrap(err, "image.GetSnapshotNames()")
+		}
+		var snapshot *rbd.Snapshot = nil
+		for _, snap := range snapInfos {
+			if snap.Name == destImage {
+				snapshot = src.GetSnapshot(destImage)
+				break
+			}
+		}
+		if snapshot == nil {
+			snapshot, err = src.CreateSnapshot(destImage)
+			if err != nil {
+				return nil, errors.Wrap(err, "src.CreateSnapshot")
+			}
 		}
 
 		isProtect, err := snapshot.IsProtected()
