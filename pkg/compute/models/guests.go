@@ -817,12 +817,35 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	ispi, err := InstanceSnapshotManager.FetchByIdOrName(nil, input.InstanceSnapshotId)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewBadRequestError("can't find instance snapshot %s", input.InstanceSnapshotId)
+	}
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fetch instance snapshot error %s", err)
+	}
+	isp := ispi.(*SInstanceSnapshot)
+	if isp.Status != api.INSTANCE_SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Instance snapshot not ready")
+	}
+	return isp.ToInstanceCreateInput(input)
+}
+
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
 	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(input.InstanceSnapshotId) > 0 {
+		input, err = parseInstanceSnapshot(input)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	resetPassword := true
 	if input.ResetPassword != nil {
 		resetPassword = *input.ResetPassword

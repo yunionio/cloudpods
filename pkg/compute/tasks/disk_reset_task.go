@@ -55,7 +55,7 @@ func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk
 			guests[0].StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 		}
 	} else {
-		if len(guests) == 1 {
+		if len(guests) == 1 && !self.IsSubtask() {
 			guests[0].SetStatus(self.UserCred, api.VM_READY, "")
 		}
 		// data不能为空指针，否则会导致AddActionLog抛空指针异常

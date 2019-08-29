@@ -103,6 +103,7 @@ func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
 
 func (p *SKVMGuestDiskPartition) Mount() bool {
 	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
+		log.Errorf("Mount fs failed: %s", p.fs)
 		return false
 	}
 	err := p.fsck()

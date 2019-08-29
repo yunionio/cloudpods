@@ -47,6 +47,7 @@ const (
 	ACT_DETACH      = "detach"
 	ACT_ATTACH_FAIL = "attach_fail"
 	ACT_DETACH_FAIL = "detach_fail"
+	ACT_DELETE_FAIL = "delete_fail"
 
 	ACT_SYNC_UPDATE = "sync_update"
 	ACT_SYNC_CREATE = "sync_create"
@@ -103,6 +104,11 @@ const (
 	ACT_APPLY_SNAPSHOT_POLICY_FAILED  = "apply_snapshot_policy_failed"
 	ACT_CANCEL_SNAPSHOT_POLICY        = "cancel_snapshot_policy"
 	ACT_CANCEL_SNAPSHOT_POLICY_FAILED = "cancel_snapshot_policy_failed"
+	ACT_VM_SNAPSHOT_AND_CLONE         = "vm_snapshot_and_clone"
+	ACT_VM_SNAPSHOT_AND_CLONE_FAILED  = "vm_snapshot_and_clone_failed"
+
+	ACT_VM_RESET_SNAPSHOT        = "instance_reset_snapshot"
+	ACT_VM_RESET_SNAPSHOT_FAILED = "instance_reset_snapshot_failed"
 
 	ACT_DISK_CLEAN_UP_SNAPSHOTS      = "disk_clean_up_snapshots"
 	ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL = "disk_clean_up_snapshots_fail"
