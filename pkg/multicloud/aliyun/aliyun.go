@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
@@ -132,6 +133,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		}
 	}
 	req.Scheme = "https"
+	req.GetHeaders()["User-Agent"] = "vendor/yunion-OneCloud@" + v.Get().GitVersion
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
