@@ -168,10 +168,10 @@ func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reade
 	}
 	obj, err := cloudprovider.GetIObject(bucket, key)
 	if err != nil {
-		return errors.Wrap(err, "GetIObject")
+		return errors.Wrap(err, "cloudprovider.GetIObject")
 	}
 	err = obj.SetAcl(cannedAcl)
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		return errors.Wrap(err, "obj.SetAcl")
 	}
 	return nil

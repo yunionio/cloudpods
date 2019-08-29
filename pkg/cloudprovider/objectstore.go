@@ -242,12 +242,19 @@ func GetIObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]
 }
 
 func GetIObject(bucket ICloudBucket, objectPrefix string) (ICloudObject, error) {
-	objects, err := GetIObjects(bucket, objectPrefix, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetIObjects")
+	tryPrefix := []string{objectPrefix}
+	if strings.HasSuffix(objectPrefix, "/") {
+		tryPrefix = append(tryPrefix, objectPrefix[:len(objectPrefix)-1])
 	}
-	if len(objects) > 0 && objects[0].GetKey() == objectPrefix {
-		return objects[0], nil
+	for _, pref := range tryPrefix {
+		result, err := bucket.ListObjects(pref, "", "", 1)
+		if err != nil {
+			return nil, errors.Wrap(err, "bucket.ListObjects")
+		}
+		objects := result.Objects
+		if len(objects) > 0 && objects[0].GetKey() == objectPrefix {
+			return objects[0], nil
+		}
 	}
 	return nil, ErrNotFound
 }
