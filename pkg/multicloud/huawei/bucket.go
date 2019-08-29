@@ -420,3 +420,70 @@ func (b *SBucket) SetLimit(limit cloudprovider.SBucketStats) error {
 	}
 	return nil
 }
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	input := &obs.CopyObjectInput{}
+	input.CopySourceBucket = srcBucket
+	input.CopySourceKey = srcKey
+	if len(storageClassStr) > 0 {
+		input.StorageClass, err = str2StorageClass(storageClassStr)
+		if err != nil {
+			return err
+		}
+	}
+	if len(cannedAcl) > 0 {
+		input.ACL = obs.AclType(string(cannedAcl))
+	}
+	if len(contType) > 0 {
+		input.ContentType = contType
+	}
+	_, err = obscli.CopyObject(input)
+	if err != nil {
+		return errors.Wrap(err, "obscli.CopyObject")
+	}
+	return nil
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOBSClient")
+	}
+	input := &obs.GetObjectInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	if rangeOpt != nil {
+		input.RangeStart = rangeOpt.Start
+		input.RangeEnd = rangeOpt.End
+	}
+	output, err := obscli.GetObject(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "obscli.GetObject")
+	}
+	return output.Body, nil
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOBSClient")
+	}
+	input := &obs.CopyPartInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	input.UploadId = uploadId
+	input.PartNumber = partIndex
+	input.CopySourceBucket = srcBucket
+	input.CopySourceKey = srcKey
+	input.CopySourceRangeStart = srcOffset
+	input.CopySourceRangeEnd = srcOffset + srcLength - 1
+	output, err := obscli.CopyPart(input)
+	if err != nil {
+		return "", errors.Wrap(err, "CopyPart")
+	}
+	return output.ETag, nil
+}

@@ -360,3 +360,79 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	}
 	return urlStr, nil
 }
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return errors.Wrap(err, "Bucket")
+	}
+	opts := make([]oss.Option, 0)
+	if len(contType) > 0 {
+		opts = append(opts, oss.ContentType(contType))
+	}
+	if len(cannedAcl) > 0 {
+		acl, err := str2Acl(string(cannedAcl))
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
+		opts = append(opts, oss.ObjectACL(acl))
+	}
+	if len(storageClassStr) > 0 {
+		storageClass, err := str2StorageClass(storageClassStr)
+		if err != nil {
+			return errors.Wrap(err, "str2StorageClass")
+		}
+		opts = append(opts, oss.ObjectStorageClass(storageClass))
+	}
+	_, err = bucket.CopyObjectFrom(srcBucket, srcKey, destKey, opts...)
+	if err != nil {
+		return errors.Wrap(err, "CopyObjectFrom")
+	}
+	return nil
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "Bucket")
+	}
+	opts := make([]oss.Option, 0)
+	if rangeOpt != nil {
+		opts = append(opts, oss.NormalizedRange(rangeOpt.String()))
+	}
+	output, err := bucket.GetObject(key, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "bucket.GetObject")
+	}
+	return output, nil
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partNumber int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return "", errors.Wrap(err, "Bucket")
+	}
+	imur := oss.InitiateMultipartUploadResult{
+		Bucket:   b.Name,
+		Key:      key,
+		UploadID: uploadId,
+	}
+	opts := make([]oss.Option, 0)
+	part, err := bucket.UploadPartCopy(imur, srcBucket, srcKey, srcOffset, srcLength, partNumber, opts...)
+	if err != nil {
+		return "", errors.Wrap(err, "bucket.UploadPartCopy")
+	}
+	return part.ETag, nil
+}

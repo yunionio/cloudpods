@@ -266,6 +266,18 @@ func (this *ProjectManagerV3) AddTags(session *mcclient.ClientSession, id string
 	return nil
 }
 
+func (this *ProjectManagerV3) FetchId(s *mcclient.ClientSession, project string, domain string) (string, error) {
+	query := jsonutils.NewDict()
+	if len(domain) > 0 {
+		domainId, err := Domains.GetId(s, domain, nil)
+		if err != nil {
+			return "", err
+		}
+		query.Add(jsonutils.NewString(domainId), "domain_id")
+	}
+	return this.GetId(s, project, query)
+}
+
 func init() {
 	Projects = ProjectManagerV3{NewIdentityV3Manager("project", "projects",
 		[]string{},

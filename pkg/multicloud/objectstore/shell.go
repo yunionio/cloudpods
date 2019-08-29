@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/streamutils"
 )
 
 func S3Shell() {
@@ -276,6 +277,94 @@ func S3Shell() {
 		err = object.SetAcl(cloudprovider.TBucketACLType(args.ACL))
 		if err != nil {
 			return err
+		}
+		fmt.Println("Success!")
+		return nil
+	})
+
+	type BucketObjectDownloadOptions struct {
+		BUCKET string `help:"name of bucket"`
+		KEY    string `help:"Key of object"`
+		Output string `help:"target output, default to stdout"`
+		Start  int64  `help:"partial download start"`
+		End    int64  `help:"partial download end"`
+	}
+	shellutils.R(&BucketObjectDownloadOptions{}, "object-download", "Download", func(cli cloudprovider.ICloudRegion, args *BucketObjectDownloadOptions) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		obj, err := cloudprovider.GetIObject(bucket, args.KEY)
+		if err != nil {
+			return err
+		}
+
+		var rangeOpt *cloudprovider.SGetObjectRange
+		if args.Start != 0 || args.End != 0 {
+			if args.End <= 0 {
+				args.End = obj.GetSizeBytes() - 1
+			}
+			rangeOpt = &cloudprovider.SGetObjectRange{Start: args.Start, End: args.End}
+		}
+		output, err := bucket.GetObject(context.Background(), args.KEY, rangeOpt)
+		if err != nil {
+			return err
+		}
+		defer output.Close()
+		var target io.Writer
+		if len(args.Output) == 0 {
+			target = os.Stdout
+		} else {
+			fp, err := os.Create(args.Output)
+			if err != nil {
+				return err
+			}
+			defer fp.Close()
+			target = fp
+		}
+		prop, err := streamutils.StreamPipe(output, target, false)
+		if err != nil {
+			return err
+		}
+		if len(args.Output) > 0 {
+			fmt.Println("Success:", prop.Size, "written")
+		}
+		return nil
+	})
+
+	type BucketObjectCopyOptions struct {
+		SRC       string `help:"name of source bucket"`
+		SRCKEY    string `help:"Key of source object"`
+		DST       string `help:"name of destination bucket"`
+		DSTKEY    string `help:"key of destination object"`
+		Debug     bool   `help:"show debug info"`
+		BlockSize int64  `help:"block size in MB"`
+		Native    bool   `help:"Use native copy"`
+	}
+	shellutils.R(&BucketObjectCopyOptions{}, "object-copy", "Copy object", func(cli cloudprovider.ICloudRegion, args *BucketObjectCopyOptions) error {
+		ctx := context.Background()
+		dstBucket, err := cli.GetIBucketByName(args.DST)
+		if err != nil {
+			return err
+		}
+		srcBucket, err := cli.GetIBucketByName(args.SRC)
+		if err != nil {
+			return err
+		}
+		srcObj, err := cloudprovider.GetIObject(srcBucket, args.SRCKEY)
+		if err != nil {
+			return err
+		}
+		if args.Native {
+			err = dstBucket.CopyObject(ctx, args.DSTKEY, args.SRC, args.SRCKEY, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+			if err != nil {
+				return err
+			}
+		} else {
+			err = cloudprovider.CopyObject(ctx, args.BlockSize*1000*1000, dstBucket, args.DSTKEY, srcBucket, args.SRCKEY, args.Debug)
+			if err != nil {
+				return err
+			}
 		}
 		fmt.Println("Success!")
 		return nil

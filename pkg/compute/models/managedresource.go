@@ -380,6 +380,7 @@ type SCloudProviderInfo struct {
 	ManagerDomainId  string `json:",omitempty"`
 	Region           string `json:",omitempty"`
 	RegionId         string `json:",omitempty"`
+	RegionExternalId string `json:",omitempty"`
 	RegionExtId      string `json:",omitempty"`
 	Zone             string `json:",omitempty"`
 	ZoneId           string `json:",omitempty"`
@@ -399,6 +400,7 @@ var (
 		"manager_project_id",
 		"region",
 		"region_id",
+		"region_external_id",
 		"region_ext_id",
 		"zone",
 		"zone_id",
@@ -452,6 +454,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 		info.CloudEnv = account.getCloudEnv()
 
 		if region != nil {
+			info.RegionExternalId = region.ExternalId
 			info.RegionExtId = fetchExternalId(region.ExternalId)
 			if zone != nil {
 				info.ZoneExtId = fetchExternalId(zone.ExternalId)

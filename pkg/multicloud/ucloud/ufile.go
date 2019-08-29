@@ -374,3 +374,15 @@ func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
 func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucketName string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	return "", cloudprovider.ErrNotSupported
+}

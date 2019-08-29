@@ -35,6 +35,7 @@ import (
 	"encoding/base64"
 	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -927,7 +928,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 func splitKey(key string) (string, string, error) {
 	slashPos := strings.IndexByte(key, '/')
 	if slashPos <= 0 {
-		return "", "", errors.Error("cannot put object to root")
+		return "", "", errors.Wrap(httperrors.ErrForbidden, "cannot put object to root")
 	}
 	containerName := key[:slashPos]
 	key = key[slashPos+1:]
@@ -977,6 +978,10 @@ func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, co
 	return uploadId, nil
 }
 
+func partIndex2BlockId(partIndex int) string {
+	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(int64(partIndex), 10)))
+}
+
 func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
 	containerName, blob, err := splitKey(key)
 	if err != nil {
@@ -995,7 +1000,7 @@ func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId s
 	opts := &storage.PutBlockOptions{}
 	opts.LeaseID = uploadId
 
-	blockId := base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(int64(partIndex), 10)))
+	blockId := partIndex2BlockId(partIndex)
 	err = blobRef.PutBlockWithLength(blockId, uint64(partSize), input, opts)
 	if err != nil {
 		return "", errors.Wrap(err, "PutBlockWithLength")
@@ -1112,4 +1117,119 @@ func (b *SStorageAccount) GetTempUrl(method string, key string, expire time.Dura
 		return "", errors.Wrap(err, "getOrCreateContainer")
 	}
 	return container.SignUrl(method, blob, expire)
+}
+
+func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	srcIBucket, err := b.region.GetIBucketByName(srcBucket)
+	if err != nil {
+		return errors.Wrap(err, "GetIBucketByName")
+	}
+	srcAccount := srcIBucket.(*SStorageAccount)
+	srcContName, srcBlob, err := splitKey(srcKey)
+	if err != nil {
+		return errors.Wrap(err, "src splitKey")
+	}
+	srcCont, err := srcAccount.getOrCreateContainer(srcContName, false)
+	if err != nil {
+		return errors.Wrap(err, "src getOrCreateContainer")
+	}
+	srcContRef, err := srcCont.getContainerRef()
+	if err != nil {
+		return errors.Wrap(err, "src getContainerRef")
+	}
+	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
+
+	containerName, blob, err := splitKey(destKey)
+	if err != nil {
+		return errors.Wrap(err, "dest splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, true)
+	if err != nil {
+		return errors.Wrap(err, "dest getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return errors.Wrap(err, "dest getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+
+	opts := &storage.CopyOptions{}
+	err = blobRef.Copy(srcBlobRef.GetURL(), opts)
+	if err != nil {
+		return errors.Wrap(err, "blboRef.Copy")
+	}
+	return nil
+}
+
+func (b *SStorageAccount) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return nil, errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return nil, errors.Wrap(err, "container.getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+	if rangeOpt != nil {
+		opts := &storage.GetBlobRangeOptions{}
+		opts.Range = &storage.BlobRange{
+			Start: uint64(rangeOpt.Start),
+			End:   uint64(rangeOpt.End),
+		}
+		return blobRef.GetRange(opts)
+	} else {
+		opts := &storage.GetBlobOptions{}
+		return blobRef.Get(opts)
+	}
+}
+
+func (b *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	srcIBucket, err := b.region.GetIBucketByName(srcBucket)
+	if err != nil {
+		return "", errors.Wrap(err, "GetIBucketByName")
+	}
+	srcAccount := srcIBucket.(*SStorageAccount)
+	srcContName, srcBlob, err := splitKey(srcKey)
+	if err != nil {
+		return "", errors.Wrap(err, "src splitKey")
+	}
+	srcCont, err := srcAccount.getOrCreateContainer(srcContName, false)
+	if err != nil {
+		return "", errors.Wrap(err, "src getOrCreateContainer")
+	}
+	srcContRef, err := srcCont.getContainerRef()
+	if err != nil {
+		return "", errors.Wrap(err, "src getContainerRef")
+	}
+	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
+
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return "", errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, true)
+	if err != nil {
+		return "", errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return "", errors.Wrap(err, "getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+
+	opts := &storage.PutBlockFromURLOptions{}
+	opts.LeaseID = uploadId
+
+	blockId := partIndex2BlockId(partIndex)
+	err = blobRef.PutBlockFromURL(blockId, srcBlobRef.GetURL(), srcOffset, uint64(srcLength), opts)
+	if err != nil {
+		return "", errors.Wrap(err, "PutBlockFromUrl")
+	}
+
+	return blockId, nil
 }

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 
+	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -114,14 +115,38 @@ func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 }
 
 func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
-	isRecursive := true
-	if delimiter == "/" {
-		isRecursive = false
+	ret := cloudprovider.SListObjectResult{}
+	result, err := bucket.client.client.ListObjectsQuery(bucket.Name, prefix, marker, delimiter, maxCount)
+	if err != nil {
+		return ret, errors.Wrap(err, "ListObjectsQuery")
 	}
-	result := cloudprovider.SListObjectResult{}
-	var err error
-	result.Objects, err = bucket.GetIObjects(prefix, isRecursive)
-	return result, err
+	ret.NextMarker = result.NextMarker
+	ret.IsTruncated = result.IsTruncated
+	ret.CommonPrefixes = make([]cloudprovider.ICloudObject, len(result.CommonPrefixes))
+	for i := range result.CommonPrefixes {
+		ret.CommonPrefixes[i] = &SObject{
+			bucket: bucket,
+			SBaseCloudObject: cloudprovider.SBaseCloudObject{
+				Key: result.CommonPrefixes[i].Prefix,
+			},
+		}
+	}
+	ret.Objects = make([]cloudprovider.ICloudObject, len(result.Contents))
+	for i := range result.Contents {
+		object := result.Contents[i]
+		ret.Objects[i] = &SObject{
+			bucket: bucket,
+			SBaseCloudObject: cloudprovider.SBaseCloudObject{
+				StorageClass: object.StorageClass,
+				Key:          object.Key,
+				SizeBytes:    object.Size,
+				ETag:         object.ETag,
+				LastModified: object.LastModified,
+				ContentType:  object.ContentType,
+			},
+		}
+	}
+	return ret, nil
 }
 
 func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
@@ -241,4 +266,52 @@ func (bucket *SBucket) GetTempUrl(method string, key string, expire time.Duratio
 		return "", errors.Wrap(err, "Presign")
 	}
 	return url.String(), nil
+}
+
+func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	meta := make(map[string]string)
+	if len(contType) > 0 {
+		meta[http.CanonicalHeaderKey("Content-Type")] = contType
+	}
+	if len(storageClassStr) > 0 {
+		meta[http.CanonicalHeaderKey("x-amz-storage-class")] = storageClassStr
+	}
+	dest, err := s3cli.NewDestinationInfo(bucket.Name, destKey, nil, meta)
+	if err != nil {
+		return errors.Wrap(err, "NewDestinationInfo")
+	}
+	src := s3cli.NewSourceInfo(srcBucket, srcKey, nil)
+	err = bucket.client.client.CopyObject(dest, src)
+	if err != nil {
+		return errors.Wrap(err, "CopyObject")
+	}
+	obj, err := cloudprovider.GetIObject(bucket, destKey)
+	if err != nil {
+		return errors.Wrap(err, "GetIObject")
+	}
+	err = obj.SetAcl(cannedAcl)
+	if err != nil {
+		return errors.Wrap(err, "obj.SetAcl")
+	}
+	return nil
+}
+
+func (bucket *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	opts := s3cli.GetObjectOptions{}
+	if rangeOpt != nil {
+		opts.SetRange(rangeOpt.Start, rangeOpt.End)
+	}
+	output, err := bucket.client.client.GetObject(bucket.Name, key, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetObject")
+	}
+	return output, nil
+}
+
+func (bucket *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partNumber int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	result, err := bucket.client.client.CopyObjectPartDo(ctx, srcBucket, srcKey, bucket.Name, key, uploadId, partNumber, srcOffset, srcLength, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "CopyObjectPartDo")
+	}
+	return result.ETag, nil
 }

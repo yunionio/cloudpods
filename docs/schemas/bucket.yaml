@@ -206,3 +206,24 @@ BucketSetACLInput:
       key:
         type: string
         description: 如果设置对象的ACL，则此字段指定对象的key
+
+BucketSetLimitInput:
+  type: object
+  properties:
+    limit:
+      type: object
+      description: 桶的存储限制
+      properties:
+        size_bytes:
+          type: integer
+          description: 容量上限，为0则无限制
+        object_count:
+          type: integer
+          description: 对象数量限制，为0则无限制
+
+BucketAccessInfoResponse:
+  type: object
+  properties:
+    bucket:
+      type: object
+      description: 桶的后端访问信息，例如ceph RADOS的endpoint/access_key/secret信息等。具体形式由存储后端决定。

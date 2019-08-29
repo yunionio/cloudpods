@@ -57,6 +57,7 @@ type SAuthenticationIdentity struct {
 	Token struct {
 		Id string `json:"id,omitempty"`
 	} `json:"token,omitempty"`
+	AccessKeyRequest string `json:"access_key_secret,omitempty"`
 }
 
 type SAuthenticationInputV3 struct {

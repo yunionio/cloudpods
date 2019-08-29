@@ -12,26 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package identity
 
 import (
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"time"
 )
 
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
+const (
+	ACCESS_SECRET_TYPE    = "aksk"
+	TOTP_TYPE             = "totp"
+	RECOVERY_SECRETS_TYPE = "recovery_secret"
+)
+
+type SAccessKeySecretBlob struct {
+	Secret string `json:"secret"`
+	Expire int64  `json:"expire"`
+}
+
+func (info SAccessKeySecretBlob) IsValid() bool {
+	if info.Expire <= 0 || info.Expire > time.Now().Unix() {
+		return true
 	}
-	return nil
+	return false
+}
+
+type SAccessKeySecretInfo struct {
+	AccessKey string
+	SAccessKeySecretBlob
 }

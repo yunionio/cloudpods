@@ -39,6 +39,8 @@ const (
 	APP_CONTEXT_KEY_OBJECT_ID       = AppContextKey("objectid")
 	APP_CONTEXT_KEY_OBJECT_TYPE     = AppContextKey("objecttype")
 	APP_CONTEXT_KEY_START_TIME      = AppContextKey("starttime")
+
+	APP_CONTEXT_KEY_HOST_ID = AppContextKey("hostid")
 )
 
 func AppContextServiceName(ctx context.Context) string {
@@ -146,6 +148,15 @@ func AppContextStartTime(ctx context.Context) time.Time {
 		return val.(time.Time)
 	} else {
 		return time.Time{}
+	}
+}
+
+func AppContextHostId(ctx context.Context) string {
+	val := ctx.Value(APP_CONTEXT_KEY_HOST_ID)
+	if val != nil {
+		return val.(string)
+	} else {
+		return ""
 	}
 }
 
