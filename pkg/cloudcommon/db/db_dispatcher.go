@@ -123,13 +123,14 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 	}
 
 	listF := searchFields(manager, userCred)
-	for key, val := range qdata {
+	for key := range qdata {
 		fn, op := parseSearchFieldkey(key)
 		if listF.Contains(fn) {
 			colSpec := manager.TableSpec().ColumnSpec(fn)
 			if colSpec != nil {
-				strV, _ := val.GetString()
+				arrV := jsonutils.GetQueryStringArray(query, key)
 				if len(op) > 0 {
+					strV := strings.Join(arrV, ",")
 					filter := fmt.Sprintf("%s.%s(%s)", fn, op, strV)
 					fc := filterclause.ParseFilterClause(filter)
 					if fc != nil {
@@ -138,8 +139,13 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 							q = q.Filter(cond)
 						}
 					}
-				} else if len(strV) > 0 {
-					strV := colSpec.ConvertFromString(strV)
+				} else if len(arrV) > 1 {
+					for i := range arrV {
+						arrV[i] = colSpec.ConvertFromString(arrV[i])
+					}
+					q = q.In(fn, arrV)
+				} else if len(arrV) == 1 {
+					strV := colSpec.ConvertFromString(arrV[0])
 					q = q.Equals(fn, strV)
 				}
 			}
