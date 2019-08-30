@@ -55,7 +55,9 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	if err != nil {
 		return errors.Wrap(err, "o.bucket.region.GetCosClient")
 	}
-	opts := &cos.ObjectPutACLOptions{}
+	opts := &cos.ObjectPutACLOptions{
+		Header: &cos.ACLHeaderOptions{},
+	}
 	opts.Header.XCosACL = string(aclStr)
 	_, err = coscli.Object.PutACL(context.Background(), o.Key, opts)
 	if err != nil {
