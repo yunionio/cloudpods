@@ -17,6 +17,7 @@ package aliyun
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -138,7 +139,12 @@ func (region *SRegion) CreateSNATTableEntry(rule cloudprovider.SNatSRule, tableI
 	params["RegionId"] = region.RegionId
 	params["SnatTableId"] = tableID
 	params["SnatIp"] = rule.ExternalIP
-	params["SourceCIDR"] = rule.SourceCIDR
+	if len(rule.NetworkID) != 0 {
+		params["SourceVSwitchId"] = rule.NetworkID
+	}
+	if len(rule.SourceCIDR) != 0 {
+		params["SourceCIDR"] = rule.SourceCIDR
+	}
 	body, err := region.vpcRequest("CreateSnatEntry", params)
 	if err != nil {
 		return "", err
@@ -200,4 +206,12 @@ func (nat *SNatGetway) dissociateWithVswitch(vswitchId string) error {
 		}
 	}
 	return nil
+}
+
+func (stable *SSNATTableEntry) Refresh() error {
+	new, err := stable.nat.vpc.region.GetForwardTableEntry(stable.SnatEntryId, stable.SnatTableId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(stable, new)
 }

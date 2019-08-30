@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -120,9 +122,48 @@ func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 }
 
 func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if !data.Contains("external_ip_id") {
-		return nil, errors.Error("Request body should contain key 'externalIpId'")
+	input := &api.SNatDCreateInput{}
+	err := data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
 	}
+	if len(input.NatgatewayId) == 0 || len(input.ExternalIpId) == 0 || len(input.ExternalIp) == 0 {
+		return nil, httperrors.NewMissingParameterError("natgateway_id or external_ip_id or external_ip")
+	}
+	if input.ExternalPort < 1 || input.ExternalPort > 65535 {
+		return nil, httperrors.NewInputParameterError("Port value error")
+	}
+	if input.InternalPort < 1 || input.InternalPort > 65535 {
+		return nil, httperrors.NewInputParameterError("Port value error")
+	}
+	if !regutils.MatchIPAddr(input.InternalIp) {
+		return nil, httperrors.NewInputParameterError("invalid internal ip address: %s", input.InternalIp)
+	}
+
+	model, err := ElasticipManager.FetchById(input.ExternalIpId)
+	if err != nil {
+		return nil, err
+	}
+	if model == nil {
+		return nil, httperrors.NewInputParameterError("No such eip")
+	}
+	eip := model.(*SElasticip)
+	if eip.IpAddr != input.ExternalIp {
+		return nil, errors.Error("No such eip")
+	}
+
+	// check that eip is suitable
+	if len(eip.AssociateId) != 0 {
+		if eip.AssociateId != input.NatgatewayId {
+			return nil, httperrors.NewInputParameterError("eip has been binding to another instance")
+		} else if !man.canBindIP(eip.IpAddr) {
+			return nil, httperrors.NewInputParameterError("eip has been binding to dnat rules")
+		}
+	} else {
+		data.Add(jsonutils.NewBool(true), "need_bind")
+	}
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
 	return data, nil
 }
 
@@ -259,9 +300,7 @@ func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		return
 	}
 	// ValidateCreateData function make data must contain 'externalIpId' key
-	externalIPID, _ := data.GetString("external_ip_id")
-	taskData := jsonutils.NewDict()
-	taskData.Set("external_ip_id", jsonutils.NewString(externalIPID))
+	taskData := data.(*jsonutils.JSONDict)
 	task, err := taskman.TaskManager.NewTask(ctx, "SNatDEntryCreateTask", self, userCred, taskData, "", "", nil)
 	if err != nil {
 		log.Errorf("SNatDEntryCreateTask newTask error %s", err)
@@ -281,7 +320,7 @@ func (self *SNatDEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error)
 
 func (self *SNatDEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("DNAT delete do nothing")
-	self.SetStatus(userCred, api.NAT_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
 	return nil
 }
 
@@ -294,7 +333,10 @@ func (self *SNatDEntry) CustomizeDelete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SNatDEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
+	err := db.DeleteModel(ctx, userCred, self)
+	if err != nil {
+		return err
+	}
 	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
 	return nil
 }
@@ -307,4 +349,13 @@ func (self *SNatDEntry) StartDeleteVpcTask(ctx context.Context, userCred mcclien
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SNatDEntryManager) canBindIP(ipAddr string) bool {
+	q := NatSEntryManager.Query().Equals("ip", ipAddr)
+	count, _ := q.CountWithError()
+	if count != 0 {
+		return false
+	}
+	return true
 }
