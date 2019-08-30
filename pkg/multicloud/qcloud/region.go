@@ -905,6 +905,9 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	}
 	_, err = coscli.Bucket.Head(context.Background())
 	if err != nil {
+		if cosHttpCode(err) == 404 {
+			return false, nil
+		}
 		return false, errors.Wrap(err, "BucketExists")
 	}
 	return true, nil

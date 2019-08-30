@@ -971,6 +971,16 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	return nil
 }
 
+func obsHttpCode(err error) int {
+	switch httpErr := err.(type) {
+	case obs.ObsError:
+		return httpErr.StatusCode
+	case *obs.ObsError:
+		return httpErr.StatusCode
+	}
+	return -1
+}
+
 func (region *SRegion) DeleteIBucket(name string) error {
 	obsClient, err := region.getOBSClient()
 	if err != nil {
@@ -978,9 +988,10 @@ func (region *SRegion) DeleteIBucket(name string) error {
 	}
 	_, err = obsClient.DeleteBucket(name)
 	if err != nil {
-		if strings.Index(err.Error(), "Code=NoSuchBucket") >= 0 {
+		if obsHttpCode(err) == 404 {
 			return nil
 		}
+		log.Debugf("%#v %s", err, err)
 		return errors.Wrap(err, "DeleteBucket")
 	}
 	region.client.invalidateIBuckets()
@@ -994,7 +1005,12 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	}
 	_, err = obsClient.HeadBucket(name)
 	if err != nil {
-		return false, errors.Wrap(err, "HeadBucket")
+		if obsHttpCode(err) == 404 {
+			return false, nil
+		} else {
+			log.Debugf("%#v %s", err, err)
+			return false, errors.Wrap(err, "HeadBucket")
+		}
 	}
 	return true, nil
 }
