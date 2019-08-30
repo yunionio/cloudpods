@@ -8,17 +8,17 @@ BIN_DIR := $(BUILD_DIR)/bin
 BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
 
 ifeq ($(ONECLOUD_CI_BUILD),)
-  GIT_COMMIT := $(shell git rev-parse --short HEAD)
-  GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-  GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
-  GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
-  BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+	GIT_COMMIT := $(shell git rev-parse --short HEAD)
+	GIT_BRANCH := $(shell git name-rev --name-only HEAD)
+	GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
+	GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
+	BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 else
-  GIT_COMMIT:=x
-  GIT_BRANCH:=x
-  GIT_VERSION:=x
-  BUILD_TREE_STATE:=clean
-  BUILD_DATE=2099-07-01T07:11:09Z
+	GIT_COMMIT:=x
+	GIT_BRANCH:=x
+	GIT_VERSION:=x
+	BUILD_TREE_STATE:=clean
+	BUILD_DATE=2099-07-01T07:11:09Z
 endif
 
 LDFLAGS := "-w \
@@ -34,7 +34,7 @@ LDFLAGS := "-w \
 #####################################################
 ifneq ($(DLV),)
 	GO_BUILD_FLAGS += -gcflags "all=-N -l"
-	LDFLAGS = "" 
+	LDFLAGS = ""
 endif
 GO_BUILD_FLAGS+=-mod vendor -ldflags $(LDFLAGS)
 GO_BUILD := go build $(GO_BUILD_FLAGS)
@@ -47,8 +47,8 @@ CGO_CFLAGS_ENV = $(shell go env CGO_CFLAGS)
 CGO_LDFLAGS_ENV = $(shell go env CGO_LDFLAGS)
 
 ifdef LIBQEMUIO_PATH
-    X_CGO_CFLAGS := ${CGO_CFLAGS_ENV} -I${LIBQEMUIO_PATH}/src -I${LIBQEMUIO_PATH}/src/include
-    X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
+		X_CGO_CFLAGS := ${CGO_CFLAGS_ENV} -I${LIBQEMUIO_PATH}/src -I${LIBQEMUIO_PATH}/src/include
+		X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
 endif
 
 export GO111MODULE:=on
