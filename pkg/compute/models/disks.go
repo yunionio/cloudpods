@@ -399,6 +399,18 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		storage := storageObj.(*SStorage)
 
+		if provider := storage.GetCloudprovider(); provider != nil {
+			if !provider.Enabled {
+				return nil, httperrors.NewInputParameterError("provider %s(%s) is disabled, you need enable provider first", provider.Name, provider.Id)
+			}
+			if !utils.IsInStringArray(provider.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
+				return nil, httperrors.NewInputParameterError("invalid provider %s(%s) status %s, require status is %s", provider.Name, provider.Id, provider.Status, api.CLOUD_PROVIDER_VALID_STATUS)
+			}
+			if !utils.IsInStringArray(provider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
+				return nil, httperrors.NewInputParameterError("invalid provider %s(%s) health status %s, require status is %s", provider.Name, provider.Id, provider.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS)
+			}
+		}
+
 		host := storage.GetMasterHost()
 		if host == nil {
 			return nil, httperrors.NewResourceNotFoundError("storage %s(%s) need onlne and attach host for create disk", storage.Name, storage.Id)
