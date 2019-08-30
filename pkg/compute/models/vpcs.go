@@ -595,9 +595,24 @@ func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredent
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.VPC_STATUS_DELETED, "real delete")
 	routes := self.GetRouteTables()
+	var err error
 	for i := 0; i < len(routes); i++ {
-		routes[i].RealDelete(ctx, userCred)
+		err = routes[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete route table %s failed", routes[i].GetId())
+		}
 	}
+	natgateways, err := self.GetNatgateways()
+	if err != nil {
+		return errors.Wrap(err, "fetch natgateways failed")
+	}
+	for i := range natgateways {
+		err = natgateways[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete natgateway %s failed", natgateways[i].GetId())
+		}
+	}
+
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 

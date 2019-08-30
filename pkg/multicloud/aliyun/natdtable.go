@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -170,4 +172,12 @@ func (region *SRegion) CreateForwardTableEntry(rule cloudprovider.SNatDRule, tab
 
 	entryID, _ := body.GetString("ForwardEntryId")
 	return entryID, nil
+}
+
+func (dtable *SForwardTableEntry) Refresh() error {
+	new, err := dtable.nat.vpc.region.GetForwardTableEntry(dtable.ForwardEntryId, dtable.ForwardTableId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(dtable, new)
 }

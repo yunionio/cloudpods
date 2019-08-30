@@ -3,9 +3,7 @@ get:
   parameters:
     - $ref: "../parameters/common.yaml#/offset"
     - $ref: "../parameters/common.yaml#/limit"
-    - $ref: "../parameters/common.yaml#/provider"
     - $ref: "../parameters/common.yaml#/account"
-    - $ref: "../parameters/common.yaml#/cloudprovider"
     - $ref: "../parameters/common.yaml#/brand"
 
     - $ref: "../parameters/natgateway.yaml#/natgateway"
