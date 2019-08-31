@@ -34,16 +34,8 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
-	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/openstack/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"
+
+	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {

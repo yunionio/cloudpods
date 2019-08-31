@@ -26,13 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/s3gateway/handlers"
 	"yunion.io/x/onecloud/pkg/s3gateway/options"
 
-	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {

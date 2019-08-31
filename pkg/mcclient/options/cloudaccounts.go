@@ -136,7 +136,7 @@ type SZStackCloudAccountCreateOptions struct {
 type SS3CloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredential
-	Endpoint string `help:"S3 endpoint" poisitional:"true" json:"endpoint"`
+	Endpoint string `help:"S3 endpoint" required:"true" positional:"true" json:"endpoint"`
 }
 
 // update credential options
