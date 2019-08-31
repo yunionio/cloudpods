@@ -31,6 +31,9 @@ const (
 func initHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	// add version handler with API_VERSION prefix
+	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
+
 	// quotas.AddQuotaHandler(models.QuotaManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
 	taskman.AddTaskHandler(API_VERSION, app)
