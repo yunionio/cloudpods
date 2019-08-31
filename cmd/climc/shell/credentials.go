@@ -185,9 +185,13 @@ func init() {
 	})
 
 	R(&CredentialAkSkOptions{}, "credential-get-aksk", "Get AccessKey/Secret credential for user and project", func(s *mcclient.ClientSession, args *CredentialAkSkOptions) error {
-		uid, err := modules.UsersV3.FetchId(s, args.User, args.UserDomain)
-		if err != nil {
-			return err
+		var uid string
+		var err error
+		if len(args.User) > 0 {
+			uid, err = modules.UsersV3.FetchId(s, args.User, args.UserDomain)
+			if err != nil {
+				return err
+			}
 		}
 		var pid string
 		if len(args.Project) > 0 {

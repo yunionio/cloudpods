@@ -82,11 +82,7 @@ func (self *SObjectStoreProviderFactory) GetProvider(providerId, providerName, u
 	if err != nil {
 		return nil, err
 	}
-	client.SetVirtualObject(client)
-	return &SObjectStoreProvider{
-		SBaseProvider: cloudprovider.NewBaseProvider(self),
-		client:        client,
-	}, nil
+	return NewObjectStoreProvider(self, client), nil
 }
 
 func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
@@ -94,6 +90,7 @@ func (self *SObjectStoreProviderFactory) GetClientRC(url, account, secret string
 		"S3_ACCESS_KEY": account,
 		"S3_SECRET":     secret,
 		"S3_ACCESS_URL": url,
+		"S3_BACKEND":    api.CLOUD_PROVIDER_GENERICS3,
 	}, nil
 }
 
@@ -104,7 +101,14 @@ func init() {
 
 type SObjectStoreProvider struct {
 	cloudprovider.SBaseProvider
-	client *objectstore.SObjectStoreClient
+	client objectstore.IBucketProvider
+}
+
+func NewObjectStoreProvider(factory cloudprovider.ICloudProviderFactory, client objectstore.IBucketProvider) *SObjectStoreProvider {
+	return &SObjectStoreProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(factory),
+		client:        client,
+	}
 }
 
 func (self *SObjectStoreProvider) GetIRegions() []cloudprovider.ICloudRegion {

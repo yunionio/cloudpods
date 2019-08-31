@@ -231,9 +231,14 @@ func (aksk SAccessKeyRequestV2) Encode() string {
 	return jsonutils.Marshal(aksk).String()
 }
 
+func NewV2Request() SAccessKeyRequestV2 {
+	req := SAccessKeyRequestV2{}
+	req.Algorithm = signV2Algorithm
+	return req
+}
+
 func decodeAuthHeaderV2(authStr string) (*SAccessKeyRequestV2, error) {
-	akskReq := SAccessKeyRequestV2{}
-	akskReq.Algorithm = signV2Algorithm
+	akskReq := NewV2Request()
 	pos := strings.IndexByte(authStr, ':')
 	if pos <= 0 {
 		return nil, errors.Error("illegal authorization header")

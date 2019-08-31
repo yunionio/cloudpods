@@ -19,6 +19,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -26,6 +27,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/util/streamutils"
+	"yunion.io/x/pkg/util/timeutils"
 )
 
 // Signature and API related constants.
@@ -188,13 +192,25 @@ func getCanonicalHeaders(req http.Request, signedHeaders []string) string {
 // request header names.
 func getSignedHeaders(req http.Request, ignoredHeaders map[string]bool) []string {
 	var headers []string
+	hasHost := false
+	hasContentHash := false
 	for k := range req.Header {
 		if _, ok := ignoredHeaders[http.CanonicalHeaderKey(k)]; ok {
 			continue // Ignored header found continue.
 		}
+		if strings.EqualFold(k, "host") {
+			hasHost = true
+		} else if strings.EqualFold(k, "x-amz-content-sha256") {
+			hasContentHash = true
+		}
 		headers = append(headers, strings.ToLower(k))
 	}
-	headers = append(headers, "host")
+	if !hasHost {
+		headers = append(headers, "host")
+	}
+	if !hasContentHash {
+		headers = append(headers, "x-amz-content-sha256")
+	}
 	sort.Strings(headers)
 	return headers
 }
@@ -217,11 +233,16 @@ type SAccessKeyRequestV4 struct {
 	SignDate      time.Time
 }
 
+func NewV4Request() SAccessKeyRequestV4 {
+	req := SAccessKeyRequestV4{}
+	req.Algorithm = signV4Algorithm
+	return req
+}
+
 // AWS4-HMAC-SHA256
 // Credential=xxxx/20190824/us-east-1/s3/aws4_request,SignedHeaders=date;host;x-amz-content-sha256;x-amz-date,Signature=27a135c6f51cc
 func decodeAuthHeaderV4(authStr string) (*SAccessKeyRequestV4, error) {
-	req := SAccessKeyRequestV4{}
-	req.Algorithm = signV4Algorithm
+	req := NewV4Request()
 	parts := strings.Split(authStr, ",")
 	if len(parts) != 3 ||
 		!strings.HasPrefix(parts[0], "Credential=") ||
@@ -267,4 +288,61 @@ func (aksk SAccessKeyRequestV4) Verify(secret string) error {
 
 func (aksk SAccessKeyRequestV4) Encode() string {
 	return jsonutils.Marshal(aksk).String()
+}
+
+// GetCredential generate a credential string.
+func getCredential(accessKeyID, location string, t time.Time) string {
+	scope := getScope(location, t)
+	return accessKeyID + "/" + scope
+}
+
+// SignV4 sign the request before Do(), in accordance with
+// http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html.
+func SignV4(req http.Request, accessKey, secretAccessKey, location string, body io.Reader) *http.Request {
+	// Signature calculation is not needed for anonymous credentials.
+	if accessKey == "" || secretAccessKey == "" {
+		return &req
+	}
+
+	h := sha256.New()
+	if body != nil {
+		streamutils.StreamPipe(body, h, false)
+	}
+	req.Header.Set("X-Amz-Content-Sha256", hex.EncodeToString(h.Sum(nil)))
+
+	// Initial time.
+	t := time.Now().UTC()
+
+	// Set x-amz-date.
+	req.Header.Set("X-Amz-Date", t.Format(iso8601DateFormat))
+	req.Header.Set("Date", timeutils.RFC2882Time(t))
+
+	signedHeaders := getSignedHeaders(req, v4IgnoredHeaders)
+	// Get canonical request.
+	canonicalRequest := getCanonicalRequest(req, signedHeaders)
+
+	// Get string to sign from canonical request.
+	stringToSign := getStringToSignV4(t, location, canonicalRequest)
+
+	// Get hmac signing key.
+	signingKey := getSigningKey(secretAccessKey, location, t)
+
+	// Get credential string.
+	credential := getCredential(accessKey, location, t)
+
+	// Calculate signature.
+	signature := getSignature(signingKey, stringToSign)
+
+	// If regular request, construct the final authorization header.
+	parts := []string{
+		signV4Algorithm + " Credential=" + credential,
+		"SignedHeaders=" + strings.Join(signedHeaders, ";"),
+		"Signature=" + signature,
+	}
+
+	// Set authorization header.
+	auth := strings.Join(parts, ",")
+	req.Header.Set("Authorization", auth)
+
+	return &req
 }
