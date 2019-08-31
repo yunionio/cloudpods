@@ -54,6 +54,10 @@ type SObjectStoreClient struct {
 }
 
 func NewObjectStoreClient(providerId string, providerName string, endpoint string, accessKey string, secret string, isDebug bool) (*SObjectStoreClient, error) {
+	return NewObjectStoreClientAndFetch(providerId, providerName, endpoint, accessKey, secret, isDebug, true)
+}
+
+func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoint string, accessKey string, secret string, isDebug bool, doFetch bool) (*SObjectStoreClient, error) {
 	client := SObjectStoreClient{
 		providerId:   providerId,
 		providerName: providerName,
@@ -79,13 +83,14 @@ func NewObjectStoreClient(providerId string, providerName string, endpoint strin
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
+	client.SetVirtualObject(&client)
 
-	err = client.fetchBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchBuckets")
+	if doFetch {
+		err = client.FetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
 	}
-
-	log.Debugf("clientID: %s Name: %s", client.ownerId, client.ownerName)
 
 	return &client, nil
 }
@@ -107,6 +112,10 @@ func (cli *SObjectStoreClient) GetIRegion() cloudprovider.ICloudRegion {
 	return cli.GetVirtualObject().(cloudprovider.ICloudRegion)
 }
 
+func (cli *SObjectStoreClient) GetIBucketProvider() IBucketProvider {
+	return cli.GetVirtualObject().(IBucketProvider)
+}
+
 func (cli *SObjectStoreClient) GetVersion() string {
 	return ""
 }
@@ -118,6 +127,24 @@ func (cli *SObjectStoreClient) About() jsonutils.JSONObject {
 
 func (cli *SObjectStoreClient) GetProvider() string {
 	return api.CLOUD_PROVIDER_GENERICS3
+}
+
+////////////////////////////// IBucketProvider //////////////////////////////
+
+func (cli *SObjectStoreClient) NewBucket(bucket s3cli.BucketInfo) cloudprovider.ICloudBucket {
+	return &SBucket{
+		client:    cli.GetIBucketProvider(),
+		Name:      bucket.Name,
+		CreatedAt: bucket.CreationDate,
+	}
+}
+
+func (cli *SObjectStoreClient) GetEndpoint() string {
+	return cli.endpoint
+}
+
+func (cli *SObjectStoreClient) S3Client() *s3cli.Client {
+	return cli.client
 }
 
 ///////////////////////////////// fake impletementations //////////////////////
@@ -286,7 +313,7 @@ func (self *SObjectStoreClient) invalidateIBuckets() {
 
 func (self *SObjectStoreClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	if self.iBuckets == nil {
-		err := self.fetchBuckets()
+		err := self.FetchBuckets()
 		if err != nil {
 			return nil, errors.Wrap(err, "fetchBuckets")
 		}
@@ -294,7 +321,7 @@ func (self *SObjectStoreClient) getIBuckets() ([]cloudprovider.ICloudBucket, err
 	return self.iBuckets, nil
 }
 
-func (cli *SObjectStoreClient) fetchBuckets() error {
+func (cli *SObjectStoreClient) FetchBuckets() error {
 	result, err := cli.client.ListBuckets()
 	if err != nil {
 		return errors.Wrap(err, "client.ListBuckets")
@@ -304,12 +331,8 @@ func (cli *SObjectStoreClient) fetchBuckets() error {
 	buckets := result.Buckets.Bucket
 	cli.iBuckets = make([]cloudprovider.ICloudBucket, len(buckets))
 	for i := range buckets {
-		b := SBucket{
-			client:    cli,
-			Name:      buckets[i].Name,
-			CreatedAt: buckets[i].CreationDate,
-		}
-		cli.iBuckets[i] = &b
+		b := cli.GetIBucketProvider().NewBucket(buckets[i])
+		cli.iBuckets[i] = b
 	}
 	return nil
 }

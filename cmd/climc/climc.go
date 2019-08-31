@@ -49,14 +49,19 @@ type BaseOptions struct {
 
 	Completion     string `default:"" help:"Generate climc auto complete script" choices:"bash"`
 	UseCachedToken bool   `default:"$YUNION_USE_CACHED_TOKEN|false" help:"Use cached token"`
-	OsUsername     string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
-	OsPassword     string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
+
+	OsUsername string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
+	OsPassword string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
 	OsProjectName   string `default:"$OS_PROJECT_NAME" help:"Project name, defaults to env[OS_PROJECT_NAME]"`
 	OsProjectDomain string `default:"$OS_PROJECT_DOMAIN" help:"Domain name of project, defaults to env[OS_PROJECT_DOMAIN]"`
+	OsDomainName    string `default:"$OS_DOMAIN_NAME" help:"Domain name, defaults to env[OS_DOMAIN_NAME]"`
 
-	OsDomainName   string `default:"$OS_DOMAIN_NAME" help:"Domain name, defaults to env[OS_DOMAIN_NAME]"`
-	OsAuthURL      string `default:"$OS_AUTH_URL" help:"Defaults to env[OS_AUTH_URL]"`
+	OsAccessKey string `default:"$OS_ACCESS_KEY" help:"ak/sk access key, defaults to env[OS_ACCESS_KEY]"`
+	OsSecretKey string `default:"$OS_SECRET_KEY" help:"ak/s secret, defaults to env[OS_SECRET_KEY]"`
+
+	OsAuthURL string `default:"$OS_AUTH_URL" help:"Defaults to env[OS_AUTH_URL]"`
+
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
@@ -124,20 +129,18 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	if len(options.OsAuthURL) == 0 {
 		return nil, fmt.Errorf("Missing OS_AUTH_URL")
 	}
-	if len(options.OsUsername) == 0 {
-		return nil, fmt.Errorf("Missing OS_USERNAME")
+	if len(options.OsUsername) == 0 && len(options.OsAccessKey) == 0 {
+		return nil, fmt.Errorf("Missing OS_USERNAME or OS_ACCESS_KEY")
 	}
-	if len(options.OsPassword) == 0 {
+	if len(options.OsUsername) > 0 && len(options.OsPassword) == 0 {
 		return nil, fmt.Errorf("Missing OS_PASSWORD")
+	}
+	if len(options.OsAccessKey) > 0 && len(options.OsSecretKey) == 0 {
+		return nil, fmt.Errorf("Missing OS_SECRET_KEY")
 	}
 	if len(options.OsRegionName) == 0 {
 		return nil, fmt.Errorf("Missing OS_REGION_NAME")
 	}
-	// if len(options.OsProjectId) == 0 && len(options.OsProjectName) == 0 {
-	//    showErrorAndExit(fmt.Errorf("Missing OS_PROEJCT_ID or OS_PROJECT_NAME"))
-	// if len(options.OsProjectName) == 0 {
-	// 	return nil, fmt.Errorf("Missing OS_PROJECT_NAME")
-	// }
 
 	logLevel := "info"
 	if options.Debug {
@@ -178,12 +181,19 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	}
 
 	if cacheToken == nil {
-		token, err := client.AuthenticateWithSource(options.OsUsername,
-			options.OsPassword,
-			options.OsDomainName,
-			options.OsProjectName,
-			options.OsProjectDomain,
-			mcclient.AuthSourceCli)
+		var token mcclient.TokenCredential
+		var err error
+		if len(options.OsAccessKey) > 0 {
+			token, err = client.AuthenticateByAccessKey(options.OsAccessKey,
+				options.OsSecretKey, mcclient.AuthSourceCli)
+		} else {
+			token, err = client.AuthenticateWithSource(options.OsUsername,
+				options.OsPassword,
+				options.OsDomainName,
+				options.OsProjectName,
+				options.OsProjectDomain,
+				mcclient.AuthSourceCli)
+		}
 		if err != nil {
 			return nil, err
 		}

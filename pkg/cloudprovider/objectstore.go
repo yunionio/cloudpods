@@ -16,13 +16,13 @@ package cloudprovider
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"fmt"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"

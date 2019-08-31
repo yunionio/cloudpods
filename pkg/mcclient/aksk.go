@@ -21,6 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
+	"io"
+	"strings"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/s3auth"
@@ -69,4 +71,39 @@ func (this *Client) VerifyRequest(req http.Request, aksk s3auth.IAccessKeySecret
 	}
 
 	return token, nil
+}
+
+func jsonReader(input interface{}) io.Reader {
+	return strings.NewReader(jsonutils.Marshal(input).String())
+}
+
+func (this *Client) AuthenticateByAccessKey(accessKey string, secret string, source string) (TokenCredential, error) {
+	aCtx := SAuthContext{Source: source}
+
+	seedAksk := s3auth.NewV4Request()
+	seedAksk.AccessKey = accessKey
+	seedAksk.Location = "cn-beijing"
+	input := SAuthenticationInputV3{}
+	input.Auth.Identity.Methods = []string{api.AUTH_METHOD_AKSK}
+	input.Auth.Identity.AccessKeyRequest = seedAksk.Encode()
+	input.Auth.Context = aCtx
+
+	urlStr := joinUrl(this.authUrl, "/auth/tokens")
+	req, err := http.NewRequest(http.MethodPost, urlStr, jsonReader(input))
+	if err != nil {
+		return nil, errors.Wrap(err, "http.NewRequest")
+	}
+	newreq := s3auth.SignV4(*req, seedAksk.AccessKey, secret, seedAksk.Location, jsonReader(input))
+
+	aksk, err := s3auth.DecodeAccessKeyRequest(*newreq, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "s3auth.DecodeAccessKeyRequest")
+	}
+
+	token, err := this._verifyKeySecret(aksk, aCtx)
+	if err != nil {
+		return nil, errors.Wrap(err, "this._verifyKeySecret")
+	}
+
+	return token.Token, nil
 }

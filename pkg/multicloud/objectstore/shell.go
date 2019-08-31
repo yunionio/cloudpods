@@ -80,6 +80,29 @@ func S3Shell() {
 		return nil
 	})
 
+	type BucketLimitOptions struct {
+		NAME    string `help:"name of bucket to set limit"`
+		SizeGB  int    `help:"limit of volumes in GB"`
+		Objects int    `help:"limit of object count"`
+		Off     bool   `help:"Turn off limit"`
+	}
+	shellutils.R(&BucketLimitOptions{}, "bucket-set-limit", "Set bucket limit", func(cli cloudprovider.ICloudRegion, args *BucketLimitOptions) error {
+		bucket, err := cli.GetIBucketByName(args.NAME)
+		if err != nil {
+			return err
+		}
+		if args.Off {
+			err = bucket.SetLimit(cloudprovider.SBucketStats{})
+		} else {
+			fmt.Println("set limit")
+			err = bucket.SetLimit(cloudprovider.SBucketStats{SizeBytes: int64(args.SizeGB * 1000 * 1000 * 1000), ObjectCount: args.Objects})
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	type BucketExistOptions struct {
 		NAME string `help:"name of bucket to delete"`
 	}
