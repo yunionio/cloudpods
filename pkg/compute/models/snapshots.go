@@ -410,7 +410,7 @@ func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) (int, error) {
 		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
-func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, createdBy, diskId, guestId, location, name string) (*SSnapshot, error) {
+func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient.IIdentityProvider, createdBy, diskId, guestId, location, name string) (*SSnapshot, error) {
 	iDisk, err := DiskManager.FetchById(diskId)
 	if err != nil {
 		return nil, err
@@ -419,8 +419,8 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	storage := disk.GetStorage()
 	snapshot := &SSnapshot{}
 	snapshot.SetModelManager(self, snapshot)
-	snapshot.ProjectId = userCred.GetProjectId()
-	snapshot.DomainId = userCred.GetProjectDomainId()
+	snapshot.ProjectId = owner.GetProjectId()
+	snapshot.DomainId = owner.GetProjectDomainId()
 	snapshot.DiskId = disk.Id
 	if len(disk.ExternalId) == 0 {
 		snapshot.StorageId = disk.StorageId
@@ -622,7 +622,7 @@ func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 	}
 
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-
+	q = q.Equals("created_by", api.SNAPSHOT_MANUAL)
 	q = q.Equals("fake_deleted", false)
 	return q.CountWithError()
 }
