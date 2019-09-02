@@ -163,12 +163,9 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
 
-	exist, err := self.region.IBucketExist(bucketName)
-	if err != nil {
-		return "", errors.Wrap(err, "self.region.IBucketExist")
-	}
+	exist, _ := self.region.IBucketExist(bucketName)
 	if !exist {
-		err = self.region.CreateIBucket(bucketName, "", "")
+		err := self.region.CreateIBucket(bucketName, "", "")
 		if err != nil {
 			return "", errors.Wrap(err, "CreateIBucket")
 		}
