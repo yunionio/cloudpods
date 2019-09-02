@@ -13,7 +13,7 @@ RoleAssignmentListResponse:
     role_assignments:
       type: array
       items:
-        $ref: "#/RoleAssignment"
+        $ref: "./roleassignments.yaml#/RoleAssignment"
 
 RoleAssignment:
   type: object
@@ -22,35 +22,42 @@ RoleAssignment:
     scope:
       type: object
       description: 角色分配的范围
-      $ref: '#/Scope'
+      $ref: './roleassignments.yaml#/Scope'
     user:
       type: object
       description: 角色分配的用户
-      $ref: '#/DomainObject'
+      $ref: './roleassignments.yaml#/DomainObject'
     group:
       type: object
       description: 角色分配的组
-      $ref: '#/DomainObject'
+      $ref: './roleassignments.yaml#/DomainObject'
     role:
       type: object
       description: 角色
-      $ref: '#/DomainObject'
+      $ref: './roleassignments.yaml#/DomainObject'
     policies:
       type: object
       description: 匹配的权限列表
-      properties:
-        project:
-          type: array
-          items:
-            type: string
-        domain:
-          type: array
-          items:
-            type: string
-        system:
-          type: array
-          items:
-            type: string
+      $ref: './roleassignments.yaml#/PolicyObject'
+
+
+PolicyObject:
+  type: object
+  description: 匹配的权限列表
+  properties:
+    project:
+      type: array
+      items:
+        type: string
+    domain:
+      type: array
+      items:
+        type: string
+    system:
+      type: array
+      items:
+        type: string
+
 
 Scope:
   type: object
