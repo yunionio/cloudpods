@@ -24,6 +24,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
+	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
+	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -97,9 +99,12 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 
 	// execute BaremetalServerPrepareTask
 	task := bm.GetTask()
-	if task != nil {
-		task.SSHExecute(task, remoteAddr, key, nil)
+	if task == nil {
+		task = tasks.NewBaremetalServerPrepareTask(bm)
+		bm.SyncStatus(baremetalstatus.PREPARE, "")
 	}
+	log.Infof("Get notify from pxe rom os, start exec task: %s", task.GetName())
+	task.SSHExecute(task, remoteAddr, key, nil)
 	ctx.ResponseOk()
 }
 
