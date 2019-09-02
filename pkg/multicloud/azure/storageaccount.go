@@ -16,10 +16,12 @@ package azure
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math/rand"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,8 +34,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
-	"encoding/base64"
-	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -227,17 +227,24 @@ func (self *SRegion) getStorageAccountSkuByName(name string) (*SStorageAccountSk
 }
 
 func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorageAccount, error) {
-	sku, err := self.getStorageAccountSkuByName(skuName)
-	if err != nil {
-		return nil, errors.Wrap(err, "getStorageAccountSkuByName")
+	storageKind := "Storage"
+	if len(skuName) > 0 {
+		sku, err := self.getStorageAccountSkuByName(skuName)
+		if err != nil {
+			return nil, errors.Wrap(err, "getStorageAccountSkuByName")
+		}
+		skuName = sku.Name
+		storageKind = sku.Kind
+	} else {
+		skuName = "Standard_GRS"
 	}
-	stoargeaccount := SStorageAccount{
-		region: self,
-		Sku: SSku{
-			Name: sku.Name,
-		},
+	storageaccount := SStorageAccount{
+		region:   self,
 		Location: self.Name,
-		Kind:     "Storage",
+		Sku: SSku{
+			Name: skuName,
+		},
+		Kind: storageKind,
 		Properties: AccountProperties{
 			IsHnsEnabled:             true,
 			AzureFilesAadIntegration: true,
@@ -245,12 +252,13 @@ func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorag
 		Name: name,
 		Type: "Microsoft.Storage/storageAccounts",
 	}
-	err = self.client.Create(jsonutils.Marshal(stoargeaccount), &stoargeaccount)
+
+	err := self.client.Create(jsonutils.Marshal(storageaccount), &storageaccount)
 	if err != nil {
 		return nil, errors.Wrap(err, "Create")
 	}
 	self.client.invalidateIBuckets()
-	return &stoargeaccount, nil
+	return &storageaccount, nil
 }
 
 func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccount, error) {
