@@ -130,6 +130,9 @@ func (self *SRegion) GetSNATEntry(tableID, SNATEntryID string) (SSNATTableEntry,
 		log.Errorf("Unmarshal entries fail %s", err)
 		return SSNATTableEntry{}, err
 	}
+	if len(entries) == 0 {
+		return SSNATTableEntry{}, cloudprovider.ErrNotFound
+	}
 	return entries[0], nil
 
 }
@@ -209,7 +212,7 @@ func (nat *SNatGetway) dissociateWithVswitch(vswitchId string) error {
 }
 
 func (stable *SSNATTableEntry) Refresh() error {
-	new, err := stable.nat.vpc.region.GetForwardTableEntry(stable.SnatEntryId, stable.SnatTableId)
+	new, err := stable.nat.vpc.region.GetSNATEntry(stable.SnatTableId, stable.SnatEntryId)
 	if err != nil {
 		return err
 	}
