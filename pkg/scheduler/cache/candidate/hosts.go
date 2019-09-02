@@ -181,7 +181,7 @@ func NewGuestReservedResourceByBuilder(b *HostBuilder, host *computemodels.SHost
 	return
 }
 
-func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.SHost) (ret *ReservedResource, err error) {
+func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.SHost, free *ReservedResource) (ret *ReservedResource, err error) {
 	ret = NewReservedResource(0, 0, 0)
 	gst := b.getIsolatedDeviceGuests(host.Id)
 	if len(gst) == 0 {
@@ -211,9 +211,15 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 		cpu += int64(g.VcpuCount)
 		mem += int64(g.VmemSize)
 	}
-	ret.CPUCount = cpu
-	ret.MemorySize = mem
-	ret.StorageSize = disk
+	usedF := func(used, free int64) int64 {
+		if used <= free {
+			return used
+		}
+		return free
+	}
+	ret.CPUCount = usedF(cpu, free.CPUCount)
+	ret.MemorySize = usedF(mem, free.MemorySize)
+	ret.StorageSize = usedF(disk, free.StorageSize)
 	return
 }
 
@@ -884,7 +890,7 @@ func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
 	desc.MemCmtbound = host.GetMemoryOvercommitBound()
 
 	desc.GuestReservedResource = NewGuestReservedResourceByBuilder(b, host)
-	guestRsvdUsed, err := NewGuestReservedResourceUsedByBuilder(b, host)
+	guestRsvdUsed, err := NewGuestReservedResourceUsedByBuilder(b, host, desc.GuestReservedResource)
 	if err != nil {
 		return nil, err
 	}
