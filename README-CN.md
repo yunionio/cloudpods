@@ -29,7 +29,7 @@
 
 ## 部署
 
-请参考文档 [安装部署](https://docs.yunion.io/setup/) 搭建 OneCloud 集群。
+请参考文档 [安装部署](https://docs.yunion.io/docs/setup/) 搭建 OneCloud 集群。
 
 
 ## 文档

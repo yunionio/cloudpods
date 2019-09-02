@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.com/yunionio/onecloud.svg?branch=master)](https://travis-ci.org/yunionio/onecloud) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/onecloud)](https://goreportcard.com/report/github.com/yunionio/onecloud) 
 
-### [README in Chinese](https://github.com/yunionio/onecloud/blob/master/README-CN.md)
+### [README in Chinese](./README-CN.md)
 
 ## What is Yunion OneCloud?
 
@@ -34,7 +34,7 @@ You are welcome to install and try Yunion OneCloud. Looking forward to your feed
 
 ## Installation
 
-Please refers to [install&deployment](https://docs.yunion.io/setup/) (currently in Chinese Only).
+Please refers to [install & deployment](https://docs.yunion.io/docs/setup/) (currently in Chinese Only).
 
 ## Documentations
 
