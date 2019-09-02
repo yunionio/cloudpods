@@ -45,15 +45,9 @@ type KeystoneServiceV3 struct {
 	Endpoints []KeystoneEndpointV3 `json:"endpoints,omitempty"`
 }
 
-type KeystoneDomainV3 struct {
-	Id   string
-	Name string
-}
+type KeystoneDomainV3 api.SIdentityObject
 
-type KeystoneRoleV3 struct {
-	Id   string
-	Name string
-}
+type KeystoneRoleV3 api.SIdentityObject
 
 type KeystoneProjectV3 struct {
 	Id     string
@@ -70,6 +64,12 @@ type KeystoneUserV3 struct {
 
 type KeystoneServiceCatalogV3 []KeystoneServiceV3
 
+type KeystonePolicy struct {
+	Project []string
+	Domain  []string
+	System  []string
+}
+
 type KeystoneTokenV3 struct {
 	AuditIds  []string                 `json:"audit_ids"`
 	ExpiresAt time.Time                `json:"expires_at"`
@@ -77,11 +77,14 @@ type KeystoneTokenV3 struct {
 	IssuedAt  time.Time                `json:"issued_at"`
 	Methods   []string                 `json:"methods"`
 	Project   KeystoneProjectV3        `json:"project"`
-	Projects  []KeystoneProjectV3      `json:"projects"`
+	Policies  KeystonePolicy           `json:"policies"`
 	Roles     []KeystoneRoleV3         `json:"roles"`
 	User      KeystoneUserV3           `json:"user"`
 	Catalog   KeystoneServiceCatalogV3 `json:"catalog"`
 	Context   SAuthContext             `json:"context"`
+
+	Projects        []KeystoneProjectV3   `json:"projects"`
+	RoleAssignments []api.SRoleAssignment `json:"role_assignments"`
 
 	AccessKey api.SAccessKeySecretInfo `json:"access_key"`
 }

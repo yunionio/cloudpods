@@ -479,63 +479,14 @@ func (manager *SAssignmentManager) queryAll(userId, groupId, roleId, domainId, p
 	return q
 }
 
-type SIdentityObject struct {
-	Id   string
-	Name string
-}
-
-type SDomainObject struct {
-	SIdentityObject
-	Domain SIdentityObject
-}
-
-type SFetchDomainObject struct {
-	SIdentityObject
-	Domain   string
-	DomainId string
-}
-
-type SRoleAssignment struct {
-	Scope struct {
-		Domain  SIdentityObject
-		Project SDomainObject
-	}
-	User  SDomainObject
-	Group SDomainObject
-	Role  SDomainObject
-
-	Policies struct {
-		Project []string
-		Domain  []string
-		System  []string
-	}
-}
-
-// rbacutils.IRbacIdentity interfaces
-func (ra *SRoleAssignment) GetProjectDomainId() string {
-	return ra.Scope.Project.Domain.Id
-}
-
-func (ra *SRoleAssignment) GetProjectName() string {
-	return ra.Scope.Project.Name
-}
-
-func (ra *SRoleAssignment) GetRoles() []string {
-	return []string{ra.Role.Name}
-}
-
-func (ra *SRoleAssignment) GetLoginIp() string {
-	return ""
-}
-
-func (ra *SRoleAssignment) fetchPolicies() {
+func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
 	ra.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, ra)
 	ra.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, ra)
 	ra.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, ra)
 }
 
-func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]SFetchDomainObject, fetchPolicies bool) SRoleAssignment {
-	ra := SRoleAssignment{}
+func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool) api.SRoleAssignment {
+	ra := api.SRoleAssignment{}
 	ra.Role.Id = assign.RoleId
 	ra.Role.Name = roles[assign.RoleId].Name
 	ra.Role.Domain.Id = roles[assign.RoleId].DomainId
@@ -558,7 +509,7 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 		ra.User.Domain.Id = users[assign.ActorId].DomainId
 		ra.User.Domain.Name = users[assign.ActorId].Domain
 		if fetchPolicies {
-			ra.fetchPolicies()
+			fetchRoleAssignmentPolicies(&ra)
 		}
 	case api.AssignmentGroupDomain:
 		ra.Scope.Domain.Id = assign.TargetId
@@ -577,13 +528,13 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 		ra.Group.Domain.Id = groups[assign.ActorId].DomainId
 		ra.Group.Domain.Name = groups[assign.ActorId].Domain
 		if fetchPolicies {
-			ra.fetchPolicies()
+			fetchRoleAssignmentPolicies(&ra)
 		}
 	}
 	return ra
 }
 
-func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub, includeSystem, includePolicies bool, limit, offset int) ([]SRoleAssignment, int64, error) {
+func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub, includeSystem, includePolicies bool, limit, offset int) ([]api.SRoleAssignment, int64, error) {
 	var q *sqlchemy.SQuery
 	if effective {
 		usrq := manager.queryAll(userId, "", roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
@@ -690,15 +641,15 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 		return nil, -1, errors.Wrap(err, "fetchObjects RoleManager")
 	}
 
-	results := make([]SRoleAssignment, len(assigns))
+	results := make([]api.SRoleAssignment, len(assigns))
 	for i := range assigns {
 		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles, includePolicies)
 	}
 	return results, int64(total), nil
 }
 
-func fetchObjects(manager db.IModelManager, idList []string) (map[string]SFetchDomainObject, error) {
-	results := make(map[string]SFetchDomainObject)
+func fetchObjects(manager db.IModelManager, idList []string) (map[string]api.SFetchDomainObject, error) {
+	results := make(map[string]api.SFetchDomainObject)
 	if len(idList) == 0 {
 		return results, nil
 	}
@@ -714,7 +665,7 @@ func fetchObjects(manager db.IModelManager, idList []string) (map[string]SFetchD
 		q = q.Filter(sqlchemy.IsTrue(domains.Field("is_domain")))
 		q = q.Filter(sqlchemy.In(resq.Field("id"), idList))
 	}
-	objs := make([]SFetchDomainObject, 0)
+	objs := make([]api.SFetchDomainObject, 0)
 	err := q.All(&objs)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "query")
