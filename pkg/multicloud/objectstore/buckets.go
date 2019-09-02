@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
+	"net/http"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 
-	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -33,13 +33,16 @@ import (
 type SBucket struct {
 	multicloud.SBaseBucket
 
-	client *SObjectStoreClient
+	client IBucketProvider
 
 	Name         string
 	Location     string
 	CreatedAt    time.Time
 	StorageClass string
-	Acl          string
+}
+
+func (bucket *SBucket) GetIBucketProvider() IBucketProvider {
+	return bucket.client
 }
 
 func (bucket *SBucket) GetId() string {
@@ -104,10 +107,14 @@ func (bucket *SBucket) GetStats() cloudprovider.SBucketStats {
 	return stats
 }
 
+func joinPath(ep, path string) string {
+	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
+}
+
 func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	return []cloudprovider.SBucketAccessUrl{
 		{
-			Url:         path.Join(bucket.client.endpoint, bucket.Name),
+			Url:         joinPath(bucket.client.GetEndpoint(), bucket.Name),
 			Description: fmt.Sprintf("%s", bucket.Location),
 			Primary:     true,
 		},
@@ -116,7 +123,7 @@ func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 
 func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	ret := cloudprovider.SListObjectResult{}
-	result, err := bucket.client.client.ListObjectsQuery(bucket.Name, prefix, marker, delimiter, maxCount)
+	result, err := bucket.client.S3Client().ListObjectsQuery(bucket.Name, prefix, marker, delimiter, maxCount)
 	if err != nil {
 		return ret, errors.Wrap(err, "ListObjectsQuery")
 	}
@@ -154,7 +161,7 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 	defer close(doneCh)
 
 	ret := make([]cloudprovider.ICloudObject, 0)
-	objectCh := bucket.client.client.ListObjects(bucket.Name, prefix, isRecursive, doneCh)
+	objectCh := bucket.client.S3Client().ListObjects(bucket.Name, prefix, isRecursive, doneCh)
 	for object := range objectCh {
 		if object.Err != nil {
 			return nil, errors.Wrap(object.Err, "ListObjects")
@@ -187,7 +194,7 @@ func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reade
 		opts.StorageClass = storageClassStr
 	}
 	opts.PartSize = uint64(cloudprovider.MAX_PUT_OBJECT_SIZEBYTES)
-	_, err := bucket.client.client.PutObjectDo(ctx, bucket.Name, key, input, "", "", sizeBytes, opts)
+	_, err := bucket.client.S3Client().PutObjectDo(ctx, bucket.Name, key, input, "", "", sizeBytes, opts)
 	if err != nil {
 		return errors.Wrap(err, "PutObjectWithContext")
 	}
@@ -210,7 +217,7 @@ func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, contT
 	if len(storageClassStr) > 0 {
 		opts.StorageClass = storageClassStr
 	}
-	result, err := bucket.client.client.InitiateMultipartUpload(ctx, bucket.Name, key, opts)
+	result, err := bucket.client.S3Client().InitiateMultipartUpload(ctx, bucket.Name, key, opts)
 	if err != nil {
 		return "", errors.Wrap(err, "InitiateMultipartUpload")
 	}
@@ -218,7 +225,7 @@ func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, contT
 }
 
 func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
-	part, err := bucket.client.client.UploadPart(ctx, bucket.Name, key, uploadId, input, partIndex, "", "", partSize, nil)
+	part, err := bucket.client.S3Client().UploadPart(ctx, bucket.Name, key, uploadId, input, partIndex, "", "", partSize, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "UploadPart")
 	}
@@ -234,7 +241,7 @@ func (bucket *SBucket) CompleteMultipartUpload(ctx context.Context, key string, 
 			ETag:       partEtags[i],
 		}
 	}
-	_, err := bucket.client.client.CompleteMultipartUpload(ctx, bucket.Name, key, uploadId, complete)
+	_, err := bucket.client.S3Client().CompleteMultipartUpload(ctx, bucket.Name, key, uploadId, complete)
 	if err != nil {
 		return errors.Wrap(err, "CompleteMultipartUpload")
 	}
@@ -242,7 +249,7 @@ func (bucket *SBucket) CompleteMultipartUpload(ctx context.Context, key string, 
 }
 
 func (bucket *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
-	err := bucket.client.client.AbortMultipartUpload(ctx, bucket.Name, key, uploadId)
+	err := bucket.client.S3Client().AbortMultipartUpload(ctx, bucket.Name, key, uploadId)
 	if err != nil {
 		return errors.Wrap(err, "AbortMultipartUpload")
 	}
@@ -250,7 +257,7 @@ func (bucket *SBucket) AbortMultipartUpload(ctx context.Context, key string, upl
 }
 
 func (bucket *SBucket) DeleteObject(ctx context.Context, key string) error {
-	err := bucket.client.client.RemoveObject(bucket.Name, key)
+	err := bucket.client.S3Client().RemoveObject(bucket.Name, key)
 	if err != nil {
 		return errors.Wrap(err, "RemoveObject")
 	}
@@ -261,7 +268,7 @@ func (bucket *SBucket) GetTempUrl(method string, key string, expire time.Duratio
 	if method != "GET" && method != "PUT" && method != "DELETE" {
 		return "", errors.Error("unsupported method")
 	}
-	url, err := bucket.client.client.Presign(method, bucket.Name, key, expire, nil)
+	url, err := bucket.client.S3Client().Presign(method, bucket.Name, key, expire, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "Presign")
 	}
@@ -281,7 +288,7 @@ func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket
 		return errors.Wrap(err, "NewDestinationInfo")
 	}
 	src := s3cli.NewSourceInfo(srcBucket, srcKey, nil)
-	err = bucket.client.client.CopyObject(dest, src)
+	err = bucket.client.S3Client().CopyObject(dest, src)
 	if err != nil {
 		return errors.Wrap(err, "CopyObject")
 	}
@@ -301,7 +308,7 @@ func (bucket *SBucket) GetObject(ctx context.Context, key string, rangeOpt *clou
 	if rangeOpt != nil {
 		opts.SetRange(rangeOpt.Start, rangeOpt.End)
 	}
-	output, err := bucket.client.client.GetObject(bucket.Name, key, opts)
+	output, err := bucket.client.S3Client().GetObject(bucket.Name, key, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetObject")
 	}
@@ -309,7 +316,7 @@ func (bucket *SBucket) GetObject(ctx context.Context, key string, rangeOpt *clou
 }
 
 func (bucket *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partNumber int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
-	result, err := bucket.client.client.CopyObjectPartDo(ctx, srcBucket, srcKey, bucket.Name, key, uploadId, partNumber, srcOffset, srcLength, nil)
+	result, err := bucket.client.S3Client().CopyObjectPartDo(ctx, srcBucket, srcKey, bucket.Name, key, uploadId, partNumber, srcOffset, srcLength, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "CopyObjectPartDo")
 	}
