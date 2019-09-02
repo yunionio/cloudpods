@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -31,6 +32,8 @@ const (
 
 func s3authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		log.Debugf("%s %s %s %s", r.Method, r.Host, r.URL, r.Header)
+
 		o, err := getObjectRequest(r)
 		if err != nil {
 			SendError(w, BadRequest(ctx, err.Error()))

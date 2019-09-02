@@ -37,8 +37,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -488,9 +490,35 @@ func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.To
 	return bucket.getMoreDetails(extra), nil
 }
 
+func joinPath(ep, path string) string {
+	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
+}
+
 func (bucket *SBucket) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	info := bucket.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
+
+	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", "public")
+	if len(s3gwUrl) > 0 {
+		accessUrls := make([]cloudprovider.SBucketAccessUrl, 0)
+		err := bucket.AccessUrls.Unmarshal(&accessUrls)
+		if err == nil {
+			find := false
+			for i := range accessUrls {
+				if strings.HasPrefix(accessUrls[i].Url, s3gwUrl) {
+					find = true
+					break
+				}
+			}
+			if !find {
+				accessUrls = append(accessUrls, cloudprovider.SBucketAccessUrl{
+					Url:         joinPath(s3gwUrl, bucket.Name),
+					Description: "s3gateway",
+				})
+				extra.Set("access_urls", jsonutils.Marshal(accessUrls))
+			}
+		}
+	}
 
 	return extra
 }

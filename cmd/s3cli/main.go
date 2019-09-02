@@ -20,7 +20,10 @@ import (
 
 	"yunion.io/x/structarg"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -31,6 +34,7 @@ type BaseOptions struct {
 	AccessUrl  string `help:"Access url" default:"$S3_ACCESS_URL"`
 	AccessKey  string `help:"Access key" default:"$S3_ACCESS_KEY"`
 	Secret     string `help:"Secret" default:"$S3_SECRET"`
+	Backend    string `help:"Backend driver" default:"$S3_BACKEND"`
 	SUBCOMMAND string `help:"s3cli subcommand" subcommand:"true"`
 }
 
@@ -75,7 +79,7 @@ func showErrorAndExit(e error) {
 	os.Exit(1)
 }
 
-func newClient(options *BaseOptions) (*objectstore.SObjectStoreClient, error) {
+func newClient(options *BaseOptions) (cloudprovider.ICloudRegion, error) {
 	if len(options.AccessUrl) == 0 {
 		return nil, fmt.Errorf("Missing accessUrl")
 	}
@@ -88,6 +92,9 @@ func newClient(options *BaseOptions) (*objectstore.SObjectStoreClient, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
+	if options.Backend == api.CLOUD_PROVIDER_CEPH {
+		return ceph.NewCephRados("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+	}
 	return objectstore.NewObjectStoreClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
 }
 
@@ -116,7 +123,7 @@ func main() {
 			if options.SUBCOMMAND == "help" {
 				e = subcmd.Invoke(suboptions)
 			} else {
-				var client *objectstore.SObjectStoreClient
+				var client cloudprovider.ICloudRegion
 				client, e = newClient(options)
 				if e != nil {
 					showErrorAndExit(e)
