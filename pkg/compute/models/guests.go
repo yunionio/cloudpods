@@ -527,6 +527,15 @@ func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
 }
 
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+	host := guest.GetHost()
+	if host != nil {
+		if !host.Enabled {
+			return httperrors.NewInputParameterError("Cannot delete server on disabled host")
+		}
+		if host.HostStatus != api.HOST_ONLINE {
+			return httperrors.NewInputParameterError("Cannot delete server on offline host")
+		}
+	}
 	return guest.validateDeleteCondition(ctx, false)
 }
 
