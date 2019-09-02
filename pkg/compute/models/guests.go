@@ -528,7 +528,7 @@ func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
 
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
 	host := guest.GetHost()
-	if host != nil {
+	if host != nil && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
 		if !host.Enabled {
 			return httperrors.NewInputParameterError("Cannot delete server on disabled host")
 		}
