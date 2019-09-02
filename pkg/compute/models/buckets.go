@@ -674,6 +674,26 @@ func (bucket *SBucket) PerformMakedir(
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
 	}
 
+	_, err = cloudprovider.GetIObject(iBucket, key+"/")
+	if err == nil {
+		// replace
+		return nil, nil
+	} else if err != cloudprovider.ErrNotFound {
+		return nil, httperrors.NewInternalServerError("GetIObject fail %s", err)
+	}
+
+	if bucket.ObjectCntLimit > 0 && bucket.ObjectCntLimit < bucket.ObjectCnt+1 {
+		return nil, httperrors.NewOutOfQuotaError("object count limit exceeds")
+	}
+	manager := bucket.GetCloudprovider()
+	quotaPlatformId := manager.GetQuotaPlatformID()
+	pendingUsage := SQuota{ObjectGB: 0, ObjectCnt: 1}
+	if !pendingUsage.IsEmpty() {
+		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, bucket.GetOwnerId(), quotaPlatformId, &pendingUsage); err != nil {
+			return nil, httperrors.NewOutOfQuotaError("%s", err)
+		}
+	}
+
 	err = cloudprovider.Makedir(ctx, iBucket, key+"/")
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to mkdir: %s", err)
@@ -683,6 +703,10 @@ func (bucket *SBucket) PerformMakedir(
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_MKDIR, key, userCred, true)
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
+
+	if !pendingUsage.IsEmpty() {
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, bucket.GetOwnerId(), quotaPlatformId, &pendingUsage, &pendingUsage)
+	}
 
 	return nil, nil
 }
@@ -1084,7 +1108,10 @@ func (bucket *SBucket) PerformLimit(
 		return nil, httperrors.NewInternalServerError("Update error %s", err)
 	}
 
-	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE, diff, userCred)
+	if len(diff) > 0 {
+		db.OpsLog.LogEvent(bucket, db.ACT_UPDATE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_UPDATE, diff, userCred, true)
+	}
 
 	return nil, nil
 }
