@@ -118,7 +118,17 @@ func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.
 }
 
 func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *models.SDisk) {
-	disk.DoPendingDelete(ctx, self.UserCred)
+	err := disk.DoPendingDelete(ctx, self.UserCred)
+	if err != nil {
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("pending delete disk failed"))
+		return
+	}
+	err = models.SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, self.UserCred, nil, disk)
+	if err != nil {
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk,
+			jsonutils.NewString("detach all snapshotpolicies of disk failed"))
+		return
+	}
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -12,29 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package validate
 
-var (
-	SnapshotPolicyDisk  JointResourceManager
-	SnapshotPolicyDisk1 JointResourceManager
+import (
+	"fmt"
+	"sort"
 )
 
-func init() {
-	SnapshotPolicyDisk = NewJointComputeManager(
-		"snapshotpolicydisk",
-		"snapshotpolicydisks",
-		[]string{"Disk_ID", "Snapshotpolicy_ID"},
-		[]string{},
-		&Disks,
-		&SnapshotPoliciy)
-	registerCompute(&SnapshotPolicyDisk)
+// DaysValidate sort days and check if days is out of range [min, max] or has repeated member
+func DaysCheck(days []int, min, max int) ([]int, error) {
+	if len(days) == 0 {
+		return days, nil
+	}
+	sort.Ints(days)
 
-	SnapshotPolicyDisk1 = NewJointComputeManager(
-		"snapshotpolicydisk",
-		"snapshotpolicydisks",
-		[]string{"Disk_ID", "Snapshotpolicy_ID"},
-		[]string{},
-		&SnapshotPoliciy,
-		&Disks)
-	registerCompute(&SnapshotPolicyDisk1)
+	if days[0] < min || days[len(days)-1] > max {
+		return days, fmt.Errorf("Out of range")
+	}
+
+	for i := 1; i < len(days); i++ {
+		if days[i] == days[i-1] {
+			return days, fmt.Errorf("Has repeat day %v", days)
+		}
+	}
+	return days, nil
 }

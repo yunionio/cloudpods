@@ -1,0 +1,32 @@
+get:
+  summary:  按指定条件列出快照策略
+  parameters:
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/snapshotpolicy.yaml#/retention_days"
+    - $ref: "../parameters/snapshotpolicy.yaml#/repeat_weekdays"
+    - $ref: "../parameters/snapshotpolicy.yaml#/time_points"
+
+  responses:
+    200:
+      description: 快照策略列表信息
+      schema:
+        $ref: "../schemas/snapshotpolicy.yaml#/SnapshotPolicyListResponse"
+  tags:
+    - snapshotpolicy
+
+post:
+  summary: 创建自动快照策略
+  parameters:
+    - in: body
+      name: snapshotpolicy
+      required: true
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyCreate'
+  responses:
+    200:
+      description: 新建自动快照策略的信息
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyResponse'
+  tags:
+    - snapshotpolicy
