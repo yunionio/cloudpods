@@ -24,10 +24,12 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -272,7 +274,7 @@ func (t *SAuthToken) getTokenV3(
 		if project != nil || domain != nil {
 			return nil, ErrUserNotInProject
 		}
-		extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
+		/*extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
 		if err != nil {
 			return nil, errors.Wrap(err, "models.ProjectManager.FetchUserProjects")
 		}
@@ -282,6 +284,28 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Projects[i].Name = extProjs[i].Name
 			token.Token.Projects[i].Domain.Id = extProjs[i].DomainId
 			token.Token.Projects[i].Domain.Name = extProjs[i].DomainName
+		}*/
+		assigns, _, err := models.AssignmentManager.FetchAll(user.Id, "", "", "", "", true, true, true, true, true, 0, 0)
+		if err != nil {
+			return nil, errors.Wrap(err, "models.AssignmentManager.FetchAll")
+		}
+		token.Token.RoleAssignments = assigns
+		token.Token.Projects = make([]mcclient.KeystoneProjectV3, 0)
+		projMap := make(map[string]bool)
+		for i := range assigns {
+			if _, ok := projMap[assigns[i].Scope.Project.Id]; ok {
+				continue
+			}
+			projMap[assigns[i].Scope.Project.Id] = true
+			p := mcclient.KeystoneProjectV3{
+				Id:   assigns[i].Scope.Project.Id,
+				Name: assigns[i].Scope.Project.Name,
+				Domain: mcclient.KeystoneDomainV3{
+					Id:   assigns[i].Scope.Project.Domain.Id,
+					Name: assigns[i].Scope.Project.Domain.Name,
+				},
+			}
+			token.Token.Projects = append(token.Token.Projects, p)
 		}
 	} else {
 		if project != nil {
@@ -301,6 +325,10 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Roles[i].Id = roles[i].Id
 			token.Token.Roles[i].Name = roles[i].Name
 		}
+
+		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, &token)
+		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, &token)
+		token.Token.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, &token)
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
