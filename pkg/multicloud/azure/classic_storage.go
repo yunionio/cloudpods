@@ -27,7 +27,7 @@ type ClassicStorageProperties struct {
 	ProvisioningState       string
 	Status                  string
 	Endpoints               []string
-	AccountType             string
+	AccountType             string `json:"accountType"`
 	GeoPrimaryRegion        string
 	StatusOfPrimaryRegion   string
 	GeoSecondaryRegion      string
