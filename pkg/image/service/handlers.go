@@ -31,6 +31,9 @@ const (
 func initHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	// add version handler with API_VERSION prefix
+	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
+
 	db.RegistUserCredCacheUpdater()
 
 	db.AddProjectResourceCountHandler(API_VERSION, app)
