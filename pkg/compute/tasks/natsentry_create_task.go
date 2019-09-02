@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -51,6 +52,7 @@ func (self *SNatSEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	natgateway, err := snatEntry.GetNatgateway()
 	if err != nil {
 		self.TaskFailed(ctx, snatEntry, errors.Wrap(err, "fetch natgateway failed"))
+		return
 	}
 	var needBind bool
 	if self.Params.Contains("need_bind") {
@@ -65,6 +67,12 @@ func (self *SNatSEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.TaskFailed(ctx, snatEntry, err)
 		return
 	}
+}
+
+func (self *SNatSEntryCreateTask) OnBindIPCompleteFailed(ctx context.Context, snatEntry *models.SNatSEntry,
+	reason jsonutils.JSONObject) {
+
+	self.TaskFailed(ctx, snatEntry, fmt.Errorf(reason.String()))
 }
 
 func (self *SNatSEntryCreateTask) OnBindIPComplete(ctx context.Context, snatEntry *models.SNatSEntry,
@@ -93,15 +101,16 @@ func (self *SNatSEntryCreateTask) OnBindIPComplete(ctx context.Context, snatEntr
 		self.TaskFailed(ctx, snatEntry, errors.Wrapf(err, "Create SNat Entry '%s' failed", snatEntry.ExternalId))
 		return
 	}
-	err = db.SetExternalId(snatEntry, self.UserCred, extSnat.GetGlobalId())
-	if err != nil {
-		self.TaskFailed(ctx, snatEntry, errors.Wrap(err, "set external id failed"))
-		return
-	}
 
 	err = cloudprovider.WaitStatus(extSnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
 		self.TaskFailed(ctx, snatEntry, err)
+		return
+	}
+
+	err = db.SetExternalId(snatEntry, self.UserCred, extSnat.GetGlobalId())
+	if err != nil {
+		self.TaskFailed(ctx, snatEntry, errors.Wrap(err, "set external id failed"))
 		return
 	}
 

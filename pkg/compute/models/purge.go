@@ -1002,9 +1002,6 @@ func (vpc *SVpc) Purge(ctx context.Context, userCred mcclient.TokenCredential) e
 }
 
 func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, dn)
-	defer lockman.ReleaseObject(ctx, dn)
-
 	err := dn.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
@@ -1013,9 +1010,6 @@ func (dn *SNatDEntry) Purge(ctx context.Context, userCred mcclient.TokenCredenti
 }
 
 func (sn *SNatSEntry) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, sn)
-	defer lockman.ReleaseObject(ctx, sn)
-
 	err := sn.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err

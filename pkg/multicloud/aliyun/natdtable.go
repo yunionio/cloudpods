@@ -144,6 +144,9 @@ func (region *SRegion) GetForwardTableEntry(tableID, forwardEntryID string) (SFo
 	if err != nil {
 		return SForwardTableEntry{}, err
 	}
+	if len(dtables) == 0 {
+		return SForwardTableEntry{}, cloudprovider.ErrNotFound
+	}
 	return dtables[0], nil
 }
 
@@ -175,7 +178,7 @@ func (region *SRegion) CreateForwardTableEntry(rule cloudprovider.SNatDRule, tab
 }
 
 func (dtable *SForwardTableEntry) Refresh() error {
-	new, err := dtable.nat.vpc.region.GetForwardTableEntry(dtable.ForwardEntryId, dtable.ForwardTableId)
+	new, err := dtable.nat.vpc.region.GetForwardTableEntry(dtable.ForwardTableId, dtable.ForwardEntryId)
 	if err != nil {
 		return err
 	}
