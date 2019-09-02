@@ -686,7 +686,9 @@ func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 func (guest *SGuest) GetHost() *SHost {
 	if len(guest.HostId) > 0 && regutils.MatchUUID(guest.HostId) {
 		host, _ := HostManager.FetchById(guest.HostId)
-		return host.(*SHost)
+		if host != nil {
+			return host.(*SHost)
+		}
 	}
 	return nil
 }
