@@ -261,10 +261,17 @@ TokenV3:
     user:
       type: object
       $ref: './roleassignments.yaml#/DomainObject'
+    policies:
+      type: object
+      $ref: './roleassignments.yaml#/PolicyObject'
     projects:
       type: array
       items:
         $ref: './roleassignments.yaml#/DomainObject'
+    role_assignments:
+      type: array
+      items:
+        $ref: './roleassignments.yaml#/RoleAssignment'
     catalog:
       type: array
       items:
