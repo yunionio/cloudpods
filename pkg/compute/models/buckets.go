@@ -501,22 +501,25 @@ func (bucket *SBucket) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", "public")
 	if len(s3gwUrl) > 0 {
 		accessUrls := make([]cloudprovider.SBucketAccessUrl, 0)
-		err := bucket.AccessUrls.Unmarshal(&accessUrls)
-		if err == nil {
-			find := false
-			for i := range accessUrls {
-				if strings.HasPrefix(accessUrls[i].Url, s3gwUrl) {
-					find = true
-					break
-				}
+		if bucket.AccessUrls != nil {
+			err := bucket.AccessUrls.Unmarshal(&accessUrls)
+			if err != nil {
+				log.Errorf("bucket.AccessUrls.Unmarshal fail %s", err)
 			}
-			if !find {
-				accessUrls = append(accessUrls, cloudprovider.SBucketAccessUrl{
-					Url:         joinPath(s3gwUrl, bucket.Name),
-					Description: "s3gateway",
-				})
-				extra.Set("access_urls", jsonutils.Marshal(accessUrls))
+		}
+		find := false
+		for i := range accessUrls {
+			if strings.HasPrefix(accessUrls[i].Url, s3gwUrl) {
+				find = true
+				break
 			}
+		}
+		if !find {
+			accessUrls = append(accessUrls, cloudprovider.SBucketAccessUrl{
+				Url:         joinPath(s3gwUrl, bucket.Name),
+				Description: "s3gateway",
+			})
+			extra.Set("access_urls", jsonutils.Marshal(accessUrls))
 		}
 	}
 
