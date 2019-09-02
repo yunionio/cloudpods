@@ -1,0 +1,189 @@
+CanDelete:
+  type: string
+  example: true
+  description: 可否删除
+CanUpdate:
+  type: string
+  example: false
+  description: 可否更新
+CreatedAt:
+  type: string
+  example: 2019-05-30T08:46:12.000000Z
+  description: 资源创建时间
+UpdatedAt:
+  type: string
+  example: 2019-05-30T08:46:12.000000Z
+  description: 资源最近一次更新时间
+
+SnapshotPolicy:
+  type: object
+  description: 自动快照策略
+  properties:
+    id:
+      type: string
+      example: ea27c0ce-5870-49f3-8d57-f53e63f40361
+      description: 自动快照策略ID
+      readOnly: true
+    name:
+      type: string
+      description: 自动快照策略名称
+      example: snapshotpolicy-jo5pskhg
+    retention_days:
+      type: integer
+      example: 10
+      description: 快照保存的时间(-1为永久保存)
+    repeat_weekdays:
+      type: array
+      items:
+        type: integer
+      example: [1, 2]
+      description: 做快照的时间(每周的周几)
+    time_points:
+      type: array
+      items:
+        type: integer
+      example: [2]
+      description: 做快照的时间(每天的几点)
+    is_activated:
+      type: boolean
+      example: true
+      description: 是否启用快照策略
+    binding_disk_count:
+      type: integer
+      example: 3
+      description: 自动快照策略绑定的磁盘数量
+    can_delete:
+      $ref: '#/CanDelete'
+    can_update:
+      $ref: '#/CanUpdate'
+    created_at:
+      $ref: '#/CreatedAt'
+    updated_at:
+      $ref: '#/UpdatedAt'
+    is_emulated:
+      type: boolean
+      example: false
+      description: 是否是虚拟出来的实例
+    status:
+      type: string
+      example: init
+      description: 状态
+    update_version:
+      type: integer
+      example: 2
+      description: 资源被更新的次数
+
+SnapshotPolicyCreate:
+  type: object
+  properties:
+    snapshotpolicy:
+      type: object
+      required:
+        - name
+        - retention_days
+        - repeat_weekdays
+        - time_points
+        - is_activated
+      properties:
+        name:
+          type: string
+          example: snapshotpolicy-jo5pskhg
+          description: 自动快照策略名称
+        retention_days:
+          type: integer
+          example: 10
+          description: 快照保存的时间(-1为永久保存)
+        repeat_weekdays:
+          type: array
+          items:
+            type: integer
+          example: [1, 2]
+          description: 做快照的时间(每周的周几)
+        time_points:
+          type: array
+          items:
+            type: integer
+          example: [2]
+          description: 做快照的时间(每天的几点)
+        is_activated:
+          type: boolean
+          example: true
+          description: 是否启用快照策略
+
+SnapshotPolicyListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    total:
+      type: integer
+      example: 12
+    snapshotpolicies:
+      type: array
+      items:
+        $ref: '#/SnapshotPolicy'
+
+
+SnapshotPolicyResponse:
+  type: object
+  properties:
+    snapshotpolicy:
+      type: object
+      $ref: '#/SnapshotPolicy'
+
+SnapshotPolicyDisk:
+  type: object
+  properties:
+    can_delete:
+      $ref: '#/CanDelete'
+    can_update:
+      $ref: '#/CanUpdate'
+    created_at:
+      $ref: '#/CreatedAt'
+    updated_at:
+      $ref: '#/UpdatedAt'
+    status:
+      type: string
+      example: init
+      description: 状态
+    snapshotpolicy_id:
+      type: string
+      example: -be8b-4f0f-8885-797930266c6539210785
+      description: 自动快照策略ID
+    disk_id:
+      type: string
+      example: f7749379-34b1-4219-8835-257615cf34f6
+      description: 磁盘ID
+
+SnapshotPolicyDiskResponse:
+  type: object
+  properties:
+    snapshotpolicydisk:
+      type: object
+      $ref: '#/SnapshotPolicyDisk'
+
+SnapshotPolicyDiskListResponse:
+  type: object
+  properties:
+    total:
+      type: integer
+      example: 20
+    snapshotpolicydisks:
+      type: array
+      items:
+        $ref: '#/SnapshotPolicyDisk'
+
+SnapshotPolicyBindDisk:
+  type: object
+  required:
+    - disk.0
+  properties:
+    disk.0:
+      type: string
+      example: vv100455-79ef-43a3-8fc3-23adc74b8b87
+      description: 待绑定的disk的ID
+    disk.1:
+      type: string
+      example: dd100399-79ef-43a3-8fc3-23adc74b8b87
+      description: 待绑定的disk的ID

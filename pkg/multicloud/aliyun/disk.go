@@ -405,8 +405,11 @@ func (self *SDisk) GetCreatedAt() time.Time {
 	return self.CreationTime
 }
 
-func (self *SDisk) GetExtSnapshotPolicyIds() []string {
-	return []string{self.AutoSnapshotPolicyId}
+func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
+	if len(self.AutoSnapshotPolicyId) == 0 {
+		return []string{}, nil
+	}
+	return []string{self.AutoSnapshotPolicyId}, nil
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
