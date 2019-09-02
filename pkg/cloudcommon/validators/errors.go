@@ -33,6 +33,7 @@ const (
 	ERR_MISSING_KEY
 	ERR_INVALID_TYPE
 	ERR_INVALID_CHOICE
+	ERR_INVALID_LENGTH
 	ERR_NOT_IN_RANGE
 	ERR_INVALID_VALUE
 	ERR_MODEL_MANAGER
@@ -45,6 +46,7 @@ var errTypeToString = map[ErrType]string{
 	ERR_MISSING_KEY:     "Missing key error",
 	ERR_INVALID_TYPE:    "Invalid type error",
 	ERR_INVALID_CHOICE:  "Invalid choice error",
+	ERR_INVALID_LENGTH:  "Invalid length error",
 	ERR_NOT_IN_RANGE:    "Not in range error",
 	ERR_INVALID_VALUE:   "Invalid value error",
 	ERR_MODEL_MANAGER:   "Model manager error",
@@ -83,6 +85,14 @@ func newInvalidTypeError(key string, typ string, err error) error {
 
 func newInvalidChoiceError(key string, choices choices.Choices, choice string) error {
 	return newError(ERR_INVALID_CHOICE, "invalid %q, want %s, got %s", key, choices, choice)
+}
+
+func newStringTooShortError(key string, got, want int) error {
+	return newError(ERR_INVALID_LENGTH, "%q too short, got %d, min %s", key, got, want)
+}
+
+func newStringTooLongError(key string, got, want int) error {
+	return newError(ERR_INVALID_LENGTH, "%q too long, got %d, max %s", key, got, want)
 }
 
 func newNotInRangeError(key string, value, lower, upper int64) error {
