@@ -906,9 +906,15 @@ func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 }
 
 func (self *SAzureClient) GetStorageClasses(regionExtId string) ([]string, error) {
-	iRegion, err := self.GetIRegionById(regionExtId)
+	var iRegion cloudprovider.ICloudRegion
+	var err error
+	if regionExtId == "" {
+		iRegion, err = self.getDefaultRegion()
+	} else {
+		iRegion, err = self.GetIRegionById(regionExtId)
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "self.GetIRegionById")
+		return nil, errors.Wrapf(err, "self.GetIRegionById %s", regionExtId)
 	}
 	skus, err := iRegion.(*SRegion).GetStorageAccountSkus()
 	if err != nil {

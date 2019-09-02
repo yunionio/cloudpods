@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/log"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -175,7 +175,7 @@ func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error
 func (self *SAzureProvider) GetStorageClasses(regionId string) []string {
 	sc, err := self.client.GetStorageClasses(regionId)
 	if err != nil {
-		log.Errorf("Fail to find storage classes")
+		log.Errorf("Fail to find storage classes: %s", err)
 		return nil
 	}
 	return sc
