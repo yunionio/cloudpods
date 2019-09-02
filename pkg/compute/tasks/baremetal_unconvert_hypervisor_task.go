@@ -74,6 +74,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteCompleteFailed(ctx co
 func (self *BaremetalUnconvertHypervisorTask) OnPrepareComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
+
 func (self *BaremetalUnconvertHypervisorTask) OnFailSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, "Delete server failed")
 }
