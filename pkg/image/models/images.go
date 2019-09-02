@@ -1107,7 +1107,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 					if len(format) > 0 {
 						self.DiskFormat = format
 					}
-					if virtualSizeMB > 0 {
+					if virtualSizeMB > 0 && self.MinDiskMB < virtualSizeMB {
 						self.MinDiskMB = virtualSizeMB
 					}
 					return nil
