@@ -43,7 +43,7 @@ func S3Shell() {
 	type BucketCreateOptions struct {
 		NAME         string `help:"name of bucket to create"`
 		Acl          string `help:"ACL string" choices:"private|public-read|public-read-write"`
-		StorageClass string `help:"StorageClass" choices:"STANDARD|IA|ARCHIVE"`
+		StorageClass string `help:"StorageClass"`
 	}
 	shellutils.R(&BucketCreateOptions{}, "bucket-create", "Create bucket", func(cli cloudprovider.ICloudRegion, args *BucketCreateOptions) error {
 		err := cli.CreateIBucket(args.NAME, args.StorageClass, args.Acl)
