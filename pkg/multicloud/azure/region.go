@@ -632,7 +632,7 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
 	_, err := region.createStorageAccount(name, storageClassStr)
 	if err != nil {
-		return errors.Wrap(err, "region.createStorageAccount")
+		return errors.Wrapf(err, "region.createStorageAccount name=%s storageClass=%s acl=%s", name, storageClassStr, acl)
 	}
 	return nil
 }
