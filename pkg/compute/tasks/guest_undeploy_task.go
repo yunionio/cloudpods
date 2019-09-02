@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -49,10 +48,6 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		host = models.HostManager.FetchHostById(targetHostId)
 	}
 	if host != nil {
-		if !host.Enabled {
-			self.OnStartDeleteGuestFail(ctx, fmt.Errorf("host %s(%s) is disabled", host.Name, host.Id))
-			return
-		}
 		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
@@ -66,10 +61,6 @@ func (self *GuestUndeployTask) OnMasterHostUndeployGuestComplete(ctx context.Con
 	self.SetStage("OnGuestUndeployComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	if host != nil {
-		if !host.Enabled {
-			self.OnStartDeleteGuestFail(ctx, fmt.Errorf("host %s(%s) is disabled", host.Name, host.Id))
-			return
-		}
 		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
