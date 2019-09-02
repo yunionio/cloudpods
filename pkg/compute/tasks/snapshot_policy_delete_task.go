@@ -16,9 +16,9 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -45,15 +45,12 @@ func (self *SnapshotPolicyDeleteTask) taskFail(ctx context.Context, sp *models.S
 
 func (self *SnapshotPolicyDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	sp := obj.(*models.SSnapshotPolicy)
-	region := sp.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, sp, fmt.Sprintf("failed to find region for sp %s", sp.Name))
+	err := models.SnapshotPolicyCacheManager.DeleteCloudSnapshotPolices(ctx, self.UserCred, sp.GetId())
+	if err != nil {
+		self.taskFail(ctx, sp, err.Error())
 		return
 	}
-	self.SetStage("OnSnapshotPolicyDeleteComplete", nil)
-	if err := region.GetDriver().RequestDeleteSnapshotPolicy(ctx, self.GetUserCred(), sp, self); err != nil {
-		self.taskFail(ctx, sp, err.Error())
-	}
+	self.OnSnapshotPolicyDeleteComplete(ctx, sp, data)
 }
 
 func (self *SnapshotPolicyDeleteTask) OnSnapshotPolicyDeleteComplete(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
