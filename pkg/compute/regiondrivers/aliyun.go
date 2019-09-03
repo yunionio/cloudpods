@@ -865,7 +865,7 @@ func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, 
 			return nil, errors.Wrap(err, "bind eip to natgateway")
 		}
 
-		cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
+		err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_ASSOCIATE, 10*time.Second, 300*time.Second)
 		if err != nil {
 			return nil, err
 		}
