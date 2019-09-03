@@ -16,6 +16,7 @@ package objectstore
 
 import (
 	"net/url"
+	"os"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -84,6 +85,10 @@ func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoi
 
 	client.client = cli
 	client.SetVirtualObject(&client)
+
+	if isDebug {
+		cli.TraceOn(os.Stderr)
+	}
 
 	if doFetch {
 		err = client.FetchBuckets()
