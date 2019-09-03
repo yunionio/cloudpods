@@ -100,7 +100,13 @@ func (self *SSnapshotPolicy) GetRepeatWeekdays() ([]int, error) {
 	if len(self.Policy) == 0 {
 		return nil, errors.Error("Policy Set Empty")
 	}
-	return self.Policy[0].DayOfWeek, nil
+	repeatWeekdays := self.Policy[0].DayOfWeek
+	if len(repeatWeekdays) > 0 {
+		if repeatWeekdays[0] == 0 {
+			repeatWeekdays = append(repeatWeekdays, 7)[1:]
+		}
+	}
+	return repeatWeekdays, nil
 }
 
 func (self *SSnapshotPolicy) GetTimePoints() ([]int, error) {
