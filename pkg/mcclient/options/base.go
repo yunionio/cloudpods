@@ -220,6 +220,8 @@ type BaseListOptions struct {
 	PrivateCloud *bool  `help:"List objects belonging to private cloud" json:"private_cloud"`
 	IsOnPremise  *bool  `help:"List objects belonging to on premise infrastructures" token:"on-premise" json:"is_on_premise"`
 	IsManaged    *bool  `help:"List objects managed by external providers" token:"managed" json:"is_managed"`
+
+	PagingMarker string `help:"Marker for pagination" json:"paging_marker"`
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {

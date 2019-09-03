@@ -32,6 +32,11 @@ type BaseEventListOptions struct {
 	Descending bool     `help:"Descending order"`
 	OrderBy    string   `help:"order by specific field"`
 	Action     []string `help:"Log action"`
+
+	User    []string `help:"filter by operator user"`
+	Project []string `help:"filter by owner project"`
+
+	PagingMarker string `help:"marker for pagination"`
 }
 
 type EventListOptions struct {
@@ -92,8 +97,17 @@ func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *E
 	if len(args.Action) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Action), "action")
 	}
+	if len(args.User) > 0 {
+		params.Add(jsonutils.NewStringArray(args.User), "user")
+	}
+	if len(args.Project) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Project), "project")
+	}
 	if len(args.Scope) > 0 {
 		params.Add(jsonutils.NewString(args.Scope), "scope")
+	}
+	if len(args.PagingMarker) > 0 {
+		params.Add(jsonutils.NewString(args.PagingMarker), "paging_marker")
 	}
 	logs, err := man.List(s, params)
 	if err != nil {
