@@ -110,9 +110,15 @@ func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred m
 func (self *SSnapshotPolicyDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 
-	disk := DiskManager.FetchDiskById(self.DiskId)
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.Marshal(disk), "disk")
+	disk := DiskManager.FetchDiskById(self.DiskId)
+	extraDict, err := disk.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return ret, nil
+	}
+	dict := jsonutils.Marshal(disk).(*jsonutils.JSONDict)
+	dict.Update(extraDict)
+	ret.Add(dict, "disk")
 	return ret, nil
 }
 

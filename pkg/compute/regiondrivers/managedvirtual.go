@@ -1100,12 +1100,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 		if err != nil {
 			return nil, err
 		}
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
 		err = iRegion.CancelSnapshotPolicyToDisks(spcache.GetExternalId(), disk.GetExternalId())
+		if err == cloudprovider.ErrNotFound {
+			return data, nil
+		}
 		if err != nil {
 			return nil, err
 		}
-		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
 		return data, nil
 	})
 	return nil
