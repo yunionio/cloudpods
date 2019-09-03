@@ -58,7 +58,7 @@ func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, disk *models.
 func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 	spd := models.SSnapshotPolicyDisk{}
-	data.Unmarshal(&spd, "snapshotPolicy")
+	data.Unmarshal(&spd, "snapshotPolicyDisk")
 
 	var snapshotPolicy *models.SSnapshotPolicy
 	if data.Contains("need_detach") {
@@ -70,7 +70,7 @@ func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandal
 		}
 		snapshotPolicy = model.(*models.SSnapshotPolicy)
 	}
-	self.Params.Add(jsonutils.NewString(spd.GetId()), "snapshotpolicy_id")
+	self.Params.Add(jsonutils.NewString(spd.SnapshotpolicyId), "snapshotpolicy_id")
 
 	self.SetStage("OnPreSnapshotPolicyApplyComplete", nil)
 	// pass data to next Stage without inserting database through this way
