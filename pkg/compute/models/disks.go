@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -1915,6 +1916,14 @@ func (manager *SDiskManager) getAutoSnapshotDisksId() ([]SSnapshotPolicyDisk, er
 	return spds, nil
 }
 
+func generateAutoSnapshotName() string {
+	name := "Auto-" + rand.String(8)
+	for SnapshotManager.Query().Equals("name", name).Count() > 0 {
+		name = "Auto-" + rand.String(8)
+	}
+	return name
+}
+
 func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	spds, err := manager.getAutoSnapshotDisksId()
 	if err != nil {
@@ -1934,7 +1943,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			snapCount             int
 			cleanOverdueSnapshots bool
 			guests                = disk.GetGuests()
-			snapshotName          = "Auto-" + disk.Name + time.Now().Format("2006-01-02#15:04:05")
+			snapshotName          = generateAutoSnapshotName()
 		)
 
 		if utils.IsInStringArray(disk.GetStorage().StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_GPFS, api.STORAGE_NFS}) &&
@@ -1942,18 +1951,25 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			err = fmt.Errorf("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
 			goto onFail
 		}
+
 		if err := disk.CreateSnpashotAuto(ctx, userCred, snapshotName); err != nil {
 			err = fmt.Errorf("Create snapshot auto failed %s", err)
 			goto onFail
 		}
+
 		// if auto snapshot count gt max auto snapshot count, do clean overdued snapshots
-		snapCount, err = SnapshotManager.Query().Equals("fake_deleted", false).Equals("disk_id", disk.Id).
-			Equals("created_by", api.SNAPSHOT_AUTO).CountWithError()
+		snapCount, err = SnapshotManager.Query().
+			Equals("fake_deleted", false).
+			Equals("disk_id", disk.Id).
+			Equals("created_by", api.SNAPSHOT_AUTO).
+			CountWithError()
 		if err != nil {
 			err = fmt.Errorf("GetSnapshotCount fail %s", err)
 			goto onFail
 		}
-		cleanOverdueSnapshots = snapCount > (options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount)
+
+		cleanOverdueSnapshots = snapCount >
+			(options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount)
 
 		// else if snapshot is overdued, do clean overdued snapshots
 		if snapshotPolicy.RetentionDays > 0 && !cleanOverdueSnapshots {
@@ -1982,14 +1998,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 }
 
 func (self *SDisk) CreateSnpashotAuto(ctx context.Context, userCred mcclient.TokenCredential, snapshotName string) error {
-	// TODO: snapshot quota is not enough, default is 10, or is need check
-	quotaPlatform := self.GetQuotaPlatformID()
-	pendingUsage := &SQuota{Snapshot: 1}
-	_, err := QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage)
-	if err != nil {
-		return httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
-	}
-	snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_AUTO, self.Id, "", "", snapshotName)
+	snap, err := SnapshotManager.CreateSnapshot(ctx, self.GetOwnerId(), api.SNAPSHOT_AUTO, self.Id, "", "", snapshotName)
 	if err != nil {
 		return err
 	}
