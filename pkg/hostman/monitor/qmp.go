@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 )
 
 // https://github.com/qemu/qemu/blob/master/docs/interop/qmp-spec.txt
@@ -43,6 +44,8 @@ Not support oob yet
     { "QMP": {"version": {"qemu": {"micro": 0, "minor": 0, "major": 3},
      "package": "v3.0.0"}, "capabilities": [] } }
 */
+
+var ignoreEvents = []string{`"RTC_CHANGE"`}
 
 type qmpMonitorCallBack func(*Response)
 type qmpEventCallback func(*Event)
@@ -222,7 +225,9 @@ func (m *QmpMonitor) read(r io.Reader) {
 }
 
 func (m *QmpMonitor) watchEvent(event *Event) {
-	log.Infof(event.String())
+	if !utils.IsInStringArray(event.Event, ignoreEvents) {
+		log.Infof(event.String())
+	}
 	if m.qmpEventFunc != nil {
 		go m.qmpEventFunc(event)
 	}

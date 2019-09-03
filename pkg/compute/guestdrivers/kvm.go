@@ -124,7 +124,7 @@ func findVNCPort2(results string) int {
 	vncInfo := strings.Split(results, "\n")
 	for i := 0; i < len(vncInfo); i++ {
 		if strings.HasSuffix(vncInfo[i], "(ipv4)") {
-			addrParts := strings.Split(vncInfo[3], ":")
+			addrParts := strings.Split(vncInfo[i], ":")
 			v := addrParts[len(addrParts)-1]
 			port, _ := strconv.Atoi(v[0 : len(v)-7])
 			return port

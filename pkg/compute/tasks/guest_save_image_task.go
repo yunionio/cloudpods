@@ -16,7 +16,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -47,17 +46,10 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	if guest.Status != api.VM_READY {
-		reason := fmt.Sprintf("Server %s not in ready status", guest.Name)
-		log.Errorf(reason)
-		self.SetStageFailed(ctx, reason)
-	} else {
-		self.SetStage("on_save_root_image_complete", nil)
-		guest.SetStatus(self.GetUserCred(), api.VM_START_SAVE_DISK, "")
-		disks := guest.CategorizeDisks()
-		if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
-			self.SetStageFailed(ctx, err.Error())
-		}
+	self.SetStage("on_save_root_image_complete", nil)
+	disks := guest.CategorizeDisks()
+	if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
+		self.SetStageFailed(ctx, err.Error())
 	}
 }
 
