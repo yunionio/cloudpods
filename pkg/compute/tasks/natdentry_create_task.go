@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -51,6 +52,7 @@ func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 	natgateway, err := dnatEntry.GetNatgateway()
 	if err != nil {
 		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "fetch natgateway failed"))
+		return
 	}
 	var needBind bool
 	if self.Params.Contains("need_bind") {
@@ -65,6 +67,12 @@ func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
+}
+
+func (self *SNatDEntryCreateTask) OnBindIPCompleteFailed(ctx context.Context, dnatEntry *models.SNatDEntry,
+	reason jsonutils.JSONObject) {
+
+	self.TaskFailed(ctx, dnatEntry, fmt.Errorf(reason.String()))
 }
 
 func (self *SNatDEntryCreateTask) OnBindIPComplete(ctx context.Context, dnatEntry *models.SNatDEntry,
@@ -91,15 +99,16 @@ func (self *SNatDEntryCreateTask) OnBindIPComplete(ctx context.Context, dnatEntr
 		self.TaskFailed(ctx, dnatEntry, errors.Wrapf(err, "Create DNat Entry '%s' failed", dnatEntry.ExternalId))
 		return
 	}
-	err = db.SetExternalId(dnatEntry, self.UserCred, extDnat.GetGlobalId())
-	if err != nil {
-		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "set external id failed"))
-		return
-	}
 
 	err = cloudprovider.WaitStatus(extDnat, api.NAT_STAUTS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
 		self.TaskFailed(ctx, dnatEntry, err)
+		return
+	}
+
+	err = db.SetExternalId(dnatEntry, self.UserCred, extDnat.GetGlobalId())
+	if err != nil {
+		self.TaskFailed(ctx, dnatEntry, errors.Wrap(err, "set external id failed"))
 		return
 	}
 
