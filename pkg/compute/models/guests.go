@@ -4392,6 +4392,7 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.Vga = genInput.Vga
 	userInput.Vdi = genInput.Vdi
 	userInput.Bios = genInput.Bios
+	userInput.Cdrom = genInput.Cdrom
 	userInput.Description = genInput.Description
 	userInput.BootOrder = genInput.BootOrder
 	userInput.DisableDelete = genInput.DisableDelete
