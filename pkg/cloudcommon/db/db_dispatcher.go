@@ -320,7 +320,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	items := make([]IModel, 0)
 	results := make([]jsonutils.JSONObject, 0)
 	rows, err := q.Rows()
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	defer rows.Close()
@@ -445,6 +445,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
+	pagingMarker, _ := query.GetString("paging_marker")
 	q := manager.Query()
 
 	queryDict, ok := query.(*jsonutils.JSONDict)
@@ -469,14 +470,22 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
-	totalCnt, err := q.CountWithError()
-	if err != nil {
-		return nil, err
-	}
-	// log.Debugf("total count %d", totalCnt)
-	if totalCnt == 0 {
-		emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
-		return &emptyList, nil
+	var totalCnt int
+	pagingConf := manager.GetPagingConfig()
+	if pagingConf == nil {
+		totalCnt, err = q.CountWithError()
+		if err != nil {
+			return nil, err
+		}
+		// log.Debugf("total count %d", totalCnt)
+		if totalCnt == 0 {
+			emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
+			return &emptyList, nil
+		}
+	} else {
+		if limit <= 0 {
+			limit = int64(pagingConf.DefaultLimit)
+		}
 	}
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
 		limit = maxLimit
@@ -502,6 +511,10 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 	orderQuery := query.(*jsonutils.JSONDict).Copy()
 	for _, orderByField := range orderBy {
+		if pagingConf != nil && orderByField == pagingConf.MarkerField {
+			// skip markerField
+			continue
+		}
 		colSpec := manager.TableSpec().ColumnSpec(orderByField)
 		if colSpec == nil {
 			orderQuery.Set(fmt.Sprintf("order_by_%s", orderByField), jsonutils.NewString(string(order)))
@@ -523,6 +536,10 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	for _, orderByField := range orderBy {
+		if pagingConf != nil && pagingConf.MarkerField == orderByField {
+			// skip markerField
+			continue
+		}
 		colSpec := manager.TableSpec().ColumnSpec(orderByField)
 		if colSpec != nil {
 			if order == sqlchemy.SQL_ORDER_ASC {
@@ -532,6 +549,44 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	}
+	if pagingConf != nil {
+		if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+			q = q.Asc(pagingConf.MarkerField)
+		} else {
+			q = q.Desc(pagingConf.MarkerField)
+		}
+	}
+
+	if pagingConf != nil {
+		q = q.Limit(int(limit) + 1)
+		if len(pagingMarker) > 0 {
+			if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+				q = q.GE(pagingConf.MarkerField, pagingMarker)
+			} else {
+				q = q.LE(pagingConf.MarkerField, pagingMarker)
+			}
+		}
+		retList, err := Query2List(manager, ctx, userCred, q, queryDict, false)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		nextMarker := ""
+		if int64(len(retList)) > limit {
+			markerObj, _ := retList[limit].Get(pagingConf.MarkerField)
+			if markerObj != nil {
+				nextMarker = fmt.Sprintf("%s", markerObj)
+			}
+			retList = retList[:limit]
+		}
+		retResult := modules.ListResult{
+			Data: retList, Limit: int(limit),
+			NextMarker:  nextMarker,
+			MarkerField: pagingConf.MarkerField,
+			MarkerOrder: string(pagingConf.Order),
+		}
+		return &retResult, nil
+	}
+
 	customizeFilters, err := manager.CustomizeFilterList(ctx, q, userCred, queryDict)
 	if err != nil {
 		return nil, err

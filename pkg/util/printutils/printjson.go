@@ -73,21 +73,29 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 		rows = append(rows, row)
 	}
 	fmt.Print(pt.GetString(rows))
+	var total int64
 	if list.Total == 0 {
-		list.Total = len(list.Data)
+		total = int64(len(list.Data))
 	}
-	title := fmt.Sprintf("Total: %d", list.Total)
-	if list.Limit == 0 && list.Total > len(list.Data) {
-		list.Limit = len(list.Data)
-	}
-	if list.Limit > 0 {
-		pages := int(list.Total / list.Limit)
-		if pages*list.Limit < list.Total {
-			pages += 1
+	title := fmt.Sprintf("Total: %d", total)
+	if len(list.MarkerField) > 0 {
+		title += fmt.Sprintf(" Field: %s Order: %s", list.MarkerField, list.MarkerOrder)
+		if len(list.NextMarker) > 0 {
+			title += fmt.Sprintf(" NextMarker: %s", list.NextMarker)
 		}
-		page := int(list.Offset/list.Limit) + 1
-		title = fmt.Sprintf("%s Pages: %d Limit: %d Offset: %d Page: %d",
-			title, pages, list.Limit, list.Offset, page)
+	} else {
+		if list.Limit == 0 && total > int64(len(list.Data)) {
+			list.Limit = len(list.Data)
+		}
+		if list.Limit > 0 {
+			pages := int(total / int64(list.Limit))
+			if int64(pages*list.Limit) < total {
+				pages += 1
+			}
+			page := int(list.Offset/list.Limit) + 1
+			title = fmt.Sprintf("%s Pages: %d Limit: %d Offset: %d Page: %d",
+				title, pages, list.Limit, list.Offset, page)
+		}
 	}
 	fmt.Println("*** ", title, " ***")
 }
