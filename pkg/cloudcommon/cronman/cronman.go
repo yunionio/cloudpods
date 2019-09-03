@@ -205,6 +205,7 @@ func (self *SCronJobManager) Start() {
 		return
 	}
 	self.running = true
+	self.init()
 	go self.run()
 }
 
@@ -214,22 +215,26 @@ func (self *SCronJobManager) Stop() {
 	}
 }
 
-func (self *SCronJobManager) run() {
+func (self *SCronJobManager) init() {
 	now := time.Now()
 	self.Next(now)
 	heap.Init(&self.jobs)
+	for i := 0; i < len(self.jobs); i += 1 {
+		if self.jobs[i].StartRun {
+			self.jobs[i].StartRun = false
+			self.jobs[i].runJob(true)
+		}
+	}
+}
+
+func (self *SCronJobManager) run() {
 	for {
+		now := time.Now()
 		var timer *time.Timer
 		if len(self.jobs) == 0 || self.jobs[0].Next.IsZero() {
 			timer = time.NewTimer(100000 * time.Hour)
 		} else {
 			timer = time.NewTimer(self.jobs[0].Next.Sub(now))
-		}
-		for i := 0; i < len(self.jobs); i += 1 {
-			if self.jobs[i].StartRun {
-				self.jobs[i].StartRun = false
-				self.jobs[i].runJob(true)
-			}
 		}
 		select {
 		case now = <-timer.C:
@@ -237,6 +242,9 @@ func (self *SCronJobManager) run() {
 		case newJob := <-self.add:
 			now = time.Now()
 			newJob.Next = newJob.Timer.Next(now)
+			if newJob.StartRun {
+				newJob.runJob(true)
+			}
 			heap.Push(&self.jobs, newJob)
 		case <-self.stop:
 			timer.Stop()
@@ -246,7 +254,7 @@ func (self *SCronJobManager) run() {
 }
 
 func (self *SCronJobManager) runJob(now time.Time) {
-	if len(self.jobs) > 0 && (self.jobs[0].Next.After(now) || self.jobs[0].Next.IsZero()) {
+	if len(self.jobs) > 0 && !(self.jobs[0].Next.After(now) || self.jobs[0].Next.IsZero()) {
 		self.jobs[0].runJob(false)
 		self.jobs[0].Next = self.jobs[0].Timer.Next(now)
 		heap.Fix(&self.jobs, 0)

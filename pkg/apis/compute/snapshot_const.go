@@ -39,6 +39,7 @@ const (
 	SNAPSHOT_POLICY_CANCEL        = "canceling"
 	SNAPSHOT_POLICY_CANCEL_FAILED = "cancel_failed"
 
+	SNAPSHOT_POLICY_DISK_INIT          = "init"
 	SNAPSHOT_POLICY_DISK_READY         = "ready"
 	SNAPSHOT_POLICY_DISK_DELETING      = "deleting"
 	SNAPSHOT_POLICY_DISK_DELETE_FAILED = "delete_failed"
