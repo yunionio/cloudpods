@@ -1908,7 +1908,12 @@ func (manager *SDiskManager) getAutoSnapshotDisksId() ([]SSnapshotPolicyDisk, er
 
 	spds := make([]SSnapshotPolicyDisk, 0)
 	spdq := SnapshotPolicyDiskManager.Query()
+	spdq.NotEquals("status", api.SNAPSHOT_POLICY_DISK_INIT)
 	spdq.Filter(sqlchemy.In(spdq.Field("snapshotpolicy_id"), sps))
+
+	diskQ := DiskManager.Query().SubQuery()
+	spdq.Join(diskQ, sqlchemy.Equals(spdq.Field("disk_id"), diskQ.Field("id")))
+	spdq.Filter(sqlchemy.IsNullOrEmpty(diskQ.Field("external_id")))
 	err = spdq.All(&spds)
 	if err != nil {
 		return nil, err
