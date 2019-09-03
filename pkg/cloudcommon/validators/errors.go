@@ -103,6 +103,10 @@ func newInvalidValueError(key string, value string) error {
 	return newError(ERR_INVALID_VALUE, "invalid %q: %s", key, value)
 }
 
+func newInvalidValueErrorEx(key string, err error) error {
+	return newError(ERR_INVALID_VALUE, "invalid %q: %v", key, err)
+}
+
 func newInvalidStructError(key string, err error) error {
 	errFmt := "invalid %q: "
 	params := []interface{}{key}
