@@ -36,6 +36,11 @@ type BaseActionListOptions struct {
 	Admin      bool     `help:"admin mode"`
 	Succ       bool     `help:"Show success action log only"`
 	Fail       bool     `help:"Show failed action log only"`
+
+	User    []string `help:"filter by operator user"`
+	Project []string `help:"filter by owner project"`
+
+	PagingMarker string `help:"marker for pagination"`
 }
 
 type ActionListOptions struct {
@@ -60,8 +65,17 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	if len(args.Search) > 0 {
 		params.Add(jsonutils.NewString(args.Search), "search")
 	}
+	if len(args.User) > 0 {
+		params.Add(jsonutils.NewStringArray(args.User), "user")
+	}
+	if len(args.Project) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Project), "project")
+	}
 	if len(args.Scope) > 0 {
 		params.Add(jsonutils.NewString(args.Scope), "scope")
+	}
+	if len(args.PagingMarker) > 0 {
+		params.Add(jsonutils.NewString(args.PagingMarker), "paging_marker")
 	}
 	if len(args.Since) > 0 {
 		params.Add(jsonutils.NewString(args.Since), "since")
