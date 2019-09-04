@@ -15,9 +15,6 @@
 package shell
 
 import (
-	//"fmt"
-	//"strings"
-
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
