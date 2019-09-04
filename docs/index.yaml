@@ -179,6 +179,10 @@ paths:
     $ref: "./natgateway/natgateways.yaml"
   /natgateways/{natgatewayId}:
     $ref: "./natgateway/natgateway.yaml"
+  /natgateways/{natgatewayId}/dnat-eips:
+    $ref: "./natgateway/dnat-eips.yaml"
+  /natgateways/{natgatewayId}/snat-eips:
+    $ref: "./natgateway/snat-eips.yaml"
   /natdentries:
     $ref: "./natgateway/dnatentries.yaml"
   /natdentries/{dnatentryId}:
