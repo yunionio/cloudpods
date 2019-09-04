@@ -1017,7 +1017,6 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-
 	// run name validation after validate create data
 	name, _ := dataDict.GetString("name")
 	if len(name) > 0 {
