@@ -1019,7 +1019,6 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-
 	// run name validation after validate create data
 	parentId := manager.FetchParentId(ctx, dataDict)
 	name, _ := dataDict.GetString("name")
