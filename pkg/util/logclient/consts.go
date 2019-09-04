@@ -121,6 +121,7 @@ const (
 	ACT_CANCEL_SNAPSHOT_POLICY       = "取消快照策略"
 	ACT_ATTACH_HOST                  = "关联宿主机"
 	ACT_DETACH_HOST                  = "取消关联宿主机"
+	ACT_VM_IO_THROTTLE               = "虚拟机磁盘限速"
 
 	ACT_IMAGE_SAVE  = "上传镜像"
 	ACT_IMAGE_PROBE = "镜像检测"
