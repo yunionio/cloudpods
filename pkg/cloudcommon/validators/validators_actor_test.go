@@ -81,6 +81,28 @@ func TestJoinedByActor(t *testing.T) {
 		},
 		{
 			sep:         ",",
+			ignoreEmpty: true,
+			C: C{
+				Name:      "good in (nothing)",
+				In:        `{"s": ""}`,
+				Out:       `{"s": ""}`,
+				ValueWant: []interface{}{},
+			},
+		},
+		{
+			sep: ",",
+			C: C{
+				Name: "good in (0.0.0.0/32)",
+				In:   `{"s": ""}`,
+				Out:  `{"s": ""}`,
+				ValueWant: []interface{}{func() *netutils.IPV4Prefix {
+					p, _ := netutils.NewIPV4Prefix("0.0.0.0/32")
+					return &p
+				}()},
+			},
+		},
+		{
+			sep:         ",",
 			trimSpace:   true,
 			ignoreEmpty: true,
 			C: C{
