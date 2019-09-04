@@ -108,6 +108,9 @@ const (
 
 	VM_REMOVE_STATEFILE = "remove_state"
 
+	VM_IO_THROTTLE      = "io_throttle"
+	VM_IO_THROTTLE_FAIL = "io_throttle_fail"
+
 	VM_ADMIN = "admin"
 
 	VM_IMPORT        = "import"

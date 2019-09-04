@@ -134,6 +134,9 @@ const (
 	ACT_VM_DEPLOY      = "deploy"
 	ACT_VM_DEPLOY_FAIL = "deploy_fail"
 
+	ACT_VM_IO_THROTTLE      = "io_throttle"
+	ACT_VM_IO_THROTTLE_FAIL = "io_throttle_fail"
+
 	ACT_REBUILDING_ROOT   = "rebuilding_root"
 	ACT_REBUILD_ROOT      = "rebuild_root"
 	ACT_REBUILD_ROOT_FAIL = "rebuild_root_fail"
