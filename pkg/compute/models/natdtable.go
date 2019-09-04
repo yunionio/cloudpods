@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -140,6 +141,36 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("invalid internal ip address: %s", input.InternalIp)
 	}
 
+	// check ip + port
+	eip, err := man.checkIPPort(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	// check that eip is suitable
+	if len(eip.AssociateId) != 0 {
+		if eip.AssociateId != input.NatgatewayId {
+			return nil, httperrors.NewInputParameterError("eip has been binding to another instance")
+		} else if !man.canBindIP(eip.IpAddr) {
+			return nil, httperrors.NewInputParameterError("eip has been binding to snat rules")
+		}
+	} else {
+		data.Add(jsonutils.NewBool(true), "need_bind")
+	}
+	data.Remove("external_ip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
+	return data, nil
+}
+
+func (manager *SNatDEntryManager) checkIPPort(input *api.SNatDCreateInput) (*SElasticip, error) {
+	q := manager.Query().Equals("external_ip", input.ExternalIp).Equals("external_port", input.ExternalPort)
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch dnat with same external_ip and external_port")
+	}
+	if count > 0 {
+		return nil, fmt.Errorf("there are dnat rules with same external ip and external port")
+	}
 	model, err := ElasticipManager.FetchById(input.ExternalIpId)
 	if err != nil {
 		return nil, err
@@ -149,22 +180,9 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 	eip := model.(*SElasticip)
 	if eip.IpAddr != input.ExternalIp {
-		return nil, errors.Error("No such eip")
+		return nil, fmt.Errorf("No such eip")
 	}
-
-	// check that eip is suitable
-	if len(eip.AssociateId) != 0 {
-		if eip.AssociateId != input.NatgatewayId {
-			return nil, httperrors.NewInputParameterError("eip has been binding to another instance")
-		} else if !man.canBindIP(eip.IpAddr) {
-			return nil, httperrors.NewInputParameterError("eip has been binding to dnat rules")
-		}
-	} else {
-		data.Add(jsonutils.NewBool(true), "need_bind")
-	}
-	data.Remove("external_ip_id")
-	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
-	return data, nil
+	return eip, nil
 }
 
 func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
