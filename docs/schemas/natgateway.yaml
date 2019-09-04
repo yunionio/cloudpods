@@ -225,9 +225,7 @@ SNatEntry:
       example: 4daf9886-ebe6-4a8a-8082-3bd623d1c857
       description: 所属NAT网关ID
     network:
-      type: string
-      example: test-network
-      description: 所属子网名称
+      $ref: 'network.yaml#/Network'
     network_id:
       type: string
       example: 7caf732e-93fc-42c0-89d2-86aac2970c38
@@ -348,3 +346,12 @@ SNatEntryCreate:
           type: string
           example: 192.168.1.0/24
           description: 映射到公网IP的内网网段(和network_id互斥，只需要传入一个）
+
+EIPAddrs:
+  type: object
+  properties:
+    eips:
+      type: array
+      items:
+        type: string
+      example: [34.23.125.45, 23.45.123.56]
