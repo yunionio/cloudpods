@@ -45,6 +45,8 @@ type ApiHelper struct {
 
 	haState         string
 	haStateProvider HaStateProvider
+
+	mcclientSession *mcclient.ClientSession
 }
 
 func NewApiHelper(opts *Options) (*ApiHelper, error) {
@@ -103,10 +105,19 @@ func (h *ApiHelper) SetHaStateProvider(hsp HaStateProvider) {
 }
 
 func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {
+	s := h.mcclientSession
+	if s != nil {
+		token := s.GetToken()
+		expires := token.GetExpires()
+		if time.Now().Add(time.Hour).After(expires) {
+			return s
+		}
+	}
+
 	region := h.opts.CommonOptions.Region
 	apiVersion := "v2"
-	s := auth.GetAdminSession(ctx, region, apiVersion)
-	return s
+	h.mcclientSession = auth.GetAdminSession(ctx, region, apiVersion)
+	return h.mcclientSession
 }
 
 func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgent, error) {
