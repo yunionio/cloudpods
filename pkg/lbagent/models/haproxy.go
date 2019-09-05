@@ -74,7 +74,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 		}
 		for _, lbcert := range b.LoadbalancerCertificates {
 			d := []byte(lbcert.Certificate)
-			if d[len(d)-1] != '\n' {
+			if len(d) > 0 && d[len(d)-1] != '\n' {
 				d = append(d, '\n')
 			}
 			d = append(d, []byte(lbcert.PrivateKey)...)
@@ -154,7 +154,9 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			r.LoadbalancersEnabled = append(r.LoadbalancersEnabled, lb)
 
 			d := buf.Bytes()
-			d = d[:len(d)-2]
+			if len(d) > 1 { // this is for sure because of "\n\n"
+				d = d[:len(d)-2]
+			}
 			fn := fmt.Sprintf("%s.%s", lb.Id, agentutils.HaproxyCfgExt)
 			p := filepath.Join(dir, fn)
 			err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
