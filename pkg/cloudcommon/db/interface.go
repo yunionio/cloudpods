@@ -110,6 +110,8 @@ type IModelManager interface {
 	ResourceScope() rbacutils.TRbacScope
 
 	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)
+
+	GetPagingConfig() *SPagingConfig
 }
 
 type IModel interface {
