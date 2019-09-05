@@ -395,6 +395,16 @@ func (spc *SSnapshotPolicyCache) DeleteCloudSnapshotPolicy() error {
 		if err != nil {
 			return err
 		}
+		cloudSp, err := iregion.GetISnapshotPolicyById(spc.ExternalId)
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		if err != nil {
+			return errors.Wrap(err, "fetch snapshotpolicy from cloud before deleting failed")
+		}
+		if cloudSp == nil {
+			return nil
+		}
 		return iregion.DeleteSnapshotPolicy(spc.ExternalId)
 	}
 	return nil
