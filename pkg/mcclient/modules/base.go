@@ -116,6 +116,10 @@ type ListResult struct {
 	Total  int
 	Limit  int
 	Offset int
+
+	NextMarker  string
+	MarkerField string
+	MarkerOrder string
 }
 
 func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject {
@@ -128,6 +132,15 @@ func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject
 	}
 	if result.Offset > 0 {
 		obj.Add(jsonutils.NewInt(int64(result.Offset)), "offset")
+	}
+	if len(result.NextMarker) > 0 {
+		obj.Add(jsonutils.NewString(result.NextMarker), "next_marker")
+	}
+	if len(result.MarkerField) > 0 {
+		obj.Add(jsonutils.NewString(result.MarkerField), "marker_field")
+	}
+	if len(result.MarkerOrder) > 0 {
+		obj.Add(jsonutils.NewString(result.MarkerOrder), "marker_order")
 	}
 	arr := jsonutils.NewArray(result.Data...)
 	obj.Add(arr, key)
@@ -142,8 +155,20 @@ func JSON2ListResult(result jsonutils.JSONObject) *ListResult {
 	total, _ := result.Int("total")
 	limit, _ := result.Int("limit")
 	offset, _ := result.Int("offset")
+	nextMarker, _ := result.GetString("next_marker")
+	markerField, _ := result.GetString("marker_field")
+	markerOrder, _ := result.GetString("marker_order")
 	data, _ := result.GetArray("data")
-	return &ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+	if len(markerField) == 0 && total == 0 {
+		total = int64(len(data))
+	}
+	return &ListResult{
+		Data:  data,
+		Total: int(total), Limit: int(limit), Offset: int(offset),
+		NextMarker:  nextMarker,
+		MarkerField: markerField,
+		MarkerOrder: markerOrder,
+	}
 }
 
 func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKey string) (*ListResult, error) {
@@ -159,22 +184,22 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	if err != nil {
 		return nil, err
 	}
-	total, err := body.Int("total")
-	if err != nil {
+	nextMarker, _ := body.GetString("next_marker")
+	markerField, _ := body.GetString("marker_field")
+	markerOrder, _ := body.GetString("marker_order")
+	total, _ := body.Int("total")
+	limit, _ := body.Int("limit")
+	offset, _ := body.Int("offset")
+	if len(nextMarker) == 0 && total == 0 {
 		total = int64(len(rets))
 	}
-	if total == 0 {
-		total = int64(len(rets))
-	}
-	limit, err := body.Int("limit")
-	if err != nil {
-		limit = 0
-	}
-	offset, err := body.Int("offset")
-	if err != nil {
-		offset = 0
-	}
-	return &ListResult{rets, int(total), int(limit), int(offset)}, nil
+	return &ListResult{
+		Data:  rets,
+		Total: int(total), Limit: int(limit), Offset: int(offset),
+		NextMarker:  nextMarker,
+		MarkerField: markerField,
+		MarkerOrder: markerOrder,
+	}, nil
 }
 
 func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputils.THttpMethod, path string, body jsonutils.JSONObject, respKey string) (jsonutils.JSONObject, error) {

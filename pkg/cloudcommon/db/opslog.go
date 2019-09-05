@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -227,12 +228,12 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SModelBase
 
-	Id      int64  `primary:"true" auto_increment:"true" list:"user"`                           // = Column(BigInteger, primary_key=True)
-	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
-	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
-	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`   //= Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Notes   string `width:"2048" charset:"utf8" list:"user" create:"required"`                  // = Column(VARCHAR(2048, charset='utf8'))
+	Id      int64  `primary:"true" auto_increment:"true" list:"user"`                                        // = Column(BigInteger, primary_key=True)
+	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`               // = Column(VARCHAR(40, charset='ascii'), nullable=False)
+	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`               //= Column(VARCHAR(128, charset='utf8'), nullable=False)
+	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`                //= Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Notes   string `width:"2048" charset:"utf8" list:"user" create:"required"`                               // = Column(VARCHAR(2048, charset='utf8'))
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required" index:"true"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`                  // tenant    = Column(VARCHAR(128, charset='utf8'))
@@ -386,19 +387,87 @@ func (manager *SOpsLogManager) LogDetachEvent(ctx context.Context, m1, m2 IModel
 }
 
 func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	userStrs := jsonutils.GetQueryStringArray(query, "user")
+	if len(userStrs) > 0 {
+		for i := range userStrs {
+			usrObj, err := UserCacheManager.FetchUserByIdOrName(userStrs[i])
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("user", userStrs[i])
+				} else if err == sqlchemy.ErrDuplicateEntry {
+					return nil, httperrors.NewDuplicateNameError("user", userStrs[i])
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			userStrs[i] = usrObj.GetId()
+		}
+		if len(userStrs) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("user_id"), userStrs[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("user_id"), userStrs))
+		}
+	}
+	projStrs := jsonutils.GetQueryStringArray(query, "project")
+	if len(projStrs) > 0 {
+		for i := range projStrs {
+			projObj, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projStrs[i])
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("project", projStrs[i])
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			projStrs[i] = projObj.GetId()
+		}
+		if len(projStrs) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("owner_tenant_id"), projStrs[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("owner_tenant_id"), projStrs))
+		}
+	}
 	objTypes := jsonutils.GetQueryStringArray(query, "obj_type")
-	if objTypes != nil && len(objTypes) > 0 {
-		q = q.Filter(sqlchemy.In(q.Field("obj_type"), objTypes))
+	if len(objTypes) > 0 {
+		if len(objTypes) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_type"), objTypes[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("obj_type"), objTypes))
+		}
+	}
+	objs := jsonutils.GetQueryStringArray(query, "obj")
+	if len(objs) > 0 {
+		if len(objs) == 1 {
+			q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("obj_id"), objs[0]), sqlchemy.Equals(q.Field("obj_name"), objs[0])))
+		} else {
+			q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), objs), sqlchemy.In(q.Field("obj_name"), objs)))
+		}
 	}
 	objIds := jsonutils.GetQueryStringArray(query, "obj_id")
-	if objIds != nil && len(objIds) > 0 {
-		q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), objIds), sqlchemy.In(q.Field("obj_name"), objIds)))
+	if len(objIds) > 0 {
+		if len(objIds) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_id"), objIds[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("obj_id"), objIds))
+		}
+	}
+	objNames := jsonutils.GetQueryStringArray(query, "obj_name")
+	if len(objNames) > 0 {
+		if len(objNames) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_id"), objNames[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("obj_id"), objNames))
+		}
 	}
 	queryDict := query.(*jsonutils.JSONDict)
 	queryDict.Remove("obj_id")
 	action := jsonutils.GetQueryStringArray(query, "action")
 	if action != nil && len(action) > 0 {
-		q = q.Filter(sqlchemy.In(q.Field("action"), action))
+		if len(action) == 1 {
+			q = q.Filter(sqlchemy.Equals(q.Field("action"), action[0]))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("action"), action))
+		}
 	}
 	//if !IsAdminAllowList(userCred, manager) {
 	// 	q = q.Filter(sqlchemy.OR(
@@ -514,4 +583,12 @@ func (self *SOpsLog) IsSharable(reqCred mcclient.IIdentityProvider) bool {
 
 func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
+}
+
+func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
+	return &SPagingConfig{
+		Order:        sqlchemy.SQL_ORDER_DESC,
+		MarkerField:  "id",
+		DefaultLimit: 20,
+	}
 }
