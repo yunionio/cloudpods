@@ -36,6 +36,7 @@ var (
 		"metadatas",
 		"loadbalancerclusters",
 		"loadbalanceragents",
+		"netowkinterfaces",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
