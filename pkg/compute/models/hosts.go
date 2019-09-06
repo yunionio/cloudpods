@@ -1461,9 +1461,15 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 
 	if izone == nil {
 		// onpremise host
-		wire, err := WireManager.GetOnPremiseWireOfIp(extHost.GetAccessIp())
+		accessIp := extHost.GetAccessIp()
+		if len(accessIp) == 0 {
+			msg := fmt.Sprintf("fail to find wire for host %s: empty host access ip", extHost.GetName())
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		wire, err := WireManager.GetOnPremiseWireOfIp(accessIp)
 		if err != nil {
-			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), extHost.GetAccessIp(), err)
+			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), accessIp, err)
 			log.Errorf(msg)
 			return nil, fmt.Errorf(msg)
 		}
