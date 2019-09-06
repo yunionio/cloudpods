@@ -27,11 +27,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
 
-	"github.com/pkg/errors"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -815,6 +815,9 @@ func (self *SVirtualMachine) GetError() error {
 func (self *SVirtualMachine) getResourcePool() (*SResourcePool, error) {
 	vm := self.getVirtualMachine()
 	morp := mo.ResourcePool{}
+	if vm.ResourcePool == nil {
+		return nil, errors.Error("nil resource pool")
+	}
 	err := self.manager.reference2Object(*vm.ResourcePool, RESOURCEPOOL_PROPS, &morp)
 	if err != nil {
 		return nil, errors.Wrap(err, "self.manager.reference2Object")

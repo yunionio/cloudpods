@@ -437,6 +437,10 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
 	remoteCache := remoteStorage.GetIStoragecache()
+	if remoteCache == nil {
+		log.Errorf("remote storageCache is nil")
+		return
+	}
 	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache, provider)
 	if err != nil {
 		msg := fmt.Sprintf("SyncWithCloudStoragecache for storage %s failed %s", remoteStorage.GetName(), err)
