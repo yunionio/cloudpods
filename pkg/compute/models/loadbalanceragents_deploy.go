@@ -265,6 +265,16 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("empty host %s field", k)
 		}
 	}
+	{
+		cli := mcclient.NewClient(options.Options.AuthURL, 10, false, true, "", "")
+		token, err := cli.Authenticate(host.Vars["user"], host.Vars["pass"], "", host.Vars["proj"], "")
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("authenticate error: %v", err)
+		}
+		if !token.HasSystemAdminPrivilege() {
+			return nil, httperrors.NewBadRequestError("user must have system admin privileges")
+		}
+	}
 	host.SetVar("region", options.Options.Region)
 	host.SetVar("auth_uri", options.Options.AuthURL)
 	host.SetVar("id", lbagent.Id)
