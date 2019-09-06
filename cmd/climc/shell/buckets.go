@@ -213,15 +213,12 @@ func init() {
 	})
 
 	type BucketSetAclOptions struct {
-		ID  string `help:"ID or name of bucket" json:"-"`
-		ACL string `help:"ACL to set" choices:"default|private|public-read|public-read-write"`
-		Key string `help:"Optional object key"`
+		ID  string   `help:"ID or name of bucket" json:"-"`
+		ACL string   `help:"ACL to set" choices:"default|private|public-read|public-read-write" json:"acl"`
+		Key []string `help:"Optional object key" json:"key"`
 	}
 	R(&BucketSetAclOptions{}, "bucket-set-acl", "Set ACL of bucket or object", func(s *mcclient.ClientSession, args *BucketSetAclOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
+		params := jsonutils.Marshal(args)
 		result, err := modules.Buckets.PerformAction(s, args.ID, "acl", params)
 		if err != nil {
 			return err
