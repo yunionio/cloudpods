@@ -37,6 +37,11 @@ func Send(w http.ResponseWriter, text string) {
 	sendBytes(w, []byte(text))
 }
 
+func SendHTML(w http.ResponseWriter, text string) {
+	w.Header().Set("Content-Type", "text/html")
+	sendBytes(w, []byte(text))
+}
+
 func sendBytes(w http.ResponseWriter, output []byte) {
 	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(output)), 10))
 	w.Write(output)

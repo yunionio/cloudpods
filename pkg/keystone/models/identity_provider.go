@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -26,7 +27,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
@@ -351,11 +354,14 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 	return
 }
 
-func (manager *SIdentityProviderManager) fetchEnabledProviders() ([]SIdentityProvider, error) {
+func (manager *SIdentityProviderManager) FetchEnabledProviders(driver string) ([]SIdentityProvider, error) {
 	q := manager.Query().IsTrue("enabled")
+	if len(driver) > 0 {
+		q = q.Equals("driver", driver)
+	}
 	providers := make([]SIdentityProvider, 0)
 	err := db.FetchModelObjects(manager, q, &providers)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	return providers, nil
@@ -669,4 +675,147 @@ func (self *SIdentityProvider) startDeleteIdentityProviderTask(ctx context.Conte
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SIdentityProvider) GetSingleDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+	if len(self.TargetDomainId) > 0 {
+		targetDomain, err := DomainManager.FetchDomainById(self.TargetDomainId)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, errors.Wrap(err, "DomainManager.FetchDomainById")
+		}
+		if targetDomain == nil {
+			log.Warningln("target domain not exist!")
+		} else {
+			return targetDomain, nil
+		}
+	}
+	return self.SyncOrCreateDomain(ctx, extId, extName, extDesc)
+}
+
+func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId string, extName string, extDesc string) (*SDomain, error) {
+	domainId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityDomain)
+	if err != nil {
+		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
+	}
+	domain, err := DomainManager.FetchDomainById(domainId)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "DomainManager.FetchDomainById")
+	}
+	if err == nil {
+		if domain.Name != extName {
+			// sync domain name
+			newName, err := db.GenerateName2(DomainManager, nil, extName, domain)
+			if err != nil {
+				log.Errorf("sync existing domain name (%s=%s) generate fail %s", domain.Name, extName, err)
+			} else {
+				_, err = db.Update(domain, func() error {
+					domain.Name = newName
+					return nil
+				})
+				if err != nil {
+					log.Errorf("sync existing domain name (%s=%s) update fail %s", domain.Name, extName, err)
+				}
+			}
+		}
+		return domain, nil
+	}
+
+	lockman.LockClass(ctx, DomainManager, "")
+	lockman.ReleaseClass(ctx, DomainManager, "")
+
+	domain = &SDomain{}
+	domain.SetModelManager(DomainManager, domain)
+	domain.Id = domainId
+	newName, err := db.GenerateName(DomainManager, nil, extName)
+	if err != nil {
+		return nil, errors.Wrap(err, "GenerateName")
+	}
+	domain.Name = newName
+	domain.Enabled = tristate.True
+	domain.IsDomain = tristate.True
+	domain.DomainId = api.KeystoneDomainRoot
+	domain.Description = fmt.Sprintf("domain for %s", extDesc)
+	err = DomainManager.TableSpec().Insert(domain)
+	if err != nil {
+		return nil, errors.Wrap(err, "insert")
+	}
+
+	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() {
+		project := &SProject{}
+		project.SetModelManager(ProjectManager, project)
+		projectName := NormalizeProjectName(fmt.Sprintf("%s_default_project", extName))
+		newName, err := db.GenerateName(ProjectManager, nil, projectName)
+		if err != nil {
+			// ignore the error
+			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
+			newName = projectName
+		}
+		project.Name = newName
+		project.DomainId = domain.Id
+		project.Description = fmt.Sprintf("Default project for domain %s", extName)
+		project.IsDomain = tristate.False
+		project.ParentId = domain.Id
+		err = ProjectManager.TableSpec().Insert(project)
+		if err != nil {
+			log.Errorf("ProjectManager.Insert fail %s", err)
+		}
+	}
+
+	return domain, nil
+}
+
+func (self *SIdentityProvider) SyncOrCreateUser(ctx context.Context, extId string, extName string, domainId string, syncUserInfo func(*SUser)) (*SUser, error) {
+	userId, err := IdmappingManager.RegisterIdMap(ctx, self.Id, extId, api.IdMappingEntityUser)
+	if err != nil {
+		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
+	}
+
+	lockman.LockRawObject(ctx, UserManager.Keyword(), userId)
+	defer lockman.ReleaseRawObject(ctx, UserManager.Keyword(), userId)
+
+	userObj, err := db.NewModelObject(UserManager)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.NewModelObject")
+	}
+	user := userObj.(*SUser)
+	q := UserManager.RawQuery().Equals("id", userId)
+	err = q.First(user)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "Query user")
+	}
+	if err == nil {
+		// update
+		_, err := db.Update(user, func() error {
+			if syncUserInfo != nil {
+				syncUserInfo(user)
+			}
+			user.Name = extName
+			user.DomainId = domainId
+			user.MarkUnDelete()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "Update")
+		}
+	} else {
+		if syncUserInfo != nil {
+			syncUserInfo(user)
+		}
+		user.Id = userId
+		user.Name = extName
+		user.DomainId = domainId
+		err = UserManager.TableSpec().Insert(user)
+		if err != nil {
+			return nil, errors.Wrap(err, "Insert")
+		}
+	}
+	return user, nil
+}
+
+func (manager *SIdentityProviderManager) FetchIdentityProviderById(idstr string) (*SIdentityProvider, error) {
+	obj, err := manager.FetchById(idstr)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.FetchById")
+	}
+	return obj.(*SIdentityProvider), nil
 }

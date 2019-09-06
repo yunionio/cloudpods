@@ -72,7 +72,6 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.validatePasscode, "passcode"),
 		NewHP(h.resetTotpRecoveryQuestions, "recovery"),
 		NewHP(h.postLoginHandler, "login"),
-		NewHP(h.postLogoutHandler, "logout"),
 	)
 
 	// auth middleware handler
@@ -81,6 +80,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getPermissionDetails, "permissions"),
 		NewHP(h.getAdminResources, "admin_resources"),
 		NewHP(h.getResources, "scoped_resources"),
+		NewHP(h.postLogoutHandler, "logout"),
 	)
 	h.AddByMethod(POST, FetchAuthToken,
 		NewHP(h.resetUserPassword, "password"),
@@ -111,7 +111,9 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	}
 	regionsJson := jsonutils.NewStringArray(regions)
 	s := auth.GetAdminSession(ctx, regions[0], "")
-	result, e := modules.Domains.List(s, nil)
+	filters := jsonutils.NewDict()
+	filters.Add(jsonutils.NewInt(1000), "limit")
+	result, e := modules.Domains.List(s, filters)
 	if e != nil {
 		return nil, errors.Wrap(e, "list domain")
 	}
@@ -127,6 +129,33 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 	resp := jsonutils.NewDict()
 	resp.Add(domains, "domains")
 	resp.Add(regionsJson, "regions")
+
+	filters = jsonutils.NewDict()
+	filters.Add(jsonutils.NewStringArray([]string{"cas"}), "driver")
+	filters.Add(jsonutils.NewInt(1000), "limit")
+	idps, err := modules.IdentityProviders.List(s, filters)
+	if err != nil {
+		return nil, errors.Wrap(err, "list idp")
+	}
+	retIdps := make([]jsonutils.JSONObject, 0)
+	for i := range idps.Data {
+		retIdp := jsonutils.NewDict()
+		id, _ := idps.Data[i].GetString("id")
+		name, _ := idps.Data[i].GetString("name")
+		driver, _ := idps.Data[i].GetString("driver")
+		retIdp.Add(jsonutils.NewString(id), "id")
+		retIdp.Add(jsonutils.NewString(name), "name")
+		retIdp.Add(jsonutils.NewString(driver), "driver")
+		conf, err := modules.IdentityProviders.GetSpecific(s, id, "config", nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "idp get config spec")
+		}
+		retIdp.Update(conf)
+		retIdps = append(retIdps, retIdp)
+	}
+
+	resp.Add(jsonutils.NewArray(retIdps...), "idps")
+
 	return resp, nil
 }
 
@@ -218,62 +247,51 @@ func isUserEnableTotp(ctx context.Context, req *http.Request, token mcclient.Tok
 	return jsonutils.QueryBoolean(usr, "enable_mfa", true)
 }
 
-func (h *AuthHandlers) doPasswordLogin(ctx context.Context, w http.ResponseWriter, req *http.Request, uname string, body jsonutils.JSONObject) mcclient.TokenCredential {
-	if h.preLoginHook != nil {
-		if err := h.preLoginHook(ctx, req, uname, body); err != nil {
-			httperrors.GeneralServerError(w, err)
-			return nil
-		}
-	}
-
-	passwd, e := body.GetString("password")
-	if e != nil {
-		httperrors.InvalidInputError(w, "get password in body")
-		return nil
-	}
-	if len(uname) == 0 || len(passwd) == 0 {
-		httperrors.InvalidInputError(w, "username or password is empty")
-		return nil
-	}
-
-	tenant, uname := parseLoginUser(uname)
-	// var token mcclient.TokenCredential
-	domain, _ := body.GetString("domain")
+func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request, body jsonutils.JSONObject) (mcclient.TokenCredential, error) {
+	var token mcclient.TokenCredential
+	var err error
+	var tenant string
 	cliIp := netutils2.GetHttpRequestIp(req)
-	token, err := auth.Client().AuthenticateWeb(uname, passwd, domain, "", "", cliIp)
+	if body.Contains("username") {
+		uname, _ := body.GetString("username")
+
+		if h.preLoginHook != nil {
+			if err := h.preLoginHook(ctx, req, uname, body); err != nil {
+				return nil, err
+			}
+		}
+
+		passwd, err := body.GetString("password")
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("get password in body")
+		}
+		if len(uname) == 0 || len(passwd) == 0 {
+			return nil, httperrors.NewInputParameterError("username or password is empty")
+		}
+
+		tenant, uname = parseLoginUser(uname)
+		// var token mcclient.TokenCredential
+		domain, _ := body.GetString("domain")
+		token, err = auth.Client().AuthenticateWeb(uname, passwd, domain, "", "", cliIp)
+	} else if body.Contains("cas_ticket") {
+		ticket, _ := body.GetString("cas_ticket")
+		if len(ticket) == 0 {
+			return nil, httperrors.NewInputParameterError("cas_ticket is empty")
+		}
+		token, err = auth.Client().AuthenticateCAS(ticket, "", "", "", cliIp)
+	} else {
+		return nil, httperrors.NewInputParameterError("missing credential")
+	}
 	if err != nil {
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
 			if httperr.Code == 409 {
-				httperrors.GeneralServerError(w, err)
-				return nil
+				return nil, err
 			}
 		}
-		httperrors.InvalidCredentialError(w, "username/password incorrect")
-		return nil
+		return nil, httperrors.NewInvalidCredentialError("username/password incorrect")
 	}
-	/* if token == nil { // invalid domain, try all domains
-		s := auth.GetAdminSession(ctx, fetchRegion(req), "")
-		domains, e := modules.Domains.List(s, nil)
-		if e != nil {
-			httperrors.InternalServerError(w, "获取认证源列表失败")
-			return nil
-		}
-		for _, d := range domains.Data {
-			domain, e = d.GetString("name")
-			if e == nil {
-				token, e = auth.Client().Authenticate(uname, passwd, domain, "")
-				if e == nil {
-					break
-				}
-			}
-		}
-	}
-	if token == nil {
-		httperrors.InvalidCredentialError(w, "用户名/密码错误")
-		return nil
-	}
-	*/
+	uname := token.GetUserName()
 	if len(tenant) > 0 {
 		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 		jsonProj, e := modules.Projects.GetById(s, tenant, nil)
@@ -317,7 +335,7 @@ func (h *AuthHandlers) doPasswordLogin(ctx context.Context, w http.ResponseWrite
 			log.Errorf("GetProjects for login user error %s project count %d", e, len(projects.Data))
 		}
 	}
-	return token
+	return token, nil
 }
 
 func parseLoginUser(uname string) (string, string) {
@@ -391,13 +409,21 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 		httperrors.InvalidInputError(w, "fetch json for request: %v", e)
 		return
 	}
-	uname, e := body.GetString("username")
 	var token mcclient.TokenCredential
 	otpVerified := false
-	if e != nil { // switch project
+	if body.Contains("tenantId") { // switch project
 		token, otpVerified = doTenantLogin(ctx, w, req, body)
-	} else { // user/password authenticate
-		token = h.doPasswordLogin(ctx, w, req, uname, body)
+	} else if body.Contains("username") || body.Contains("cas_ticket") {
+		// user/password authenticate
+		// cas authentication
+		token, e = h.doCredentialLogin(ctx, req, body)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+			return
+		}
+	} else {
+		httperrors.InvalidInputError(w, "no login credential")
+		return
 	}
 	if token == nil {
 		return

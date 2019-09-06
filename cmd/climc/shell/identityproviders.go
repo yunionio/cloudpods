@@ -114,17 +114,17 @@ func init() {
 		return nil
 	})
 
-	type IdentityProviderCreateOptions struct {
+	type IdentityProviderCreateLDAPOptions struct {
 		NAME string `help:"name of identity provider" json:"-"`
 
 		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
 		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
 
-		TargetDomain string `help:"target domain without creating new domain"`
+		TargetDomain string `help:"target domain without creating new domain" json:"-"`
 
 		api.SLDAPIdpConfigOptions
 	}
-	R(&IdentityProviderCreateOptions{}, "idp-create-ldap", "Create an identity provider with LDAP driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateOptions) error {
+	R(&IdentityProviderCreateLDAPOptions{}, "idp-create-ldap", "Create an identity provider with LDAP driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateLDAPOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 
@@ -170,7 +170,7 @@ func init() {
 		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
 		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
 
-		TargetDomain string `help:"target domain without creating new domain"`
+		TargetDomain string `help:"target domain without creating new domain" json:"-"`
 
 		api.SLDAPIdpConfigSingleDomainOptions
 	}
@@ -242,6 +242,55 @@ func init() {
 			return err
 		}
 		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderCreateCASOptions struct {
+		NAME string `help:"name of identity provider" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		TargetDomain string `help:"target domain without creating new domain" json:"-"`
+
+		api.SCASIdpConfigOptions
+	}
+	R(&IdentityProviderCreateCASOptions{}, "idp-create-cas", "Create an identity provider with CAS driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateCASOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		if len(args.TargetDomain) > 0 {
+			params.Add(jsonutils.NewString(args.TargetDomain), "target_domain")
+		}
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
+		params.Add(jsonutils.NewString("cas"), "driver")
+		params.Add(jsonutils.Marshal(args), "config", "cas")
+
+		idp, err := modules.IdentityProviders.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(idp)
+		return nil
+	})
+
+	type IdentityProviderConfigCASOptions struct {
+		ID string `help:"ID of idp to config" json:"-"`
+		api.SCASIdpConfigOptions
+	}
+	R(&IdentityProviderConfigCASOptions{}, "idp-config-cas", "Config an Identity provider with CAS driver", func(s *mcclient.ClientSession, args *IdentityProviderConfigCASOptions) error {
+		config := jsonutils.NewDict()
+		config.Add(jsonutils.Marshal(args), "config", "cas")
+		nconf, err := modules.IdentityProviders.PerformAction(s, args.ID, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
 		return nil
 	})
 

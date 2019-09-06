@@ -31,6 +31,7 @@ const (
 	AUTH_METHOD_PASSWORD = "password"
 	AUTH_METHOD_TOKEN    = "token"
 	AUTH_METHOD_AKSK     = "aksk"
+	AUTH_METHOD_CAS      = "cas"
 
 	// AUTH_METHOD_ID_PASSWORD = 1
 	// AUTH_METHOD_ID_TOKEN    = 2
@@ -56,6 +57,7 @@ const (
 
 	IdentityDriverSQL  = "sql"
 	IdentityDriverLDAP = "ldap"
+	IdentityDriverCAS  = "cas"
 
 	IdentityDriverStatusConnected    = "connected"
 	IdentityDriverStatusDisconnected = "disconnected"
@@ -74,7 +76,7 @@ const (
 )
 
 var (
-	AUTH_METHODS = []string{AUTH_METHOD_PASSWORD, AUTH_METHOD_TOKEN, AUTH_METHOD_AKSK}
+	AUTH_METHODS = []string{AUTH_METHOD_PASSWORD, AUTH_METHOD_TOKEN, AUTH_METHOD_AKSK, AUTH_METHOD_CAS}
 
 	SensitiveDomainConfigMap = map[string]string{
 		"ldap": "password",
