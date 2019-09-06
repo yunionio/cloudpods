@@ -164,6 +164,40 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	return usr, nil
 }
 
+func authUserByCASV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, error) {
+	idps, err := models.IdentityProviderManager.FetchEnabledProviders(api.IdentityDriverCAS)
+	if err != nil {
+		return nil, errors.Wrap(err, "models.fetchEnabledProviders")
+	}
+	if len(idps) == 0 {
+		return nil, errors.Error("No cas identity provider")
+	}
+	if len(idps) > 1 {
+		return nil, errors.Error("more than 1 cas identity providers?")
+	}
+	idp := &idps[0]
+	conf, err := idp.GetConfig(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "idp.GetConfig")
+	}
+
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
+	if err != nil {
+		return nil, errors.Wrap(err, "driver.GetDriver")
+	}
+
+	usr, err := backend.Authenticate(ctx, input.Auth.Identity)
+	if err != nil {
+		return nil, errors.Wrap(err, "Authenticate")
+	}
+
+	if idp.Status == api.IdentityDriverStatusDisconnected {
+		idp.MarkConnected(ctx, models.GetDefaultAdminCred())
+	}
+
+	return usr, nil
+}
+
 func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*api.SUserExtended, string, api.SAccessKeySecretInfo, error) {
 	var aksk api.SAccessKeySecretInfo
 
@@ -226,6 +260,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		user, input.Auth.Scope.Project.Id, akskInfo, err = authUserByAccessKeyV3(ctx, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "authUserByAccessKeyV3")
+		}
+	case api.AUTH_METHOD_CAS:
+		// auth by apereo CAS
+		user, err = authUserByCASV3(ctx, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "authUserByCASV3")
 		}
 	default:
 		// auth by other methods, password, openid, saml, etc...
