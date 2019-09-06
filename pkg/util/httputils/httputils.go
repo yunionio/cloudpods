@@ -250,6 +250,52 @@ func CloseResponse(resp *http.Response) {
 	}
 }
 
+func ParseResponse(resp *http.Response, err error, debug bool) (http.Header, []byte, error) {
+	if err != nil {
+		ce := JSONClientError{}
+		ce.Code = 499
+		ce.Details = err.Error()
+		return nil, nil, &ce
+	}
+	defer CloseResponse(resp)
+	if debug {
+		if resp.StatusCode < 300 {
+			green("Status:", resp.StatusCode)
+			green(resp.Header)
+		} else if resp.StatusCode < 400 {
+			yellow("Status:", resp.StatusCode)
+			yellow(resp.Header)
+		} else {
+			red("Status:", resp.StatusCode)
+			red(resp.Header)
+		}
+	}
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if debug {
+		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
+	}
+	if resp.StatusCode < 300 {
+		return resp.Header, rbody, nil
+	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		ce := JSONClientError{}
+		ce.Code = resp.StatusCode
+		ce.Details = resp.Header.Get("Location")
+		ce.Class = "redirect"
+		return nil, nil, &ce
+	} else {
+		ce := JSONClientError{}
+		ce.Code = resp.StatusCode
+		ce.Details = resp.Status
+		if len(rbody) > 0 {
+			ce.Details = string(rbody)
+		}
+		return nil, nil, &ce
+	}
+}
+
 func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	if err != nil {
 		ce := JSONClientError{}
@@ -347,4 +393,8 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		}
 		return nil, nil, &ce
 	}
+}
+
+func JoinPath(ep string, path string) string {
+	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
 }
