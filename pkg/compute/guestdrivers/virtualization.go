@@ -289,6 +289,7 @@ func (self *SVirtualizedGuestDriver) StartSuspendTask(ctx context.Context, userC
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	guest.SetStatus(userCred, api.VM_START_SAVE_DISK, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveImageTask", guest, userCred, params, parentTaskId, "", nil); err != nil {
 		return err
 	} else {
