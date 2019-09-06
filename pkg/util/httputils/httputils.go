@@ -218,7 +218,7 @@ func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, u
 	if header == nil {
 		header = http.Header{}
 	}
-	header.Add("Content-Type", "application/json")
+	header.Set("Content-Type", "application/json")
 	resp, err := Request(client, ctx, method, urlStr, header, jbody, debug)
 	return ParseJSONResponse(resp, err, debug)
 }
