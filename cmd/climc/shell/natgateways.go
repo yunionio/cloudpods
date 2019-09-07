@@ -51,13 +51,13 @@ func init() {
 	R(&NatGatewayListEipOptions{}, "natgateway-dnat-resources", "list resources in dnats of natgateway",
 		func(s *mcclient.ClientSession, opts *NatGatewayListEipOptions) error {
 
-		ret, err := modules.NatGateways.PerformAction(s, opts.ID, "dnat-resources", nil)
-		if err != nil {
-			return err
-		}
-		printObject(ret)
-		return nil
-	})
+			ret, err := modules.NatGateways.PerformAction(s, opts.ID, "dnat-resources", nil)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
 
 	R(&NatGatewayListEipOptions{}, "natgateway-snat-resources", "list resources in snats of natgateway",
 		func(s *mcclient.ClientSession, opts *NatGatewayListEipOptions) error {
