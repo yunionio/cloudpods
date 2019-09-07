@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Baremetalstorages JointResourceManager
+	Baremetalstorages modulebase.JointResourceManager
 )
 
 func init() {

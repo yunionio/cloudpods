@@ -19,6 +19,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -143,7 +144,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(modules.JSON2ListResult(result), nil)
+		printList(modulebase.JSON2ListResult(result), nil)
 		return nil
 	})
 

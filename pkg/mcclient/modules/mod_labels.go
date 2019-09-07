@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Labels ResourceManager
+	Labels modulebase.ResourceManager
 )
 
 func init() {

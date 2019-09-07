@@ -15,20 +15,12 @@
 package modules
 
 import (
-	"fmt"
 	"io"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func GetPProfByType(s *mcclient.ClientSession, serviceType string, profileType string, seconds int) (io.Reader, error) {
-	man := &BaseManager{serviceType: serviceType}
-	if seconds <= 0 {
-		seconds = 15
-	}
-	resp, err := man.rawBaseUrlRequest(s, "GET", fmt.Sprintf("/debug/pprof/%s?seconds=%d", profileType, seconds), nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Body, nil
+	return modulebase.GetPProfByType(s, serviceType, profileType, seconds)
 }

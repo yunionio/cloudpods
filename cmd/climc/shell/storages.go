@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -39,7 +40,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		var result *modules.ListResult
+		var result *modulebase.ListResult
 		if len(opts.Zone) > 0 {
 			result, err = modules.Storages.ListInContext(s, params, &modules.Zones, opts.Zone)
 		} else {

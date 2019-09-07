@@ -17,6 +17,7 @@ package shell
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
@@ -28,7 +29,7 @@ func init() {
 	}
 	R(&NetworkinterfaceNetworkListOptions{}, "networkinterface-network-list", "List server network pairs", func(s *mcclient.ClientSession, args *NetworkinterfaceNetworkListOptions) error {
 		params := jsonutils.NewDict()
-		var result *modules.ListResult
+		var result *modulebase.ListResult
 		var err error
 		if len(args.Networkinterface) > 0 {
 			result, err = modules.Networkinterfacenetworks.ListDescendent(s, args.Networkinterface, params)

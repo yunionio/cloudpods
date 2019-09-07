@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -121,7 +122,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		data := &modules.ListResult{Data: hosts, Total: len(hosts)}
+		data := &modulebase.ListResult{Data: hosts, Total: len(hosts)}
 		printList(data, []string{"ID", "Name", "Mem", "CPU", "Storage_Info"})
 		return nil
 	})
@@ -159,7 +160,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		data := &modules.ListResult{Data: devs, Total: len(devs)}
+		data := &modulebase.ListResult{Data: devs, Total: len(devs)}
 		printList(data, []string{"ID", "Addr", "Dev_Type", "Model", "Vendor_Device_Id"})
 		return nil
 	})

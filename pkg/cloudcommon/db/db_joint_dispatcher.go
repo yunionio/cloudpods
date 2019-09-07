@@ -21,13 +21,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type DBJointModelDispatcher struct {
@@ -59,7 +59,7 @@ func (dispatcher *DBJointModelDispatcher) SlaveKeywordPlural() string {
 	return jointManager.GetSlaveManager().KeywordPlural()
 }
 
-func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
+func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	//log.Debugf("ListMasterDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
@@ -85,7 +85,7 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
 }
 
-func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
+func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	//log.Debugf("ListSlaveDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
@@ -111,7 +111,7 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 	return dispatcher._listJoint(ctx, userCred, model.(IStandaloneModel), queryDict)
 }
 
-func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCred mcclient.TokenCredential, ctxModel IStandaloneModel, queryDict jsonutils.JSONObject) (*modules.ListResult, error) {
+func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCred mcclient.TokenCredential, ctxModel IStandaloneModel, queryDict jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	items, err := ListItems(dispatcher.JointModelManager(), ctx, userCred, queryDict, nil)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)

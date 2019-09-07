@@ -24,10 +24,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type SpecsManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func generateSpecURL(model, ident, action string, params jsonutils.JSONObject) string {
@@ -63,7 +64,7 @@ func (this *SpecsManager) GetAllSpecs(s *mcclient.ClientSession, params jsonutil
 
 func (this *SpecsManager) GetModelSpecs(s *mcclient.ClientSession, model string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	url := newSpecURL(model, params)
-	return this._get(s, url, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, url, this.Keyword)
 }
 
 func (this *SpecsManager) GetObjects(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -79,7 +80,7 @@ func (this *SpecsManager) GetObjects(s *mcclient.ClientSession, params jsonutils
 	}
 	dict.Remove("key")
 	url := newSpecActionURL(model, specKey, "resource", dict)
-	return this._get(s, url, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, url, this.Keyword)
 }
 
 func (this *SpecsManager) SpecsQueryModelObjects(s *mcclient.ClientSession, model string, specKeys []string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -88,7 +89,7 @@ func (this *SpecsManager) SpecsQueryModelObjects(s *mcclient.ClientSession, mode
 	}
 	specKey := url.QueryEscape(strings.Join(specKeys, "/"))
 	url := newSpecActionURL(model, specKey, "resource", params)
-	return this._get(s, url, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, url, this.Keyword)
 }
 
 var (

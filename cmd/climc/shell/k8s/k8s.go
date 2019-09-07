@@ -21,7 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 	"yunion.io/x/onecloud/pkg/util/printutils"
@@ -77,8 +77,8 @@ func kubeResourceCmdN(prefix, suffix string) string {
 	return fmt.Sprintf("kube-%s-%s", prefix, suffix)
 }
 
-func clusterContext(clusterId string) modules.ManagerContext {
-	return modules.ManagerContext{
+func clusterContext(clusterId string) modulebase.ManagerContext {
+	return modulebase.ManagerContext{
 		InstanceManager: k8s.Clusters,
 		InstanceId:      clusterId,
 	}
@@ -129,7 +129,7 @@ func (c *ShellCommands) AddR(rs ...*Cmd) *ShellCommands {
 	return c
 }
 
-func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands {
+func initK8sClusterResource(kind string, manager modulebase.Manager) *ShellCommands {
 	cmdN := NewCmdNameFactory(kind)
 	return NewShellCommands(cmdN.Do).AddR(
 		NewK8sResourceListCmd(cmdN, manager),
@@ -138,7 +138,7 @@ func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands
 	)
 }
 
-func NewK8sResourceListCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sResourceListCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.ResourceListOptions{},
 		cmdN.Do("list"),
@@ -168,7 +168,7 @@ func NewCmdNameFactory(kind string) CmdNameFactory {
 	}
 }
 
-func NewK8sNsResourceListCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sNsResourceListCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.NamespaceResourceListOptions{},
 		cmdN.Do("list"),
@@ -184,7 +184,7 @@ func NewK8sNsResourceListCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd 
 	)
 }
 
-func NewK8sResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sResourceGetCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.ResourceGetOptions{},
 		cmdN.Do("show"),
@@ -200,7 +200,7 @@ func NewK8sResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
 	)
 }
 
-func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.NamespaceResourceGetOptions{},
 		cmdN.Do("show"),
@@ -216,7 +216,7 @@ func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
 	)
 }
 
-func NewK8sResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sResourceDeleteCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.ResourceDeleteOptions{},
 		cmdN.Do("delete"),
@@ -229,7 +229,7 @@ func NewK8sResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd 
 	)
 }
 
-func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	deleteCmd := NewCommand(
 		&o.NamespaceResourceDeleteOptions{},
 		cmdN.Do("delete"),
@@ -243,7 +243,7 @@ func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cm
 	return deleteCmd
 }
 
-func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellCommands {
+func initK8sNamespaceResource(kind string, manager modulebase.Manager) *ShellCommands {
 	cmdN := NewCmdNameFactory(kind)
 	return NewShellCommands(cmdN.Do).AddR(
 		NewK8sNsResourceListCmd(cmdN, manager),

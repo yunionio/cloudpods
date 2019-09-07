@@ -14,10 +14,13 @@
 
 package etcd
 
-import "yunion.io/x/onecloud/pkg/mcclient/modules"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+)
 
 type SServiceRegistryManager struct {
-	modules.ResourceManager
+	modulebase.ResourceManager
 }
 
 var ServiceRegistryManager SServiceRegistryManager

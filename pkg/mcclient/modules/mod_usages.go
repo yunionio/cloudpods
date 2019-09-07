@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type UsageManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -42,7 +43,7 @@ func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, param
 			url = fmt.Sprintf("%s?%s", url, qs)
 		}
 	}
-	return this._get(session, url, this.Keyword)
+	return modulebase.Get(this.ResourceManager, session, url, this.Keyword)
 }
 
 var (

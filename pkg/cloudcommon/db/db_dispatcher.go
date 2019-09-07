@@ -37,7 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -440,7 +440,7 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 	return nil, httperrors.NewInternalServerError("No such context %s(%s)", ctxId.Type, ctxId.Id)
 }
 
-func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
+func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	var err error
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
@@ -479,7 +479,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 		// log.Debugf("total count %d", totalCnt)
 		if totalCnt == 0 {
-			emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
+			emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
 			return &emptyList, nil
 		}
 	} else {
@@ -578,7 +578,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			}
 			retList = retList[:limit]
 		}
-		retResult := modules.ListResult{
+		retResult := modulebase.ListResult{
 			Data: retList, Limit: int(limit),
 			NextMarker:  nextMarker,
 			MarkerField: pagingConf.MarkerField,
@@ -627,7 +627,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	return calculateListResult(retList, int64(totalCnt), limit, offset, paginate), nil
 }
 
-func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modules.ListResult {
+func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modulebase.ListResult {
 	if paginate {
 		// do offset first
 		if offset > 0 {
@@ -643,12 +643,12 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 		}
 	}
 
-	retResult := modules.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+	retResult := modulebase.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
 
 	return &retResult
 }
 
-func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
+func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
 
 	items, err := ListItems(dispatcher.modelManager, ctx, userCred, query, ctxIds)
@@ -1106,7 +1106,7 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 	return ret, nil
 }
 
-func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modules.SubmitResult, error) {
+func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modulebase.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
 
 	manager := dispatcher.modelManager
@@ -1163,10 +1163,10 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	if err != nil {
 		return nil, err
 	}
-	results := make([]modules.SubmitResult, count)
+	results := make([]modulebase.SubmitResult, count)
 	models := make([]IModel, 0)
 	for i, res := range createResults {
-		result := modules.SubmitResult{}
+		result := modulebase.SubmitResult{}
 		if res.err != nil {
 			jsonErr, ok := res.err.(*httputils.JSONClientError)
 			if ok {

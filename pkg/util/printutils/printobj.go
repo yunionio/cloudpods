@@ -20,7 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func PrintInterfaceList(data interface{}, total, offset, limit int, columns []string) {
@@ -36,7 +36,7 @@ func PrintInterfaceList(data interface{}, total, offset, limit int, columns []st
 	if total == 0 {
 		total = dataValue.Len()
 	}
-	list := &modules.ListResult{
+	list := &modulebase.ListResult{
 		Data:   jsonList,
 		Total:  total,
 		Limit:  limit,

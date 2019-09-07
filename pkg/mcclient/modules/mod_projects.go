@@ -21,10 +21,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type ProjectManagerV3 struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -33,12 +34,12 @@ var (
 
 func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, resource string) error {
 	if resource == "users" {
-		_, err := RolesV3.PutInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
 		if err != nil {
 			return err
 		}
 	} else if resource == "groups" {
-		_, err := RolesV3.PutInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&Groups, uid}})
+		_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, uid}})
 		if err != nil {
 			return err
 		}
@@ -49,9 +50,9 @@ func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, re
 func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, resource string, uid string, rid string) error {
 	var err error
 	if resource == "users" {
-		_, err = RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
 	} else if resource == "groups" {
-		_, err = RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&Groups, uid}})
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, uid}})
 	}
 	if err != nil {
 		return err
@@ -190,7 +191,7 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 					s,
 					rid,
 					nil,
-					[]ManagerContext{
+					[]modulebase.ManagerContext{
 						{&Projects,
 							pid},
 						{&UsersV3, id}})
@@ -202,7 +203,7 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 					s,
 					rid,
 					nil,
-					[]ManagerContext{
+					[]modulebase.ManagerContext{
 						{&Projects,
 							pid},
 						{&Groups, id}})
@@ -240,12 +241,12 @@ func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSe
 		res_type, _ := item.GetString("res_type")
 
 		if res_type == "user" {
-			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, id}})
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, id}})
 			if err != nil {
 				return nil, err
 			}
 		} else if res_type == "group" {
-			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&Groups, id}})
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []modulebase.ManagerContext{{&Projects, pid}, {&Groups, id}})
 			if err != nil {
 				return nil, err
 			}
@@ -259,7 +260,7 @@ func (this *ProjectManagerV3) AddTags(session *mcclient.ClientSession, id string
 	path := fmt.Sprintf("/projects/%s/tags", id)
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewStringArray(tags), "tags")
-	_, err := this._put(session, path, body, "")
+	_, err := modulebase.Put(this.ResourceManager, session, path, body, "")
 	if err != nil {
 		return err
 	}

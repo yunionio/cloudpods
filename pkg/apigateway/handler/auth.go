@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
@@ -880,17 +881,17 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 		return
 	}
 	idStrList := jsonutils.JSONArray2StringArray(idlist)
-	ret := make([]modules.SubmitResult, len(idStrList))
+	ret := make([]modulebase.SubmitResult, len(idStrList))
 	for i := range idStrList {
 		err := policytool.PolicyDelete(s, idStrList[i])
 		if err != nil {
-			ret[i] = modules.SubmitResult{
+			ret[i] = modulebase.SubmitResult{
 				Status: 400,
 				Id:     idStrList[i],
 				Data:   jsonutils.NewString(err.Error()),
 			}
 		} else {
-			ret[i] = modules.SubmitResult{
+			ret[i] = modulebase.SubmitResult{
 				Status: 200,
 				Id:     idStrList[i],
 				Data:   jsonutils.NewDict(),
@@ -898,7 +899,7 @@ func (h *AuthHandlers) doDeletePolicies(ctx context.Context, w http.ResponseWrit
 		}
 	}
 	w.WriteHeader(207)
-	appsrv.SendJSON(w, modules.SubmitResults2JSON(ret))
+	appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
 }
 
 /*

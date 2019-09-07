@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -68,7 +69,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modules.ListResult{}
+		listResult := modulebase.ListResult{}
 		listResult.Data, err = results.GetArray()
 		if err != nil {
 			return err
@@ -86,7 +87,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modules.ListResult{}
+		listResult := modulebase.ListResult{}
 		listResult.Data, err = results.GetArray()
 		if err != nil {
 			return err

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -119,7 +120,7 @@ func init() {
 		}
 
 		arrays, _ := result.GetArray("objects")
-		listResult := modules.ListResult{Data: arrays}
+		listResult := modulebase.ListResult{Data: arrays}
 		printList(&listResult, []string{})
 		return nil
 	})

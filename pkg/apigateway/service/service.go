@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/apigateway/app"
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
@@ -28,7 +29,6 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func StartService() {
@@ -51,7 +51,7 @@ func StartService() {
 	serviceApp := app.NewApp(app_common.InitApp(baseOpts, false))
 	serviceApp.InitHandlers().Bind()
 
-	mods, jmods := modules.GetRegisterdModules()
+	mods, jmods := modulebase.GetRegisterdModules()
 	log.Infof("Modules: %s", jsonutils.Marshal(mods).PrettyString())
 	log.Infof("Modules: %s", jsonutils.Marshal(jmods).PrettyString())
 

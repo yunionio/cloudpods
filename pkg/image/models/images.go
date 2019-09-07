@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -175,7 +176,7 @@ func (manager *SImageManager) GetPropertyDetail(ctx context.Context, userCred mc
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	return modules.ListResult2JSONWithKey(items, manager.KeywordPlural()), nil
+	return modulebase.ListResult2JSONWithKey(items, manager.KeywordPlural()), nil
 }
 
 func (manager *SImageManager) IsCustomizedGetDetailsBody() bool {

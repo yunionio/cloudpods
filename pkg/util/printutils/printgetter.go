@@ -20,10 +20,9 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func getter2json(obj interface{}) jsonutils.JSONObject {
@@ -69,7 +68,7 @@ func PrintGetterList(data interface{}, columns []string) {
 	for i := 0; i < dataValue.Len(); i += 1 {
 		jsonList[i] = getter2json(dataValue.Index(i).Interface())
 	}
-	list := &modules.ListResult{
+	list := &modulebase.ListResult{
 		Data:   jsonList,
 		Total:  dataValue.Len(),
 		Limit:  0,

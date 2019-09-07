@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -31,7 +32,7 @@ import (
 const MACAddressPattern = `(([a-fA-F0-9]{2}[:-]){5}([a-fA-F0-9]{2}))`
 
 type HostManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *HostManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -150,7 +151,7 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonu
 		return nil, httperrors.NewInputParameterError(msg)
 	}
 
-	results := make(chan SubmitResult, len(hosts))
+	results := make(chan modulebase.SubmitResult, len(hosts))
 	for _, host := range hosts {
 		go func(data jsonutils.JSONObject) {
 			ret, e := this.Create(s, data)
@@ -158,23 +159,23 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonu
 			if e != nil {
 				ecls, ok := e.(*httputils.JSONClientError)
 				if ok {
-					results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.NewString(ecls.Details)}
+					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.NewString(ecls.Details)}
 				} else {
-					results <- SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
+					results <- modulebase.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 				}
 			} else {
-				results <- SubmitResult{Status: 200, Id: id, Data: ret}
+				results <- modulebase.SubmitResult{Status: 200, Id: id, Data: ret}
 			}
 		}(host)
 	}
 
-	ret := make([]SubmitResult, len(hosts))
+	ret := make([]modulebase.SubmitResult, len(hosts))
 	for i := 0; i < len(hosts); i++ {
 		ret[i] = <-results
 	}
 	close(results)
 
-	return SubmitResults2JSON(ret), nil
+	return modulebase.SubmitResults2JSON(ret), nil
 }
 
 var (

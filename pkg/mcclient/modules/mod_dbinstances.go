@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	DBInstance ResourceManager
+	DBInstance modulebase.ResourceManager
 )
 
 func init() {

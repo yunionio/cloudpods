@@ -21,10 +21,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/prettytable"
 
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
-func PrintJSONList(list *modules.ListResult, columns []string) {
+func PrintJSONList(list *modulebase.ListResult, columns []string) {
 	colsWithData := make([]string, 0)
 	if columns == nil || len(columns) == 0 {
 		colsWithDataMap := make(map[string]bool)
@@ -179,7 +179,7 @@ func PrintJSONObjectRecursiveEx(obj jsonutils.JSONObject, cb PrintJSONObjectRecu
 	printJSONObjectRecursive_(obj, cb)
 }
 
-func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {
+func PrintJSONBatchResults(results []modulebase.SubmitResult, columns []string) {
 	objs := make([]jsonutils.JSONObject, 0)
 	errs := make([]jsonutils.JSONObject, 0)
 	for _, r := range results {
@@ -194,9 +194,9 @@ func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {
 		}
 	}
 	if len(objs) > 0 {
-		PrintJSONList(&modules.ListResult{Data: objs}, columns)
+		PrintJSONList(&modulebase.ListResult{Data: objs}, columns)
 	}
 	if len(errs) > 0 {
-		PrintJSONList(&modules.ListResult{Data: errs}, []string{"status", "id", "error"})
+		PrintJSONList(&modulebase.ListResult{Data: errs}, []string{"status", "id", "error"})
 	}
 }

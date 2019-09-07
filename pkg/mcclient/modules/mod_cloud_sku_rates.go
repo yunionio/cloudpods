@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	CloudSkuRates ResourceManager
+	CloudSkuRates modulebase.ResourceManager
 )
 
 func init() {

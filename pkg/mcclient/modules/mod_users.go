@@ -18,20 +18,21 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type UserManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
-func (this *UserManager) GetTenantRoles(session *mcclient.ClientSession, uid string, tenantId string) (*ListResult, error) {
+func (this *UserManager) GetTenantRoles(session *mcclient.ClientSession, uid string, tenantId string) (*modulebase.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/roles", uid)
 	if len(tenantId) > 0 {
 		url = fmt.Sprintf("/tenants/%s/%s", tenantId, url)
 	}
-	return this._list(session, url, "roles")
+	return modulebase.List(this.ResourceManager, session, url, "roles")
 }
 
 func (this *UserManager) GetTenantRoleList(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -44,21 +45,21 @@ func (this *UserManager) GetTenantRoleList(session *mcclient.ClientSession, para
 	if e != nil {
 		return nil, e
 	}
-	return ListResult2JSON(ret), nil
+	return modulebase.ListResult2JSON(ret), nil
 }
 
 type UserManagerV3 struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
-func (this *UserManagerV3) GetProjects(session *mcclient.ClientSession, uid string) (*ListResult, error) {
+func (this *UserManagerV3) GetProjects(session *mcclient.ClientSession, uid string) (*modulebase.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/projects?admin=true", uid)
-	return this._list(session, url, "projects")
+	return modulebase.List(this.ResourceManager, session, url, "projects")
 }
 
-func (this *UserManagerV3) GetGroups(session *mcclient.ClientSession, uid string) (*ListResult, error) {
+func (this *UserManagerV3) GetGroups(session *mcclient.ClientSession, uid string) (*modulebase.ListResult, error) {
 	url := fmt.Sprintf("/users/%s/groups?admin=true", uid)
-	return this._list(session, url, "groups")
+	return modulebase.List(this.ResourceManager, session, url, "groups")
 }
 
 func (this *UserManagerV3) GetProjectsRPC(s *mcclient.ClientSession, uid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -66,7 +67,7 @@ func (this *UserManagerV3) GetProjectsRPC(s *mcclient.ClientSession, uid string,
 	if e != nil {
 		return nil, e
 	}
-	return ListResult2JSON(ret), nil
+	return modulebase.ListResult2JSON(ret), nil
 }
 
 /*

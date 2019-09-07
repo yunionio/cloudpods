@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type ContactsManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *ContactsManager) PerformActionWithArrayParams(s *mcclient.ClientSession, id string, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -34,13 +35,13 @@ func (this *ContactsManager) PerformActionWithArrayParams(s *mcclient.ClientSess
 		body.Add(params, this.KeywordPlural)
 	}
 
-	return this._post(s, path, body, this.Keyword)
+	return modulebase.Post(this.ResourceManager, s, path, body, this.Keyword)
 }
 
 func (this *ContactsManager) DoBatchDeleteContacts(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := "/contacts/delete-contact"
 
-	return this._post(s, path, params, this.Keyword)
+	return modulebase.Post(this.ResourceManager, s, path, params, this.Keyword)
 }
 
 var (

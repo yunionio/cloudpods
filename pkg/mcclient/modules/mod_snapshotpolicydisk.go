@@ -14,9 +14,11 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	SnapshotPolicyDisk  JointResourceManager
-	SnapshotPolicyDisk1 JointResourceManager
+	SnapshotPolicyDisk  modulebase.JointResourceManager
+	SnapshotPolicyDisk1 modulebase.JointResourceManager
 )
 
 func init() {

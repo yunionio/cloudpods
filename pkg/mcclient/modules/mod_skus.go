@@ -19,14 +19,15 @@ import (
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type SkusManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 type ServerSkusManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -52,14 +53,14 @@ func init() {
 	registerCompute(&ServerSkus)
 }
 
-func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*ListResult, error) {
+func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*modulebase.ListResult, error) {
 	p := strings.ToLower(providerId)
 	r := strings.ToLower(regionId)
 	z := strings.ToLower(zoneId)
 	url := fmt.Sprintf("/providers/%s/regions/%s/zones/%s/skus?limit=%d&offset=%d", p, r, z, limit, offset)
-	ret, err := self._list(s, url, self.KeywordPlural)
+	ret, err := modulebase.List(self.ResourceManager, s, url, self.KeywordPlural)
 	if err != nil {
-		return &ListResult{}, err
+		return &modulebase.ListResult{}, err
 	}
 
 	return ret, nil

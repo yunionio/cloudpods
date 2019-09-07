@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	NatSTable ResourceManager
+	NatSTable modulebase.ResourceManager
 )
 
 func init() {

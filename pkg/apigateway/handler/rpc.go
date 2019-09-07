@@ -22,13 +22,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -86,7 +86,7 @@ func rpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	pathParams := appctx.AppContextParams(ctx)
 	s := auth.GetSession(ctx, token, FetchRegion(req), pathParams["<apiver>"])
 	funcname := verb + utils.Kebab2Camel(callName, "-")
-	mod, e := modules.GetModule(s, resType)
+	mod, e := modulebase.GetModule(s, resType)
 	if e != nil || mod == nil {
 		if e != nil {
 			log.Debugf("module %s not found %s", resType, e)

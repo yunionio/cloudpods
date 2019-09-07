@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type RoleAssignmentManagerV3 struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 type role struct {
