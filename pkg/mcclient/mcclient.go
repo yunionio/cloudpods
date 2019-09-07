@@ -167,6 +167,10 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, p
 		// }
 	}
 	input.Auth.Context = aCtx
+	return this._authV3Input(input)
+}
+
+func (this *Client) _authV3Input(input SAuthenticationInputV3) (TokenCredential, error) {
 	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err

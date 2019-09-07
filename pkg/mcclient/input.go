@@ -59,6 +59,10 @@ type SAuthenticationIdentity struct {
 		Id string `json:"id,omitempty"`
 	} `json:"token,omitempty"`
 	AccessKeyRequest string `json:"access_key_secret,omitempty"`
+
+	CASTicket struct {
+		Id string `json:"id,omitempty"`
+	} `json:"cas_ticket,omitempty"`
 }
 
 type SAuthenticationInputV3 struct {
