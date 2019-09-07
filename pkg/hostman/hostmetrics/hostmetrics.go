@@ -164,8 +164,9 @@ func NewGuestMonitorCollector() *SGuestMonitorCollector {
 func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 	var err error
 	gms := make(map[string]*SGuestMonitor, 0)
-	guetmananger := guestman.GetGuestManager()
-	for _, guest := range guetmananger.Servers {
+	guestmanager := guestman.GetGuestManager()
+	guestmanager.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*guestman.SKVMGuestInstance)
 		pid := guest.GetPid()
 		if pid > 0 {
 			guestName, _ := guest.Desc.GetString("name")
@@ -185,12 +186,13 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 				gm, err = NewGuestMonitor(guestName, guestId, pid, nics, int(vcpuCount))
 				if err != nil {
 					log.Errorln(err)
-					continue
+					return true
 				}
 			}
 			gms[guestId] = gm
 		}
-	}
+		return true
+	})
 	s.monitors = gms
 	return gms
 }
