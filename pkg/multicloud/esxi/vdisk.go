@@ -48,11 +48,96 @@ func (disk *SVirtualDisk) getVirtualDisk() *types.VirtualDisk {
 	return disk.dev.(*types.VirtualDisk)
 }
 
-func (disk *SVirtualDisk) getBackingInfo() *types.VirtualDiskFlatVer2BackingInfo {
+type IDiskBackingInfo interface {
+	GetParent() IDiskBackingInfo
+	GetUuid() string
+	GetDiskMode() string
+	GetWriteThrough() bool
+	GetFileName() string
+	GetDatastore() *types.ManagedObjectReference
+}
+
+type sVirtualDiskFlatVer2BackingInfo struct {
+	info *types.VirtualDiskFlatVer2BackingInfo
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetParent() IDiskBackingInfo {
+	if s.info.Parent != nil {
+		return &sVirtualDiskFlatVer2BackingInfo{
+			info: s.info.Parent,
+		}
+	}
+	return nil
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetUuid() string {
+	return s.info.Uuid
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetDiskMode() string {
+	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetWriteThrough() bool {
+	if s.info.WriteThrough != nil && *s.info.WriteThrough == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetFileName() string {
+	return s.info.FileName
+}
+
+func (s *sVirtualDiskFlatVer2BackingInfo) GetDatastore() *types.ManagedObjectReference {
+	return s.info.Datastore
+}
+
+type sVirtualDiskSparseVer2BackingInfo struct {
+	info *types.VirtualDiskSparseVer2BackingInfo
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetParent() IDiskBackingInfo {
+	if s.info.Parent != nil {
+		return &sVirtualDiskSparseVer2BackingInfo{
+			info: s.info.Parent,
+		}
+	}
+	return nil
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetUuid() string {
+	return s.info.Uuid
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetDiskMode() string {
+	return s.info.DiskMode
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetWriteThrough() bool {
+	if s.info.WriteThrough != nil && *s.info.WriteThrough == true {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetFileName() string {
+	return s.info.FileName
+}
+
+func (s *sVirtualDiskSparseVer2BackingInfo) GetDatastore() *types.ManagedObjectReference {
+	return s.info.Datastore
+}
+
+func (disk *SVirtualDisk) getBackingInfo() IDiskBackingInfo {
 	backing := disk.getVirtualDisk().Backing
 	switch backing.(type) {
 	case *types.VirtualDiskFlatVer2BackingInfo:
-		return backing.(*types.VirtualDiskFlatVer2BackingInfo)
+		return &sVirtualDiskFlatVer2BackingInfo{
+			info: backing.(*types.VirtualDiskFlatVer2BackingInfo),
+		}
 	case *types.VirtualDeviceFileBackingInfo:
 	case *types.VirtualDiskFlatVer1BackingInfo:
 	case *types.VirtualDiskLocalPMemBackingInfo:
@@ -60,6 +145,9 @@ func (disk *SVirtualDisk) getBackingInfo() *types.VirtualDiskFlatVer2BackingInfo
 	case *types.VirtualDiskSeSparseBackingInfo:
 	case *types.VirtualDiskSparseVer1BackingInfo:
 	case *types.VirtualDiskSparseVer2BackingInfo:
+		return &sVirtualDiskSparseVer2BackingInfo{
+			info: backing.(*types.VirtualDiskSparseVer2BackingInfo),
+		}
 	case *types.VirtualFloppyImageBackingInfo:
 	case *types.VirtualNVDIMMBackingInfo:
 	case *types.VirtualParallelPortFileBackingInfo:
@@ -72,12 +160,12 @@ func (disk *SVirtualDisk) getBackingInfo() *types.VirtualDiskFlatVer2BackingInfo
 
 func (disk *SVirtualDisk) GetId() string {
 	backing := disk.getBackingInfo()
-	return backing.Uuid
+	return backing.GetUuid()
 }
 
 func (disk *SVirtualDisk) GetName() string {
 	backing := disk.getBackingInfo()
-	return path.Base(backing.FileName)
+	return path.Base(backing.GetFileName())
 }
 
 func (disk *SVirtualDisk) GetGlobalId() string {
@@ -115,7 +203,7 @@ func (disk *SVirtualDisk) GetAccessPath() string {
 		return ""
 	}
 	ds := istore.(*SDatastore)
-	return ds.getFullPath(disk.getBackingInfo().FileName)
+	return ds.getFullPath(disk.getBackingInfo().GetFileName())
 }
 
 func (disk *SVirtualDisk) GetDiskFormat() string {
@@ -123,7 +211,7 @@ func (disk *SVirtualDisk) GetDiskFormat() string {
 }
 
 func (disk *SVirtualDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	dsObj := disk.getBackingInfo().Datastore
+	dsObj := disk.getBackingInfo().GetDatastore()
 	dc, err := disk.vm.GetDatacenter()
 	if err != nil {
 		log.Errorf("fail to find datacenter %s", err)
@@ -142,15 +230,15 @@ func (disk *SVirtualDisk) GetIsAutoDelete() bool {
 
 func (disk *SVirtualDisk) GetTemplateId() string {
 	backing := disk.getBackingInfo()
-	if backing.Parent != nil {
-		return path.Base(backing.Parent.FileName)
+	if backing.GetParent() != nil {
+		return path.Base(backing.GetParent().GetFileName())
 	}
 	return ""
 }
 
 func (disk *SVirtualDisk) GetDiskType() string {
 	backing := disk.getBackingInfo()
-	if backing.Parent != nil {
+	if backing.GetParent() != nil {
 		return api.DISK_TYPE_SYS
 	}
 	return api.DISK_TYPE_DATA
@@ -162,7 +250,7 @@ func (disk *SVirtualDisk) GetFsFormat() string {
 
 func (disk *SVirtualDisk) getDiskMode() string {
 	backing := disk.getBackingInfo()
-	return backing.DiskMode
+	return backing.GetDiskMode()
 }
 
 func (disk *SVirtualDisk) GetIsNonPersistent() bool {
@@ -185,7 +273,7 @@ func (disk *SVirtualDisk) GetDriver() string {
 
 func (disk *SVirtualDisk) GetCacheMode() string {
 	backing := disk.getBackingInfo()
-	if backing.WriteThrough != nil && *backing.WriteThrough {
+	if backing.GetWriteThrough() {
 		return "writethrough"
 	} else {
 		return "none"
@@ -203,7 +291,7 @@ func (disk *SVirtualDisk) Delete(ctx context.Context) error {
 		return err
 	}
 	ds := istorage.(*SDatastore)
-	return ds.DeleteVmdk(ctx, disk.getBackingInfo().FileName)
+	return ds.DeleteVmdk(ctx, disk.getBackingInfo().GetFileName())
 }
 
 func (disk *SVirtualDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
