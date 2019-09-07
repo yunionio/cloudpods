@@ -37,6 +37,9 @@ var (
 		"loadbalancerclusters",
 		"loadbalanceragents",
 		"netowkinterfaces",
+		"natgateways",
+		"natsentries",
+		"natdentries",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",

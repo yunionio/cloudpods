@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -53,31 +53,23 @@ func (self *SNatSEntryDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 	cloudNatSEntry, err := cloudNatGateway.GetINatSEntryByID(snatEntry.ExternalId)
-	if err != nil {
+	if err == cloudprovider.ErrNotFound {
+		//already delete
+	} else if err != nil {
 		self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Get SNat Entry by ID '%s' failed", snatEntry.ExternalId))
 		return
-	}
-	if cloudNatSEntry == nil {
-		err = snatEntry.Purge(ctx, self.UserCred)
+	} else if cloudNatSEntry != nil {
+		err = cloudNatSEntry.Delete()
+		if err != nil {
+			self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Delete SNat Entry '%s' failed", snatEntry.ExternalId))
+			return
+		}
+
+		err = cloudprovider.WaitDeleted(cloudNatSEntry, 10*time.Second, 300*time.Second)
 		if err != nil {
 			self.taskFailed(ctx, snatEntry, err)
 			return
 		}
-		logclient.AddActionLogWithStartable(self, snatEntry, logclient.ACT_DELETE, nil, self.UserCred, true)
-		self.SetStageComplete(ctx, nil)
-		return
-	}
-
-	err = cloudNatSEntry.Delete()
-	if err != nil {
-		self.taskFailed(ctx, snatEntry, errors.Wrapf(err, "Delete SNat Entry '%s' failed", snatEntry.ExternalId))
-		return
-	}
-
-	err = cloudprovider.WaitDeleted(cloudNatSEntry, 10*time.Second, 300*time.Second)
-	if err != nil {
-		self.taskFailed(ctx, snatEntry, err)
-		return
 	}
 
 	err = snatEntry.Purge(ctx, self.UserCred)
