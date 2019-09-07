@@ -305,7 +305,7 @@ func (s *SKVMGuestInstance) GetStopScriptPath() string {
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
-	s.manager.Servers[s.Id] = s
+	s.manager.SaveServer(s.Id, s)
 	s.manager.RemoveCandidateServer(s)
 
 	if s.IsDirtyShotdown() && !pendingDelete {
