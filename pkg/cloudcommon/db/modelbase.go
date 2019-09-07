@@ -255,6 +255,10 @@ func (manager *SModelBaseManager) AllowGetPropertyDistinctField(ctx context.Cont
 	return true
 }
 
+func (manager *SModelBaseManager) GetPagingConfig() *SPagingConfig {
+	return nil
+}
+
 func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	im, ok := manager.GetVirtualObject().(IModelManager)
 	if !ok {
