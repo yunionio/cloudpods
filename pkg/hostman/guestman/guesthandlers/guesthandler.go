@@ -430,16 +430,16 @@ func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSON
 }
 
 func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestman.GetGuestManager().IsGuestExist(sid) {
-		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
-	}
 	diskId, err := body.GetString("disk_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
 
 	var disk storageman.IDisk
-	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
@@ -458,9 +458,6 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 }
 
 func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestman.GetGuestManager().IsGuestExist(sid) {
-		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
-	}
 	snapshotId, err := body.GetString("snapshot_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
@@ -469,9 +466,12 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
 
 	var disk storageman.IDisk
-	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
@@ -498,9 +498,12 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
+	guest, ok := guestman.GetGuestManager().GetServer(sid)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
 
 	var disk storageman.IDisk
-	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
