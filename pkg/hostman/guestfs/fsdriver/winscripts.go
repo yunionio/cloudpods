@@ -337,13 +337,17 @@ function mtw_assign_volume_letter(volume_no_set, letter_offset) {
             charcode = volume_shift_list[i].charcode_next;
             cmd_lines.push(
                 'select volume=' + volume_no,
-                'assign letter=' + String.fromCharCode(charcode)
+                'assign letter=' + String.fromCharCode(charcode),
+                'select partition 1',
+                'format fs ntfs'
             );
         }
     }
     cmd_lines.push(
         'select volume=' + volume_no_set,
-        'assign letter=' + letter_set
+        'assign letter=' + letter_set,
+        'select partition 1',
+        'format fs ntfs'
     );
     mtw_execute_diskpart(cmd_lines);
 
@@ -468,6 +472,15 @@ function mtw_mount_disk() {
     }
 }
 
+function mtw_extend_c() {
+    cmd_lines = [
+        'select volume c',
+        'extend',
+    ];
+    mtw_execute_diskpart(cmd_lines);
+    mtw_append_debug(["extend c"], ["success"]);
+}
+
 function mtw_main() {
     var exec_helper, args = WScript.Arguments, debug_path = '';
 
@@ -486,6 +499,11 @@ function mtw_main() {
 
     /* http://support.microsoft.com/kb/937252 */
     exec_helper = mtw_create_shell().Exec('diskpart');
+    try {
+        mtw_extend_c();
+    } catch (e) {
+        mtw_append_debug(["extend c"], ["failed"]);
+    }
     try {
         mtw_mount_disk();
     } catch (e) {
