@@ -472,6 +472,34 @@ func newDebianLikeRootFs(part IDiskPartition) *sDebianLikeRootFs {
 	}
 }
 
+func (d *sDebianLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
+	if err := d.sLinuxRootFs.PrepareFsForTemplate(rootFs); err != nil {
+		return err
+	}
+	// clean /etc/network/interface
+	if rootFs.Exists("/etc/network/interface", false) {
+		fn := "/etc/network/interfaces"
+		var cmds strings.Builder
+		cmds.WriteString("auto lo\n")
+		cmds.WriteString("iface lo inet loopback\n\n")
+		if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
+			return errors.Wrap(err, "file put content /etc/network/interface")
+		}
+	}
+	for _, dir := range []string{
+		"/etc/network/interface.d",
+		"/etc/network/if-pre-up.d", "/etc/network/if-up.d", "/etc/network/if-post-up.d",
+		"/etc/network/if-pre-down.d", "/etc/network/if-down.d", "/etc/network/if-post-down.d",
+	} {
+		if rootFs.Exists(dir, false) {
+			if err := rootFs.Cleandir(dir, true, true); err != nil {
+				return errors.Wrapf(err, "clean dir %s", dir)
+			}
+		}
+	}
+	return nil
+}
+
 func (d *sDebianLikeRootFs) GetReleaseInfo(rootFs IDiskPartition, driver IDebianRootFsDriver) *deployapi.ReleaseInfo {
 	version, err := rootFs.FileGetContents(driver.VersionFilePath(), false)
 	if err != nil {
@@ -756,6 +784,20 @@ func newRedhatLikeRootFs(part IDiskPartition) *sRedhatLikeRootFs {
 	return &sRedhatLikeRootFs{
 		sLinuxRootFs: newLinuxRootFs(part),
 	}
+}
+
+func (r *sRedhatLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
+	if err := r.sLinuxRootFs.PrepareFsForTemplate(rootFs); err != nil {
+		return err
+	}
+	networkPath := "/etc/sysconfig/network-scripts"
+	files := rootFs.ListDir(networkPath, false)
+	for i := 0; i < len(files); i++ {
+		if strings.HasPrefix(files[i], "ifcfg-") && files[i] != "ifcfg-lo" {
+			rootFs.Remove(path.Join(networkPath, files[i]), false)
+		}
+	}
+	return nil
 }
 
 func (r *sRedhatLikeRootFs) RootSignatures() []string {
