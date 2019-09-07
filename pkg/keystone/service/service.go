@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"

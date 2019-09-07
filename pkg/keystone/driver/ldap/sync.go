@@ -17,7 +17,6 @@ package ldap
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"gopkg.in/ldap.v3"
 
@@ -26,9 +25,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
 )
@@ -166,76 +162,11 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 }
 
 func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (*models.SDomain, error) {
-	domainId, err := models.IdmappingManager.RegisterIdMap(ctx, self.IdpId, info.Id, api.IdMappingEntityDomain)
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
 	if err != nil {
-		return nil, errors.Wrap(err, "IdmappingManager.RegisterIdMap")
+		return nil, errors.Wrap(err, "self.GetIdentityProvider")
 	}
-
-	domain, err := models.DomainManager.FetchDomainById(domainId)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "DomainManager.FetchDomainById")
-	}
-	if err == nil {
-		if domain.Name != info.Name {
-			// sync domain name
-			newName, err := db.GenerateName2(models.DomainManager, nil, info.Name, domain)
-			if err != nil {
-				log.Errorf("sync existing domain name (%s=%s) generate fail %s", domain.Name, info.Name, err)
-			} else {
-				_, err = db.Update(domain, func() error {
-					domain.Name = newName
-					return nil
-				})
-				if err != nil {
-					log.Errorf("sync existing domain name (%s=%s) update fail %s", domain.Name, info.Name, err)
-				}
-			}
-		}
-		return domain, nil
-	}
-
-	lockman.LockClass(ctx, models.DomainManager, "")
-	lockman.ReleaseClass(ctx, models.DomainManager, "")
-
-	domain = &models.SDomain{}
-	domain.SetModelManager(models.DomainManager, domain)
-	domain.Id = domainId
-	newName, err := db.GenerateName(models.DomainManager, nil, info.Name)
-	if err != nil {
-		return nil, errors.Wrap(err, "GenerateName")
-	}
-	domain.Name = newName
-	domain.Enabled = tristate.True
-	domain.IsDomain = tristate.True
-	domain.DomainId = api.KeystoneDomainRoot
-	domain.Description = fmt.Sprintf("domain for %s", info.DN)
-	err = models.DomainManager.TableSpec().Insert(domain)
-	if err != nil {
-		return nil, errors.Wrap(err, "insert")
-	}
-
-	if self.AutoCreateProject && consts.GetNonDefaultDomainProjects() {
-		project := &models.SProject{}
-		project.SetModelManager(models.ProjectManager, project)
-		projectName := models.NormalizeProjectName(fmt.Sprintf("%s_default_project", info.Name))
-		newName, err := db.GenerateName(models.ProjectManager, nil, projectName)
-		if err != nil {
-			// ignore the error
-			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
-			newName = projectName
-		}
-		project.Name = newName
-		project.DomainId = domain.Id
-		project.Description = fmt.Sprintf("Default project for domain %s", info.Name)
-		project.IsDomain = tristate.False
-		project.ParentId = domain.Id
-		err = models.ProjectManager.TableSpec().Insert(project)
-		if err != nil {
-			log.Errorf("models.ProjectManager.Insert fail %s", err)
-		}
-	}
-
-	return domain, nil
+	return idp.SyncOrCreateDomain(ctx, info.Id, info.Name, info.DN)
 }
 
 func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string) (map[string]string, error) {
@@ -294,76 +225,32 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	return userIdMap, nil
 }
 
-func copyUserInfo(ui SUserInfo, userId string, domainId string, user *models.SUser) {
-	user.Id = userId
-	user.Name = ui.Name
-	if ui.Enabled {
-		user.Enabled = tristate.True
-	} else {
-		user.Enabled = tristate.False
-	}
-	user.DomainId = domainId
-	if val, ok := ui.Extra["email"]; ok && len(val) > 0 {
-		user.Email = val
-	}
-	if val, ok := ui.Extra["displayname"]; ok && len(val) > 0 {
-		user.Displayname = val
-	}
-	if val, ok := ui.Extra["mobile"]; ok && len(val) > 0 {
-		user.Mobile = val
-	}
-}
-
-func registerNonlocalUser(ctx context.Context, ui SUserInfo, userId string, domainId string) error {
-	lockman.LockRawObject(ctx, models.UserManager.Keyword(), userId)
-	defer lockman.ReleaseRawObject(ctx, models.UserManager.Keyword(), userId)
-
-	userObj, err := db.NewModelObject(models.UserManager)
-	if err != nil {
-		return errors.Wrap(err, "db.NewModelObject")
-	}
-	user := userObj.(*models.SUser)
-	q := models.UserManager.RawQuery().Equals("id", userId)
-	err = q.First(user)
-	if err != nil && err != sql.ErrNoRows {
-		return errors.Wrap(err, "Query user")
-	}
-	if err == nil {
-		// update
-		_, err := db.Update(user, func() error {
-			copyUserInfo(ui, userId, domainId, user)
-			user.MarkUnDelete()
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "Update")
-		}
-	} else {
-		// new user
-		copyUserInfo(ui, userId, domainId, user)
-		err = models.UserManager.TableSpec().Insert(user)
-		if err != nil {
-			return errors.Wrap(err, "Insert")
-		}
-	}
-	return nil
-}
-
 func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId string) (string, error) {
-	userId, err := models.IdmappingManager.RegisterIdMap(ctx, self.IdpId, ui.Id, api.IdMappingEntityUser)
+	idp, err := models.IdentityProviderManager.FetchIdentityProviderById(self.IdpId)
 	if err != nil {
-		return "", errors.Wrap(err, "models.IdmappingManager.RegisterIdMap")
+		return "", errors.Wrap(err, "models.IdentityProviderManager.FetchIdentityProviderById")
+	}
+	usr, err := idp.SyncOrCreateUser(ctx, ui.Id, ui.Name, domainId, func(user *models.SUser) {
+		if ui.Enabled {
+			user.Enabled = tristate.True
+		} else {
+			user.Enabled = tristate.False
+		}
+		if val, ok := ui.Extra["email"]; ok && len(val) > 0 {
+			user.Email = val
+		}
+		if val, ok := ui.Extra["displayname"]; ok && len(val) > 0 {
+			user.Displayname = val
+		}
+		if val, ok := ui.Extra["mobile"]; ok && len(val) > 0 {
+			user.Mobile = val
+		}
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "idp.SyncOrCreateUser")
 	}
 
-	log.Debugf("syncUserDB: %s", userId)
-
-	// insert nonlocal user
-	err = registerNonlocalUser(ctx, ui, userId, domainId)
-	if err != nil {
-		return "", errors.Wrap(err, "registerNonlocalUser")
-	}
-
-	return userId, nil
+	return usr.Id, nil
 }
 
 func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPClient, domainId string, baseDN string, userIdMap map[string]string) error {

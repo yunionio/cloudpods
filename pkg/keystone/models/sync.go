@@ -25,7 +25,7 @@ import (
 )
 
 func AutoSyncIdentityProviderTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	idps, err := IdentityProviderManager.fetchEnabledProviders()
+	idps, err := IdentityProviderManager.FetchEnabledProviders("")
 	if err != nil {
 		log.Errorf("FetchEnabledProviders fail %s", err)
 		return
@@ -63,6 +63,10 @@ func syncIdentityProvider(ctx context.Context, userCred mcclient.TokenCredential
 	if drvCls.SyncMethod() == api.IdentityProviderSyncLocal {
 		// skip, no need to sync
 		log.Debugf("IDP %s is local, no need to sync", idp.Name)
+		return nil
+	}
+	if drvCls.SyncMethod() == api.IdentityProviderSyncOnAuth {
+		log.Debugf("IDP %s sync on auth, no need to sync", idp.Name)
 		return nil
 	}
 	submitIdpSyncTask(ctx, userCred, idp)
