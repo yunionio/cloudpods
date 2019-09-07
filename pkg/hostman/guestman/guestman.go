@@ -59,7 +59,7 @@ const (
 type SGuestManager struct {
 	host             hostutils.IHost
 	ServersPath      string
-	Servers          map[string]*SKVMGuestInstance
+	Servers          *sync.Map
 	CandidateServers map[string]*SKVMGuestInstance
 	ServersLock      *sync.Mutex
 
@@ -72,7 +72,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager := &SGuestManager{}
 	manager.host = host
 	manager.ServersPath = serversPath
-	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
+	manager.Servers = new(sync.Map)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
 	manager.ServersLock = &sync.Mutex{}
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
@@ -80,6 +80,19 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.LoadExistingGuests()
 	manager.host.StartDHCPServer()
 	return manager
+}
+
+func (m *SGuestManager) GetServer(sid string) (*SKVMGuestInstance, bool) {
+	s, ok := m.Servers.Load(sid)
+	if ok {
+		return s.(*SKVMGuestInstance), ok
+	} else {
+		return nil, ok
+	}
+}
+
+func (m *SGuestManager) SaveServer(sid string, s *SKVMGuestInstance) {
+	m.Servers.Store(sid, s)
 }
 
 func (m *SGuestManager) Bootstrap() {
@@ -173,9 +186,11 @@ func (m *SGuestManager) OnLoadExistingGuestsComplete() {
 }
 
 func (m *SGuestManager) ClenaupCpuset() {
-	for _, guest := range m.Servers {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
 		guest.CleanupCpuset()
-	}
+		return true
+	})
 }
 
 func (m *SGuestManager) StartCpusetBalancer() {
@@ -218,16 +233,11 @@ func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
 }
 
 func (m *SGuestManager) IsGuestExist(sid string) bool {
-	if _, ok := guestManger.Servers[sid]; !ok {
+	if _, ok := m.GetServer(sid); !ok {
 		return false
 	} else {
 		return true
 	}
-}
-
-func (m *SGuestManager) GetGuestById(sid string) *SKVMGuestInstance {
-	guest, _ := guestManger.Servers[sid]
-	return guest
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
@@ -236,7 +246,7 @@ func (m *SGuestManager) LoadExistingGuests() {
 		log.Errorf("List servers path %s error %s", m.ServersPath, err)
 	}
 	for _, f := range files {
-		if _, ok := m.Servers[f.Name()]; !ok && m.IsGuestDir(f) {
+		if _, ok := m.GetServer(f.Name()); !ok && m.IsGuestDir(f) {
 			log.Infof("Find existing guest %s", f.Name())
 			m.LoadServer(f.Name())
 		}
@@ -255,11 +265,27 @@ func (m *SGuestManager) LoadServer(sid string) {
 
 //isDeleted先不加，目测只是在ofp中用到了
 func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (jsonutils.JSONObject, jsonutils.JSONObject) {
-	servers := m.Servers
 	if isCandidate {
-		servers = m.CandidateServers
+		return m.getGuestNicDescInCandidate(mac, ip, port, bridge)
 	}
-	for _, guest := range servers {
+	var nic jsonutils.JSONObject
+	var guestDesc jsonutils.JSONObject
+	m.Servers.Range(func(k interface{}, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
+		if guest.IsLoaded() {
+			nic = guest.GetNicDescMatch(mac, ip, port, bridge)
+			if nic != nil {
+				guestDesc = guest.Desc
+				return false
+			}
+		}
+		return true
+	})
+	return guestDesc, nic
+}
+
+func (m *SGuestManager) getGuestNicDescInCandidate(mac, ip, port, bridge string) (jsonutils.JSONObject, jsonutils.JSONObject) {
+	for _, guest := range m.CandidateServers {
 		if guest.IsLoaded() {
 			nic := guest.GetNicDescMatch(mac, ip, port, bridge)
 			if nic != nil {
@@ -273,18 +299,16 @@ func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidat
 func (m *SGuestManager) PrepareCreate(sid string) error {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()
-	if _, ok := m.Servers[sid]; ok {
+	if _, ok := m.GetServer(sid); ok {
 		return httperrors.NewBadRequestError("Guest %s exists", sid)
 	}
 	guest := NewKVMGuestInstance(sid, m)
-	m.Servers[sid] = guest
+	m.SaveServer(sid, guest)
 	return guest.PrepareDir()
 }
 
 func (m *SGuestManager) PrepareDeploy(sid string) error {
-	m.ServersLock.Lock()
-	defer m.ServersLock.Unlock()
-	if guest, ok := m.Servers[sid]; !ok {
+	if guest, ok := m.GetServer(sid); !ok {
 		return httperrors.NewBadRequestError("Guest %s not exists", sid)
 	} else {
 		if guest.IsRunning() || guest.IsSuspend() {
@@ -295,7 +319,7 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 }
 
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
-	if guest, ok := m.Servers[sid]; ok {
+	if guest, ok := m.GetServer(sid); ok {
 		if guest.IsRunning() {
 			guest.Monitor.HumanMonitorCommand(cmd, callback)
 			return nil
@@ -314,7 +338,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		return nil, hostutils.ParamsError
 	}
 
-	guest, ok := m.Servers[deployParams.Sid]
+	guest, ok := m.GetServer(deployParams.Sid)
 	if ok {
 		desc, _ := deployParams.Body.Get("desc")
 		if desc != nil {
@@ -353,14 +377,17 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 
 func (m *SGuestManager) Status(sid string) string {
 	status := m.GetStatus(sid)
-	if status == GUEST_RUNNING && m.Servers[sid].Monitor == nil && !m.Servers[sid].IsStopping() {
-		m.Servers[sid].StartMonitor(context.Background())
+	if status == GUEST_RUNNING {
+		guest, _ := m.GetServer(sid)
+		if guest.Monitor == nil && !guest.IsStopping() {
+			guest.StartMonitor(context.Background())
+		}
 	}
 	return status
 }
 
 func (m *SGuestManager) GetStatus(sid string) string {
-	if guest, ok := m.Servers[sid]; ok {
+	if guest, ok := m.GetServer(sid); ok {
 		if guest.IsRunning() && guest.Monitor != nil && guest.IsMaster() {
 			mirrorStatus := guest.MirrorJobStatus()
 			if mirrorStatus.InProcess() {
@@ -384,8 +411,8 @@ func (m *SGuestManager) GetStatus(sid string) string {
 }
 
 func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
-	if guest, ok := m.Servers[sid]; ok {
-		delete(m.Servers, sid)
+	if guest, ok := m.GetServer(sid); ok {
+		m.Servers.Delete(sid)
 		// 这里应该不需要append到deleted servers
 		// 据观察 deleted servers 目的是为了给ofp_delegate使用，ofp已经不用了
 		return guest, nil
@@ -395,7 +422,7 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 }
 
 func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if guest, ok := m.Servers[sid]; ok {
+	if guest, ok := m.GetServer(sid); ok {
 		if desc, err := body.Get("desc"); err == nil {
 			guest.SaveDesc(desc)
 		}
@@ -422,7 +449,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 }
 
 func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
-	if guest, ok := m.Servers[sid]; ok {
+	if guest, ok := m.GetServer(sid); ok {
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.ExecStopTask, timeout)
 		return nil
 	} else {
@@ -435,7 +462,7 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := m.Servers[syncParams.Sid]
+	guest, _ := m.GetServer(syncParams.Sid)
 	if syncParams.Body.Contains("desc") {
 		desc, _ := syncParams.Body.Get("desc")
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
@@ -449,7 +476,7 @@ func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (j
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := m.Servers[sid]
+	guest, ok := m.GetServer(sid)
 	guest.ExecSuspendTask(ctx)
 	return nil, nil
 }
@@ -459,7 +486,7 @@ func (m *SGuestManager) GuestIoThrottle(ctx context.Context, params interface{})
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := m.Servers[guestIoThrottle.Sid]
+	guest, _ := m.GetServer(guestIoThrottle.Sid)
 	if guest.IsRunning() {
 		return nil, guest.BlockIoThrottle(ctx, guestIoThrottle.BPS, guestIoThrottle.IOPS)
 	}
@@ -471,7 +498,7 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := m.Servers[migParams.Sid]
+	guest, _ := m.GetServer(migParams.Sid)
 	disksPrepare, err := guest.PrepareMigrate(migParams.LiveMigrate)
 	if err != nil {
 		return nil, err
@@ -490,7 +517,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		return nil, hostutils.ParamsError
 	}
 
-	guest := m.Servers[migParams.Sid]
+	guest, _ := m.GetServer(migParams.Sid)
 	if err := guest.CreateFromDesc(migParams.Desc); err != nil {
 		return nil, err
 	}
@@ -530,7 +557,7 @@ func (m *SGuestManager) LiveMigrate(ctx context.Context, params interface{}) (js
 		return nil, hostutils.ParamsError
 	}
 
-	guest := m.Servers[migParams.Sid]
+	guest, _ := m.GetServer(migParams.Sid)
 	task := NewGuestLiveMigrateTask(ctx, guest, migParams)
 	task.Start()
 	return nil, nil
@@ -540,13 +567,13 @@ func (m *SGuestManager) CanMigrate(sid string) bool {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()
 
-	if _, ok := m.Servers[sid]; ok {
+	if _, ok := m.GetServer(sid); ok {
 		log.Infof("Guest %s exists", sid)
 		return false
 	}
 
 	guest := NewKVMGuestInstance(sid, m)
-	m.Servers[sid] = guest
+	m.Servers.Store(sid, guest)
 	return true
 }
 
@@ -563,12 +590,14 @@ func (m *SGuestManager) GetFreePortByBase(basePort int) int {
 
 func (m *SGuestManager) GetFreeVncPort() int {
 	vncPorts := make(map[int]struct{}, 0)
-	for _, guest := range m.Servers {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
 		inUsePort := guest.GetVncPort()
 		if inUsePort > 0 {
 			vncPorts[inUsePort] = struct{}{}
 		}
-	}
+		return true
+	})
 	var port = 1
 	for {
 		if _, ok := vncPorts[port]; !ok && !netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
@@ -588,7 +617,7 @@ func (m *SGuestManager) ReloadDiskSnapshot(
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := guestManger.Servers[reloadParams.Sid]
+	guest, _ := m.GetServer(reloadParams.Sid)
 	return guest.ExecReloadDiskTask(ctx, reloadParams.Disk)
 }
 
@@ -597,7 +626,7 @@ func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jso
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := guestManger.Servers[snapshotParams.Sid]
+	guest, _ := m.GetServer(snapshotParams.Sid)
 	return guest.ExecDiskSnapshotTask(ctx, snapshotParams.Disk, snapshotParams.SnapshotId)
 }
 
@@ -608,7 +637,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 	}
 
 	if len(delParams.ConvertSnapshot) > 0 {
-		guest := guestManger.Servers[delParams.Sid]
+		guest, _ := m.GetServer(delParams.Sid)
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.PendingDelete)
 	} else {
@@ -619,7 +648,7 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 }
 
 func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool) (jsonutils.JSONObject, error) {
-	guest := guestManger.Servers[sid]
+	guest, _ := m.GetServer(sid)
 	resumeTask := NewGuestResumeTask(ctx, guest)
 	if isLiveMigrate {
 		guest.StartPresendArp()
@@ -629,7 +658,7 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 }
 
 func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId string, sizeMb int64) (jsonutils.JSONObject, error) {
-	guest, ok := guestManger.Servers[sid]
+	guest, ok := m.GetServer(sid)
 	if !ok {
 		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
 	}
@@ -656,7 +685,7 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := guestManger.Servers[mirrorParams.Sid]
+	guest, _ := m.GetServer(mirrorParams.Sid)
 	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
 		return nil, err
 	}
@@ -670,15 +699,17 @@ func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
-	guest := guestManger.Servers[hotplugParams.Sid]
+	guest, _ := m.GetServer(hotplugParams.Sid)
 	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
 	return nil, nil
 }
 
 func (m *SGuestManager) ExitGuestCleanup() {
-	for _, guest := range m.Servers {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
 		guest.ExitCleanup(false)
-	}
+		return true
+	})
 
 	cgrouputils.CgroupCleanAll()
 }
