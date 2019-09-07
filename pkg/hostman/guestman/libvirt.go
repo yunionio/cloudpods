@@ -70,7 +70,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		}
 		disksPath.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
 	}
-	guest := m.Servers[createConfig.Sid]
+	guest, _ := m.GetServer(createConfig.Sid)
 	if err = guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
