@@ -483,6 +483,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 	s.OnResumeSyncMetadataInfo()
 	s.SyncStatus()
 	s.optimizeOom()
+	s.doBlockIoThrottle()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
 	if len(disksIdx) > 0 {
@@ -491,6 +492,17 @@ func (s *SGuestResumeTask) onStartRunning() {
 		timeutils2.AddTimeout(
 			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
 			func() { s.startStreamDisks(nil) })
+	}
+}
+
+func (s *SGuestResumeTask) doBlockIoThrottle() {
+	disks, _ := s.Desc.GetArray("disks")
+	if len(disks) > 0 {
+		bps, _ := disks[0].Int("bps")
+		iops, _ := disks[0].Int("iops")
+		if bps > 0 || iops > 0 {
+			s.BlockIoThrottle(context.Background(), bps, iops)
+		}
 	}
 }
 
@@ -1190,15 +1202,29 @@ func (task *SGuestBlockIoThrottleTask) onBlockDriversSucc(res *jsonutils.JSONArr
 	task.doIoThrottle(drivers)
 }
 
+func (task *SGuestBlockIoThrottleTask) taskFail(reason string) {
+	if taskId := task.ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		hostutils.TaskFailed(task.ctx, reason)
+	} else {
+		log.Errorln(reason)
+	}
+}
+
+func (task *SGuestBlockIoThrottleTask) taskComplete(data jsonutils.JSONObject) {
+	if taskId := task.ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		hostutils.TaskComplete(task.ctx, data)
+	}
+}
+
 func (task *SGuestBlockIoThrottleTask) doIoThrottle(drivers []string) {
 	if len(drivers) == 0 {
-		hostutils.TaskComplete(task.ctx, nil)
+		task.taskComplete(nil)
 	} else {
 		driver := drivers[0]
 		drivers = drivers[1:]
 		_cb := func(res string) {
 			if len(res) > 0 {
-				hostutils.TaskFailed(task.ctx, res)
+				task.taskFail(res)
 			} else {
 				task.doIoThrottle(drivers)
 			}
