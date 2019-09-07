@@ -116,6 +116,10 @@ func (l *sGuestRootFsDriver) IsCloudinitInstall() bool {
 	return false
 }
 
+func (l *sGuestRootFsDriver) IsResizeFsPartitionSupport() bool {
+	return true
+}
+
 func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool) error {
 	usrStat := rootFs.Stat(usrDir, false)
 	if usrStat != nil {
