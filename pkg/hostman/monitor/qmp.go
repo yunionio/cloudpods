@@ -144,7 +144,7 @@ func (m *QmpMonitor) callBack(res *Response) {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorf("PANIC %v:\n%s", debug.Stack(), r)
+					log.Errorf("PANIC %s:\n%s", debug.Stack(), r)
 				}
 			}()
 			cb(res)

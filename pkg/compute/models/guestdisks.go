@@ -61,6 +61,8 @@ type SGuestdisk struct {
 	Driver    string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	CacheMode string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	AioMode   string `width:"32" charset:"ascii" nullable:"true" get:"user" update:"user"`  // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	Iops      int    `nullable:"true" default:"0"`
+	Bps       int    `nullable:"true" default:"0"` // Mb
 
 	Mountpoint string `width:"256" charset:"utf8" nullable:"true" get:"user"` // Column(VARCHAR(256, charset='utf8'), nullable=True)
 
@@ -169,6 +171,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	desc.Add(jsonutils.NewString(self.Driver), "driver")
 	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
 	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
+	desc.Add(jsonutils.NewInt(int64(self.Iops)), "iops")
+	desc.Add(jsonutils.NewInt(int64(self.Bps)), "bps")
 	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
 	templateId := disk.GetTemplateId()
 	if len(templateId) > 0 {
@@ -236,6 +240,8 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
 	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	desc.Add(jsonutils.NewInt(int64(self.Iops)), "iops")
+	desc.Add(jsonutils.NewInt(int64(self.Bps)), "bps")
 
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
