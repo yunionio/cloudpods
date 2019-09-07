@@ -14,9 +14,11 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	MonitorTemplates      ResourceManager
-	MonitorTemplateInputs JointResourceManager
+	MonitorTemplates      modulebase.ResourceManager
+	MonitorTemplateInputs modulebase.JointResourceManager
 )
 
 func init() {

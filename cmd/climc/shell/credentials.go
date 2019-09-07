@@ -16,11 +16,12 @@ package shell
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 
-	"time"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
@@ -204,7 +205,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result := modules.ListResult{}
+		result := modulebase.ListResult{}
 		result.Data = make([]jsonutils.JSONObject, len(secrets))
 		for i := range secrets {
 			result.Data[i] = jsonutils.Marshal(secrets[i])

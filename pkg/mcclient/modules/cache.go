@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -58,7 +59,7 @@ func init() {
 	}
 }
 
-func cacheKey(manager Manager, idstr string) string {
+func cacheKey(manager modulebase.Manager, idstr string) string {
 	return fmt.Sprintf("%s-%s", manager.KeyString(), idstr)
 }
 
@@ -85,7 +86,7 @@ func (cm *sCachedResourceManager) getUnlocked(key string, alloc bool) *sCachedRe
 	return &obj
 }
 
-func (cm *sCachedResourceManager) getById(manager Manager, session *mcclient.ClientSession, idstr string) (jsonutils.JSONObject, error) {
+func (cm *sCachedResourceManager) getById(manager modulebase.Manager, session *mcclient.ClientSession, idstr string) (jsonutils.JSONObject, error) {
 	key := cacheKey(manager, idstr)
 	cacheObj := cm.getLocked(key)
 

@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Networkinterfacenetworks JointResourceManager
+	Networkinterfacenetworks modulebase.JointResourceManager
 )
 
 func init() {

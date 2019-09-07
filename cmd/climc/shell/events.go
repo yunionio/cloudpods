@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
@@ -66,7 +67,7 @@ func doIdentityEventList(s *mcclient.ClientSession, args *EventListOptions) erro
 	return doEventList(modules.IdentityLogs, s, args)
 }
 
-func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
+func doEventList(man modulebase.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Type), "obj_type")

@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -143,7 +144,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(modules.JSON2ListResult(result), nil)
+		printList(modulebase.JSON2ListResult(result), nil)
 		return nil
 	})
 

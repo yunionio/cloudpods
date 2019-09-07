@@ -18,15 +18,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type schedtagModelHelper struct {
-	managers []modules.JointResourceManager
+	managers []modulebase.JointResourceManager
 }
 
-func newSchedtagModelHelper(mans ...modules.JointResourceManager) *schedtagModelHelper {
+func newSchedtagModelHelper(mans ...modulebase.JointResourceManager) *schedtagModelHelper {
 	return &schedtagModelHelper{managers: mans}
 }
 
@@ -39,13 +40,13 @@ func (h *schedtagModelHelper) register() {
 	}
 }
 
-func (h *schedtagModelHelper) list(slave modules.Manager, kw string) {
+func (h *schedtagModelHelper) list(slave modulebase.Manager, kw string) {
 	R(
 		&options.SchedtagModelListOptions{},
 		fmt.Sprintf("schedtag-%s-list", kw),
 		fmt.Sprintf("List all scheduler tag and %s pairs", kw),
 		func(s *mcclient.ClientSession, args *options.SchedtagModelListOptions) error {
-			mod, err := modules.GetJointModule2(s, &modules.Schedtags, slave)
+			mod, err := modulebase.GetJointModule2(s, &modules.Schedtags, slave)
 			if err != nil {
 				return err
 			}
@@ -53,7 +54,7 @@ func (h *schedtagModelHelper) list(slave modules.Manager, kw string) {
 			if err != nil {
 				return err
 			}
-			var result *modules.ListResult
+			var result *modulebase.ListResult
 			if len(args.Schedtag) > 0 {
 				result, err = mod.ListDescendent(s, args.Schedtag, params)
 			} else {
@@ -68,7 +69,7 @@ func (h *schedtagModelHelper) list(slave modules.Manager, kw string) {
 	)
 }
 
-func (h *schedtagModelHelper) add(man modules.JointResourceManager, kw string) {
+func (h *schedtagModelHelper) add(man modulebase.JointResourceManager, kw string) {
 	R(
 		&options.SchedtagModelPairOptions{},
 		fmt.Sprintf("schedtag-%s-add", kw),
@@ -83,7 +84,7 @@ func (h *schedtagModelHelper) add(man modules.JointResourceManager, kw string) {
 		})
 }
 
-func (h *schedtagModelHelper) remove(man modules.JointResourceManager, kw string) {
+func (h *schedtagModelHelper) remove(man modulebase.JointResourceManager, kw string) {
 	R(
 		&options.SchedtagModelPairOptions{},
 		fmt.Sprintf("schedtag-%s-remove", kw),
@@ -98,7 +99,7 @@ func (h *schedtagModelHelper) remove(man modules.JointResourceManager, kw string
 		})
 }
 
-func (h *schedtagModelHelper) setTags(man modules.JointResourceManager, kw string) {
+func (h *schedtagModelHelper) setTags(man modulebase.JointResourceManager, kw string) {
 	R(
 		&options.SchedtagSetOptions{},
 		fmt.Sprintf("%s-set-schedtag", kw),

@@ -23,11 +23,12 @@ import (
 	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SBucketManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (manager *SBucketManager) Upload(s *mcclient.ClientSession, bucketId string, key string, body io.Reader, contLength int64, contType string, storageClass string, acl string) error {
@@ -51,7 +52,7 @@ func (manager *SBucketManager) Upload(s *mcclient.ClientSession, bucketId string
 		headers.Set(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER, acl)
 	}
 
-	resp, err := manager.rawRequest(s, method, path, headers, body)
+	resp, err := modulebase.RawRequest(manager.ResourceManager, s, method, path, headers, body)
 	if err != nil {
 		return errors.Wrap(err, "rawRequest")
 	}

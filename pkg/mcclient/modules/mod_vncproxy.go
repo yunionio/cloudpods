@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type VNCProxyManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *VNCProxyManager) DoConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -33,7 +34,7 @@ func (this *VNCProxyManager) DoConnect(s *mcclient.ClientSession, id string, par
 		url = fmt.Sprintf("%s/%s", url, objtype)
 	}
 	url = fmt.Sprintf("%s/%s", url, id)
-	return this._post(s, url, nil, "vncproxy")
+	return modulebase.Post(this.ResourceManager, s, url, nil, "vncproxy")
 }
 
 var (

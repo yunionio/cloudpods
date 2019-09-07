@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type RecipientsManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *RecipientsManager) DoDeleteRecipient(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -34,7 +35,7 @@ func (this *RecipientsManager) DoDeleteRecipient(s *mcclient.ClientSession, para
 		body.Add(params, this.Keyword)
 	}
 
-	return this._delete(s, path, body, this.Keyword)
+	return modulebase.Delete(this.ResourceManager, s, path, body, this.Keyword)
 }
 
 var (

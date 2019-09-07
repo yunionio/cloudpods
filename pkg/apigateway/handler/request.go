@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type Request struct {
@@ -41,9 +41,9 @@ type Request struct {
 	params  map[string]string
 	query   jsonutils.JSONObject
 	body    jsonutils.JSONObject
-	mod1    modules.Manager
-	mod2    modules.Manager
-	mod3    modules.Manager
+	mod1    modulebase.Manager
+	mod2    modulebase.Manager
+	mod3    modulebase.Manager
 }
 
 func newRequest(ctx context.Context, w http.ResponseWriter, r *http.Request) *Request {
@@ -127,21 +127,21 @@ func (req *Request) Spec() string {
 	return req.params[Spec]
 }
 
-func (req *Request) Mod1() modules.Manager {
+func (req *Request) Mod1() modulebase.Manager {
 	return req.mod1
 }
 
-func (req *Request) Mod2() modules.Manager {
+func (req *Request) Mod2() modulebase.Manager {
 	return req.mod2
 }
 
-func (req *Request) Mod3() modules.Manager {
+func (req *Request) Mod3() modulebase.Manager {
 	return req.mod3
 }
 
-func (req Request) findMod(resKey string) (modules.Manager, error) {
+func (req Request) findMod(resKey string) (modulebase.Manager, error) {
 	resName := req.params[resKey]
-	module, err := modules.GetModule(req.session, resName)
+	module, err := modulebase.GetModule(req.session, resName)
 	if err != nil {
 		return nil, errors.Errorf("found module by %s: %v", resName, err)
 	}

@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type ServiceNodeManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *ServiceNodeManager) DoDeleteServiceHost(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -34,7 +35,7 @@ func (this *ServiceNodeManager) DoDeleteServiceHost(s *mcclient.ClientSession, p
 		body.Add(params, this.Keyword)
 	}
 
-	return this._delete(s, path, body, this.Keyword)
+	return modulebase.Delete(this.ResourceManager, s, path, body, this.Keyword)
 }
 
 var (

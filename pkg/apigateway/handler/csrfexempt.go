@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -28,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type CSRFResourceHandler struct {
@@ -64,12 +64,12 @@ func getAdminSession(ctx context.Context, apiVer string, region string, w http.R
 	return s
 }
 
-func fetchEnv3Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modules.Manager, modules.Manager, modules.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
+func fetchEnv3Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modulebase.Manager, modulebase.Manager, modulebase.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
 	module, module2, session, params, query, body := fetchEnv2Csrf(ctx, w, r)
 	if module == nil || module2 == nil {
 		return nil, nil, nil, nil, nil, nil, nil
 	}
-	module3, e := modules.GetModule(session, params[ResName3])
+	module3, e := modulebase.GetModule(session, params[ResName3])
 	if e != nil || module == nil {
 		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName3]))
 		return nil, nil, nil, nil, nil, nil, nil
@@ -77,12 +77,12 @@ func fetchEnv3Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	return module, module2, module3, session, params, query, body
 }
 
-func fetchEnv2Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modules.Manager, modules.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
+func fetchEnv2Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modulebase.Manager, modulebase.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
 	module, session, params, query, body := fetchEnvCsrf(ctx, w, r)
 	if module == nil {
 		return nil, nil, nil, nil, nil, nil
 	}
-	module2, e := modules.GetModule(session, params[ResName2])
+	module2, e := modulebase.GetModule(session, params[ResName2])
 	if e != nil || module == nil {
 		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName2]))
 		return nil, nil, nil, nil, nil, nil
@@ -90,9 +90,9 @@ func fetchEnv2Csrf(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	return module, module2, session, params, query, body
 }
 
-func fetchEnvCsrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modules.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
+func fetchEnvCsrf(ctx context.Context, w http.ResponseWriter, r *http.Request) (modulebase.Manager, *mcclient.ClientSession, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
 	session, params, query, body := fetchEnvCsrf0(ctx, w, r)
-	module, e := modules.GetModule(session, params[ResName])
+	module, e := modulebase.GetModule(session, params[ResName])
 	if e != nil || module == nil {
 		httperrors.NotFoundError(w, fmt.Sprintf("resource %s not found", params[ResName]))
 		return nil, nil, nil, nil, nil

@@ -21,12 +21,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
@@ -281,7 +281,7 @@ func listManyHandler(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 	listResult = arrangeList(listResult)
-	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
 // list handler for all resource in notify module
@@ -292,7 +292,7 @@ func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
 func listOneHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -314,7 +314,7 @@ func wrap(data jsonutils.JSONObject, key string) jsonutils.JSONObject {
 // For limit option, there is a bug but don't fix it for now.
 // This limit point to contact record, but these contact records whose uid are same
 // are considered as one record.
-func arrangeList(listResult *modules.ListResult) *modules.ListResult {
+func arrangeList(listResult *modulebase.ListResult) *modulebase.ListResult {
 	ret := make(map[string]*jsonutils.JSONArray)
 	for _, data := range listResult.Data {
 		uid, _ := data.GetString("uid")
@@ -336,7 +336,7 @@ func arrangeList(listResult *modules.ListResult) *modules.ListResult {
 	return listResult
 }
 
-func arrangeOne(listResult *modules.ListResult) jsonutils.JSONObject {
+func arrangeOne(listResult *modulebase.ListResult) jsonutils.JSONObject {
 	if len(listResult.Data) == 0 {
 		return jsonutils.NewDict()
 	}

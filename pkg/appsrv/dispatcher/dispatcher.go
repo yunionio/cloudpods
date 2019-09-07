@@ -18,16 +18,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/utils"
 
-	"strings"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDispatchHandler) {
@@ -206,7 +206,7 @@ func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispat
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
 func fetchContextIds(segs []string, params map[string]string) ([]SResourceContext, []string) {

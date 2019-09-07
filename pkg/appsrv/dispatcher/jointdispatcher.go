@@ -18,13 +18,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJointModelDispatchHandler) {
@@ -120,12 +121,12 @@ func jointListHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
 func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
-	var listResult *modules.ListResult
+	var listResult *modulebase.ListResult
 	var err error
 	if _, ok := params["<master_id>"]; ok {
 		listResult, err = manager.ListMasterDescendent(ctx, params["<master_id>"], mergeQueryParams(params, query, "<master_id>"))
@@ -136,7 +137,7 @@ func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *h
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
 func jointGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {

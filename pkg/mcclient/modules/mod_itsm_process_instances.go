@@ -21,10 +21,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type ProcessInstanceManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -33,7 +34,7 @@ var (
 
 func (self *ProcessInstanceManager) Upload(s *mcclient.ClientSession, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s", self.URLPath())
-	resp, err := self.rawRequest(s, "POST", path, header, body)
+	resp, err := modulebase.RawRequest(self.ResourceManager, s, "POST", path, header, body)
 	_, json, err := s.ParseJSONResponse(resp, err)
 	if err != nil {
 		return nil, err

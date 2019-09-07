@@ -22,9 +22,10 @@ import (
 	"os"
 	"path/filepath"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -88,7 +89,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modules.ListResult{}
+		listResult := modulebase.ListResult{}
 		listResult.Data = tasks
 		printList(&listResult, nil)
 		return nil
@@ -174,7 +175,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			printList(modules.JSON2ListResult(result), listFields)
+			printList(modulebase.JSON2ListResult(result), listFields)
 		} else {
 			taskNotify := options.BoolV(opts.TaskNotify)
 			if taskNotify {
@@ -982,7 +983,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		listResult := modules.ListResult{}
+		listResult := modulebase.ListResult{}
 		listResult.Data, _ = result.GetArray()
 		printList(&listResult, nil)
 		return nil

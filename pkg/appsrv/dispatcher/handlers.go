@@ -19,9 +19,9 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type IMiddlewareFilter interface {
@@ -40,12 +40,12 @@ type IModelDispatchHandler interface {
 	KeywordPlural() string
 	ContextKeywordPlurals() [][]string
 
-	List(ctx context.Context, query jsonutils.JSONObject, ctxIds []SResourceContext) (*modules.ListResult, error)
+	List(ctx context.Context, query jsonutils.JSONObject, ctxIds []SResourceContext) (*modulebase.ListResult, error)
 	Get(ctx context.Context, idstr string, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error)
 	GetSpecific(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []SResourceContext) (jsonutils.JSONObject, error)
-	BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []SResourceContext) ([]modules.SubmitResult, error)
+	BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []SResourceContext) ([]modulebase.SubmitResult, error)
 
 	PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	PerformAction(ctx context.Context, idstr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -71,9 +71,9 @@ type IJointModelDispatchHandler interface {
 	MasterKeywordPlural() string
 	SlaveKeywordPlural() string
 
-	List(ctx context.Context, query jsonutils.JSONObject, ctxIds []SResourceContext) (*modules.ListResult, error)
-	ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error)
-	ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error)
+	List(ctx context.Context, query jsonutils.JSONObject, ctxIds []SResourceContext) (*modulebase.ListResult, error)
+	ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error)
+	ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modulebase.ListResult, error)
 	Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Attach(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Update(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error)

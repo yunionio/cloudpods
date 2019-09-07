@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -50,7 +51,7 @@ func init() {
 			return err
 		}
 
-		var result *modules.ListResult
+		var result *modulebase.ListResult
 		if len(opts.DBInstance) > 0 {
 			result, err = modules.DBInstanceNetworks.ListDescendent(s, opts.DBInstance, params)
 		} else if len(opts.Network) > 0 {

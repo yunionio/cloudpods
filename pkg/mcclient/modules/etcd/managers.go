@@ -15,10 +15,11 @@
 package etcd
 
 import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func NewCloudirManager(keyword, keywordPlural string, columns, adminColumns []string) modules.ResourceManager {
+func NewCloudirManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modules.NewResourceManager(
 		"cloudir",
 		keyword,

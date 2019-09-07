@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -33,7 +34,7 @@ func init() {
 		Remark    string `help:"Remark or description of the new label"`
 	}
 	R(&LabelCreateOptions{}, "label-create", "Create a label", func(s *mcclient.ClientSession, args *LabelCreateOptions) error {
-		mod, err := modules.GetModule(s, "labels")
+		mod, err := modulebase.GetModule(s, "labels")
 		if err != nil {
 			return err
 		}

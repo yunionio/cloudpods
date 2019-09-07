@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SIdentityUsageManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *SIdentityUsageManager) GetUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -34,12 +35,12 @@ func (this *SIdentityUsageManager) GetUsage(session *mcclient.ClientSession, par
 			url = fmt.Sprintf("%s?%s", url, query)
 		}
 	}
-	return this._get(session, url, "usage")
+	return modulebase.Get(this.ResourceManager, session, url, "usage")
 }
 
 var (
 	IdentityUsages SIdentityUsageManager
-	IdentityLogs   ResourceManager
+	IdentityLogs   modulebase.ResourceManager
 )
 
 func init() {

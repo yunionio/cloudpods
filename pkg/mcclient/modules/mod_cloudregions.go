@@ -18,12 +18,13 @@ import (
 	"sort"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SCloudregionManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

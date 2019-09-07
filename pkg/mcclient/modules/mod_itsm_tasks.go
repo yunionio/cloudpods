@@ -19,10 +19,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type SProcessTasksManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -46,6 +47,6 @@ func (this *SProcessTasksManager) QuickComplete(s *mcclient.ClientSession, param
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	_, err := this._get(s, path, "")
+	_, err := modulebase.Get(this.ResourceManager, s, path, "")
 	return err
 }

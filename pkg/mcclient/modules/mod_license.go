@@ -20,12 +20,13 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type LicenseManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -34,7 +35,7 @@ var (
 
 func (this *LicenseManager) Upload(s *mcclient.ClientSession, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s", this.URLPath())
-	resp, err := this.rawRequest(s, "POST", path, header, body)
+	resp, err := modulebase.RawRequest(this.ResourceManager, s, "POST", path, header, body)
 	_, json, err := s.ParseJSONResponse(resp, err)
 	if err != nil {
 		return nil, err

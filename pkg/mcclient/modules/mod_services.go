@@ -14,9 +14,11 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Services   ResourceManager
-	ServicesV3 ResourceManager
+	Services   modulebase.ResourceManager
+	ServicesV3 modulebase.ResourceManager
 )
 
 func init() {
