@@ -3511,6 +3511,8 @@ func (self *SGuest) StartBlockIoThrottleTask(ctx context.Context, userCred mccli
 	params := jsonutils.NewDict()
 	params.Set("bps", jsonutils.NewInt(bpsMb))
 	params.Set("iops", jsonutils.NewInt(iops))
+	params.Set("old_status", jsonutils.NewString(self.Status))
+	self.SetStatus(userCred, api.VM_IO_THROTTLE, "start block io throttle task")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestBlockIoThrottleTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("%s", err)
