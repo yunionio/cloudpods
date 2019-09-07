@@ -329,6 +329,25 @@ var (
 			},
 		},
 		{
+			// meta服务 dbinstance_skus列表不需要认证
+			Auth:  false,
+			Scope: rbacutils.ScopeSystem,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  "yunionmeta",
+					Resource: "dbinstance_skus",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionmeta",
+					Resource: "dbinstance_skus",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
 			// for anonymous update torrent status
 			Auth:  false,
 			Scope: rbacutils.ScopeSystem,
