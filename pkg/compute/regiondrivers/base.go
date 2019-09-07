@@ -17,8 +17,10 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -166,6 +168,13 @@ func (self *SBaseRegionDriver) OnDiskReset(ctx context.Context, userCred mcclien
 
 func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
 	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+
+	if disk.DomainId != snapshotPolicy.DomainId {
+		return httperrors.NewBadRequestError("disk and snapshotpolicy should have same domain")
+	}
+	if disk.ProjectId != snapshotPolicy.ProjectId {
+		return httperrors.NewBadRequestError("disk and snapshotpolicy should have same project")
+	}
 	return nil
 }
 

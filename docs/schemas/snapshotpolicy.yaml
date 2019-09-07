@@ -155,6 +155,8 @@ SnapshotPolicyDisk:
       type: string
       example: f7749379-34b1-4219-8835-257615cf34f6
       description: 磁盘ID
+    disk:
+      $ref: 'disk.yaml#/Disk'
 
 SnapshotPolicyDiskResponse:
   type: object
