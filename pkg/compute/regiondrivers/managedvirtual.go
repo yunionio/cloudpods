@@ -1211,6 +1211,12 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
 	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+
+	err := self.SBaseRegionDriver.ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
+	if err != nil {
+		return err
+	}
+
 	if snapshotPolicy.RetentionDays < -1 || snapshotPolicy.RetentionDays == 0 || snapshotPolicy.RetentionDays > 65535 {
 		return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
 	}
