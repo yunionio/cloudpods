@@ -112,6 +112,86 @@ func (man *SNatGetewayManager) ValidateCreateData(ctx context.Context, userCred 
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
+func (self *SNatGateway) AllowPerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
+	qurey jsonutils.JSONObject) bool {
+
+	return true
+}
+func (self *SNatGateway) PerformSnatResources(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	q := NatSEntryManager.Query("ip", "network_id").Equals("natgateway_id", self.Id)
+
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch resource with natgateway_id %s error", self.Id)
+	}
+	ipset, ip := make(map[string]struct{}), ""
+	networks, network := make([]string, 0), ""
+	for rows.Next() {
+		err := rows.Scan(&ip, &network)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := ipset[ip]; !ok {
+			ipset[ip] = struct{}{}
+		}
+		networks = append(networks, network)
+	}
+	ips := make([]string, 0, len(ipset))
+	for ip := range ipset {
+		ips = append(ips, ip)
+	}
+
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.Marshal(ips), "eips")
+	ret.Add(jsonutils.Marshal(networks), "networks")
+
+	return ret, nil
+}
+
+func (self *SNatGateway) AllowPerformDnatResources(ctx context.Context, userCred mcclient.TokenCredential,
+	qurey jsonutils.JSONObject) bool {
+
+	return true
+}
+func (self *SNatGateway) PerformDnatResources(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	q := NatDEntryManager.Query("external_ip").Equals("natgateway_id", self.Id)
+
+	ips, err := self.extractEipAddr(q)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.Marshal(ips), "eips")
+	return ret, nil
+}
+
+func (self *SNatGateway) extractEipAddr(q *sqlchemy.SQuery) ([]string, error) {
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch resource with natgateway_id %s error", self.Id)
+	}
+	ipset, ip := make(map[string]struct{}), ""
+	for rows.Next() {
+		err := rows.Scan(&ip)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := ipset[ip]; !ok {
+			ipset[ip] = struct{}{}
+		}
+	}
+	ips := make([]string, 0, len(ipset))
+	for ip := range ipset {
+		ips = append(ips, ip)
+	}
+
+	return ips, nil
+}
+
 func (self *SNatGateway) GetVpc() (*SVpc, error) {
 	_vpc, err := VpcManager.FetchById(self.VpcId)
 	if err != nil {
