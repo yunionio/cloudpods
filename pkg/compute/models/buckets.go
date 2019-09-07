@@ -599,7 +599,7 @@ func (bucket *SBucket) GetDetailsObjects(
 	}
 	retArray := jsonutils.NewArray()
 	for i := range objects {
-		retArray.Add(jsonutils.Marshal(cloudprovider.ICloudObject2BaseCloudObject(objects[i])))
+		retArray.Add(cloudprovider.ICloudObject2JSONObject(objects[i]))
 	}
 	ret := jsonutils.NewDict()
 	ret.Add(retArray, "objects")
@@ -882,7 +882,6 @@ func (bucket *SBucket) PerformAcl(
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	aclStr, _ := data.GetString("acl")
-	objKey, _ := data.GetString("key")
 	switch cloudprovider.TBucketACLType(aclStr) {
 	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
 		// do nothing
@@ -895,7 +894,8 @@ func (bucket *SBucket) PerformAcl(
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
 	}
 
-	if len(objKey) == 0 {
+	objKey, _ := data.Get("key")
+	if objKey == nil {
 		err = iBucket.SetAcl(cloudprovider.TBucketACLType(aclStr))
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("setAcl error %s", err)
@@ -905,16 +905,38 @@ func (bucket *SBucket) PerformAcl(
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
 		}
-	} else {
-		object, err := cloudprovider.GetIObject(iBucket, objKey)
-		if err != nil {
-			if err == cloudprovider.ErrNotFound {
-				return nil, httperrors.NewResourceNotFoundError("object %s not found", objKey)
-			} else {
+		return nil, nil
+	}
+	var keys []string
+	switch jsonObj := objKey.(type) {
+	case *jsonutils.JSONString:
+		key, _ := jsonObj.GetString()
+		keys = []string{key}
+	case *jsonutils.JSONArray:
+		keys = jsonObj.GetStringArray()
+	}
+	var objects []cloudprovider.ICloudObject
+	for _, key := range keys {
+		if strings.HasSuffix(key, "/") {
+			objs, err := cloudprovider.GetIObjects(iBucket, key, true)
+			if err != nil {
 				return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
 			}
+			objects = append(objects, objs...)
+		} else {
+			object, err := cloudprovider.GetIObject(iBucket, key)
+			if err != nil {
+				if err == cloudprovider.ErrNotFound {
+					return nil, httperrors.NewResourceNotFoundError("object %s not found", objKey)
+				} else {
+					return nil, httperrors.NewInternalServerError("iBucket.GetIObject error %s", err)
+				}
+			}
+			objects = append(objects, object)
 		}
-		err = object.SetAcl(cloudprovider.TBucketACLType(aclStr))
+	}
+	for _, object := range objects {
+		err := object.SetAcl(cloudprovider.TBucketACLType(aclStr))
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("setAcl error %s", err)
 		}

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
@@ -166,15 +167,25 @@ type ICloudObject interface {
 	SetAcl(acl TBucketACLType) error
 }
 
-func ICloudObject2BaseCloudObject(obj ICloudObject) SBaseCloudObject {
-	return SBaseCloudObject{
+func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
+	obj2 := struct {
+		Key          string
+		SizeBytes    int64
+		StorageClass string
+		ETag         string
+		LastModified time.Time
+		ContentType  string
+		Acl          string
+	}{
 		Key:          obj.GetKey(),
 		SizeBytes:    obj.GetSizeBytes(),
 		StorageClass: obj.GetStorageClass(),
 		ETag:         obj.GetETag(),
 		LastModified: obj.GetLastModified(),
 		ContentType:  obj.GetContentType(),
+		Acl:          string(obj.GetAcl()),
 	}
+	return jsonutils.Marshal(obj2)
 }
 
 func (o *SBaseCloudObject) GetKey() string {
