@@ -72,6 +72,7 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.validatePasscode, "passcode"),
 		NewHP(h.resetTotpRecoveryQuestions, "recovery"),
 		NewHP(h.postLoginHandler, "login"),
+		NewHP(h.postLogoutHandler, "logout"),
 	)
 
 	// auth middleware handler
@@ -80,7 +81,6 @@ func (h *AuthHandlers) AddMethods() {
 		NewHP(h.getPermissionDetails, "permissions"),
 		NewHP(h.getAdminResources, "admin_resources"),
 		NewHP(h.getResources, "scoped_resources"),
-		NewHP(h.postLogoutHandler, "logout"),
 	)
 	h.AddByMethod(POST, FetchAuthToken,
 		NewHP(h.resetUserPassword, "password"),
