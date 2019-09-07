@@ -19,16 +19,17 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type NodeManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
-func _genSubtmitResults(idlist []string, status int, err error) []SubmitResult {
-	results := make([]SubmitResult, len(idlist))
+func _genSubtmitResults(idlist []string, status int, err error) []modulebase.SubmitResult {
+	results := make([]modulebase.SubmitResult, len(idlist))
 	var data jsonutils.JSONObject
 	if err != nil {
 		data = jsonutils.NewString(err.Error())
@@ -36,12 +37,12 @@ func _genSubtmitResults(idlist []string, status int, err error) []SubmitResult {
 		data = jsonutils.JSONNull
 	}
 	for i := 0; i < len(results); i++ {
-		results[i] = SubmitResult{Id: idlist[i], Status: status, Data: data}
+		results[i] = modulebase.SubmitResult{Id: idlist[i], Status: status, Data: data}
 	}
 	return results
 }
 
-func (this *NodeManager) _batchPerformInContexts(s *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *NodeManager) _batchPerformInContexts(s *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []modulebase.ManagerContext) []modulebase.SubmitResult {
 	labels, err := params.Get("labels")
 	if err != nil {
 		return _genSubtmitResults(idlist, 406, fmt.Errorf("Missing labels"))
@@ -55,14 +56,14 @@ func (this *NodeManager) _batchPerformInContexts(s *mcclient.ClientSession, idli
 	body.Add(node, "node")
 
 	path := fmt.Sprintf("/%s/%s", this.ContextPath(ctxs), url.PathEscape(action))
-	_, err = this._post(s, path, body, this.KeywordPlural)
+	_, err = modulebase.Post(this.ResourceManager, s, path, body, this.KeywordPlural)
 	if err != nil {
 		return _genSubtmitResults(idlist, 400, err)
 	}
 	return _genSubtmitResults(idlist, 200, nil)
 }
 
-func (this *NodeManager) BatchPerformActionInContexts(s *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+func (this *NodeManager) BatchPerformActionInContexts(s *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []modulebase.ManagerContext) []modulebase.SubmitResult {
 	switch action {
 	case "remove-labels":
 		return this._batchPerformInContexts(s, idlist, action, params, ctxs)
@@ -84,7 +85,7 @@ func (this *NodeManager) NewNode(s *mcclient.ClientSession, name string, ip stri
 	arr.Add(data)
 	params := jsonutils.NewDict()
 	params.Add(arr, "nodes")
-	res, err := this._post(s, "/nodes", params, "nodes")
+	res, err := modulebase.Post(this.ResourceManager, s, "/nodes", params, "nodes")
 	if err != nil {
 		return nil, err
 	}

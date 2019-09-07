@@ -20,12 +20,12 @@ import (
 	"strings"
 
 	"github.com/gosuri/uitable"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
@@ -56,7 +56,7 @@ func getPrinterRowValues(printer k8s.ListPrinter, obj jsonutils.JSONObject, cols
 	return ret
 }
 
-func ListerTable(res *modules.ListResult, printer k8s.ListPrinter, s *mcclient.ClientSession) *uitable.Table {
+func ListerTable(res *modulebase.ListResult, printer k8s.ListPrinter, s *mcclient.ClientSession) *uitable.Table {
 	min := func(x, y int) int {
 		if x < y {
 			return x
@@ -78,7 +78,7 @@ func ListerTable(res *modules.ListResult, printer k8s.ListPrinter, s *mcclient.C
 	return table
 }
 
-func PrintListResultTable(res *modules.ListResult, printer k8s.ListPrinter, s *mcclient.ClientSession) {
+func PrintListResultTable(res *modulebase.ListResult, printer k8s.ListPrinter, s *mcclient.ClientSession) {
 	fmt.Println(ListerTable(res, printer, s))
 
 	table := uitable.New()

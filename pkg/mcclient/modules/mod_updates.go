@@ -18,10 +18,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type SUpdateManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

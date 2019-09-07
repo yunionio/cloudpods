@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
@@ -175,7 +176,7 @@ func (manager *SImageManager) GetPropertyDetail(ctx context.Context, userCred mc
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	return modules.ListResult2JSONWithKey(items, manager.KeywordPlural()), nil
+	return modulebase.ListResult2JSONWithKey(items, manager.KeywordPlural()), nil
 }
 
 func (manager *SImageManager) IsCustomizedGetDetailsBody() bool {

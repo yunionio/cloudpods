@@ -14,13 +14,15 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Schedtaghosts    JointResourceManager
-	Schedtagstorages JointResourceManager
-	Schedtagnetworks JointResourceManager
+	Schedtaghosts    modulebase.JointResourceManager
+	Schedtagstorages modulebase.JointResourceManager
+	Schedtagnetworks modulebase.JointResourceManager
 )
 
-func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, slave Manager) JointResourceManager {
+func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, slave modulebase.Manager) modulebase.JointResourceManager {
 	columns = append(columns, "Schedtag_ID", "Schedtag")
 	return NewJointComputeManager(keyword, keywordPlural,
 		columns, adminColumns, &Schedtags, slave)

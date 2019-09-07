@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -230,7 +231,7 @@ var (
 	domainCache = make(map[string]string)
 )
 
-func getIdentityId(s *mcclient.ClientSession, idName string, manager modules.Manager) (string, error) {
+func getIdentityId(s *mcclient.ClientSession, idName string, manager modulebase.Manager) (string, error) {
 	domain, idName := parseIdName(idName)
 
 	query := jsonutils.NewDict()

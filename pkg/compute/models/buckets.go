@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/pkg/s3utils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -41,7 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -742,7 +742,7 @@ func (bucket *SBucket) PerformDelete(
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
 	}
 	ok := jsonutils.NewDict()
-	results := modules.BatchDo(keyStrs, func(key string) (jsonutils.JSONObject, error) {
+	results := modulebase.BatchDo(keyStrs, func(key string) (jsonutils.JSONObject, error) {
 		if strings.HasSuffix(key, "/") {
 			err = cloudprovider.DeletePrefix(ctx, iBucket, key)
 		} else {
@@ -760,7 +760,7 @@ func (bucket *SBucket) PerformDelete(
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 
-	return modules.SubmitResults2JSON(results), nil
+	return modulebase.SubmitResults2JSON(results), nil
 }
 
 func (bucket *SBucket) AllowPerformUpload(ctx context.Context,

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 var (
@@ -33,11 +34,11 @@ func init() {
 }
 
 type WebConsoleManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
-func NewWebConsoleManager() ResourceManager {
-	return ResourceManager{BaseManager: BaseManager{serviceType: "webconsole"},
+func NewWebConsoleManager() modulebase.ResourceManager {
+	return modulebase.ResourceManager{BaseManager: *modulebase.NewBaseManager("webconsole", "", "", nil, nil),
 		Keyword: "webconsole", KeywordPlural: "webconsole"}
 }
 
@@ -52,7 +53,7 @@ func (m WebConsoleManager) DoConnect(s *mcclient.ClientSession, connType, id, ac
 	if action != "" {
 		url = fmt.Sprintf("%s/%s", url, action)
 	}
-	return m._post(s, url, params, "webconsole")
+	return modulebase.Post(m.ResourceManager, s, url, params, "webconsole")
 }
 
 func (m WebConsoleManager) DoK8sConnect(s *mcclient.ClientSession, id, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

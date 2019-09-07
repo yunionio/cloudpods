@@ -22,7 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/excelutils"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 )
@@ -41,7 +41,7 @@ func OutputFormat(s string) {
 	outputFormat = s
 }
 
-func printList(list *modules.ListResult, columns []string) {
+func printList(list *modulebase.ListResult, columns []string) {
 	printutils.PrintJSONList(list, columns)
 }
 
@@ -95,11 +95,11 @@ func printObjectRecursiveEx(obj jsonutils.JSONObject, cb printutils.PrintJSONObj
 	printutils.PrintJSONObjectRecursiveEx(obj, cb)
 }
 
-func printBatchResults(results []modules.SubmitResult, columns []string) {
+func printBatchResults(results []modulebase.SubmitResult, columns []string) {
 	printutils.PrintJSONBatchResults(results, columns)
 }
 
-func exportList(list *modules.ListResult, file string, exportKeys string, exportTexts string, columns []string) {
+func exportList(list *modulebase.ListResult, file string, exportKeys string, exportTexts string, columns []string) {
 	var keys []string
 	var texts []string
 	if len(exportKeys) > 0 {

@@ -19,12 +19,13 @@ import (
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type ReservedIPManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

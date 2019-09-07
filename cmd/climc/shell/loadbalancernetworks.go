@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -42,7 +43,7 @@ func init() {
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip_addr")
 		}
-		var result *modules.ListResult
+		var result *modulebase.ListResult
 		var err error
 		if len(args.Loadbalancer) > 0 {
 			result, err = modules.Loadbalancernetworks.ListDescendent(s, args.Loadbalancer, params)

@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -175,7 +176,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, err = modules.RolesV3.PutInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
+		_, err = modules.RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
 		if err != nil {
 			return err
 		}
@@ -195,7 +196,7 @@ func init() {
 			return err
 		}
 
-		_, err = modules.RolesV3.HeadInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
+		_, err = modules.RolesV3.HeadInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
 		if err != nil {
 			return err
 		}
@@ -214,7 +215,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, err = modules.RolesV3.DeleteInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
+		_, err = modules.RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
 		if err != nil {
 			return err
 		}
@@ -236,7 +237,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result, err := modules.RolesV3.ListInContexts(s, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
+		result, err := modules.RolesV3.ListInContexts(s, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.UsersV3, InstanceId: uid}})
 		if err != nil {
 			return err
 		}
@@ -265,7 +266,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, err = modules.RolesV3.PutInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
+		_, err = modules.RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
 		if err != nil {
 			return err
 		}
@@ -284,7 +285,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, err = modules.RolesV3.HeadInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
+		_, err = modules.RolesV3.HeadInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
 		if err != nil {
 			return err
 		}
@@ -303,7 +304,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		_, err = modules.RolesV3.DeleteInContexts(s, rid, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
+		_, err = modules.RolesV3.DeleteInContexts(s, rid, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
 		if err != nil {
 			return err
 		}
@@ -324,7 +325,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		result, err := modules.RolesV3.ListInContexts(s, nil, []modules.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
+		result, err := modules.RolesV3.ListInContexts(s, nil, []modulebase.ManagerContext{{InstanceManager: &modules.Projects, InstanceId: pid}, {InstanceManager: &modules.Groups, InstanceId: gid}})
 		if err != nil {
 			return err
 		}

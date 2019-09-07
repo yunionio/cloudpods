@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -35,7 +36,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		var result *modules.ListResult
+		var result *modulebase.ListResult
 		if len(args.Region) > 0 {
 			result, err = modules.Zones.ListInContext(s, params, &modules.Cloudregions, args.Region)
 		} else {

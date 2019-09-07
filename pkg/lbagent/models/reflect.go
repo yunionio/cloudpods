@@ -21,13 +21,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/models"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -37,7 +37,7 @@ var PseudoZeroTime = time.Time{}.Add(time.Nanosecond)
 
 type GetModelsOptions struct {
 	ClientSession *mcclient.ClientSession
-	ModelManager  modules.Manager
+	ModelManager  modulebase.Manager
 	ModelSet      IModelSet
 
 	BatchListSize int
@@ -54,7 +54,7 @@ func GetModels(opts *GetModelsOptions) error {
 		tstr := timeutils.MysqlTime(time)
 		return fmt.Sprintf("updated_at.ge('%s')", tstr)
 	}
-	setNextListParams := func(params *jsonutils.JSONDict, lastUpdatedAt time.Time, lastResult *modules.ListResult) (time.Time, error) {
+	setNextListParams := func(params *jsonutils.JSONDict, lastUpdatedAt time.Time, lastResult *modulebase.ListResult) (time.Time, error) {
 		// NOTE: the updated_at field has second-level resolution.
 		// If they all have the same date...
 		var max time.Time

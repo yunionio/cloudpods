@@ -16,18 +16,19 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type AlarmEventsManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *AlarmEventsManager) DoBatchUpdate(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := "/alarm_events"
 
-	return this._put(s, path, params, "alarm_events")
+	return modulebase.Put(this.ResourceManager, s, path, params, "alarm_events")
 }
 
 var (

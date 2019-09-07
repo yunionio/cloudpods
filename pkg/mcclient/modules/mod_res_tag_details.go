@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	ResTagDetails ResourceManager
+	ResTagDetails modulebase.ResourceManager
 )
 
 func init() {

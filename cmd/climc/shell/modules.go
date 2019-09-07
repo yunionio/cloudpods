@@ -18,16 +18,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func init() {
 	type ModuleListOptions struct {
 	}
 	R(&ModuleListOptions{}, "module-list", "List all modules", func(s *mcclient.ClientSession, args *ModuleListOptions) error {
-		modules, jointModules := modules.GetRegisterdModules()
+		modules, jointModules := modulebase.GetRegisterdModules()
 		json := jsonutils.Marshal(modules)
 		fmt.Println("Modules")
 		fmt.Println(json.PrettyString())

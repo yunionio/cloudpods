@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type TreenodeManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -32,7 +33,7 @@ var (
 
 func (this *TreenodeManager) GetMap(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/getMap", this.KeywordPlural)
-	return this._get(s, path, this.KeywordPlural)
+	return modulebase.Get(this.ResourceManager, s, path, this.KeywordPlural)
 }
 
 func (this *TreenodeManager) GetNodeIDByLabels(s *mcclient.ClientSession, labels []string) (int64, error) {

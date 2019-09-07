@@ -14,12 +14,14 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 type NoticeManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 type NoticeReadMarkManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

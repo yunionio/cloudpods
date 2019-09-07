@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package modulebase
 
 import (
 	"fmt"
@@ -182,7 +182,7 @@ func ensureModuleNotRegistered(mod, newMod BaseManagerInterface) {
 	}
 }
 
-func _register(version string, mod BaseManagerInterface) {
+func Register(version string, mod BaseManagerInterface) {
 	if modules == nil {
 		modules = make(map[string]map[string][]BaseManagerInterface)
 	}
@@ -203,7 +203,7 @@ func _register(version string, mod BaseManagerInterface) {
 	// modtable[mod.KeyString()] = append(mods, mod)
 }
 
-func _registerJointModule(version string, mod BaseManagerInterface) {
+func RegisterJointModule(version string, mod BaseManagerInterface) {
 	jointMod, ok := mod.(JointManager)
 	if ok { // also a joint manager
 		jointKey := _getJointKey(jointMod.MasterManager(), jointMod.SlaveManager())
@@ -233,7 +233,7 @@ func registerAllJointModules() {
 		for version := range modules {
 			for modname := range modules[version] {
 				for i := range modules[version][modname] {
-					_registerJointModule(version, modules[version][modname][i])
+					RegisterJointModule(version, modules[version][modname][i])
 				}
 			}
 		}

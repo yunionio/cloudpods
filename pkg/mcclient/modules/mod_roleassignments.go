@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type RoleAssignmentManagerV3 struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 type role struct {

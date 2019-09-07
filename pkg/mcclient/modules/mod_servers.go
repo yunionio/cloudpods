@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
@@ -27,7 +28,7 @@ import (
 )
 
 type ServerManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -17,18 +17,19 @@ package modules
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type WorkerManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
 	Workers WorkerManager
 )
 
-func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
-	return this._list(s, this.KeywordPlural, this.Keyword)
+func (this *WorkerManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
+	return modulebase.List(this.ResourceManager, s, this.KeywordPlural, this.Keyword)
 }
 
 func init() {

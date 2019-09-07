@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	BillBalances ResourceManager
+	BillBalances modulebase.ResourceManager
 )
 
 func init() {

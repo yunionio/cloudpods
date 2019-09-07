@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/util/seclib"
 
 	"github.com/pkg/errors"
@@ -29,7 +30,7 @@ import (
 )
 
 type SCredentialManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 const (

@@ -19,12 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type QuotaManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
@@ -44,11 +45,11 @@ func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
 }
 
 func (this *QuotaManager) GetQuota(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	computeQuota, err := this._get(s, this.getURL(params), this.KeywordPlural)
+	computeQuota, err := modulebase.Get(this.ResourceManager, s, this.getURL(params), this.KeywordPlural)
 	if err != nil {
 		return nil, err
 	}
-	imageQuota, err := ImageQuotas._get(s, ImageQuotas.getURL(params), ImageQuotas.KeywordPlural)
+	imageQuota, err := modulebase.Get(ImageQuotas.ResourceManager, s, ImageQuotas.getURL(params), ImageQuotas.KeywordPlural)
 	if err != nil {
 		return nil, err
 	}
@@ -92,11 +93,11 @@ func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonuti
 	} else {
 		reqUrl = "/quotas/domains"
 	}
-	computeQuotaList, err := this._list(s, reqUrl, this.KeywordPlural)
+	computeQuotaList, err := modulebase.List(this.ResourceManager, s, reqUrl, this.KeywordPlural)
 	if err != nil {
 		return nil, err
 	}
-	imageQuotaList, err := ImageQuotas._list(s, reqUrl, this.KeywordPlural)
+	imageQuotaList, err := modulebase.List(ImageQuotas.ResourceManager, s, reqUrl, this.KeywordPlural)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSO
 		body := jsonutils.NewDict()
 		body.Add(data, this.KeywordPlural)
 		log.Debugf("set compute quota %s", body)
-		_, err = this._post(s, url, body, this.KeywordPlural)
+		_, err = modulebase.Post(this.ResourceManager, s, url, body, this.KeywordPlural)
 		if err != nil {
 			log.Errorf("set compute quota fail %s %s", data, err)
 			return nil, err
@@ -128,7 +129,7 @@ func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSO
 		body := jsonutils.NewDict()
 		body.Add(data, ImageQuotas.KeywordPlural)
 		log.Debugf("set image quota %s", body)
-		_, err = ImageQuotas._post(s, url, body, ImageQuotas.KeywordPlural)
+		_, err = modulebase.Post(ImageQuotas.ResourceManager, s, url, body, ImageQuotas.KeywordPlural)
 		if err != nil {
 			log.Errorf("set quota fail %s %s", data, err)
 			return nil, err
