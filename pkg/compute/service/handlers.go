@@ -57,6 +57,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.QuotaManager,
 		models.QuotaUsageManager,
+
+		models.SnapshotPolicyCacheManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -94,7 +96,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.NatSEntryManager,
 		models.SnapshotManager,
 		models.SnapshotPolicyManager,
-		models.SnapshotPolicyCacheManager,
 		models.BaremetalagentManager,
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,
