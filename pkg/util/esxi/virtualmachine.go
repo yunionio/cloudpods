@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -52,6 +53,17 @@ type SVirtualMachine struct {
 	ihost  cloudprovider.ICloudHost
 
 	guestIps map[string]string
+}
+
+type byDiskType []SVirtualDisk
+
+func (d byDiskType) Len() int      { return len(d) }
+func (d byDiskType) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
+func (d byDiskType) Less(i, j int) bool {
+	if d[i].GetDiskType() == api.DISK_TYPE_SYS || d[j].GetDiskType() == api.DISK_TYPE_DATA {
+		return true
+	}
+	return false
 }
 
 func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter) *SVirtualMachine {
@@ -216,6 +228,7 @@ func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 
 func (self *SVirtualMachine) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, len(self.vdisks))
+	sort.Sort(byDiskType(self.vdisks))
 	for i := 0; i < len(self.vdisks); i += 1 {
 		idisks[i] = &(self.vdisks[i])
 	}
