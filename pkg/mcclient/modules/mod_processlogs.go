@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 var (
-	Processlogs ResourceManager
+	Processlogs modulebase.ResourceManager
 )
 
 func init() {

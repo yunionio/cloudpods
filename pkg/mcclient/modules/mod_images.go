@@ -19,20 +19,21 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"strconv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type ImageManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 const (
@@ -80,7 +81,7 @@ func (this *ImageManager) GetById(session *mcclient.ClientSession, id string, pa
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	h, _, e := this.jsonRequest(session, "HEAD", path, nil, nil)
+	h, _, e := modulebase.JsonRequest(this.ResourceManager, session, "HEAD", path, nil, nil)
 	if e != nil {
 		return nil, e
 	}
@@ -112,13 +113,13 @@ func (this *ImageManager) GetId(session *mcclient.ClientSession, id string, para
 	return img.GetString("id")
 }
 
-func (this *ImageManager) BatchGet(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
-	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
+func (this *ImageManager) BatchGet(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []modulebase.SubmitResult {
+	return modulebase.BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
 		return this.Get(session, id, params)
 	})
 }
 
-func (this *ImageManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *ImageManager) List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	path := fmt.Sprintf("/%s", this.URLPath())
 	if params != nil {
 		details, _ := params.Bool("details")
@@ -132,7 +133,7 @@ func (this *ImageManager) List(session *mcclient.ClientSession, params jsonutils
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	return this._list(session, path, this.KeywordPlural)
+	return modulebase.List(this.ResourceManager, session, path, this.KeywordPlural)
 }
 
 func (this *ImageManager) GetPrivateImageCount(s *mcclient.ClientSession, ownerId string, isAdmin bool) (int, error) {
@@ -159,7 +160,7 @@ func (this *ImageManager) countUsage(session *mcclient.ClientSession, deleted bo
 	var limit int64 = 1000
 	var offset int64 = 0
 	ret := make(map[string]*ImageUsageCount)
-	count := func(ret map[string]*ImageUsageCount, results *ListResult) {
+	count := func(ret map[string]*ImageUsageCount, results *modulebase.ListResult) {
 		for _, r := range results.Data {
 			format, _ := r.GetString("disk_format")
 			status, _ := r.GetString("status")
@@ -254,7 +255,7 @@ func setImageMeta(params jsonutils.JSONObject) (http.Header, error) {
 	return header, nil
 }
 
-func (this *ImageManager) ListMemberProjects(s *mcclient.ClientSession, imageId string) (*ListResult, error) {
+func (this *ImageManager) ListMemberProjects(s *mcclient.ClientSession, imageId string) (*modulebase.ListResult, error) {
 	result, e := this.ListMemberProjectIds(s, imageId)
 	if e != nil {
 		return nil, e
@@ -273,9 +274,9 @@ func (this *ImageManager) ListMemberProjects(s *mcclient.ClientSession, imageId 
 	return result, nil
 }
 
-func (this *ImageManager) ListMemberProjectIds(s *mcclient.ClientSession, imageId string) (*ListResult, error) {
+func (this *ImageManager) ListMemberProjectIds(s *mcclient.ClientSession, imageId string) (*modulebase.ListResult, error) {
 	path := fmt.Sprintf("/%s/%s/members", this.URLPath(), url.PathEscape(imageId))
-	return this._list(s, path, "members")
+	return modulebase.List(this.ResourceManager, s, path, "members")
 }
 
 func (this *ImageManager) AddMembership(s *mcclient.ClientSession, img string, proj string, canShare bool) error {
@@ -348,7 +349,7 @@ func (this *ImageManager) _addMembership(s *mcclient.ClientSession, image_id str
 		params.Add(jsonutils.JSONFalse, "member", "can_share")
 	}
 	path := fmt.Sprintf("/%s/%s/members/%s", this.URLPath(), url.PathEscape(image_id), url.PathEscape(project_id))
-	_, e := this._put(s, path, params, "")
+	_, e := modulebase.Put(this.ResourceManager, s, path, params, "")
 	return e
 }
 
@@ -367,7 +368,7 @@ func (this *ImageManager) _addMemberships(s *mcclient.ClientSession, image_id st
 	params := jsonutils.NewDict()
 	params.Add(memberships, "memberships")
 	path := fmt.Sprintf("/%s/%s/members", this.URLPath(), url.PathEscape(image_id))
-	_, e := this._put(s, path, params, "")
+	_, e := modulebase.Put(this.ResourceManager, s, path, params, "")
 	return e
 }
 
@@ -385,17 +386,17 @@ func (this *ImageManager) RemoveMembership(s *mcclient.ClientSession, image stri
 
 func (this *ImageManager) _removeMembership(s *mcclient.ClientSession, image_id string, project_id string) error {
 	path := fmt.Sprintf("/%s/%s/members/%s", this.URLPath(), url.PathEscape(image_id), url.PathEscape(project_id))
-	_, e := this._delete(s, path, nil, "")
+	_, e := modulebase.Delete(this.ResourceManager, s, path, nil, "")
 	return e
 }
 
-func (this *ImageManager) ListSharedImageIds(s *mcclient.ClientSession, projectId string) (*ListResult, error) {
+func (this *ImageManager) ListSharedImageIds(s *mcclient.ClientSession, projectId string) (*modulebase.ListResult, error) {
 	path := fmt.Sprintf("/shared-images/%s", projectId)
 	// {"shared_images": [{"image_id": "4d82c731-937e-4420-959b-de9c213efd2b", "can_share": false}]}
-	return this._list(s, path, "shared_images")
+	return modulebase.List(this.ResourceManager, s, path, "shared_images")
 }
 
-func (this *ImageManager) ListSharedImages(s *mcclient.ClientSession, projectId string) (*ListResult, error) {
+func (this *ImageManager) ListSharedImages(s *mcclient.ClientSession, projectId string) (*modulebase.ListResult, error) {
 	result, e := this.ListSharedImageIds(s, projectId)
 	if e != nil {
 		return nil, e
@@ -491,7 +492,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 			headers.Add("Content-Length", fmt.Sprintf("%d", size))
 		}
 	}
-	resp, err := this.rawRequest(s, method, path, headers, body)
+	resp, err := modulebase.RawRequest(this.ResourceManager, s, method, path, headers, body)
 	_, json, err := s.ParseJSONResponse(resp, err)
 	if err != nil {
 		return nil, err
@@ -531,7 +532,7 @@ func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params j
 		return nil, err
 	}
 	path := fmt.Sprintf("/%s/%s", this.URLPath(), url.PathEscape(id))
-	resp, err := this.rawRequest(s, "PUT", path, headers, body)
+	resp, err := modulebase.RawRequest(this.ResourceManager, s, "PUT", path, headers, body)
 	_, json, err := s.ParseJSONResponse(resp, err)
 	if err != nil {
 		return nil, err
@@ -552,7 +553,7 @@ func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format 
 	if len(queryString) > 0 {
 		path = fmt.Sprintf("%s?%s", path, queryString)
 	}
-	resp, err := this.rawRequest(s, "GET", path, nil, nil)
+	resp, err := modulebase.RawRequest(this.ResourceManager, s, "GET", path, nil, nil)
 	if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		sizeBytes, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
 		if err != nil {
@@ -584,7 +585,7 @@ func init() {
 }
 
 type SImageUsageManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *SImageUsageManager) GetUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -595,12 +596,12 @@ func (this *SImageUsageManager) GetUsage(session *mcclient.ClientSession, params
 			url = fmt.Sprintf("%s?%s", url, query)
 		}
 	}
-	return this._get(session, url, "usage")
+	return modulebase.Get(this.ResourceManager, session, url, "usage")
 }
 
 var (
 	ImageUsages SImageUsageManager
-	ImageLogs   ResourceManager
+	ImageLogs   modulebase.ResourceManager
 )
 
 func init() {

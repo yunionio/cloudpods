@@ -21,12 +21,13 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
-	printRouteTableList := func(list *modules.ListResult, columns []string) {
+	printRouteTableList := func(list *modulebase.ListResult, columns []string) {
 		data := list.Data
 		for _, jsonObj := range data {
 			jd := jsonObj.(*jsonutils.JSONDict)

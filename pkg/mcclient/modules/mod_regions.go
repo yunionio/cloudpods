@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 type RegionManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

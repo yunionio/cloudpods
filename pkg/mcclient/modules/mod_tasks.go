@@ -21,16 +21,17 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 var (
-	Tasks ResourceManager
+	Tasks modulebase.ResourceManager
 
 	ComputeTasks ComputeTasksManager
 )
 
 type ComputeTasksManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func init() {

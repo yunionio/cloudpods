@@ -14,30 +14,33 @@
 
 package modules
 
-import "yunion.io/x/onecloud/pkg/mcclient"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+)
 
-func registerCompute(mod BaseManagerInterface) {
+func registerCompute(mod modulebase.BaseManagerInterface) {
 	registerComputeV1(mod)
 	registerComputeV2(mod)
 }
 
-func registerComputeV1(mod BaseManagerInterface) {
-	_register("v1", mod)
+func registerComputeV1(mod modulebase.BaseManagerInterface) {
+	modulebase.Register("v1", mod)
 }
 
-func registerComputeV2(mod BaseManagerInterface) {
+func registerComputeV2(mod modulebase.BaseManagerInterface) {
 	mod.SetApiVersion(mcclient.V2_API_VERSION)
-	_register("v2", mod)
+	modulebase.Register("v2", mod)
 }
 
-func register(mod BaseManagerInterface) {
-	_register("v1", mod)
+func register(mod modulebase.BaseManagerInterface) {
+	modulebase.Register("v1", mod)
 }
 
-func registerV2(mod BaseManagerInterface) {
-	_register("v2", mod)
+func registerV2(mod modulebase.BaseManagerInterface) {
+	modulebase.Register("v2", mod)
 }
 
-func Register(mod BaseManagerInterface) {
+func Register(mod modulebase.BaseManagerInterface) {
 	register(mod)
 }

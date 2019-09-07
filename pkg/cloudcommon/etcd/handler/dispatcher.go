@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
@@ -32,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func NewEtcdModelHandler(manger base.IEtcdModelManager) *SEtcdModelHandler {
@@ -73,12 +73,12 @@ func (disp *SEtcdModelHandler) FetchUpdateHeaderData(ctx context.Context, header
 	return disp.manager.FetchUpdateHeaderData(ctx, header)
 }
 
-func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
+func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	objs, err := disp.manager.AllJson(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	return &modules.ListResult{
+	return &modulebase.ListResult{
 		Data:   objs,
 		Total:  len(objs),
 		Limit:  0,
@@ -171,7 +171,7 @@ func (disp *SEtcdModelHandler) Create(ctx context.Context, query jsonutils.JSONO
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 
-func (disp *SEtcdModelHandler) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modules.SubmitResult, error) {
+func (disp *SEtcdModelHandler) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modulebase.SubmitResult, error) {
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 

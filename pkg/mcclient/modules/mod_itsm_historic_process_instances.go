@@ -20,10 +20,11 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type HiProcInstManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 func (this *HiProcInstManager) GetStatistics(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -32,12 +33,12 @@ func (this *HiProcInstManager) GetStatistics(s *mcclient.ClientSession, params j
 	hiProcInstPath := fmt.Sprintf("/historic-process-instances?status=unfinished&user_id=%s", userId)
 	procTaskPath := fmt.Sprintf("/process-tasks?user_id=%s", userId)
 
-	hiProcInstObj, err := this._list(s, hiProcInstPath, "historic-process-instances")
+	hiProcInstObj, err := modulebase.List(this.ResourceManager, s, hiProcInstPath, "historic-process-instances")
 	if err != nil {
 		return nil, err
 	}
 
-	procTaskObj, err := this._list(s, procTaskPath, "process-tasks")
+	procTaskObj, err := modulebase.List(this.ResourceManager, s, procTaskPath, "process-tasks")
 	if err != nil {
 		return nil, err
 	}

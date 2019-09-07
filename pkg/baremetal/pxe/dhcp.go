@@ -27,6 +27,7 @@ import (
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
@@ -236,7 +237,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 	return &network, err
 }
 
-func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modules.ListResult, error) {
+func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modulebase.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
 	if isBaremetal {

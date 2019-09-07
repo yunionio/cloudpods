@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -25,7 +26,7 @@ import (
 )
 
 type ParametersManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

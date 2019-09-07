@@ -14,8 +14,10 @@
 
 package modules
 
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
 type LoadbalancerCachedAclManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (

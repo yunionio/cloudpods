@@ -18,13 +18,14 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type SCapabilityManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
-func (this *SCapabilityManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
+func (this *SCapabilityManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	url := "/capabilities"
 	if params != nil {
 		qs := params.QueryString()
@@ -32,11 +33,11 @@ func (this *SCapabilityManager) List(s *mcclient.ClientSession, params jsonutils
 			url += "?" + qs
 		}
 	}
-	body, err := this._get(s, url, "")
+	body, err := modulebase.Get(this.ResourceManager, s, url, "")
 	if err != nil {
 		return nil, err
 	}
-	result := ListResult{Data: []jsonutils.JSONObject{body}}
+	result := modulebase.ListResult{Data: []jsonutils.JSONObject{body}}
 	return &result, nil
 }
 

@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type PerformanceManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -39,7 +40,7 @@ func (this *PerformanceManager) GetTop5(s *mcclient.ClientSession, params jsonut
 
 	path := fmt.Sprintf("/%s/top5?node_labels=%s", this.KeywordPlural, node_labels)
 
-	return this._get(s, path, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, path, this.Keyword)
 }
 
 func init() {

@@ -19,16 +19,16 @@ import (
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type ResourceManager struct {
-	*modules.ResourceManager
+	*modulebase.ResourceManager
 }
 
 func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *ResourceManager {
-	man := &modules.ResourceManager{
-		BaseManager:   *modules.NewBaseManager("k8s", "", "", columns.Array(), adminColumns.Array()),
+	man := &modulebase.ResourceManager{
+		BaseManager:   *modulebase.NewBaseManager("k8s", "", "", columns.Array(), adminColumns.Array()),
 		Keyword:       keyword,
 		KeywordPlural: keywordPlural,
 	}

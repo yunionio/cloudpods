@@ -15,23 +15,12 @@
 package modules
 
 import (
-	"io/ioutil"
-
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func GetProjectResources(s *mcclient.ClientSession, serviceType string) (jsonutils.JSONObject, error) {
-	man := &BaseManager{serviceType: serviceType}
-	resp, err := man.rawRequest(s, "GET", "/project-resources", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return jsonutils.Parse(body)
+	return modulebase.GetProjectResources(s, serviceType)
 }

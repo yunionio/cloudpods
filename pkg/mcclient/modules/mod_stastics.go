@@ -18,12 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type StatisticsManager struct {
-	ResourceManager
+	modulebase.ResourceManager
 }
 
 var (
@@ -38,7 +39,7 @@ func (this *StatisticsManager) GetByEnv(s *mcclient.ClientSession, params jsonut
 	}
 
 	path := fmt.Sprintf("/%s/env?node_labels=%s", this.KeywordPlural, node_labels)
-	return this._get(s, path, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, path, this.Keyword)
 }
 
 func (this *StatisticsManager) GetByResType(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -49,7 +50,7 @@ func (this *StatisticsManager) GetByResType(s *mcclient.ClientSession, params js
 	}
 
 	path := fmt.Sprintf("/%s/res_type?node_labels=%s", this.KeywordPlural, node_labels)
-	return this._get(s, path, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, path, this.Keyword)
 }
 
 func (this *StatisticsManager) GetHardware(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -60,7 +61,7 @@ func (this *StatisticsManager) GetHardware(s *mcclient.ClientSession, params jso
 	}
 
 	path := fmt.Sprintf("/%s/hardware?node_labels=%s", this.KeywordPlural, node_labels)
-	return this._get(s, path, this.Keyword)
+	return modulebase.Get(this.ResourceManager, s, path, this.Keyword)
 }
 
 func init() {
