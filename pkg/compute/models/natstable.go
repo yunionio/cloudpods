@@ -16,12 +16,14 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"net"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -98,7 +100,10 @@ func (self *SNatSEntry) GetNatgateway() (*SNatGateway, error) {
 }
 
 func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
-	_network, err := NetworkManager.FetchById(self.NatgatewayId)
+	if len(self.NetworkId) == 0 {
+		return nil, nil
+	}
+	_network, err := NetworkManager.FetchById(self.NetworkId)
 	if err != nil {
 		return nil, err
 	}
@@ -142,20 +147,38 @@ func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred m
 	if len(input.SourceCidr) != 0 && len(input.NetworkId) != 0 {
 		return nil, httperrors.NewInputParameterError("Only one of that sourceCIDR and netword_id is needed")
 	}
+
 	if len(input.SourceCidr) != 0 {
-		if !regutils.MatchCIDR(input.SourceCidr) {
-			return nil, httperrors.NewInputParameterError("invalid sourcecidr: %s", input.SourceCidr)
-		}
-		//todo check cidr is in range vpc
-	} else {
-		model, err := NetworkManager.FetchById(input.NetworkId)
+		//check sourceCidr and convert to netutils.IPV4Range
+		sourceIPV4Range, err := newIPv4RangeFromCIDR(input.SourceCidr)
 		if err != nil {
-			return nil, errors.Wrap(err, "fetch network error")
+			return nil, httperrors.NewInputParameterError(err.Error())
 		}
-		if model == nil {
-			return nil, httperrors.NewInputParameterError("no such network")
+		// get natgateway
+		model, err := man.FetchById(input.NatgatewayId)
+		if err != nil {
+			return nil, err
 		}
-		network := model.(*SNetwork)
+		natgateway := model.(*SNatGateway)
+		// get vpc
+		vpc, err := natgateway.GetVpc()
+		if err != nil {
+			return nil, err
+		}
+		vpcIPV4Range, err := newIPv4RangeFromCIDR(vpc.CidrBlock)
+		if err != nil {
+			return nil, errors.Wrap(err, "convert vpc cidr to ipv4range error")
+		}
+		if !vpcIPV4Range.ContainsRange(sourceIPV4Range) {
+			return nil, httperrors.NewInputParameterError("cidr %s is not in range vpc %s", input.SourceCidr,
+				vpc.CidrBlock)
+		}
+
+	} else {
+		network, err := man.checkNetWorkId(input.NetworkId)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
 		data.Add(jsonutils.NewString(network.GetExternalId()), "network_ext_id")
 	}
 
@@ -305,12 +328,32 @@ func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, use
 	return &table, nil
 }
 
+func (manager *SNatSEntryManager) checkNetWorkId(networkId string) (*SNetwork, error) {
+	// check that is these snat rule has neworkid
+	q := manager.Query().Equals("network_id", networkId)
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, errors.Wrap(err, "count snat with networkId failed")
+	}
+	if count > 0 {
+		return nil, fmt.Errorf("a network has only one snat rule")
+	}
+	model, err := NetworkManager.FetchById(networkId)
+	if err != nil {
+		return nil, errors.Wrap(err, "fetch network error")
+	}
+	if model == nil {
+		return nil, httperrors.NewInputParameterError("no such network")
+	}
+	return model.(*SNetwork), nil
+}
+
 func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	return extra, nil
+	return self.getMoreDetails(ctx, userCred, extra)
 }
 
 func (self *SNatSEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -321,13 +364,23 @@ func (self *SNatSEntry) GetCustomizeColumns(ctx context.Context, userCred mcclie
 		return extra
 	}
 	extra.Add(jsonutils.NewString(natgateway.Name), "natgateway")
+
+	extra, _ = self.getMoreDetails(ctx, userCred, extra)
+	return extra
+}
+
+func (self *SNatSEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
 	network, err := self.GetNetwork()
 	if err != nil {
-		log.Errorf("failed to get network %s for stable %s(%s) error: %v", self.NetworkId, self.Name, self.Id, err)
-		return extra
+		return query, nil
 	}
-	extra.Add(jsonutils.NewString(network.Name), "network")
-	return extra
+	if network == nil {
+		return query, nil
+	}
+	query.Add(jsonutils.Marshal(network), "network")
+	return query, nil
 }
 
 func (self *SNatSEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -393,4 +446,12 @@ func (self *SNatSEntryManager) canBindIP(ipAddr string) bool {
 		return false
 	}
 	return true
+}
+
+func newIPv4RangeFromCIDR(cidr string) (netutils.IPV4AddrRange, error) {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return netutils.IPV4AddrRange{}, errors.Wrapf(err, "invalid cidr: %s", cidr)
+	}
+	return netutils.NewIPV4AddrRangeFromIPNet(ipNet), nil
 }

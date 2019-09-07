@@ -1,0 +1,13 @@
+post:
+  summary: NAT网关下DNAT规则EIP的集合
+  parameters:
+    - $ref: "../parameters/natgateway.yaml#/natgatewayId"
+  responses:
+    200:
+      description: DNAT规则EIP集合
+      schema:
+        - $ref: "../schemas/natgateway.yaml#/EIPAddrs"
+  tags:
+    - natgateway
+
+

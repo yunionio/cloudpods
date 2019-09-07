@@ -191,14 +191,14 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 
 // ==================================================== update =========================================================
 
-func (self *SSnapshotPolicy) AllowPerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) AllowPerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	// no fo now
 	return false
-	//return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "update")
+	//return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "update")
 }
 
-func (self *SSnapshotPolicy) PerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) PerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	//check param
 	input := &api.SSnapshotPolicyCreateInput{}
@@ -206,20 +206,20 @@ func (self *SSnapshotPolicy) PerformUpdate(ctx context.Context, userCred mcclien
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Unmarshel input failed %s", err)
 	}
-	err = self.UpdateParamCheck(input)
+	err = sp.UpdateParamCheck(input)
 	if err != nil {
 		return nil, err
 	}
-	return nil, self.StartSnapshotPolicyUpdateTask(ctx, userCred, input)
+	return nil, sp.StartSnapshotPolicyUpdateTask(ctx, userCred, input)
 }
 
-func (self *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, userCred mcclient.TokenCredential,
 	input *api.SSnapshotPolicyCreateInput) error {
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.Marshal(input), "input")
-	self.SetStatus(userCred, api.SNAPSHOT_POLICY_UPDATING, "")
-	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyUpdateTask", self, userCred, params,
+	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_UPDATING, "")
+	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyUpdateTask", sp, userCred, params,
 		"", "", nil); err == nil {
 		return err
 	} else {
@@ -229,7 +229,7 @@ func (self *SSnapshotPolicy) StartSnapshotPolicyUpdateTask(ctx context.Context, 
 }
 
 // UpdateParamCheck check if update parameters are correct and need to update
-func (self *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInput) error {
+func (sp *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateInput) error {
 	var err error
 	updateNum := 0
 
@@ -237,7 +237,7 @@ func (self *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateIn
 		if input.RetentionDays < -1 || input.RetentionDays > 65535 {
 			return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
 		}
-		if input.RetentionDays != self.RetentionDays {
+		if input.RetentionDays != sp.RetentionDays {
 			updateNum++
 		}
 	}
@@ -247,7 +247,7 @@ func (self *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateIn
 		if err != nil {
 			return httperrors.NewInputParameterError(err.Error())
 		}
-		if self.RepeatWeekdays != SnapshotPolicyManager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays) {
+		if sp.RepeatWeekdays != SnapshotPolicyManager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays) {
 			updateNum++
 		}
 	}
@@ -257,7 +257,7 @@ func (self *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateIn
 		if err != nil {
 			return httperrors.NewInputParameterError(err.Error())
 		}
-		if self.TimePoints != SnapshotPolicyManager.TimePointsParseIntArray(input.TimePoints) {
+		if sp.TimePoints != SnapshotPolicyManager.TimePointsParseIntArray(input.TimePoints) {
 			updateNum++
 		}
 	}
@@ -270,33 +270,33 @@ func (self *SSnapshotPolicy) UpdateParamCheck(input *api.SSnapshotPolicyCreateIn
 
 // ==================================================== delete =========================================================
 
-func (self *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := SnapshotPolicyDiskManager.SyncDetachBySnapshotpolicy(ctx, userCred, nil, self)
+func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := SnapshotPolicyDiskManager.SyncDetachBySnapshotpolicy(ctx, userCred, nil, sp)
 	if err != nil {
 		return errors.Wrap(err, "detach after delete failed")
 	}
 	return nil
 }
 
-func (self *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
+func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
 	JSONObject, data jsonutils.JSONObject) error {
 
-	// check if self bind to some disks
-	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, self.GetId())
+	// check if sp bind to some disks
+	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
 	if err != nil {
 		return errors.Wrap(err, "fetch bind info failed")
 	}
 	if len(sds) != 0 {
 		return httperrors.NewBadRequestError("Couldn't delete snapshot policy binding to disks")
 	}
-	self.SetStatus(userCred, api.SNAPSHOT_POLICY_DELETING, "")
-	return self.StartSnapshotPolicyDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+	sp.SetStatus(userCred, api.SNAPSHOT_POLICY_DELETING, "")
+	return sp.StartSnapshotPolicyDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (self *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, userCred mcclient.TokenCredential,
 	params *jsonutils.JSONDict, parentTaskId string) error {
 
-	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyDeleteTask", self, userCred, params,
+	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyDeleteTask", sp, userCred, params,
 		parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -305,29 +305,29 @@ func (self *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, 
 	return nil
 }
 
-func (self *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
 
-	ret, _ := self.getMoreDetails(ctx, userCred, query)
+	ret, _ := sp.getMoreDetails(ctx, userCred, query)
 	return ret
 }
 
-func (self *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 
-	return self.getMoreDetails(ctx, userCred, query)
+	return sp.getMoreDetails(ctx, userCred, query)
 }
 
-func (self *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 
 	ret := query.(*jsonutils.JSONDict)
 	// more
-	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(self.RepeatWeekdays)
-	timePoints := SnapshotPolicyManager.TimePointsToIntArray(self.TimePoints)
+	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
 	ret.Add(jsonutils.Marshal(weekdays), "repeat_weekdays")
 	ret.Add(jsonutils.Marshal(timePoints), "time_points")
-	count, err := SnapshotPolicyDiskManager.FetchDiskCountBySPID(self.Id)
+	count, err := SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
 	if err != nil {
 		return ret, err
 	}
@@ -467,7 +467,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	return &snapshotPolicy, nil
 }
 
-func (self *SSnapshotPolicy) Equals(cloudSP cloudprovider.ICloudSnapshotPolicy) bool {
+func (sp *SSnapshotPolicy) Equals(cloudSP cloudprovider.ICloudSnapshotPolicy) bool {
 	rws, err := cloudSP.GetRepeatWeekdays()
 	if err != nil {
 		return false
@@ -479,8 +479,8 @@ func (self *SSnapshotPolicy) Equals(cloudSP cloudprovider.ICloudSnapshotPolicy) 
 	repeatWeekdays := SnapshotPolicyManager.RepeatWeekdaysParseIntArray(rws)
 	timePoints := SnapshotPolicyManager.TimePointsParseIntArray(tps)
 
-	return self.RetentionDays == cloudSP.GetRetentionDays() && self.RepeatWeekdays == repeatWeekdays && self.
-		TimePoints == timePoints && self.IsActivated.Bool() == cloudSP.IsActivated()
+	return sp.RetentionDays == cloudSP.GetRetentionDays() && sp.RepeatWeekdays == repeatWeekdays && sp.
+		TimePoints == timePoints && sp.IsActivated.Bool() == cloudSP.IsActivated()
 }
 
 func (manager *SSnapshotPolicyManager) getProviderSnapshotPolicies(region *SCloudregion, provider *SCloudprovider) ([]SSnapshotPolicy, error) {
@@ -496,25 +496,25 @@ func (manager *SSnapshotPolicyManager) getProviderSnapshotPolicies(region *SClou
 	return snapshotPolicies, nil
 }
 
-func (self *SSnapshotPolicy) syncRemoveCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
+func (sp *SSnapshotPolicy) syncRemoveCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, sp)
+	defer lockman.ReleaseObject(ctx, sp)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := sp.ValidateDeleteCondition(ctx)
 	if err != nil {
-		err = self.SetStatus(userCred, api.SNAPSHOT_POLICY_UNKNOWN, "sync to delete")
+		err = sp.SetStatus(userCred, api.SNAPSHOT_POLICY_UNKNOWN, "sync to delete")
 	} else {
-		err = self.RealDelete(ctx, userCred)
+		err = sp.RealDelete(ctx, userCred)
 	}
 	return err
 }
 
-func (self *SSnapshotPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (sp *SSnapshotPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (self *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+func (sp *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DeleteModel(ctx, userCred, sp)
 }
 
 // ==================================================== utils ==========================================================
@@ -555,23 +555,23 @@ func (self *SSnapshotPolicyManager) TimePointsToIntArray(n uint32) []int {
 	return bitmap.Uint2IntArray(n)
 }
 
-func (self *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolicyInput {
-	intWeekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(self.RepeatWeekdays)
-	intTimePoints := SnapshotPolicyManager.TimePointsToIntArray(self.TimePoints)
+func (sp *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolicyInput {
+	intWeekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	intTimePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
 
 	return &cloudprovider.SnapshotPolicyInput{
-		RetentionDays:  self.RetentionDays,
+		RetentionDays:  sp.RetentionDays,
 		RepeatWeekdays: intWeekdays,
 		TimePoints:     intTimePoints,
-		PolicyName:     self.Name,
+		PolicyName:     sp.Name,
 	}
 }
 
 // ==================================================== action =========================================================
-func (manager *SSnapshotPolicy) AllowPerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) AllowPerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) bool {
 
-	return manager.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, manager, "bind-disks")
+	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "bind-disks")
 }
 
 func (sp *SSnapshotPolicy) PerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
@@ -628,10 +628,10 @@ func (sp *SSnapshotPolicy) PerformBindDisks(ctx context.Context, userCred mcclie
 	return nil, nil
 }
 
-func (manager *SSnapshotPolicy) AllowPerformUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential,
+func (sp *SSnapshotPolicy) AllowPerformUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) bool {
 
-	return manager.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, manager, "bind-disks")
+	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "bind-disks")
 }
 
 func (sp *SSnapshotPolicy) PerformUnbindDisks(ctx context.Context, userCred mcclient.TokenCredential,
