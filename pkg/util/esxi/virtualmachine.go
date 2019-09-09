@@ -60,7 +60,7 @@ type byDiskType []SVirtualDisk
 func (d byDiskType) Len() int      { return len(d) }
 func (d byDiskType) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 func (d byDiskType) Less(i, j int) bool {
-	if d[i].GetDiskType() == api.DISK_TYPE_SYS || d[j].GetDiskType() == api.DISK_TYPE_DATA {
+	if d[i].GetDiskType() == api.DISK_TYPE_SYS {
 		return true
 	}
 	return false
