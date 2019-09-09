@@ -941,7 +941,7 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 	}
 
 	originSecgroups := self.GetSecgroups()
-	if len(originSecgroups)+len(secgrpJsonArray) >= maxCount {
+	if len(originSecgroups)+len(secgrpJsonArray) > maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
