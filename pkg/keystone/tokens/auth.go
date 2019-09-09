@@ -70,7 +70,15 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, ErrEmptyAuth
 	}
 	if len(ident.Password.User.Name) > 0 && len(ident.Password.User.Id) == 0 && len(ident.Password.User.Domain.Id) == 0 && len(ident.Password.User.Domain.Name) == 0 {
-		q := models.UserManager.Query().Equals("name", ident.Password.User.Name)
+		users := models.UserManager.Query().SubQuery()
+		idMappings := models.IdmappingManager.Query().SubQuery()
+		q := users.Query()
+		q = q.LeftJoin(idMappings, sqlchemy.Equals(idMappings.Field("public_id"), users.Field("id")))
+		q = q.Filter(sqlchemy.Equals(users.Field("name"), ident.Password.User.Name))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(idMappings.Field("domain_id")),
+			sqlchemy.In(idMappings.Field("domain_id"), models.IdentityProviderManager.FetchPasswordProtectedIdpIdsQuery()),
+		))
 		usrCnt, err := q.CountWithError()
 		if err != nil {
 			return nil, errors.Wrap(err, "Query user by name")
