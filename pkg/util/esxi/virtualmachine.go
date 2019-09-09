@@ -40,7 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
 
 type SVirtualMachine struct {
 	SManagedObject
@@ -106,6 +106,10 @@ func (self *SVirtualMachine) GetGlobalId() string {
 }
 
 func (self *SVirtualMachine) GetStatus() string {
+	err := self.CheckFileInfo(context.Background())
+	if err != nil {
+		return api.VM_UNKNOWN
+	}
 	vm := object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 	state, err := vm.PowerState(self.manager.context)
 	if err != nil {
@@ -464,7 +468,22 @@ func (self *SVirtualMachine) doDelete(ctx context.Context) error {
 	return task.Wait(ctx)
 }
 
+func (self *SVirtualMachine) doUnregister(ctx context.Context) error {
+	vm := self.getVmObj()
+
+	err := vm.Unregister(ctx)
+	if err != nil {
+		log.Errorf("vm.Unregister(ctx) fail %s", err)
+		return err
+	}
+	return nil
+}
+
 func (self *SVirtualMachine) DeleteVM(ctx context.Context) error {
+	err := self.CheckFileInfo(ctx)
+	if err != nil {
+		return self.doUnregister(ctx)
+	}
 	for i := 0; i < len(self.vdisks); i += 1 {
 		err := self.doDetachAndDeleteDisk(ctx, &self.vdisks[i])
 		if err != nil {
@@ -841,4 +860,27 @@ func (self *SVirtualMachine) getResourcePool() (*SResourcePool, error) {
 	}
 	rp := NewResourcePool(self.manager, &morp, self.datacenter)
 	return rp, nil
+}
+
+func (self *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
+	vm := self.getVirtualMachine()
+	if vm.LayoutEx != nil && len(vm.LayoutEx.File) > 0 {
+		file := vm.LayoutEx.File[0]
+		host := self.GetIHost()
+		storages, err := host.GetIStorages()
+		if err != nil {
+			return errors.Wrap(err, "host.GetIStorages")
+		}
+		for i := range storages {
+			ds := storages[i].(*SDatastore)
+			if ds.HasFile(file.Name) {
+				_, err := ds.CheckFile(ctx, file.Name)
+				if err != nil {
+					return errors.Wrap(err, "ds.CheckFile")
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
