@@ -65,9 +65,6 @@ install: prepare_dir
 	done
 
 
-gendoc:
-	@sh build/gendoc.sh
-
 gencopyright:
 	@sh scripts/gencopyright.sh pkg cmd
 
@@ -77,16 +74,16 @@ test:
 vet:
 	go vet ./...
 
-cmd/%: prepare_dir fmt
+cmd/%: prepare_dir
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 rpm/%: cmd/%
 	$(BUILD_SCRIPT) $*
 
-pkg/%: prepare_dir fmt
+pkg/%: prepare_dir
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
-build: gendoc
+build:
 	$(MAKE) $(cmdTargets)
 
 rpm:
@@ -106,7 +103,7 @@ output_dir:
 	@mkdir -p $(BUILD_DIR)
 
 
-.PHONY: all build prepare_dir clean fmt rpm
+.PHONY: all build prepare_dir clean rpm
 
 
 clean:
@@ -114,8 +111,36 @@ clean:
 
 
 fmt:
-	@$(if $(ONECLOUD_CI_BUILD),:,find) . -type f -name "*.go" -not -path "./_output/*" \
-		-not -path "./vendor/*" | xargs --no-run-if-empty gofmt -s -w
+	@git ls-files --exclude '*' '*.go' \
+		| grep -v '^vendor/' \
+		| xargs $(XARGS_FLAGS) gofmt -w
+
+fmt-check: fmt
+	@if git status --short | grep -E '^.M .*/[^.]+.go'; then \
+		echo "$@: working tree modified (possibly by gofmt)" >&2 ; \
+		false ; \
+	fi
+.PHONY: fmt fmt-check
+
+gendocgo:
+	@sh build/gendoc.sh
+
+cleandocgo:
+	@git ls-files --others '*/doc.go' | xargs $(XARGS_FLAGS) -- rm -vf
+
+gendocgo-check: gendocgo
+	@n="$$(git ls-files --others '*/doc.go' | wc -l)"; \
+	if test "$$n" -gt 0; then \
+		git ls-files --others '*/doc.go' | sed -e 's/^/  /'; \
+		echo "$@: untracked doc.go file(s) exist in working directory" >&2 ; \
+		false ; \
+	fi
+.PHONY: gendocgo cleandocgo gendocgo-check
+
+check: fmt-check
+check: gendocgo-check
+.PHONY: check
+
 
 define depDeprecated
 OneCloud now requires using go-mod for dependency management.  dep target,
