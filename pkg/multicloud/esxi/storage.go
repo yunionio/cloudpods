@@ -356,6 +356,15 @@ func (self *SDatastore) GetMountPoint() string {
 	return self.GetUrl()
 }
 
+func (self *SDatastore) HasFile(remotePath string) bool {
+	dsName := fmt.Sprintf("[%s]", self.SManagedObject.GetName())
+	if strings.HasPrefix(remotePath, dsName) {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (self *SDatastore) cleanPath(remotePath string) string {
 	dsName := fmt.Sprintf("[%s]", self.SManagedObject.GetName())
 	dsUrl := self.GetUrl()

@@ -135,4 +135,20 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-file-status", "Show vm files details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		host, err := cli.FindHostByIp(args.HOSTIP)
+		if err != nil {
+			return err
+		}
+		vm, err := host.GetIVMById(args.VMID)
+		if err != nil {
+			return err
+		}
+		err = vm.(*esxi.SVirtualMachine).CheckFileInfo(context.Background())
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
