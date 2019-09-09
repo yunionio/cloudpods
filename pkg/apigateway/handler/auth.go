@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
@@ -36,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -257,12 +257,13 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		uname, _ := body.GetString("username")
 
 		if h.preLoginHook != nil {
-			if err := h.preLoginHook(ctx, req, uname, body); err != nil {
+			if err = h.preLoginHook(ctx, req, uname, body); err != nil {
 				return nil, err
 			}
 		}
 
-		passwd, err := body.GetString("password")
+		var passwd string
+		passwd, err = body.GetString("password")
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("get password in body")
 		}
