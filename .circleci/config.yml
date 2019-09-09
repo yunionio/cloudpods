@@ -75,5 +75,9 @@ workflows:
   build_and_test:
     jobs:
       - check
-      - build
-      - test
+      - build:
+          requires:
+            - check
+      - test:
+          requires:
+            - check
