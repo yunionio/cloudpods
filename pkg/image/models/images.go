@@ -117,8 +117,10 @@ type SImage struct {
 	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
-	Protected  tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
-	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
+	Protected    tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
+	IsStandard   tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
+	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
+	IsData       tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 
 	// image copy from url, save origin checksum before probe
 	OssChecksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
@@ -187,20 +189,22 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	filePath := self.getLocalLocation()
 	status := self.Status
 
-	formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
-	if len(formatStr) > 0 {
-		subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
-		if subimg != nil {
-			isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
-			if !isTorrent {
-				filePath = subimg.getLocalLocation()
-				status = subimg.Status
+	if self.IsGuestImage.IsFalse() {
+		formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
+		if len(formatStr) > 0 {
+			subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
+			if subimg != nil {
+				isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
+				if !isTorrent {
+					filePath = subimg.getLocalLocation()
+					status = subimg.Status
+				} else {
+					filePath = subimg.getLocalTorrentLocation()
+					status = subimg.TorrentStatus
+				}
 			} else {
-				filePath = subimg.getLocalTorrentLocation()
-				status = subimg.TorrentStatus
+				return nil, httperrors.NewNotFoundError("format %s not found", formatStr)
 			}
-		} else {
-			return nil, httperrors.NewNotFoundError("format %s not found", formatStr)
 		}
 	}
 
@@ -356,9 +360,14 @@ func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, err
 	}
 
-	pendingUsage := SQuota{Image: 1}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage); err != nil {
-		return nil, httperrors.NewOutOfQuotaError("%s", err)
+	// If this image is the part of guest image (contains "guest_image_id"),
+	// we do not need to check and set pending quota
+	// because that pending quota has been checked and set in SGuestImage.ValidateCreateData
+	if !data.Contains("guest_image_id") {
+		pendingUsage := SQuota{Image: 1}
+		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage); err != nil {
+			return nil, httperrors.NewOutOfQuotaError("%s", err)
+		}
 	}
 
 	return data, nil
@@ -371,6 +380,10 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	}
 	self.Status = api.IMAGE_STATUS_QUEUED
 	self.Owner = self.ProjectId
+	// if belong to a guest image,
+	if data.Contains("guest_image_id") {
+		self.IsGuestImage = tristate.True
+	}
 	return nil
 }
 
@@ -380,6 +393,11 @@ func (self *SImage) GetPath(format string) string {
 		path = fmt.Sprintf("%s.%s", path, format)
 	}
 	return path
+}
+
+func (self *SImage) OnJointFailed(ctx context.Context, userCred mcclient.TokenCredential) {
+	log.Errorf("create joint of image and guest image failed")
+	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "")
 }
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
@@ -472,8 +490,11 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	pendingUsage := SQuota{Image: 1}
-	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
+	// if SImage belong to a guest image, pending quota will not be set.
+	if self.IsGuestImage.IsFalse() {
+		pendingUsage := SQuota{Image: 1}
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
+	}
 
 	if data.Contains("properties") {
 		// update properties
@@ -503,6 +524,16 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 			self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
 		}
 	}
+
+	// This image is belong to some guestImage.
+	// Code below must be run without upload.
+	if data.Contains("guest_image_id") {
+		guestImageId, _ := data.GetString("guest_image_id")
+		_, err := GuestImageJointManager.CreateGuestImageJoint(ctx, guestImageId, self.Id)
+		if err != nil {
+			self.OnJointFailed(ctx, userCred)
+		}
+	}
 }
 
 // After image probe and customization, image size and checksum changed
@@ -523,6 +554,9 @@ func (self *SImage) ImageProbeAndCustomization(
 
 func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if self.Status != api.IMAGE_STATUS_QUEUED {
+		if self.IsGuestImage.IsTrue() {
+			return nil, httperrors.NewForbiddenError("image is the part of guest imgae")
+		}
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil && appParams.Request.ContentLength > 0 {
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
@@ -530,16 +564,32 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	} else {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
+			isProbe := true
+			if self.IsData.IsTrue() {
+				isProbe = false
+			}
 			if appParams.Request.ContentLength > 0 {
 				self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "update start upload")
-				err := self.SaveImageFromStream(appParams.Request.Body, false)
+				// If isProbe is true calculating checksum is not necessary wheng saving from stream,
+				// otherwise, it is needed.
+				err := self.SaveImageFromStream(appParams.Request.Body, !isProbe)
 				if err != nil {
 					self.OnSaveFailed(ctx, userCred, fmt.Sprintf("update upload failed %s", err))
 					return nil, httperrors.NewGeneralError(err)
 				}
 				self.OnSaveSuccess(ctx, userCred, "update upload success")
-				data.Remove("status")
-				self.ImageProbeAndCustomization(ctx, userCred, true)
+				if !isProbe {
+					// no probe
+					self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "data disk image upload success")
+				} else {
+					data.Remove("status")
+					// For guest image, DoConvertAfterProbe is not necessary.
+					if self.IsGuestImage.IsTrue() {
+						self.ImageProbeAndCustomization(ctx, userCred, false)
+					} else {
+						self.ImageProbeAndCustomization(ctx, userCred, true)
+					}
+				}
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 				if len(copyFrom) > 0 {
@@ -594,6 +644,9 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	if self.IsPublic {
 		return httperrors.NewInvalidStatusError("image is shared")
+	}
+	if self.IsGuestImage.IsTrue() {
+		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -687,7 +740,7 @@ func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient
 }
 
 func (self *SImage) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "cancel-delete")
+	return db.IsAdminAllowPerform(userCred, self, "cancel-delete") && self.IsGuestImage.IsFalse()
 }
 
 func (self *SImage) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -702,7 +755,9 @@ func (manager *SImageManager) getExpiredPendingDeleteDisks() []SImage {
 	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
-	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
+	// those images part of guest image will be clean in GuestImageManager.CleanPendingDeleteImages
+	q = q.IsTrue("pending_deleted").LT("pending_deleted_at",
+		deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize).IsFalse("belong_guest_image")
 
 	disks := make([]SImage, 0)
 	err := db.FetchModelObjects(ImageManager, q, &disks)
@@ -720,7 +775,8 @@ func (manager *SImageManager) CleanPendingDeleteImages(ctx context.Context, user
 		return
 	}
 	for i := 0; i < len(disks); i += 1 {
-		disks[i].startDeleteImageTask(ctx, userCred, "", false, false)
+		// clean pendingdelete so that overridePendingDelete is true
+		disks[i].startDeleteImageTask(ctx, userCred, "", false, true)
 	}
 }
 
@@ -1135,7 +1191,8 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	needConvert := false
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
-	if len(subimgs) == 0 {
+	// for image the part of a guest image, convert is not necessary.
+	if len(subimgs) == 0 && self.IsGuestImage.IsFalse() {
 		needConvert = true
 	}
 	for i := 0; i < len(subimgs); i += 1 {
@@ -1160,7 +1217,7 @@ func (self *SImage) AllowPerformMarkStandard(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, self, "mark-standard")
+	return db.IsAdminAllowPerform(userCred, self, "mark-standard") && self.IsGuestImage.IsFalse()
 }
 
 func (self *SImage) PerformMarkStandard(
@@ -1188,7 +1245,7 @@ func (self *SImage) PerformMarkStandard(
 }
 
 func (self *SImage) AllowPerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return true
+	return self.IsGuestImage.IsFalse()
 }
 
 func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

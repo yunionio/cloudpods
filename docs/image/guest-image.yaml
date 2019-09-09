@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定主机镜像的详细信息
+  parameters:
+    - $ref: "../parameters/image.yaml#/imageId"
+  responses:
+    200:
+      description: 主机镜像详细信息
+      schema:
+        $ref: "../schemas/guest_image.yaml#/GuestImageResponse"
+  tags:
+    - guestimage
+
+delete:
+  summary: 删除指定主机镜像
+  parameters:
+    - $ref: "../parameters/image.yaml#/imageId"
+  responses:
+    200:
+      schema:
+        $ref: "../schemas/guest_image.yaml#/GuestImageResponse"
+  tags:
+    - guestimage

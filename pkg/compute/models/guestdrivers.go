@@ -112,6 +112,8 @@ type IGuestDriver interface {
 
 	StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 
+	StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
+
 	RequestStopGuestForDelete(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 
 	RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *SGuest, task taskman.ITask) error

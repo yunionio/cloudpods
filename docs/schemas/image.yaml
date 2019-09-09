@@ -100,6 +100,14 @@ Image:
       type: string
       example: 2019-05-30T09:26:41.000000Z
       description: 最近一次更新时间
+    is_guest_image:
+      type: boolean
+      example: true
+      description: 是否是主机镜像的一部分
+    is_data:
+      type: boolean
+      example: true
+      description: 是否是数据盘的镜像
     
 
 ImageProperties:
