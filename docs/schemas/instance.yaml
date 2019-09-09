@@ -652,6 +652,9 @@ InstanceCreate:
       type: array
       items:
         $ref: '#/InstanceDisk'
+    guest_image_id:
+      type: string
+      example: 如果使用主机镜像创建主机，需要额外指定主机镜像的 ID，来检验 disks 的 Image ID 是否正确
 
 
 InstanceDisk:
@@ -1048,6 +1051,11 @@ Instance:
       items:
         $ref: '#/InstanceDiskInfo'
       description: 实例盘列表
+    disk_count:
+      type: integer
+      example: 4
+      description: 磁盘数量
+
 
 InstanceListResponse:
   type: object

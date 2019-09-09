@@ -87,6 +87,12 @@ head:
           type: string
           #example: 2019-05-30T09:26:41.000000Z
           description: 镜像最近一次更新时间
+        x-image-meta-is_data:
+          type: boolean
+          description: 是否是数据盘镜像
+        x-image-meta-is_guest_image:
+          type: boolean
+          description: 镜像是否是主机镜像的一部分
   tags:
     - images
 

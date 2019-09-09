@@ -283,6 +283,8 @@ type ServerCreateOptions struct {
 	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
 	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
+
+	GuestImageID string `help:"create from guest image, need to specify the guest image id"`
 }
 
 func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error) {
@@ -362,6 +364,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
+		GuestImageID:       opts.GuestImageID,
 	}
 
 	if opts.GenerateName {

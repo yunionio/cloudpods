@@ -54,6 +54,8 @@ func initHandlers(app *appsrv.Application) {
 		models.ImagePropertyManager,
 		models.ImageSubformatManager,
 
+		models.GuestImageJointManager,
+
 		models.QuotaManager,
 		models.QuotaUsageManager,
 	} {
@@ -64,6 +66,8 @@ func initHandlers(app *appsrv.Application) {
 		db.OpsLog,
 		db.Metadata,
 		models.ImageManager,
+
+		models.GuestImageManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

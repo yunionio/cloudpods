@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -927,6 +928,12 @@ func (manager *SGuestManager) validateCreateData(
 		input.InstanceGroupIds = newGroupIds
 	}
 
+	// check that all image of disk is the part of guest imgae, if use guest image to create guest
+	err = manager.checkGuestImage(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
 	var hypervisor string
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
@@ -1528,6 +1535,10 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 	if metaData, err := db.GetVisiableMetadata(self, nil); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
+
+	q := self.GetDisksQuery()
+	count, _ := q.CountWithError()
+	extra.Add(jsonutils.NewInt(int64(count)), "disk_count")
 
 	return extra
 }
@@ -4754,4 +4765,52 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 		return nil, err
 	}
 	return snapshots, nil
+}
+
+func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.ServerCreateInput) error {
+	// that data disks has image id show that these image is part of guest image.
+	for _, config := range input.Disks[1:] {
+		if len(config.ImageId) != 0 && len(input.GuestImageID) == 0 {
+			return httperrors.NewMissingParameterError("guest_image_id")
+		}
+	}
+
+	if len(input.GuestImageID) == 0 {
+		return nil
+	}
+
+	guestImageId := input.GuestImageID
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.JSONTrue, "details")
+
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	ret, err := modules.GuestImages.Get(s, guestImageId, params)
+	if err != nil {
+		return errors.Wrap(err, "get guest image from glance error")
+	}
+
+	images := &api.SImagesInGuest{}
+	err = ret.Unmarshal(images)
+	if err != nil {
+		return errors.Wrap(err, "get guest image from glance error")
+	}
+	imageIdMap := make(map[string]struct{})
+	for _, pair := range images.DataImages {
+		imageIdMap[pair.ID] = struct{}{}
+	}
+	imageIdMap[images.RootImage.ID] = struct{}{}
+
+	// check
+	for _, diskConfig := range input.Disks {
+		if len(diskConfig.ImageId) != 0 {
+			if _, ok := imageIdMap[diskConfig.ImageId]; !ok {
+				return httperrors.NewBadRequestError("image %s do not belong to guest image %s", diskConfig.ImageId, guestImageId)
+			}
+			delete(imageIdMap, diskConfig.ImageId)
+		}
+	}
+	if len(imageIdMap) != 0 {
+		return httperrors.NewBadRequestError("miss some subimage of guest image")
+	}
+	return nil
 }

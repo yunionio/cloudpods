@@ -24,10 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -185,6 +184,79 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 
 func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
 	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, data, parentTaskId)
+}
+
+func (self *SGuest) AllowPerformSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save-guest-image")
+}
+
+func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) {
+		return nil, httperrors.NewBadRequestError("Cannot save image in status %s", self.Status)
+	}
+	if !data.Contains("name") {
+		return nil, httperrors.NewMissingParameterError("Image name is required")
+	}
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewBadRequestError("Support only by KVM Hypervisor")
+	}
+	disks := self.CategorizeDisks()
+
+	if disks.Root == nil {
+		return nil, httperrors.NewInternalServerError("No root image")
+	}
+
+	// build images
+	images := jsonutils.NewArray()
+	diskList := append(disks.Data, disks.Root)
+	for _, disk := range diskList {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
+		params.Add(jsonutils.NewInt(int64(disk.DiskSize)), "virtual_size")
+		images.Add(params)
+	}
+
+	// build parameters
+	kwargs := data.(*jsonutils.JSONDict)
+
+	kwargs.Add(jsonutils.NewInt(int64(len(disks.Data)+1)), "image_number")
+	properties := jsonutils.NewDict()
+	if notes, err := kwargs.GetString("notes"); err != nil && len(notes) > 0 {
+		properties.Add(jsonutils.NewString(notes), "notes")
+	}
+	osType := self.OsType
+	if len(osType) == 0 {
+		osType = "Linux"
+	}
+	properties.Add(jsonutils.NewString(osType), "os_type")
+	kwargs.Add(properties, "properties")
+
+	kwargs.Add(images, "images")
+
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	ret, err := modules.GuestImages.Create(s, kwargs)
+	if err != nil {
+		return nil, err
+	}
+	imageIds, err := ret.Get("image_ids")
+	if err != nil {
+		return nil, fmt.Errorf("something wrong in glance")
+	}
+	tmp := imageIds.(*jsonutils.JSONArray)
+	if tmp.Length() != len(disks.Data)+1 {
+		return nil, fmt.Errorf("create subimage of guest image error")
+	}
+	taskParams := jsonutils.NewDict()
+	taskParams.Add(imageIds, "image_ids")
+	return nil, self.StartGuestSaveGuestImage(ctx, userCred, taskParams, "")
+}
+
+func (self *SGuest) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	return self.GetDriver().StartGuestSaveGuestImage(ctx, userCred, self, data, parentTaskId)
 }
 
 func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
