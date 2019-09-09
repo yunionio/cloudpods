@@ -320,14 +320,21 @@ func (self *SHost) fetchNicInfo() []SHostNicInfo {
 		nicInfoList = append(nicInfoList, info)
 	}
 
+	vnics := make([]types.HostVirtualNic, 0)
+	if len(moHost.Config.Network.Vnic) > 0 {
+		vnics = append(vnics, moHost.Config.Network.Vnic...)
+	}
+	if len(moHost.Config.Network.ConsoleVnic) > 0 {
+		vnics = append(vnics, moHost.Config.Network.ConsoleVnic...)
+	}
 	findMaster := false
-	for _, nic := range moHost.Config.Network.Vnic {
+	for _, nic := range vnics {
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
 		if pnic != nil {
 			findMaster = true
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
-			if nic.Spec.Portgroup == "Management Network" {
+			if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" {
 				pnic.NicType = api.NIC_TYPE_ADMIN
 			}
 			pnic.LinkUp = true
@@ -339,8 +346,8 @@ func (self *SHost) fetchNicInfo() []SHostNicInfo {
 		// no match pnic found for master nic
 		// choose the first pnic
 		pnic := &nicInfoList[0]
-		for _, nic := range moHost.Config.Network.Vnic {
-			if nic.Spec.Portgroup == "Management Network" {
+		for _, nic := range vnics {
+			if nic.Spec.Portgroup == "Management Network" || nic.Spec.Portgroup == "Service Console" {
 				pnic.NicType = api.NIC_TYPE_ADMIN
 				pnic.IpAddr = nic.Spec.Ip.IpAddress
 				pnic.LinkUp = true
