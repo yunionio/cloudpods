@@ -3,7 +3,20 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
+  check:
+    docker:
+      - image: yunionio/onecloud-ci:v1.0.2
+        environment:
+          ONECLOUD_CI_BUILD: "1"
+    working_directory: /home/build/go/src/yunion.io/x/onecloud
+    steps:
+      - checkout
+      - run:
+          command: |
+            make check
   build:
+    requires:
+      - check
     docker:
       - image: yunionio/onecloud-ci:v1.0.2
         environment:
@@ -35,6 +48,8 @@ jobs:
           path: _output/
 
   test:
+    requires:
+      - check
     docker:
       - image: yunionio/onecloud-ci:v1.0.2
         environment:
@@ -59,5 +74,6 @@ workflows:
   version: 2
   build_and_test:
     jobs:
+      - check
       - build
       - test
