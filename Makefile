@@ -131,8 +131,8 @@ fmt-check: fmt
 gendocgo:
 	@sh build/gendoc.sh
 
-cleandocgo:
-	@git ls-files --others '*/doc.go' | xargs $(XARGS_FLAGS) -- rm -vf
+adddocgo:
+	@git ls-files --others '*/doc.go' | xargs $(XARGS_FLAGS) -- git add
 
 gendocgo-check: gendocgo
 	@n="$$(git ls-files --others '*/doc.go' | wc -l)"; \
@@ -141,7 +141,7 @@ gendocgo-check: gendocgo
 		echo "$@: untracked doc.go file(s) exist in working directory" >&2 ; \
 		false ; \
 	fi
-.PHONY: gendocgo cleandocgo gendocgo-check
+.PHONY: gendocgo adddocgo gendocgo-check
 
 check: fmt-check
 check: gendocgo-check
