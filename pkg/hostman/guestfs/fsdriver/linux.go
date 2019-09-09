@@ -486,17 +486,6 @@ func (d *sDebianLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 			return errors.Wrap(err, "file put content /etc/network/interface")
 		}
 	}
-	for _, dir := range []string{
-		"/etc/network/interface.d",
-		"/etc/network/if-pre-up.d", "/etc/network/if-up.d", "/etc/network/if-post-up.d",
-		"/etc/network/if-pre-down.d", "/etc/network/if-down.d", "/etc/network/if-post-down.d",
-	} {
-		if rootFs.Exists(dir, false) {
-			if err := rootFs.Cleandir(dir, true, true); err != nil {
-				return errors.Wrapf(err, "clean dir %s", dir)
-			}
-		}
-	}
 	return nil
 }
 
@@ -794,6 +783,10 @@ func (r *sRedhatLikeRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	files := rootFs.ListDir(networkPath, false)
 	for i := 0; i < len(files); i++ {
 		if strings.HasPrefix(files[i], "ifcfg-") && files[i] != "ifcfg-lo" {
+			rootFs.Remove(path.Join(networkPath, files[i]), false)
+			continue
+		}
+		if strings.HasPrefix(files[i], "route-") {
 			rootFs.Remove(path.Join(networkPath, files[i]), false)
 		}
 	}

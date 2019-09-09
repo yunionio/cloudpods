@@ -38,7 +38,7 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	guest := obj.(*models.SGuest)
 	log.Infof("Saving server image: %s", guest.Name)
 	if restart, _ := self.GetParams().Bool("restart"); restart {
-		self.SetStage("on_stop_server_complete", nil)
+		self.SetStage("OnStopServerComplete", nil)
 		guest.StartGuestStopTask(ctx, self.GetUserCred(), false, self.GetTaskId())
 	} else {
 		self.OnStopServerComplete(ctx, guest, nil)
@@ -46,7 +46,7 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	self.SetStage("on_save_root_image_complete", nil)
+	self.SetStage("OnSaveRootImageComplete", nil)
 	disks := guest.CategorizeDisks()
 	if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
 		self.SetStageFailed(ctx, err.Error())
@@ -55,7 +55,7 @@ func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest 
 
 func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	if restart, _ := self.GetParams().Bool("restart"); restart {
-		self.SetStage("on_start_server_complete", nil)
+		self.SetStage("OnStartServerComplete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {
 		self.SetStageComplete(ctx, nil)
