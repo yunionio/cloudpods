@@ -19,6 +19,8 @@ import (
 )
 
 const (
+	DEFAULT_PROJECT = "default"
+
 	ACCESS_SECRET_TYPE    = "aksk"
 	TOTP_TYPE             = "totp"
 	RECOVERY_SECRETS_TYPE = "recovery_secret"

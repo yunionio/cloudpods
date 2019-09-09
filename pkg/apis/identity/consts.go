@@ -78,6 +78,11 @@ const (
 var (
 	AUTH_METHODS = []string{AUTH_METHOD_PASSWORD, AUTH_METHOD_TOKEN, AUTH_METHOD_AKSK, AUTH_METHOD_CAS}
 
+	PASSWORD_PROTECTED_IDPS = []string{
+		IdentityDriverSQL,
+		IdentityDriverLDAP,
+	}
+
 	SensitiveDomainConfigMap = map[string]string{
 		"ldap": "password",
 	}
