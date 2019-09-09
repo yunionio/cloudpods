@@ -256,12 +256,13 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		uname, _ := body.GetString("username")
 
 		if h.preLoginHook != nil {
-			if err := h.preLoginHook(ctx, req, uname, body); err != nil {
+			if err = h.preLoginHook(ctx, req, uname, body); err != nil {
 				return nil, err
 			}
 		}
 
-		passwd, err := body.GetString("password")
+		var passwd string
+		passwd, err = body.GetString("password")
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("get password in body")
 		}
