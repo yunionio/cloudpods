@@ -87,8 +87,12 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 			}
 		}
 	}
-	v.Playbook = pb
 	pbJson := jsonutils.Marshal(pb)
+	if serialized := pbJson.String(); len(serialized) > PlaybookMaxBytes {
+		return httperrors.NewBadRequestError("playbook too big, got %d bytes, exceeding %d",
+			len(serialized), PlaybookMaxBytes)
+	}
+	v.Playbook = pb
 	data.Set("playbook", pbJson)
 	return nil
 }
