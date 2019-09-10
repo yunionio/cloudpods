@@ -1951,6 +1951,11 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			snapshotName          = generateAutoSnapshotName()
 		)
 
+		if len(guests) == 0 {
+			log.Infof("Disk %s not attach guest, can't auto create snapshot", disk.Id)
+			continue
+		}
+
 		if utils.IsInStringArray(disk.GetStorage().StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_GPFS, api.STORAGE_NFS}) &&
 			len(guests) == 1 && !utils.IsInStringArray(guests[0].Status, []string{api.VM_RUNNING, api.VM_READY}) {
 			err = fmt.Errorf("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)

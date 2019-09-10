@@ -4326,7 +4326,7 @@ func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.Toke
 	notes.Add(jsonutils.NewString(hostId), "host_id")
 	db.OpsLog.LogEvent(self, db.ACT_SCHEDULE, notes, userCred)
 
-	return nil
+	return self.GetHost().ClearSchedDescCache()
 }
 
 func (guest *SGuest) AllowGetDetailsTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

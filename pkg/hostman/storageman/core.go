@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -280,6 +281,10 @@ func Manager() *SStorageManager {
 }
 
 func Init(host hostutils.IHost) error {
+	lm := lockman.NewInMemoryLockManager()
+	// lm := lockman.NewNoopLockManager()
+	lockman.Init(lm)
+
 	var err error
 	storageManager, err = NewStorageManager(host)
 	return err

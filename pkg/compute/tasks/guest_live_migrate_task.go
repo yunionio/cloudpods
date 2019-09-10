@@ -206,9 +206,11 @@ func (self *GuestMigrateTask) OnNormalMigrateComplete(ctx context.Context, guest
 	guest.SetStatus(self.UserCred, guestStatus, "")
 	if jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
 		guest.StartGueststartTask(ctx, self.UserCred, nil, "")
+		self.TaskComplete(ctx, guest)
+	} else {
+		self.SetStage("OnUndeployOldHostSucc", nil)
+		guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), oldHostId)
 	}
-	self.SetStage("OnUndeployOldHostSucc", nil)
-	guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), oldHostId)
 }
 
 // Server migrate complete
