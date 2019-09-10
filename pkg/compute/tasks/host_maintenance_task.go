@@ -64,6 +64,6 @@ func (self *HostMaintainTask) OnGuestsMigrateFailed(ctx context.Context, host *m
 func (self *HostMaintainTask) TaskFailed(ctx context.Context, host *models.SHost, reason string) {
 	host.PerformDisable(ctx, self.UserCred, nil, nil)
 	host.SetStatus(self.UserCred, api.HOST_MAINTAIN_FAILE, "On host maintain task complete failed")
-	logclient.AddSimpleActionLog(host, logclient.ACT_HOST_MAINTAINING, "host maintain", self.UserCred, false)
+	logclient.AddSimpleActionLog(host, logclient.ACT_HOST_MAINTAINING, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
