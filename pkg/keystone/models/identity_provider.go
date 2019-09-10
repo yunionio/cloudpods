@@ -819,3 +819,8 @@ func (manager *SIdentityProviderManager) FetchIdentityProviderById(idstr string)
 	}
 	return obj.(*SIdentityProvider), nil
 }
+
+func (manager *SIdentityProviderManager) FetchPasswordProtectedIdpIdsQuery() *sqlchemy.SSubQuery {
+	q := manager.Query("id").In("driver", api.PASSWORD_PROTECTED_IDPS)
+	return q.SubQuery()
+}

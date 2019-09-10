@@ -107,24 +107,17 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 	if !data.Contains("type") {
 		return nil, httperrors.NewInputParameterError("missing input feild type")
 	}
-	userId, _ := data.GetString("user_id")
 	projectId, _ := data.GetString("project_id")
+	userId := ownerId.GetUserId()
 	if len(userId) == 0 {
 		userId = userCred.GetUserId()
-		data.Set("user_id", jsonutils.NewString(userId))
-	} else {
-		_, err := UserManager.FetchById(userId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), userId)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
 	}
+	data.Set("user_id", jsonutils.NewString(userId))
 	if len(projectId) == 0 {
 		projectId = userCred.GetProjectId()
 		data.Set("project_id", jsonutils.NewString(projectId))
+	} else if projectId == api.DEFAULT_PROJECT {
+		// do nothing
 	} else {
 		_, err := ProjectManager.FetchById(projectId)
 		if err != nil {
