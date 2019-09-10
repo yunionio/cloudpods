@@ -72,12 +72,25 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	log.Infof("Resize fs on %s", req.DiskPath)
 	disk := diskutils.NewKVMGuestDisk(req.DiskPath)
 	defer disk.Disconnect()
-	if disk.Connect() {
-		if err := disk.ResizePartition(); err != nil {
-			return new(deployapi.Empty), err
-		}
+	if !disk.Connect() {
+		return new(deployapi.Empty), errors.New("resize fs disk connect failed")
 	}
+
+	root := disk.MountKvmRootfs()
+	if root == nil {
+		// is not a root fs
+		goto resizePartition
+	} else if root.IsResizeFsPartitionSupport() {
+		goto resizePartition
+	}
+
+	disk.UmountKvmRootfs(root)
 	return new(deployapi.Empty), nil
+
+resizePartition:
+	disk.UmountKvmRootfs(root)
+	err := disk.ResizePartition()
+	return new(deployapi.Empty), err
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {

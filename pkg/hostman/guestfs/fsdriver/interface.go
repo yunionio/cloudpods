@@ -80,6 +80,7 @@ type IRootFsDriver interface {
 	DeployFiles(deploys []*deployapi.DeployContent) error
 	DetectIsUEFISupport(IDiskPartition) bool
 	IsCloudinitInstall() bool
+	IsResizeFsPartitionSupport() bool
 
 	PrepareFsForTemplate(IDiskPartition) error
 }
