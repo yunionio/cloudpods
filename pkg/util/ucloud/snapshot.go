@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -121,12 +123,31 @@ func (self *SSnapshot) GetDiskType() string {
 
 // https://docs.ucloud.cn/api/udisk-api/delete_udisk_snapshot
 func (self *SSnapshot) Delete() error {
+	zoneId := ""
 	idisk, err := self.region.GetDisk(self.UDiskID)
-	if err != nil {
-		return err
+	if err == nil {
+		zoneId = idisk.Zone
+	} else if err == cloudprovider.ErrNotFound  {
+		zones, err := self.region.GetIZones()
+		if err != nil {
+			return errors.Wrap(err, "snapshot.Delete GetIZones")
+		}
+
+		for _, zone := range zones {
+			if _, err := self.region.GetSnapshotById(zone.GetId(), self.GetId()); err == nil {
+				zoneId = zone.GetId()
+				break;
+			}
+		}
+	} else {
+		return errors.Wrap(err, "snapshot.Delete")
 	}
 
-	return self.region.DeleteSnapshot(self.GetId(), idisk.Zone)
+	if len(zoneId) == 0 {
+		return fmt.Errorf("snapshot.Delete can not found snapshot %s zone id", self.GetId())
+	}
+
+	return self.region.DeleteSnapshot(self.GetId(), zoneId)
 }
 
 func (self *SRegion) GetSnapshotById(zoneId string, snapshotId string) (SSnapshot, error) {
