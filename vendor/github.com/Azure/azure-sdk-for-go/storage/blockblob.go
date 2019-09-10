@@ -223,7 +223,7 @@ func (b *Blob) PutBlockFromURL(blockID string, blobURL string, offset int64, siz
 	// When the length is not zero, the operation will fail with the status code 400 (Bad Request).
 	headers["Content-Length"] = "0"
 	headers["x-ms-copy-source"] = blobURL
-	headers["x-ms-copy-source-range"] = fmt.Sprintf("bytes=%d-%d", offset, uint64(offset)+size-1)
+	headers["x-ms-source-range"] = fmt.Sprintf("bytes=%d-%d", offset, uint64(offset)+size-1)
 
 	if options != nil {
 		query = addTimeout(query, options.Timeout)

@@ -362,7 +362,7 @@ func (rule *SecurityRule) ValidateRule() error {
 	return nil
 }
 
-func (rule *SecurityRule) getPort() string {
+func (rule *SecurityRule) GetPortsString() string {
 	if rule.PortStart > 0 && rule.PortEnd > 0 {
 		if rule.PortStart < rule.PortEnd {
 			return fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
@@ -398,7 +398,7 @@ func (rule *SecurityRule) String() (result string) {
 
 	s = append(s, rule.Protocol)
 	if rule.Protocol == PROTO_TCP || rule.Protocol == PROTO_UDP {
-		port := rule.getPort()
+		port := rule.GetPortsString()
 		if len(port) > 0 {
 			s = append(s, port)
 		}

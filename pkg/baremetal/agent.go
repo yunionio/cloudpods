@@ -38,6 +38,11 @@ var (
 	baremetalAgent *SBaremetalAgent
 )
 
+//
+// BaremetalAgent has two types of address
+// - AccessAddress/Address: this is the address controller to accesss the agent
+// - ListenAddress: this is the address baremetal to access the agent
+//
 type SBaremetalAgent struct {
 	agent.SBaseAgent
 
