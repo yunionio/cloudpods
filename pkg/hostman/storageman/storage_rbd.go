@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -266,36 +267,43 @@ func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string
 }
 
 // 速度快
-func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool string, destImage string) error {
+func (s *SRbdStorage) cloneImage(ctx context.Context, srcPool string, srcImage string, destPool string, destImage string) error {
 	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
-		snapInfos, err := src.GetSnapshotNames()
-		if err != nil {
-			return nil, errors.Wrap(err, "image.GetSnapshotNames()")
-		}
-		var snapshot *rbd.Snapshot = nil
-		for _, snap := range snapInfos {
-			if snap.Name == destImage {
-				snapshot = src.GetSnapshot(destImage)
-				break
-			}
-		}
-		if snapshot == nil {
-			snapshot, err = src.CreateSnapshot(destImage)
+		err := func() error {
+			lockman.LockRawObject(ctx, "rbd_image_cache", srcImage)
+			defer lockman.ReleaseRawObject(ctx, "rbd_image_cache", srcImage)
+			snapInfos, err := src.GetSnapshotNames()
 			if err != nil {
-				return nil, errors.Wrap(err, "src.CreateSnapshot")
+				return errors.Wrap(err, "image.GetSnapshotNames()")
 			}
-		}
+			var snapshot *rbd.Snapshot = nil
+			for _, snap := range snapInfos {
+				if snap.Name == destImage {
+					snapshot = src.GetSnapshot(destImage)
+					break
+				}
+			}
+			if snapshot == nil {
+				snapshot, err = src.CreateSnapshot(destImage)
+				if err != nil {
+					return errors.Wrap(err, "src.CreateSnapshot")
+				}
+			}
 
-		isProtect, err := snapshot.IsProtected()
-		if err != nil {
-			return nil, err
-		}
-		if !isProtect {
-			if err := snapshot.Protect(); err != nil {
-				return nil, errors.Wrap(err, "snapshot.Protect")
+			isProtect, err := snapshot.IsProtected()
+			if err != nil {
+				return errors.Wrap(err, "snapshot.IsProtected")
 			}
+			if !isProtect {
+				if err := snapshot.Protect(); err != nil {
+					return errors.Wrap(err, "snapshot.Protect")
+				}
+			}
+			return nil
+		}()
+		if err != nil {
+			return nil, errors.Wrap(err, "get snapshot")
 		}
-		defer snapshot.Unprotect()
 
 		return s.withIOContext(destPool, func(ioctx *rados.IOContext) (interface{}, error) {
 			_, err := src.Clone(destImage, ioctx, destImage, RBD_FEATURE, RBD_ORDER)

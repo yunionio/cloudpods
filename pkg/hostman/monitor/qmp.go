@@ -817,3 +817,12 @@ func (m *QmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback
 	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
 	m.HumanMonitorCommand(cmd, callback)
 }
+
+func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+	cmd := "block_job_cancel "
+	if force {
+		cmd += "-f "
+	}
+	cmd += driveName
+	m.HumanMonitorCommand(cmd, callback)
+}

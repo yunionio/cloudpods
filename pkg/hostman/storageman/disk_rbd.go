@@ -126,7 +126,7 @@ func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	}
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.GetStorageConf().GetString("pool")
-	if err := storage.cloneImage(pool, d.Id, imageCache.GetPath(), imageName); err != nil {
+	if err := storage.cloneImage(ctx, pool, d.Id, imageCache.GetPath(), imageName); err != nil {
 		log.Errorf("clone image %s from pool %s to %s/%s error: %v", d.Id, pool, imageCache.GetPath(), imageName, err)
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
 	storage.deleteImage(destPool, d.Id) //重装系统时，需要删除以前的系统盘
-	if err := storage.cloneImage(imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
+	if err := storage.cloneImage(ctx, imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
 		return nil, err
 	}
 	return d.GetDiskDesc(), nil
