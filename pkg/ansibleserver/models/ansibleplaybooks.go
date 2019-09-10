@@ -53,14 +53,15 @@ const (
 type SAnsiblePlaybook struct {
 	db.SVirtualResourceBase
 
-	Playbook  *ansible.Playbook `nullable:"false" create:"required" get:"user" update:"user"`
+	Playbook  *ansible.Playbook `length:"text" nullable:"false" create:"required" get:"user" update:"user"`
 	Output    string            `length:"medium" get:"user"`
 	StartTime time.Time         `list:"user"`
 	EndTime   time.Time         `list:"user"`
 }
 
 const (
-	OutputMaxBytes = 64*1024*1024 - 1
+	OutputMaxBytes   = 64*1024*1024 - 1
+	PlaybookMaxBytes = 64*1024 - 1
 )
 
 type SAnsiblePlaybookManager struct {
