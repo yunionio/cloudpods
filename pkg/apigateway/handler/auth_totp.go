@@ -42,7 +42,13 @@ import (
 func toQrcode(secret string, token mcclient.TokenCredential) (string, error) {
 	_secret := base32.StdEncoding.EncodeToString([]byte(secret))
 	// https://github.com/google/google-authenticator/wiki/Key-Uri-Format
-	uri := fmt.Sprintf("otpauth://totp/Onecloud:%s?secret=%s&issuer=Onecloud", token.GetUserName(), _secret)
+	// issuer Onecloud.Domain
+	issuer := "Onecloud"
+	if len(token.GetDomainName()) > 0 {
+		issuer = fmt.Sprintf("Onecloud.%s", token.GetDomainName())
+	}
+
+	uri := fmt.Sprintf("otpauth://totp/%s:%s?secret=%s&issuer=%s", issuer, token.GetUserName(), _secret, issuer)
 
 	c, err := qrcode.Encode(uri, qrcode.High, 256)
 	if err != nil {
