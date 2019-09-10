@@ -179,6 +179,7 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 				if err == nil {
 					break
 				} else {
+					log.Errorf("Try to fix partition %s failed: %s", fixCmd, err)
 					continue
 				}
 			}

@@ -28,6 +28,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 
 	"yunion.io/x/log"
@@ -419,6 +420,7 @@ func ParseDiskPartition(dev string, lines []byte) ([][]string, string) {
 
 func GetDevSector512Count(dev string) int {
 	sizeStr, _ := FileGetContents(fmt.Sprintf("/sys/block/%s/size", dev))
+	sizeStr = strings.Trim(sizeStr, "\n")
 	size, _ := strconv.Atoi(sizeStr)
 	return size
 }
@@ -498,6 +500,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		}
 		cmds = []string{"parted", "-a", "none", "-s", diskPath, "--",
 			"unit", "s", "rm", part[0], "mkpart", part[5]}
+
 		if len(part[6]) > 0 {
 			cmds = append(cmds, part[6])
 		}
@@ -505,10 +508,10 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if len(part[1]) > 0 {
 			cmds = append(cmds, "set", part[0], "boot", "on")
 		}
+		log.Infof("resize disk partition: %s", cmds)
 		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
 		if err != nil {
-			log.Errorln(output)
-			return fmt.Errorf("%s", output)
+			return errors.Wrapf(err, "parted failed %s", output)
 		}
 		if len(part[6]) > 0 {
 			err, _ := ResizePartitionFs(part[7], part[6], false)

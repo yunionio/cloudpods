@@ -450,10 +450,6 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 }
 
 func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deployapi.Disk) error {
-	if len(disks) == 1 {
-		return nil
-	}
-
 	bootScript := strings.Join([]string{
 		`set MOUNT_DISK_SCRIPT=%SystemRoot%\mountdisk.bat`,
 		`if exist %MOUNT_DISK_SCRIPT% (`,
@@ -493,5 +489,9 @@ func (w *SWindowsRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 		strings.HasPrefix(contentStr[idx+len(sep):], "UEFI") {
 		return true
 	}
+	return false
+}
+
+func (l *SWindowsRootFs) IsResizeFsPartitionSupport() bool {
 	return false
 }
