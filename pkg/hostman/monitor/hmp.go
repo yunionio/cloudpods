@@ -458,3 +458,12 @@ func (m *HmpMonitor) BlockIoThrottle(driveName string, bps, iops int64, callback
 	cmd := fmt.Sprintf("block_set_io_throttle %s %d 0 0 %d 0 0", driveName, bps, iops)
 	m.Query(cmd, callback)
 }
+
+func (m *HmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+	cmd := "block_job_cancel "
+	if force {
+		cmd += "-f "
+	}
+	cmd += driveName
+	m.Query(cmd, callback)
+}
