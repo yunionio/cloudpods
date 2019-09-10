@@ -3420,13 +3420,20 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 
 func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	guestdisks := guest.GetDisks()
+	dataCopy := jsonutils.DeepCopy(data)
 	for i := range guestdisks {
 		disk := guestdisks[i].GetDisk()
 		if disk == nil {
 			return nil, httperrors.NewInternalServerError("some disk missing!!!")
 		}
-		dataCopy := jsonutils.DeepCopy(data)
 		_, err := disk.PerformChangeOwner(ctx, userCred, query, dataCopy)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if eip, _ := guest.GetEip(); eip != nil {
+		_, err := eip.PerformChangeOwner(ctx, userCred, query, dataCopy)
 		if err != nil {
 			return nil, err
 		}
