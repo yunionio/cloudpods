@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -46,7 +47,7 @@ type SZoneInfo struct {
 }
 
 type SBaseAgent struct {
-	virtual interface{}
+	object.SObject
 
 	ListenInterface *net.Interface
 	ListenIPs       []net.IP
@@ -74,7 +75,7 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 }
 
 func (agent *SBaseAgent) IAgent() IAgent {
-	return agent.virtual.(IAgent)
+	return agent.GetVirtualObject().(IAgent)
 }
 
 func (agent *SBaseAgent) Init(iagent IAgent, ifname string) error {
@@ -101,7 +102,7 @@ func (agent *SBaseAgent) Init(iagent IAgent, ifname string) error {
 		return fmt.Errorf("Interface %s ip address not found", ifname)
 	}
 	log.Debugf("Interface %s ip address: %v", iface.Name, ips)
-	agent.virtual = iagent
+	agent.SetVirtualObject(iagent)
 	agent.ListenInterface = iface
 	agent.ListenIPs = ips
 	return nil

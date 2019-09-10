@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
 
+	"net/http/httputil"
 	"yunion.io/x/onecloud/pkg/appctx"
 )
 
@@ -89,16 +90,6 @@ func ErrorCode(err error) int {
 		return je.Code
 	}
 	return -1
-}
-
-func headerExists(header *http.Header, key string) bool {
-	keyu := strings.ToUpper(key)
-	for k := range *header {
-		if strings.ToUpper(k) == keyu {
-			return true
-		}
-	}
-	return false
 }
 
 func GetAddrPort(urlStr string) (string, int, error) {
@@ -187,29 +178,44 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("User-Agent", USER_AGENT)
+	req.Header.Set("User-Agent", USER_AGENT)
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Encoding", "*")
 	if body == nil {
-		req.Header.Set("Content-Length", "0")
+		if method != GET && method != HEAD {
+			req.ContentLength = 0
+			req.Header.Set("Content-Length", "0")
+		}
 	} else {
-		if headerExists(&header, "Content-Length") {
-			clen := header.Get("Content-Length")
+		clen := header.Get("Content-Length")
+		if len(clen) > 0 {
 			req.ContentLength, _ = strconv.ParseInt(clen, 10, 64)
 		}
 	}
 	if header != nil {
-		for k, v := range header {
-			req.Header[k] = v
+		for k, vs := range header {
+			for i, v := range vs {
+				if i == 0 {
+					req.Header.Set(k, v)
+				} else {
+					req.Header.Add(k, v)
+				}
+			}
 		}
 	}
 	if debug {
-		yellow("Request", method, urlStr, req.Header, body)
+		dump, _ := httputil.DumpRequestOut(req, false)
+		yellow(string(dump))
 		// 忽略掉上传文件的请求,避免大量日志输出
 		if header.Get("Content-Type") != "application/octet-stream" {
 			curlCmd, _ := http2curl.GetCurlCommand(req)
-			cyan("CURL:", curlCmd)
+			cyan("CURL:", curlCmd, "\n")
 		}
 	}
 	resp, err := client.Do(req)
+	if err != nil {
+		red(err.Error())
+	}
 	if err == nil && clientTrace != nil {
 		clientTrace.EndClientTraceHeader(resp.Header)
 	}
@@ -217,7 +223,7 @@ func Request(client *http.Client, ctx context.Context, method THttpMethod, urlSt
 }
 
 func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
-	bodystr := ""
+	var bodystr string
 	if !gotypes.IsNil(body) {
 		bodystr = body.String()
 	}
@@ -225,6 +231,7 @@ func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, u
 	if header == nil {
 		header = http.Header{}
 	}
+	header.Set("Content-Length", strconv.FormatInt(int64(len(bodystr)), 10))
 	header.Set("Content-Type", "application/json")
 	resp, err := Request(client, ctx, method, urlStr, header, jbody, debug)
 	return ParseJSONResponse(resp, err, debug)
@@ -259,15 +266,13 @@ func ParseResponse(resp *http.Response, err error, debug bool) (http.Header, []b
 	}
 	defer CloseResponse(resp)
 	if debug {
+		dump, _ := httputil.DumpResponse(resp, false)
 		if resp.StatusCode < 300 {
-			green("Status:", resp.StatusCode)
-			green(resp.Header)
+			green(string(dump))
 		} else if resp.StatusCode < 400 {
-			yellow("Status:", resp.StatusCode)
-			yellow(resp.Header)
+			yellow(string(dump))
 		} else {
-			red("Status:", resp.StatusCode)
-			red(resp.Header)
+			red(string(dump))
 		}
 	}
 	rbody, err := ioutil.ReadAll(resp.Body)
@@ -305,15 +310,13 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 	}
 	defer CloseResponse(resp)
 	if debug {
+		dump, _ := httputil.DumpResponse(resp, false)
 		if resp.StatusCode < 300 {
-			green("Status:", resp.StatusCode)
-			green(resp.Header)
+			green(string(dump))
 		} else if resp.StatusCode < 400 {
-			yellow("Status:", resp.StatusCode)
-			yellow(resp.Header)
+			yellow(string(dump))
 		} else {
-			red("Status:", resp.StatusCode)
-			red(resp.Header)
+			red(string(dump))
 		}
 	}
 	rbody, err := ioutil.ReadAll(resp.Body)
