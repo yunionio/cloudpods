@@ -152,18 +152,18 @@ func (s *SStorageManager) initLocalStorageImagecache() error {
 	var (
 		cacheDir  = "image_cache"
 		cachePath = options.HostOptions.ImageCachePath
-		limit     = options.HostOptions.ImageCacheLimit
+		// limit     = options.HostOptions.ImageCacheLimit
 	)
 
 	if len(cachePath) == 0 {
 		var err error
-		cachePath, err = s.getLeasedUsedLocalStorage(cacheDir, limit)
+		cachePath, err = s.getLeasedUsedLocalStorage(cacheDir, 0)
 		if err != nil {
 			return err
 		}
 	}
 	if len(cachePath) > 0 {
-		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, limit, true, "")
+		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, "")
 		return nil
 	} else {
 		return fmt.Errorf("Cannot allocate image cache storage")
@@ -253,7 +253,7 @@ func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path s
 		s.SharedFileStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.SharedFileStorageImagecacheManagers[storagecacheId]; !ok {
-		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, options.HostOptions.ImageCacheLimit, true, storagecacheId)
+		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, storagecacheId)
 	}
 }
 

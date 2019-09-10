@@ -31,17 +31,17 @@ import (
 
 type SLocalImageCacheManager struct {
 	SBaseImageCacheManager
-	limit      int
+	// limit      int
 	isTemplate bool
 }
 
-func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, limit int, isTemplete bool, storagecacheId string) *SLocalImageCacheManager {
+func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, storagecacheId string) *SLocalImageCacheManager {
 	imageCacheManager := new(SLocalImageCacheManager)
 	imageCacheManager.storagemanager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
-	imageCacheManager.limit = limit
-	imageCacheManager.isTemplate = isTemplete
+	// imageCacheManager.limit = limit
+	// imageCacheManager.isTemplate = isTemplete
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
 	imageCacheManager.mutex = new(sync.Mutex)
 	if !fileutils2.Exists(cachePath) {

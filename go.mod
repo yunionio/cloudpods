@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/Azure/azure-sdk-for-go v19.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v34.0.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
@@ -85,7 +85,6 @@ require (
 	github.com/kr/pty v1.1.3
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
-	github.com/marstr/guid v1.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
@@ -149,11 +148,11 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
 	sigs.k8s.io/yaml v1.1.0 // indirect
-	yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
+	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20190917154624-e89986e4e4d8
+	yunion.io/x/pkg v0.0.0-20191002154235-995be969f32c
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20190823062008-bb710661356f
+	yunion.io/x/sqlchemy v0.0.0-20190929093830-b6d473884c87
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
