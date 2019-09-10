@@ -2896,12 +2896,9 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 
 	taskData := jsonutils.NewDict()
 	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
-	taskData.Set("host_id", jsonutils.NewString(self.BackupHostId))
-	taskData.Set("failed_status", jsonutils.NewString(api.VM_BACKUP_DELETE_FAILED))
-
 	self.SetStatus(userCred, api.VM_DELETING_BACKUP, "delete backup server")
 	if task, err := taskman.TaskManager.NewTask(
-		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
+		ctx, "GuestDeleteBackupTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorln(err)
 		return nil, err
 	} else {
