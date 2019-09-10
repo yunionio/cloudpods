@@ -21,7 +21,8 @@ import (
 	"time"
 
 	"github.com/golang-plus/uuid"
-	"github.com/pkg/errors"
+
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
