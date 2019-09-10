@@ -33,7 +33,7 @@ type SCredentialManager struct {
 }
 
 const (
-	DEFAULT_PROJECT = "default"
+	DEFAULT_PROJECT = api.DEFAULT_PROJECT
 
 	ACCESS_SECRET_TYPE    = api.ACCESS_SECRET_TYPE
 	TOTP_TYPE             = api.TOTP_TYPE
