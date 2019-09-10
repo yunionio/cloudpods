@@ -1155,3 +1155,59 @@ func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
 func (task *SGuestHotplugCpuMemTask) onSucc() {
 	hostutils.TaskComplete(task.ctx, nil)
 }
+
+type SCancelBlockJobs struct {
+	*SKVMGuestInstance
+
+	ctx context.Context
+}
+
+func NewCancelBlockJobsTask(ctx context.Context, guest *SKVMGuestInstance) *SCancelBlockJobs {
+	return &SCancelBlockJobs{guest, ctx}
+}
+
+func (task *SCancelBlockJobs) Start() {
+	task.findBlockDevices()
+}
+
+func (task *SCancelBlockJobs) findBlockDevices() {
+	task.Monitor.GetBlocks(task.onBlockDriversSucc)
+}
+
+func (task *SCancelBlockJobs) onBlockDriversSucc(res *jsonutils.JSONArray) {
+	drivers := make([]string, 0)
+	for i := 0; i < res.Length(); i++ {
+		device, err := res.GetAt(i)
+		if err == nil {
+			driver, err := device.GetString("device")
+			if err == nil {
+				if strings.HasPrefix(driver, "drive_") {
+					drivers = append(drivers, driver)
+				}
+			}
+		}
+	}
+	task.StartCancelBlockJobs(drivers)
+}
+
+func (task *SCancelBlockJobs) StartCancelBlockJobs(drivers []string) {
+	if len(drivers) > 0 {
+		driver := drivers[0]
+		drivers = drivers[1:]
+		onCancelBlockJob := func(res string) {
+			if len(res) > 0 {
+				log.Errorln(res)
+			}
+			task.StartCancelBlockJobs(drivers)
+		}
+		task.Monitor.CancelBlockJob(driver, true, onCancelBlockJob)
+	} else {
+		task.taskComplete()
+	}
+}
+
+func (task *SCancelBlockJobs) taskComplete() {
+	if task.ctx != nil {
+		hostutils.TaskComplete(task.ctx, nil)
+	}
+}

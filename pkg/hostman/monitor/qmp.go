@@ -812,3 +812,12 @@ func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 	}
 	m.HumanMonitorCommand("info memory-devices", cb)
 }
+
+func (m *QmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+	cmd := "block_job_cancel "
+	if force {
+		cmd += "-f "
+	}
+	cmd += driveName
+	m.HumanMonitorCommand(cmd, callback)
+}
