@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/skip2/go-qrcode"
 
@@ -46,6 +47,7 @@ func toQrcode(secret string, token mcclient.TokenCredential) (string, error) {
 	issuer := "Onecloud"
 	if len(token.GetDomainName()) > 0 {
 		issuer = fmt.Sprintf("Onecloud.%s", token.GetDomainName())
+		issuer = url.PathEscape(issuer)
 	}
 
 	uri := fmt.Sprintf("otpauth://totp/%s:%s?secret=%s&issuer=%s", issuer, token.GetUserName(), _secret, issuer)
