@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,7 +51,8 @@ type SReservedip struct {
 	Id        int64  `primary:"true" auto_increment:"true" list:"admin"`        // = Column(BigInteger, primary_key=True)
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 	IpAddr    string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
-	Notes     string `width:"512" charset:"utf8" nullable:"true" list:"admin"`  // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
+
+	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"` // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
 }
 
 func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -151,4 +153,12 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.Equals("network_id", netObj.GetId())
 	}
 	return q, nil
+}
+
+func (rip *SReservedip) GetId() string {
+	return strconv.FormatInt(rip.Id, 10)
+}
+
+func (rip *SReservedip) GetName() string {
+	return rip.GetId()
 }
