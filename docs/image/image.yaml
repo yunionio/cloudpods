@@ -98,7 +98,10 @@ put:
     - $ref: "../parameters/image.yaml#/x-image-meta-property-os_arch"
     - $ref: "../parameters/image.yaml#/x-image-meta-property-os_distribution"
     - $ref: "../parameters/image.yaml#/x-image-meta-property-os_version"
-  summary: 更新镜像信息
+    - in: body 
+      type: file 
+      description: 镜像二进制文件内容
+  summary: 更新镜像信息或上传镜像文件
   responses:
     200:
       description: 镜像信息

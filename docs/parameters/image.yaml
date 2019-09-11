@@ -62,3 +62,10 @@ x-image-meta-property-os_version:
   type: string
   in: header
   description: 操作系统版本
+content-type:
+  name: Content-Type
+  required: true
+  type: string
+  in: header
+  example: application/octet-stream
+  enum: [application/octet-stream]
