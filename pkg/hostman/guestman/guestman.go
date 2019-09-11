@@ -45,9 +45,12 @@ import (
 	timeutils2 "yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
-const (
-	VNC_PORT_BASE = 5900
+var (
+	LAST_USED_PORT = 0
+)
 
+const (
+	VNC_PORT_BASE           = 5900
 	GUEST_RUNNING           = compute.VM_RUNNING
 	GUEST_BLOCK_STREAM      = compute.VM_BLOCK_STREAM
 	GUEST_BLOCK_STREAM_FAIL = compute.VM_BLOCK_STREAM_FAIL
@@ -586,14 +589,19 @@ func (m *SGuestManager) GetFreeVncPort() int {
 		}
 		return true
 	})
-	var port = 1
+	var port = LAST_USED_PORT + 1
 	for {
-		if _, ok := vncPorts[port]; !ok && !netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
+		if _, ok := vncPorts[port]; !ok &&
+			!netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
 			!netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) {
 			break
 		} else {
 			port += 1
 		}
+	}
+	LAST_USED_PORT = port
+	if LAST_USED_PORT > 5000 {
+		LAST_USED_PORT = 0
 	}
 	return port
 }
@@ -679,6 +687,16 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
 	task.Start()
+	return nil, nil
+}
+
+func (m *SGuestManager) CancelBlockJobs(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sid, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest, _ := m.GetServer(sid)
+	NewCancelBlockJobsTask(ctx, guest).Start()
 	return nil, nil
 }
 

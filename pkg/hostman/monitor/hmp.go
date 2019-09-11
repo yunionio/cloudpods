@@ -453,3 +453,12 @@ func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, call
 	cmd := fmt.Sprintf("object_add %s,%s", objectType, strings.Join(paramsKvs, ","))
 	m.Query(cmd, callback)
 }
+
+func (m *HmpMonitor) CancelBlockJob(driveName string, force bool, callback StringCallback) {
+	cmd := "block_job_cancel "
+	if force {
+		cmd += "-f "
+	}
+	cmd += driveName
+	m.Query(cmd, callback)
+}

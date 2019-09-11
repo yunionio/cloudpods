@@ -62,6 +62,7 @@ var (
 		"drive-mirror":        guestDriveMirror,
 		"hotplug-cpu-mem":     guestHotplugCpuMem,
 		"create-from-libvirt": guestCreateFromLibvirt,
+		"cancel-block-jobs":   guestCancelBlockJobs,
 	}
 )
 
@@ -376,6 +377,14 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
 		&guestman.SDriverMirror{sid, backupNbdServerUri, desc})
+	return nil, nil
+}
+
+func guestCancelBlockJobs(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().CancelBlockJobs, sid)
 	return nil, nil
 }
 
