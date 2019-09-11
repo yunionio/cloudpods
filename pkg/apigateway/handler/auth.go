@@ -668,6 +668,7 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.JSONNull, "effective")
 	query.Add(jsonutils.JSONNull, "include_names")
+	query.Add(jsonutils.JSONNull, "include_system")
 	query.Add(jsonutils.NewInt(0), "limit")
 	query.Add(jsonutils.NewString(token.GetUserId()), "user", "id")
 	roleAssigns, err := modules.RoleAssignments.List(s, query)
