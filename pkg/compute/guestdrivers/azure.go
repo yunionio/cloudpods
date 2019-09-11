@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -124,14 +123,10 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 }
 
 func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input, err := cmdline.FetchServerCreateInputByJSON(data)
-	if err != nil {
-		return nil, err
-	}
-	if input.Name != "" {
+	if data.Contains("name") {
 		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
 	}
-	return input.JSON(input), nil
+	return data, nil
 }
 
 func (self *SAzureGuestDriver) GetGuestInitialStateAfterCreate() string {
