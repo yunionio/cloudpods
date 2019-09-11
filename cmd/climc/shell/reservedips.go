@@ -80,4 +80,18 @@ func init() {
 		return nil
 	})
 
+	type ReservedIpUpdateOptions struct {
+		ID    string `help:"ID of reserved ip" json:"-"`
+		Notes string `help:"notes"`
+	}
+	R(&ReservedIpUpdateOptions{}, "reserved-ip-update", "update reserved ip notes", func(s *mcclient.ClientSession, args *ReservedIpUpdateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.ReservedIPs.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
