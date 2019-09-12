@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -3127,6 +3128,10 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	netif, err := NetInterfaceManager.FetchByMac(mac)
 	if err != nil {
+		if err != sql.ErrNoRows {
+			return httperrors.NewInternalServerError("fail to fetch netif by mac %s: %s", mac, err)
+		}
+		// else not found
 		netif = &SNetInterface{}
 		netif.Mac = mac
 		netif.BaremetalId = self.Id
@@ -3175,7 +3180,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			return nil
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, "db.Update")
 		}
 		if changed || reset {
 			self.DisableNetif(ctx, userCred, netif, false)
@@ -3191,8 +3196,11 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == api.NIC_TYPE_ADMIN
-			hw, err := HostwireManager.FetchByIdsAndMac(self.Id, sw.Id, mac)
+			hw, err := HostwireManager.FetchByHostIdAndMac(self.Id, mac)
 			if err != nil {
+				if err != sql.ErrNoRows {
+					return httperrors.NewInternalServerError("fail to fetch hostwire by mac %s: %s", mac, err)
+				}
 				hw = &SHostwire{}
 				hw.Bridge = bridge
 				hw.Interface = strInterface
@@ -3209,6 +3217,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					hw.Bridge = bridge
 					hw.Interface = strInterface
 					// hw.MacAddr = mac
+					hw.WireId = sw.Id
 					hw.IsMaster = isMaster
 					return nil
 				})
@@ -3276,8 +3285,11 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if wire == nil {
 		return fmt.Errorf("No wire attached")
 	}
-	hw, err := HostwireManager.FetchByIdsAndMac(self.Id, wire.Id, netif.Mac)
-	if hw == nil {
+	hw, err := HostwireManager.FetchByHostIdAndMac(self.Id, netif.Mac)
+	if err != nil {
+		return err
+	}
+	if hw.WireId != wire.Id {
 		return fmt.Errorf("host not attach to this wire")
 	}
 	if net == nil {
@@ -3402,7 +3414,7 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 		log.Infof("Remove wire")
 		others := self.GetNetifsOnWire(wire)
 		if len(others) == 0 {
-			hw, _ := HostwireManager.FetchByIdsAndMac(self.Id, wire.Id, netif.Mac)
+			hw, _ := HostwireManager.FetchByHostIdAndMac(self.Id, netif.Mac)
 			if hw != nil {
 				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
 				log.Infof("Detach host wire because of remove netif %s", netif.Mac)
