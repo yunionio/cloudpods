@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -235,16 +236,17 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	host := self.GetBaremetal()
 	wire := self.GetWire()
 	if host != nil && wire != nil {
-		hw, err := HostwireManager.FetchByIdsAndMac(host.Id, wire.Id, self.Mac)
+		hw, err := HostwireManager.FetchByHostIdAndMac(host.Id, self.Mac)
 		if err != nil {
 			log.Errorf("NetInterface remove HostwireManager.FetchByIds error %s", err)
 			return err
 		}
-		if hw != nil {
-			err := hw.Delete(ctx, userCred)
-			if err != nil {
-				return err
-			}
+		if hw.WireId != wire.Id {
+			return fmt.Errorf("NetInterface not attached to this wire???")
+		}
+		err = hw.Delete(ctx, userCred)
+		if err != nil {
+			return err
 		}
 	}
 	_, err := db.Update(self, func() error {

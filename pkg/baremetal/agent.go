@@ -94,6 +94,12 @@ func (agent *SBaremetalAgent) GetDHCPServerListenIP() (net.IP, error) {
 }
 
 func (agent *SBaremetalAgent) GetAccessIP() (net.IP, error) {
+	if o.Options.AccessAddress != "" && o.Options.AccessAddress != "0.0.0.0" {
+		return net.ParseIP(o.Options.AccessAddress), nil
+	}
+	if o.Options.Address != "" && o.Options.Address != "0.0.0.0" {
+		return net.ParseIP(o.Options.Address), nil
+	}
 	return agent.FindAccessIP(o.Options.AccessAddress)
 }
 
