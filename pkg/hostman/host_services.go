@@ -66,6 +66,8 @@ func (host *SHostService) OnExitService() {
 
 func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
+
+	hostutils.Init()
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
