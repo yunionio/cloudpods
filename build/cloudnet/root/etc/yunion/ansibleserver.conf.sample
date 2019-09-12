@@ -1,0 +1,10 @@
+region = 'Yunion'
+address = '10.168.222.136'
+port = 8891
+auth_uri = 'http://10.168.222.136:35357/v3'
+admin_user = 'cloudnetadmin'
+admin_password = 'xxxxxxxxxxxxxxxx'
+admin_tenant_name = 'system'
+sql_connection = 'mysql+pymysql://yunionansible:9YuQL9KEZn1mppaK@localhost:3306/yunionansible?charset=utf8'
+
+auto_sync_table = True
