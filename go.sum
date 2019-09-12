@@ -379,6 +379,8 @@ github.com/willf/bloom v2.0.3+incompatible h1:QDacWdqcAUI1MPOwIQZRy9kOR7yxfyEmxX
 github.com/willf/bloom v2.0.3+incompatible/go.mod h1:MmAltL9pDMNTrvUkxdg0k0q5I0suxmuwp3KbyrZLOZ8=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 h1:eY9dn8+vbi4tKz5Qo6v2eYzo7kUS51QINcR5jNpbZS8=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
+github.com/yunionio/go-ceph v0.0.0-20190912140512-c51b8478c h1:/9QrgZBxNyq1HsJk5jA2NXQxWoxaSc9v2DJVOlavEq4=
+github.com/yunionio/go-ceph v0.0.0-20190912140512-c51b8478c/go.mod h1:8XuBae5AzsgotLArJSewMruYVaQs8AlfsK5jBCG8T9Y=
 go.etcd.io/bbolt v1.3.3 h1:MUGmc65QhB3pIlaQ5bB4LwqSj6GIonVJXpZiaKNyaKk=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v3.3.10+incompatible h1:qXVcIR1kU3CYLD8zXDseOmBNwg0uaui53e4Wg4uj0rk=
