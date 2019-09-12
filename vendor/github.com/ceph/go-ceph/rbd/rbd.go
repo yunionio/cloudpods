@@ -12,10 +12,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ceph/go-ceph/rados"
 	"io"
 	"time"
 	"unsafe"
+
+	"github.com/ceph/go-ceph/rados"
 )
 
 const (
@@ -789,6 +790,10 @@ func (image *Image) GetSnapshotNames() (snaps []SnapInfo, err error) {
 	var c_max_snaps C.int
 
 	ret := C.rbd_snap_list(image.image, nil, &c_max_snaps)
+
+	if c_max_snaps == 0 {
+		c_max_snaps = 10
+	}
 
 	c_snaps := make([]C.rbd_snap_info_t, c_max_snaps)
 	snaps = make([]SnapInfo, c_max_snaps)
