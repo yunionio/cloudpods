@@ -18,6 +18,7 @@ package storageman
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -116,6 +117,9 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 	zone, _ := body.GetString("zone")
 
 	cache := c.AcquireImage(ctx, imageId, zone, srcUrl, format)
+	if cache == nil {
+		return nil, fmt.Errorf("failed to cache image %s.%s", imageId, format)
+	}
 
 	res := map[string]interface{}{
 		"image_id": imageId,
