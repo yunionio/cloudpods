@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -917,7 +918,7 @@ func (b *SBaremetalInstance) getDHCPConfig(
 }
 
 func (b *SBaremetalInstance) GetNotifyUrl() string {
-	return fmt.Sprintf("%s/baremetals/%s/notify", b.manager.Agent.GetManagerUri(), b.GetId())
+	return fmt.Sprintf("%s/baremetals/%s/notify", b.manager.Agent.GetListenUri(), b.GetId())
 }
 
 func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
@@ -1534,15 +1535,30 @@ func (s *SBaremetalServer) DoEraseDisk(term *ssh.Client) error {
 	return err
 }
 
+func replaceHostAddr(urlStr string, addr string) string {
+	urlComp, _ := url.Parse(urlStr)
+	commaPos := strings.IndexByte(urlComp.Host, ':')
+	if commaPos >= 0 {
+		urlComp.Host = addr + urlComp.Host[commaPos:]
+	} else {
+		urlComp.Host = addr
+	}
+	return urlComp.String()
+}
+
 func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error {
 	session := s.baremetal.GetClientSession()
 	token := session.GetToken().GetTokenString()
-	url, err := session.GetServiceURL("image", "internalURL")
+	urlStr, err := session.GetServiceURL("image", "internalURL")
 	if err != nil {
 		return err
 	}
+	// this is hackish, url should point to an image proxy
+	// XXX
+	listenIp, _ := s.baremetal.manager.Agent.GetListenIP()
+	urlStr = replaceHostAddr(urlStr, listenIp.String())
 	imageId := s.GetRootTemplateId()
-	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, url, imageId, devName)
+	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, urlStr, imageId, devName)
 	log.Infof("rootcreate cmd: %q", cmd)
 	if _, err := term.Run(cmd); err != nil {
 		return fmt.Errorf("Root create fail: %v", err)
