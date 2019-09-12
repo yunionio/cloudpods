@@ -385,6 +385,8 @@ github.com/yunionio/go-ceph v0.0.0-20190912140512-c51b8478c h1:/9QrgZBxNyq1HsJk5
 github.com/yunionio/go-ceph v0.0.0-20190912140512-c51b8478c/go.mod h1:8XuBae5AzsgotLArJSewMruYVaQs8AlfsK5jBCG8T9Y=
 github.com/yunionio/go-ceph v0.0.0-20190912140512-ccc6576c3fe2ef6de74aa1473b9401d95c7cd7c1 h1:TURJ5mfG3+iRJBDDNLl+gy9CDpIQlgDlvAbzF1+WwVo=
 github.com/yunionio/go-ceph v0.0.0-20190912140512-ccc6576c3fe2ef6de74aa1473b9401d95c7cd7c1/go.mod h1:8XuBae5AzsgotLArJSewMruYVaQs8AlfsK5jBCG8T9Y=
+github.com/yunionio/go-ceph v0.0.0-20190918140512-6eff6e97c193d7876334bf24f19ce0d1ed86d73a h1:o6a7Gq95XxgizBdZ4GYUOOGtA8b7qrOQvPd5DhxggNo=
+github.com/yunionio/go-ceph v0.0.0-20190918140512-6eff6e97c193d7876334bf24f19ce0d1ed86d73a/go.mod h1:8XuBae5AzsgotLArJSewMruYVaQs8AlfsK5jBCG8T9Y=
 go.etcd.io/bbolt v1.3.3 h1:MUGmc65QhB3pIlaQ5bB4LwqSj6GIonVJXpZiaKNyaKk=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v3.3.10+incompatible h1:qXVcIR1kU3CYLD8zXDseOmBNwg0uaui53e4Wg4uj0rk=
