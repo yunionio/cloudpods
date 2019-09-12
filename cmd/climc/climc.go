@@ -32,6 +32,7 @@ import (
 
 	"yunion.io/x/onecloud/cmd/climc/promputils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/cloudnet"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/etcd"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
 	"yunion.io/x/onecloud/pkg/mcclient"
