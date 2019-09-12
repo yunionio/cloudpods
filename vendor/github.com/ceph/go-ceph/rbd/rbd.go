@@ -789,29 +789,30 @@ func (image *Image) GetSnapshotNames() (snaps []SnapInfo, err error) {
 
 	var c_max_snaps C.int = 10
 	var c_snaps []C.rbd_snap_info_t
+	var snapCount C.int
 
 	for i := 0; i < 3; i++ {
 		c_snaps = make([]C.rbd_snap_info_t, c_max_snaps)
-		snaps = make([]SnapInfo, c_max_snaps)
-
-		ret := C.rbd_snap_list(image.image, &c_snaps[0], &c_max_snaps)
-		if ret != -C.ERANGE {
-			if ret >= 0 {
+		snapCount = C.rbd_snap_list(image.image, &c_snaps[0], &c_max_snaps)
+		if snapCount != -C.ERANGE {
+			if snapCount >= 0 {
 				break
-			} else if ret < 0 {
-				return nil, RBDError(ret)
+			} else if snapCount < 0 {
+				return nil, RBDError(snapCount)
 			}
 		}
 	}
 
-	for i, s := range c_snaps {
-		snaps[i] = SnapInfo{Id: uint64(s.id),
-			Size: uint64(s.size),
-			Name: C.GoString(s.name)}
+	snaps = make([]SnapInfo, snapCount)
+
+	for i := 0; i < int(snapCount); i++ {
+		snaps[i] = SnapInfo{Id: uint64(c_snaps[i].id),
+			Size: uint64(c_snaps[i].size),
+			Name: C.GoString(c_snaps[i].name)}
 	}
 
 	C.rbd_snap_list_end(&c_snaps[0])
-	return snaps[:len(snaps)-1], nil
+	return snaps, nil
 }
 
 // int rbd_snap_create(rbd_image_t image, const char *snapname);
