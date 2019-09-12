@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/seclib"
 
 	compute "yunion.io/x/onecloud/pkg/apis/compute"
 	appsrv "yunion.io/x/onecloud/pkg/appsrv"
@@ -41,12 +42,12 @@ import (
 	cgrouputils "yunion.io/x/onecloud/pkg/util/cgrouputils"
 	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
 	netutils2 "yunion.io/x/onecloud/pkg/util/netutils2"
-	seclib2 "yunion.io/x/onecloud/pkg/util/seclib2"
 	timeutils2 "yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 var (
 	LAST_USED_PORT = 0
+	NbdWorker      = appsrv.NewWorkerManager("nbd_worker", 1, appsrv.DEFAULT_BACKLOG, false)
 )
 
 const (
@@ -334,6 +335,61 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	}
 }
 
+func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	deployParams, ok := params.(*SGuestDeploy)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	var guest *SKVMGuestInstance
+	err := func() error {
+		m.ServersLock.Lock()
+		defer m.ServersLock.Unlock()
+		if _, ok := m.GetServer(deployParams.Sid); ok {
+			return httperrors.NewBadRequestError("Guest %s exists", deployParams.Sid)
+		}
+		guest = NewKVMGuestInstance(deployParams.Sid, m)
+		desc, _ := deployParams.Body.Get("desc")
+		if desc != nil {
+			err := guest.SaveDesc(desc)
+			if err != nil {
+				return errors.Wrap(err, "save desc")
+			}
+		}
+		m.SaveServer(deployParams.Sid, guest)
+		return guest.PrepareDir()
+	}()
+	if err != nil {
+		return nil, errors.Wrap(err, "prepare guest")
+	}
+	return m.startDeploy(ctx, deployParams, guest)
+}
+
+func (m *SGuestManager) startDeploy(
+	ctx context.Context, deployParams *SGuestDeploy, guest *SKVMGuestInstance) (jsonutils.JSONObject, error) {
+
+	if jsonutils.QueryBoolean(deployParams.Body, "k8s_pod", false) {
+		return nil, nil
+	}
+	publicKey := deployapi.GetKeys(deployParams.Body)
+	deploys, _ := deployParams.Body.GetArray("deploys")
+	password, _ := deployParams.Body.GetString("password")
+	resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
+	if resetPassword && len(password) == 0 {
+		password = seclib.RandomPassword(12)
+	}
+	enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
+
+	guestInfo, err := guest.DeployFs(deployapi.NewDeployInfo(
+		publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
+		options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit))
+	if err != nil {
+		return nil, errors.Wrap(err, "Deploy guest fs")
+	} else {
+		return guestInfo, nil
+	}
+}
+
 // Delay process
 func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	deployParams, ok := params.(*SGuestDeploy)
@@ -347,26 +403,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		if desc != nil {
 			guest.SaveDesc(desc)
 		}
-		if jsonutils.QueryBoolean(deployParams.Body, "k8s_pod", false) {
-			return nil, nil
-		}
-		publicKey := deployapi.GetKeys(deployParams.Body)
-		deploys, _ := deployParams.Body.GetArray("deploys")
-		password, _ := deployParams.Body.GetString("password")
-		resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
-		if resetPassword && len(password) == 0 {
-			password = seclib2.RandomPassword2(12)
-		}
-		enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
-
-		guestInfo, err := guest.DeployFs(deployapi.NewDeployInfo(
-			publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
-			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit))
-		if err != nil {
-			return nil, errors.Wrap(err, "Deploy guest fs")
-		} else {
-			return guestInfo, nil
-		}
+		return m.startDeploy(ctx, deployParams, guest)
 	} else {
 		return nil, fmt.Errorf("Guest %s not found", deployParams.Sid)
 	}
