@@ -105,7 +105,8 @@ type SHostOptions struct {
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
-	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
+	DeployServerSocketPath    string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
+	DefaultRequestWorkerCount int    `default:"8" help:"default request worker count"`
 }
 
 var HostOptions SHostOptions
