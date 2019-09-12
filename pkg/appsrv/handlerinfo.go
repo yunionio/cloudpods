@@ -46,14 +46,15 @@ type SHandlerInfo struct {
 }
 
 func (this *SHandlerInfo) FetchProcessTimeout(r *http.Request) time.Duration {
-	var tm time.Duration
 	if this.processTimeoutCallback != nil {
-		tm = this.processTimeoutCallback(this, r)
+		tm := this.processTimeoutCallback(this, r)
+		if tm < this.processTimeout {
+			tm = this.processTimeout
+		}
+		return tm
+	} else {
+		return this.processTimeout
 	}
-	if tm < this.processTimeout {
-		tm = this.processTimeout
-	}
-	return tm
 }
 
 func (this *SHandlerInfo) SetProcessTimeoutCallback(callback TProcessTimeoutCallback) {
