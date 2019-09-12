@@ -207,10 +207,11 @@ func (adapter *HPSARaidAdaptor) conf2Params(conf *api.BaremetalDiskConfig) []str
 
 func (adapter *HPSARaidAdaptor) getLastArray() (string, error) {
 	cmd := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "logicaldrive", "all", "show")
-	ret, err := adapter.raid.term.Run(cmd)
-	if err != nil {
-		return "", err
-	}
+	ret, _ := adapter.raid.term.Run(cmd)
+	// ignore errors
+	// if err != nil {
+	// 	return "", err
+	// }
 	var lastArray string
 	for _, line := range ret {
 		m := regutils2.SubGroupMatch(`array\s+(?P<idx>\w+)`, line)
@@ -299,10 +300,11 @@ func (adapter *HPSARaidAdaptor) removeLogicVolume(idx int) error {
 
 func (adapter *HPSARaidAdaptor) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) {
 	cmd := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "logicaldrive", "all", "show")
-	ret, err := adapter.raid.term.Run(cmd)
-	if err != nil {
-		return nil, err
-	}
+	ret, _ := adapter.raid.term.Run(cmd)
+	// ignore error
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return adapter.parseLogicalVolumes(ret)
 }
 

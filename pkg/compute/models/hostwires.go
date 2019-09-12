@@ -156,12 +156,15 @@ func (manager *SHostwireManager) FilterByParams(q *sqlchemy.SQuery, params jsonu
 	return q
 }
 
-func (manager *SHostwireManager) FetchByIdsAndMac(hostId string, wireId string, mac string) (*SHostwire, error) {
-	query := jsonutils.NewDict()
-	query.Add(jsonutils.NewString(mac), "mac_addr")
-	ihw, err := db.FetchJointByIds(manager, hostId, wireId, query)
+func (manager *SHostwireManager) FetchByHostIdAndMac(hostId string, mac string) (*SHostwire, error) {
+	hw, err := db.NewModelObject(manager)
 	if err != nil {
 		return nil, err
 	}
-	return ihw.(*SHostwire), nil
+	q := manager.Query().Equals("host_id", hostId).Equals("mac_addr", mac)
+	err = q.First(hw)
+	if err != nil {
+		return nil, err
+	}
+	return hw.(*SHostwire), nil
 }
