@@ -817,7 +817,46 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SGuestManager) BatchPreValidate(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict, count int,
+) (func(), error) {
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+	if !input.IsSystem {
+		reqQuota, err := manager.checkCreateQuota(ctx, userCred, ownerId, input, input.Backup, count)
+		if err != nil {
+			return nil, err
+		}
+		quota := &SQuota{
+			Cpu:            reqQuota.Cpu / count,
+			Memory:         reqQuota.Memory / count,
+			Storage:        reqQuota.Storage / count,
+			Port:           reqQuota.Port / count,
+			Eport:          reqQuota.Eport / count,
+			Bw:             reqQuota.Bw / count,
+			Ebw:            reqQuota.Ebw / count,
+			IsolatedDevice: reqQuota.IsolatedDevice / count,
+			Eip:            reqQuota.Eip / count,
+		}
+		quotaPlatform := make([]string, 0)
+		if len(input.Hypervisor) > 0 {
+			quotaPlatform = GetDriver(input.Hypervisor).GetQuotaPlatformID()
+		}
+		return func() {
+			QuotaManager.CancelPendingUsage(
+				ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, quota, quota)
+		}, nil
+	}
+	return nil, nil
+}
+
+func (manager *SGuestManager) validateCreateData(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*api.ServerCreateInput, error) {
+
 	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
 	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
@@ -1122,16 +1161,30 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 
+	input.Project = ownerId.GetProjectId()
+	input.Domain = ownerId.GetProjectDomainId()
+	return input, nil
+}
+
+func (manager *SGuestManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+	return input.JSON(input), nil
+}
+
+func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
 	if !input.IsSystem {
-		err = manager.checkCreateQuota(ctx, userCred, ownerId, input,
-			input.Backup)
+		_, err = manager.checkCreateQuota(ctx, userCred, ownerId, input, input.Backup, 1)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	input.Project = ownerId.GetProjectId()
-	input.Domain = ownerId.GetProjectDomainId()
 
 	return input.JSON(input), nil
 }
@@ -1180,17 +1233,20 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	self.StartSyncTask(ctx, userCred, true, "")
 }
 
-func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ServerCreateInput, hasBackup bool) error {
-	req := getGuestResourceRequirements(ctx, userCred, input, 1, hasBackup)
+func (manager *SGuestManager) checkCreateQuota(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	input *api.ServerCreateInput, hasBackup bool, count int) (*SQuota, error) {
+
+	req := getGuestResourceRequirements(ctx, userCred, input, count, hasBackup)
 	quotaPlatform := make([]string, 0)
 	if len(input.Hypervisor) > 0 {
 		quotaPlatform = GetDriver(input.Hypervisor).GetQuotaPlatformID()
 	}
 	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, &req)
 	if err != nil {
-		return httperrors.NewOutOfQuotaError(err.Error())
+		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	} else {
-		return nil
+		return &req, nil
 	}
 }
 
