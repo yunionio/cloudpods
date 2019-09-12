@@ -152,7 +152,7 @@ github.com/boombuler/barcode/utils
 github.com/bradfitz/iter
 # github.com/c-bata/go-prompt v0.2.1
 github.com/c-bata/go-prompt
-# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94
+# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912140512-c51b8478c
 github.com/ceph/go-ceph/rados
 github.com/ceph/go-ceph/rbd
 # github.com/coredns/coredns v1.3.0
