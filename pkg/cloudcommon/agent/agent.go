@@ -287,6 +287,15 @@ func (agent *SBaseAgent) GetManagerUri() string {
 	return fmt.Sprintf("%s://%s:%d", proto, accessIP, agent.IAgent().GetPort())
 }
 
+func (agent *SBaseAgent) GetListenUri() string {
+	listenIP, _ := agent.IAgent().GetListenIP()
+	proto := "http"
+	if agent.IAgent().GetEnableSsl() {
+		proto = "https"
+	}
+	return fmt.Sprintf("%s://%s:%d", proto, listenIP, agent.IAgent().GetPort())
+}
+
 func (agent *SBaseAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
 	accessIP, err := agent.IAgent().GetAccessIP()
 	if err != nil {
