@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
 type DelayTaskFunc func(context.Context, interface{}) (jsonutils.JSONObject, error)
@@ -35,6 +36,7 @@ type SWorkManager struct {
 
 	onFailed    OnTaskFailed
 	onCompleted OnTaskCompleted
+	worker      *appsrv.SWorkerManager
 }
 
 func (w *SWorkManager) add() {
@@ -45,16 +47,26 @@ func (w *SWorkManager) done() {
 	atomic.AddInt32(&w.curCount, -1)
 }
 
+func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
+	w.delayTask(ctx, task, params, w.worker)
+}
+
+func (w *SWorkManager) DelayTaskWithWorker(
+	ctx context.Context, task DelayTaskFunc, params interface{}, worker *appsrv.SWorkerManager,
+) {
+	w.delayTask(ctx, task, params, worker)
+}
+
 // If delay task is not panic and task func return err is nil
 // task complete will be called, otherwise called task failed
 // Params is interface for receive any type, task func should do type assertion
-func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
+func (w *SWorkManager) delayTask(ctx context.Context, task DelayTaskFunc, params interface{}, worker *appsrv.SWorkerManager) {
 	if ctx == nil || ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID) == nil {
-		w.DelayTaskWithoutReqctx(ctx, task, params)
+		w.delayTaskWithoutReqctx(ctx, task, params, worker)
 		return
 	} else {
 		w.add()
-		go func() {
+		worker.Run(func() {
 			defer w.done()
 			defer func() {
 				if r := recover(); r != nil {
@@ -85,14 +97,20 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 				log.Infof("DelayTask complete: %v", res)
 				w.onCompleted(ctx, res)
 			}
-		}()
+		}, nil, nil)
 	}
 }
 
-// response task by self, did not callback
 func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTaskFunc, params interface{}) {
+	w.delayTaskWithoutReqctx(ctx, task, params, w.worker)
+}
+
+// response task by self, did not callback
+func (w *SWorkManager) delayTaskWithoutReqctx(
+	ctx context.Context, task DelayTaskFunc, params interface{}, worker *appsrv.SWorkerManager,
+) {
 	w.add()
-	go func() {
+	w.worker.Run(func() {
 		defer w.done()
 		defer func() {
 			if r := recover(); r != nil {
@@ -109,7 +127,7 @@ func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTas
 			log.Errorln("DelayTaskWithoutReqctx error: ", err)
 			w.onFailed(ctx, err.Error())
 		}
-	}()
+	}, nil, nil)
 }
 
 func (w *SWorkManager) Stop() {
@@ -120,9 +138,14 @@ func (w *SWorkManager) Stop() {
 	}
 }
 
-func NewWorkManger(onFailed OnTaskFailed, onCompleted OnTaskCompleted) *SWorkManager {
+func NewWorkManger(onFailed OnTaskFailed, onCompleted OnTaskCompleted, workerCount int) *SWorkManager {
+	if workerCount <= 0 {
+		workerCount = 1
+	}
 	return &SWorkManager{
 		onFailed:    onFailed,
 		onCompleted: onCompleted,
+		worker: appsrv.NewWorkerManager(
+			"RequestWorker", workerCount, appsrv.DEFAULT_BACKLOG, false),
 	}
 }

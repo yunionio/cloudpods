@@ -174,11 +174,14 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func guestCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	err := guestman.GetGuestManager().PrepareCreate(sid)
-	if err != nil {
-		return nil, err
+	if guestman.GetGuestManager().IsGuestExist(sid) {
+		return nil, httperrors.NewBadRequestError("Guest %s is exist", sid)
 	}
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestDeploy, &guestman.SGuestDeploy{sid, body, true})
+	hostutils.DelayTaskWithWorker(ctx,
+		guestman.GetGuestManager().GuestCreate,
+		&guestman.SGuestDeploy{sid, body, true},
+		guestman.NbdWorker,
+	)
 	return nil, nil
 }
 
@@ -187,7 +190,11 @@ func guestDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	if err != nil {
 		return nil, err
 	}
-	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestDeploy, &guestman.SGuestDeploy{sid, body, false})
+	hostutils.DelayTaskWithWorker(ctx,
+		guestman.GetGuestManager().GuestDeploy,
+		&guestman.SGuestDeploy{sid, body, false},
+		guestman.NbdWorker,
+	)
 	return nil, nil
 }
 
