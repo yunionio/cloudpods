@@ -787,21 +787,21 @@ func (image *Image) GetSnapshotNames() (snaps []SnapInfo, err error) {
 		return nil, RbdErrorImageNotOpen
 	}
 
-	var c_max_snaps C.int
+	var c_max_snaps C.int = 10
+	var c_snaps []C.rbd_snap_info_t
 
-	ret := C.rbd_snap_list(image.image, nil, &c_max_snaps)
+	for i := 0; i < 3; i++ {
+		c_snaps = make([]C.rbd_snap_info_t, c_max_snaps)
+		snaps = make([]SnapInfo, c_max_snaps)
 
-	if c_max_snaps == 0 {
-		c_max_snaps = 10
-	}
-
-	c_snaps := make([]C.rbd_snap_info_t, c_max_snaps)
-	snaps = make([]SnapInfo, c_max_snaps)
-
-	ret = C.rbd_snap_list(image.image,
-		&c_snaps[0], &c_max_snaps)
-	if ret < 0 {
-		return nil, RBDError(ret)
+		ret := C.rbd_snap_list(image.image, &c_snaps[0], &c_max_snaps)
+		if ret != -C.ERANGE {
+			if ret >= 0 {
+				break
+			} else if ret < 0 {
+				return nil, RBDError(ret)
+			}
+		}
 	}
 
 	for i, s := range c_snaps {
