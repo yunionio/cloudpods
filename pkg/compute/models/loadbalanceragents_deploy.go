@@ -313,6 +313,17 @@ func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
 	pb *ansible.Playbook,
 ) (*mcclient_models.AnsiblePlaybook, error) {
 	cliSess := auth.GetSession(ctx, userCred, "", "")
+
+	if pbId == "" {
+		pbJson, err := mcclient_modules.AnsiblePlaybooks.Get(cliSess, pbName, nil)
+		if err == nil {
+			pbModel := &mcclient_models.AnsiblePlaybook{}
+			if err := pbJson.Unmarshal(pbModel); err == nil {
+				pbId = pbModel.Id
+			}
+		}
+	}
+
 	var pbJson jsonutils.JSONObject
 	if pbId != "" {
 		var err error
