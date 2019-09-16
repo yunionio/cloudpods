@@ -797,7 +797,7 @@ func (b *SBaremetalInstance) SyncServerStatus(status string) {
 	log.Infof("Update server %s to status %s", b.GetServerName(), status)
 }
 
-func (b *SBaremetalInstance) getNics() []types.SNic {
+func (b *SBaremetalInstance) GetNics() []types.SNic {
 	nics := []types.SNic{}
 	err := b.desc.Unmarshal(&nics, "nic_info")
 	if err != nil {
@@ -808,21 +808,20 @@ func (b *SBaremetalInstance) getNics() []types.SNic {
 }
 
 func (b *SBaremetalInstance) getNicByType(nicType string) *types.SNic {
-	nics := b.getNics()
+	nics := b.GetNics()
 	if len(nics) == 0 {
 		return nil
 	}
-	for _, nic := range nics {
-		tmp := nic
-		if tmp.Type == nicType {
-			return &tmp
+	for i := range nics {
+		if nics[i].Type == nicType {
+			return &nics[i]
 		}
 	}
 	return nil
 }
 
 func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.SNic {
-	nics := b.getNics()
+	nics := b.GetNics()
 	if len(nics) == 0 {
 		return nil
 	}
@@ -836,7 +835,7 @@ func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.SNic {
 }
 
 func (b *SBaremetalInstance) GetAdminNic() *types.SNic {
-	return b.getNicByType(NIC_TYPE_ADMIN)
+	return b.getNicByType(api.NIC_TYPE_ADMIN)
 }
 
 func (b *SBaremetalInstance) NeedPXEBoot() bool {
@@ -864,7 +863,7 @@ func (b *SBaremetalInstance) GetHostType() string {
 }
 
 func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.SNic {
-	nic := b.getNicByType(types.NIC_TYPE_IPMI)
+	nic := b.getNicByType(api.NIC_TYPE_IPMI)
 	if nic == nil {
 		return nil
 	}
@@ -875,7 +874,7 @@ func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.SNic {
 }
 
 func (b *SBaremetalInstance) GetIPMINicIPAddr() string {
-	nic := b.getNicByType(types.NIC_TYPE_IPMI)
+	nic := b.getNicByType(api.NIC_TYPE_IPMI)
 	if nic == nil {
 		return ""
 	}
@@ -985,7 +984,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 ) error {
 	// start prepare task
 	// sync status to PREPARE
-	if !isDoImport && nicType == types.NIC_TYPE_ADMIN &&
+	if !isDoImport && nicType == api.NIC_TYPE_ADMIN &&
 		utils.IsInStringArray(b.GetStatus(),
 			[]string{baremetalstatus.INIT,
 				baremetalstatus.PREPARE,
@@ -1039,7 +1038,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 }
 
 func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string, ipAddr string) error {
-	if nicType == types.NIC_TYPE_IPMI {
+	if nicType == api.NIC_TYPE_IPMI {
 		oldIPMIConf := b.GetRawIPMIConfig()
 		if oldIPMIConf != nil && oldIPMIConf.IpAddr != "" {
 			ipAddr = oldIPMIConf.IpAddr
@@ -1062,7 +1061,7 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	if ipAddr != "" {
 		params.Add(jsonutils.NewString(ipAddr), "ip_addr")
 	}
-	if nicType == types.NIC_TYPE_IPMI {
+	if nicType == api.NIC_TYPE_IPMI {
 		params.Add(jsonutils.NewString("stepup"), "alloc_dir") // alloc bottom up
 	}
 	if len(netType) > 0 {
