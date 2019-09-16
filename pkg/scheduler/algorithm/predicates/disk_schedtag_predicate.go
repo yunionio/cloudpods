@@ -105,7 +105,7 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidat
 	if c.Getter().ResourceType() == computeapi.HostResourceTypePrepaidRecycle {
 		return nil
 	}
-	if !(len(d.Backend) == 0 || d.Backend == computeapi.STORAGE_LOCAL) {
+	if len(d.Backend) != 0 {
 		if storage.StorageType != d.Backend {
 			return &FailReason{
 				fmt.Sprintf("Storage %s backend %s != %s", storage.Name, storage.StorageType, d.Backend),
