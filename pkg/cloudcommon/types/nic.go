@@ -20,15 +20,6 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 )
 
-const (
-	NIC_TYPE_IPMI  = "ipmi"
-	NIC_TYPE_ADMIN = "admin"
-)
-
-var (
-	NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
-)
-
 type SNic struct {
 	Type    string   `json:"nic_type"`
 	Domain  string   `json:"domain"`
