@@ -442,7 +442,20 @@ func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId stri
 
 func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId string) error {
 	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
-		snapshot := image.GetSnapshot(snapshotId)
+		snapshots, err := image.GetSnapshotNames()
+		if err != nil {
+			return nil, errors.Wrapf(err, "image.GetSnapshotNames()")
+		}
+		var snapshot *rbd.Snapshot
+		for _, snapInfo := range snapshots {
+			if snapInfo.Name == snapshotId {
+				snapshot = image.GetSnapshot(snapshotId)
+				break
+			}
+		}
+		if snapshot == nil { //not found snapshot
+			return nil, nil
+		}
 		isProtect, err := snapshot.IsProtected()
 		if err != nil {
 			return nil, errors.Wrap(err, "snapshot is protected")
