@@ -34,6 +34,7 @@ import (
 
 	// object storages
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
 )
 
