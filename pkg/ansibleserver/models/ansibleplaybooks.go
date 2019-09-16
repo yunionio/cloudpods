@@ -271,6 +271,15 @@ func (apb *SAnsiblePlaybook) stopPlaybook(ctx context.Context, userCred mcclient
 	man.sessionsMux.Lock()
 	defer man.sessionsMux.Unlock()
 	if !man.sessions.Has(apb.Id) {
+		if apb.Status == AnsiblePlaybookStatusRunning {
+			_, err := db.Update(apb, func() error {
+				apb.Status = AnsiblePlaybookStatusUnknown
+				return nil
+			})
+			if err != nil {
+				log.Errorf("updating ansible playbook status to unknown failed: %v", err)
+			}
+		}
 		return fmt.Errorf("playbook is not running")
 	}
 	// the playbook will be removed from session map in runPlaybook() on return from run
