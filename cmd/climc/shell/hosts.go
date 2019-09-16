@@ -337,12 +337,14 @@ func init() {
 		MAC    string `help:"Mac address of NIC"`
 		Type   string `help:"Nic type" choices:"admin|ipmi"`
 		IpAddr string `help:"IP address"`
+		Index  int64  `help:"nic index" default:"-1"`
 	}
 	R(&HostAddNetIfOptions{}, "host-add-netif", "Host add a NIC", func(s *mcclient.ClientSession, args *HostAddNetIfOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.WIRE), "wire")
 		params.Add(jsonutils.NewString(args.MAC), "mac")
 		params.Add(jsonutils.JSONTrue, "link_up")
+		params.Add(jsonutils.NewInt(args.Index), "index")
 		if len(args.Type) > 0 {
 			params.Add(jsonutils.NewString(args.Type), "nic_type")
 		}

@@ -24,6 +24,7 @@ import (
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -50,6 +51,8 @@ func newBaremetalAgent() (*SBaremetalAgent, error) {
 	if err != nil {
 		return nil, err
 	}
+	// set guest fs NetDevPrefix
+	fsdriver.NetDevPrefix = "en"
 	return agent, nil
 }
 
