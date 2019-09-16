@@ -112,7 +112,7 @@ func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data int
 	if err != nil {
 		return nil, err
 	}
-	format, _ := body.GetString("format")
+	format := "qcow2"
 	srcUrl, _ := body.GetString("src_url")
 	zone, _ := body.GetString("zone")
 

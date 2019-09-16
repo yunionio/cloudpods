@@ -179,7 +179,14 @@ func DelayTaskWithoutReqctx(ctx context.Context, task workmanager.DelayTaskFunc,
 	wm.DelayTaskWithoutReqctx(ctx, task, params)
 }
 
-func init() {
-	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete)
-	k8sWm = workmanager.NewWorkManger(K8sTaskFailed, K8sTaskComplete)
+func DelayTaskWithWorker(
+	ctx context.Context, task workmanager.DelayTaskFunc,
+	params interface{}, worker *appsrv.SWorkerManager,
+) {
+	wm.DelayTaskWithWorker(ctx, task, params, worker)
+}
+
+func Init() {
+	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+	k8sWm = workmanager.NewWorkManger(K8sTaskFailed, K8sTaskComplete, options.HostOptions.DefaultRequestWorkerCount)
 }
