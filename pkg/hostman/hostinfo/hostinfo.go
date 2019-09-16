@@ -139,11 +139,6 @@ func (h *SHostInfo) parseConfig() error {
 	if h.GetMemory() < 64 { // MB
 		return fmt.Errorf("Not enough memory!")
 	}
-	if len(options.HostOptions.ListenInterface) > 0 {
-		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
-	} else {
-		h.MasterNic = nil
-	}
 	for _, n := range options.HostOptions.Networks {
 		nic, err := NewNIC(n)
 		if err != nil {
@@ -155,6 +150,14 @@ func (h *SHostInfo) parseConfig() error {
 		if err := h.Nics[i].SetupDhcpRelay(); err != nil {
 			return err
 		}
+	}
+	if len(options.HostOptions.ListenInterface) > 0 {
+		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
+		if len(h.MasterNic.Addr) == 0 {
+			return fmt.Errorf("Listen interface %s master not have IP", options.HostOptions.ListenInterface)
+		}
+	} else {
+		h.MasterNic = nil
 	}
 
 	if man, err := isolated_device.NewManager(h); err != nil {
