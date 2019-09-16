@@ -23,7 +23,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/seclib"
+	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
@@ -160,7 +162,7 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 			Speed: 100,
 			Mtu:   1500,
 		}
-		if err := task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, ""); err != nil {
+		if err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, true, ""); err != nil {
 			log.Errorf("Send IPMI nic %#v info: %v", ipmiNic, err)
 		}
 		rootId := ipmitool.GetRootId(ipmiSysInfo)
@@ -326,9 +328,16 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	// 		break
 	// 	}
 	// }
-	err = task.removeAllNics()
-	if err != nil {
-		return err
+	// err = task.removeAllNics()
+	// if err != nil {
+	// 	return err
+	// }
+	removedMacs := task.removeObsoleteNics(i)
+	for idx := range removedMacs {
+		err = task.removeNicInfo(removedMacs[idx])
+		if err != nil {
+			log.Errorf("Fail to remove Netif %s: %s", removedMacs[idx], err)
+		}
 	}
 	for idx := range i.nicsInfo {
 		err = task.sendNicInfo(i.nicsInfo[idx], idx, "", false, "")
@@ -345,6 +354,27 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		}
 	}
 	return nil
+}
+
+func (task *sBaremetalPrepareTask) removeObsoleteNics(i *baremetalPrepareInfo) []string {
+	removes := make([]string, 0)
+	existNics := task.baremetal.GetNics()
+	for idx := range existNics {
+		if utils.IsInStringArray(existNics[idx].Type, api.NIC_TYPES) {
+			continue
+		}
+		find := false
+		for j := range i.nicsInfo {
+			if existNics[idx].Mac == i.nicsInfo[j].Mac.String() {
+				find = true
+				break
+			}
+		}
+		if !find {
+			removes = append(removes, existNics[idx].Mac)
+		}
+	}
+	return removes
 }
 
 func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, ipmiNic *types.SNicDevInfo, lanChannel int, ipmiUser, ipmiPasswd, tryAddr string) bool {
@@ -401,7 +431,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, i
 	if tried < maxTries {
 		// make sure the ipaddr is a IPMI address
 		// enable the netif
-		err := task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, false, tryAddr)
+		err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, false, tryAddr)
 		if err != nil {
 			log.Errorf("Fail to set existing BMC IP address to %s", tryAddr)
 		} else {
@@ -531,6 +561,21 @@ func isIPMIEnable(cli *ssh.Client) (bool, error) {
 		return false, fmt.Errorf("Failed to retrieve IPMI info: %v", err)
 	}
 	return sysutils.ParseDMIIPMIInfo(ret), nil
+}
+
+func (task *sBaremetalPrepareTask) removeNicInfo(mac string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(mac), "mac")
+	resp, err := modules.Hosts.PerformAction(
+		task.getClientSession(),
+		task.baremetal.GetId(),
+		"remove-netif",
+		params,
+	)
+	if err != nil {
+		return err
+	}
+	return task.baremetal.SaveDesc(resp)
 }
 
 func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string) error {

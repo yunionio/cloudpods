@@ -34,10 +34,3 @@ const (
 	START_FAIL     = "start_fail"
 	STOP_FAIL      = "stop_fail"
 )
-
-const (
-	NIC_TYPE_IPMI  = "ipmi"
-	NIC_TYPE_ADMIN = "admin"
-)
-
-var NIC_TYPES = []string{NIC_TYPE_ADMIN, NIC_TYPE_IPMI}

@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
@@ -281,7 +282,7 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 	var udevPath = "/etc/udev/rules.d/"
 	var nicRules string
 	for _, nic := range nicsStandby {
-		if len(nic.NicType) == 0 || nic.NicType != types.NIC_TYPE_IPMI {
+		if len(nic.NicType) == 0 || nic.NicType != api.NIC_TYPE_IPMI {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
 			mac := nic.Mac
