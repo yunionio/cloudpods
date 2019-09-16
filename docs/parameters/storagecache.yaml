@@ -1,0 +1,22 @@
+storagecacheId:
+  name: storagecacheId 
+  required: true 
+  in: path 
+  type: string 
+  description: 存储缓存名称或ID
+image:
+  name: image 
+  in: body 
+  required: true 
+  type: string 
+  description: 镜像名称或ID
+is_force:
+  name: is_force 
+  in: body 
+  type: string 
+  description: 是否强制缓存镜像(会覆盖之前已缓存的镜像)
+format:
+  name: format 
+  in: body 
+  type: string 
+  description: 缓存镜像的格式(有的云对镜像有特殊格式要求，会导致此参数失效)

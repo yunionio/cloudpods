@@ -1,0 +1,56 @@
+StorageCacheResponse:
+  type: object
+  properties:
+    storagecache:
+      type: object
+      $ref: '#/StorageCache'
+
+StorageCache:
+  type: object
+  description: 存储缓存
+  properties:
+    id:
+      type: string
+      example: f227c4ce-6870-19f3-8257-f53e63f40361
+      description: 存储缓存uuid
+      readOnly: true
+    name:
+      type: string
+      description: 存储h缓存名称
+      example: storage-r4hilqks
+      readOnly: true
+    is_emulated:
+      type: boolean 
+      example: false
+      description: 是否是虚拟出来的缓存
+    update_version:
+      type: integer 
+      example: 2
+      description: 资源被更新的次数
+    updated_at:
+      type: string 
+      example: "2019-05-30T06:36:39.000000Z"
+      description: 资源最近一次更新时间
+    external_id:
+      type: string 
+      example: f27b21ea-514e-4933-8ff5-4bf0c261873a-Huawei/ap-southeast-1
+      description: 外部id
+    path:
+      type: string 
+      example: /vmfs/volumes/5a017148-0fa691a9-6b8a-0022b70cc59e/image_cache
+      description: 镜像存储位置
+
+StorageCacheListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    storagecachess:
+      type: array
+      items:
+        $ref: '#/StorageCache'
+    total:
+      type: integer
+      example: 124
+
