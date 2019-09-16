@@ -131,3 +131,13 @@ private_cloud:
   in: query
   type: boolean
   description: 过滤公有云资源
+is_on_premise:
+   name: is_on_premise 
+   in: query 
+   type: boolean 
+   description: 过滤本地IDC资源
+is_managed:
+    name: is_managed 
+    in: query 
+    type: boolean 
+    description: 过滤通过云账号导入进来的资源

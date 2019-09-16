@@ -1,0 +1,11 @@
+get:
+  summary: 获取指定存储缓存详情信息
+  parameters:
+    - $ref: '../parameters/storagecache.yaml#/storagecacheId'
+  responses:
+    200:
+      description: 存储缓存详情信息
+      schema:
+        $ref: '../schemas/storagecache.yaml#/StorageCacheResponse'
+  tags:
+    - storagecaches

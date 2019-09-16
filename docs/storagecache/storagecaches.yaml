@@ -1,0 +1,19 @@
+get:
+  summary: 按指定条件列出存储缓存列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/cloudprovider'
+    - $ref: '../parameters/common.yaml#/cloudaccount'
+    - $ref: '../parameters/common.yaml#/provider'
+    - $ref: '../parameters/common.yaml#/brand'
+    - $ref: '../parameters/common.yaml#/cloud_env'
+    - $ref: '../parameters/common.yaml#/is_on_premise'
+    - $ref: '../parameters/common.yaml#/is_managed'
+  responses:
+    200:
+      description: 存储缓存列表信息
+      schema:
+        $ref: '../schemas/storagecache.yaml#/StorageCacheListResponse'
+  tags:
+    - storagecaches

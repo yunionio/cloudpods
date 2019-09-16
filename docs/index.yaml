@@ -49,6 +49,13 @@ paths:
   /storages/{storageId}/offline:
     $ref: "./storage/storage.yaml#/offline"
 
+  /storagecaches:
+    $ref: "./storagecache/storagecaches.yaml"
+  /storagecaches/{storagecacheId}:
+    $ref: "./storagecache/storagecache.yaml"
+  /storagecaches/{storagecacheId}/cache-image:
+    $ref: "./storagecache/cache-image.yaml"
+
   /disks:
     $ref: "./disk/disks.yaml"
   /disks/{diskId}:

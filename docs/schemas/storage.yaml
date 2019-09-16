@@ -95,7 +95,7 @@ Storage:
     is_emulated:
       type: boolean 
       example: false
-      description: 是否是虚拟出来的实例
+      description: 是否是虚拟出来的存储
     provider:
       type: string 
       example: Qcloud
