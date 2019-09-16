@@ -239,7 +239,7 @@ func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.Bareme
 	params := adapter.conf2Params(conf)
 	args = append(args, params...)
 	cmd := GetCommand(args...)
-	_, err := adapter.raid.term.Run(cmd)
+	_, err := adapter.raid.term.RunWithInput(strings.NewReader("y\n"), cmd)
 	if err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.Bareme
 			args = append(args, params...)
 			cmds = append(cmds, GetCommand(args...))
 		}
-		_, err = adapter.raid.term.Run(cmds...)
+		_, err = adapter.raid.term.RunWithInput(strings.NewReader("y\n"), cmds...)
 	}
 	return err
 }

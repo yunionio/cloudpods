@@ -46,6 +46,10 @@ const (
 	YUNIONROOT_USER = "cloudroot"
 )
 
+var (
+	NetDevPrefix = "eth"
+)
+
 type sLinuxRootFs struct {
 	*sGuestRootFsDriver
 }
@@ -256,7 +260,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*ty
 			mac := nic.Mac
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
 			idx := nic.Index
-			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
+			nicRules += fmt.Sprintf("NAME=\"%s%d\"\n", NetDevPrefix, idx)
 		}
 		if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
 			return err
@@ -283,7 +287,7 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 			mac := nic.Mac
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
 			idx := nic.Index
-			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
+			nicRules += fmt.Sprintf(`NAME="%s%d"\n`, NetDevPrefix, idx)
 		}
 	}
 	if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, true, false); err != nil {
@@ -822,7 +826,7 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 		for _, nic := range nics {
 			nicRules += `KERNEL=="*", `
 			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nic.Mac))
-			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", nic.Index)
+			nicRules += fmt.Sprintf("NAME=\"%s%d\"\n", NetDevPrefix, nic.Index)
 		}
 		return rootFs.FilePutContents(path.Join(udevPath, "60-net.rules"),
 			nicRules, false, false)
@@ -990,12 +994,12 @@ func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition
 	for _, nic := range nicsStandby {
 		var cmds string
 		if len(nic.NicType) == 0 || nic.NicType != "ipmi" {
-			cmds += fmt.Sprintf("DEVICE=eth%d\n", nic.Index)
-			cmds += fmt.Sprintf("NAME=eth%d\n", nic.Index)
+			cmds += fmt.Sprintf("DEVICE=%s%d\n", NetDevPrefix, nic.Index)
+			cmds += fmt.Sprintf("NAME=%s%d\n", NetDevPrefix, nic.Index)
 			cmds += fmt.Sprintf("HWADDR=%s\n", nic.Mac)
 			cmds += fmt.Sprintf("MACADDR=%s\n", nic.Mac)
 			cmds += "ONBOOT=no\n"
-			var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nic.Index)
+			var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-%s%d", NetDevPrefix, nic.Index)
 			if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
 				return err
 			}
@@ -1246,14 +1250,14 @@ func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*t
 	for _, nic := range nics {
 		nicIndex := nic.Index
 		if nic.Virtual {
-			cmds += fmt.Sprintf(`config_eth%d="`, nicIndex)
+			cmds += fmt.Sprintf(`config_%s%d="`, NetDevPrefix, nicIndex)
 			cmds += fmt.Sprintf("%s netmask 255.255.255.255", netutils2.PSEUDO_VIP)
 			cmds += `"\n`
 		} else {
-			cmds += fmt.Sprintf(`config_eth%d="dhcp"\n`, nicIndex)
+			cmds += fmt.Sprintf(`config_%s%d="dhcp"\n`, NetDevPrefix, nicIndex)
 		}
 		if nic.Mtu > 0 {
-			cmds += fmt.Sprintf(`mtu_eth%d="%d"\n`, nicIndex, nic.Mtu)
+			cmds += fmt.Sprintf(`mtu_%s%d="%d"\n`, NetDevPrefix, nicIndex, nic.Mtu)
 		}
 	}
 	if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
@@ -1261,7 +1265,7 @@ func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*t
 	}
 	for _, nic := range nics {
 		nicIndex := nic.Index
-		netname := fmt.Sprintf("net.eth%d", nicIndex)
+		netname := fmt.Sprintf("net.%s%d", NetDevPrefix, nicIndex)
 		procutils.NewCommand("ln", "-s", "net.lo",
 			fmt.Sprintf("%s/etc/init.d/%s", rootFs.GetMountPath(), netname)).Run()
 		procutils.NewCommand("chroot",
@@ -1415,7 +1419,7 @@ func (d *SCoreOsRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain stri
 
 func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	for _, nic := range nics {
-		name := fmt.Sprintf("eth%d", nic.Index)
+		name := fmt.Sprintf("%s%d", NetDevPrefix, nic.Index)
 		cont := "[Match]\n"
 		cont += "Name=" + name + "\n"
 		cont += "\n[Network]\n"
