@@ -17,6 +17,7 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -110,14 +111,18 @@ func (s *Client) GetConfig() ClientConfig {
 }
 
 func (s *Client) RawRun(cmds ...string) ([]string, error) {
-	return s.run(false, cmds...)
+	return s.run(false, cmds, nil)
 }
 
 func (s *Client) Run(cmds ...string) ([]string, error) {
-	return s.run(true, cmds...)
+	return s.run(true, cmds, nil)
 }
 
-func (s *Client) run(parseOutput bool, cmds ...string) ([]string, error) {
+func (s *Client) RunWithInput(input io.Reader, cmds ...string) ([]string, error) {
+	return s.run(true, cmds, input)
+}
+
+func (s *Client) run(parseOutput bool, cmds []string, input io.Reader) ([]string, error) {
 	ret := []string{}
 	for _, cmd := range cmds {
 		session, err := s.client.NewSession()
@@ -130,6 +135,7 @@ func (s *Client) run(parseOutput bool, cmds ...string) ([]string, error) {
 		var stdErr bytes.Buffer
 		session.Stdout = &stdOut
 		session.Stderr = &stdErr
+		session.Stdin = input
 		err = session.Run(cmd)
 		if err != nil {
 			var outputErr error
