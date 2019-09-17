@@ -18,18 +18,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
-	"math/rand"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SXskyAdminApi struct {
@@ -90,7 +90,7 @@ type sLoginResponse struct {
 		Create  time.Time
 		Expires time.Time
 		Roles   []string
-		User struct {
+		User    struct {
 			Create             time.Time
 			Name               string
 			Email              string
@@ -213,7 +213,7 @@ type sKey struct {
 	Status    string
 	Type      string
 	Update    time.Time
-	User struct {
+	User      struct {
 		Id   int
 		Name string
 	}
@@ -290,7 +290,7 @@ type sBucket struct {
 	AuthUserPermission string
 	BucketPolicy       string
 	Create             time.Time
-	Flag struct {
+	Flag               struct {
 		Versioned         bool
 		VersionsSuspended bool
 		Worm              bool
@@ -304,7 +304,7 @@ type sBucket struct {
 	OsReplicationZoneNum  int
 	// osZone
 	OsZoneUuid string
-	Owner struct {
+	Owner      struct {
 		Id   string
 		Name string
 	}
@@ -328,14 +328,14 @@ type sPolicy struct {
 	Compress  bool
 	Create    time.Time
 	Crypto    bool
-	DataPool struct {
+	DataPool  struct {
 		Id   int
 		Name string
 	}
 	Default     bool
 	Description string
 	Id          int
-	IdexPool struct {
+	IndexPool   struct {
 		Id   int
 		Name string
 	}
@@ -418,7 +418,7 @@ type sS3LbGroup struct {
 type sS3LoadBalancer struct {
 	Create      time.Time
 	Description string
-	Group struct {
+	Group       struct {
 		Id     int
 		Name   string
 		Status string
@@ -435,7 +435,7 @@ type sS3LoadBalancer struct {
 	Name          string
 	Port          int
 	Roles         []string
-	Samples []struct {
+	Samples       []struct {
 		ActiveAconnects     int
 		CpuUtil             float64
 		Create              time.Time
