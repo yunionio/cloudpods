@@ -768,7 +768,7 @@ yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20190902093114-59ba154a6861
+# yunion.io/x/pkg v0.0.0-20190917154624-e89986e4e4d8
 yunion.io/x/pkg/util/version
 yunion.io/x/pkg/utils
 yunion.io/x/pkg/util/regutils
