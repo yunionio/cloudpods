@@ -25,8 +25,8 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/shell"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {
