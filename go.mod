@@ -159,4 +159,4 @@ require (
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
-replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190918140512-6eff6e97c193d7876334bf24f19ce0d1ed86d73a
+replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
