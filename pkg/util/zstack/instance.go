@@ -294,7 +294,8 @@ func (region *SRegion) StopVM(instanceId string, isForce bool) error {
 	}
 	params := map[string]interface{}{
 		"stopVmInstance": map[string]string{
-			"type": option,
+			"type":   option,
+			"stopHA": "true",
 		},
 	}
 	_, err := region.client.put("vm-instances", instanceId, jsonutils.Marshal(params))
