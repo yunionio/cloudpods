@@ -152,7 +152,7 @@ github.com/boombuler/barcode/utils
 github.com/bradfitz/iter
 # github.com/c-bata/go-prompt v0.2.1
 github.com/c-bata/go-prompt
-# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190918140512-6eff6e97c193d7876334bf24f19ce0d1ed86d73a
+# github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
 github.com/ceph/go-ceph/rados
 github.com/ceph/go-ceph/rbd
 # github.com/coredns/coredns v1.3.0
@@ -768,7 +768,7 @@ yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20190726033806-b564cfdcc224
+# yunion.io/x/pkg v0.0.0-20190902093114-59ba154a6861
 yunion.io/x/pkg/util/version
 yunion.io/x/pkg/utils
 yunion.io/x/pkg/util/regutils
@@ -798,7 +798,7 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/s3cli v0.0.0-20190829081311-29d39b4e88bd
+# yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20190823062008-bb710661356f
 yunion.io/x/sqlchemy
