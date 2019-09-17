@@ -106,12 +106,12 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() error {
 		return fmt.Errorf("BmManager add baremetal failed: %s", err)
 	}
 	err = pxeBm.InitAdminNetif(
-		s.accessNic.Mac, s.AdminWire, types.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, true, s.RemoteIp)
+		s.accessNic.Mac, s.AdminWire, api.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, true, s.RemoteIp)
 	if err != nil {
 		return fmt.Errorf("BmManager add admin netif failed: %s", err)
 	}
 	err = pxeBm.InitAdminNetif(
-		s.IpmiMac, s.IpmiWire, types.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, true, s.IpmiIpAddr)
+		s.IpmiMac, s.IpmiWire, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, true, s.IpmiIpAddr)
 	if err != nil {
 		return fmt.Errorf("BmManager add ipmi netif failed: %s", err)
 	}
@@ -171,7 +171,7 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
 	} else {
 		nic.Mac = conf.Mac
 	}
-	s.sendNicInfo(nic, -1, types.NIC_TYPE_IPMI, false, "")
+	s.sendNicInfo(nic, -1, api.NIC_TYPE_IPMI, false, "")
 }
 
 func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {

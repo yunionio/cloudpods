@@ -35,6 +35,7 @@ type IBaremetal interface {
 	GetName() string
 	GetClientSession() *mcclient.ClientSession
 	SaveDesc(desc jsonutils.JSONObject) error
+	GetNics() []types.SNic
 	GetNicByMac(net.HardwareAddr) *types.SNic
 	GetRawIPMIConfig() *types.SIPMIInfo
 	GetIPMINic(mac net.HardwareAddr) *types.SNic
