@@ -171,7 +171,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format str
 		l.consumerCount++
 		return true, true
 	}
-	url, err := auth.GetServiceURL("image", "", zone, "internal")
+	url, err := auth.GetServiceURL("image", "", zone, "public")
 	if err != nil {
 		log.Errorf("Failed to acquire image %s", err)
 		return false, true

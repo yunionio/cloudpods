@@ -279,6 +279,14 @@ func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion st
 	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential(), apiVersion)
 }
 
+func AdminSessionWithInternal(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
+	return AdminSession(ctx, region, zone, "internal", apiVersion)
+}
+
+func AdminSessionWithPublic(ctx context.Context, region, zone, apiVersion string) *mcclient.ClientSession {
+	return AdminSession(ctx, region, zone, "public", apiVersion)
+}
+
 type AuthCompletedCallback func()
 
 func (callback *AuthCompletedCallback) Run() {
@@ -317,8 +325,25 @@ func GetAdminSession(ctx context.Context, region string,
 	return GetSession(ctx, manager.adminCredential, region, apiVersion)
 }
 
+func GetAdminSessionWithPublic(ctx context.Context, region string,
+	apiVersion string) *mcclient.ClientSession {
+	return GetSessionWithPublic(ctx, manager.adminCredential, region, apiVersion)
+}
+
 func GetSession(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return manager.client.NewSession(ctx, region, "", "internal", token, apiVersion)
+	return GetSessionWithInternal(ctx, token, region, apiVersion)
+}
+
+func GetSessionWithInternal(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
+	return getSessionByType(ctx, token, region, apiVersion, "internal")
+}
+
+func GetSessionWithPublic(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
+	return getSessionByType(ctx, token, region, apiVersion, "public")
+}
+
+func getSessionByType(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string, epType string) *mcclient.ClientSession {
+	return manager.client.NewSession(ctx, region, "", epType, token, apiVersion)
 }
 
 // use for climc test only
