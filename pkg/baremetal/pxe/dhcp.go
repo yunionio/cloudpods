@@ -190,7 +190,7 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		ipmiNic := req.baremetalInstance.GetIPMINic(req.ClientMac)
 		if ipmiNic != nil && ipmiNic.Mac == req.ClientMac.String() {
 			err = req.baremetalInstance.InitAdminNetif(
-				req.ClientMac, req.netConfig.WireId, types.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, false, "")
+				req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, false, "")
 			if err != nil {
 				return nil, err
 			}
@@ -313,7 +313,7 @@ func (req *dhcpRequest) doInitBaremetalAdminNetif(desc jsonutils.JSONObject) err
 		return err
 	}
 	err = req.baremetalInstance.InitAdminNetif(
-		req.ClientMac, req.netConfig.WireId, types.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, false, "")
+		req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, false, "")
 	return err
 }
 

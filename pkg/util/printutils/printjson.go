@@ -73,7 +73,7 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 		rows = append(rows, row)
 	}
 	fmt.Print(pt.GetString(rows))
-	var total int64
+	total := int64(list.Total)
 	if list.Total == 0 {
 		total = int64(len(list.Data))
 	}

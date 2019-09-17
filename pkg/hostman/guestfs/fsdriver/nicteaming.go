@@ -92,18 +92,18 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		teamNic := findTeamingNic(nics, nics[i].Mac)
 		if teamNic == nil {
 			nnic := nics[i]
-			nnic.Name = fmt.Sprintf("eth%d", nnic.Index)
+			nnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, nnic.Index)
 			allNics = append(allNics, nnic)
 			continue
 		}
 		master := nics[i]
 		nnic := nics[i]
 		tnic := *teamNic
-		nnic.Name = fmt.Sprintf("eth%d", nnic.Index)
+		nnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, nnic.Index)
 		nnic.TeamingMaster = master
 		nnic.Ip = ""
 		nnic.Gateway = ""
-		tnic.Name = fmt.Sprintf("eth%d", tnic.Index)
+		tnic.Name = fmt.Sprintf("%s%d", NetDevPrefix, tnic.Index)
 		tnic.TeamingMaster = master
 		tnic.Ip = ""
 		tnic.Gateway = ""
