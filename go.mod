@@ -151,10 +151,10 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 	yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20190726033806-b564cfdcc224
-	yunion.io/x/s3cli v0.0.0-20190829081311-29d39b4e88bd
+	yunion.io/x/pkg v0.0.0-20190902093114-59ba154a6861
+	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20190823062008-bb710661356f
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
-replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190918140512-6eff6e97c193d7876334bf24f19ce0d1ed86d73a
+replace github.com/ceph/go-ceph v0.0.0-20181217221554-e32f9f0f2e94 => github.com/yunionio/go-ceph v0.0.0-20190912101231-6f05a06b3859
