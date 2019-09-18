@@ -381,10 +381,11 @@ func NewNonNegativeValidator(key string) *ValidatorRange {
 
 type ValidatorModelIdOrName struct {
 	Validator
-	ModelKeyword     string
-	OwnerId          mcclient.IIdentityProvider
-	ModelManager     db.IModelManager
-	Model            db.IModel
+	ModelKeyword string
+	OwnerId      mcclient.IIdentityProvider
+	ModelManager db.IModelManager
+	Model        db.IModel
+
 	modelIdKey       string
 	noPendingDeleted bool
 }
@@ -457,6 +458,20 @@ func (v *ValidatorModelIdOrName) AllowPendingDeleted(b bool) *ValidatorModelIdOr
 }
 
 func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
+	if !data.Contains(v.Key) && data.Contains(v.modelIdKey) {
+		// a hack when validator is used solely for fetching model
+		// object.  This can happen when input json data was validated
+		// more than once in different places
+		j, err := data.Get(v.modelIdKey)
+		if err != nil {
+			return err
+		}
+		data.Set(v.Key, j)
+		defer func() {
+			// restore
+			data.Remove(v.Key)
+		}()
+	}
 	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
 		return err
 	}
