@@ -284,6 +284,19 @@ func (api *SXskyAdminApi) findUserByAccessKey(ctx context.Context, accessKey str
 	return nil, nil, httperrors.ErrNotFound
 }
 
+func (api *SXskyAdminApi) findFirstUserWithAccessKey(ctx context.Context) (*sUser, *sKey, error) {
+	usrs, err := api.getUsers(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "api.getUsers")
+	}
+	for i := range usrs {
+		if len(usrs[i].Keys) > 0 {
+			return &usrs[i], &usrs[i].Keys[0], nil
+		}
+	}
+	return nil, nil, httperrors.ErrNotFound
+}
+
 type sBucket struct {
 	ActionStatus       string
 	AllUserPermission  string
