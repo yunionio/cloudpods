@@ -92,6 +92,8 @@ func (manager *SNetworkInterfaceManager) ListItemFilter(ctx context.Context, q *
 		return nil, err
 	}
 
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
 	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
