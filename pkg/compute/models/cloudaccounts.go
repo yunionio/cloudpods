@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -453,9 +454,9 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	if (account.Account != self.Account) || (account.Secret != originSecret) {
 		if account.Account != self.Account {
 			for _, cloudprovider := range self.GetCloudproviders() {
-				if cloudprovider.Account == self.Account {
+				if strings.Contains(cloudprovider.Account, self.Account) {
 					_, err = db.Update(&cloudprovider, func() error {
-						cloudprovider.Account = account.Account
+						cloudprovider.Account = strings.ReplaceAll(cloudprovider.Account, self.Account, account.Account)
 						return nil
 					})
 					if err != nil {
@@ -484,9 +485,13 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	if changed {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, account.Account, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, account.Account, userCred, true)
+
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
 		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
+
 	return nil, nil
 }
 
