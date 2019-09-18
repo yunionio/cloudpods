@@ -42,12 +42,11 @@ func (self *SXskyProviderFactory) GetProvider(providerId, providerName, url, acc
 }
 
 func (self *SXskyProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	return map[string]string{
-		"S3_ACCESS_KEY": account,
-		"S3_SECRET":     secret,
-		"S3_ACCESS_URL": url,
-		"S3_BACKEND":    api.CLOUD_PROVIDER_XSKY,
-	}, nil
+	client, err := xsky.NewXskyClient("", "", url, account, secret, false)
+	if err != nil {
+		return nil, err
+	}
+	return client.GetClientRC(), nil
 }
 
 func init() {

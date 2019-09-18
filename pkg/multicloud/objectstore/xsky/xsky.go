@@ -33,7 +33,8 @@ type SXskyClient struct {
 
 	adminApi *SXskyAdminApi
 
-	adminUser *sUser
+	adminUser   *sUser
+	initAccount string
 }
 
 func parseAccount(account string) (user string, accessKey string) {
@@ -53,41 +54,55 @@ func NewXskyClient(providerId string, providerName string, endpoint string, acco
 		return nil, errors.Wrap(err, "adminApi.getS3GatewayIP")
 	}
 
-	var s3store *objectstore.SObjectStoreClient
-	var adminUser *sUser
+	var usr *sUser
+	var key *sKey
 	if len(accessKey) > 0 {
-		usr, key, err := adminApi.findUserByAccessKey(context.Background(), accessKey)
+		usr, key, err = adminApi.findUserByAccessKey(context.Background(), accessKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "adminApi.findUserByAccessKey")
 		}
-
-		adminUser = usr
-
-		s3store, err = objectstore.NewObjectStoreClientAndFetch(providerId, providerName, gwEp, accessKey, key.SecretKey, isDebug, false)
+	} else {
+		usr, key, err = adminApi.findFirstUserWithAccessKey(context.Background())
 		if err != nil {
-			return nil, errors.Wrap(err, "NewObjectStoreClient")
+			return nil, errors.Wrap(err, "adminApi.findFirstUserWithAccessKey")
 		}
+	}
+
+	s3store, err := objectstore.NewObjectStoreClientAndFetch(providerId, providerName, gwEp, accessKey, key.SecretKey, isDebug, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewObjectStoreClient")
 	}
 
 	client := SXskyClient{
 		SObjectStoreClient: s3store,
 		adminApi:           adminApi,
-		adminUser:          adminUser,
+		adminUser:          usr,
+	}
+
+	if len(accessKey) > 0 {
+		client.initAccount = account
 	}
 
 	client.SetVirtualObject(&client)
 
-	if s3store != nil {
-		err = client.FetchBuckets()
-		if err != nil {
-			return nil, errors.Wrap(err, "fetchBuckets")
-		}
+	err = client.FetchBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchBuckets")
 	}
 
 	return &client, nil
 }
 
 func (cli *SXskyClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	if len(cli.initAccount) > 0 {
+		return []cloudprovider.SSubAccount{
+			{
+				Account:      cli.initAccount,
+				Name:         cli.adminUser.Name,
+				HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
+			},
+		}, nil
+	}
 	usrs, err := cli.adminApi.getUsers(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "api.getUsers")
