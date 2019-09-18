@@ -17,21 +17,27 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/cache"
 
-	"net/http"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
-	manager           *authManager
-	defaultTimeout    int       = 600 // maybe time.Duration better
-	defaultCacheCount int64     = 100000
-	initCh            chan bool = make(chan bool)
+	manager            *authManager
+	defaultTimeout     int       = 600 // maybe time.Duration better
+	defaultCacheCount  int64     = 100000
+	initCh             chan bool = make(chan bool)
+	globalEndpointType string
+)
+
+const (
+	PublicEndpointType   string = "public"
+	InternalEndpointType string = "internal"
 )
 
 type AuthInfo struct {
@@ -47,6 +53,10 @@ type AuthInfo struct {
 
 func SetTimeout(t time.Duration) {
 	defaultTimeout = int(t)
+}
+
+func SetEndpointType(epType string) {
+	globalEndpointType = epType
 }
 
 func NewV2AuthInfo(authUrl, user, passwd, tenant string) *AuthInfo {
@@ -276,6 +286,9 @@ func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion st
 	if cli == nil {
 		return nil
 	}
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
 	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential(), apiVersion)
 }
 
@@ -331,15 +344,18 @@ func GetAdminSessionWithPublic(ctx context.Context, region string,
 }
 
 func GetSession(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
+	if len(globalEndpointType) != 0 {
+		return getSessionByType(ctx, token, region, apiVersion, globalEndpointType)
+	}
 	return GetSessionWithInternal(ctx, token, region, apiVersion)
 }
 
 func GetSessionWithInternal(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, "internal")
+	return getSessionByType(ctx, token, region, apiVersion, InternalEndpointType)
 }
 
 func GetSessionWithPublic(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return getSessionByType(ctx, token, region, apiVersion, "public")
+	return getSessionByType(ctx, token, region, apiVersion, PublicEndpointType)
 }
 
 func getSessionByType(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string, epType string) *mcclient.ClientSession {
