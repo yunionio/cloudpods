@@ -223,6 +223,9 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	q := users.Query(
 		users.Field("id"),
 		users.Field("name"),
+		users.Field("displayname"),
+		users.Field("email"),
+		users.Field("mobile"),
 		users.Field("enabled"),
 		users.Field("default_project_id"),
 		users.Field("created_at"),
