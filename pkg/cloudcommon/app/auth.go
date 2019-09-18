@@ -20,6 +20,9 @@ import (
 	"os"
 	"time"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -59,6 +62,14 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 	)
 
 	// debug := options.LogLevel == "debug"
+
+	if options.SessionEndpointType != "" {
+		if !utils.IsInStringArray(options.SessionEndpointType,
+			[]string{auth.PublicEndpointType, auth.InternalEndpointType}) {
+			log.Fatalf("Invalid session endpoint type %s", options.SessionEndpointType)
+		}
+		auth.SetEndpointType(options.SessionEndpointType)
+	}
 
 	auth.Init(a, options.DebugClient, true, options.SslCertfile, options.SslKeyfile) // , authComplete)
 
