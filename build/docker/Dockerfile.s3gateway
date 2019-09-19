@@ -12,4 +12,4 @@ RUN apk update && \
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-ADD ./_output/bin/apigateway /opt/yunion/bin/apigateway
+ADD ./_output/bin/s3gateway /opt/yunion/bin/s3gateway
