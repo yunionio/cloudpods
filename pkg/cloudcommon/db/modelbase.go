@@ -336,6 +336,17 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 	return res, nil
 }
 
+func (manager *SModelBaseManager) BatchPreValidate(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict, count int,
+) (func(), error) {
+	return nil, nil
+}
+
+func (manager *SModelBaseManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, nil
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
