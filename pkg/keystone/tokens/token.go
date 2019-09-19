@@ -255,6 +255,9 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.Methods = []string{t.Method}
 	token.Token.User.Id = user.Id
 	token.Token.User.Name = user.Name
+	token.Token.User.Displayname = user.Displayname
+	token.Token.User.Email = user.Email
+	token.Token.User.Mobile = user.Mobile
 	token.Token.User.Domain.Id = user.DomainId
 	token.Token.User.Domain.Name = user.DomainName
 	token.Token.Context = t.Context
