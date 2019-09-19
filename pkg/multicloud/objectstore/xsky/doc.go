@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validate // import "yunion.io/x/onecloud/pkg/util/validate"
+package xsky // import "yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky"
