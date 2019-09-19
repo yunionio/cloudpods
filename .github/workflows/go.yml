@@ -1,3 +1,5 @@
+name: Docker image build
+
 on:
   push:
     branches:
