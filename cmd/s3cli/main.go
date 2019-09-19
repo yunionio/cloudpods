@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/shell"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -94,6 +95,8 @@ func newClient(options *BaseOptions) (cloudprovider.ICloudRegion, error) {
 
 	if options.Backend == api.CLOUD_PROVIDER_CEPH {
 		return ceph.NewCephRados("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+	} else if options.Backend == api.CLOUD_PROVIDER_XSKY {
+		return xsky.NewXskyClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
 	}
 	return objectstore.NewObjectStoreClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
 }
