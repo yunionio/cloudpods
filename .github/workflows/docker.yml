@@ -1,0 +1,124 @@
+name: Docker image build
+
+on:
+  push:
+    branches:
+    - master
+    - 'releases/*'
+    paths:
+    - 'cmd/*'
+    - 'pkg/*'
+    - 'vendor/*'
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Build
+      run: |
+        make cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
+        make cmd/logger cmd/region cmd/scheduler cmd/webconsole
+        make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway
+        make cmd/ansibleserver
+
+    - name: Image baremetal-agent
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/baremetal-agent
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.baremetal-agent
+
+    - name: Image climc
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/climc
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.climc
+
+    - name: Image keystone
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/keystone
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.keystone
+
+    - name: Image logger
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/logger
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.logger
+
+    - name: Image region
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/region
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.region
+
+    - name: Image scheduler
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/scheduler
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.scheduler
+
+    - name: Image apigateway
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/apigateway
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.apigateway
+
+    - name: Image s3gateway
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/s3gateway
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.s3gateway
+
+    - name: Image glance
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/glance
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.glance
