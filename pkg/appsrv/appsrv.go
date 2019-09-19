@@ -71,7 +71,8 @@ const (
 	DEFAULT_READ_TIMEOUT        = 0
 	DEFAULT_READ_HEADER_TIMEOUT = 10 * time.Second
 	DEFAULT_WRITE_TIMEOUT       = 0
-	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
+	// set default process timeout to 60 seconds
+	DEFAULT_PROCESS_TIMEOUT = 60 * time.Second
 )
 
 var quitHandlerRegisted bool
