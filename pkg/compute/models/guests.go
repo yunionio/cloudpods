@@ -614,16 +614,16 @@ func (guest *SGuest) GetVpc() (*SVpc, error) {
 	guestnic := &SGuestnetwork{}
 	err := q.First(guestnic)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed getting guest network of %s(%s)", guest.Name, guest.Id)
 	}
 	guestnic.SetModelManager(GuestnetworkManager, guestnic)
 	network := guestnic.GetNetwork()
 	if network == nil {
-		return nil, fmt.Errorf("failed to found network for guest %s(%s)", guest.Name, guest.Id)
+		return nil, errors.Wrapf(err, "failed getting network for guest %s(%s)", guest.Name, guest.Id)
 	}
 	vpc := network.GetVpc()
 	if vpc == nil {
-		return nil, fmt.Errorf("failed to found vpc for network %s(%s)", network.Name, network.Id)
+		return nil, errors.Wrapf(err, "failed getting vpc of guest network %s(%s)", network.Name, network.Id)
 	}
 	return vpc, nil
 }

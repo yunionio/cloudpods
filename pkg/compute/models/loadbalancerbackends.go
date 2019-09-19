@@ -112,11 +112,11 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 	}
 	vpc, err := guest.GetVpc()
 	if err != nil {
-		return err
+		return httperrors.NewBadRequestError("%s", err)
 	}
 	if len(lb.VpcId) > 0 {
 		if vpc.Id != lb.VpcId {
-			return fmt.Errorf("guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s", guest.Name, guest.Id, vpc.Name, vpc.Id, lb.VpcId)
+			return httperrors.NewBadRequestError("guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s", guest.Name, guest.Id, vpc.Name, vpc.Id, lb.VpcId)
 		}
 		return nil
 	}
@@ -127,18 +127,18 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 	for _, backend := range backends {
 		_server, err := GuestManager.FetchById(backend.BackendId)
 		if err != nil {
-			return err
+			return httperrors.NewBadRequestError("failed getting guest %s", backend.BackendId)
 		}
 		server := _server.(*SGuest)
 		_vpc, err := server.GetVpc()
 		if err != nil {
-			return err
+			return httperrors.NewBadRequestError("%s", err)
 		}
 		if _vpc.Id != vpc.Id {
-			return fmt.Errorf("guest %s(%s) vpc %s(%s) not same as vpc %s(%s)", guest.Name, guest.Id, vpc.Name, vpc.Id, _vpc.Name, _vpc.Id)
+			return httperrors.NewBadRequestError("guest %s(%s) vpc %s(%s) not same as vpc %s(%s)", guest.Name, guest.Id, vpc.Name, vpc.Id, _vpc.Name, _vpc.Id)
 		}
 		if _server.GetId() == guest.Id {
-			return fmt.Errorf("guest %s(%s) is already in the backendgroup %s(%s)", guest.Name, guest.Id, backendgroup.Name, backendgroup.Id)
+			return httperrors.NewBadRequestError("guest %s(%s) is already in the backendgroup %s(%s)", guest.Name, guest.Id, backendgroup.Name, backendgroup.Id)
 		}
 	}
 	return nil
