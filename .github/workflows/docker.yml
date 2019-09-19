@@ -1,14 +1,14 @@
-name: Docker image build
+name: Docker image
 
 on:
   push:
     branches:
     - master
-    - 'releases/*'
-    paths:
-    - 'cmd/*'
-    - 'pkg/*'
-    - 'vendor/*'
+    - releases/*
+    #paths:
+    #- 'cmd/*'
+    #- 'pkg/*'
+    #- 'vendor/*'
 
 jobs:
 
