@@ -60,6 +60,10 @@ type KeystoneUserV3 struct {
 	Name                string
 	Domain              KeystoneDomainV3
 	Password_expires_at time.Time
+
+	Displayname string
+	Email       string
+	Mobile      string
 }
 
 type KeystoneServiceCatalogV3 []KeystoneServiceV3

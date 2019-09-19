@@ -260,7 +260,26 @@ TokenV3:
         $ref: './roleassignments.yaml#/DomainObject'
     user:
       type: object
-      $ref: './roleassignments.yaml#/DomainObject'
+      properties:
+        id:
+          type: string
+          description: 用户ID
+        name:
+          type: string
+          description: 用户名称
+        displayname:  
+          type: string
+          description: 用户显示名称
+        email:
+          type: string
+          description: 用户的电子邮箱
+        mobile:
+          type: string
+          description: 用户的手机号
+        domain:
+          type: object
+          description: 资源归属的域信息
+          $ref: './roleassignments.yaml#/Domain'
     policies:
       type: object
       $ref: './roleassignments.yaml#/PolicyObject'
