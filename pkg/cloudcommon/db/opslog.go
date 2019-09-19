@@ -457,9 +457,9 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	objNames := jsonutils.GetQueryStringArray(query, "obj_name")
 	if len(objNames) > 0 {
 		if len(objNames) == 1 {
-			q = q.Filter(sqlchemy.Equals(q.Field("obj_id"), objNames[0]))
+			q = q.Filter(sqlchemy.Equals(q.Field("obj_name"), objNames[0]))
 		} else {
-			q = q.Filter(sqlchemy.In(q.Field("obj_id"), objNames))
+			q = q.Filter(sqlchemy.In(q.Field("obj_name"), objNames))
 		}
 	}
 	queryDict := query.(*jsonutils.JSONDict)
