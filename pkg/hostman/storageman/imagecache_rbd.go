@@ -33,9 +33,10 @@ import (
 )
 
 type SRbdImageCache struct {
-	imageId string
-	cond    *sync.Cond
-	Manager IImageCacheManger
+	imageId   string
+	imageName string
+	cond      *sync.Cond
+	Manager   IImageCacheManger
 }
 
 func NewRbdImageCache(imageId string, imagecacheManager IImageCacheManger) *SRbdImageCache {
@@ -72,6 +73,7 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format strin
 		log.Errorf("failed to acquireimage %s ", r.imageId)
 		return false
 	}
+	r.imageName = localImageCache.GetName()
 	if !r.Load() {
 		log.Debugf("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
 
@@ -112,7 +114,7 @@ func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
 	size := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
 	return &remotefile.SImageDesc{
 		Size: int64(size),
-		Name: r.GetName(),
+		Name: r.imageName,
 	}
 }
 

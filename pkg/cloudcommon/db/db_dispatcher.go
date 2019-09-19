@@ -965,7 +965,24 @@ func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.Toke
 	return doCreateItem(manager, ctx, userCred, ownerId, nil, data)
 }
 
-func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
+func doCreateItem(
+	manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
+
+	return _doCreateItem(manager, ctx, userCred, ownerId, query, data, false, 1)
+}
+
+func batchCreateDoCreateItem(
+	manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data jsonutils.JSONObject, baseIndex int) (IModel, error) {
+
+	return _doCreateItem(manager, ctx, userCred, ownerId, query, data, true, baseIndex)
+}
+
+func _doCreateItem(
+	manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data jsonutils.JSONObject, batchCreate bool, baseIndex int) (IModel, error) {
+
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		log.Errorf("doCreateItem: fail to decode json data %s", data)
@@ -976,7 +993,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	generateName, _ := dataDict.GetString("generate_name")
 	if len(generateName) > 0 {
 		dataDict.Remove("generate_name")
-		newName, err := GenerateName(manager, ownerId, generateName)
+		newName, err := GenerateName2(manager, ownerId, generateName, nil, baseIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -991,7 +1008,12 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 		}
 	}*/
 
-	dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerId, query, dataDict)
+	if batchCreate {
+		dataDict, err = manager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, dataDict)
+	} else {
+		dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerId, query, dataDict)
+	}
+
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1142,7 +1164,11 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		err   error
 	}
 
-	var multiData []jsonutils.JSONObject
+	var (
+		multiData         []jsonutils.JSONObject
+		onBatchCreateFail func()
+		validateError     error
+	)
 
 	createResults, err := func() ([]sCreateResult, error) {
 		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
@@ -1152,9 +1178,20 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		if err != nil {
 			return nil, err
 		}
+
 		ret := make([]sCreateResult, len(multiData))
 		for i, cdata := range multiData {
-			model, err := doCreateItem(manager, ctx, userCred, ownerId, query, cdata)
+			if i == 0 {
+				onBatchCreateFail, validateError = manager.BatchPreValidate(
+					ctx, userCred, ownerId, query, cdata.(*jsonutils.JSONDict), len(multiData))
+				if validateError != nil {
+					return nil, err
+				}
+			}
+			model, err := batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, cdata, i)
+			if err != nil && onBatchCreateFail != nil {
+				onBatchCreateFail()
+			}
 			ret[i] = sCreateResult{model: model, err: err}
 		}
 		return ret, nil
