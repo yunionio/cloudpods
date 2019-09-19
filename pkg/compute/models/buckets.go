@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/pkg/s3utils"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -42,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -587,6 +587,9 @@ func (bucket *SBucket) GetDetailsObjects(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
@@ -620,6 +623,10 @@ func (bucket *SBucket) PerformTempUrl(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	method, _ := data.GetString("method")
 	key, _ := data.GetString("key")
 	expire, _ := data.Int("expire_seconds")
@@ -661,6 +668,10 @@ func (bucket *SBucket) PerformMakedir(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	key, _ := data.GetString("key")
 	key = strings.Trim(key, " /")
 	if len(key) == 0 {
@@ -728,6 +739,10 @@ func (bucket *SBucket) PerformDelete(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	keys, _ := data.Get("keys")
 	if keys == nil {
 		return nil, httperrors.NewInputParameterError("missing keys")
@@ -777,6 +792,10 @@ func (bucket *SBucket) PerformUpload(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	appParams := appsrv.AppContextGetParams(ctx)
 
 	key := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_KEY_HEADER)
@@ -881,6 +900,10 @@ func (bucket *SBucket) PerformAcl(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	aclStr, _ := data.GetString("acl")
 	switch cloudprovider.TBucketACLType(aclStr) {
 	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
@@ -959,6 +982,10 @@ func (bucket *SBucket) PerformSync(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	statsOnly := jsonutils.QueryBoolean(data, "stats_only", false)
 
 	iBucket, err := bucket.GetIBucket()
@@ -998,6 +1025,9 @@ func (bucket *SBucket) GetDetailsAcl(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
@@ -1107,6 +1137,10 @@ func (bucket *SBucket) PerformLimit(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
+
 	limit := cloudprovider.SBucketStats{}
 	err := data.Unmarshal(&limit, "limit")
 	if err != nil {
@@ -1154,6 +1188,9 @@ func (bucket *SBucket) GetDetailsAccessInfo(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if len(bucket.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no external bucket")
+	}
 	manager := bucket.GetCloudprovider()
 	if manager == nil {
 		return nil, httperrors.NewInternalServerError("missing manager?")
