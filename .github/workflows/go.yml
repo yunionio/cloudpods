@@ -30,7 +30,8 @@ jobs:
       run: |
         make cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
         make cmd/logger cmd/region cmd/scheduler cmd/webconsole
-        make cmd/yunionconf cmd/glance cmd/torrent
+        make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway
+        make cmd/ansibleserver
 
     - name: Image baremetal-agent
       uses: elgohr/Publish-Docker-Github-Action@master
