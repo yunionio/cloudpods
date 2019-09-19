@@ -88,7 +88,7 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() error {
 		}
 	}
 	if s.accessNic == nil {
-		return fmt.Errorf("Register baremeatl failed: access nic not found ???")
+		s.accessNic = nicinfo[0]
 	}
 
 	params := jsonutils.NewDict()

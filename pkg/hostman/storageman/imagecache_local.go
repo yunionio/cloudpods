@@ -71,6 +71,9 @@ func (l *SLocalImageCache) GetImageId() string {
 }
 
 func (l *SLocalImageCache) GetName() string {
+	if l.Desc != nil && len(l.Desc.Name) > 0 {
+		return l.Desc.Name
+	}
 	return l.imageId
 }
 

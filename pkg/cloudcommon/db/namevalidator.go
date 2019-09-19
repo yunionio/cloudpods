@@ -80,18 +80,17 @@ func alterNameValidator(model IModel, name string) error {
 }
 
 func GenerateName(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
-	return GenerateName2(manager, ownerId, hint, nil)
+	return GenerateName2(manager, ownerId, hint, nil, 1)
 }
 
-func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel) (string, error) {
+func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel, baseIndex int) (string, error) {
 	_, pattern, patternLen := stringutils.ParseNamePattern(hint)
 	var name string
-	idx := 1
 	if patternLen == 0 {
 		name = hint
 	} else {
-		name = fmt.Sprintf(pattern, idx)
-		idx += 1
+		name = fmt.Sprintf(pattern, baseIndex)
+		baseIndex += 1
 	}
 	for {
 		var uniq bool
@@ -107,7 +106,7 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		if uniq {
 			return name, nil
 		}
-		name = fmt.Sprintf(pattern, idx)
-		idx += 1
+		name = fmt.Sprintf(pattern, baseIndex)
+		baseIndex += 1
 	}
 }

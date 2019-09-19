@@ -704,7 +704,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	if err == nil {
 		if domain.Name != extName {
 			// sync domain name
-			newName, err := db.GenerateName2(DomainManager, nil, extName, domain)
+			newName, err := db.GenerateName2(DomainManager, nil, extName, domain, 1)
 			if err != nil {
 				log.Errorf("sync existing domain name (%s=%s) generate fail %s", domain.Name, extName, err)
 			} else {
