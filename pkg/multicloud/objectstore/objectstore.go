@@ -152,6 +152,15 @@ func (cli *SObjectStoreClient) S3Client() *s3cli.Client {
 	return cli.client
 }
 
+func (cli *SObjectStoreClient) GetClientRC() map[string]string {
+	return map[string]string{
+		"S3_ACCESS_KEY": cli.accessKey,
+		"S3_SECRET":     cli.secret,
+		"S3_ACCESS_URL": cli.endpoint,
+		"S3_BACKEND":    api.CLOUD_PROVIDER_GENERICS3,
+	}
+}
+
 ///////////////////////////////// fake impletementations //////////////////////
 
 func (cli *SObjectStoreClient) GetIZones() ([]cloudprovider.ICloudZone, error) {
