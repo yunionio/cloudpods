@@ -351,13 +351,17 @@ func (m *SGuestManager) GuestCreate(ctx context.Context, params interface{}) (js
 		guest = NewKVMGuestInstance(deployParams.Sid, m)
 		desc, _ := deployParams.Body.Get("desc")
 		if desc != nil {
-			err := guest.SaveDesc(desc)
+			err := guest.PrepareDir()
+			if err != nil {
+				return errors.Wrap(err, "guest prepare dir")
+			}
+			err = guest.SaveDesc(desc)
 			if err != nil {
 				return errors.Wrap(err, "save desc")
 			}
 		}
 		m.SaveServer(deployParams.Sid, guest)
-		return guest.PrepareDir()
+		return nil
 	}()
 	if err != nil {
 		return nil, errors.Wrap(err, "prepare guest")

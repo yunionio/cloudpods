@@ -243,7 +243,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		if !jsonutils.QueryBoolean(createParams.DiskInfo, "rebuild", false) {
 			return nil, fmt.Errorf("Disk exist")
 		}
-		if _, err := createParams.Disk.Delete(ctx, params); err != nil {
+		if err := createParams.Disk.OnRebuildRoot(ctx, createParams.DiskInfo); err != nil {
 			return nil, err
 		}
 	}
