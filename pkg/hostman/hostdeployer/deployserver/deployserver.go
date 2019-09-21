@@ -77,20 +77,16 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	}
 
 	root := disk.MountKvmRootfs()
-	if root == nil {
-		// is not a root fs
-		goto resizePartition
-	} else if root.IsResizeFsPartitionSupport() {
-		goto resizePartition
+	if root != nil {
+		defer disk.UmountKvmRootfs(root)
 	}
 
-	disk.UmountKvmRootfs(root)
-	return new(deployapi.Empty), nil
-
-resizePartition:
-	disk.UmountKvmRootfs(root)
-	err := disk.ResizePartition()
-	return new(deployapi.Empty), err
+	if root != nil && !root.IsResizeFsPartitionSupport() {
+		return new(deployapi.Empty), nil
+	} else {
+		err := disk.ResizePartition()
+		return new(deployapi.Empty), err
+	}
 }
 
 func (*DeployerServer) FormatFs(ctx context.Context, req *deployapi.FormatFsParams) (*deployapi.Empty, error) {
