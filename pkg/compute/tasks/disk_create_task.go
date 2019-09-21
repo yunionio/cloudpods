@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -69,6 +70,12 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	if len(disk.BackupStorageId) > 0 {
 		self.SetStage("OnMasterStorageCreateDiskComplete", nil)
 	} else {
+		if rebuild && storage.StorageType == api.STORAGE_RBD {
+			if count, _ := disk.GetSnapshotCount(); count > 0 {
+				backingDiskId := stringutils.UUID4()
+				self.Params.Set("backing_disk_id", jsonutils.NewString(backingDiskId))
+			}
+		}
 		self.SetStage("OnDiskReady", nil)
 	}
 	if err := disk.StartAllocate(ctx, host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
@@ -108,6 +115,15 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 		return nil
 	}); err != nil {
 		log.Errorf("update disk info error: %v", err)
+	}
+	if jsonutils.QueryBoolean(self.Params, "rebuild", false) {
+		backingDiskId, _ := self.Params.GetString("backing_disk_id")
+		if len(backingDiskId) > 0 {
+			err := disk.UpdataSnapshotsBackingDisk(backingDiskId)
+			if err != nil {
+				log.Errorf("update disk snapshots backing disk fiailed %s", err)
+			}
+		}
 	}
 
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
