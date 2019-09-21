@@ -259,7 +259,8 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 			Project:   t.Name,
 		}
 		data.(*jsonutils.JSONDict).Set("project", jsonutils.NewString(t.Id))
-		data.(*jsonutils.JSONDict).Set("project_domain", jsonutils.NewString(t.DomainId))
+		// 当资源的域和归属云账号的域不同时，会导致查找不到该资源
+		// data.(*jsonutils.JSONDict).Set("project_domain", jsonutils.NewString(t.DomainId))
 		return &ownerId, nil
 	}
 	return FetchDomainInfo(ctx, data)
