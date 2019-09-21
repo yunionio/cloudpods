@@ -201,17 +201,13 @@ func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapsh
 }
 
 func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
-	disk, err := snapshot.GetDisk()
-	if err != nil {
-		return errors.Wrap(err, "snapshot get disk")
-	}
 	storage := snapshot.GetStorage()
 	host := storage.GetMasterHost()
-	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, disk.Id)
+	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, snapshot.DiskId)
 	header := task.GetTaskRequestHeader()
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	if err != nil {
 		return errors.Wrap(err, "request create snapshot")
 	}
