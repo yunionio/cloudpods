@@ -1,4 +1,4 @@
-FROM alpine:3.8
+FROM frolvlad/alpine-glibc:glibc-2.28
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 
