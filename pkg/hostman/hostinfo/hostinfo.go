@@ -1293,9 +1293,11 @@ func (h *SHostInfo) unregister() {
 }
 
 func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
+	// TODO: dynamic probe endpoint type
+	defaultEndpointType := "publicURL"
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
-		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", "internalURL")
+		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", defaultEndpointType)
 		if len(urls) > 0 {
 			log.Infof("Get Ntp urls: %v", urls)
 		} else {
@@ -1325,11 +1327,11 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 		"res_type":       "host",
 	}
 	conf["nics"] = h.getNicsTelegrafConf()
-	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", "internalURL")
+	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["kafka"] = map[string]interface{}{"brokers": urls, "topic": "telegraf"}
 	}
-	urls, _ = catalog.GetServiceURLs("influxdb", options.HostOptions.Region, "", "internalURL")
+	urls, _ = catalog.GetServiceURLs("influxdb", options.HostOptions.Region, "", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
 	}
@@ -1339,7 +1341,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	}
 
 	urls, _ = catalog.GetServiceURLs("elasticsearch",
-		options.HostOptions.Region, "zone", "internalURL")
+		options.HostOptions.Region, "zone", defaultEndpointType)
 	if len(urls) > 0 {
 		conf["elasticsearch"] = map[string]interface{}{"url": urls[0]}
 		fluentbit := system_service.GetService("fluentbit")
