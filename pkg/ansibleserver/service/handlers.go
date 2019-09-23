@@ -43,6 +43,7 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(db.TenantCacheManager)
 	for _, manager := range []db.IModelManager{
 		models.AnsiblePlaybookManager,
+		models.AnsiblePlaybookV2Manager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

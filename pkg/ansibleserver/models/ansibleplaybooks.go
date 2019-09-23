@@ -29,19 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	mcclient_models "yunion.io/x/onecloud/pkg/mcclient/models"
-	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ansible"
-)
-
-const (
-	AnsiblePlaybookStatusInit      = "init"
-	AnsiblePlaybookStatusRunning   = "running"
-	AnsiblePlaybookStatusSucceeded = "succeeded"
-	AnsiblePlaybookStatusFailed    = "failed"
-	AnsiblePlaybookStatusCanceled  = "canceled"
-	AnsiblePlaybookStatusUnknown   = "unknown"
 )
 
 // low priority
@@ -58,11 +46,6 @@ type SAnsiblePlaybook struct {
 	StartTime time.Time         `list:"user"`
 	EndTime   time.Time         `list:"user"`
 }
-
-const (
-	OutputMaxBytes   = 64*1024*1024 - 1
-	PlaybookMaxBytes = 64*1024 - 1
-)
 
 type SAnsiblePlaybookManager struct {
 	db.SVirtualResourceBaseManager
@@ -180,34 +163,6 @@ func (apb *SAnsiblePlaybook) PerformStop(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (apb *SAnsiblePlaybook) fetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
-	s := auth.GetSession(ctx, userCred, "", "")
-	jd := jsonutils.NewDict()
-	var jr jsonutils.JSONObject
-	if userCred.HasSystemAdminPrivilege() {
-		jd.Set("admin", jsonutils.JSONTrue)
-		r, err := mcclient_modules.Sshkeypairs.List(s, jd)
-		if err != nil {
-			return "", errors.WithMessage(err, "get admin ssh key")
-		}
-		jr = r.Data[0]
-	} else {
-		r, err := mcclient_modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jd)
-		if err != nil {
-			return "", errors.WithMessage(err, "get project ssh key")
-		}
-		jr = r
-	}
-	kp := &mcclient_models.SshKeypair{}
-	if err := jr.Unmarshal(kp); err != nil {
-		return "", errors.WithMessage(err, "unmarshal ssh key")
-	}
-	if kp.PrivateKey == "" {
-		return "", errors.New("empty ssh key")
-	}
-	return kp.PrivateKey, nil
-}
-
 func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.TokenCredential) error {
 	man := AnsiblePlaybookManager
 	man.sessionsMux.Lock()
@@ -218,12 +173,12 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 
 	// init private key
 	pb := apb.Playbook.Copy()
-	if k, err := apb.fetchPrivateKey(ctx, userCred); err != nil {
+	if k, err := fetchPrivateKey(ctx, userCred); err != nil {
 		return err
 	} else {
 		pb.PrivateKey = []byte(k)
 	}
-	pb.OutputWriter(&ansiblePlaybookOutputRecorder{apb})
+	pb.OutputWriter(&ansiblePlaybookOutputWriter{apb})
 
 	_, err := db.Update(apb, func() error {
 		apb.StartTime = time.Now()
@@ -237,6 +192,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	}
 
 	man.sessions.Add(apb.Id, pb)
+
 	go func() {
 		defer func() {
 			man.sessionsMux.Lock()
@@ -286,26 +242,14 @@ func (apb *SAnsiblePlaybook) stopPlaybook(ctx context.Context, userCred mcclient
 	return nil
 }
 
-type ansiblePlaybookOutputRecorder struct {
-	apb *SAnsiblePlaybook
+func (apb *SAnsiblePlaybook) getMaxOutputLength() int {
+	return OutputMaxBytes
 }
 
-func (w *ansiblePlaybookOutputRecorder) Write(p []byte) (n int, err error) {
-	apb := w.apb
-	_, err = db.Update(apb, func() error {
-		cur := apb.Output
-		i := len(p) + len(cur) - OutputMaxBytes
-		if i > 0 {
-			// truncate to preserve the tail
-			apb.Output = cur[i:] + string(p)
-		} else {
-			apb.Output += string(p)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("ansibleplaybook %s(%s): record output: %v", apb.Name, apb.Id, err)
-		return 0, err
-	}
-	return len(p), nil
+func (apb *SAnsiblePlaybook) getOutput() string {
+	return apb.Output
+}
+
+func (apb *SAnsiblePlaybook) setOutput(s string) {
+	apb.Output = s
 }
