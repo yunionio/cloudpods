@@ -18,11 +18,14 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	ansible_apis "yunion.io/x/onecloud/pkg/apis/ansible"
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
@@ -252,6 +255,39 @@ func (lbagent *SLoadbalancerAgent) undeploy(ctx context.Context, userCred mcclie
 	return pb, nil
 }
 
+func (lbagent *SLoadbalancerAgent) validateHost(ctx context.Context, userCred mcclient.TokenCredential, host *ansible.Host) error {
+	name := strings.TrimSpace(host.Name)
+	if len(name) == 0 {
+		return httperrors.NewBadRequestError("empty host name")
+	}
+	switch {
+	case regutils.MatchIP4Addr(name):
+	case strings.HasPrefix(name, "host:"):
+		name = strings.TrimSpace(name[len("host:"):])
+		obj, err := db.FetchByIdOrName(HostManager, userCred, name)
+		if err != nil {
+			return httperrors.NewNotFoundError("find host %s: %v", name, err)
+		}
+		host := obj.(*SHost)
+		if host.IsManaged() {
+			return httperrors.NewBadRequestError("lbagent cannot be deployed on managed host")
+		}
+	case strings.HasPrefix(name, "server:"):
+		name = name[len("server:"):]
+		fallthrough
+	default:
+		obj, err := db.FetchByIdOrName(GuestManager, userCred, name)
+		if err != nil {
+			return httperrors.NewNotFoundError("find guest %s: %v", name, err)
+		}
+		guest := obj.(*SGuest)
+		if utils.IsInStringArray(guest.Hypervisor, compute_apis.PUBLIC_CLOUD_HYPERVISORS) {
+			return httperrors.NewBadRequestError("lbagent cannot be deployed on public guests")
+		}
+	}
+	return nil
+}
+
 func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input := &compute_apis.LoadbalancerAgentDeployInput{}
 	if err := data.Unmarshal(input); err != nil {
@@ -274,6 +310,9 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 		if !token.HasSystemAdminPrivilege() {
 			return nil, httperrors.NewBadRequestError("user must have system admin privileges")
 		}
+	}
+	if err := lbagent.validateHost(ctx, userCred, &host); err != nil {
+		return nil, err
 	}
 	host.SetVar("region", options.Options.Region)
 	host.SetVar("auth_uri", options.Options.AuthURL)
