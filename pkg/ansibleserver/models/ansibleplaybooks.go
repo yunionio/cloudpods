@@ -225,8 +225,6 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	}
 	pb.OutputWriter(&ansiblePlaybookOutputRecorder{apb})
 
-	man.sessions.Add(apb.Id, pb)
-
 	_, err := db.Update(apb, func() error {
 		apb.StartTime = time.Now()
 		apb.EndTime = time.Time{}
@@ -237,7 +235,8 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	if err != nil {
 		log.Errorf("run playbook: update db failed before run: %v", err)
 	}
-	// NOTE host state check? run only on online hosts and running guests, skip others
+
+	man.sessions.Add(apb.Id, pb)
 	go func() {
 		defer func() {
 			man.sessionsMux.Lock()
