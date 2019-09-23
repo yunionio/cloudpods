@@ -18,12 +18,16 @@ import (
 	"context"
 )
 
+type Runnable interface {
+	Run(context.Context) error
+}
+
 // Session is a container for execution of playbook
 type Session struct {
 	// Ctx is the context under which the playbook will run
 	Ctx context.Context
-	// Playbook is the ansible playbook to be run
-	Playbook *Playbook
+	// Runnable is the task to be run
+	Runnable Runnable
 
 	// cancelFunc can be called to cancel the running playbook
 	cancelFunc context.CancelFunc
@@ -38,11 +42,11 @@ func (sm SessionManager) Has(id string) bool {
 	return ok
 }
 
-// Add adds a Playbook to the manager keyed with the specified id
-func (sm SessionManager) Add(id string, pb *Playbook) *Session {
+// Add adds a Runnable to the manager keyed with the specified id
+func (sm SessionManager) Add(id string, runnable Runnable) *Session {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	session := &Session{
-		Playbook:   pb,
+		Runnable:   runnable,
 		Ctx:        ctx,
 		cancelFunc: cancelFunc,
 	}
@@ -63,7 +67,7 @@ func (sm SessionManager) Run(id string) error {
 	if !ok {
 		return nil
 	}
-	return s.Playbook.Run(s.Ctx)
+	return s.Runnable.Run(s.Ctx)
 }
 
 // Stop stops the playbook keyed with specified id
