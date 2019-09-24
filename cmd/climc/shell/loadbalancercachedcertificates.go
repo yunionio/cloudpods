@@ -47,6 +47,28 @@ func init() {
 		printList(result, modules.LoadbalancerCachedCertificates.GetColumns(s))
 		return nil
 	})
+
+	type LoadbalancerCachedCertificateCreateOptions struct {
+		CLOUDPROVIDER string `help:"cloud provider id"`
+		CLOUDREGION   string `help:"cloud region id"`
+		CERTIFICATE   string `help:"certificate id"`
+	}
+
+	R(&LoadbalancerCachedCertificateCreateOptions{}, "lbcert-cache-create", "Create cached lbcert", func(s *mcclient.ClientSession, opts *LoadbalancerCachedCertificateCreateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+
+		lbcert, err := modules.LoadbalancerCachedCertificates.Create(s, params)
+		if err != nil {
+			return err
+		}
+
+		printObject(lbcert)
+		return nil
+	})
+
 	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-cache-delete", "Delete cached lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
 		lbcert, err := modules.LoadbalancerCachedCertificates.Delete(s, opts.ID, nil)
 		if err != nil {
