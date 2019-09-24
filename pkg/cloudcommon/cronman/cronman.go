@@ -126,17 +126,20 @@ type SCronJobManager struct {
 	dataLock *sync.Mutex
 }
 
-func GetCronJobManager(idDbWorker bool) *SCronJobManager {
+func InitCronJobManager(isDbWorker bool, workerCount int) *SCronJobManager {
 	if manager == nil {
 		manager = &SCronJobManager{
 			jobs:     make([]*SCronJob, 0),
-			workers:  appsrv.NewWorkerManager("CronJobWorkers", 1, 1024, idDbWorker),
+			workers:  appsrv.NewWorkerManager("CronJobWorkers", workerCount, 1024, isDbWorker),
 			dataLock: new(sync.Mutex),
 			add:      make(chan struct{}),
 			stop:     make(chan struct{}),
 		}
 	}
+	return manager
+}
 
+func GetCronJobManager() *SCronJobManager {
 	return manager
 }
 

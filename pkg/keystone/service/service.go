@@ -79,7 +79,7 @@ func StartService() {
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
 	if !opts.IsSlaveNode {
-		cron := cronman.GetCronJobManager(true)
+		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
 
 		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
 		cron.AddJobAtIntervals("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount)
