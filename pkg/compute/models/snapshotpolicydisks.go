@@ -20,10 +20,10 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -132,7 +132,7 @@ func (m *SSnapshotPolicyDiskManager) FetchBySnapshotPolicyDisk(spId, diskId stri
 		return nil, err
 	}
 	if len(ret) == 0 {
-		return nil, fmt.Errorf("Not Found")
+		return nil, nil
 	}
 	return &ret[0], nil
 }
@@ -150,8 +150,10 @@ func (m *SSnapshotPolicyDiskManager) FetchAllBySnapshotpolicyID(ctx context.Cont
 }
 
 func (m *SSnapshotPolicyDiskManager) FetchDiskCountBySPID(snapshotpolicyID string) (int, error) {
-
-	q := m.Query().Equals("snapshotpolicy_id", snapshotpolicyID)
+	sq := DiskManager.Query("id")
+	sq = sq.Filter(sqlchemy.OR(sqlchemy.Equals(sq.Field("pending_deleted"), "0"),
+		sqlchemy.IsNull(sq.Field("pending_deleted"))))
+	q := m.Query().Equals("snapshotpolicy_id", snapshotpolicyID).In("disk_id", sq)
 	return q.CountWithError()
 }
 
@@ -393,8 +395,11 @@ func (self *SSnapshotPolicyDiskManager) ValidateCreateData(ctx context.Context, 
 	diskId, _ := data.GetString(self.GetMasterFieldName())
 	snapshotPolicyId, _ := data.GetString(self.GetSlaveFieldName())
 	disk := DiskManager.FetchDiskById(diskId)
-	snapshotPolicy := SnapshotPolicyManager.FetchSnapshotPolicyById(snapshotPolicyId)
-	err := disk.GetStorage().GetRegion().GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
+	snapshotPolicy, err := SnapshotPolicyManager.FetchSnapshotPolicyById(snapshotPolicyId)
+	if err != nil {
+		return nil, err
+	}
+	err = disk.GetStorage().GetRegion().GetDriver().ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
 	if err != nil {
 		return nil, err
 	}

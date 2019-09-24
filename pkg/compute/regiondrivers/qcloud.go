@@ -753,7 +753,9 @@ func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Conte
 		}
 		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
 			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
-
+		if err != nil {
+			return nil, err
+		}
 		iRegion, err := spcache.GetIRegion()
 		if err != nil {
 			return nil, err

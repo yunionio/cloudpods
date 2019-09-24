@@ -38,7 +38,7 @@ func init() {
 func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 	spId, _ := self.Params.GetString("snapshotpolicy_id")
-	sp := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spId)
+	sp, _ := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spId)
 	if sp == nil {
 		self.SetStageFailed(ctx, "missing snapshot policy ???")
 		return
