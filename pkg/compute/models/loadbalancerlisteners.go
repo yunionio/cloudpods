@@ -231,6 +231,10 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
 
+	if len(lb.ManagerId) > 0 {
+		data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
+	}
+
 	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroupV.Model)
 }
 
