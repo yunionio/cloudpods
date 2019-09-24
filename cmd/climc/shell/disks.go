@@ -34,6 +34,8 @@ func init() {
 		CloudType string `help:"Public cloud or private cloud" choices:"Public|Private"`
 
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
+
+		SnapshotpolicyId string `help:"snapshotpolicy id"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, opts *DiskListOptions) error {
 		params, err := options.ListStructToParams(opts)
