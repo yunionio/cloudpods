@@ -60,33 +60,9 @@ type SCachedLoadbalancerAcl struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	AclId      string                   `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"` // 本地ACL ID
-	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
+	AclId      string                   `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" create:"required"` // 本地ACL ID
+	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" nullable:"true"  create:"optional"`
 	ListenerId string                   `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
-}
-
-func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := loadbalancerAclsValidateAclEntries(data, false)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
-		return nil, err
-	}
-
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerProjId)
-	managerIdV.Optional(true)
-	if err := managerIdV.Validate(data); err != nil {
-		return nil, err
-	}
-
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
-	regionV.Default("default")
-	if err := regionV.Validate(data); err != nil {
-		return nil, err
-	}
-	region := regionV.Model.(*SCloudregion)
-	return region.GetDriver().ValidateCreateLoadbalancerAclData(ctx, userCred, data)
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -114,6 +90,56 @@ func (lbacl *SCachedLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Co
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
+	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", ownerId)
+	keyV := map[string]validators.IValidator{
+		"acl":           aclV,
+		"cloudregion":   regionV,
+		"cloudprovider": providerV,
+	}
+
+	for _, v := range keyV {
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+
+	if providerV.Model.(*SCloudprovider).Provider == api.CLOUD_PROVIDER_HUAWEI {
+		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
+		if err := listenerV.Validate(data); err != nil {
+			return nil, err
+		}
+	} else {
+		data.Remove("listener_id")
+	}
+
+	q := man.Query().Equals("acl_id", aclV.Model.GetId()).Equals("cloudregion_id", regionV.Model.GetId()).IsFalse("deleted")
+	if listener, _ := data.GetString("listener_id"); len(listener) > 0 {
+		q.Equals("listener_id", listener)
+	}
+
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+
+	if count > 0 {
+		return nil, httperrors.NewDuplicateResourceError("the acl cache in region %s aready exists.", regionV.Model.GetId())
+	}
+
+	provider := providerV.Model.(*SCloudprovider)
+	data.Set("manager_id", jsonutils.NewString(provider.Id))
+	name, _ := db.GenerateName(man, ownerId, aclV.Model.GetName())
+	data.Set("name", jsonutils.NewString(name))
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

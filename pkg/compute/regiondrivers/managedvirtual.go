@@ -298,8 +298,14 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx contex
 		return nil, fmt.Errorf("regionDriver.createLoadbalancerAcl %s", err)
 	}
 
-	if lbacl.AclEntries != nil {
-		for _, entry := range *lbacl.AclEntries {
+	_originAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
+	if err != nil {
+		return nil, errors.Wrap(err, "regionDriver.FetchAcl")
+	}
+
+	originAcl := _originAcl.(*models.SLoadbalancerAcl)
+	if originAcl.AclEntries != nil {
+		for _, entry := range *originAcl.AclEntries {
 			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
 		}
 	}
