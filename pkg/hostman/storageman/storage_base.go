@@ -315,7 +315,7 @@ func StartSnapshotRecycle(storage IStorage) {
 	if !fileutils2.Exists(storage.GetSnapshotDir()) {
 		procutils.NewCommand("mkdir", "-p", storage.GetSnapshotDir()).Run()
 	}
-	cronman.GetCronJobManager(false).AddJobAtIntervals(
+	cronman.GetCronJobManager().AddJobAtIntervals(
 		"SnapshotRecycle", time.Hour*6,
 		func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 			snapshotRecycle(ctx, userCred, isStart, storage)
