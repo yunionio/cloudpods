@@ -116,13 +116,12 @@ func (manager *SSnapshotPolicyManager) GetSnapshotPoliciesAt(week, timePoint uin
 	return nil, nil
 }
 
-func (manager *SSnapshotPolicyManager) FetchSnapshotPolicyById(spId string) *SSnapshotPolicy {
+func (manager *SSnapshotPolicyManager) FetchSnapshotPolicyById(spId string) (*SSnapshotPolicy, error) {
 	sp, err := manager.FetchById(spId)
 	if err != nil {
-		log.Errorf("FetchBId fail %s", err)
-		return nil
+		return nil, err
 	}
-	return sp.(*SSnapshotPolicy)
+	return sp.(*SSnapshotPolicy), nil
 }
 
 func (manager *SSnapshotPolicyManager) FetchAllByIds(spIds []string) ([]SSnapshotPolicy, error) {
@@ -568,6 +567,31 @@ func (sp *SSnapshotPolicy) GenerateCreateSpParams() *cloudprovider.SnapshotPolic
 }
 
 // ==================================================== action =========================================================
+func (sp *SSnapshotPolicy) AllowPerformCache(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+
+	return sp.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "cache")
+}
+
+func (sp *SSnapshotPolicy) PerformCache(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	regionId := jsonutils.GetAnyString(data, []string{"region_id", "cloudregion_id"})
+	if len(regionId) == 0 {
+		return nil, httperrors.NewMissingParameterError("region_id or cloudregion_id")
+	}
+	providerId, err := data.GetString("provider_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("provider_id")
+	}
+	_, err = SnapshotPolicyCacheManager.NewCache(ctx, userCred, sp.Id, regionId, providerId)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 func (sp *SSnapshotPolicy) AllowPerformBindDisks(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) bool {
 
