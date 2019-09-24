@@ -386,7 +386,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx
 func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate) (jsonutils.JSONObject, error) {
 	iRegion, err := lbcert.GetIRegion()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "lbcert.GetIRegion")
 	}
 	certificate := &cloudprovider.SLoadbalancerCertificate{
 		Name:        lbcert.Name,
@@ -395,11 +395,11 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ct
 	}
 	iLoadbalancerCert, err := iRegion.CreateILoadBalancerCertificate(certificate)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "iRegion.CreateILoadBalancerCertificate")
 	}
 	lbcert.SetModelManager(models.CachedLoadbalancerCertificateManager, lbcert)
 	if err := db.SetExternalId(lbcert, userCred, iLoadbalancerCert.GetGlobalId()); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "db.SetExternalId")
 	}
 	return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert, lbcert.GetOwnerId())
 }
@@ -665,18 +665,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 
 				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrapf(err, "LoadbalancerCertificateManager.FetchById(%s)", certId)
 				}
 
 				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate")
 				}
 
 				if len(lbcert.ExternalId) == 0 {
 					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "createLoadbalancerCertificate")
 					}
 				}
 
@@ -694,18 +694,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 
 				acl, err := models.LoadbalancerAclManager.FetchById(aclId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "LoadbalancerAclManager.FetchById")
 				}
 
 				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "CachedLoadbalancerAclManager.GetOrCreateCachedAcl")
 				}
 
 				if len(lbacl.ExternalId) == 0 {
 					_, err = self.createLoadbalancerAcl(ctx, userCred, lbacl)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "createLoadbalancerAcl")
 					}
 				}
 
@@ -715,7 +715,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 
 		params, err := lblis.GetLoadbalancerListenerParams()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "lblis.GetLoadbalancerListenerParams")
 		}
 		loadbalancer := lblis.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -723,18 +723,18 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "loadbalancer.GetIRegion")
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "iRegion.GetILoadBalancerById(%s)", loadbalancer.ExternalId)
 		}
 		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "iLoadbalancer.CreateILoadBalancerListener")
 		}
 		if err := db.SetExternalId(lblis, userCred, iListener.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "db.SetExternalId")
 		}
 		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
 	})
