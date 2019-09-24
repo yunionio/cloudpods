@@ -46,9 +46,15 @@ func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, disk *models.
 		if err != nil {
 			log.Errorf("Delete snapshotpolicydisk %s failed, need to delete", spd.GetId())
 		}
+		snapshotpolicy, err := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spd.SnapshotpolicyId)
+		if err == nil {
+			db.OpsLog.LogEvent(snapshotpolicy, db.ACT_SNAPSHOT_POLICY_BIND_DISK_FAIL, "", self.UserCred)
+			logclient.AddActionLogWithStartable(self, snapshotpolicy, logclient.ACT_BIND_DISK, "", self.UserCred, false)
+		}
 	}
 
 	disk.SetStatus(self.UserCred, compute.DISK_APPLY_SNAPSHOT_FAIL, reason)
+
 	db.OpsLog.LogEvent(disk, db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(disk.GetId(), disk.Name, compute.DISK_APPLY_SNAPSHOT_FAIL, reason)
@@ -97,21 +103,22 @@ func (self *SnapshotPolicyApplyTask) OnPreSnapshotPolicyApplyCompleteFailed(ctx 
 func (self *SnapshotPolicyApplyTask) OnPreSnapshotPolicyApplyComplete(ctx context.Context, disk *models.SDisk,
 	data jsonutils.JSONObject) {
 
+	snapshotPolicy := models.SSnapshotPolicy{}
+	spd := models.SSnapshotPolicyDisk{}
+	data.Unmarshal(&snapshotPolicy, "snapshotPolicy")
+	data.Unmarshal(&spd, "snapshotPolicyDisk")
+
 	if data.Contains("need_detach") {
 		snapshotPolicyID, _ := data.GetString("need_detach")
 		spd1, err := models.SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk(snapshotPolicyID, disk.GetId())
 		if err != nil {
-			self.taskFail(ctx, disk, spd1, err.Error())
+			self.taskFail(ctx, disk, &spd, err.Error())
 			return
 		}
 		if spd1 != nil {
 			spd1.RealDetach(ctx, self.UserCred)
 		}
-
 	}
-	snapshotPolicy, spd := models.SSnapshotPolicy{}, models.SSnapshotPolicyDisk{}
-	data.Unmarshal(&snapshotPolicy, "snapshotPolicy")
-	data.Unmarshal(&spd, "snapshotPolicyDisk")
 	self.SetStage("OnSnapshotPolicyApply", nil)
 
 	// pass data to next Stage without inserting database through this way
@@ -138,9 +145,15 @@ func (self *SnapshotPolicyApplyTask) OnSnapshotPolicyApply(ctx context.Context, 
 	sp_id, _ := data.GetString("snapshotpolicy_id")
 	spd, err := models.SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk(sp_id, disk.GetId())
 	if err != nil {
-		log.Errorf("Fechsnapshotpolicy disk failed")
+		log.Errorf("Fetch snapshotpolicy disk failed")
+	} else if spd != nil {
+		spd.SetStatus(self.UserCred, compute.SNAPSHOT_POLICY_DISK_READY, "")
+		snapshotpolicy, err := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spd.SnapshotpolicyId)
+		if err == nil {
+			db.OpsLog.LogEvent(snapshotpolicy, db.ACT_SNAPSHOT_POLICY_BIND_DISK, "", self.UserCred)
+			logclient.AddActionLogWithStartable(self, snapshotpolicy, logclient.ACT_BIND_DISK, "", self.UserCred, true)
+		}
 	}
-	spd.SetStatus(self.UserCred, compute.SNAPSHOT_POLICY_DISK_READY, "")
 	db.OpsLog.LogEvent(disk, db.ACT_APPLY_SNAPSHOT_POLICY, "", self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_APPLY_SNAPSHOT_POLICY, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -155,8 +168,14 @@ type SnapshotPolicyCancelTask struct {
 func (self *SnapshotPolicyCancelTask) taskFail(ctx context.Context, disk *models.SDisk, spd *models.SSnapshotPolicyDisk, reason string) {
 	if spd != nil {
 		spd.SetStatus(self.UserCred, compute.SNAPSHOT_POLICY_DISK_DELETE_FAILED, "")
+		snapshotpolicy, err := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spd.SnapshotpolicyId)
+		if err == nil {
+			db.OpsLog.LogEvent(snapshotpolicy, db.ACT_SNAPSHOT_POLICY_UNBIND_DISK_FAIL, "", self.UserCred)
+			logclient.AddActionLogWithStartable(self, snapshotpolicy, logclient.ACT_UNBIND_DISK, "", self.UserCred, false)
+		}
 	}
 	disk.SetStatus(self.UserCred, compute.DISK_CALCEL_SNAPSHOT_FAIL, reason)
+
 	db.OpsLog.LogEvent(disk, db.ACT_CANCEL_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_CANCEL_SNAPSHOT_POLICY, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -201,8 +220,15 @@ func (self *SnapshotPolicyCancelTask) OnSnapshotPolicyCancel(ctx context.Context
 	if err != nil {
 		log.Errorf("Fechsnapshotpolicy disk failed")
 	}
-	//real detach
-	spd.RealDetach(ctx, self.UserCred)
+	if spd != nil {
+		//real detach
+		spd.RealDetach(ctx, self.UserCred)
+		snapshotpolicy, err := models.SnapshotPolicyManager.FetchSnapshotPolicyById(spd.SnapshotpolicyId)
+		if err == nil {
+			db.OpsLog.LogEvent(snapshotpolicy, db.ACT_SNAPSHOT_POLICY_UNBIND_DISK, "", self.UserCred)
+			logclient.AddActionLogWithStartable(self, snapshotpolicy, logclient.ACT_UNBIND_DISK, "", self.UserCred, true)
+		}
+	}
 
 	db.OpsLog.LogEvent(disk, db.ACT_CANCEL_SNAPSHOT_POLICY, "", self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_CANCEL_SNAPSHOT_POLICY, "", self.UserCred, true)

@@ -1103,9 +1103,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx c
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		spcache, err := models.SnapshotPolicyCacheManager.Register(ctx, userCred, sp.GetId(),
-			disk.GetStorage().GetRegion().GetId(),
-			disk.GetStorage().ManagerId)
+		regionId := disk.GetStorage().GetRegion().GetId()
+		providerId := disk.GetStorage().ManagerId
+		spcache, err := models.SnapshotPolicyCacheManager.Register(ctx, userCred, sp.GetId(), regionId, providerId)
 		if err != nil {
 			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
 		}
@@ -1130,8 +1130,14 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
-			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
+
+		regionId := disk.GetStorage().GetRegion().GetId()
+		providerId := disk.GetStorage().ManagerId
+		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(), regionId, providerId)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
+		}
 
 		iRegion, err := spcache.GetIRegion()
 		if err != nil {

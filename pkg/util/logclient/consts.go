@@ -119,6 +119,8 @@ const (
 	ACT_DELETE_BACKUP                = "删除备份机"
 	ACT_APPLY_SNAPSHOT_POLICY        = "绑定快照策略"
 	ACT_CANCEL_SNAPSHOT_POLICY       = "取消快照策略"
+	ACT_BIND_DISK                    = "绑定磁盘"
+	ACT_UNBIND_DISK                  = "解绑磁盘"
 	ACT_ATTACH_HOST                  = "关联宿主机"
 	ACT_DETACH_HOST                  = "取消关联宿主机"
 	ACT_VM_IO_THROTTLE               = "虚拟机磁盘限速"
