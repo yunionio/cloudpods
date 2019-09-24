@@ -347,7 +347,7 @@ SNatEntryCreate:
           example: 192.168.1.0/24
           description: 映射到公网IP的内网网段(和network_id互斥，只需要传入一个）
 
-EIPAddrs:
+DNATResources:
   type: object
   properties:
     eips:
@@ -355,3 +355,17 @@ EIPAddrs:
       items:
         type: string
       example: [34.23.125.45, 23.45.123.56]
+
+SNATResources:
+  type: object
+  properties:
+    eips:
+      type: array
+      items:
+        type: string
+      example: [34.23.125.45, 23.45.123.56]
+    networks:
+      type: array
+      items:
+        type: string
+      example: []
