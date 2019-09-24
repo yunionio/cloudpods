@@ -120,20 +120,26 @@ func (cjth *CronJobTimerHeap) Pop() interface{} {
 type SCronJobManager struct {
 	jobs     CronJobTimerHeap
 	stop     chan struct{}
+	add      chan struct{}
 	running  bool
 	workers  *appsrv.SWorkerManager
 	dataLock *sync.Mutex
 }
 
-func GetCronJobManager(idDbWorker bool) *SCronJobManager {
+func InitCronJobManager(isDbWorker bool, workerCount int) *SCronJobManager {
 	if manager == nil {
 		manager = &SCronJobManager{
 			jobs:     make([]*SCronJob, 0),
-			workers:  appsrv.NewWorkerManager("CronJobWorkers", 1, 1024, idDbWorker),
+			workers:  appsrv.NewWorkerManager("CronJobWorkers", workerCount, 1024, isDbWorker),
 			dataLock: new(sync.Mutex),
+			add:      make(chan struct{}),
+			stop:     make(chan struct{}),
 		}
 	}
+	return manager
+}
 
+func GetCronJobManager() *SCronJobManager {
 	return manager
 }
 
@@ -186,11 +192,11 @@ func (self *SCronJobManager) AddJobEveryFewDays(name string, day, hour, min, sec
 	switch {
 	case day <= 0:
 		return errors.New("AddJobEveryFewDays: day must > 0")
-	case hour <= 0:
+	case hour < 0:
 		return errors.New("AddJobEveryFewDays: hour must > 0")
-	case min <= 0:
+	case min < 0:
 		return errors.New("AddJobEveryFewDays: min must > 0")
-	case sec <= 0:
+	case sec < 0:
 		return errors.New("AddJobEveryFewDays: sec must > 0")
 	}
 
@@ -225,9 +231,9 @@ func (self *SCronJobManager) AddJobEveryFewHour(name string, hour, min, sec int,
 	switch {
 	case hour <= 0:
 		return errors.New("AddJobEveryFewHour: hour must > 0")
-	case min <= 0:
+	case min < 0:
 		return errors.New("AddJobEveryFewHour: min must > 0")
-	case sec <= 0:
+	case sec < 0:
 		return errors.New("AddJobEveryFewHour: sec must > 0")
 	}
 
@@ -264,6 +270,7 @@ func (self *SCronJobManager) addJob(newJob *SCronJob) {
 		newJob.runJob(true)
 	}
 	heap.Push(&self.jobs, newJob)
+	go func() { self.add <- struct{}{} }()
 }
 
 func (self *SCronJobManager) Remove(name string) error {
@@ -333,6 +340,8 @@ func (self *SCronJobManager) run() {
 		select {
 		case now = <-timer.C:
 			self.runJobs(now)
+		case <-self.add:
+			continue
 		case <-self.stop:
 			timer.Stop()
 			return
