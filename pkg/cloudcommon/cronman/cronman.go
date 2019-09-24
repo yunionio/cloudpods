@@ -186,11 +186,11 @@ func (self *SCronJobManager) AddJobEveryFewDays(name string, day, hour, min, sec
 	switch {
 	case day <= 0:
 		return errors.New("AddJobEveryFewDays: day must > 0")
-	case hour <= 0:
+	case hour < 0:
 		return errors.New("AddJobEveryFewDays: hour must > 0")
-	case min <= 0:
+	case min < 0:
 		return errors.New("AddJobEveryFewDays: min must > 0")
-	case sec <= 0:
+	case sec < 0:
 		return errors.New("AddJobEveryFewDays: sec must > 0")
 	}
 
@@ -225,9 +225,9 @@ func (self *SCronJobManager) AddJobEveryFewHour(name string, hour, min, sec int,
 	switch {
 	case hour <= 0:
 		return errors.New("AddJobEveryFewHour: hour must > 0")
-	case min <= 0:
+	case min < 0:
 		return errors.New("AddJobEveryFewHour: min must > 0")
-	case sec <= 0:
+	case sec < 0:
 		return errors.New("AddJobEveryFewHour: sec must > 0")
 	}
 
