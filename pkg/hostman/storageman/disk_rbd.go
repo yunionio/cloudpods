@@ -98,6 +98,19 @@ func (d *SRBDDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JS
 	return nil, storage.deleteImage(pool, d.Id)
 }
 
+func (d *SRBDDisk) OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error {
+	backingDiskId, err := params.GetString("backing_disk_id")
+	if err != nil {
+		_, err := d.Delete(ctx, params)
+		return err
+	} else {
+		storage := d.Storage.(*SRbdStorage)
+		storageConf := d.Storage.GetStorageConf()
+		pool, _ := storageConf.GetString("pool")
+		return storage.renameImage(pool, d.Id, backingDiskId)
+	}
+}
+
 func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskInfo, ok := params.(*jsonutils.JSONDict)
 	if !ok {
