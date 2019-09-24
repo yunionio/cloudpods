@@ -1274,3 +1274,14 @@ func (manager *SStorageManager) StorageSnapshotsRecycle(ctx context.Context, use
 		}
 	}
 }
+
+func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient.TokenCredential, disksId []string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewStringArray(disksId), "disks_id")
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageDeleteRbdDiskTask", self, userCred, data, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
