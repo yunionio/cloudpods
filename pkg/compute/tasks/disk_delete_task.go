@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,6 +34,7 @@ type DiskDeleteTask struct {
 
 func init() {
 	taskman.RegisterTask(DiskDeleteTask{})
+	taskman.RegisterTask(StorageDeleteRbdDiskTask{})
 }
 
 func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -89,6 +91,10 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	if isPurge {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 	} else {
+		if isNeed, _ := disk.IsNeedWaitSnapshotsDeleted(); isNeed {
+			self.OnGuestDiskDeleteComplete(ctx, disk, nil)
+			return
+		}
 		if len(disk.BackupStorageId) > 0 {
 			self.SetStage("OnMasterStorageDeleteDiskComplete", nil)
 		} else {
@@ -152,4 +158,45 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context,
 	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason.String())
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
+}
+
+type StorageDeleteRbdDiskTask struct {
+	taskman.STask
+}
+
+func (self *StorageDeleteRbdDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	storage := obj.(*models.SStorage)
+	self.DeleteDisk(ctx, storage, self.Params)
+}
+
+func (self *StorageDeleteRbdDiskTask) OnDeleteDisk(ctx context.Context, storage *models.SStorage, data jsonutils.JSONObject) {
+	self.DeleteDisk(ctx, storage, data)
+}
+
+func (self *StorageDeleteRbdDiskTask) DeleteDisk(ctx context.Context, storage *models.SStorage, data jsonutils.JSONObject) {
+	disksId := make([]string, 0)
+	data.Unmarshal(&disksId, "disks_id")
+	if len(disksId) == 0 {
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+	params := jsonutils.NewDict()
+	params.Set("disks_id", jsonutils.Marshal(disksId[1:]))
+	params.Set("delete_disk", jsonutils.NewString(disksId[0]))
+	self.SetStage("OnDeleteDisk", params)
+	header := self.GetTaskRequestHeader()
+	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disksId[0])
+	body := jsonutils.NewDict()
+	host := storage.GetMasterHost()
+	_, err := host.Request(ctx, self.GetUserCred(), "POST", url, header, body)
+	if err != nil {
+		log.Errorln(err)
+		self.OnDeleteDiskFailed(ctx, storage, params)
+	}
+}
+
+func (self *StorageDeleteRbdDiskTask) OnDeleteDiskFailed(ctx context.Context, storage *models.SStorage, data jsonutils.JSONObject) {
+	deleteDisk, _ := data.GetString("delete_disk")
+	db.OpsLog.LogEvent(storage, db.ACT_DELETE_OBJECT, fmt.Sprintf("delete disk %s failed", deleteDisk), self.UserCred)
+	self.DeleteDisk(ctx, storage, self.Params)
 }

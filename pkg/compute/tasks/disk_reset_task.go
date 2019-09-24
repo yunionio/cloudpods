@@ -171,7 +171,7 @@ func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshots(ctx context.Context, di
 	}
 	deleteSnapshots, _ := self.Params.GetArray("delete_snapshots")
 	for i := 0; i < len(deleteSnapshots); i++ {
-		snapshot_id, _ := convertSnapshots[i].GetString()
+		snapshot_id, _ := deleteSnapshots[i].GetString()
 		iSnapshot, err := models.SnapshotManager.FetchById(snapshot_id)
 		if err != nil {
 			log.Errorf("OnCleanUpSnapshots Fetch snapshot by id(%s) error:%s", snapshot_id, err.Error())

@@ -272,6 +272,10 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 
 func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	content.Add(jsonutils.JSONTrue, "rebuild")
+	if task.GetParams().Contains("backing_disk_id") {
+		backingDiskId, _ := task.GetParams().GetString("backing_disk_id")
+		content.Set("backing_disk_id", jsonutils.NewString(backingDiskId))
+	}
 	return self.RequestAllocateDiskOnStorage(ctx, host, storage, disk, task, content)
 }
 

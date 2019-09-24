@@ -36,6 +36,7 @@ type IDisk interface {
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
 	GetSnapshotLocation() string
+	OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error
 
 	DeleteAllSnapshot() error
 	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -87,6 +88,10 @@ func (d *SBaseDisk) Probe() error {
 
 func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error {
+	return fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
