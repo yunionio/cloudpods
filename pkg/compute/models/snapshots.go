@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -64,6 +65,7 @@ type SSnapshot struct {
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackingDiskId string `width:"36" charset:"ascii" nullable:"true" default:""`
 }
 
 var SnapshotManager *SSnapshotManager
@@ -555,8 +557,9 @@ func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mc
 
 func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if len(self.DiskId) > 0 {
+		storage := self.GetStorage()
 		disk := DiskManager.FetchDiskById(self.DiskId)
-		if disk != nil && disk.GetStorage().StorageType == api.STORAGE_RBD {
+		if disk != nil && storage.StorageType == api.STORAGE_RBD {
 			cnt, err := disk.GetGuestsCount()
 			if err == nil {
 				val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
@@ -566,9 +569,42 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 			} else {
 				log.Errorln(err)
 			}
+		} else {
+			if storage.StorageType == api.STORAGE_RBD {
+				backingDisks, err := self.GetBackingDisks()
+				if err != nil {
+					log.Errorln(err)
+				} else {
+					storage.StartDeleteRbdDisks(ctx, userCred, backingDisks)
+				}
+			}
 		}
 	}
 	return db.DeleteModel(ctx, userCred, self)
+}
+
+func (self *SSnapshot) GetBackingDisks() ([]string, error) {
+	count, err := SnapshotManager.Query().Equals("disk_id", self.DiskId).IsNullOrEmpty("backing_disk_id").CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, nil
+	} else {
+		sps := make([]SSnapshot, 0)
+		err := SnapshotManager.Query().Equals("disk_id", self.DiskId).All(&sps)
+		if err != nil {
+			return nil, err
+		}
+		res := make([]string, 0)
+		for i := 0; i < len(sps); i++ {
+			if len(sps[i].BackingDiskId) > 0 && !utils.IsInStringArray(sps[i].BackingDiskId, res) {
+				res = append(res, sps[i].BackingDiskId)
+			}
+		}
+		res = append(res, self.DiskId)
+		return res, nil
+	}
 }
 
 func (self *SSnapshot) FakeDelete(userCred mcclient.TokenCredential) error {

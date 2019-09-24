@@ -2030,3 +2030,22 @@ func (self *SDisk) IsNeedWaitSnapshotsDeleted() (bool, error) {
 	}
 	return false, nil
 }
+
+func (self *SDisk) UpdataSnapshotsBackingDisk(backingDiskId string) error {
+	snapshots := make([]SSnapshot, 0)
+	err := SnapshotManager.Query().Equals("disk_id", self.Id).IsNullOrEmpty("backing_disk_id").All(&snapshots)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].SetModelManager(SnapshotManager, &snapshots[i])
+		_, err := db.Update(&snapshots[i], func() error {
+			snapshots[i].BackingDiskId = backingDiskId
+			return nil
+		})
+		if err != nil {
+			log.Errorln(err)
+		}
+	}
+	return nil
+}
