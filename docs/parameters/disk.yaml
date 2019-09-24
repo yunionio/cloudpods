@@ -1,0 +1,57 @@
+diskId:
+  name: diskId
+  required: true
+  in: path
+  type: string
+  description: 磁盘名称或ID
+unused:
+  name: unused
+  required: false
+  in: query
+  type: boolean
+  description: 列出未挂载磁盘
+share:
+  name: share
+  required: false
+  in: query
+  type: boolean
+  description: 列出共享磁盘
+local:
+  name: local
+  required: false
+  in: query
+  type: boolean
+  description: 列出本地磁盘
+guest:
+  name: guest
+  required: false
+  in: query
+  type: string
+  description: 列出改虚拟机的磁盘
+storage:
+  name: storage
+  required: false
+  in: query
+  type: string
+  description: 列出改存储的磁盘
+type:
+  name: type
+  required: false
+  in: query
+  type: string
+  enum: [sys,data,swap,volume]
+  description: 列出改类型的磁盘
+cloud_type:
+  name: cloud_type
+  required: false
+  in: query
+  type: string
+  enum: [Public,Private]
+  description: 列出公有云或私有云的磁盘
+snapshotpolicy_id:
+  name: snapshotpolicy_id
+  required: false
+  in: query
+  type: string
+  description: 列出绑定了此快照策略的磁盘
+

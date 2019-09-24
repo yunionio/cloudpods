@@ -1067,8 +1067,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx c
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
 		spcache, err := models.SnapshotPolicyCacheManager.Register(ctx, userCred, sp.GetId(),
-			disk.GetStorage().GetRegion().GetId(),
-			disk.GetStorage().ManagerId)
+			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
 		if err != nil {
 			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
 		}
@@ -1095,6 +1094,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
 			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
+		}
 
 		iRegion, err := spcache.GetIRegion()
 		if err != nil {
