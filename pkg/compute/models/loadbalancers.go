@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -820,7 +821,7 @@ func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SProjectResourceCo
 
 func (manager *SLoadbalancerManager) FetchByExternalId(providerId string, extId string) (*SLoadbalancer, error) {
 	ret := []SLoadbalancer{}
-	q := manager.Query().IsFalse("pending_deleted").Equals("manager_id", providerId).Equals("external_id", extId)
+	q := manager.Query().Equals("manager_id", providerId).Equals("external_id", extId)
 	err := db.FetchModelObjects(manager, q, &ret)
 	if err != nil {
 		return nil, err
@@ -831,4 +832,19 @@ func (manager *SLoadbalancerManager) FetchByExternalId(providerId string, extId 
 	} else {
 		return nil, fmt.Errorf("loadbalancerManager.FetchByExternalId provider %s external id %s %d found", providerId, extId, len(ret))
 	}
+}
+
+func (manager *SLoadbalancerManager) GetLbDefaultBackendGroupIds() ([]string, error) {
+	lbs := []SLoadbalancer{}
+	err := manager.Query().IsFalse("pending_deleted").IsNotEmpty("backend_group_id").All(&lbs)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerManager.GetLbDefaultBackendGroupIds")
+	}
+
+	ret := []string{}
+	for i := range lbs {
+		ret = append(ret, lbs[i].BackendGroupId)
+	}
+
+	return ret, nil
 }

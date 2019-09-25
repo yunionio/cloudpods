@@ -585,13 +585,14 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	}
 
 	// check scheduler limiations
+	cloudregion := lb.GetRegion()
+	if cloudregion == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
+	}
+
 	if scheduler, _ := data.GetString("scheduler"); utils.IsInStringArray(scheduler, []string{api.LB_SCHEDULER_SCH, api.LB_SCHEDULER_TCH, api.LB_SCHEDULER_QCH}) {
 		if len(lb.LoadbalancerSpec) == 0 {
 			return nil, httperrors.NewInputParameterError("The specified Scheduler %s is invalid for performance sharing loadbalancer", scheduler)
-		}
-		cloudregion := lb.GetRegion()
-		if cloudregion == nil {
-			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
 		}
 		supportRegions := []string{}
 		for region := range map[string]string{
@@ -612,35 +613,25 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		}
 	}
 
+	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.GetId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
-	aclStatusV.Default(lblis.AclStatus)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
-	if api.LB_ACL_TYPES.Has(lblis.AclType) {
-		aclTypeV.Default(lblis.AclType)
-	}
-	var aclV *validators.ValidatorModelIdOrName
-	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
-		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	} else {
-		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
-		if len(lblis.AclId) > 0 {
-			aclV.Default(lblis.AclId)
-		}
+	defaultAclStatus := lblis.AclStatus
+	if defaultAclStatus == "" {
+		defaultAclStatus = api.LB_BOOL_OFF
 	}
 
+	aclStatusV.Default(defaultAclStatus)
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
 
 		"acl_status": aclStatusV,
-		"acl_type":   aclTypeV,
-		"acl":        aclV,
 
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
 		"backend_connect_timeout": validators.NewRangeValidator("backend_connect_timeout", 0, 180),
@@ -672,8 +663,31 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		return nil, err
 	}
 
-	if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, lblis.GetProviderName()); err != nil {
-		return nil, err
+	{
+		aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
+		if api.LB_ACL_TYPES.Has(lblis.AclType) {
+			aclTypeV.Default(lblis.AclType)
+		}
+
+		aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+		if len(lblis.AclId) > 0 {
+			aclV.Default(lblis.AclId)
+		}
+
+		if acl_status, _ := data.GetString("acl_status"); acl_status == api.LB_BOOL_ON {
+			aclKeyV := map[string]validators.IValidator{
+				"acl_type": aclTypeV,
+				"acl":      aclV,
+			}
+
+			if err := RunValidators(aclKeyV, data, false); err != nil {
+				return nil, err
+			}
+		}
+
+		if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, lblis.GetProviderName()); err != nil {
+			return nil, err
+		}
 	}
 
 	{
@@ -753,7 +767,9 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		switch healthCheck {
 		case api.LB_BOOL_ON:
 			for key, lisValue := range map[string]int{"health_check_rise": lblis.HealthCheckRise, "health_check_fall": lblis.HealthCheckFall, "health_check_timeout": lblis.HealthCheckTimeout, "health_check_interval": lblis.HealthCheckInterval} {
-				if value, _ := data.Int(key); value == 0 && lisValue == 0 {
+				if value, err := data.Int(key); data.Contains(key) && err != nil {
+					return nil, httperrors.NewInputParameterError("invalid %s,required int", key)
+				} else if err == nil && value == 0 && lisValue == 0 {
 					return nil, httperrors.NewInputParameterError("%s cannot be set to 0", key)
 				}
 			}
@@ -798,9 +814,10 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		}
 	}
 
-	if err := RunValidators(keyV, data, true); err != nil {
+	if err := RunValidators(V, data, true); err != nil {
 		return nil, err
 	}
+
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }
 
