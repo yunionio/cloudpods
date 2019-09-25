@@ -402,6 +402,12 @@ func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mccli
 		extra.Set("eip_mode", jsonutils.NewString(eip.Mode))
 	}
 
+	if len(lb.VpcId) > 0 {
+		if vpc := lb.GetVpc(); vpc != nil {
+			extra.Set("vpc", jsonutils.NewString(vpc.Name))
+		}
+	}
+
 	if lb.BackendGroupId != "" {
 		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
 		if err != nil {
