@@ -133,6 +133,7 @@ func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWr
 
 	filters = jsonutils.NewDict()
 	filters.Add(jsonutils.NewStringArray([]string{"cas"}), "driver")
+	filters.Add(jsonutils.JSONTrue, "enabled")
 	filters.Add(jsonutils.NewInt(1000), "limit")
 	idps, err := modules.IdentityProviders.List(s, filters)
 	if err != nil {
