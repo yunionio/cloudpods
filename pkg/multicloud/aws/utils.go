@@ -19,7 +19,6 @@ import (
 	"net"
 	"reflect"
 	"regexp"
-	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -499,6 +498,5 @@ func parseNotFoundError(err error) error {
 }
 
 func ErrorNotFound() error {
-	log.Debugf("Not found: %s", string(debug.Stack()))
 	return cloudprovider.ErrNotFound
 }

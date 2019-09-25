@@ -401,17 +401,19 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 	params.SetName(group.Name)
 	params.SetTargetType("instance")
 	if group.HealthCheck != nil {
-		params.SetHealthCheckIntervalSeconds(int64(group.HealthCheck.HealthCheckInterval))
 		params.SetHealthCheckPort("traffic-port")
 		params.SetHealthCheckProtocol(strings.ToUpper(group.HealthCheck.HealthCheckType))
-		params.SetHealthCheckTimeoutSeconds(int64(group.HealthCheck.HealthCheckTimeout))
+		params.SetHealthCheckIntervalSeconds(int64(group.HealthCheck.HealthCheckInterval))
 		params.SetHealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
-		params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckFail))
+
 		if len(group.HealthCheck.HealthCheckURI) > 0 {
 			params.SetHealthCheckPath(group.HealthCheck.HealthCheckURI)
 		}
 
 		if utils.IsInStringArray(group.ListenType, []string{api.LB_HEALTH_CHECK_HTTP, api.LB_HEALTH_CHECK_HTTPS}) {
+			params.SetHealthCheckTimeoutSeconds(int64(group.HealthCheck.HealthCheckTimeout))
+			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckFail))
+
 			codes := ToAwsHealthCode(group.HealthCheck.HealthCheckHttpCode)
 			if len(codes) > 0 {
 				matcher := &elbv2.Matcher{}
