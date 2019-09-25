@@ -37,6 +37,7 @@ import (
 	mcclient_models "yunion.io/x/onecloud/pkg/mcclient/models"
 	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SLoadbalancerAgentDeployment struct {
@@ -332,6 +333,7 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, lbagent, "提交部署任务", pbModel, userCred, true)
 
 	if _, err := db.Update(lbagent, func() error {
 		lbagent.Deployment = &SLoadbalancerAgentDeployment{
@@ -417,6 +419,7 @@ func (lbagent *SLoadbalancerAgent) PerformUndeploy(ctx context.Context, userCred
 	if err != nil {
 		return nil, err
 	}
+	logclient.AddActionLogWithContext(ctx, lbagent, "提交下线任务", pbModel, userCred, true)
 	if _, err := db.Update(lbagent, func() error {
 		lbagent.Deployment.AnsiblePlaybookUndeployment = pbModel.Id
 		return nil
