@@ -58,3 +58,11 @@ func GenerateEmailToken(tokenLen int) string {
 	}
 	return token.String()[:tokenLen]
 }
+
+func JsonArrayToStringArray(src []jsonutils.JSONObject) []string {
+	des := make([]string, len(src))
+	for i := range src {
+		des[i], _ = src[i].GetString()
+	}
+	return des
+}

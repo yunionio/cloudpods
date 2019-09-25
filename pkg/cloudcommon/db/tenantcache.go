@@ -154,7 +154,8 @@ func (manager *STenantCacheManager) FetchTenantById(ctx context.Context, idStr s
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdWithoutExpireCheck(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenantById(ctx, idStr, false)
+	// noExpireCheck should be true
+	return manager.fetchTenantById(ctx, idStr, true)
 }
 
 func (manager *STenantCacheManager) fetchTenantById(ctx context.Context, idStr string, noExpireCheck bool) (*STenant, error) {
