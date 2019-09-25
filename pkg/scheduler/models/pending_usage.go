@@ -29,6 +29,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 )
 
@@ -281,6 +282,8 @@ type SPendingUsage struct {
 	IsolatedDevice int
 	DiskUsage      *SResourcePendingUsage
 	NetUsage       *SResourcePendingUsage
+	// Lock is not need here
+	InstanceGroupUsage map[string]*api.CandidateGroup
 }
 
 func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsage {
@@ -289,6 +292,10 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 		DiskUsage: NewResourcePendingUsage(nil),
 		NetUsage:  NewResourcePendingUsage(nil),
 	}
+
+	// group init
+	u.InstanceGroupUsage = make(map[string]*api.CandidateGroup)
+
 	if req == nil {
 		return u
 	}
@@ -312,6 +319,15 @@ func NewPendingUsageBySchedInfo(hostId string, req *api.SchedInfo) *SPendingUsag
 		u.NetUsage.Set(id, ocount+1)
 	}
 
+	// group add
+	for _, groupId := range req.InstanceGroupIds {
+		// For now, info about instancegroup in api.SchedInfo is only "ID",
+		// but in the future, info may increase
+		group := &computemodels.SGroup{}
+		group.Id = groupId
+		u.InstanceGroupUsage[groupId] = &api.CandidateGroup{group, 1}
+	}
+
 	return u
 }
 
@@ -322,6 +338,7 @@ func (self *SPendingUsage) ToMap() map[string]interface{} {
 		"isolated_device": self.IsolatedDevice,
 		"disk":            self.DiskUsage.ToMap(),
 		"net":             self.NetUsage.ToMap(),
+		"instance_groups": self.InstanceGroupUsage,
 	}
 }
 
@@ -331,6 +348,13 @@ func (self *SPendingUsage) Add(sUsage *SPendingUsage) {
 	self.IsolatedDevice = self.IsolatedDevice + sUsage.IsolatedDevice
 	self.DiskUsage.Add(sUsage.DiskUsage)
 	self.NetUsage.Add(sUsage.NetUsage)
+	for id, cg := range sUsage.InstanceGroupUsage {
+		if scg, ok := self.InstanceGroupUsage[id]; ok {
+			scg.ReferCount += cg.ReferCount
+			continue
+		}
+		self.InstanceGroupUsage[id] = cg
+	}
 }
 
 func (self *SPendingUsage) Sub(sUsage *SPendingUsage) {
@@ -339,6 +363,16 @@ func (self *SPendingUsage) Sub(sUsage *SPendingUsage) {
 	self.IsolatedDevice = quotas.NonNegative(self.IsolatedDevice - sUsage.IsolatedDevice)
 	self.DiskUsage.Sub(sUsage.DiskUsage)
 	self.NetUsage.Sub(sUsage.NetUsage)
+	for id, cg := range sUsage.InstanceGroupUsage {
+		if scg, ok := self.InstanceGroupUsage[id]; ok {
+			count := scg.ReferCount - cg.ReferCount
+			if count <= 0 {
+				delete(self.InstanceGroupUsage, id)
+				continue
+			}
+			scg.ReferCount = count
+		}
+	}
 }
 
 func (self *SPendingUsage) IsEmpty() bool {
@@ -355,6 +389,9 @@ func (self *SPendingUsage) IsEmpty() bool {
 		return false
 	}
 	if !self.NetUsage.IsEmpty() {
+		return false
+	}
+	if len(self.InstanceGroupUsage) != 0 {
 		return false
 	}
 	return true

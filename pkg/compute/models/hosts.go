@@ -4129,3 +4129,41 @@ func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.Toke
 func (host *SHost) IsMaintaining() bool {
 	return utils.IsInStringArray(host.Status, []string{api.HOST_START_MAINTAIN, api.HOST_MAINTAINING, api.HOST_MAINTAIN_FAILE})
 }
+
+// InstanceGroups returns the group of guest in host and their frequency of occurrence
+func (host *SHost) InstanceGroups() ([]SGroup, map[string]int, error) {
+	guests := host.GetGuests()
+	if len(guests) == 0 {
+		return []SGroup{}, make(map[string]int), nil
+	}
+	guestIds := make([]string, len(guests))
+	for i := range guests {
+		guestIds[i] = guests[i].GetId()
+	}
+	q := GroupguestManager.Query().In("guest_id", guestIds)
+	groupguests := make([]SGroupguest, 0, 1)
+	err := db.FetchModelObjects(GroupguestManager, q, &groupguests)
+	if err != nil {
+		return nil, nil, err
+	}
+	groupIds, groupSet := make([]string, 0, len(groupguests)), make(map[string]int)
+	for i := range groupguests {
+		id := groupguests[i].GroupId
+		if _, ok := groupSet[id]; !ok {
+			groupIds = append(groupIds, id)
+			groupSet[id] = 1
+			continue
+		}
+		groupSet[id] += 1
+	}
+	if len(groupIds) == 0 {
+		return []SGroup{}, make(map[string]int), nil
+	}
+	groups := make([]SGroup, 0, len(groupIds))
+	q = GroupManager.Query().In("id", groupIds)
+	err = db.FetchModelObjects(GroupManager, q, &groups)
+	if err != nil {
+		return nil, nil, err
+	}
+	return groups, groupSet, nil
+}

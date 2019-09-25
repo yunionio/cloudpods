@@ -301,7 +301,7 @@ func doSyncSchedule(c *gin.Context) {
 }
 
 func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
-	return driver.DoScheduleCPUFilter() || driver.DoScheduleMemoryFilter() || driver.DoScheduleStorageFilter()
+	return !(driver.DoScheduleCPUFilter() && driver.DoScheduleMemoryFilter() && driver.DoScheduleStorageFilter())
 }
 
 func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {

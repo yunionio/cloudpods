@@ -86,6 +86,9 @@ type CandidatePropertyGetter interface {
 	GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64
 
 	GetFreePort(netId string) int
+
+	InstanceGroups() map[string]*api.CandidateGroup
+	GetFreeGroupCount(groupId string) (int, error)
 }
 
 // Candidater replace host Candidate resource info
