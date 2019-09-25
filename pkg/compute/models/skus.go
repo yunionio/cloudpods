@@ -797,7 +797,6 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id"))).Filter(sqlchemy.Equals(regionTable.Field("city"), city))
 	}
 
-	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	return q, err
 }
 

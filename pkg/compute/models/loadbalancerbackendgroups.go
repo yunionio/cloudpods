@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -33,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SLoadbalancerBackendGroupManager struct {
@@ -304,7 +304,29 @@ func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, u
 	return false
 }
 
+func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, error) {
+	count, err := LoadbalancerManager.Query().Equals("backend_group_id", lbbg.GetId()).Equals("id", lbbg.LoadbalancerId).CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "loadbalancerBackendGroup.isDefault")
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
+	if ok, err := lbbg.isDefault(ctx); err != nil {
+		return httperrors.NewInternalServerError("get isDefault fail %s", err.Error())
+	} else {
+		if ok {
+			return httperrors.NewResourceBusyError("backend group %s is default backend group",
+				lbbg.Id)
+		}
+	}
+
 	mans := lbbg.getRefManagers()
 	for _, m := range mans {
 		n, err := lbbg.refCount(m)
@@ -577,6 +599,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbala
 	ret.ListenPort = lblis.ListenerPort
 	ret.Scheduler = lblis.Scheduler
 	ret.HealthCheck = healthCheck
+	ret.Name = fmt.Sprintf("%s-%s", ret.Name, rand.String(4))
 
 	return ret, nil
 }
