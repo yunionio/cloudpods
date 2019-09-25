@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -717,6 +718,10 @@ func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.
 	params.SetLoadBalancerArns([]*string{&loadbalancerId})
 	ret, err := client.DescribeLoadBalancers(params)
 	if err != nil {
+		if strings.Contains(err.Error(), "LoadBalancerNotFound") {
+			return nil, cloudprovider.ErrNotFound
+		}
+
 		return nil, err
 	}
 
@@ -796,8 +801,9 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 	if err != nil {
 		return nil, err
 	}
-
-	return self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.ServerCertificateId)
+	// wait 3 second after upload cert
+	time.Sleep(3 * time.Second)
+	return self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.Arn)
 }
 
 func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {

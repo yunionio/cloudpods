@@ -214,6 +214,7 @@ const (
 	LB_TLS_CIPHER_POLICY_1_1        = "tls_cipher_policy_1_1"
 	LB_TLS_CIPHER_POLICY_1_2        = "tls_cipher_policy_1_2"
 	LB_TLS_CIPHER_POLICY_1_2_strict = "tls_cipher_policy_1_2_strict"
+	LB_TLS_CIPHER_POLICY_deault     = ""
 )
 
 var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
@@ -221,6 +222,7 @@ var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
 	LB_TLS_CIPHER_POLICY_1_1,
 	LB_TLS_CIPHER_POLICY_1_2,
 	LB_TLS_CIPHER_POLICY_1_2_strict,
+	LB_TLS_CIPHER_POLICY_deault,
 )
 
 const (

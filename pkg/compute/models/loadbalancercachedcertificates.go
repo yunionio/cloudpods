@@ -260,7 +260,11 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	// todo: check fingerprint not empty & aws 证书不区分region，需要去除重复数据？
 	c := SCachedLoadbalancerCertificate{}
 	err = CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint).First(&c)
-	if err != nil && len(c.CertificateId) == 0 {
+	if err != nil {
+		log.Debugf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
+	}
+
+	if len(c.CertificateId) == 0 {
 		localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
 		if err != nil {
 			log.Debugf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
@@ -286,6 +290,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 
 func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
+		lbcert.ExternalId = extCertificate.GetGlobalId()
 		lbcert.Name = extCertificate.GetName()
 		lbcert.CommonName = extCertificate.GetCommonName()
 		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()

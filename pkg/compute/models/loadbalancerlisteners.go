@@ -101,6 +101,7 @@ type SLoadbalancerHTTPListener struct {
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
 	CertificateId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	CachedCertificateId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	EnableHttp2     bool   `create:"optional" list:"user" update:"user"`
 }
@@ -127,9 +128,10 @@ type SLoadbalancerListener struct {
 	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
 	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	AclStatus string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclType   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	AclId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclStatus   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	AclType     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	AclId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	CachedAclId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
 	SLoadbalancerRateLimiter
 
@@ -262,6 +264,7 @@ func (man *SLoadbalancerListenerManager) ValidateAcl(aclStatusV *validators.Vali
 	} else {
 		if providerName != api.CLOUD_PROVIDER_HUAWEI {
 			data.Set("acl_id", jsonutils.NewString(""))
+			data.Set("cached_acl_id", jsonutils.NewString(""))
 		}
 	}
 	return nil
@@ -393,9 +396,8 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 		}
 	}
 	if len(lblis.AclId) > 0 {
-		if acl := lblis.GetLoadbalancerAcl(); acl != nil {
+		if acl := lblis.GetCachedLoadbalancerAcl(); acl != nil {
 			extra.Set("acl_name", jsonutils.NewString(acl.Name))
-			extra.Set("origin_acl_id", jsonutils.NewString(acl.AclId))
 		}
 	}
 
@@ -522,7 +524,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		TLSCipherPolicy:   lblis.TLSCipherPolicy,
 		Gzip:              lblis.Gzip,
 	}
-	if acl := lblis.GetLoadbalancerAcl(); acl != nil {
+	if acl := lblis.GetCachedLoadbalancerAcl(); acl != nil {
 		listener.AccessControlListID = acl.ExternalId
 		listener.AccessControlListType = lblis.AclType
 	}
@@ -604,12 +606,12 @@ func (lblis *SLoadbalancerListener) GetAwsLoadbalancerListenerParams() (*cloudpr
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SCachedLoadbalancerCertificate {
-	if len(lblis.CertificateId) == 0 {
+	if len(lblis.CachedCertificateId) == 0 {
 		return nil
 	}
 
 	ret := &SCachedLoadbalancerCertificate{}
-	err := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lblis.CertificateId).Equals("cloudregion_id", lblis.CloudregionId).IsFalse("pending_deleted").First(ret)
+	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).Equals("cloudregion_id", lblis.CloudregionId).IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		return nil
 	}
@@ -617,16 +619,28 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SCachedLoadbal
 	return ret
 }
 
-func (lblis *SLoadbalancerListener) GetLoadbalancerAcl() *SCachedLoadbalancerAcl {
-	if len(lblis.AclId) == 0 {
+func (lblis *SLoadbalancerListener) GetCachedLoadbalancerAcl() *SCachedLoadbalancerAcl {
+	if len(lblis.CachedAclId) == 0 {
 		return nil
 	}
 
-	acl, err := CachedLoadbalancerAclManager.FetchById(lblis.AclId)
+	acl, err := CachedLoadbalancerAclManager.FetchById(lblis.CachedAclId)
 	if err != nil {
 		return nil
 	}
 	return acl.(*SCachedLoadbalancerAcl)
+}
+
+func (lblis *SLoadbalancerListener) GetLoadbalancerAcl() *SLoadbalancerAcl {
+	if len(lblis.AclId) == 0 {
+		return nil
+	}
+
+	acl, err := LoadbalancerAclManager.FetchById(lblis.AclId)
+	if err != nil {
+		return nil
+	}
+	return acl.(*SLoadbalancerAcl)
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
@@ -748,11 +762,19 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.ListenerPort = extListener.GetListenerPort()
 	lblis.Status = extListener.GetStatus()
 
-	lblis.AclStatus = extListener.GetAclStatus()
+	// default off
+	if extListener.GetAclStatus() == "" {
+		lblis.AclStatus = api.LB_BOOL_OFF
+	} else {
+		lblis.AclStatus = extListener.GetAclStatus()
+	}
+
 	lblis.AclType = extListener.GetAclType()
 	if aclID := extListener.GetAclId(); len(aclID) > 0 {
-		if acl, err := db.FetchByExternalId(CachedLoadbalancerAclManager, aclID); err == nil {
-			lblis.AclId = acl.GetId()
+		if _acl, err := db.FetchByExternalId(CachedLoadbalancerAclManager, aclID); err == nil {
+			acl := _acl.(*SCachedLoadbalancerAcl)
+			lblis.CachedAclId = acl.GetId()
+			lblis.AclId = acl.AclId
 		}
 	} else {
 		lblis.AclId = ""
@@ -764,11 +786,13 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 	if len(extListener.GetHealthCheckType()) > 0 {
 		lblis.HealthCheck = extListener.GetHealthCheck()
-		lblis.HealthCheckType = extListener.GetHealthCheckType()
-		lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
-		lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
-		lblis.HealthCheckRise = extListener.GetHealthCheckRise()
-		lblis.HealthCheckFall = extListener.GetHealthCheckFail()
+		if lblis.HealthCheck == api.LB_BOOL_ON {
+			lblis.HealthCheckType = extListener.GetHealthCheckType()
+			lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
+			lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
+			lblis.HealthCheckRise = extListener.GetHealthCheckRise()
+			lblis.HealthCheckFall = extListener.GetHealthCheckFail()
+		}
 	}
 
 	lblis.BackendServerPort = extListener.GetBackendServerPort()
@@ -783,8 +807,10 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
-			if certificate, err := db.FetchByExternalId(CachedLoadbalancerCertificateManager, certificateId); err == nil {
-				lblis.CertificateId = certificate.GetId()
+			if _cert, err := db.FetchByExternalId(CachedLoadbalancerCertificateManager, certificateId); err == nil {
+				cert := _cert.(*SCachedLoadbalancerCertificate)
+				lblis.CachedCertificateId = cert.GetId()
+				lblis.CertificateId = cert.CertificateId
 			}
 		}
 		fallthrough

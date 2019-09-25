@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -328,7 +329,7 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		{
-			certId, _ := task.GetParams().GetString("certificate")
+			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
 				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
 				if provider == nil {
@@ -352,7 +353,13 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 					}
 				}
 
-				// lblis.ExternalId = lbcert.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "QcloudRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedCertificateId")
+				}
 			}
 		}
 
@@ -381,7 +388,13 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 					}
 				}
 
-				// lblis.AclId = lbacl.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedAclId = lbacl.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "QcloudRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedAclId")
+				}
 			}
 		}
 
@@ -537,14 +550,9 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	if api.LB_ACL_TYPES.Has(lblis.AclType) {
 		aclTypeV.Default(lblis.AclType)
 	}
-	var aclV *validators.ValidatorModelIdOrName
-	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
-		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	} else {
-		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
-		if len(lblis.AclId) > 0 {
-			aclV.Default(lblis.AclId)
-		}
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	if len(lblis.AclId) > 0 {
+		aclV.Default(lblis.AclId)
 	}
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)

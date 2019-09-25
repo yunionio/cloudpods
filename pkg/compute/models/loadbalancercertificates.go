@@ -340,7 +340,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 	}
 
 	ret := &SLoadbalancerCertificate{}
-	err := man.Query().Equals("Name", name).Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted").First(ret)
+	err := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		return nil, err
 	}
