@@ -17,14 +17,16 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/utils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SContactManager struct {
@@ -48,19 +50,45 @@ func init() {
 type SContact struct {
 	SStatusStandaloneResourceBase
 
-	UID         string    `width:"128" nullable:"false" create:"required" list:"user" update:"user"`
-	ContactType string    `width:"16" nullable:"false" create:"required" list:"user" update:"user"`
-	Contact     string    `width:"64" nullable:"false" create:"required" list:"user" update:"user"`
-	Enabled     string    `width:"5" nullable:"false" default:"1" create:"optional" list:"user" update:"user"`
-	VerifiedAt  time.Time `update:"user" list:"user"`
+	UID         string    `width:"128" nullable:"false" create:"required" update:"user"`
+	ContactType string    `width:"16" nullable:"false" create:"required" update:"user"`
+	Contact     string    `width:"64" nullable:"false" create:"required" update:"user"`
+	Enabled     string    `width:"5" nullable:"false" default:"1" create:"optional" update:"user"`
+	VerifiedAt  time.Time `update:"user"`
 }
 
 func (self *SContactManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
+	return true
 }
 
 func (self *SContactManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return true
+}
+
+func (self *SContactManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (self *SContactManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (self *SContactManager) FetchOwnerId(ctx context.Context,
+	data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+
+	return db.FetchUserInfo(ctx, data)
+}
+
+func (self *SContactManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider,
+	scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		if scope == rbacutils.ScopeUser {
+			if len(owner.GetUserId()) > 0 {
+				q = q.Equals("uid", owner.GetUserId())
+			}
+		}
+	}
+	return q
 }
 
 func (self *SContactManager) InitializeData() error {
@@ -103,34 +131,103 @@ func (self *SContactManager) FetchByMore(uid, contact, contactType string) ([]SC
 	return records, nil
 }
 
-func (self *SContactManager) FetchDingtalkContacts(uid string) {
-	// todo
+func (self *SContact) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) *jsonutils.JSONDict {
+
+	ret, _ := self.getMoreDetail(ctx, userCred, query)
+	return ret
+}
+
+func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+
+	ret := jsonutils.NewDict()
+	uname, err := utils.GetUsernameByID(ctx, self.UID)
+	if err != nil {
+		return ret, err
+	}
+
+	q := ContactManager.Query().Equals("uid", self.UID)
+	contacts := make([]SContact, 0)
+	err = db.FetchModelObjects(ContactManager, q, &contacts)
+	if err != nil {
+		return ret, errors.Wrapf(err, "fetch Contacts of uid %s error", self.UID)
+	}
+	ret.Add(jsonutils.NewString(self.UID), "id")
+	ret.Add(jsonutils.NewString(uname), "name")
+	ret.Add(jsonutils.NewString(jsonutils.Marshal(contacts).String()), "details")
+
+	return ret, nil
+}
+
+func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+
+	return self.getMoreDetail(ctx, userCred, query)
 }
 
 func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	queryDict := query.(*jsonutils.JSONDict)
 	if queryDict.Contains("uid") {
 		uid, _ := queryDict.GetString("uid")
-		q = q.Filter(sqlchemy.Equals(q.Field("uid"), uid))
+		q = q.Equals("uid", uid)
 	}
+	// for now
+	if queryDict.Contains("filter") {
+		filterCon, _ := queryDict.GetString("filter")
+		queryDict.Remove("filter")
+		contain := "name.contains("
+		index := strings.Index(filterCon, contain)
+		if index < 0 {
+			return q, nil
+		}
+		filterCon = filterCon[index+len(contain):]
+		index = strings.Index(filterCon, ")")
+		if index < 0 {
+			return q, nil
+		}
+		name := filterCon[:index]
+		ids, err := utils.GetUserIdsLikeName(ctx, name)
+		if err != nil {
+			return q, nil
+		}
+		q = q.In("uid", ids)
+	}
+
+	scopeStr, err := query.GetString("scope")
+	if err != nil {
+		scopeStr = "system"
+	}
+	scope := rbacutils.TRbacScope(scopeStr)
+
+	if !scope.HigherEqual(rbacutils.ScopeSystem) {
+		q = q.Equals("uid", userCred.GetUserId())
+	}
+	q = q.GroupBy("uid")
+
 	return q, nil
 }
 
-func (self *SContactManager) GetAllNotify(id, contactType string, group bool) ([]SContact, error) {
+func (self *SContactManager) GetAllNotify(ctx context.Context, ids []string, contactType string, group bool) ([]SContact, error) {
 	var uids []string
 	var err error
 
 	q := self.Query()
 	if !group {
-		q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("uid"), id), sqlchemy.Equals(q.Field("contact_type"), contactType), sqlchemy.Equals(q.Field("status"), CONTACT_VERIFIED)))
-		uids = []string{id}
+		uids = ids
 	} else {
-		uids, err = utils.GetUsersByGroupID(id)
-		if err != nil {
-			return nil, err
+		uid := make([]string, 0)
+		for _, id := range uids {
+			tmpUids, err := utils.GetUsersByGroupID(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			uid = append(uid, tmpUids...)
 		}
-		q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("uid"), uids), sqlchemy.Equals(q.Field("contact_type"), contactType)))
 	}
+	q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("uid"), uids), sqlchemy.Equals(q.Field("contact_type"),
+		contactType), sqlchemy.Equals(q.Field("status"), CONTACT_VERIFIED)))
+
 	if contactType == WEBCONSOLE {
 		ret := make([]SContact, len(uids))
 		for i := range uids {
@@ -156,8 +253,8 @@ type SContactResponse struct {
 	Details string
 }
 
-func NewSContactResponse(uid string, details string) SContactResponse {
-	name, _ := utils.GetUsernameByID(uid)
+func NewSContactResponse(ctx context.Context, uid string, details string) SContactResponse {
+	name, _ := utils.GetUsernameByID(ctx, uid)
 	return SContactResponse{
 		Id:      uid,
 		Name:    name,

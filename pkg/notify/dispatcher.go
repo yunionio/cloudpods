@@ -15,7 +15,6 @@
 package notify
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -26,15 +25,18 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	noutils "yunion.io/x/onecloud/pkg/notify/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -72,7 +74,7 @@ func (self *NotifyModelDispatcher) DeleteConfig(ctx context.Context, params map[
 	}
 	userCred := policy.FetchUserCredential(ctx)
 	for i := range configs {
-		err = DeleteItem(models.ConfigManager, &configs[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+		err = DeleteItem(&configs[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
 		if err != nil {
 			return errors.Wrapf(err, "Delete part of old one, so please input new data again.")
 		}
@@ -84,7 +86,7 @@ func (self *NotifyModelDispatcher) DeleteConfig(ctx context.Context, params map[
 func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonutils.JSONObject) error {
 	data := body.(*jsonutils.JSONDict)
 	contactType := data.SortedKeys()[0]
-	originData, err := models.ConfigManager.GetVauleByType(contactType)
+	originData, err := models.ConfigManager.GetConfig(contactType)
 	if err != nil {
 		return err
 	}
@@ -100,12 +102,13 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 			return errors.Wrap(err, "Get Config by contactType failed")
 		}
 		for i := range configs {
-			err = DeleteItem(models.ConfigManager, &configs[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+			err = DeleteItem(&configs[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
 			if err != nil {
 				return errors.Wrapf(err, "Delete part of old one, so please input new data again.")
 			}
 		}
 	}
+	config := make(map[string]string)
 	// create
 	for _, key := range data.SortedKeys() {
 		createData := jsonutils.NewDict()
@@ -114,10 +117,13 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 		createData.Add(jsonutils.NewString(key), "key_text")
 		createData.Add(jsonutils.NewString(contactType), "type")
 		_, err := self.Create(ctx, jsonutils.JSONNull, createData, nil)
+		config[key] = tmp.String()
 		if err != nil {
 			return errors.Wrapf(err, "Create config (%s, %s, %s) failed", contactType, key, tmp)
 		}
 	}
+	// update config
+	models.RestartService(config, contactType)
 	return nil
 }
 
@@ -128,14 +134,15 @@ func (self *NotifyModelDispatcher) CreateNotification(ctx context.Context, data 
 	// Get all contacts info of group if data contains "gid".
 	// If no contact, return ErrContactNotFound.
 	contactType, _ := data.GetString("contact_type")
-	group, id := false, ""
+	group := false
+	var ids []string
 	if data.Contains("gid") {
 		group = true
-		id, _ = data.GetString("gid")
+		ids = self.getIds(data, "gid")
 	} else {
-		id, _ = data.GetString("uid")
+		ids = self.getIds(data, "uid")
 	}
-	contacts, err := models.ContactManager.GetAllNotify(id, contactType, group)
+	contacts, err := models.ContactManager.GetAllNotify(ctx, ids, contactType, group)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(errors.Wrap(err, "get all contacts error"))
 	}
@@ -147,6 +154,19 @@ func (self *NotifyModelDispatcher) CreateNotification(ctx context.Context, data 
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewStringArray(notificationIDs), "notifications")
 	return ret, nil
+}
+
+func (self *NotifyModelDispatcher) getIds(data jsonutils.JSONObject, key string) []string {
+	var ids []string
+	tmpIds, err := data.GetArray(key)
+	if err != nil {
+		id, _ := data.GetString(key)
+		ids = make([]string, 1)
+		ids[0] = id
+	} else {
+		ids = noutils.JsonArrayToStringArray(tmpIds)
+	}
+	return ids
 }
 
 // Verify process:
@@ -181,7 +201,7 @@ func (self *NotifyModelDispatcher) Verify(ctx context.Context, params map[string
 	}
 	// modify contact's status and verified time.
 	data := jsonutils.NewDict()
-	data.Set("status", jsonutils.NewString(models.CONTACT_VERIFIED))
+	data.Set("status", jsonutils.NewString(models.VERIFICATION_VERIFIED))
 	data.Set("verified_at", jsonutils.NewTimeString(current))
 	_, err = self.Update(ctx, verifition.CID, jsonutils.JSONNull, data, nil)
 	if err != nil {
@@ -213,14 +233,15 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 			return nil, httperrors.NewGeneralError(err)
 		}
 		// update contact state
-		updateDate := jsonutils.NewDict()
-		updateDate.Set("status", jsonutils.NewString(models.CONTACT_VERIFYING))
-		err = UpdateItem(models.ContactManager, &scontact, ctx, userCred, jsonutils.JSONNull, updateDate)
+		if scontact.Status != models.CONTACT_VERIFYING {
+			scontact.SetStatus(userCred, models.CONTACT_VERIFYING, "")
+		}
+
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
 		processID := verification.ID
-		go models.SendVerifyMessage(processID, uid, contactType, contact, verification.Token)
+		models.SendVerifyMessage(userCred, verification, uid, contactType, contact)
 		ret := map[string]map[string]string{
 			"contact": {
 				"process_id": processID,
@@ -232,10 +253,10 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 		return makeNewVerify()
 	}
 	if scontact.Status == models.CONTACT_VERIFYING {
-		if err != nil {
-			return nil, errors.Error(fmt.Sprintf(`uid %q don't have contact %q of contact_type %q`, uid, contact, contactType))
-		}
-		verifications, err := models.VerifyManager.FetchByCID(scontact.ID)
+		verifications, err := models.VerifyManager.FetchByCID(scontact.ID, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			q = q.Equals("status", models.VERIFICATION_SENT).Desc("created_at")
+			return q
+		})
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -243,7 +264,7 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 		for _, verification := range verifications {
 			if current.After(verification.ExpireAt) {
 				//delete old one
-				err = DeleteItem(models.VerifyManager, &verification, ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+				err = DeleteItem(&verification, ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
 				if err != nil {
 					return nil, httperrors.NewGeneralError(err)
 				}
@@ -271,7 +292,7 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 	userCred := policy.FetchUserCredential(ctx)
 	deleteFailed := make([]string, 0, 1)
 	for _, contact := range contacts {
-		err = DeleteItem(models.ContactManager, &contact, ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+		err = DeleteItem(&contact, ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
 		if err != nil {
 			deleteFailed = append(deleteFailed, contact.ID)
 		}
@@ -283,12 +304,10 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 	return nil
 }
 
-// UpdateContacts analysis the data, update corresponding contacts if they exist in the database or create new ones.
-func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
-	datas, err := data.GetArray("contacts")
-	if err != nil {
-		return nil, httperrors.NewGeneralError(errors.Wrapf(err, `"contacts" not found`))
-	}
+// UpdateContacts analysis the data and update corresponding contacts if they exist in the database create new ones.
+func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr string, query jsonutils.JSONObject,
+	datas []jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) error {
+
 	type pair struct {
 		contact string
 		enabled string
@@ -300,6 +319,9 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 	contactTypes := make([]string, len(datas))
 	for i := range datas {
 		contactType, _ := datas[i].GetString("contact_type")
+		if _, ok := models.UpdateNotAllow[contactType]; ok {
+			continue
+		}
 		contact, _ := datas[i].GetString("contact")
 		enabled := "-1"
 		if datas[i].Contains("enabled") {
@@ -311,7 +333,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 
 	records, err := models.ContactManager.FetchByUIDAndCType(idstr, contactTypes)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return httperrors.NewGeneralError(err)
 	}
 
 	// updateFailed record the information of failed update
@@ -324,7 +346,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		pairUpdate := contactInfos[contactType]
 		if len(pairUpdate.contact) == 0 {
 			// delete
-			err = DeleteItem(models.ContactManager, &records[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
+			err = DeleteItem(&records[i], ctx, userCred, jsonutils.JSONNull, jsonutils.JSONNull)
 			if err != nil {
 				deleteFailed = append(deleteFailed, fmt.Sprintf(`uid:%q, contact_type:%q`, idstr, contactType))
 			}
@@ -335,7 +357,11 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		if pairUpdate.enabled != "-1" {
 			updateData.Set("enabled", jsonutils.NewString(pairUpdate.enabled))
 		}
-		updateData.Set("status", jsonutils.NewString("init"))
+		if records[i].Contact != pairUpdate.contact {
+			updateData.Set("status", jsonutils.NewString(models.CONTACT_INIT))
+		}
+		// update is not relational
+		//updateData.Set("status", jsonutils.NewString("init"))
 		err = UpdateItem(models.ContactManager, &records[i], ctx, userCred, jsonutils.JSONNull, updateData)
 		if err != nil {
 			updateFailed = append(updateFailed, fmt.Sprintf(`uid:%q, contact_type:%q, contact:%q`, idstr, contactType, pairUpdate.contact))
@@ -356,11 +382,6 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		if conPair.enabled != "-1" {
 			tmpMap["enabled"] = conPair.enabled
 		}
-		// dingtalk don't need verify, judge and specified status for now
-		if conType == "dingtalk" {
-			tmpMap["status"] = models.CONTACT_VERIFIED
-			tmpMap["verified_at"] = time.Now()
-		}
 		newDatas = append(newDatas, tmpMap)
 	}
 
@@ -373,7 +394,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 
 	// generate error through updateFailed and createFailed
 	if len(updateFailed) != 0 || len(createFailed) != 0 || len(deleteFailed) != 0 {
-		var errInfoBuffer bytes.Buffer
+		var errInfoBuffer strings.Builder
 		if len(updateFailed) != 0 {
 			errInfoBuffer.WriteString(strings.Join(updateFailed, "; "))
 			errInfoBuffer.WriteString(" update failed. ")
@@ -387,9 +408,13 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 			errInfoBuffer.WriteString(" create failed. ")
 		}
 		errInfo := errInfoBuffer.String()
-		return nil, httperrors.NewGeneralError(errors.Error(errInfo))
+		return httperrors.NewGeneralError(errors.Error(errInfo))
 	}
-	return data, nil
+
+	if query.Contains("update_dingtalk") {
+		models.UpdateDingtalk(idstr)
+	}
+	return nil
 }
 
 // fetchEnv fetch handler, params, query and body from ctx(context.Context)
@@ -417,7 +442,9 @@ func mergeQueryParams(params map[string]string, query jsonutils.JSONObject, excl
 }
 
 // DeleteItem delete a database record corresponding to model
-func DeleteItem(manager db.IModelManager, model db.IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func DeleteItem(model db.IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lockman.LockObject(ctx, model)
+	defer lockman.ReleaseObject(ctx, model)
 	err := model.ValidateDeleteCondition(ctx)
 	if err != nil {
 		log.Errorf("validate delete condition error: %s", err)
@@ -440,8 +467,9 @@ func DeleteItem(manager db.IModelManager, model db.IModel, ctx context.Context, 
 
 // UpdateItem update a database record corresponding to model whose update fields are in data
 func UpdateItem(manager db.IModelManager, item db.IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lockman.LockObject(ctx, item)
+	defer lockman.ReleaseObject(ctx, item)
 	var err error
-
 	err = item.ValidateUpdateCondition(ctx)
 
 	if err != nil {
