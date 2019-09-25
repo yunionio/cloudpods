@@ -444,7 +444,7 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 		return err
 	}
 
-	err = lbbg.ValidateDeleteCondition(ctx)
+	err = lbbg.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}

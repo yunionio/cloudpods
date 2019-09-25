@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -70,15 +71,19 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 	}
 
 	account := provider.GetCloudaccount()
-	info["account"] = account.GetName()
-	info["account_id"] = account.GetId()
-	info["provider"] = account.Provider
-	info["brand"] = account.Brand
+	if account != nil {
+		info["account"] = account.GetName()
+		info["account_id"] = account.GetId()
+		info["provider"] = account.Provider
+		info["brand"] = account.Brand
 
-	info["account_domain_id"] = account.DomainId
-	dc, err := db.TenantCacheManager.FetchDomainById(appctx.Background, account.DomainId)
-	if err == nil {
-		info["account_domain"] = dc.Name
+		info["account_domain_id"] = account.DomainId
+		dc, err := db.TenantCacheManager.FetchDomainById(appctx.Background, account.DomainId)
+		if err == nil {
+			info["account_domain"] = dc.Name
+		}
+	} else {
+		log.Errorf("provider %s Cloudaccount %s not found", provider.GetName(), provider.CloudaccountId)
 	}
 
 	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
