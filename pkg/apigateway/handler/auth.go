@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
@@ -103,11 +103,11 @@ func (h *AuthHandlers) Bind(app *appsrv.Application) {
 func (h *AuthHandlers) GetRegionsResponse(ctx context.Context, w http.ResponseWriter, req *http.Request) (*jsonutils.JSONDict, error) {
 	adminToken := auth.AdminCredential()
 	if adminToken == nil {
-		return nil, errors.New("failed to get admin credential")
+		return nil, errors.Error("failed to get admin credential")
 	}
 	regions := adminToken.GetRegions()
 	if len(regions) == 0 {
-		return nil, errors.New("region is empty")
+		return nil, errors.Error("region is empty")
 	}
 	regionsJson := jsonutils.NewStringArray(regions)
 	s := auth.GetAdminSession(ctx, regions[0], "")
@@ -506,10 +506,29 @@ func (h *AuthHandlers) postLogoutHandler(ctx context.Context, w http.ResponseWri
 
 func FetchRegion(req *http.Request) string {
 	r, e := req.Cookie("region")
-	if e != nil {
+	if e == nil && len(r.Value) > 0 {
+		return r.Value
+	}
+	if len(options.Options.DefaultRegion) > 0 {
 		return options.Options.DefaultRegion
 	}
-	return r.Value
+	adminToken := auth.AdminCredential()
+	if adminToken == nil {
+		log.Errorf("FetchRegion: nil adminTken")
+		return ""
+	}
+	regions := adminToken.GetRegions()
+	if len(regions) == 0 {
+		log.Errorf("FetchRegion: empty region list")
+		return ""
+	}
+	for _, r := range regions {
+		if len(r) > 0 {
+			return r
+		}
+	}
+	log.Errorf("FetchRegion: no valid region")
+	return ""
 }
 
 func fetchDomain(req *http.Request) string {
