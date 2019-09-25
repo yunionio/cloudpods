@@ -411,7 +411,7 @@ func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclByRegion(provider *S
 	if len(listenerId) > 0 {
 		q.Equals("listener_id", listenerId)
 	} else {
-		q.Equals("acl_id", provider.Id)
+		q.Equals("acl_id", aclId)
 	}
 
 	if err := db.FetchModelObjects(man, q, &acls); err != nil {
