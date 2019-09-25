@@ -63,7 +63,7 @@ func StartService() {
 	models.NotifyService.InitAll()
 	defer models.NotifyService.StopAll()
 
-	cron := cronman.GetCronJobManager(true)
+	cron := cronman.GetCronJobManager()
 	// update service
 	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Second, models.NotifyService.UpdateServices)
 
