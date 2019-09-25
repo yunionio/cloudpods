@@ -66,8 +66,9 @@ func (host *SHostService) OnExitService() {
 
 func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
-
+	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	hostutils.Init()
+
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
@@ -101,7 +102,6 @@ func (host *SHostService) RunService() {
 		app_common.InitApp(&options.HostOptions.BaseOptions, false),
 		options.HostOptions.Address, options.HostOptions.Port+1000)
 
-	cronManager := cronman.InitCronJobManager(false, options.HostOptions.CronJobWorkerCount)
 	cronManager.AddJobEveryFewDays(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 	cronManager.Start()
