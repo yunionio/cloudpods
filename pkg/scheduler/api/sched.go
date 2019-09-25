@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
@@ -40,6 +41,8 @@ type SchedInfo struct {
 	IsSuggestion          bool            `json:"suggestion"`
 	ShowSuggestionDetails bool            `json:"suggestion_details"`
 	Raw                   string
+
+	InstanceGroupsDetail map[string]*models.SGroup
 }
 
 func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
@@ -63,6 +66,22 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 			net.Domain = domainId
 		}
 	}
+
+	if data.InstanceGroupIds == nil || len(data.InstanceGroupIds) == 0 {
+		return data, nil
+	}
+	// fill instance group detail
+	groups := make([]models.SGroup, 0, 1)
+	q := models.GroupManager.Query().In("id", data.InstanceGroupIds)
+	err = db.FetchModelObjects(models.GroupManager, q, &groups)
+	if err != nil {
+		return nil, err
+	}
+	details := make(map[string]*models.SGroup)
+	for i := range groups {
+		details[groups[i].Id] = &groups[i]
+	}
+	data.InstanceGroupsDetail = details
 
 	return data, nil
 }

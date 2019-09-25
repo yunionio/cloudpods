@@ -1032,4 +1032,29 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerGroupOptions struct {
+		ID      string `help:"ID or name of VM"`
+		GROUPID string `help:"ID or name of instance group"`
+	}
+	R(&ServerGroupOptions{}, "server-join-group", "Join a group", func(s *mcclient.ClientSession,
+		opts *ServerGroupOptions) error {
+
+		ret, err := modules.GroupGuest.Attach(s, opts.ID, opts.GROUPID, jsonutils.JSONNull)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+	R(&ServerGroupOptions{}, "server-leave-group", "Leave a group", func(s *mcclient.ClientSession,
+		opts *ServerGroupOptions) error {
+
+		ret, err := modules.GroupGuest.Detach(s, opts.ID, opts.GROUPID, jsonutils.JSONNull)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }

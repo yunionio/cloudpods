@@ -76,18 +76,34 @@ func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.
 	return db.JointModelExtra(self, extra), nil
 }
 
-func (self *SGroupguest) GetGuest() *SGuest {
-	guest, _ := GuestManager.FetchById(self.GuestId)
-	if guest != nil {
-		return guest.(*SGuest)
-	}
-	return nil
-}
-
 func (self *SGroupguest) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
 }
 
 func (self *SGroupguest) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
+}
+
+func (self *SGroupguestManager) FetchByGuestId(guestId string) ([]SGroupguest, error) {
+	q := self.Query().Equals("guest_id", guestId)
+	joints := make([]SGroupguest, 0, 1)
+	err := db.FetchModelObjects(self, q, &joints)
+	if err != nil {
+		return nil, err
+	}
+	return joints, err
+}
+
+func (self *SGroupguestManager) Attach(ctx context.Context, groupId, guestId string) (*SGroupguest, error) {
+
+	joint := &SGroupguest{}
+	joint.GuestId = guestId
+	joint.GroupId = groupId
+
+	err := self.TableSpec().Insert(joint)
+	if err != nil {
+		return nil, err
+	}
+	joint.SetModelManager(self, joint)
+	return joint, nil
 }

@@ -28,12 +28,14 @@ type SGroupManager struct {
 var GroupManager *SGroupManager
 
 func init() {
+	// GroupManager's Keyword and KeywordPlural is instancegroup and instancegroups because group has been used by
+	// keystone.
 	GroupManager = &SGroupManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SGroup{},
 			"groups_tbl",
-			"group",
-			"groups",
+			"instancegroup",
+			"instancegroups",
 		),
 	}
 	GroupManager.SetVirtualObject(GroupManager)
@@ -49,6 +51,9 @@ type SGroup struct {
 	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 
 	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
+
+	// the upper limit number of guests with this group in a host
+	Granularity int `nullable:"false" list:"user" get:"user" create:"optional" default:"1"`
 }
 
 func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
