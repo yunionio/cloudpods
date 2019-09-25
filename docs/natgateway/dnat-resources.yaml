@@ -6,7 +6,7 @@ post:
     200:
       description: DNAT规则EIP集合
       schema:
-        - $ref: "../schemas/natgateway.yaml#/EIPAddrs"
+        - $ref: "../schemas/natgateway.yaml#/DNATResources"
   tags:
     - natgateway
 

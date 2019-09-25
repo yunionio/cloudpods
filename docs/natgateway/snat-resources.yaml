@@ -6,6 +6,6 @@ post:
     200:
       description: SNAT规则EIP集合
       schema:
-        - $ref: "../schemas/natgateway.yaml#/EIPAddrs"
+        - $ref: "../schemas/natgateway.yaml#/SNATResources"
   tags:
     - natgateway
