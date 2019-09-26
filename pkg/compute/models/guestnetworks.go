@@ -684,6 +684,7 @@ func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict
 	desc := jsonutils.NewDict()
 	if len(self.IpAddr) > 0 {
 		desc.Add(jsonutils.NewString(self.IpAddr), "ip_addr")
+		desc.Add(jsonutils.NewBool(self.IsExit()), "is_exit")
 	}
 	if len(self.Ip6Addr) > 0 {
 		desc.Add(jsonutils.NewString(self.Ip6Addr), "ip6_addr")
