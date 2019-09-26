@@ -55,6 +55,16 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("nics") {
+		nicsMap := fetchGuestNICs(ctx, guestIds, tristate.False)
+		if nicsMap != nil {
+			for i := range rows {
+				if nics, ok := nicsMap[objs[i].GetId()]; ok {
+					rows[i].Add(nics, "nics")
+				}
+			}
+		}
+	}
 	if len(fields) == 0 || fields.Contains("vpc") || fields.Contains("vpc_id") {
 		gvpcs := fetchGuestVpcs(guestIds)
 		if gvpcs != nil {
@@ -214,6 +224,26 @@ func fetchGuestIPs(guestIds []string, virtual tristate.TriState) map[string][]st
 			ret[gias[i].GuestId] = make([]string, 0)
 		}
 		ret[gias[i].GuestId] = append(ret[gias[i].GuestId], gias[i].IpAddr)
+	}
+	return ret
+}
+
+func fetchGuestNICs(ctx context.Context, guestIds []string, virtual tristate.TriState) map[string]*jsonutils.JSONArray {
+	q := GuestnetworkManager.Query().In("guest_id", guestIds)
+	nics := make([]SGuestnetwork, 0)
+	if err := q.All(&nics); err != nil {
+		return nil
+	}
+	ret := make(map[string]*jsonutils.JSONArray)
+	for i := range nics {
+		desc := nics[i].GetShortDesc(ctx)
+		li := ret[nics[i].GuestId]
+		if li == nil {
+			li = jsonutils.NewArray(desc)
+			ret[nics[i].GuestId] = li
+		} else {
+			li.Add(desc)
+		}
 	}
 	return ret
 }

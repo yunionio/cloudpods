@@ -546,6 +546,12 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 }
 
 func (self *SGuestnetwork) IsExit() bool {
+	if self.IpAddr != "" {
+		addr, err := netutils.NewIPV4Addr(self.IpAddr)
+		if err == nil {
+			return netutils.IsExitAddress(addr)
+		}
+	}
 	net := self.GetNetwork()
 	if net != nil {
 		return net.IsExitNetwork()
@@ -690,6 +696,7 @@ func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict
 	desc := jsonutils.NewDict()
 	if len(self.IpAddr) > 0 {
 		desc.Add(jsonutils.NewString(self.IpAddr), "ip_addr")
+		desc.Add(jsonutils.NewBool(self.IsExit()), "is_exit")
 	}
 	if len(self.Ip6Addr) > 0 {
 		desc.Add(jsonutils.NewString(self.Ip6Addr), "ip6_addr")
