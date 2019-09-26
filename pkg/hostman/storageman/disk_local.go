@@ -541,3 +541,8 @@ func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
 	}
 	return "", nil
 }
+
+func (d *SLocalDisk) DoDeleteSnapshot(snapshotId string) error {
+	snapshotPath := path.Join(d.GetSnapshotDir(), snapshotId)
+	return d.Storage.DeleteDiskfile(snapshotPath)
+}
