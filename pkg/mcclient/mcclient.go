@@ -80,6 +80,10 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	return &client
 }
 
+func (this *Client) HttpClient() *http.Client {
+	return this.httpconn
+}
+
 func (this *Client) SetDebug(debug bool) {
 	this.debug = debug
 }

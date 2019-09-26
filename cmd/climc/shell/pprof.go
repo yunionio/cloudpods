@@ -32,7 +32,8 @@ import (
 func init() {
 	type TraceOptions struct {
 		Second  int    `help:"pprof seconds" short-token:"s"`
-		SERVICE string `help:"Service type"`
+		Service string `help:"Service type"`
+		Address string `help:"Service listen address"`
 	}
 
 	downloadToTemp := func(input io.Reader, pattern string) (string, error) {
@@ -47,11 +48,25 @@ func init() {
 		return tmpfile.Name(), nil
 	}
 
-	pprofRun := func(s *mcclient.ClientSession, svcType, pType string, second int, args ...string) error {
-		src, err := modules.GetPProfByType(s, svcType, pType, second)
-		if err != nil {
-			return err
+	pprofRun := func(s *mcclient.ClientSession, opts *TraceOptions, pType string, args ...string) error {
+		var (
+			src io.Reader
+			err error
+		)
+		if len(opts.Service) > 0 {
+			src, err = modules.GetPProfByType(s, opts.Service, pType, opts.Second)
+			if err != nil {
+				return err
+			}
+		} else if len(opts.Address) > 0 {
+			src, err = modules.GetNamedAddressPProfByType(s, opts.Address, pType, opts.Second)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("no service address provide")
 		}
+
 		tempfile, err := downloadToTemp(src, pType)
 		if err != nil {
 			return err
@@ -74,7 +89,7 @@ func init() {
 	}
 
 	R(&TraceOptions{}, "pprof-trace", "pprof trace of backend service", func(s *mcclient.ClientSession, args *TraceOptions) error {
-		return pprofRun(s, args.SERVICE, "trace", args.Second, "trace")
+		return pprofRun(s, args, "trace", "trace")
 	})
 
 	R(&TraceOptions{}, "pprof-profile", "pprof profile of backend service", func(s *mcclient.ClientSession, args *TraceOptions) error {
@@ -82,6 +97,6 @@ func init() {
 		if err != nil {
 			return err
 		}
-		return pprofRun(s, args.SERVICE, "profile", args.Second, "pprof", fmt.Sprintf("-http=:%d", port))
+		return pprofRun(s, args, "profile", "pprof", fmt.Sprintf("-http=:%d", port))
 	})
 }

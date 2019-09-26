@@ -63,6 +63,8 @@ func initHandlers(app *appsrv.Application, prefix string) {
 	app.AddHandler("GET", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImage))
 	app.AddHandler("HEAD", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(getImageMeta))
 	app.AddHandler("HEAD", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(getImageMeta))
+	app.AddHandler("POST", fmt.Sprintf("%s/disks/<sid>", prefix), auth.Authenticate(closeImage))
+	app.AddHandler("POST", fmt.Sprintf("%s/snapshots/<diskId>/<sid>", prefix), auth.Authenticate(closeImage))
 }
 
 func getDiskPath(diskId string) string {
@@ -124,6 +126,27 @@ func parseRange(reqRange string) (int64, int64, error) {
 		return 0, 0, httperrors.NewInputParameterError("Invalid range header")
 	}
 	return startPos, endPos, nil
+}
+
+func closeImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	imagePath, err := inputCheck(ctx)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+
+	var f IImage
+	if r.Header.Get("X-Read-File") == "true" {
+		f = &SFile{}
+	} else {
+		f = &SQcow2Image{}
+	}
+	err = f.Load(imagePath, true)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+	}
+	f.Close()
+	w.WriteHeader(http.StatusOK)
 }
 
 func getImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -241,7 +264,6 @@ func getImageMeta(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	defer f.Close()
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Length()))
 	w.Header().Set("Content-Type", "application/octet-stream")
