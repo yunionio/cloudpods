@@ -387,11 +387,11 @@ func checkSnapshots(storage IStorage, snapshotDir string, maxSnapshotCount int) 
 
 	// if snapshot count greater than maxsnapshot count, do convert
 	if len(snapshots) >= maxSnapshotCount {
-		requestConvertSnapshot(snapshotPath, diskId)
+		requestConvertSnapshot(storage, snapshotPath, diskId)
 	}
 }
 
-func requestConvertSnapshot(snapshotPath, diskId string) {
+func requestConvertSnapshot(storage IStorage, snapshotPath, diskId string) {
 	log.Infof("SNPASHOT path %s", snapshotPath)
 	res, err := modules.Disks.GetSpecific(
 		hostutils.GetComputeSession(context.Background()), diskId, "convert-snapshot", nil)
@@ -421,11 +421,13 @@ func requestConvertSnapshot(snapshotPath, diskId string) {
 		return
 	}
 	requestDeleteSnapshot(
-		diskId, snapshotPath, deleteSnapshot, convertSnapshotPath, outfile, pendingDelete)
+		storage, diskId, snapshotPath, deleteSnapshot,
+		convertSnapshotPath, outfile, pendingDelete,
+	)
 }
 
 func requestDeleteSnapshot(
-	diskId, snapshotPath, deleteSnapshot, convertSnapshotPath,
+	storage IStorage, diskId, snapshotPath, deleteSnapshot, convertSnapshotPath,
 	outfile string, pendingDelete bool,
 ) {
 	deleteSnapshotPath := path.Join(snapshotPath, deleteSnapshot)
@@ -446,8 +448,8 @@ func requestDeleteSnapshot(
 		return
 	}
 	if !pendingDelete {
-		if out, err := procutils.NewCommand("rm", "-f", deleteSnapshotPath).Run(); err != nil {
-			log.Errorf("%s", out)
+		if err := storage.DeleteDiskfile(deleteSnapshotPath); err != nil {
+			log.Errorln(err)
 			return
 		}
 	}

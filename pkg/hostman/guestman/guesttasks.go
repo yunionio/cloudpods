@@ -799,7 +799,7 @@ func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, s.snapshotId)
-	_, err := procutils.NewCommand("rm", "-rf", snapshotPath).Run()
+	_, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Run()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -896,7 +896,7 @@ func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 
 func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	snapshotPath := path.Join(s.disk.GetSnapshotDir(), s.convertSnapshot)
-	if _, err := procutils.NewCommand("rm", "-f", s.tmpPath, snapshotPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run(); err != nil {
 		log.Errorln(err)
 	}
 	s.taskFailed("Reload blkdev failed")
@@ -911,8 +911,7 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 		}
 	}
 	if !s.pendingDelete {
-		snapshotDir := s.disk.GetSnapshotDir()
-		procutils.NewCommand("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
+		s.disk.DoDeleteSnapshot(s.deleteSnapshot)
 	}
 	body := jsonutils.NewDict()
 	body.Set("deleted", jsonutils.JSONTrue)
