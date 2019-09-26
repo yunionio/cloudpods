@@ -545,6 +545,12 @@ func calculateNics(q *sqlchemy.SQuery) GuestnicsCount {
 }
 
 func (self *SGuestnetwork) IsExit() bool {
+	if self.IpAddr != "" {
+		addr, err := netutils.NewIPV4Addr(self.IpAddr)
+		if err == nil {
+			return netutils.IsExitAddress(addr)
+		}
+	}
 	net := self.GetNetwork()
 	if net != nil {
 		return net.IsExitNetwork()
