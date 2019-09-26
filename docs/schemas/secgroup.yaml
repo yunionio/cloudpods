@@ -9,6 +9,58 @@ SecgroupCreate:
       type: string
       example: secgrou-description
       description: 安全组描述
+    rules:
+      type: array 
+      items:
+        $ref: '#/SecgroupRuleCreate'
+
+SecgroupRuleCreate:
+  type: object
+  properties:
+    priority:
+      type: integer
+      example: 34
+      default: 1
+      description: 安全组优先级,数字越高，优先级越高 范围 1-100
+    protocol:
+      type: string 
+      example: icmp 
+      enum: [icmp, tcp, udp, any]
+      requried: true
+      description: 协议
+    ports: 
+      type: string 
+      example: 10-200
+      description: 端口或端口范围
+    direction:
+      type: string 
+      example: in 
+      enum: [in, out]
+      requried: true
+      description: 规则出入方向
+    cidr:
+      type: string 
+      example: 0.0.0.0/0
+      default: "0.0.0.0/0"
+      description: IP地址或网络地址
+    action:
+      type: string 
+      example: allow 
+      enum: [allow, deny]
+      requried: true
+      description: 允许或拒绝
+    port_start:
+      type: integer 
+      example: 10 
+      description: 和port_end参数配合使用,若指定ports则此参数失效
+    port_end:
+      type: integer 
+      example: 100 
+      description: 和port_start参数配合使用,若指定ports则此参数失效
+    description: 
+      type: string 
+      example: test-description 
+      description: 规则描述信息
 
 SecgroupResponse:
   type: object
