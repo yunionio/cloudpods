@@ -131,6 +131,15 @@ fmt-check: fmt
 	fi
 .PHONY: fmt fmt-check
 
+mod-check:
+	go mod tidy -v
+	@if git status --short | grep -E '^.M go.(mod|sum)$$'; then \
+		git diff | cat; \
+		echo "$@: working tree modified (possibly by 'go mod tidy')" >&2 ; \
+		false ; \
+	fi
+.PHONY: mod-check
+
 gendocgo:
 	@sh build/gendoc.sh
 
@@ -148,6 +157,7 @@ gendocgo-check: gendocgo
 
 check: fmt-check
 check: gendocgo-check
+check: mod-check
 .PHONY: check
 
 
