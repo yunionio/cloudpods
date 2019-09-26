@@ -339,7 +339,7 @@ function mtw_assign_volume_letter(volume_no_set, letter_offset) {
                 'select volume=' + volume_no,
                 'assign letter=' + String.fromCharCode(charcode),
                 'select partition 1',
-                'format fs ntfs'
+                'format fs ntfs quick'
             );
         }
     }
@@ -347,7 +347,7 @@ function mtw_assign_volume_letter(volume_no_set, letter_offset) {
         'select volume=' + volume_no_set,
         'assign letter=' + letter_set,
         'select partition 1',
-        'format fs ntfs'
+        'format fs ntfs quick'
     );
     mtw_execute_diskpart(cmd_lines);
 
