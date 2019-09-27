@@ -14,7 +14,7 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
-    CGO_ENABLED=0 make cmd/$1
+    make cmd/$1
 }
 
 build_image() {
