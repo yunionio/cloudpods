@@ -62,7 +62,8 @@ func init() {
 	}
 	DefaultPolicyFetcher = remotePolicyFetcher
 
-	syncWorkerManager = appsrv.NewWorkerManager("sync_policy_worker", 1, 1000, false)
+	// no need to queue many sync tasks
+	syncWorkerManager = appsrv.NewWorkerManagerIgnoreOverflow("sync_policy_worker", 1, 2, true, true)
 }
 
 type SPolicyManager struct {
