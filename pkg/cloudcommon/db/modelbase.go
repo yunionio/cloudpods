@@ -159,6 +159,10 @@ func (manager *SModelBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQu
 	return q
 }
 
+func (manager *SModelBaseManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	return q
+}
+
 func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
@@ -254,6 +258,10 @@ func (manager *SModelBaseManager) FetchCustomizeColumns(ctx context.Context, use
 
 func (manager *SModelBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return nil, nil
+}
+
+func (manager *SModelBaseManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	return ""
 }
 
 func (manager *SModelBaseManager) NamespaceScope() rbacutils.TRbacScope {
@@ -490,6 +498,10 @@ func (model *SModelBase) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (model *SModelBase) GetOwnerId() mcclient.IIdentityProvider {
 	return nil
+}
+
+func (model *SModelBase) GetParentId() string {
+	return ""
 }
 
 func (model *SModelBase) IsSharable(ownerId mcclient.IIdentityProvider) bool {

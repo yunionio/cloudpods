@@ -1019,9 +1019,10 @@ func _doCreateItem(
 	}
 
 	// run name validation after validate create data
+	parentId := manager.FetchParentId(ctx, dataDict)
 	name, _ := dataDict.GetString("name")
 	if len(name) > 0 {
-		err = NewNameValidator(manager, ownerId, name)
+		err = NewNameValidator(manager, ownerId, name, parentId)
 		if err != nil {
 			return nil, err
 		}
