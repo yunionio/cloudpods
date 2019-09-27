@@ -37,6 +37,7 @@ type IDisk interface {
 	GetDiskSetupScripts(idx int) string
 	GetSnapshotLocation() string
 	OnRebuildRoot(ctx context.Context, params jsonutils.JSONObject) error
+	DoDeleteSnapshot(snapshotId string) error
 
 	DeleteAllSnapshot() error
 	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -172,4 +173,8 @@ func (d *SBaseDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) 
 
 func (d *SBaseDisk) CreateFromRbdSnapshot(ctx context.Context, napshotUrl, srcDiskId, srcPool string) error {
 	return fmt.Errorf("Not implement disk.CreateFromRbdSnapshot")
+}
+
+func (d *SBaseDisk) DoDeleteSnapshot(snapshotId string) error {
+	return fmt.Errorf("Not implement disk.DoDeleteSnapshot")
 }
