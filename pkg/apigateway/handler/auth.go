@@ -360,7 +360,7 @@ func isUserAllowWebconsole(ctx context.Context, w http.ResponseWriter, req *http
 		return false
 	}
 	if !jsonutils.QueryBoolean(usr, "allow_web_console", true) {
-		httperrors.ForbiddenError(w, "forbidden user %q login from web")
+		httperrors.ForbiddenError(w, "forbidden user %q login from web", usr.String())
 		return false
 	}
 	return true
