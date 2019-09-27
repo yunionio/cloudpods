@@ -258,6 +258,12 @@ var (
 					Action:   PolicyActionUpdate,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  "notify",
+					Resource: "contacts",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
