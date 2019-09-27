@@ -36,7 +36,7 @@ var (
 		"metadatas",
 		"loadbalancerclusters",
 		"loadbalanceragents",
-		"netowkinterfaces",
+		"networkinterfaces",
 		"natgateways",
 		"natsentries",
 		"natdentries",
