@@ -68,6 +68,7 @@ type IModelManager interface {
 	FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery
 	FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
 	FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery
+	FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery
 
 	// GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider
 
@@ -107,6 +108,7 @@ type IModelManager interface {
 
 	// fetch owner Id from query when create resource
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
+	FetchParentId(ctx context.Context, data jsonutils.JSONObject) string
 
 	/* name uniqueness scope, system/domain/project, default is system */
 	NamespaceScope() rbacutils.TRbacScope
@@ -170,6 +172,7 @@ type IModel interface {
 	DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	GetOwnerId() mcclient.IIdentityProvider
+	GetParentId() string
 
 	IsSharable(reqCred mcclient.IIdentityProvider) bool
 
