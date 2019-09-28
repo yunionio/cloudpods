@@ -59,7 +59,7 @@ func (self *SLBListenerRule) GetGlobalId() string {
 }
 
 func (self *SLBListenerRule) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (self *SLBListenerRule) Refresh() error {

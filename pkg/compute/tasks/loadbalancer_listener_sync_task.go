@@ -52,11 +52,11 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 
-	// todo: 这个if应该可以删除
-	if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI || lblis.GetProviderName() != api.CLOUD_PROVIDER_AWS {
-		self.OnLoadbalancerBackendgroupSyncComplete(ctx, lblis, data)
-		return
-	}
+	// // todo: 这个if应该可以删除
+	// if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI || lblis.GetProviderName() != api.CLOUD_PROVIDER_AWS {
+	// 	self.OnLoadbalancerBackendgroupSyncComplete(ctx, lblis, data)
+	// 	return
+	// }
 
 	lbbg := lblis.GetLoadbalancerBackendGroup()
 	if lbbg == nil {

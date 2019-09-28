@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -34,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SManagedVirtualizationRegionDriver struct {
@@ -295,7 +295,7 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx contex
 			acl.AccessControlEnable = true
 		}
 	} else {
-		log.Debugf("regionDriver.createLoadbalancerAcl %s", err)
+		return nil, fmt.Errorf("regionDriver.createLoadbalancerAcl %s", err)
 	}
 
 	if lbacl.AclEntries != nil {
@@ -326,16 +326,20 @@ func (self *SManagedVirtualizationRegionDriver) syncLoadbalancerAcl(ctx context.
 		return nil, err
 	}
 
-	lblis, err := lbacl.GetListener()
-	if err != nil {
-		return nil, err
+	acl := &cloudprovider.SLoadbalancerAccessControlList{
+		Name:   lbacl.Name,
+		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
 	}
 
-	acl := &cloudprovider.SLoadbalancerAccessControlList{
-		Name:                lbacl.Name,
-		Entrys:              []cloudprovider.SLoadbalancerAccessControlListEntry{},
-		AccessControlEnable: lblis.AclStatus == api.LB_BOOL_ON,
+	lblis, err := lbacl.GetListener()
+	if err == nil {
+		if api.LB_BOOL_ON == lblis.AclStatus {
+			acl.AccessControlEnable = true
+		}
+	} else {
+		return nil, fmt.Errorf("regionDriver.syncLoadbalancerAcl %s", err)
 	}
+
 	if lbacl.AclEntries != nil {
 		for _, entry := range *lbacl.AclEntries {
 			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
@@ -535,6 +539,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -630,30 +635,30 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 		}
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerById")
 		}
 		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerBackendGroupById")
 		}
 
 		iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
 		err = iBackend.SyncConf(lbb.Port, lbb.Weight)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 		}
 
 		iBackend, err = iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
 		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)

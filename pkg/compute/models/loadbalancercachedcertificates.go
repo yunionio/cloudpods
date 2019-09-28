@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -259,18 +260,20 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	// check local cert
 	// todo: check fingerprint not empty & aws 证书不区分region，需要去除重复数据？
 	c := SCachedLoadbalancerCertificate{}
-	err = CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint).First(&c)
+	q1 := CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint)
+	err = q1.First(&c)
 	if err != nil {
-		log.Debugf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
-	}
+		switch err {
+		case sql.ErrNoRows:
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
+			if err != nil {
+				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
+			}
 
-	if len(c.CertificateId) == 0 {
-		localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
-		if err != nil {
-			log.Debugf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
+			lbcert.CertificateId = localcert.Id
+		default:
+			return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
 		}
-
-		lbcert.CertificateId = localcert.Id
 	} else {
 		lbcert.CertificateId = c.CertificateId
 	}
