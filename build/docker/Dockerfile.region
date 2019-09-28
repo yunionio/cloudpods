@@ -12,4 +12,5 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
+COPY ./build/region/root/opt/ /opt/
 ADD ./_output/bin/region /opt/yunion/bin/region
