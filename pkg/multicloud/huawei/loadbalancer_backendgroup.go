@@ -336,15 +336,21 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 
 	if group.StickySession != nil {
 		s := jsonutils.NewDict()
+		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
 			s.Set("type", jsonutils.NewString("SOURCE_IP"))
+			if timeout > 0 {
+				s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+			}
 		} else {
 			s.Set("type", jsonutils.NewString(LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]))
 			if len(group.StickySession.StickySessionCookie) > 0 {
 				s.Set("cookie_name", jsonutils.NewString(group.StickySession.StickySessionCookie))
+			} else {
+				if timeout > 0 {
+					s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+				}
 			}
-
-			s.Set("persistence_timeout", jsonutils.NewInt(int64(group.StickySession.StickySessionCookieTimeout)))
 		}
 
 		poolObj.Set("session_persistence", s)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
+	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
@@ -320,7 +321,12 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 	data.Set("private_key", jsonutils.NewString(privateKey))
 	data.Set("name", jsonutils.NewString(name))
 	data.Set("fingerprint", jsonutils.NewString(fingerprint))
-	count := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").Count()
+	q := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted")
+	count, err := q.CountWithError()
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+
 	if count == 0 {
 		cert := &SLoadbalancerCertificate{}
 		err := data.Unmarshal(cert)
@@ -340,7 +346,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 	}
 
 	ret := &SLoadbalancerCertificate{}
-	err := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted").First(ret)
+	err = q.First(ret)
 	if err != nil {
 		return nil, err
 	}

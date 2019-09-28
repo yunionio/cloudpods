@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -78,7 +79,7 @@ func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, 
 	return resp.GetString("RequestId")
 }
 
-// 返回requestid
+// deprecated
 func (self *SLBBackendGroup) appLBSeventhBackendServer(action string, serverId string, weight int, port int) (string, error) {
 	if len(serverId) == 0 {
 		return "", fmt.Errorf("loadbalancer backend instance id should not be empty.")
@@ -92,6 +93,62 @@ func (self *SLBBackendGroup) appLBSeventhBackendServer(action string, serverId s
 		"backends.0.Weight":     strconv.Itoa(weight),
 	}
 
+	if self.rule != nil {
+		params["LocationId"] = self.rule.GetId()
+	}
+
+	resp, err := self.lb.region.clbRequest(action, params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+// https://cloud.tencent.com/document/product/214/30677
+func (self *SLBBackendGroup) updateBackendServerWeight(action string, serverId string, weight int, port int) (string, error) {
+	if len(serverId) == 0 {
+		return "", fmt.Errorf("loadbalancer backend instance id should not be empty.")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId":       self.lb.GetId(),
+		"ListenerId":           self.listener.GetId(),
+		"Targets.0.InstanceId": serverId,
+		"Targets.0.Port":       strconv.Itoa(port),
+		"Targets.0.Weight":     strconv.Itoa(weight),
+	}
+
+	if self.rule != nil {
+		params["LocationId"] = self.rule.GetId()
+	}
+
+	resp, err := self.lb.region.clbRequest(action, params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+// https://cloud.tencent.com/document/product/214/30678
+func (self *SLBBackendGroup) updateBackendServerPort(action string, serverId string, oldPort int, newPort int) (string, error) {
+	if len(serverId) == 0 {
+		return "", fmt.Errorf("loadbalancer backend instance id should not be empty.")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId":       self.lb.GetId(),
+		"ListenerId":           self.listener.GetId(),
+		"Targets.0.InstanceId": serverId,
+		"Targets.0.Port":       strconv.Itoa(oldPort),
+		"NewPort":              strconv.Itoa(newPort),
+	}
+
+	if self.rule != nil {
+		params["LocationId"] = self.rule.GetId()
+	}
+
 	resp, err := self.lb.region.clbRequest(action, params)
 	if err != nil {
 		return "", err
@@ -101,6 +158,7 @@ func (self *SLBBackendGroup) appLBSeventhBackendServer(action string, serverId s
 }
 
 // 返回requestid
+// https://cloud.tencent.com/document/api/214/1264
 func (self *SLBBackendGroup) classicLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
 	// 传统型负载均衡忽略了port参数
 	params := map[string]string{
@@ -177,27 +235,51 @@ func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, po
 	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
-func (self *SLBBackendGroup) UpdateBackendServer(serverId string, weight int, port int) error {
+func (self *SLBBackendGroup) UpdateBackendServer(serverId string, oldWeight, oldPort, weight, newPort int) error {
 	var requestId string
 	var err error
-	if self.lb.Forward == LB_TYPE_APPLICATION {
-		if self.listener.Protocol == api.LB_LISTENER_TYPE_HTTPS || self.listener.Protocol == api.LB_LISTENER_TYPE_HTTP {
-			requestId, err = self.appLBSeventhBackendServer("ModifyForwardSeventhBackends", serverId, weight, port)
-		} else {
-			requestId, err = self.appLBBackendServer("ModifyForwardFourthBackendsWeight", serverId, weight, port)
+	// if self.lb.Forward == LB_TYPE_APPLICATION {
+	// 	// https://cloud.tencent.com/document/product/214/30678
+	// 	// https://cloud.tencent.com/document/product/214/30677
+	// 	if self.listener.Protocol == api.LB_LISTENER_TYPE_HTTPS || self.listener.Protocol == api.LB_LISTENER_TYPE_HTTP {
+	// 		requestId, err = self.appLBSeventhBackendServer("ModifyForwardSeventhBackends", serverId, weight, port)
+	// 	} else {
+	// 		requestId, err = self.appLBBackendServer("ModifyForwardFourthBackendsWeight", serverId, weight, port)
+	// 	}
+	// } else {
+	// 	requestId, err = self.classicLBBackendServer("ModifyLoadBalancerBackends", serverId, weight, port)
+	// }
+	if oldWeight != weight {
+		requestId, err = self.updateBackendServerWeight("ModifyTargetWeight", serverId, weight, oldPort)
+		if err != nil {
+			if strings.Contains(err.Error(), "not registered") {
+				return nil
+			}
+			return errors.Wrap(err, "LBBackendGroup.updateBackendServerWeight")
 		}
-	} else {
-		requestId, err = self.classicLBBackendServer("ModifyLoadBalancerBackends", serverId, weight, port)
+
+		err = self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+		if err != nil {
+			return errors.Wrap(err, "LBBackendGroup.updateBackendServerWeight.WaitLBTaskSuccess")
+		}
 	}
 
-	if err != nil {
-		if strings.Contains(err.Error(), "not registered") {
-			return nil
+	if oldPort != newPort {
+		requestId, err = self.updateBackendServerPort("ModifyTargetPort", serverId, oldPort, newPort)
+		if err != nil {
+			if strings.Contains(err.Error(), "not registered") {
+				return nil
+			}
+			return errors.Wrap(err, "LBBackendGroup.updateBackendServerPort")
 		}
-		return err
+
+		err = self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+		if err != nil {
+			return errors.Wrap(err, "LBBackendGroup.updateBackendServerPort.WaitLBTaskSuccess")
+		}
 	}
 
-	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	return nil
 }
 
 // 腾讯云无后端服务器组。

@@ -237,6 +237,33 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, er
 	return backends, nil
 }
 
+// 腾讯云要求四层监听IP+port唯一
+func (lbbg *SLoadbalancerBackendGroup) AllBackendsUnique() error {
+	backendGroupQ := LoadbalancerListenerManager.Query("backend_group_id").Equals("loadbalancer_id", lbbg.LoadbalancerId).In("listener_type", []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}).NotEquals("backend_group_id", lbbg.GetId()).IsFalse("pending_deleted").SubQuery()
+
+	backendsQ1 := []SLoadbalancerBackend{}
+	backendsQ2 := []SLoadbalancerBackend{}
+	err := LoadbalancerBackendManager.Query().Equals("backend_group_id", lbbg.GetId()).IsFalse("pending_deleted").All(&backendsQ1)
+	if err != nil {
+		return errors.Wrap(err, "loadbalancerBackendGroup.AllBackendsUnique.Q1")
+	}
+
+	err = LoadbalancerBackendManager.Query().In("backend_group_id", backendGroupQ).IsFalse("pending_deleted").All(&backendsQ2)
+	if err != nil {
+		return errors.Wrap(err, "loadbalancerBackendGroup.AllBackendsUnique.Q2")
+	}
+
+	for _, b1 := range backendsQ1 {
+		for _, b2 := range backendsQ2 {
+			if b1.BackendId == b2.BackendId && b1.Port == b2.Port {
+				return fmt.Errorf("backend %s with port %d is in used in backendgroup %s", b1.BackendId, b1.Port, b2.BackendGroupId)
+			}
+		}
+	}
+
+	return nil
+}
+
 // 返回值 TotalRef
 func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 	men := lbbg.getRefManagers()
@@ -305,7 +332,8 @@ func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, u
 }
 
 func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, error) {
-	count, err := LoadbalancerManager.Query().Equals("backend_group_id", lbbg.GetId()).Equals("id", lbbg.LoadbalancerId).CountWithError()
+	q := LoadbalancerManager.Query().Equals("backend_group_id", lbbg.GetId()).Equals("id", lbbg.LoadbalancerId)
+	count, err := q.CountWithError()
 	if err != nil {
 		return false, errors.Wrap(err, "loadbalancerBackendGroup.isDefault")
 	}

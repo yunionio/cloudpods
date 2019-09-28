@@ -36,7 +36,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -790,7 +789,7 @@ func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovid
 func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
 	client, err := self.getIamClient()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.getIamClient")
 	}
 
 	params := &iam.UploadServerCertificateInput{}
@@ -799,10 +798,26 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 	params.SetCertificateBody(cert.Certificate)
 	ret, err := client.UploadServerCertificate(params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.UploadServerCertificate")
 	}
-	// wait 3 second after upload cert
-	time.Sleep(3 * time.Second)
+
+	// wait upload cert success
+	err = cloudprovider.Wait(5*time.Second, 30*time.Second, func() (bool, error) {
+		_, err := self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.Arn)
+		if err == nil {
+			return true, nil
+		}
+
+		if err == cloudprovider.ErrNotFound {
+			return false, nil
+		} else {
+			return false, err
+		}
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "region.CreateILoadBalancerCertificate.Wait")
+	}
+
 	return self.GetILoadBalancerCertificateById(*ret.ServerCertificateMetadata.Arn)
 }
 

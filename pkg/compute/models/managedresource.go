@@ -83,6 +83,7 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 			info["account_domain"] = dc.Name
 		}
 	} else {
+		// 避免account为空导致列表加载失败，这里记录日志即可
 		log.Errorf("provider %s Cloudaccount %s not found", provider.GetName(), provider.CloudaccountId)
 	}
 
