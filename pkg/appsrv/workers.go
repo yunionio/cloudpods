@@ -144,9 +144,15 @@ type SWorkerManager struct {
 	workerLock     *sync.Mutex
 	workerId       uint64
 	dbWorker       bool
+
+	ignoreOverflow bool
 }
 
 func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) *SWorkerManager {
+	return NewWorkerManagerIgnoreOverflow(name, workerCount, backlog, dbWorker, false)
+}
+
+func NewWorkerManagerIgnoreOverflow(name string, workerCount int, backlog int, dbWorker bool, ignoreOverflow bool) *SWorkerManager {
 	manager := SWorkerManager{name: name,
 		queue:          NewRing(workerCount * backlog),
 		workerCount:    workerCount,
@@ -156,6 +162,8 @@ func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) 
 		workerLock:     &sync.Mutex{},
 		workerId:       0,
 		dbWorker:       dbWorker,
+
+		ignoreOverflow: ignoreOverflow,
 	}
 
 	workerManagers = append(workerManagers, &manager)
@@ -176,8 +184,8 @@ func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(erro
 	ret := wm.queue.Push(&sWorkerTask{task: task, worker: worker, onError: onErr})
 	if ret {
 		wm.schedule()
-	} else {
-		log.Warningf("queue full, task dropped")
+	} else if !wm.ignoreOverflow {
+		log.Warningf("[%s] queue full, task dropped", wm)
 	}
 	return ret
 }
