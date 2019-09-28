@@ -118,6 +118,7 @@ const (
 	NetworkDomain    = "network_domain"
 	NetworkRange     = "network_range"
 	NetworkFreeCount = "network_free_count"
+	NetworkPort      = "network_port"
 
 	StorageEnable = "storage_status"
 	StorageMatch  = "storage_match"
