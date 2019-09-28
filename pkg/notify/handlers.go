@@ -25,10 +25,14 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/notify/cache"
 	"yunion.io/x/onecloud/pkg/notify/models"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
@@ -57,6 +61,10 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, modelDispatcher.KeywordPlural()),
 		modelDispatcher.Filter(listHandler), metadata, "list_contacts", tags)
+
+	app.AddHandler2("GET",
+		fmt.Sprintf("%s/%s/users", prefix, modelDispatcher.KeywordPlural()),
+		modelDispatcher.Filter(keyStoneUserListHandler), metadata, "list_users", tags)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<uid>", prefix, modelDispatcher.KeywordPlural()),
@@ -345,4 +353,56 @@ func arrangeOne(ctx context.Context, listResult *modulebase.ListResult) jsonutil
 		details.Add(data)
 	}
 	return jsonutils.Marshal(models.NewSContactResponse(ctx, uid, details.String()))
+}
+
+// offset ang limit is not useable for here
+func keyStoneUserListHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, _, query, _ := fetchEnv(ctx, w, r)
+	haveContacts := jsonutils.QueryBoolean(query, "have_contacts", false)
+
+	userCred := policy.FetchUserCredential(ctx)
+	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
+	users, err := modules.UsersV3.List(s, query)
+	if err != nil {
+		log.Errorf("keystone list error: %s", err)
+		httperrors.InternalServerError(w, err.Error())
+		return
+	}
+	q := models.ContactManager.Query("uid").GroupBy("uid")
+	row, err := q.Rows()
+	if err != nil {
+		log.Errorf("get contact's uid error: %s", err)
+		httperrors.InternalServerError(w, err.Error())
+		return
+	}
+	defer row.Close()
+	uidSet, uid := make(map[string]struct{}), ""
+	for row.Next() {
+		row.Scan(&uid)
+		uidSet[uid] = struct{}{}
+	}
+
+	type sPair struct {
+		ID   string
+		Name string
+	}
+	newDatas := make([]sPair, 0, len(users.Data))
+
+	for _, data := range users.Data {
+		id, _ := data.GetString("id")
+		name, _ := data.GetString("name")
+		if _, ok := uidSet[id]; ok {
+			if haveContacts {
+				newDatas = append(newDatas, sPair{id, name})
+			}
+			continue
+		}
+		if haveContacts {
+			continue
+		}
+		newDatas = append(newDatas, sPair{id, name})
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.Marshal(newDatas), manager.Keyword())
+	appsrv.SendJSON(w, ret)
 }
