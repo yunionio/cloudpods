@@ -31,6 +31,13 @@ var LB_ALGORITHM_MAP = map[string]string{
 
 var LB_PROTOCOL_MAP = map[string]string{
 	api.LB_LISTENER_TYPE_HTTP:  "HTTP",
+	api.LB_LISTENER_TYPE_HTTPS: "TERMINATED_HTTPS",
+	api.LB_LISTENER_TYPE_UDP:   "UDP",
+	api.LB_LISTENER_TYPE_TCP:   "TCP",
+}
+
+var LBBG_PROTOCOL_MAP = map[string]string{
+	api.LB_LISTENER_TYPE_HTTP:  "HTTP",
 	api.LB_LISTENER_TYPE_HTTPS: "HTTP",
 	api.LB_LISTENER_TYPE_UDP:   "UDP",
 	api.LB_LISTENER_TYPE_TCP:   "TCP",
@@ -390,7 +397,7 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadba
 		scheduler = s
 	}
 
-	if t, ok := LB_PROTOCOL_MAP[group.ListenType]; !ok {
+	if t, ok := LBBG_PROTOCOL_MAP[group.ListenType]; !ok {
 		return ret, fmt.Errorf("CreateILoadBalancerBackendGroup unsupported listener type %s", group.ListenType)
 	} else {
 		protocol = t
@@ -413,15 +420,21 @@ func (self *SRegion) CreateLoadBalancerBackendGroup(group *cloudprovider.SLoadba
 
 	if group.StickySession != nil {
 		s := jsonutils.NewDict()
+		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
 			s.Set("type", jsonutils.NewString("SOURCE_IP"))
+			if timeout > 0 {
+				s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+			}
 		} else {
 			s.Set("type", jsonutils.NewString(LB_STICKY_SESSION_MAP[group.StickySession.StickySessionType]))
 			if len(group.StickySession.StickySessionCookie) > 0 {
 				s.Set("cookie_name", jsonutils.NewString(group.StickySession.StickySessionCookie))
+			} else {
+				if timeout > 0 {
+					s.Set("persistence_timeout", jsonutils.NewInt(timeout))
+				}
 			}
-
-			s.Set("persistence_timeout", jsonutils.NewInt(int64(group.StickySession.StickySessionCookieTimeout)))
 		}
 
 		poolObj.Set("session_persistence", s)

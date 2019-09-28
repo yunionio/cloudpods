@@ -16,10 +16,12 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -100,10 +102,10 @@ type SLoadbalancerHTTPListener struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	CachedCertificateId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	EnableHttp2     bool   `create:"optional" list:"user" update:"user"`
+	CertificateId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	CachedCertificateId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	TLSCipherPolicy     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	EnableHttp2         bool   `create:"optional" list:"user" update:"user"`
 }
 
 type SLoadbalancerListener struct {
@@ -128,10 +130,10 @@ type SLoadbalancerListener struct {
 	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
 	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	AclStatus   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	AclType     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	AclId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	CachedAclId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	AclStatus   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclType     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	CachedAclId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	SLoadbalancerRateLimiter
 
@@ -219,7 +221,7 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	}
 
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	if err := backendGroupV.Validate(data); err != nil {
+	if err := backendGroupV.Optional(true).Validate(data); err != nil {
 		return nil, err
 	}
 
@@ -563,15 +565,15 @@ func (lblis *SLoadbalancerListener) GetHuaweiLoadbalancerListenerParams() (*clou
 	if backendgroup := lblis.GetLoadbalancerBackendGroup(); backendgroup != nil {
 		cachedLbbg, err := HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
 		if err != nil {
-			return nil, err
+			if err != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "loadbalancerListener.GetCachedBackendGroupByAssociateId")
+			} else {
+				log.Debugf("loadbalancerListener.GetCachedBackendGroupByAssociateId %s not found", lblis.GetId())
+			}
+		} else {
+			listener.BackendGroupID = cachedLbbg.ExternalId
+			listener.BackendGroupType = backendgroup.Type
 		}
-
-		if cachedLbbg == nil {
-			return nil, fmt.Errorf("backendgroup %s related cached loadbalancer backendgroup not found", backendgroup.GetId())
-		}
-
-		listener.BackendGroupID = cachedLbbg.ExternalId
-		listener.BackendGroupType = backendgroup.Type
 	}
 
 	return listener, nil

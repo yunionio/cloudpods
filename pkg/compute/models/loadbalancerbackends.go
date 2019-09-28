@@ -232,6 +232,8 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 	if lbbg == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to found backendgroup for backend %s(%s)", lbb.Name, lbb.Id)
 	}
+
+	data.Set("backend_id", jsonutils.NewString(lbb.BackendId))
 	return region.GetDriver().ValidateUpdateLoadbalancerBackendData(ctx, userCred, data, lbbg)
 }
 

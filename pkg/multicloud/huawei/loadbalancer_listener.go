@@ -589,7 +589,6 @@ func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *clo
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 

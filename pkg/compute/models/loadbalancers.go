@@ -836,7 +836,8 @@ func (manager *SLoadbalancerManager) FetchByExternalId(providerId string, extId 
 
 func (manager *SLoadbalancerManager) GetLbDefaultBackendGroupIds() ([]string, error) {
 	lbs := []SLoadbalancer{}
-	err := manager.Query().IsFalse("pending_deleted").IsNotEmpty("backend_group_id").All(&lbs)
+	q := manager.Query().IsFalse("pending_deleted").IsNotEmpty("backend_group_id")
+	err := q.All(&lbs)
 	if err != nil {
 		return nil, errors.Wrap(err, "loadbalancerManager.GetLbDefaultBackendGroupIds")
 	}
