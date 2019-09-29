@@ -893,10 +893,6 @@ func (manager *SGuestManager) validateCreateData(
 			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
 		}
 
-		if len(diskConfig.ImageId) == 0 && len(diskConfig.SnapshotId) == 0 && !data.Contains("cdrom") {
-			return nil, httperrors.NewBadRequestError("Miss operating system???")
-		}
-
 		// if len(diskConfig.Backend) == 0 {
 		// 	diskConfig.Backend = STORAGE_LOCAL
 		// }
@@ -951,6 +947,10 @@ func (manager *SGuestManager) validateCreateData(
 	input, err = ValidateScheduleCreateData(ctx, userCred, input, hypervisor)
 	if err != nil {
 		return nil, err
+	}
+
+	if input.Hypervisor != api.HYPERVISOR_KVM && len(input.Disks[0].ImageId) == 0 && len(input.Disks[0].SnapshotId) == 0 && input.Cdrom == "" {
+		return nil, httperrors.NewBadRequestError("Miss operating system???")
 	}
 
 	hypervisor = input.Hypervisor
