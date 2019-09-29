@@ -259,6 +259,8 @@ type ServerCreateOptions struct {
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 
+	OsType string `help:"os type, e.g. Linux, Windows, etc."`
+
 	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
 
 	AutoPrepaidRecycle bool `help:"automatically enable prepaid recycling after server is created successfully" json:"auto_prepaid_recycle,omitfalse"`
@@ -341,6 +343,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		EipChargeType:      opts.EipChargeType,
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
+		OsType:             opts.OsType,
 	}
 
 	if opts.GenerateName {
