@@ -558,22 +558,24 @@ func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mc
 func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if len(self.DiskId) > 0 {
 		storage := self.GetStorage()
-		disk := DiskManager.FetchDiskById(self.DiskId)
-		if disk != nil && storage.StorageType == api.STORAGE_RBD {
-			cnt, err := disk.GetGuestsCount()
-			if err == nil {
-				val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
-				if cnt == 0 && val == "true" {
-					disk.StartDiskDeleteTask(ctx, userCred, "", false, true)
+		if storage != nil && storage.StorageType == api.STORAGE_RBD {
+			disk := DiskManager.FetchDiskById(self.DiskId)
+			if disk != nil {
+				cnt, err := disk.GetGuestsCount()
+				if err == nil {
+					val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
+					if cnt == 0 && val == "true" {
+						disk.StartDiskDeleteTask(ctx, userCred, "", false, true)
+					}
+				} else {
+					// very unlikely
+					log.Errorf("disk.GetGuestsCount fail %s", err)
 				}
 			} else {
-				log.Errorln(err)
-			}
-		} else {
-			if storage.StorageType == api.STORAGE_RBD {
 				backingDisks, err := self.GetBackingDisks()
 				if err != nil {
-					log.Errorln(err)
+					// very unlikely
+					log.Errorf("self.GetBackingDisks fail %s", err)
 				} else {
 					storage.StartDeleteRbdDisks(ctx, userCred, backingDisks)
 				}
