@@ -274,7 +274,6 @@ func (catalog KeystoneServiceCatalogV3) getRegions() []string {
 			}
 		}
 	}
-	fmt.Println("getRegions", regions)
 	return regions
 }
 

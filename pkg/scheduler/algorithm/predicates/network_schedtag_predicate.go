@@ -171,22 +171,6 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 			}
 		}
 	}
-	free, err := network.GetFreeAddressCount()
-	if err != nil {
-		return &FailReason{
-			Reason: fmt.Sprintf("get free address count: %v", err),
-			Type:   NetworkFreeCount,
-		}
-	}
-	req := u.SchedData().Count
-	if free < req {
-		return &FailReason{
-			Reason: fmt.Sprintf("Network %s no free IPs, free %d, require %d", network.Name, free, req),
-			Type:   NetworkFreeCount,
-		}
-	}
-	h := NewPredicateHelper(p, u, c)
-	h.SetCapacity(int64(free))
 	return nil
 }
 

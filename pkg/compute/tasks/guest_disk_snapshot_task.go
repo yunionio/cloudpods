@@ -88,6 +88,7 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotCompleteFailed(ctx context.Cont
 func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DISK_CREATE_SNAPSHOT, nil, self.UserCred, true)
 	guest.StartSyncstatus(ctx, self.UserCred, "")
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {

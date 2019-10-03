@@ -2,15 +2,14 @@ FROM frolvlad/alpine-glibc:glibc-2.28
 
 MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
 
-RUN apk update && \
-    apk add --no-cache tzdata ca-certificates && \
-    rm -rf /var/cache/apk/*
-
-RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-
 ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
-COPY ./build/region/root/opt/ /opt/
-ADD ./_output/bin/region /opt/yunion/bin/region
+RUN apk update && \
+    apk add --no-cache tzdata && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+ADD ./_output/bin/notify /opt/yunion/bin/notify
