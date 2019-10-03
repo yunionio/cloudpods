@@ -23,11 +23,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string) (bool, error) {
+func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, parentId string) (bool, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
+	q = manager.FilterByParentId(q, parentId)
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
@@ -35,12 +36,12 @@ func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, nam
 	return cnt == 0, nil
 }
 
-func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider, name string) error {
+func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider, name string, parentId string) error {
 	err := manager.ValidateName(name)
 	if err != nil {
 		return err
 	}
-	uniq, err := isNameUnique(manager, ownerId, name)
+	uniq, err := isNameUnique(manager, ownerId, name, parentId)
 	if err != nil {
 		return err
 	}
@@ -57,6 +58,7 @@ func isAlterNameUnique(model IModel, name string) (bool, error) {
 	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = manager.FilterByNotId(q, model.GetId())
+	q = manager.FilterByParentId(q, model.GetParentId())
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
@@ -96,7 +98,7 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		var uniq bool
 		var err error
 		if model == nil {
-			uniq, err = isNameUnique(manager, ownerId, name)
+			uniq, err = isNameUnique(manager, ownerId, name, "")
 		} else {
 			uniq, err = isAlterNameUnique(model, name)
 		}

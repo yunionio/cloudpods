@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -151,7 +152,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	input.ProjectId = ownerId.GetProjectId()
 	input.DomainId = ownerId.GetProjectDomainId()
 
-	err = db.NewNameValidator(manager, ownerId, input.Name)
+	err = db.NewNameValidator(manager, ownerId, input.Name, "")
 	if err != nil {
 		return nil, err
 	}
