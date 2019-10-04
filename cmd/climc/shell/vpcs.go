@@ -27,6 +27,7 @@ func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
 
+		Usable *bool  `help:"Filter usable vpcs"`
 		Region string `help:"ID or Name of region" json:"-"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, opts *VpcListOptions) error {
