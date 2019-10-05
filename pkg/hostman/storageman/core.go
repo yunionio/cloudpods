@@ -37,6 +37,10 @@ import (
 
 const MINIMAL_FREE_SPACE = 128
 
+type IStorageManager interface {
+	GetZoneName() string
+}
+
 type SStorageManager struct {
 	host hostutils.IHost
 
@@ -103,8 +107,8 @@ func (s *SStorageManager) Remove(storage IStorage) {
 	}
 }
 
-func (s *SStorageManager) GetZone() string {
-	return s.host.GetZone()
+func (s *SStorageManager) GetZoneName() string {
+	return s.host.GetZoneName()
 }
 
 func (s *SStorageManager) GetHostId() string {

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shell
 
 import (
@@ -14,6 +28,17 @@ import (
 
 func init() {
 
+	type LanConfigGetOptions struct {
+	}
+	shellutils.R(&LanConfigGetOptions{}, "lan-get", "Get configuration of BMC lan", func(cli redfish.IRedfishDriver, args *LanConfigGetOptions) error {
+		confs, err := cli.GetLanConfigs(context.Background())
+		if err != nil {
+			return err
+		}
+		printutils.PrintInterfaceList(confs, 0, 0, 0, nil)
+		return nil
+	})
+
 	type VirtualMediaGetOptions struct {
 	}
 	shellutils.R(&VirtualMediaGetOptions{}, "cdrom-get", "Get details of manager virtual media", func(cli redfish.IRedfishDriver, args *VirtualMediaGetOptions) error {
@@ -28,21 +53,12 @@ func init() {
 	})
 
 	type VirtualMediaMountOptions struct {
-		URL string `help:"cdrom http URL"`
+		URL  string `help:"cdrom http URL"`
+		Boot bool   `help:"set boot from virtualmedia on next boot"`
 	}
 	shellutils.R(&VirtualMediaMountOptions{}, "cdrom-insert", "Insert iso into virtual CD-ROM", func(cli redfish.IRedfishDriver, args *VirtualMediaMountOptions) error {
 		ctx := context.Background()
-		path, cdInfo, err := cli.GetVirtualCdromInfo(ctx)
-		if err != nil {
-			return err
-		}
-		if len(cdInfo.Image) > 0 {
-			return fmt.Errorf("image %s in cd-rom", cdInfo.Image)
-		}
-		if !cdInfo.SupportAction {
-			return fmt.Errorf("action not supported")
-		}
-		err = cli.MountVirtualCdrom(context.Background(), path, args.URL)
+		err := redfish.MountVirtualCdrom(ctx, cli, args.URL, args.Boot)
 		if err != nil {
 			return err
 		}
@@ -54,17 +70,7 @@ func init() {
 	}
 	shellutils.R(&VirtualMediaUmountOptions{}, "cdrom-eject", "Eject iso from virtual CD-ROM", func(cli redfish.IRedfishDriver, args *VirtualMediaUmountOptions) error {
 		ctx := context.Background()
-		path, cdInfo, err := cli.GetVirtualCdromInfo(ctx)
-		if err != nil {
-			return err
-		}
-		if len(cdInfo.Image) == 0 {
-			return fmt.Errorf("no image in cd-rom")
-		}
-		if !cdInfo.SupportAction {
-			return fmt.Errorf("action not supported")
-		}
-		err = cli.UmountVirtualCdrom(context.Background(), path)
+		err := redfish.UmountVirtualCdrom(ctx, cli)
 		if err != nil {
 			return err
 		}

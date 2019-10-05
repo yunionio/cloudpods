@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -50,16 +51,6 @@ import (
 
 var (
 	ALL_NETWORK_TYPES = api.ALL_NETWORK_TYPES
-)
-
-type IPAddlocationDirection string
-
-const (
-	IPAllocationStepdown IPAddlocationDirection = "stepdown"
-	IPAllocationStepup   IPAddlocationDirection = "stepup"
-	IPAllocationRadnom   IPAddlocationDirection = "random"
-	IPAllocationNone     IPAddlocationDirection = "none"
-	IPAllocationDefault                         = ""
 )
 
 type SNetworkManager struct {
@@ -289,7 +280,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 		GuestnetworkManager.Query().SubQuery(),
 		GroupnetworkManager.Query().SubQuery(),
 		HostnetworkManager.Query().SubQuery(),
-		ReservedipManager.Query().SubQuery(),
+		ReservedipManager.Query().GT("expired_at", time.Now()).SubQuery(),
 		LoadbalancernetworkManager.Query().SubQuery(),
 		ElasticipManager.Query().SubQuery(),
 		NetworkinterfacenetworkManager.Query().SubQuery(),
@@ -339,7 +330,7 @@ func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[s
 	}
 }
 
-func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir IPAddlocationDirection) (string, error) {
+func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection) (string, error) {
 	iprange := self.getIPRange()
 	// Try candidate first
 	if len(candidate) > 0 {
@@ -354,10 +345,10 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 			return candidate, nil
 		}
 	}
-	if len(self.AllocPolicy) > 0 && IPAddlocationDirection(self.AllocPolicy) != IPAllocationNone {
-		allocDir = IPAddlocationDirection(self.AllocPolicy)
+	if len(self.AllocPolicy) > 0 && api.IPAllocationDirection(self.AllocPolicy) != api.IPAllocationNone {
+		allocDir = api.IPAllocationDirection(self.AllocPolicy)
 	}
-	if len(allocDir) == 0 || allocDir == IPAllocationStepdown {
+	if len(allocDir) == 0 || allocDir == api.IPAllocationStepdown {
 		ip, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
 		for iprange.Contains(ip) {
 			if !isIpUsed(ip.String(), addrTable, recentUsedAddrTable) {
@@ -366,7 +357,7 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 			ip = ip.StepDown()
 		}
 	} else {
-		if allocDir == IPAllocationRadnom {
+		if allocDir == api.IPAllocationRadnom {
 			iprange := self.getIPRange()
 			const MAX_TRIES = 5
 			for i := 0; i < MAX_TRIES; i += 1 {
@@ -388,21 +379,29 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable m
 	return "", httperrors.NewInsufficientResourceError("Out of IP address")
 }
 
-func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir IPAddlocationDirection, reserved bool) (string, error) {
+func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCredential, addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir api.IPAllocationDirection, reserved bool) (string, error) {
+	// if reserved true, first try find IP in reserved IP pool
 	if reserved {
 		rip := ReservedipManager.GetReservedIP(self, candidate)
-		if rip == nil {
-			return "", httperrors.NewInsufficientResourceError("Reserved address %s not found", candidate)
+		if rip != nil {
+			rip.Release(ctx, userCred, self)
+			return candidate, nil
 		}
-		rip.Release(ctx, userCred, self)
-		return candidate, nil
-	} else {
-		cand, err := self.getFreeIP(addrTable, recentUsedAddrTable, candidate, allocDir)
-		if err != nil {
-			return "", err
-		}
-		return cand, nil
+		// return "", httperrors.NewInsufficientResourceError("Reserved address %s not found", candidate)
+		// if not find, warning, then fallback to normal procedure
+		log.Warningf("Reserved address %s not found", candidate)
 	}
+	if addrTable == nil {
+		addrTable = self.GetUsedAddresses()
+	}
+	if recentUsedAddrTable == nil {
+		recentUsedAddrTable = GuestnetworkManager.getRecentlyReleasedIPAddresses(self.Id, self.getAllocTimoutDuration())
+	}
+	cand, err := self.getFreeIP(addrTable, recentUsedAddrTable, candidate, allocDir)
+	if err != nil {
+		return "", err
+	}
+	return cand, nil
 }
 
 func (self *SNetwork) GetUsedIfnames() map[string]bool {
@@ -1041,28 +1040,47 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("ips")
 	}
+
+	var duration time.Duration
+	durationStr, _ := data.GetString("duration")
+	if len(durationStr) > 0 {
+		bc, err := billing.ParseBillingCycle(durationStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Duration %s invalid", durationStr)
+		}
+		duration = bc.Duration()
+	}
+
 	for _, ip := range ips {
 		ipstr, _ := ip.GetString()
-		ipAddr, err := netutils.NewIPV4Addr(ipstr)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
-		}
-		if !self.IsAddressInRange(ipAddr) {
-			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
-		}
-		used, err := self.isAddressUsed(ipstr)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
-		}
-		if used {
-			return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
-		}
-		err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
+		err := self.reserveIpWithDuration(ctx, userCred, ipstr, notes, duration)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return nil, nil
+}
+
+func (self *SNetwork) reserveIpWithDuration(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration) error {
+	ipAddr, err := netutils.NewIPV4Addr(ipstr)
+	if err != nil {
+		return httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
+	}
+	if !self.IsAddressInRange(ipAddr) {
+		return httperrors.NewInputParameterError("Address %s not in network", ipstr)
+	}
+	used, err := self.isAddressUsed(ipstr)
+	if err != nil {
+		return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+	}
+	if used {
+		return httperrors.NewConflictError("Address %s has been used", ipstr)
+	}
+	err = ReservedipManager.ReserveIPWithDuration(userCred, self, ipstr, notes, duration)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SNetwork) AllowPerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1074,7 +1092,7 @@ func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcc
 	if len(ipstr) == 0 {
 		return nil, httperrors.NewInputParameterError("Reserved ip to release must be provided")
 	}
-	rip := ReservedipManager.GetReservedIP(self, ipstr)
+	rip := ReservedipManager.getReservedIP(self, ipstr)
 	if rip == nil {
 		return nil, httperrors.NewInvalidStatusError("Address %s not reserved", ipstr)
 	}
@@ -2162,14 +2180,6 @@ func (network *SNetwork) getAllocTimoutDuration() time.Duration {
 		tos = options.Options.MinimalIpAddrReusedIntervalSeconds
 	}
 	return time.Duration(tos) * time.Second
-}
-
-func (manager *SNetworkManager) IsValidOnPremiseNetworkIP(ipStr string) bool {
-	net, _ := manager.GetOnPremiseNetworkOfIP(ipStr, "", tristate.None)
-	if net != nil {
-		return true
-	}
-	return false
 }
 
 func (network *SNetwork) GetSchedtags() []SSchedtag {

@@ -178,7 +178,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	if imageCacheManager == nil {
 		return nil, fmt.Errorf("failed to find image cache manger for storage %s", d.Storage.GetStorageName())
 	}
-	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "", "")
+	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "")
 	if imageCache == nil {
 		return nil, fmt.Errorf("failed to qcquire image for storage %s", d.Storage.GetStorageName())
 	}

@@ -23,7 +23,7 @@ import (
 )
 
 type SExternalizedResourceBase struct {
-	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional"`
+	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func (model SExternalizedResourceBase) GetExternalId() string {

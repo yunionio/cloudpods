@@ -1,9 +1,23 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package redfish
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -98,7 +113,7 @@ func (r *SBaseRedfishClient) request(ctx context.Context, method httputils.THttp
 	return hdr, resp, nil
 }
 
-func SetCookieHeader(hdr http.Header, cookies map[string]string) {
+/*func SetCookieHeader(hdr http.Header, cookies map[string]string) {
 	cookieParts := make([]string, 0)
 	for k, v := range cookies {
 		cookieParts = append(cookieParts, k+"="+v)
@@ -121,7 +136,7 @@ func (r *SBaseRedfishClient) RawRequest(ctx context.Context, method httputils.TH
 		return nil, nil, errors.Wrap(err, "httputils.Request")
 	}
 	return hdr, rspBody, nil
-}
+}*/
 
 func (r *SBaseRedfishClient) Get(ctx context.Context, path string) (jsonutils.JSONObject, error) {
 	_, resp, err := r.request(ctx, httputils.GET, path, nil, nil)
@@ -322,7 +337,7 @@ func (r *SBaseRedfishClient) GetVirtualCdromInfo(ctx context.Context) (string, S
 	return path, cdInfo, nil
 }
 
-func (r *SBaseRedfishClient) MountVirtualCdrom(ctx context.Context, path string, cdromUrl string) error {
+func (r *SBaseRedfishClient) MountVirtualCdrom(ctx context.Context, path string, cdromUrl string, boot bool) error {
 	info := jsonutils.NewDict()
 	info.Set("Image", jsonutils.NewString(cdromUrl))
 
@@ -365,6 +380,12 @@ func (r *SBaseRedfishClient) GetSystemInfo(ctx context.Context) (string, SSystem
 	sysInfo.SKU = strings.TrimSpace(sysInfo.SKU)
 	sysInfo.Model = strings.TrimSpace(sysInfo.Model)
 	sysInfo.Manufacturer = strings.TrimSpace(sysInfo.Manufacturer)
+
+	if strings.EqualFold(sysInfo.PowerState, types.POWER_STATUS_ON) {
+		sysInfo.PowerState = types.POWER_STATUS_ON
+	} else {
+		sysInfo.PowerState = types.POWER_STATUS_OFF
+	}
 
 	memGBStr, _ := resp.GetString("MemorySummary", "TotalSystemMemoryGiB")
 	memGB, _ := strconv.ParseInt(memGBStr, 10, 64)
@@ -413,9 +434,16 @@ func (r *SBaseRedfishClient) GetSystemInfo(ctx context.Context) (string, SSystem
 			if err != nil {
 				return path, sysInfo, errors.Wrapf(err, "Get EthernetInterface[%d] error", i)
 			}
-			macAddr, _ := nicInfo.GetString("MacAddress")
-			if len(macAddr) == 0 {
-				macAddr, _ = nicInfo.GetString("PermanentMACAddress")
+			var macAddr string
+			for _, key := range []string{
+				"MacAddress",
+				"MACAddress",
+				"PermanentMACAddress",
+			} {
+				macAddr, _ = nicInfo.GetString(key)
+				if len(macAddr) > 0 {
+					break
+				}
 			}
 			sysInfo.EthernetNICs[i] = netutils.FormatMacAddr(macAddr)
 		}
@@ -684,4 +712,66 @@ func (r *SBaseRedfishClient) SetNTPConf(ctx context.Context, conf SNTPConf) erro
 
 func (r *SBaseRedfishClient) GetConsoleJNLP(ctx context.Context) (string, error) {
 	return "", httperrors.ErrNotImplemented
+}
+
+func (r *SBaseRedfishClient) GetLanConfigs(ctx context.Context) ([]types.SIPMILanConfig, error) {
+	_, ethIfsJson, err := r.GetResource(ctx, "Managers", "0", "EthernetInterfaces")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetResource Managers 0 EthernetInterfaces")
+	}
+	ethIfs, err := ethIfsJson.GetArray(r.IRedfishDriver().MemberKey())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetArray")
+	}
+	ret := make([]types.SIPMILanConfig, 0)
+	for i := range ethIfs {
+		ethLink, _ := ethIfs[i].GetString(r.IRedfishDriver().LinkKey())
+		if len(ethLink) == 0 {
+			continue
+		}
+		ethJson, err := r.Get(ctx, ethLink)
+		if err != nil {
+			continue
+		}
+		v4Addrs, err := ethJson.GetArray("IPv4Addresses")
+		if err != nil {
+			continue
+		}
+		if len(v4Addrs) == 0 {
+			continue
+		}
+		for i := range v4Addrs {
+			addr, err := v4Addrs[i].GetString("Address")
+			if err != nil {
+				continue
+			}
+			if len(addr) > 0 && addr != "0.0.0.0" {
+				// find a config
+				conf := types.SIPMILanConfig{}
+				conf.IPAddr = addr
+				mask, _ := v4Addrs[i].GetString("SubnetMask")
+				conf.Netmask = mask
+				gw, _ := v4Addrs[i].GetString("Gateway")
+				conf.Gateway = gw
+				src, _ := v4Addrs[i].GetString("AddressOrigin")
+				if len(src) == 0 || src == "null" {
+					src = "static"
+				}
+				conf.IPSrc = strings.ToLower(src)
+				mac, _ := ethJson.GetString("MACAddress")
+				conf.Mac, _ = net.ParseMAC(mac)
+				var vlanId int64
+				if ethJson.Contains("VLAN") {
+					vlanId, _ = ethJson.Int("VLAN", "VLANId")
+				} else {
+					vlanId, _ = ethJson.Int("VLANId")
+				}
+				speed, _ := ethJson.Int("SpeedMbps")
+				conf.SpeedMbps = int(speed)
+				conf.VlanId = int(vlanId)
+				ret = append(ret, conf)
+			}
+		}
+	}
+	return ret, nil
 }

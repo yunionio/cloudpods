@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -181,6 +181,7 @@ type TaskFactory func(bm IBaremetal, taskId string, data jsonutils.JSONObject) (
 
 type SBaremetalTaskBase struct {
 	Baremetal    IBaremetal
+	PxeBoot      bool
 	userCred     mcclient.TokenCredential
 	stageFunc    TaskStageFunc
 	sshStageFunc SSHTaskStageFunc
@@ -286,14 +287,18 @@ func (self *SBaremetalTaskBase) EnsurePowerShutdown(soft bool) error {
 }
 
 func (self *SBaremetalTaskBase) EnsurePowerUp() error {
-	log.Infof("EnsurePowerUp: bootdev=pxe")
+	log.Infof("EnsurePowerUp: bootdev=pxe %v", self.PxeBoot)
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
 		return errors.Wrapf(err, "Get power status")
 	}
 	for status == "" || status == types.POWER_STATUS_OFF {
 		if status == types.POWER_STATUS_OFF {
-			err = self.Baremetal.DoPXEBoot()
+			if self.PxeBoot {
+				err = self.Baremetal.DoPXEBoot()
+			} else {
+				err = self.Baremetal.DoRedfishPowerOn()
+			}
 			if err != nil {
 				return errors.Wrapf(err, "Do PXE boot")
 			}
@@ -353,6 +358,18 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 		pxeBootTask.SetSSHStageParams(pxeBootTask, sshConf.RemoteIP, sshConf.Password)
 		return self, nil
 	}
+
+	// generate ISO
+	if err := self.Baremetal.GenerateBootISO(); err != nil {
+		log.Errorf("GenerateBootISO fail: %s", err)
+		if !o.Options.EnablePxeBoot || !self.Baremetal.EnablePxeBoot() {
+			return self, errors.Wrap(err, "self.Baremetal.GenerateBootISO")
+		}
+		self.PxeBoot = true
+	} else {
+		self.PxeBoot = false
+	}
+
 	// Do soft reboot
 	if data != nil && jsonutils.QueryBoolean(data, "soft_boot", false) {
 		self.startTime = time.Now()
@@ -364,12 +381,14 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 
 		return self, nil
 	}
+
 	// shutdown and power up to PXE mode
 	if err := self.EnsurePowerShutdown(false); err != nil {
-		return self, fmt.Errorf("EnsurePowerShutdown: %v", err)
+		return self, errors.Wrap(err, "EnsurePowerShutdown")
 	}
+
 	if err := self.EnsurePowerUp(); err != nil {
-		return self, errors.Wrapf(err, "EnsurePowerUp to pxe")
+		return self, errors.Wrap(err, "EnsurePowerUp to pxe")
 	}
 	// this stage will be called by baremetalInstance when pxe start notify
 	self.SetSSHStage(pxeBootTask.OnPXEBoot)

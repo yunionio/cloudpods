@@ -58,7 +58,7 @@ type IImageCacheManger interface {
 }
 
 type SBaseImageCacheManager struct {
-	storagemanager  *SStorageManager
+	storageManager  IStorageManager
 	storagecacaheId string
 	cachePath       string
 	cachedImages    map[string]IImageCache
@@ -75,4 +75,8 @@ func (c *SBaseImageCacheManager) GetId() string {
 
 func (c *SBaseImageCacheManager) SetStoragecacheId(scid string) {
 	c.storagecacaheId = scid
+}
+
+func (c *SBaseImageCacheManager) GetStorageManager() IStorageManager {
+	return c.storageManager
 }

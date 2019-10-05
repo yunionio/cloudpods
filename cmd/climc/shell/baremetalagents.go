@@ -47,6 +47,15 @@ func init() {
 	type BaremetalAgentOpsOperations struct {
 		ID string `help:"ID or name of agent"`
 	}
+	R(&BaremetalAgentOpsOperations{}, "agent-show", "Show details of an agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+		result, err := modules.Baremetalagents.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&BaremetalAgentOpsOperations{}, "agent-enable", "Enable agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
 		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "enable", nil)
 		if err != nil {

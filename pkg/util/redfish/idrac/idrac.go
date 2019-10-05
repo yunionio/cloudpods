@@ -1,11 +1,22 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package idrac
 
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
+	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/redfish/generic"
 )
 
@@ -73,7 +85,7 @@ func (r *SIDracRefishApi) GetVirtualCdromInfo(ctx context.Context) (string, redf
 	return path, cdInfo, nil
 }
 
-func (r *SIDracRefishApi) MountVirtualCdrom(ctx context.Context, path string, cdromUrl string) error {
+func (r *SIDracRefishApi) MountVirtualCdrom(ctx context.Context, path string, cdromUrl string, boot bool) error {
 	info := jsonutils.NewDict()
 	info.Set("Image", jsonutils.NewString(cdromUrl))
 
@@ -83,6 +95,12 @@ func (r *SIDracRefishApi) MountVirtualCdrom(ctx context.Context, path string, cd
 		return errors.Wrap(err, "r.Post")
 	}
 	// log.Debugf("%s", resp.PrettyString())
+	if boot {
+		err = r.SetNextBootVirtualCdrom(ctx)
+		if err != nil {
+			return errors.Wrap(err, "r.SetNextBootVirtualCdrom")
+		}
+	}
 	return nil
 }
 
@@ -312,68 +330,6 @@ func (r *SIDracRefishApi) doImportConfig(ctx context.Context, conf iDRACConfig) 
 }
 
 func (r *SIDracRefishApi) GetConsoleJNLP(ctx context.Context) (string, error) {
-	loginData := strings.Join([]string{
-		"user=" + url.QueryEscape(r.GetUsername()),
-		"password=" + url.QueryEscape(r.GetPassword()),
-	}, "&")
-
-	// cookie:
-	// -http-session-=::http.session::0103fd02ceac2d642361b6fdcd4a5994;
-	// sysidledicon=ledIcon%20grayLed;
-	// tokenvalue=478be97abdaeb4d454c0418fcca9094d
-
-	cookies := make(map[string]string)
-	cookies["-http-session-"] = ""
-
-	// first do html login
-	postHdr := http.Header{}
-	postHdr.Set("Content-Type", "application/x-www-form-urlencoded")
-	redfish.SetCookieHeader(postHdr, cookies)
-	hdr, loginResp, err := r.RawRequest(ctx, httputils.POST, "/data/login", postHdr, []byte(loginData))
-	if err != nil {
-		return "", errors.Wrap(err, "r.FormPost Login")
-	}
-	for _, cookieHdr := range hdr["Set-Cookie"] {
-		parts := strings.Split(cookieHdr, ";")
-		if len(parts) > 0 {
-			pparts := strings.Split(parts[0], "=")
-			if len(pparts) > 1 {
-				cookies[pparts[0]] = pparts[1]
-			}
-		}
-	}
-	forwardUrlPattern := regexp.MustCompile(`<forwardUrl>(.*)</forwardUrl>`)
-	matched := forwardUrlPattern.FindAllStringSubmatch(string(loginResp), -1)
-	indexUrlStr := ""
-	if len(matched) > 0 && len(matched[0]) > 1 {
-		indexUrlStr = matched[0][1]
-	}
-	if len(indexUrlStr) == 0 {
-		return "", errors.Wrapf(httperrors.ErrBadRequest, "no valid forwardUrl")
-	}
-
-	tokenPattern := regexp.MustCompile(`ST1=(\w+),ST2=`)
-	matched = tokenPattern.FindAllStringSubmatch(indexUrlStr, -1)
-	log.Debugf("%s", matched)
-	token := ""
-	if len(matched) > 0 && len(matched[0]) > 1 {
-		token = matched[0][1]
-	}
-	cookies["tokenvalue"] = token
-
-	getHdr := http.Header{}
-	redfish.SetCookieHeader(getHdr, cookies)
-
-	_, sysInfo, err := r.GetSystemInfo(ctx)
-	if err != nil {
-		return "", errors.Wrap(err, "r.GetSystemInfo")
-	}
-	sysStr := url.QueryEscape(fmt.Sprintf("idrac-%s, %s, User: %s", sysInfo.SKU, sysInfo.Model, r.GetUsername()))
-	path := fmt.Sprintf("viewer.jnlp(%s@0@%s@%d@ST1=%s)", r.GetHost(), sysStr, time.Now().UnixNano()/1000000, token)
-
-	_, rspBody, err := r.RawRequest(ctx, httputils.GET, path, getHdr, nil)
-	if err != nil {
-		return "", errors.Wrapf(err, "r.RawGet %s", path)
-	}
-	return string(rspBody), nil
+	bmc := bmconsole.NewBMCConsole(r.GetHost(), r.GetUsername(), r.GetPassword(), r.IsDebug)
+	return bmc.GetIdracConsoleJNLP(ctx, "", "")
 }

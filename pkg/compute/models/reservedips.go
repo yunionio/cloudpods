@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -53,6 +54,8 @@ type SReservedip struct {
 	IpAddr    string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
 
 	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"` // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
+
+	ExpiredAt time.Time `nullable:"true" list:"admin"`
 }
 
 func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -76,7 +79,15 @@ func (self *SReservedip) AllowDeleteItem(ctx context.Context, userCred mcclient.
 }
 
 func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string) error {
-	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes}
+	return manager.ReserveIPWithDuration(userCred, network, ip, notes, 0)
+}
+
+func (manager *SReservedipManager) ReserveIPWithDuration(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration) error {
+	expiredAt := time.Time{}
+	if duration > 0 {
+		expiredAt = time.Now().UTC().Add(duration)
+	}
+	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt}
 	err := manager.TableSpec().Insert(&rip)
 	if err != nil {
 		log.Errorf("ReserveIP fail: %s", err)
@@ -86,11 +97,12 @@ func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, 
 	return nil
 }
 
-func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *SReservedip {
+func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string) *SReservedip {
 	rip := SReservedip{}
 	rip.SetModelManager(manager, &rip)
 
-	err := manager.Query().Equals("network_id", network.Id).Equals("ip_addr", ip).First(&rip)
+	q := manager.Query().Equals("network_id", network.Id).Equals("ip_addr", ip)
+	err := q.First(&rip)
 	if err != nil {
 		log.Errorf("GetReservedIP fail: %s", err)
 		return nil
@@ -98,9 +110,21 @@ func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *
 	return &rip
 }
 
+func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *SReservedip {
+	rip := manager.getReservedIP(network, ip)
+	if rip == nil {
+		return nil
+	}
+	if rip.IsExpired() {
+		return nil
+	}
+	return rip
+}
+
 func (manager *SReservedipManager) GetReservedIPs(network *SNetwork) []SReservedip {
 	rips := make([]SReservedip, 0)
-	q := manager.Query().Equals("network_id", network.Id)
+	now := time.Now().UTC()
+	q := manager.Query().Equals("network_id", network.Id).GT("expired_at", now)
 	err := db.FetchModelObjects(manager, q, &rips)
 	if err != nil {
 		log.Errorf("GetReservedIPs fail: %s", err)
@@ -135,6 +159,11 @@ func (self *SReservedip) GetCustomizeColumns(ctx context.Context, userCred mccli
 	if net != nil {
 		extra.Add(jsonutils.NewString(net.Name), "network")
 	}
+	if self.IsExpired() {
+		extra.Add(jsonutils.JSONTrue, "expired")
+	} else {
+		extra.Add(jsonutils.JSONFalse, "expired")
+	}
 	return extra
 }
 
@@ -143,6 +172,13 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 	if err != nil {
 		log.Errorf("ListItemFilter %s", err)
 		return nil, err
+	}
+	isAll := jsonutils.QueryBoolean(query, "all", false)
+	if !isAll {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
+			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
+		))
 	}
 	network, _ := query.GetString("network")
 	if len(network) > 0 {
@@ -161,4 +197,11 @@ func (rip *SReservedip) GetId() string {
 
 func (rip *SReservedip) GetName() string {
 	return rip.GetId()
+}
+
+func (rip *SReservedip) IsExpired() bool {
+	if !rip.ExpiredAt.IsZero() && rip.ExpiredAt.Before(time.Now().UTC()) {
+		return true
+	}
+	return false
 }

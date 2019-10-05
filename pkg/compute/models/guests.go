@@ -2329,7 +2329,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 	pendingUsage quotas.IQuota,
 	address string,
 	driver string, bwLimit int, virtual bool,
-	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool,
+	reserved bool, allocDir api.IPAllocationDirection, requireDesignatedIP bool,
 	nicConfs []SNicConfig) ([]SGuestnetwork, error) {
 
 	firstNic, err := self.attach2NetworkOnce(ctx, userCred, network, pendingUsage, address, driver, bwLimit, virtual,
@@ -2359,7 +2359,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 	pendingUsage quotas.IQuota,
 	address string,
 	driver string, bwLimit int, virtual bool,
-	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool,
+	reserved bool, allocDir api.IPAllocationDirection, requireDesignatedIP bool,
 	nicConf SNicConfig, teamWithMac string) (*SGuestnetwork, error) {
 	/*
 		allow a guest attach to a network 2 times
@@ -2539,7 +2539,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			Ifname: "",
 		}
 		_, err = self.Attach2Network(ctx, userCred, add.net, nil, ipStr,
-			add.nic.GetDriver(), 0, false, add.reserve, IPAllocationDefault, true, []SNicConfig{nicConf})
+			add.nic.GetDriver(), 0, false, add.reserve, api.IPAllocationDefault, true, []SNicConfig{nicConf})
 		if err != nil {
 			result.AddError(err)
 		} else {

@@ -151,7 +151,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
-	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string, teamWithMac string) (*SGuestnetwork, error) {
+	allocDir api.IPAllocationDirection, requiredDesignatedIp bool, ifName string, teamWithMac string) (*SGuestnetwork, error) {
 
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager, &gn)

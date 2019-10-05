@@ -1,9 +1,21 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ilo
 
 import (
-	"bytes"
 	"context"
-	"net/http"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -12,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
+	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/redfish/generic"
 )
 
@@ -179,6 +192,9 @@ func (r *SILORefishApi) SetNTPConf(ctx context.Context, conf redfish.SNTPConf) e
 	if err != nil {
 		return errors.Wrap(err, "r.GetResource Managers 0")
 	}
+	if len(conf.NTPServers) > 2 {
+		conf.NTPServers = conf.NTPServers[:2]
+	}
 	dateUrl := httputils.JoinPath(path, "DateTime")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewStringArray(conf.NTPServers), "StaticNTPServers")
@@ -194,62 +210,37 @@ func (r *SILORefishApi) SetNTPConf(ctx context.Context, conf redfish.SNTPConf) e
 }
 
 func (r *SILORefishApi) GetConsoleJNLP(ctx context.Context) (string, error) {
-	loginData := jsonutils.NewDict()
-	loginData.Add(jsonutils.NewString("login"), "method")
-	loginData.Add(jsonutils.NewString(r.GetUsername()), "user_login")
-	loginData.Add(jsonutils.NewString(r.GetPassword()), "password")
+	bmc := bmconsole.NewBMCConsole(r.GetHost(), r.GetUsername(), r.GetPassword(), r.IsDebug)
+	return bmc.GetIloConsoleJNLP(ctx)
+}
 
-	postHdr := http.Header{}
-	postHdr.Set("Content-Type", "application/json")
-	_, loginRespBytes, err := r.RawRequest(ctx, httputils.POST, "/json/login_session", postHdr, []byte(loginData.String()))
+func (r *SILORefishApi) MountVirtualCdrom(ctx context.Context, path string, cdromUrl string, boot bool) error {
+	info := jsonutils.NewDict()
+	info.Set("Image", jsonutils.NewString(cdromUrl))
+	if boot {
+		cdInfo, err := r.Get(ctx, path)
+		if err != nil {
+			return errors.Wrapf(err, "Get %s", path)
+		}
+		var oemKey string
+		_, err = cdInfo.Bool("Oem", "Hp", "BootOnNextServerReset")
+		if err != nil {
+			_, err = cdInfo.Bool("Oem", "Hpe", "BootOnNextServerReset")
+			if err != nil {
+				return errors.Wrap(err, "no BootOnNextServerReset found???")
+			} else {
+				oemKey = "Hpe"
+			}
+		} else {
+			oemKey = "Hp"
+		}
+		info.Add(jsonutils.JSONTrue, "Oem", oemKey, "BootOnNextServerReset")
+	}
+
+	resp, err := r.Patch(ctx, path, info)
 	if err != nil {
-		return "", errors.Wrap(err, "r.FormPost Login")
+		return errors.Wrap(err, "r.Patch")
 	}
-
-	loginRespJson, err := jsonutils.Parse(loginRespBytes)
-	if err != nil {
-		return "", errors.Wrap(err, "jsonutils.Parse loginRespBytes")
-	}
-
-	sessionKey, err := loginRespJson.GetString("session_key")
-	if err != nil {
-		return "", errors.Wrap(err, "Get session_key")
-	}
-
-	endpoint := r.GetEndpoint()
-	if !strings.HasSuffix(endpoint, "/") {
-		endpoint += "/"
-	}
-
-	cookies := make(map[string]string)
-	cookies["sessionKey"] = sessionKey
-	cookies["sessionLang"] = "en"
-	cookies["sessionUrl"] = endpoint
-
-	getHdr := http.Header{}
-	redfish.SetCookieHeader(getHdr, cookies)
-	_, tempBytes, err := r.RawRequest(ctx, httputils.GET, "/html/jnlp_template.html", getHdr, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "request template")
-	}
-
-	startToken := []byte("<![CDATA[\n")
-	endToken := []byte("]]>")
-	pos := bytes.Index(tempBytes, startToken)
-	if pos < 0 {
-		return "", errors.Wrapf(err, "invalid template content %s: no start token", tempBytes)
-	}
-	tempBytes = tempBytes[pos+len(startToken):]
-	pos = bytes.Index(tempBytes, endToken)
-	if pos < 0 {
-		return "", errors.Wrapf(err, "invalid template content %s: no end token", tempBytes)
-	}
-	template := string(tempBytes[:pos])
-
-	// replace variables
-	template = strings.ReplaceAll(template, "<%= this.baseUrl %>", endpoint)
-	template = strings.ReplaceAll(template, "<%= this.sessionKey %>", sessionKey)
-	template = strings.ReplaceAll(template, "<%= this.langId %>", "en")
-
-	return template, nil
+	log.Debugf("%s", resp.PrettyString())
+	return nil
 }

@@ -32,12 +32,12 @@ import (
 type SLocalImageCacheManager struct {
 	SBaseImageCacheManager
 	// limit      int
-	isTemplate bool
+	// isTemplate bool
 }
 
-func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, storagecacheId string) *SLocalImageCacheManager {
+func NewLocalImageCacheManager(manager IStorageManager, cachePath string, storagecacheId string) *SLocalImageCacheManager {
 	imageCacheManager := new(SLocalImageCacheManager)
-	imageCacheManager.storagemanager = manager
+	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.cachePath = cachePath
 	// imageCacheManager.limit = limit
@@ -130,7 +130,7 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	format, _ := body.GetString("format")
 	srcUrl, _ := body.GetString("src_url")
 
-	if imgCache := c.AcquireImage(ctx, imageId, storageManager.GetZone(),
+	if imgCache := c.AcquireImage(ctx, imageId, c.GetStorageManager().GetZoneName(),
 		srcUrl, format); imgCache != nil {
 		defer imgCache.Release()
 

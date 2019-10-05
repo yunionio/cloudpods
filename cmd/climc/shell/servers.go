@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func init() {
@@ -1145,6 +1146,27 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type ServerJnlpOptions struct {
+		ID   string `help:"ID or name of server"`
+		Save string `help:"save xml into this file"`
+	}
+	R(&ServerJnlpOptions{}, "server-jnlp", "Get baremetal server jnlp file contentn", func(s *mcclient.ClientSession, args *ServerJnlpOptions) error {
+		spec, err := modules.Servers.GetSpecific(s, args.ID, "jnlp", nil)
+		if err != nil {
+			return err
+		}
+		jnlp, err := spec.GetString("jnlp")
+		if err != nil {
+			return err
+		}
+		if len(args.Save) > 0 {
+			return fileutils2.FilePutContents(args.Save, jnlp, false)
+		} else {
+			fmt.Println(jnlp)
+		}
 		return nil
 	})
 }

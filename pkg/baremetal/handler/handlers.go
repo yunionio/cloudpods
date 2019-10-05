@@ -63,12 +63,13 @@ func initBaremetalsHandler(app *appsrv.Application) {
 	AddHandler(app, "GET", bmActionPrefix("notify"), bmObjMiddleware(handleBaremetalNotify))
 	AddHandler(app, "POST", bmActionPrefix("maintenance"), bmObjMiddleware(handleBaremetalMaintenance))
 	AddHandler(app, "POST", bmActionPrefix("unmaintenance"), bmObjMiddleware(handleBaremetalUnmaintenance))
-	AddHandler(app, "POST", bmActionPrefix("delete"), bmObjMiddleware(handleBaremetalDelete))
+	AddHandler(app, "POST", bmActionPrefix("delete"), bmObjMiddlewareWithFetch(handleBaremetalDelete, false))
 	AddHandler(app, "POST", bmActionPrefix("syncstatus"), bmObjMiddleware(handleBaremetalSyncStatus))
 	AddHandler(app, "POST", bmActionPrefix("sync-config"), bmObjMiddleware(handleBaremetalSyncConfig))
 	AddHandler(app, "POST", bmActionPrefix("sync-ipmi"), bmObjMiddleware(handleBaremetalSyncIPMI))
 	AddHandler(app, "POST", bmActionPrefix("prepare"), bmObjMiddleware(handleBaremetalPrepare))
 	AddHandler(app, "POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
+	AddHandler(app, "POST", bmActionPrefix("ipmi-probe"), bmObjMiddleware(handleBaremetalIpmiProbe))
 
 	// server actions handler
 	AddHandler(app, "POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
@@ -145,6 +146,11 @@ func handleBaremetalPrepare(ctx *Context, bm *baremetal.SBaremetalInstance) {
 
 func handleBaremetalResetBMC(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	bm.StartBaremetalResetBMCTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	ctx.ResponseOk()
+}
+
+func handleBaremetalIpmiProbe(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	bm.StartBaremetalIpmiProbeTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }
 
