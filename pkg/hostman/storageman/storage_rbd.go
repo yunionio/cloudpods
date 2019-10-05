@@ -560,7 +560,7 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 			"name":     s.StorageName,
 			"capacity": capacity,
 			"status":   api.STORAGE_ONLINE,
-			"zone":     s.GetZone(),
+			"zone":     s.GetZoneName(),
 		}
 		return modules.Storages.Put(hostutils.GetComputeSession(context.Background()), s.StorageId, jsonutils.Marshal(content))
 	}
@@ -639,7 +639,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
 	params := jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString("killed"))
-	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, s.GetZone()),
+	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, s.GetZoneName()),
 		imageId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -695,7 +695,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	}
 	params.Set("image_id", jsonutils.NewString(imageId))
 
-	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZone()),
+	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZoneName()),
 		params, f, size)
 	return err
 }

@@ -41,7 +41,11 @@ type BaremetalOptions struct {
 	DefaultStrongIpmiPassword string `help:"Default strong IPMI passowrd"`
 
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
-	EnableTftpHttpDownload  bool `default:"true" help:"Pxelinux download file through http"`
+	// EnableTftpHttpDownload  bool `default:"true" help:"Pxelinux download file through http"`
+
+	CachePath     string `help:"local image cache directory"`
+	EnablePxeBoot bool   `help:"Enable DHCP PXE boot" default:"true"`
+	BootIsoPath   string `help:"iso boot image path"`
 }
 
 var (

@@ -22,11 +22,15 @@ const (
 )
 
 type SIPMIInfo struct {
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	IpAddr     string `json:"ip_addr"`
-	Present    bool   `json:"present"`
-	LanChannel int    `json:"lan_channel"`
+	Username   string `json:"username,omitempty"`
+	Password   string `json:"password,omitempty"`
+	IpAddr     string `json:"ip_addr,omitempty"`
+	Present    bool   `json:"present,omitempty"`
+	LanChannel int    `json:"lan_channel,omitzero"`
+	Verified   bool   `json:"verified,omitfalse"`
+	RedfishApi bool   `json:"redfish_api,omitfalse"`
+	CdromBoot  bool   `json:"cdrom_boot,omitfalse"`
+	PxeBoot    bool   `json:"pxe_boot,omitfalse"`
 }
 
 func (info SIPMIInfo) ToPrepareParams() jsonutils.JSONObject {
@@ -42,5 +46,17 @@ func (info SIPMIInfo) ToPrepareParams() jsonutils.JSONObject {
 	}
 	data.Add(jsonutils.NewBool(info.Present), "ipmi_present")
 	data.Add(jsonutils.NewInt(int64(info.LanChannel)), "ipmi_lan_channel")
+	if info.Verified {
+		data.Add(jsonutils.JSONTrue, "ipmi_verified")
+	}
+	if info.RedfishApi {
+		data.Add(jsonutils.JSONTrue, "ipmi_redfish_api")
+	}
+	if info.CdromBoot {
+		data.Add(jsonutils.JSONTrue, "ipmi_cdrom_boot")
+	}
+	if info.PxeBoot {
+		data.Add(jsonutils.JSONTrue, "ipmi_pxe_boot")
+	}
 	return data
 }

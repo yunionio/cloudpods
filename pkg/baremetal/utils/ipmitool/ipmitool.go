@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	stage_stringutils "yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -144,7 +143,8 @@ func GetSysInfo(exector IPMIExecutor) (*types.SIPMISystemInfo, error) {
 	args := []string{"fru", "print", "0"}
 	lines, err := exector.ExecuteCommand(args...)
 	if err != nil {
-		return nil, err
+		// ignore error
+		log.Errorf("fru print 0 error: %s", err)
 	}
 	ret := make(map[string]string)
 
@@ -215,6 +215,9 @@ func GetLanConfig(exector IPMIExecutor, channel int) (*types.SIPMILanConfig, err
 			ret.Mac, _ = net.ParseMAC(val)
 		case "Default Gateway IP":
 			ret.Gateway = val
+		case "802.1q VLAN ID":
+			vlanId, _ := strconv.ParseInt(val, 10, 64)
+			ret.VlanId = int(vlanId)
 		}
 	}
 	return ret, nil
@@ -352,7 +355,7 @@ func CreateOrSetAdminUser(exector IPMIExecutor, channel int, rootId int, usernam
 
 func SetLanUserAdminPasswd(exector IPMIExecutor, channel int, id int, password string) error {
 	var err error
-	password, err = stage_stringutils.EscapeEchoString(password)
+	password, err = stringutils2.EscapeEchoString(password)
 	if err != nil {
 		return fmt.Errorf("EscapeEchoString for password: %s, error: %v", password, err)
 	}

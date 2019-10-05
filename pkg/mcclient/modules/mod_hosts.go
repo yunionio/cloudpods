@@ -184,7 +184,7 @@ var (
 
 func init() {
 	Hosts = HostManager{NewComputeManager("host", "hosts",
-		[]string{"ID", "Name", "Access_mac", "Access_ip",
+		[]string{"ID", "Name", "Access_mac", "Access_ip", "Ipmi_Ip",
 			"Manager_URI",
 			"Status", "enabled", "host_status",
 			"Guests", "Running_guests",

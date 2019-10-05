@@ -28,11 +28,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	yerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/util/sets"
@@ -61,7 +60,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -110,11 +111,10 @@ func (m *SBaremetalManager) loadConfigs() error {
 		}
 	}
 
-	session := m.GetClientSession()
 	errsChannel := make(chan error, len(bmIds))
 	initBaremetal := func(i int) {
 		bmId := bmIds[i]
-		err := m.initBaremetal(session, bmId)
+		err := m.InitBaremetal(bmId, true)
 		if err != nil {
 			errsChannel <- err
 			return
@@ -128,21 +128,34 @@ func (m *SBaremetalManager) loadConfigs() error {
 			errs = append(errs, <-errsChannel)
 		}
 	}
-	return yerrors.NewAggregate(errs)
+	return errors.NewAggregate(errs)
 }
 
-func (m *SBaremetalManager) initBaremetal(session *mcclient.ClientSession, bmId string) error {
-	desc, err := m.updateBaremetal(session, bmId)
+func (m *SBaremetalManager) InitBaremetal(bmId string, update bool) error {
+	session := m.GetClientSession()
+	var err error
+	var desc jsonutils.JSONObject
+	if update {
+		desc, err = m.updateBaremetal(session, bmId)
+	} else {
+		desc, err = m.fetchBaremetal(session, bmId)
+	}
 	if err != nil {
 		return err
+	}
+	isBaremetal, _ := desc.Bool("is_baremetal")
+	if !isBaremetal {
+		return errors.Error("not a baremetal???")
 	}
 	bmInstance, err := m.AddBaremetal(desc)
 	if err != nil {
 		return err
 	}
-	bmObj := bmInstance.(*SBaremetalInstance)
-	if !sets.NewString(INIT, PREPARE, UNKNOWN).Has(bmObj.GetStatus()) {
-		bmObj.SyncStatusBackground()
+	if update {
+		bmObj := bmInstance.(*SBaremetalInstance)
+		if !sets.NewString(INIT, PREPARE, UNKNOWN).Has(bmObj.GetStatus()) {
+			bmObj.SyncStatusBackground()
+		}
 	}
 	return nil
 }
@@ -152,6 +165,7 @@ func (m *SBaremetalManager) CleanBaremetal(bmId string) {
 	if bm != nil {
 		bm.Stop()
 	}
+	bm.clearBootIsoImage()
 	path := bm.GetDir()
 	procutils.NewCommand("rm", "-fr", path).Run()
 }
@@ -160,6 +174,15 @@ func (m *SBaremetalManager) updateBaremetal(session *mcclient.ClientSession, bmI
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "is_baremetal")
 	obj, err := modules.Hosts.Put(session, bmId, params)
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("Baremetal %s update success", bmId)
+	return obj, nil
+}
+
+func (m *SBaremetalManager) fetchBaremetal(session *mcclient.ClientSession, bmId string) (jsonutils.JSONObject, error) {
+	obj, err := modules.Hosts.Get(session, bmId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -575,6 +598,7 @@ func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error 
 		return err
 	}
 	b.SyncSSHConfig(sshConf)
+	b.clearBootIso()
 	return err
 }
 
@@ -926,13 +950,63 @@ func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
 		log.Errorf("Get http file server: %v", err)
 		return filename
 	}
-	if o.Options.EnableTftpHttpDownload {
-		return fmt.Sprintf("http://%s:%d/tftp/%s", serverIP, o.Options.Port+1000, filename)
+	return fmt.Sprintf("http://%s:%d/tftp/%s", serverIP, o.Options.Port+1000, filename)
+}
+
+func (b *SBaremetalInstance) getImageCacheUrl() string {
+	serverIP, err := b.manager.Agent.GetDHCPServerIP()
+	if err != nil {
+		log.Errorf("Get http file server: %v", err)
+		return ""
 	}
-	return filename
+	// no /images/, rootcreate.sh will add this
+	return fmt.Sprintf("http://%s:%d", serverIP, o.Options.Port+1000)
+}
+
+func (b *SBaremetalInstance) getBootIsoUrl() string {
+	serverIP, err := b.manager.Agent.GetDHCPServerIP()
+	if err != nil {
+		log.Errorf("Get http file server: %v", err)
+		return ""
+	}
+	// no /images/, rootcreate.sh will add this
+	return fmt.Sprintf("http://%s:%d/bootiso/%s.iso", serverIP, o.Options.Port+1000, b.GetId())
 }
 
 func (b *SBaremetalInstance) GetTFTPResponse() string {
+	return b.getSyslinuxConf(true)
+}
+
+func (b *SBaremetalInstance) getIsolinuxConf() string {
+	return b.getSyslinuxConf(false)
+}
+
+func (b *SBaremetalInstance) getSyslinuxPath(filename string, isTftp bool) string {
+	if isTftp {
+		return b.getTftpFileUrl(filename)
+	} else {
+		return filename
+	}
+}
+
+func (b *SBaremetalInstance) findAccessNetwork(accessIp string) (*types.SNetworkConfig, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(accessIp), "ip")
+	params.Add(jsonutils.JSONTrue, "is_on_premise")
+	session := b.manager.GetClientSession()
+	ret, err := modules.Networks.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret.Data) == 0 {
+		return nil, errors.Wrapf(httperrors.ErrNotFound, "accessIp %s", accessIp)
+	}
+	network := types.SNetworkConfig{}
+	err = ret.Data[0].Unmarshal(&network)
+	return &network, err
+}
+
+func (b *SBaremetalInstance) getSyslinuxConf(isTftp bool) string {
 	resp := `DEFAULT start
 serial 1 115200
 
@@ -942,15 +1016,45 @@ LABEL start
 `
 
 	if b.NeedPXEBoot() {
-		resp += fmt.Sprintf("    kernel %s\n", b.getTftpFileUrl("kernel"))
+		kernel := "vmlinuz"
+		initramfs := "initrd.img"
+		if isTftp {
+			kernel = b.getTftpFileUrl("kernel")
+			initramfs = b.getTftpFileUrl("initramfs")
+		}
+		resp += fmt.Sprintf("    kernel %s\n", kernel)
 		args := []string{
-			fmt.Sprintf("initrd=%s", b.getTftpFileUrl("initramfs")),
+			fmt.Sprintf("initrd=%s", initramfs),
 			fmt.Sprintf("token=%s", auth.GetTokenString()),
 			fmt.Sprintf("url=%s", b.GetNotifyUrl()),
 		}
+		if !isTftp {
+			adminNic := b.GetAdminNic()
+			var addr string
+			var mask string
+			var gateway string
+			if adminNic != nil {
+				addr = adminNic.IpAddr
+				mask = adminNic.GetNetMask()
+				gateway = adminNic.Gateway
+			} else {
+				accessIp := b.GetAccessIp()
+				accessNet, _ := b.findAccessNetwork(accessIp)
+				if accessNet != nil {
+					addr = accessIp
+					mask = netutils.Masklen2Mask(int8(accessNet.GuestIpMask)).String()
+					gateway = accessNet.GuestGateway
+				}
+			}
+			serverIP, _ := b.manager.Agent.GetDHCPServerIP()
+			args = append(args, fmt.Sprintf("dest=%s", serverIP))
+			args = append(args, fmt.Sprintf("gateway=%s", gateway))
+			args = append(args, fmt.Sprintf("addr=%s", addr))
+			args = append(args, fmt.Sprintf("mask=%s", mask))
+		}
 		resp += fmt.Sprintf("    append %s\n", strings.Join(args, " "))
 	} else {
-		resp += fmt.Sprintf("    COM32 %s\n", b.getTftpFileUrl("chain.c32"))
+		resp += fmt.Sprintf("    COM32 %s\n", b.getSyslinuxPath("chain.c32", isTftp))
 		resp += "    APPEND hd0 0\n"
 		b.ClearSSHConfig()
 	}
@@ -1038,10 +1142,18 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 }
 
 func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string, ipAddr string) error {
-	if nicType == api.NIC_TYPE_IPMI {
-		oldIPMIConf := b.GetRawIPMIConfig()
-		if oldIPMIConf != nil && oldIPMIConf.IpAddr != "" {
-			ipAddr = oldIPMIConf.IpAddr
+	if ipAddr == "" {
+		switch nicType {
+		case api.NIC_TYPE_IPMI:
+			oldIPMIConf := b.GetRawIPMIConfig()
+			if oldIPMIConf != nil && oldIPMIConf.IpAddr != "" {
+				ipAddr = oldIPMIConf.IpAddr
+			}
+		case api.NIC_TYPE_ADMIN:
+			accessIp := b.GetAccessIp()
+			if accessIp != "" {
+				ipAddr = accessIp
+			}
 		}
 	}
 	desc, err := b.enableWire(mac, ipAddr, nicType, netType)
@@ -1060,6 +1172,7 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	}
 	if ipAddr != "" {
 		params.Add(jsonutils.NewString(ipAddr), "ip_addr")
+		params.Add(jsonutils.JSONTrue, "reserve")
 	}
 	if nicType == api.NIC_TYPE_IPMI {
 		params.Add(jsonutils.NewString("stepup"), "alloc_dir") // alloc bottom up
@@ -1112,6 +1225,11 @@ func (b *SBaremetalInstance) GetRawIPMIConfig() *types.SIPMIInfo {
 		}
 	}
 	return &ipmiInfo
+}
+
+func (b *SBaremetalInstance) GetAccessIp() string {
+	accessIp, _ := b.desc.GetString("access_ip")
+	return accessIp
 }
 
 func (b *SBaremetalInstance) GetServer() baremetaltypes.IBaremetalServer {
@@ -1174,6 +1292,15 @@ func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
 }
 
+func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfishDriver {
+	conf := b.GetIPMIConfig()
+	if conf == nil {
+		return nil
+	}
+	return redfish.NewRedfishDriver(ctx, "https://"+conf.IpAddr,
+		conf.Username, conf.Password, false)
+}
+
 func (b *SBaremetalInstance) GetIPMILanChannel() int {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
@@ -1190,6 +1317,17 @@ func (b *SBaremetalInstance) DoPXEBoot() error {
 		return ipmitool.DoRebootToPXE(ipmiCli)
 	}
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+}
+
+func (b *SBaremetalInstance) DoRedfishPowerOn() error {
+	log.Infof("Do Redfish PowerOn ........., wait")
+	ctx := context.Background()
+	b.ClearSSHConfig()
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi != nil {
+		return redfishApi.Reset(ctx, "On")
+	}
+	return fmt.Errorf("Baremetal %s redfishApi is nil", b.GetId())
 }
 
 /*
@@ -1231,6 +1369,10 @@ func (b *SBaremetalInstance) GetStorageDriver() string {
 
 func (b *SBaremetalInstance) GetZoneId() string {
 	return b.manager.GetZoneId()
+}
+
+func (b *SBaremetalInstance) GetStorageCacheId() string {
+	return b.manager.Agent.CacheManager.GetId()
 }
 
 func (b *SBaremetalInstance) DelayedRemove(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1276,6 +1418,11 @@ func (b *SBaremetalInstance) StartBaremetalReprepareTask(userCred mcclient.Token
 
 func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
 	b.StartNewTask(tasks.NewBaremetalResetBMCTask, taskId, data)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, taskId, data)
 	return nil
 }
 
@@ -1388,6 +1535,216 @@ func (b *SBaremetalInstance) DelayedServerStatus(data jsonutils.JSONObject) (jso
 	resp := jsonutils.NewDict()
 	resp.Add(jsonutils.NewString(status), "status")
 	return resp, err
+}
+
+func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(nic.Mac.String()), "mac")
+	params.Add(jsonutils.NewInt(int64(nic.Speed)), "rate")
+	if idx >= 0 {
+		params.Add(jsonutils.NewInt(int64(idx)), "index")
+	}
+	if nicType != "" {
+		params.Add(jsonutils.NewString(nicType), "nic_type")
+	}
+	params.Add(jsonutils.NewInt(int64(nic.Mtu)), "mtu")
+	params.Add(jsonutils.NewBool(nic.Up), "link_up")
+	if reset {
+		params.Add(jsonutils.JSONTrue, "reset")
+	}
+	if ipAddr != "" {
+		params.Add(jsonutils.NewString(ipAddr), "ip_addr")
+		params.Add(jsonutils.JSONTrue, "require_designated_ip")
+		if reserve {
+			params.Add(jsonutils.JSONTrue, "reserve")
+		}
+	}
+	resp, err := modules.Hosts.PerformAction(
+		b.GetClientSession(),
+		b.GetId(),
+		"add-netif",
+		params,
+	)
+	if err != nil {
+		return err
+	}
+	return b.SaveDesc(resp)
+}
+
+func bindMount(src, dst string) error {
+	_, err := procutils.NewCommand("touch", dst).Run()
+	if err != nil {
+		return errors.Wrapf(err, "touch %s", dst)
+	}
+	_, err = procutils.NewCommand("mount", "-o", "ro,bind", src, dst).Run()
+	if err != nil {
+		return errors.Wrapf(err, "mount %s %s", src, dst)
+	}
+	return nil
+}
+
+func unbindMount(dst string) error {
+	_, err := procutils.NewCommand("umount", dst).Run()
+	if err != nil {
+		return errors.Wrapf(err, "umount %s", dst)
+	}
+	return nil
+}
+
+func (b *SBaremetalInstance) EnablePxeBoot() bool {
+	return jsonutils.QueryBoolean(b.desc, "enable_pxe_boot", true)
+}
+
+func (b *SBaremetalInstance) GenerateBootISO() error {
+	// precheck
+	conf := b.GetRawIPMIConfig()
+	if !conf.Verified {
+		return errors.Error("GenerateBootISO: IPMI not supported")
+	}
+	if !conf.CdromBoot {
+		return errors.Error("GenerateBootISO: cdrom boot not supported")
+	}
+	accessIp := b.GetAccessIp()
+	if accessIp == "" {
+		return errors.Error("GenerateBootISO: empty accessIp")
+	}
+	adminNic := b.GetAdminNic()
+	if adminNic == nil {
+		accessNet, _ := b.findAccessNetwork(accessIp)
+		if accessNet == nil {
+			return errors.Error("GenerateBootISO: Nil access Network")
+		}
+	}
+	ctx := context.Background()
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		return errors.Wrap(httperrors.ErrNotSupported, "no valid redfishApi")
+	}
+	// generate ISO
+	isoDir, err := ioutil.TempDir("", "bmiso")
+	if err != nil {
+		return errors.Wrap(err, "ioutil.TempDir")
+	}
+	defer os.RemoveAll(isoDir)
+	isoLinDir := filepath.Join(isoDir, "isolinux")
+	err = os.Mkdir(isoLinDir, os.FileMode(0766))
+	if err != nil {
+		return errors.Wrapf(err, "Mkdir %s", isoLinDir)
+	}
+	for _, f := range []string{
+		"chain.c32", "ldlinux.c32", "libutil.c32", "libcom32.c32",
+	} {
+		err = bindMount(filepath.Join(o.Options.TftpRoot, f), filepath.Join(isoLinDir, f))
+		if err != nil {
+			return errors.Wrapf(err, "Link %s", f)
+		}
+		defer unbindMount(filepath.Join(isoLinDir, f))
+	}
+	for src, dst := range map[string]string{
+		"kernel":    "vmlinuz",
+		"initramfs": "initrd.img",
+	} {
+		err = bindMount(filepath.Join(o.Options.TftpRoot, src), filepath.Join(isoLinDir, dst))
+		if err != nil {
+			return errors.Wrapf(err, "Link %s %s", src, dst)
+		}
+		defer unbindMount(filepath.Join(isoLinDir, dst))
+	}
+	for _, f := range []string{
+		"isolinux.bin",
+	} {
+		_, err = procutils.NewCommand("cp", filepath.Join(o.Options.TftpRoot, f), filepath.Join(isoLinDir, f)).Run()
+		if err != nil {
+			return errors.Wrapf(err, "cp %s", f)
+		}
+	}
+	cfgCont := b.getIsolinuxConf()
+	err = fileutils2.FilePutContents(filepath.Join(isoLinDir, "isolinux.cfg"), cfgCont, false)
+	if err != nil {
+		return errors.Wrap(err, "fileutils.FilePutContent")
+	}
+	args := []string{
+		"-quiet",
+		"-J", "-R",
+		"-input-charset", "utf-8",
+		"-b", "isolinux/isolinux.bin",
+		"-c", "isolinux/boot.cat",
+		"-no-emul-boot",
+		"-boot-load-size", "4",
+		"-boot-info-table",
+		"-o", b.getBootIsoImagePath(),
+		isoDir,
+	}
+	_, err = procutils.NewCommand("mkisofs", args...).Run()
+	if err != nil {
+		return errors.Wrap(err, "procutils.NewCommand mkisofs")
+	}
+	// mount the virtual media
+	err = redfish.MountVirtualCdrom(ctx, redfishApi, b.getBootIsoUrl(), true)
+	if err != nil {
+		return errors.Wrap(err, "redfish.MountVirtualCdrom")
+	}
+	return nil
+}
+
+func (b *SBaremetalInstance) clearBootIso() error {
+	ctx := context.Background()
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		return errors.Wrap(httperrors.ErrNotSupported, "no valid redfishApi")
+	}
+	err := redfish.UmountVirtualCdrom(ctx, redfishApi)
+	if err != nil {
+		return errors.Wrap(err, "redfish.UmountVirtualCdrom")
+	}
+	return b.clearBootIsoImage()
+}
+
+func (b *SBaremetalInstance) clearBootIsoImage() error {
+	path := b.getBootIsoImagePath()
+	if fileutils2.Exists(path) {
+		return os.Remove(path)
+	}
+	return nil
+}
+
+func (b *SBaremetalInstance) getBootIsoImagePath() string {
+	return filepath.Join(o.Options.BootIsoPath, b.GetId()+".iso")
+}
+
+func (b *SBaremetalInstance) DoNTPConfig() error {
+	var urls []string
+	for _, ep := range []string{"internal", "public"} {
+		urls, _ = auth.GetServiceURLs("ntp", o.Options.Region, "", ep)
+		if len(urls) > 0 {
+			break
+		}
+	}
+	if len(urls) == 0 {
+		log.Warningf("NO ntp server specified, skip DoNTPConfig")
+		return nil
+	}
+	for i := range urls {
+		if strings.HasPrefix(urls[i], "ntp://") {
+			urls[i] = urls[i][6:]
+		}
+	}
+	log.Infof("Set NTP %s", urls)
+	ntpConf := redfish.SNTPConf{}
+	ntpConf.ProtocolEnabled = true
+	ntpConf.TimeZone = o.Options.TimeZone
+	ntpConf.NTPServers = urls
+
+	ctx := context.Background()
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		return errors.Wrap(httperrors.ErrNotSupported, "no valid redfishApi")
+	}
+	err := redfishApi.SetNTPConf(ctx, ntpConf)
+	if err != nil {
+		return errors.Wrap(err, "redfishApi.SetNTPConf")
+	}
+	return nil
 }
 
 type SBaremetalServer struct {
@@ -1548,14 +1905,7 @@ func replaceHostAddr(urlStr string, addr string) string {
 func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error {
 	session := s.baremetal.GetClientSession()
 	token := session.GetToken().GetTokenString()
-	urlStr, err := session.GetServiceURL("image", "internalURL")
-	if err != nil {
-		return err
-	}
-	// this is hackish, url should point to an image proxy
-	// XXX
-	listenIp, _ := s.baremetal.manager.Agent.GetListenIP()
-	urlStr = replaceHostAddr(urlStr, listenIp.String())
+	urlStr := s.baremetal.getImageCacheUrl()
 	imageId := s.GetRootTemplateId()
 	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, urlStr, imageId, devName)
 	log.Infof("rootcreate cmd: %q", cmd)
@@ -1592,7 +1942,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
-		return nil, errors.New("Empty disks in desc")
+		return nil, errors.Error("Empty disks in desc")
 	}
 
 	rootDisk := disks[0]
@@ -1605,7 +1955,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 	tool.RetrievePartitionInfo()
 	parts := tool.GetPartitions()
 	if len(parts) == 0 {
-		return nil, errors.New("Root disk create failed, no partitions")
+		return nil, errors.Error("Root disk create failed, no partitions")
 	}
 	log.Infof("Resize root to %d MB", rootSize)
 	if err := tool.ResizePartition(0, rootSize); err != nil {

@@ -171,7 +171,7 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
 	} else {
 		nic.Mac = conf.Mac
 	}
-	s.sendNicInfo(nic, -1, api.NIC_TYPE_IPMI, false, "")
+	s.sendNicInfo(nic, -1, api.NIC_TYPE_IPMI, false, "", false)
 }
 
 func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
@@ -200,7 +200,7 @@ func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepa
 		log.Errorf("sendStorageInfo error: %v", err)
 	}
 	for idx := range i.nicsInfo {
-		err = s.sendNicInfo(i.nicsInfo[idx], idx, "", false, "")
+		err = s.sendNicInfo(i.nicsInfo[idx], idx, "", false, "", false)
 		if err != nil {
 			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
 		}

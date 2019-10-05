@@ -93,6 +93,9 @@ type SIPMILanConfig struct {
 	Netmask string           `json:"netmask"`
 	Mac     net.HardwareAddr `json:"mac"`
 	Gateway string           `json:"gateway"`
+
+	VlanId    int `json:"vlan_id"`
+	SpeedMbps int `json:"speed_mbps"`
 }
 
 type SIPMIBootFlags struct {

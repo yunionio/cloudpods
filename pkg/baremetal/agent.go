@@ -18,15 +18,18 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -52,7 +55,7 @@ type SBaremetalAgent struct {
 
 func newBaremetalAgent() (*SBaremetalAgent, error) {
 	agent := &SBaremetalAgent{}
-	err := agent.Init(agent, o.Options.ListenInterface)
+	err := agent.Init(agent, o.Options.ListenInterface, o.Options.CachePath)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +134,9 @@ func (agent *SBaremetalAgent) StartService() error {
 	}
 
 	agent.Manager = manager
+
 	agent.startPXEServices(manager)
+	agent.startFileServer()
 
 	agent.DoOnline(agent.GetAdminSession())
 	return nil
@@ -180,7 +185,25 @@ func (agent *SBaremetalAgent) startPXEServices(manager *SBaremetalManager) {
 	}()
 }
 
-func Start() error {
+func (agent *SBaremetalAgent) startFileServer() {
+	dhcpListenIp, err := agent.GetDHCPServerListenIP()
+	if err != nil {
+		log.Fatalf("Get dhcp listen ip address error: %v", err)
+	}
+	fs := http.FileServer(httputils.Dir(o.Options.TftpRoot))
+	http.Handle("/tftp/", http.StripPrefix("/tftp/", fs))
+	cacheFs := http.FileServer(httputils.Dir(o.Options.CachePath))
+	http.Handle("/images/", http.StripPrefix("/images/", cacheFs))
+	isoFs := http.FileServer(httputils.Dir(o.Options.BootIsoPath))
+	http.Handle("/bootiso/", http.StripPrefix("/bootiso/", isoFs))
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf("%s:%d", dhcpListenIp, o.Options.Port+1000), nil); err != nil {
+			panic(fmt.Sprintf("start http file server: %v", err))
+		}
+	}()
+}
+
+func Start(app *appsrv.Application) error {
 	var err error
 	if baremetalAgent != nil {
 		log.Warningf("Global baremetalAgent already start")
@@ -190,7 +213,12 @@ func Start() error {
 	if err != nil {
 		return err
 	}
-	return baremetalAgent.Start()
+	err = baremetalAgent.Start()
+	if err != nil {
+		return err
+	}
+	baremetalAgent.AddImageCacheHandler("", app)
+	return nil
 }
 
 func Stop() error {

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package redfish
 
 import (
@@ -5,6 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type IRedfishDriverFactory interface {
@@ -32,12 +48,14 @@ type IRedfishDriver interface {
 	GetResourceCount(ctx context.Context, resname ...string) (int, error)
 
 	GetVirtualCdromInfo(ctx context.Context) (string, SCdromInfo, error)
-	MountVirtualCdrom(ctx context.Context, path string, cdromUrl string) error
+	MountVirtualCdrom(ctx context.Context, path string, cdromUrl string, boot bool) error
 	UmountVirtualCdrom(ctx context.Context, path string) error
+
+	GetLanConfigs(ctx context.Context) ([]types.SIPMILanConfig, error)
 
 	GetSystemInfo(ctx context.Context) (string, SSystemInfo, error)
 	SetNextBootDev(ctx context.Context, dev string) error
-	SetNextBootVirtualCdrom(ctx context.Context) error
+	// SetNextBootVirtualCdrom(ctx context.Context) error
 
 	Reset(ctx context.Context, action string) error
 
@@ -85,6 +103,9 @@ func NewRedfishDriver(ctx context.Context, endpoint string, username, password s
 			log.Infof("Found %s Redfish REST Api Driver", k)
 			return drv
 		}
+	}
+	if defaultFactory == nil {
+		return nil
 	}
 	drv := defaultFactory.NewApi(endpoint, username, password, debug)
 	err := drv.Probe(ctx)

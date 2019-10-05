@@ -4045,3 +4045,21 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	guest := iGuest.(*SGuest)
 	return guest, guestParams, nil
 }
+
+func (self *SGuest) AllowGetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "jnlp")
+}
+
+func (self *SGuest) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_BAREMETAL {
+		return nil, httperrors.NewInvalidStatusError("not a baremetal server")
+	}
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInvalidStatusError("no valid host")
+	}
+	if !host.IsBaremetal {
+		return nil, httperrors.NewInvalidStatusError("host is not a baremetal")
+	}
+	return host.GetDetailsJnlp(ctx, userCred, query)
+}

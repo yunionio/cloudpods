@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
@@ -110,8 +111,13 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 		return nil, err
 	}
 
-	ipmiInfo := &types.SIPMIInfo{
-		Present: ipmiEnable,
+	ipmiInfo := task.baremetal.GetRawIPMIConfig()
+	if ipmiInfo == nil {
+		ipmiInfo = &types.SIPMIInfo{}
+	}
+	if !ipmiInfo.Present && ipmiEnable {
+		ipmiInfo.Present = true
+		ipmiInfo.Verified = false
 	}
 
 	return &baremetalPrepareInfo{
@@ -131,6 +137,11 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 		return nil
 	}
 
+	// if verified, skip ipmi config
+	if i.ipmiInfo.Verified {
+		return nil
+	}
+
 	var (
 		sysInfo  = i.sysInfo
 		ipmiInfo = i.ipmiInfo
@@ -138,8 +149,8 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 	sshIPMI := ipmitool.NewSSHIPMI(cli)
 	// ipmitool.SetSysInfo
 	ipmiSysInfo := sysInfo.ToIPMISystemInfo()
-	SetIPMILanPortShared(sshIPMI, ipmiSysInfo)
-	ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(ipmiSysInfo)
+	setIPMILanPortShared(sshIPMI, ipmiSysInfo)
+	ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(i.ipmiInfo, ipmiSysInfo)
 	ipmiInfo.Username = ipmiUser
 	ipmiInfo.Password = ipmiPasswd
 
@@ -162,7 +173,8 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 			Speed: 100,
 			Mtu:   1500,
 		}
-		if err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, true, ""); err != nil {
+		if err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, true, "", false); err != nil {
+			// ignore the error
 			log.Errorf("Send IPMI nic %#v info: %v", ipmiNic, err)
 		}
 		rootId := ipmitool.GetRootId(ipmiSysInfo)
@@ -206,6 +218,7 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 
 		err = ipmitool.SetLanDHCP(sshIPMI, lanChannel)
 		if err != nil {
+			// ignore error
 			log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
 		}
 		time.Sleep(2 * time.Second)
@@ -266,6 +279,7 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 		return fmt.Errorf("Fail to get IPMI address from DHCP")
 	}
 	ipmiInfo.LanChannel = ipmiLanChannel
+	ipmiInfo.Verified = true
 	return nil
 }
 
@@ -284,12 +298,51 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		return err
 	}
 
+	// set NTP
+	if err = task.baremetal.DoNTPConfig(); err != nil {
+		// ignore error
+		log.Errorf("SetNTP fail: %s", err)
+	}
+
 	log.Infof("Prepare complete")
 	return nil
 }
 
+func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*types.SNicDevInfo) (int, *types.SNicDevInfo, error) {
+	for idx := range nicsInfo {
+		nic := nicsInfo[idx]
+		output, err := cli.Run("/sbin/ifconfig " + nic.Dev)
+		if err != nil {
+			log.Errorf("ifconfig %s fail: %s", nic.Dev, err)
+			continue
+		}
+		isAdmin := false
+		for _, l := range output {
+			if strings.Contains(l, task.baremetal.GetAccessIp()) {
+				isAdmin = true
+				break
+			}
+		}
+		if isAdmin {
+			return idx, nic, nil
+		}
+	}
+	return -1, nil, errors.Error("admin nic not found???")
+}
+
 func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
 	adminNic := task.baremetal.GetAdminNic()
+	if adminNic == nil {
+		adminIdx, adminNicDev, err := task.findAdminNic(cli, i.nicsInfo)
+		if err != nil {
+			return errors.Wrap(err, "task.findAdminNic")
+		}
+		err = task.sendNicInfo(adminNicDev, adminIdx, api.NIC_TYPE_ADMIN, false, task.baremetal.GetAccessIp(), true)
+		if err != nil {
+			return errors.Wrap(err, "send Admin Nic Info")
+		}
+		adminNic = task.baremetal.GetAdminNic()
+	}
 	// collect params
 	updateInfo := make(map[string]interface{})
 	oname := fmt.Sprintf("BM%s", strings.Replace(adminNic.Mac, ":", "", -1))
@@ -297,6 +350,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		updateInfo["name"] = fmt.Sprintf("BM-%s", strings.Replace(i.ipmiInfo.IpAddr, ".", "-", -1))
 	}
 	updateInfo["access_ip"] = adminNic.IpAddr
+	updateInfo["access_mac"] = adminNic.Mac
 	updateInfo["cpu_count"] = i.cpuInfo.Count
 	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
 	updateInfo["cpu_desc"] = i.cpuInfo.Model
@@ -315,9 +369,11 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	_, err := modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
 	if err != nil {
 		log.Errorf("Update baremetal info error: %v", err)
+		return errors.Wrap(err, "Hosts.Update")
 	}
 	if err := task.sendStorageInfo(size); err != nil {
 		log.Errorf("sendStorageInfo error: %v", err)
+		return errors.Wrap(err, "task.sendStorageInfo")
 	}
 	// XXX do not change nic order anymore
 	// for i := range nicsInfo {
@@ -337,19 +393,24 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		err = task.removeNicInfo(removedMacs[idx])
 		if err != nil {
 			log.Errorf("Fail to remove Netif %s: %s", removedMacs[idx], err)
+			return errors.Wrap(err, "task.removeNicInfo")
 		}
 	}
 	for idx := range i.nicsInfo {
-		err = task.sendNicInfo(i.nicsInfo[idx], idx, "", false, "")
+		err = task.sendNicInfo(i.nicsInfo[idx], idx, "", false, "", false)
 		if err != nil {
 			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
+			return errors.Wrap(err, "task.sendNicInfo")
 		}
 	}
-	for _, nicInfo := range i.nicsInfo {
-		if nicInfo.Mac.String() != adminNic.GetMac().String() && nicInfo.Up {
-			err = task.doNicWireProbe(cli, nicInfo)
-			if err != nil {
-				log.Errorf("doNicWireProbe nic %#v error: %v", nicInfo, err)
+	if o.Options.EnablePxeBoot && task.baremetal.EnablePxeBoot() {
+		for _, nicInfo := range i.nicsInfo {
+			if nicInfo.Mac.String() != adminNic.GetMac().String() && nicInfo.Up {
+				err = task.doNicWireProbe(cli, nicInfo)
+				if err != nil {
+					// ignore the error
+					log.Errorf("doNicWireProbe nic %#v error: %v", nicInfo, err)
+				}
 			}
 		}
 	}
@@ -431,7 +492,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, i
 	if tried < maxTries {
 		// make sure the ipaddr is a IPMI address
 		// enable the netif
-		err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, false, tryAddr)
+		err := task.sendNicInfo(ipmiNic, -1, api.NIC_TYPE_IPMI, false, tryAddr, true)
 		if err != nil {
 			log.Errorf("Fail to set existing BMC IP address to %s", tryAddr)
 		} else {
@@ -441,7 +502,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, i
 	return false
 }
 
-func (task *sBaremetalPrepareTask) getIPMIUserPasswd(sysInfo *types.SIPMISystemInfo) (string, string, string) {
+func (task *sBaremetalPrepareTask) getIPMIUserPasswd(oldIPMIConf *types.SIPMIInfo, sysInfo *types.SIPMISystemInfo) (string, string, string) {
 	var (
 		ipmiUser   string
 		ipmiPasswd string
@@ -458,17 +519,14 @@ func (task *sBaremetalPrepareTask) getIPMIUserPasswd(sysInfo *types.SIPMISystemI
 	} else {
 		ipmiPasswd = seclib.RandomPassword(20)
 	}
-	oldIPMIConf := task.baremetal.GetRawIPMIConfig()
-	if oldIPMIConf != nil {
-		if oldIPMIConf.Username != "" {
-			ipmiUser = oldIPMIConf.Username
-		}
-		if oldIPMIConf.Password != "" {
-			ipmiPasswd = oldIPMIConf.Password
-		}
-		if oldIPMIConf.IpAddr != "" {
-			ipmiIpAddr = oldIPMIConf.IpAddr
-		}
+	if oldIPMIConf.Username != "" {
+		ipmiUser = oldIPMIConf.Username
+	}
+	if oldIPMIConf.Password != "" {
+		ipmiPasswd = oldIPMIConf.Password
+	}
+	if oldIPMIConf.IpAddr != "" {
+		ipmiIpAddr = oldIPMIConf.IpAddr
 	}
 	return ipmiUser, ipmiPasswd, ipmiIpAddr
 }
@@ -500,19 +558,6 @@ func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig
 
 func (task *sBaremetalPrepareTask) getClientSession() *mcclient.ClientSession {
 	return task.baremetal.GetClientSession()
-}
-
-func (task *sBaremetalPrepareTask) removeAllNics() error {
-	resp, err := modules.Hosts.PerformAction(
-		task.getClientSession(),
-		task.baremetal.GetId(),
-		"remove-all-netifs",
-		nil,
-	)
-	if err != nil {
-		return nil
-	}
-	return task.baremetal.SaveDesc(resp)
 }
 
 func getDMISysinfo(cli *ssh.Client) (*types.SDMISystemInfo, error) {
@@ -578,41 +623,15 @@ func (task *sBaremetalPrepareTask) removeNicInfo(mac string) error {
 	return task.baremetal.SaveDesc(resp)
 }
 
-func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string) error {
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(nic.Mac.String()), "mac")
-	params.Add(jsonutils.NewInt(int64(nic.Speed)), "rate")
-	if idx >= 0 {
-		params.Add(jsonutils.NewInt(int64(idx)), "index")
-	}
-	if nicType != "" {
-		params.Add(jsonutils.NewString(nicType), "nic_type")
-	}
-	params.Add(jsonutils.NewInt(int64(nic.Mtu)), "mtu")
-	params.Add(jsonutils.NewBool(nic.Up), "link_up")
-	if reset {
-		params.Add(jsonutils.JSONTrue, "reset")
-	}
-	if ipAddr != "" {
-		params.Add(jsonutils.NewString(ipAddr), "ip_addr")
-		params.Add(jsonutils.JSONTrue, "require_designated_ip")
-	}
-	resp, err := modules.Hosts.PerformAction(
-		task.getClientSession(),
-		task.baremetal.GetId(),
-		"add-netif",
-		params,
-	)
-	if err != nil {
-		return err
-	}
-	return task.baremetal.SaveDesc(resp)
+func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error {
+	return task.baremetal.SendNicInfo(nic, idx, nicType, reset, ipAddr, reserve)
 }
 
 func (task *sBaremetalPrepareTask) sendStorageInfo(size int64) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(size), "capacity")
 	params.Add(jsonutils.NewString(task.baremetal.GetZoneId()), "zone_id")
+	params.Add(jsonutils.NewString(task.baremetal.GetStorageCacheId()), "storagecache_id")
 	_, err := modules.Hosts.PerformAction(task.getClientSession(), task.baremetal.GetId(), "update-storage", params)
 	return err
 }
@@ -656,7 +675,7 @@ func (task *sBaremetalPrepareTask) collectDiskInfo(diskInfo []*baremetal.Baremet
 	return size, diskType
 }
 
-func SetIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SIPMISystemInfo) {
+func setIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SIPMISystemInfo) {
 	if !o.Options.IpmiLanPortShared {
 		return
 	}

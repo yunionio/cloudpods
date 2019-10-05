@@ -92,8 +92,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			lockman.LockObject(ctx, network)
 			defer lockman.ReleaseObject(ctx, network)
 
-			addrTable := network.GetUsedAddresses()
-			ipAddr, err := network.GetFreeIP(ctx, self.UserCred, addrTable, nil, ip, models.IPAllocationNone, false)
+			ipAddr, err := network.GetFreeIP(ctx, self.UserCred, nil, nil, ip, api.IPAllocationNone, false)
 			if err != nil {
 				self.onFailed(ctx, eip, err.Error())
 				return

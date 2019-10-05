@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package hprest
 
 import (
@@ -71,6 +85,10 @@ func (r *SHpRestApi) LinkKey() string {
 
 func (r *SHpRestApi) MemberKey() string {
 	return memberKey
+}
+
+func (r *SHpRestApi) LogItemsKey() string {
+	return "Items"
 }
 
 func (r *SHpRestApi) Probe(ctx context.Context) error {
@@ -167,7 +185,7 @@ func (r *SHpRestApi) Reset(ctx context.Context, action string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(action), "ResetType")
 	params.Add(jsonutils.NewString("Reset"), "Action")
-	resp, err := r.Post(ctx, path, params)
+	_, resp, err := r.Post(ctx, path, params)
 	if err != nil {
 		return errors.Wrap(err, "Action.Reset")
 	}
@@ -184,7 +202,7 @@ func (r *SHpRestApi) BmcReset(ctx context.Context) error {
 	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("Reset"), "Action")
-	resp, err := r.Post(ctx, path, params)
+	_, resp, err := r.Post(ctx, path, params)
 	if err != nil {
 		return errors.Wrap(err, "Actions/Manager.Reset")
 	}
@@ -244,7 +262,7 @@ func (r *SHpRestApi) clearLogs(ctx context.Context, subsys string) error {
 	}
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("ClearLog"), "Action")
-	resp, err := r.Post(ctx, path, params)
+	_, resp, err := r.Post(ctx, path, params)
 	if err != nil {
 		return errors.Wrap(err, "r.Post")
 	}

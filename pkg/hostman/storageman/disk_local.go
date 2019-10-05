@@ -206,7 +206,7 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 func (d *SLocalDisk) createFromTemplate(
 	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger,
 ) (jsonutils.JSONObject, error) {
-	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "", "")
+	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZoneName(), "", "")
 	if imageCache != nil {
 		defer imageCacheManager.ReleaseImage(imageId)
 		cacheImagePath := imageCache.GetPath()

@@ -36,7 +36,7 @@ import (
 )
 
 type IHost interface {
-	GetZone() string
+	GetZoneName() string
 	GetHostId() string
 	GetMediumType() string
 	GetMasterIp() string
@@ -186,7 +186,15 @@ func DelayTaskWithWorker(
 	wm.DelayTaskWithWorker(ctx, task, params, worker)
 }
 
-func Init() {
+func InitWorkerManager() {
 	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+}
+
+func InitK8sWorkerManager() {
 	k8sWm = workmanager.NewWorkManger(K8sTaskFailed, K8sTaskComplete, options.HostOptions.DefaultRequestWorkerCount)
+}
+
+func Init() {
+	InitWorkerManager()
+	InitK8sWorkerManager()
 }

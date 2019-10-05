@@ -156,9 +156,14 @@ func (self *SStoragecache) getHostId() (string, error) {
 	hosts := make([]SHost, 0)
 	host := HostManager.Query().SubQuery()
 	q := host.Query(host.Field("id"))
-	err := q.Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), host.Field("id")),
-		sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE),
-		sqlchemy.IsTrue(host.Field("enabled")))).
+	err := q.Join(hoststorages, sqlchemy.AND(
+		sqlchemy.Equals(hoststorages.Field("host_id"), host.Field("id")),
+		sqlchemy.OR(
+			sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE),
+			sqlchemy.Equals(host.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+		),
+		sqlchemy.IsTrue(host.Field("enabled")),
+	)).
 		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
 			sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}),
 			sqlchemy.IsTrue(storages.Field("enabled")))).
@@ -435,6 +440,10 @@ func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {
 	if self.getCachedImageCount() > 0 {
 		return httperrors.NewNotEmptyError("storage cache not empty")
 	}
+	storages := self.getStorages()
+	if len(storages) > 0 {
+		return httperrors.NewNotEmptyError("referered by storages")
+	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -619,4 +628,20 @@ func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.C
 		}
 	}
 	return self.StartImageUncacheTask(ctx, userCred, cachedImages[leastUsedIdx].GetId(), false, parentTaskId)
+}
+
+func (cache *SStoragecache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := cache.SStandaloneResourceBase.CustomizeDelete(ctx, userCred, query, data)
+	if err != nil {
+		return err
+	}
+	if len(cache.ExternalId) > 0 {
+		agentObj, err := BaremetalagentManager.FetchById(cache.ExternalId)
+		if err == nil {
+			agentObj.(*SBaremetalagent).setStoragecacheId("")
+		} else if err != sql.ErrNoRows {
+			return err
+		}
+	}
+	return nil
 }
