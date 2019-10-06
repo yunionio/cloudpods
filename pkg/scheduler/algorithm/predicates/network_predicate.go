@@ -203,7 +203,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	filterByRandomNetwork := func() {
 		counters := core.NewCounters()
-		if errMsg := isRandomNetworkAvailable("", "", false, false, "", counters); len(errMsg) != 0 {
+		if errMsg := isRandomNetworkAvailable("", string(rbacutils.ScopeDomain), false, false, "", counters); len(errMsg) != 0 {
 			h.ExcludeByErrors(errMsg)
 		}
 		h.SetCapacityCounter(counters)
