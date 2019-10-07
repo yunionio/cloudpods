@@ -166,7 +166,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 					netDomain := n.DomainId
 					reqDomain := domain
 					if netDomain != reqDomain {
-						appendError(FailReason{Reason: fmt.Sprintf("Network domain scope %s not owner by %s", netDomain, reqDomain), Type: NetworkDomain})
+						appendError(FailReason{Reason: fmt.Sprintf("Network %s domain scope %s not owner by %s", n.Name, netDomain, reqDomain), Type: NetworkDomain})
 					}
 				}
 			}
@@ -203,7 +203,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	filterByRandomNetwork := func() {
 		counters := core.NewCounters()
-		if errMsg := isRandomNetworkAvailable("", string(rbacutils.ScopeDomain), false, false, "", counters); len(errMsg) != 0 {
+		if errMsg := isRandomNetworkAvailable("", u.SchedData().Domain, false, false, "", counters); len(errMsg) != 0 {
 			h.ExcludeByErrors(errMsg)
 		}
 		h.SetCapacityCounter(counters)
