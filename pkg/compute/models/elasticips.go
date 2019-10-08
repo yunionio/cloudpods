@@ -65,7 +65,7 @@ type SElasticip struct {
 	SManagedResourceBase
 	SBillingResourceBase
 
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	NetworkId string `width:"36" charset:"ascii" nullable:"true" get:"user" list:"user" create:"optional"`
 	Mode      string `width:"32" charset:"ascii" list:"user"`
 
 	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`

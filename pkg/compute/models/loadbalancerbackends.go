@@ -63,12 +63,12 @@ type SLoadbalancerBackend struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	BackendId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	BackendType    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackendId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackendType    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	BackendRole    string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional"`
-	Weight         int    `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	Address        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Weight         int    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	Address        string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`

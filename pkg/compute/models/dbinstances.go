@@ -62,7 +62,7 @@ type SDBInstance struct {
 	VmemSizeMb int    `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
 	DiskSizeGB int    `nullable:"false" list:"user" create:"required"`
 	Port       int    `nullable:"false" list:"user" create:"required"`
-	Category   string `nullable:"false" list:"user" create:"optional"` //实例类别，单机，高可用，只读
+	Category   string `nullable:"true" list:"user" create:"optional"` //实例类别，单机，高可用，只读
 
 	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -70,9 +70,9 @@ type SDBInstance struct {
 
 	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	VpcId                 string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ConnectionStr         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	InternalConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId                 string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	ConnectionStr         string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	InternalConnectionStr string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {

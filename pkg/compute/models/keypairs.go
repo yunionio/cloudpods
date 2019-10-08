@@ -55,7 +55,7 @@ type SKeypair struct {
 
 	Scheme      string `width:"12" charset:"ascii" nullable:"true" list:"user" create:"required"`    // Column(VARCHAR(length=12, charset='ascii'), nullable=True, default='RSA')
 	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`   // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
-	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false" create:"optional"`             // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
+	PrivateKey  string `width:"2048" charset:"ascii" nullable:"true" create:"optional"`              // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
 	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
 	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"` // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
