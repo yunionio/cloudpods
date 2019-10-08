@@ -1073,7 +1073,9 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 
-			input.BillingType = billing_api.BILLING_TYPE_PREPAID
+			if len(input.BillingType) == 0 {
+				input.BillingType = billing_api.BILLING_TYPE_PREPAID
+			}
 			input.BillingCycle = billingCycle.String()
 			// expired_at will be set later by callback
 			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
@@ -3039,24 +3041,6 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	return err
 }
 
-func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
-	if len(dev.GuestId) > 0 {
-		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
-	}
-	if dev.HostId != self.HostId {
-		return fmt.Errorf("Isolated device and guest are not located in the same host")
-	}
-	_, err := db.Update(dev, func() error {
-		dev.GuestId = self.Id
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	db.OpsLog.LogEvent(self, db.ACT_GUEST_ATTACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
-	return nil
-}
-
 func (self *SGuest) JoinGroups(ctx context.Context, userCred mcclient.TokenCredential, groupIds []string) error {
 	for _, id := range groupIds {
 		_, err := GroupguestManager.Attach(ctx, id, self.Id)
@@ -4025,6 +4009,20 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	return guests
 }
 
+func (manager *SGuestManager) getExpiredPostpaidGuests() []SGuest {
+	deadline := time.Now()
+	q := manager.Query().Equals("billing_type", billing_api.BILLING_TYPE_POSTPAID).
+		LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("fetch guests error %s", err)
+		return nil
+	}
+
+	return guests
+}
+
 func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
 	host := self.GetHost()
 	if host == nil {
@@ -4051,6 +4049,24 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 		if len(guests[i].ExternalId) > 0 {
 			err := guests[i].doExternalSync(ctx, userCred)
 			if err == nil && guests[i].IsValidPrePaid() {
+				continue
+			}
+		}
+		guests[i].SetDisableDelete(userCred, false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
+	}
+}
+
+func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	guests := manager.getExpiredPostpaidGuests()
+	if len(guests) == 0 {
+		log.Infof("No expired postpaid guest")
+		return
+	}
+	for i := 0; i < len(guests); i++ {
+		if len(guests[i].ExternalId) > 0 {
+			err := guests[i].doExternalSync(ctx, userCred)
+			if err == nil && guests[i].IsValidPostPaid() {
 				continue
 			}
 		}
