@@ -22,7 +22,7 @@ import (
 )
 
 type SZoneResourceBase struct {
-	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (self *SZoneResourceBase) GetZone() *SZone {

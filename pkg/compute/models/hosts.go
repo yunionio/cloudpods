@@ -113,7 +113,7 @@ type SHost struct {
 	// Status  string = Column(VARCHAR(16, charset='ascii'), nullable=False, default=baremetalstatus.INIT) # status
 	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, server_default=HOST_OFFLINE, default=HOST_OFFLINE)
 
-	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ZoneId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 

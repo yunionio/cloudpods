@@ -50,7 +50,7 @@ type SVerify struct {
 
 	CID      string    `width:"128" nullable:"false" create:"required" list:"user"`
 	Token    string    `width:"200" nullable:"false" create:"required" list:"user"`
-	SendAt   time.Time `nullable:"false" create:"optional"`
+	SendAt   time.Time `nullable:"true" create:"optional"`
 	ExpireAt time.Time `create:"required" list:"user"`
 }
 

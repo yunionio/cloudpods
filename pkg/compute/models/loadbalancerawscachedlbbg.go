@@ -57,8 +57,8 @@ type SAwsCachedLbbg struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	LoadbalancerId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	BackendGroupId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	LoadbalancerId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackendGroupId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	TargetType          string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 后端服务器类型
 	ProtocolType        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 监听协议类型
 	Port                int    `nullable:"false" list:"user" create:"required"`                            // 监听端口
