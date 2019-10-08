@@ -54,9 +54,9 @@ type SAwsCachedLb struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	BackendServerId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 后端服务器 实例ID
-	BackendId            string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 本地loadbalancebackend id
-	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	BackendServerId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 后端服务器 实例ID
+	BackendId            string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 本地loadbalancebackend id
+	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (lbb *SAwsCachedLb) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {

@@ -74,10 +74,10 @@ type SLoadbalancer struct {
 	SLoadbalancerRateLimiter
 
 	Address     string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	AddressType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkId   string `width:"147" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	AddressType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	NetworkType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	NetworkId   string `width:"147" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	VpcId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	ClusterId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	ChargeType string `list:"user" get:"user" create:"optional" update:"user"`

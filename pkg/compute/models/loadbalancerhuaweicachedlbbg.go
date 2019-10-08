@@ -55,10 +55,10 @@ type SHuaweiCachedLbbg struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	AssociatedId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 关联ID
-	AssociatedType string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 关联类型， listener || rule
+	LoadbalancerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	AssociatedId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // 关联ID
+	AssociatedType string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // 关联类型， listener || rule
 	ProtocolType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 监听协议类型
 }
 

@@ -90,7 +90,8 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet,
 			continue
 		}
 
-		if c.IsSupportDefault() && len(c.Default()) > 0 && !gotypes.IsNil(ov) && c.IsZero(ov) { // empty text value
+		_, isTextCol := c.(*STextColumn)
+		if c.IsSupportDefault() && (len(c.Default()) > 0 || isTextCol) && !gotypes.IsNil(ov) && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
 			names = append(names, fmt.Sprintf("`%s`", k))

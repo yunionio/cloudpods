@@ -84,37 +84,37 @@ type SServerSku struct {
 
 	Enabled bool `nullable:"true" list:"user" create:"optional"`
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
-	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`           // x2
-	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`            // 通用型
-	LocalCategory        string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:""` // 记录本地分类
+	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`           // x2
+	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"admin"`            // 通用型
+	LocalCategory        string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:""` // 记录本地分类
 
-	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" default:"available"` // 预付费资源状态   available|soldout
-	PostpaidStatus string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" default:"available"` // 按需付费资源状态  available|soldout
+	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" default:"available"` // 预付费资源状态   available|soldout
+	PostpaidStatus string `width:"32" charset:"utf8" nullable:"true" list:"user" create:"admin_optional" default:"available"` // 按需付费资源状态  available|soldout
 
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required"`
 
-	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
+	OsName string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
-	SysDiskResizable tristate.TriState `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskType      string            `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskMinSizeGB int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
-	SysDiskMaxSizeGB int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
+	SysDiskResizable tristate.TriState `default:"true" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskType      string            `width:"32" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskMinSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
+	SysDiskMaxSizeGB int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"` // not required
 
-	AttachedDiskType   string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	AttachedDiskSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	AttachedDiskCount  int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	AttachedDiskType   string `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	AttachedDiskSizeGB int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	AttachedDiskCount  int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
-	DataDiskTypes    string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	DataDiskMaxCount int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	DataDiskTypes    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	DataDiskMaxCount int    `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
-	NicType     string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	NicMaxCount int    `default:"1" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	NicType     string `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	NicMaxCount int    `default:"1" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
-	GpuAttachable tristate.TriState `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuSpec       string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuCount      int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuMaxCount   int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuAttachable tristate.TriState `default:"true" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	GpuSpec       string            `width:"128" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	GpuCount      int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
 	Brand    string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
