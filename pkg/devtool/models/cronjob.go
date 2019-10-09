@@ -13,14 +13,18 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+type SVSCronjob struct {
+	Day      int   `json:"day" nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
+	Hour     int   `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
+	Min      int   `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
+	Sec      int   `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
+	Interval int64 `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
+	Start    bool  `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
+	Enabled  bool  `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
+}
+
 type SCronjob struct {
-	Day               int    `json:"day" nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
-	Hour              int    `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
-	Min               int    `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
-	Sec               int    `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
-	Interval          int64  `nullable:"true" create:"optional" list:"user" update:"user" default:"0"`
-	Start             bool   `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
-	Enabled           bool   `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
+	SVSCronjob
 	AnsiblePlaybookID string `nullable:"false" create:"required" list:"user" update:"user"`
 	db.SStandaloneResourceBase
 }
