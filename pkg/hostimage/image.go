@@ -26,20 +26,32 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
+	"sync/atomic"
 	"unsafe"
 )
+
+var qemuBlkCache sync.Map
+
+type QemuioBlkDev struct {
+	imagePath string
+	readonly  bool
+	refCount  int32
+
+	blk *C.struct_QemuioBlk
+}
 
 func init() {
 	C.qemuio_init()
 }
 
-func ReadQcow2(qemuioBlk *C.struct_QemuioBlk, offset int64, count int64) ([]byte, int64) {
-	if qemuioBlk == nil || offset < 0 || count < 0 {
+func (qb *QemuioBlkDev) ReadQcow2(offset int64, count int64) ([]byte, int64) {
+	if qb.blk == nil || offset < 0 || count < 0 {
 		return nil, -1
 	}
-	b := make([]byte, count)
+	var b = make([]byte, count)
 	var total = C.int64_t(0)
-	ret := C.read_qcow2(qemuioBlk, unsafe.Pointer(&b[0]), C.int64_t(offset), C.int64_t(count), &total)
+	ret := C.read_qcow2(qb.blk, unsafe.Pointer(&b[0]), C.int64_t(offset), C.int64_t(count), &total)
 	if ret < 0 {
 		return nil, int64(ret)
 	} else {
@@ -47,21 +59,54 @@ func ReadQcow2(qemuioBlk *C.struct_QemuioBlk, offset int64, count int64) ([]byte
 	}
 }
 
-func OpenQcow2(imagePath string, readonly bool) *C.struct_QemuioBlk {
-	return C.open_qcow2(C.CString(imagePath), C.bool(readonly))
+func OpenQcow2(imagePath string, readonly bool) *QemuioBlkDev {
+	key := fmt.Sprintf("%s_%v", imagePath, readonly)
+	if blk, ok := qemuBlkCache.Load(key); ok {
+		qb := blk.(*QemuioBlkDev)
+		atomic.AddInt32(&qb.refCount, 1)
+		return qb
+	}
+	qb := &QemuioBlkDev{
+		imagePath: imagePath,
+		readonly:  readonly,
+	}
+	cImagePath := C.CString(imagePath)
+	blk := C.open_qcow2(cImagePath, C.bool(readonly))
+	C.free(unsafe.Pointer(cImagePath))
+	qb.blk = blk
+	qb.refCount = 1
+	qemuBlkCache.Store(key, qb)
+	return qb
 }
 
-func Qcow2GetLenth(qemuioBlk *C.struct_QemuioBlk) int64 {
-	return int64(C.qcow2_get_length(qemuioBlk))
+func LoadQcow2(imagePath string, readonly bool) *QemuioBlkDev {
+	key := fmt.Sprintf("%s_%v", imagePath, readonly)
+	if blk, ok := qemuBlkCache.Load(key); ok {
+		return blk.(*QemuioBlkDev)
+	}
+	return nil
 }
 
-func CloseQcow2(qemuioBlk *C.struct_QemuioBlk) {
-	C.close_qcow2(qemuioBlk)
+func (qb *QemuioBlkDev) Qcow2GetLength() int64 {
+	if qb.blk == nil {
+		return -1
+	} else {
+		return int64(C.qcow2_get_length(qb.blk))
+	}
+}
+
+func (qb *QemuioBlkDev) CloseQcow2() {
+	if qb.blk != nil && atomic.AddInt32(&qb.refCount, -1) == 0 {
+		C.close_qcow2(qb.blk)
+	}
 }
 
 type IImage interface {
 	// Open image file and its backing file (if have)
 	Open(imagePath string, readonly bool) error
+
+	// load opend qcow2 img form qemu blk cache
+	Load(imagePath string, readonly bool) error
 
 	// Close may not really close image file handle, just reudce ref count
 	Close()
@@ -74,13 +119,23 @@ type IImage interface {
 }
 
 type SQcow2Image struct {
-	fd *C.struct_QemuioBlk
+	fd *QemuioBlkDev
 }
 
 func (img *SQcow2Image) Open(imagePath string, readonly bool) error {
 	fd := OpenQcow2(imagePath, readonly)
 	if fd == nil {
-		return fmt.Errorf("Open image %s failed", imagePath)
+		return fmt.Errorf("open image %s failed", imagePath)
+	} else {
+		img.fd = fd
+		return nil
+	}
+}
+
+func (img *SQcow2Image) Load(imagePath string, readonly bool) error {
+	fd := LoadQcow2(imagePath, readonly)
+	if fd == nil {
+		return fmt.Errorf("image %s readonly: %v not found", imagePath, readonly)
 	} else {
 		img.fd = fd
 		return nil
@@ -88,15 +143,15 @@ func (img *SQcow2Image) Open(imagePath string, readonly bool) error {
 }
 
 func (img *SQcow2Image) Read(offset, count int64) ([]byte, int64) {
-	return ReadQcow2(img.fd, offset, count)
+	return img.fd.ReadQcow2(offset, count)
 }
 
 func (img *SQcow2Image) Close() {
-	CloseQcow2(img.fd)
+	img.fd.CloseQcow2()
 }
 
 func (img *SQcow2Image) Length() int64 {
-	return Qcow2GetLenth(img.fd)
+	return img.fd.Qcow2GetLength()
 }
 
 type SFile struct {
@@ -115,6 +170,10 @@ func (f *SFile) Open(imagePath string, readonly bool) error {
 		f.fd = fd
 		return nil
 	}
+}
+
+func (f *SFile) Load(imagePath string, readonly bool) error {
+	return fmt.Errorf("File don't support load")
 }
 
 func (f *SFile) Read(offset, count int64) ([]byte, int64) {
