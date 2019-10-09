@@ -19,7 +19,8 @@ import (
 )
 
 var (
-	DevToolCronjobs modulebase.ResourceManager
+	DevToolCronjobs  modulebase.ResourceManager
+	DevToolTemplates modulebase.ResourceManager
 )
 
 func init() {
@@ -31,4 +32,12 @@ func init() {
 		[]string{},
 	)
 	registerCompute(&DevToolCronjobs)
+
+	DevToolTemplates = NewDevtoolManager(
+		"devtool_template",
+		"devtool_templates",
+		[]string{"id", "name", "domain_id", "tenant_id", "day", "hour", "min", "sec", "interval", "start", "enabled", "description"},
+		[]string{"is_system"},
+	)
+	registerCompute(&DevToolTemplates)
 }
