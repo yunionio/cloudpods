@@ -53,9 +53,9 @@ type SElasticcacheParameter struct {
 
 	Key          string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	Value        string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	ValueRange   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 校验代码，参数的可选范围。
-	Modifiable   bool   `nullable:"true" list:"user" create:"optional"`                              // True（可修改）   False（不可修改）
-	ForceRestart bool   `nullable:"true" list:"user" create:"optional"`                              // True（重启生效） False（无需重启，提交后即生效）
+	ValueRange   string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 校验代码，参数的可选范围。
+	Modifiable   bool   `nullable:"true" list:"user" create:"optional"`                             // True（可修改）   False（不可修改）
+	ForceRestart bool   `nullable:"true" list:"user" create:"optional"`                             // True（重启生效） False（无需重启，提交后即生效）
 }
 
 func (manager *SElasticcacheParameterManager) SyncElasticcacheParameters(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheParameters []cloudprovider.ICloudElasticcacheParameter) compare.SyncResult {

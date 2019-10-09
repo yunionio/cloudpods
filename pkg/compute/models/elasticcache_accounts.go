@@ -51,8 +51,8 @@ type SElasticcacheAccount struct {
 
 	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
-	AccountType      string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号类型 normal |admin
-	AccountPrivilege string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号权限 read | write
+	AccountType      string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // 账号类型 normal |admin
+	AccountPrivilege string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // 账号权限 read | write
 }
 
 func (manager *SElasticcacheAccountManager) SyncElasticcacheAccounts(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheAccounts []cloudprovider.ICloudElasticcacheAccount) compare.SyncResult {

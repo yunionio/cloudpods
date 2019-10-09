@@ -62,7 +62,7 @@ type SCachedLoadbalancerAcl struct {
 
 	AclId      string                   `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"` // 本地ACL ID
 	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
-	ListenerId string                   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"` // huawei only
+	ListenerId string                   `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
 }
 
 func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

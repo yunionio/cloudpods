@@ -359,6 +359,10 @@ func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 			buf.WriteString(f.Reference())
 		}
 	}
+	if tq.having != nil {
+		buf.WriteString(" HAVING ")
+		buf.WriteString(tq.having.WhereClause())
+	}
 	if tq.orderBy != nil && len(tq.orderBy) > 0 {
 		buf.WriteString(" ORDER BY ")
 		for i, f := range tq.orderBy {
@@ -417,6 +421,10 @@ func (tq *SQuery) Variables() []interface{} {
 	}
 	if tq.where != nil {
 		fromvars = tq.where.Variables()
+		vars = append(vars, fromvars...)
+	}
+	if tq.having != nil {
+		fromvars = tq.having.Variables()
 		vars = append(vars, fromvars...)
 	}
 	return vars

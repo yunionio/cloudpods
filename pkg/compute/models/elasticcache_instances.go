@@ -56,25 +56,25 @@ type SElasticcache struct {
 	SZoneResourceBase
 
 	InstanceType  string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // redis.master.micro.default
-	CapacityMB    int    `nullable:"false" list:"user" create:"optional"`                            //  1024
-	ArchType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 集群版 | 标准版 | 读写分离版 | 单机 ？
-	NodeType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // STAND_ALONE（单节点） MASTER_SLAVE（多节点) ？
+	CapacityMB    int    `nullable:"true" list:"user" create:"optional"`                             //  1024
+	ArchType      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // 集群版 | 标准版 | 读写分离版 | 单机 ？
+	NodeType      string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // STAND_ALONE（单节点） MASTER_SLAVE（多节点) ？
 	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // Redis | Memcache
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 4.0 5.0
 
-	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // CLASSIC（经典网络）  VPC（专有网络）
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	NetworkType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"` // CLASSIC（经典网络）  VPC（专有网络）
+	NetworkId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	PrivateDNS         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"` //  内网DNS
-	PrivateIpAddr      string `width:"17" charset:"ascii" list:"user" create:"optional"`                   //  内网IP地址
-	PrivateConnectPort int    `nullable:"false" list:"user" create:"optional"`                             // 内网访问端口
-	PublicDNS          string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	PrivateDNS         string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"` //  内网DNS
+	PrivateIpAddr      string `width:"17" charset:"ascii" list:"user" create:"optional"`                  //  内网IP地址
+	PrivateConnectPort int    `nullable:"true" list:"user" create:"optional"`                             // 内网访问端口
+	PublicDNS          string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	PublicIpAddr       string `width:"17" charset:"ascii" list:"user" create:"optional"` //
-	PublicConnectPort  int    `nullable:"false" list:"user" create:"optional"`           // 外网访问端口
+	PublicConnectPort  int    `nullable:"true" list:"user" create:"optional"`            // 外网访问端口
 
-	MaintainStartTime string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional"` // HH:mmZ eg. 02:00Z
-	MaintainEndTime   string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	MaintainStartTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional"` // HH:mmZ eg. 02:00Z
+	MaintainEndTime   string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// AutoRenew // 自动续费
 	// AutoRenewPeriod // 自动续费周期

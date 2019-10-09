@@ -84,7 +84,7 @@ type SNetwork struct {
 	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	IfnameHint string `width:"9" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	IfnameHint string `width:"9" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
 	GuestIpEnd   string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)

@@ -51,6 +51,14 @@ func JSONArray2StringArray(arr []JSONObject) []string {
 	return ret
 }
 
+func GetStringArray(o JSONObject, key ...string) ([]string, error) {
+	arr, err := o.GetArray(key...)
+	if err != nil {
+		return nil, err
+	}
+	return JSONArray2StringArray(arr), nil
+}
+
 func NewTimeString(tm time.Time) *JSONString {
 	return NewString(tm.Format("2006-01-02T15:04:05Z"))
 }

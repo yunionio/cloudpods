@@ -119,7 +119,7 @@ type SRouteTable struct {
 	SManagedResourceBase
 
 	VpcId         string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	CloudregionId string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	CloudregionId string   `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	Type          string   `width:"16" charset:"ascii" nullable:"false" list:"user"`
 	Routes        *SRoutes `list:"user" update:"user" create:"required"`
 }
