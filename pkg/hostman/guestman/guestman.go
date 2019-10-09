@@ -65,6 +65,7 @@ type SGuestManager struct {
 	ServersPath      string
 	Servers          *sync.Map
 	CandidateServers map[string]*SKVMGuestInstance
+	UnknownServers   *sync.Map
 	ServersLock      *sync.Mutex
 
 	GuestStartWorker *appsrv.SWorkerManager
@@ -78,6 +79,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.ServersPath = serversPath
 	manager.Servers = new(sync.Map)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
+	manager.UnknownServers = new(sync.Map)
 	manager.ServersLock = &sync.Mutex{}
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
 	manager.StartCpusetBalancer()
@@ -88,6 +90,15 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 
 func (m *SGuestManager) GetServer(sid string) (*SKVMGuestInstance, bool) {
 	s, ok := m.Servers.Load(sid)
+	if ok {
+		return s.(*SKVMGuestInstance), ok
+	} else {
+		return nil, ok
+	}
+}
+
+func (m *SGuestManager) GetUnknownServer(sid string) (*SKVMGuestInstance, bool) {
+	s, ok := m.UnknownServers.Load(sid)
 	if ok {
 		return s.(*SKVMGuestInstance), ok
 	} else {
@@ -156,13 +167,10 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	if !pendingDelete {
 		m.VerifyExistingGuests(true)
 	} else {
-		var unknownServerrs = make([]*SKVMGuestInstance, 0)
-		for _, server := range m.CandidateServers {
+		for id, server := range m.CandidateServers {
+			m.UnknownServers.Store(id, server)
 			go m.RequestVerifyDirtyServer(server)
 			log.Errorf("Server %s not found on this host", server.GetName())
-			unknownServerrs = append(unknownServerrs, server)
-		}
-		for _, server := range unknownServerrs {
 			m.RemoveCandidateServer(server)
 		}
 	}
@@ -459,6 +467,9 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 		m.Servers.Delete(sid)
 		// 这里应该不需要append到deleted servers
 		// 据观察 deleted servers 目的是为了给ofp_delegate使用，ofp已经不用了
+		return guest, nil
+	} else if guest, ok := m.GetUnknownServer(sid); ok {
+		m.UnknownServers.Delete(sid)
 		return guest, nil
 	} else {
 		return nil, httperrors.NewNotFoundError("Not found")

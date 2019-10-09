@@ -110,7 +110,10 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 	diskSize, _ := data.Int("disk_size")
 	if _, err := db.Update(disk, func() error {
 		disk.DiskSize = int(diskSize)
-		disk.DiskFormat, _ = data.GetString("disk_format")
+		diskFromat, _ := data.GetString("disk_format")
+		if len(diskFromat) > 0 {
+			disk.DiskFormat = diskFromat
+		}
 		disk.AccessPath, _ = data.GetString("disk_path")
 		return nil
 	}); err != nil {
