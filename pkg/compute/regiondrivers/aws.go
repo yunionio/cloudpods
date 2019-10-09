@@ -21,6 +21,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -32,8 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 type SAwsRegionDriver struct {
@@ -976,7 +978,13 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 					}
 				}
 
-				// lblis.CertificateId = lbcert.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedCertificateId")
+				}
 			}
 		}
 
@@ -1161,42 +1169,13 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 					}
 				}
 
-				// lblis.ExternalId = lbcert.ExternalId
-			}
-		}
-
-		{
-			aclId, _ := task.GetParams().GetString("acl_id")
-			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.UpdateCachedCertificateId")
 				}
-
-				var lbacl *models.SCachedLoadbalancerAcl
-				// 先读取缓存，缓存不存在的情况下，从ACL表中取数据创建缓存
-				if _lbacl, err := models.CachedLoadbalancerAclManager.FetchById(aclId); err == nil && _lbacl != nil {
-					lbacl = _lbacl.(*models.SCachedLoadbalancerAcl)
-				} else {
-					acl, err := models.LoadbalancerAclManager.FetchById(aclId)
-					if err != nil {
-						return nil, err
-					}
-
-					lbacl, err = models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				if len(lbacl.ExternalId) == 0 {
-					_, err := self.createLoadbalancerAcl(ctx, userCred, lbacl)
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				// lblis.AclId = lbacl.ExternalId
 			}
 		}
 

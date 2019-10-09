@@ -74,7 +74,7 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	return api.LB_CHARGE_TYPE_BY_HOUR
+	return api.LB_CHARGE_TYPE_POSTPAID
 }
 
 func (self *SLoadbalancer) GetEgressMbps() int {

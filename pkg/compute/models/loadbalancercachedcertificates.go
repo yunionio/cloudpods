@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -259,14 +260,20 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	// check local cert
 	// todo: check fingerprint not empty & aws 证书不区分region，需要去除重复数据？
 	c := SCachedLoadbalancerCertificate{}
-	err = CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint).First(&c)
-	if err != nil && len(c.CertificateId) == 0 {
-		localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
-		if err != nil {
-			log.Debugf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
-		}
+	q1 := CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint)
+	err = q1.First(&c)
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
+			if err != nil {
+				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
+			}
 
-		lbcert.CertificateId = localcert.Id
+			lbcert.CertificateId = localcert.Id
+		default:
+			return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
+		}
 	} else {
 		lbcert.CertificateId = c.CertificateId
 	}
@@ -286,6 +293,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 
 func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
+		lbcert.ExternalId = extCertificate.GetGlobalId()
 		lbcert.Name = extCertificate.GetName()
 		lbcert.CommonName = extCertificate.GetCommonName()
 		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
