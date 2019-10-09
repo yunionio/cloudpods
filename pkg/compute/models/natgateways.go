@@ -58,7 +58,7 @@ type SNatGateway struct {
 	SCloudregionResourceBase
 	SBillingResourceBase
 
-	VpcId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	NatSpec string `list:"user" create:"optional"` // NAT规格
 }
 

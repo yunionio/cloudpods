@@ -62,7 +62,7 @@ type SLoadbalancerBackendGroup struct {
 	SCloudregionResourceBase
 
 	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	LoadbalancerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {

@@ -54,26 +54,26 @@ func init() {
 }
 
 type SLoadbalancerHTTPRateLimiter struct {
-	HTTPRequestRate       int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HTTPRequestRate       int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HTTPRequestRatePerSrc int `nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerRateLimiter struct {
-	EgressMbps int `nullable:"false" list:"user" get:"user" create:"optional" update:"user"`
+	EgressMbps int `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
 type SLoadbalancerHealthCheck struct {
-	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheck     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
-	HealthCheckDomain   string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckURI      string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckHttpCode string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckDomain   string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckURI      string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckHttpCode string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
-	HealthCheckRise     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckFall     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckInterval int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckRise     int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckFall     int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckInterval int `nullable:"true" list:"user" create:"optional" update:"user"`
 
 	HealthCheckReq string `list:"user" create:"optional" update:"user"`
 	HealthCheckExp string `list:"user" create:"optional" update:"user"`
@@ -84,13 +84,13 @@ type SLoadbalancerUDPListener struct{}
 
 // TODO sensible default for knobs
 type SLoadbalancerHTTPListener struct {
-	StickySession              string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	StickySessionType          string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	StickySessionCookieTimeout int    `nullable:"false" list:"user" create:"optional" update:"user"`
+	StickySession              string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	StickySessionType          string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	StickySessionCookieTimeout int    `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	XForwardedFor bool `nullable:"false" list:"user" create:"optional" update:"user"`
-	Gzip          bool `nullable:"false" list:"user" create:"optional" update:"user"`
+	XForwardedFor bool `nullable:"true" list:"user" create:"optional" update:"user"`
+	Gzip          bool `nullable:"true" list:"user" create:"optional" update:"user"`
 }
 
 // TODO
@@ -100,8 +100,8 @@ type SLoadbalancerHTTPListener struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	CertificateId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	EnableHttp2     bool   `create:"optional" list:"user" update:"user"`
 }
 
@@ -112,24 +112,24 @@ type SLoadbalancerListener struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ListenerPort      int    `nullable:"false" list:"user" create:"required"`
-	BackendGroupId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	BackendGroupId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	BackendServerPort int    `nullable:"false" get:"user" list:"user" default:"0" create:"optional"`
 
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
 
-	ClientRequestTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
-	ClientIdleTimeout     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	BackendConnectTimeout int `nullable:"false" list:"user" create:"optional" update:"user"`
-	BackendIdleTimeout    int `nullable:"false" list:"user" create:"optional" update:"user"`
+	ClientRequestTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"`
+	ClientIdleTimeout     int `nullable:"true" list:"user" create:"optional" update:"user"`
+	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
+	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"`
 
-	AclStatus string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	AclType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	AclId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	AclStatus string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclType   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	AclId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	SLoadbalancerRateLimiter
 

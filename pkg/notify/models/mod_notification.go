@@ -88,10 +88,10 @@ type SNotification struct {
 
 	UID         string    `width:"128" nullable:"false" create:"required"`
 	ContactType string    `width:"16" nullable:"false" create:"required" list:"user" index:"true"`
-	Topic       string    `width:"128" nullable:"false" create:"optional" list:"user"`
-	Priority    string    `width:"16" nullable:"false" create:"optional" list:"user"`
+	Topic       string    `width:"128" nullable:"true" create:"optional" list:"user"`
+	Priority    string    `width:"16" nullable:"true" create:"optional" list:"user"`
 	Msg         string    `create:"required"`
-	ReceivedAt  time.Time `nullable:"false" list:"user" create:"optional"`
+	ReceivedAt  time.Time `nullable:"true" list:"user" create:"optional"`
 	SendAt      time.Time `nullable:"false"`
 	SendBy      string    `width:"128" nullable:"false"`
 	// ClusterID identify message with same topic, msg, priority

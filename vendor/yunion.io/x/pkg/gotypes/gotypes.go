@@ -290,3 +290,42 @@ func GetInstanceTypeName(instance interface{}) string {
 		return typeStr
 	}
 }
+
+// Convert vals to slice of pointer val's element type
+//
+// This is for the following use cases, not for general type conversion
+//
+//  - Convert []Interface to []ConcreteType
+//  - Convert []ConcreateType to []Interface
+func ConvertSliceElemType(vals interface{}, val interface{}) interface{} {
+	origVals := reflect.ValueOf(vals)
+	origType := origVals.Type()
+	if origKind := origType.Kind(); origKind != reflect.Slice && origKind != reflect.Array {
+		panic(fmt.Sprintf("only accepts slice or array, got %s", origKind))
+	}
+	var sliceType reflect.Type
+	if val == nil {
+		if origVals.Len() == 0 {
+			// nothing to do
+			return vals
+		}
+		val = origVals.Index(0).Interface()
+		sliceType = reflect.SliceOf(reflect.TypeOf(val))
+	} else {
+		valType := reflect.TypeOf(val)
+		if valKind := valType.Kind(); valKind != reflect.Ptr {
+			panic(fmt.Sprintf("val when not nil must be ptr kind, got %s", valKind))
+		}
+		sliceType = reflect.SliceOf(valType.Elem())
+	}
+	length := origVals.Len()
+	r := reflect.MakeSlice(sliceType, length, length)
+	for i := 0; i < length; i++ {
+		origVal := origVals.Index(i)
+		if origVal.Kind() == reflect.Interface {
+			origVal = origVal.Elem()
+		}
+		r.Index(i).Set(origVal)
+	}
+	return r.Interface()
+}
