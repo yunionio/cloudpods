@@ -231,7 +231,49 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
 	// TODO: check set pending quota
-	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := &api.SSecgroupCreateInput{}
+
+	err := data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Failed to unmarshal input: %v", err)
+	}
+
+	for i, rule := range input.Rules {
+		err = rule.Check()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
+		}
+	}
+
+	data, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return input.JSON(input), nil
+}
+
+func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	input := &api.SSecgroupCreateInput{}
+	data.Unmarshal(input)
+
+	for _, r := range input.Rules {
+		rule := &SSecurityGroupRule{
+			Priority:    int64(r.Priority),
+			Protocol:    r.Protocol,
+			Ports:       r.Ports,
+			Direction:   r.Direction,
+			CIDR:        r.CIDR,
+			Action:      r.Action,
+			Description: r.Description,
+			SecgroupID:  self.Id,
+		}
+
+		SecurityGroupRuleManager.TableSpec().Insert(rule)
+	}
 }
 
 func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) *SSecurityGroup {
