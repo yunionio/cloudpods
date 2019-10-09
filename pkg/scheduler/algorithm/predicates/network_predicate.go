@@ -250,7 +250,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			return nil
 		}
 
-		return nil
+		return errMsgs
 	}
 
 	filterBySpecifiedNetworks := func() {
