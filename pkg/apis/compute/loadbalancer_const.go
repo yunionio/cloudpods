@@ -214,6 +214,7 @@ const (
 	LB_TLS_CIPHER_POLICY_1_1        = "tls_cipher_policy_1_1"
 	LB_TLS_CIPHER_POLICY_1_2        = "tls_cipher_policy_1_2"
 	LB_TLS_CIPHER_POLICY_1_2_strict = "tls_cipher_policy_1_2_strict"
+	LB_TLS_CIPHER_POLICY_deault     = ""
 )
 
 var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
@@ -221,6 +222,7 @@ var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
 	LB_TLS_CIPHER_POLICY_1_1,
 	LB_TLS_CIPHER_POLICY_1_2,
 	LB_TLS_CIPHER_POLICY_1_2_strict,
+	LB_TLS_CIPHER_POLICY_deault,
 )
 
 const (
@@ -363,13 +365,13 @@ var LB_BACKEND_ROLES = choices.NewChoices(
 const (
 	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	LB_CHARGE_TYPE_BY_HOUR      = "hour"
+	LB_CHARGE_TYPE_POSTPAID     = "postpaid"
 )
 
 var LB_CHARGE_TYPES = choices.NewChoices(
 	LB_CHARGE_TYPE_BY_TRAFFIC,
 	LB_CHARGE_TYPE_BY_BANDWIDTH,
-	LB_CHARGE_TYPE_BY_HOUR,
+	LB_CHARGE_TYPE_POSTPAID,
 )
 
 const (

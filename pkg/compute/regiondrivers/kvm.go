@@ -454,15 +454,12 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	if api.LB_ACL_TYPES.Has(lblis.AclType) {
 		aclTypeV.Default(lblis.AclType)
 	}
-	var aclV *validators.ValidatorModelIdOrName
-	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
-		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	} else {
-		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
-		if len(lblis.AclId) > 0 {
-			aclV.Default(lblis.AclId)
-		}
+
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	if len(lblis.AclId) > 0 {
+		aclV.Default(lblis.AclId)
 	}
+
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{

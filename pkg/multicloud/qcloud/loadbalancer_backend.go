@@ -190,5 +190,12 @@ func (self *SLBBackend) GetProjectId() string {
 }
 
 func (self *SLBBackend) SyncConf(port, weight int) error {
-	return self.group.UpdateBackendServer(self.InstanceID, weight, port)
+	err := self.group.UpdateBackendServer(self.InstanceID, self.Weight, self.Port, weight, port)
+	if err != nil {
+		return err
+	}
+
+	self.Port = port
+	self.Weight = weight
+	return nil
 }

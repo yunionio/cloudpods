@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -33,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SLoadbalancerBackendGroupManager struct {
@@ -237,6 +237,33 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, er
 	return backends, nil
 }
 
+// 腾讯云要求四层监听IP+port唯一
+func (lbbg *SLoadbalancerBackendGroup) AllBackendsUnique() error {
+	backendGroupQ := LoadbalancerListenerManager.Query("backend_group_id").Equals("loadbalancer_id", lbbg.LoadbalancerId).In("listener_type", []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}).NotEquals("backend_group_id", lbbg.GetId()).IsFalse("pending_deleted").SubQuery()
+
+	backendsQ1 := []SLoadbalancerBackend{}
+	backendsQ2 := []SLoadbalancerBackend{}
+	err := LoadbalancerBackendManager.Query().Equals("backend_group_id", lbbg.GetId()).IsFalse("pending_deleted").All(&backendsQ1)
+	if err != nil {
+		return errors.Wrap(err, "loadbalancerBackendGroup.AllBackendsUnique.Q1")
+	}
+
+	err = LoadbalancerBackendManager.Query().In("backend_group_id", backendGroupQ).IsFalse("pending_deleted").All(&backendsQ2)
+	if err != nil {
+		return errors.Wrap(err, "loadbalancerBackendGroup.AllBackendsUnique.Q2")
+	}
+
+	for _, b1 := range backendsQ1 {
+		for _, b2 := range backendsQ2 {
+			if b1.BackendId == b2.BackendId && b1.Port == b2.Port {
+				return fmt.Errorf("backend %s with port %d is in used in backendgroup %s", b1.BackendId, b1.Port, b2.BackendGroupId)
+			}
+		}
+	}
+
+	return nil
+}
+
 // 返回值 TotalRef
 func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 	men := lbbg.getRefManagers()
@@ -304,7 +331,34 @@ func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, u
 	return false
 }
 
+func (lbbg *SLoadbalancerBackendGroup) isDefault(ctx context.Context) (bool, error) {
+	q := LoadbalancerManager.Query().Equals("backend_group_id", lbbg.GetId()).Equals("id", lbbg.LoadbalancerId)
+	count, err := q.CountWithError()
+	if err != nil {
+		return false, errors.Wrap(err, "loadbalancerBackendGroup.isDefault")
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
+	if ok, err := lbbg.isDefault(ctx); err != nil {
+		return httperrors.NewInternalServerError("get isDefault fail %s", err.Error())
+	} else {
+		if ok {
+			return httperrors.NewResourceBusyError("backend group %s is default backend group",
+				lbbg.Id)
+		}
+	}
+
+	return lbbg.ValidatePurgeCondition(ctx)
+}
+
+func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Context) error {
 	mans := lbbg.getRefManagers()
 	for _, m := range mans {
 		n, err := lbbg.refCount(m)
@@ -577,6 +631,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbala
 	ret.ListenPort = lblis.ListenerPort
 	ret.Scheduler = lblis.Scheduler
 	ret.HealthCheck = healthCheck
+	ret.Name = fmt.Sprintf("%s-%s", ret.Name, rand.String(4))
 
 	return ret, nil
 }

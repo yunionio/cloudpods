@@ -102,6 +102,7 @@ func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLo
 
 	for _, r := range self.Rules {
 		if r.GetPath() == rule.Path {
+			r.listener = self
 			return &r, nil
 		}
 	}
@@ -243,6 +244,8 @@ func (self *SLBListener) Refresh() error {
 			if err != nil {
 				return err
 			}
+
+			return nil
 		}
 	}
 
@@ -681,6 +684,14 @@ func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck 
 			hc.HTTPCheckMethod = "HEAD" // todo: add column HttpCheckMethod in model
 			hc.HTTPCheckDomain = listener.HealthCheckDomain
 			hc.HTTPCheckPath = listener.HealthCheckURI
+		}
+	} else {
+		hc = &healthCheck{
+			HealthSwitch: 0,
+			UnHealthNum:  3,
+			IntervalTime: 5,
+			HealthNum:    3,
+			TimeOut:      2,
 		}
 	}
 
