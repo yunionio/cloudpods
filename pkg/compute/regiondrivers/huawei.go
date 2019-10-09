@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/pkg/errors"
 )
 
 type SHuaWeiRegionDriver struct {
@@ -100,6 +101,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
+	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
@@ -216,6 +218,13 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 		if err != nil {
 			return nil, err
 		}
+
+		address, err := models.LoadbalancerBackendManager.GetGuestAddress(guest)
+		if err != nil {
+			return nil, errors.Wrap(err, "huaWeiRegionDriver.ValidateCreateLoadbalancerBackendData.GetGuestAddress")
+		}
+
+		data.Set("address", jsonutils.NewString(address))
 		basename = guest.Name
 		backend = backendV.Model
 	case api.LB_BACKEND_HOST:
@@ -332,7 +341,6 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
 		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
 
-		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 10).Default(3),
 		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 10).Default(3),
 		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 50).Default(10),
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Default(5),
@@ -342,12 +350,15 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, err
 	}
 
+	if t, _ := data.Int("health_check_fall"); t > 0 {
+		data.Set("health_check_rise", jsonutils.NewInt(t))
+	}
+
 	// acl check
 	if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, api.CLOUD_PROVIDER_HUAWEI); err != nil {
 		return nil, err
 	}
 
-	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
@@ -474,26 +485,25 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx conte
 
 func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
+	// todo: fix me here
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
 	aclStatusV.Default(lblis.AclStatus)
 	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
 	if api.LB_ACL_TYPES.Has(lblis.AclType) {
 		aclTypeV.Default(lblis.AclType)
 	}
-	var aclV *validators.ValidatorModelIdOrName
-	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
-		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	} else {
-		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
-		if len(lblis.AclId) > 0 {
-			aclV.Default(lblis.AclId)
-		}
-	}
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	aclV.Default(lblis.AclId)
+
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
 		"scheduler":  validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+
+		"acl_status": aclStatusV,
+		"acl_type":   aclTypeV,
+		"acl":        aclV,
 
 		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES),
 		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES),
@@ -507,7 +517,6 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
 		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
 
-		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 10).Default(3),
 		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 10).Default(3),
 		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 50).Default(10),
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Default(5),
@@ -522,6 +531,10 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 
 	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
+	}
+
+	if t, _ := data.Int("health_check_fall"); t > 0 {
+		data.Set("health_check_rise", jsonutils.NewInt(t))
 	}
 
 	{
@@ -814,28 +827,34 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 
 				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.FetchById")
 				}
 
 				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetOrCreateCachedCertificate")
 				}
 
 				if len(lbcert.ExternalId) == 0 {
 					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerCertificate")
 					}
 				}
 
-				// lblis.CertificateId = lbcert.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedCertificateId")
+				}
 			}
 		}
 
 		params, err := lblis.GetHuaweiLoadbalancerListenerParams()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetHuaweiLoadbalancerListenerParams")
 		}
 		loadbalancer := lblis.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -843,20 +862,20 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetIRegion")
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
 		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
 
 		lblis.SetModelManager(models.LoadbalancerListenerManager, lblis)
 		if err := db.SetExternalId(lblis, userCred, iListener.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.SetExternalId")
 		}
 
 		{
@@ -869,19 +888,27 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 
 				acl, err := models.LoadbalancerAclManager.FetchById(aclId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.FetchAclById")
 				}
 
 				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetOrCreateCachedAcl")
 				}
 
 				if len(lbacl.ExternalId) == 0 {
 					_, err = self.createLoadbalancerAcl(ctx, userCred, lbacl)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerAcl")
 					}
+				}
+
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedAclId = lbacl.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedAclId")
 				}
 			}
 		}
@@ -918,7 +945,13 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 					}
 				}
 
-				lblis.ExternalId = lbcert.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerListener.UpdateCachedCertificateId")
+				}
 			}
 		}
 
@@ -982,7 +1015,13 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 					}
 				}
 
-				lblis.AclId = lbacl.ExternalId
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedAclId = lbacl.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerListener.UpdateCachedAclId")
+				}
 			}
 		}
 
@@ -1018,6 +1057,10 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+
 			return nil, err
 		}
 		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
@@ -1068,7 +1111,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 				return nil, err
 			}
 
-			acl := lblis.GetLoadbalancerAcl()
+			acl := lblis.GetCachedLoadbalancerAcl()
 			if acl != nil {
 				err := db.DeleteModel(ctx, userCred, acl)
 				if err != nil {
@@ -1097,6 +1140,10 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+
 			return nil, err
 		}
 
@@ -1290,7 +1337,7 @@ func (self *SHuaWeiRegionDriver) ValidateDeleteLoadbalancerCondition(ctx context
 	}
 
 	if len(lbbgs) > 0 {
-		return httperrors.NewConflictError("loadbalancer is using by %d backendgroup.", len(listeners))
+		return httperrors.NewConflictError("loadbalancer is using by %d backendgroup.", len(lbbgs))
 	}
 	return nil
 }
@@ -1299,7 +1346,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		cachedlbbs, err := models.HuaweiCachedLbManager.GetBackendsByLocalBackendId(lbb.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetBackendsByLocalBackendId")
 		}
 
 		for _, cachedlbb := range cachedlbbs {
@@ -1313,35 +1360,35 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 			}
 			iRegion, err := lb.GetIRegion()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
 			}
 			iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerById")
 			}
 			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedlbbg.ExternalId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerBackendGroupById")
 			}
 
 			iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(cachedlbb.ExternalId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
 			err = iBackend.SyncConf(lbb.Port, lbb.Weight)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 			}
 
 			iBackend, err = iLoadbalancerBackendGroup.GetILoadbalancerBackendById(cachedlbb.ExternalId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
 			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
 
@@ -1363,7 +1410,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 
 		cachedlbbgs, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.GetCachedBackendGroups")
 		}
 
 		guest := lbb.GetGuest()
@@ -1375,23 +1422,23 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		for _, cachedLbbg := range cachedlbbgs {
 			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.GetICloudLoadbalancerBackendGroup")
 			}
 
 			ibackend, err = iLoadbalancerBackendGroup.AddBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.AddBackendServer")
 			}
 
 			_, err = models.HuaweiCachedLbManager.CreateHuaweiCachedLb(ctx, userCred, lbb, &cachedLbbg, ibackend, cachedLbbg.GetOwnerId())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.CreateHuaweiCachedLb")
 			}
 		}
 
 		if ibackend != nil {
 			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
 		return nil, nil
@@ -1411,15 +1458,15 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.GetIRegion")
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.GetILoadBalancerById")
 		}
 		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(listener.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.GetILoadBalancerListenerById")
 		}
 		rule := &cloudprovider.SLoadbalancerListenerRule{
 			Name:   lbr.Name,
@@ -1434,7 +1481,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 
 			cachedLbbg, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.GetCachedBackendGroupByAssociateId")
 			}
 
 			if cachedLbbg == nil {
@@ -1446,12 +1493,12 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		}
 		iListenerRule, err := iListener.CreateILoadBalancerListenerRule(rule)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.CreateILoadBalancerListenerRule")
 		}
 
 		lbr.SetModelManager(models.LoadbalancerListenerRuleManager, lbr)
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListenerRule.SetExternalId")
 		}
 		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
 	})
