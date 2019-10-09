@@ -254,7 +254,7 @@ type ServerCreateOptions struct {
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        bool     `help:"Auto start server after it is created"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
-	Group            []string `help:"Group of virtual server"`
+	Group            []string `help:"Group ID or Name of virtual server"`
 	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
@@ -274,7 +274,9 @@ type ServerCreateOptions struct {
 }
 
 func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error) {
+	// so serious error
 	data := new(schedapi.ServerConfig)
+	data.ServerConfigs = computeapi.NewServerConfigs()
 
 	// only support digit number as for now
 	memSize, err := strconv.Atoi(o.MemSpec)
@@ -311,8 +313,11 @@ func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error)
 		count = o.Count
 	}
 	input := new(schedapi.ScheduleInput)
-	input.Count = count
+
+	data.Count = count
+	data.InstanceGroupIds = o.Group
 	input.ServerConfig = *data
+
 	if o.DryRun != nil && *o.DryRun {
 		input.Details = true
 	}
@@ -399,6 +404,9 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 	if BoolV(opts.DryRun) {
 		params.Suggestion = true
 	}
+
+	// group
+	params.InstanceGroupIds = opts.Group
 
 	return params, nil
 }

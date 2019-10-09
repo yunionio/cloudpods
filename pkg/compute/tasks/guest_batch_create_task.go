@@ -155,7 +155,15 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-	guest.JoinGroups(self.UserCred, self.Params)
+	// join groups
+	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
+		err := guest.JoinGroups(ctx, self.UserCred, input.InstanceGroupIds)
+		if err != nil {
+			log.Errorf("Join Groups failed: %v", err)
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
+			return err
+		}
+	}
 
 	if guest.IsPrepaidRecycle() {
 		err := host.RebuildRecycledGuest(ctx, self.UserCred, guest)

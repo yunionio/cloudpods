@@ -102,3 +102,8 @@ type CandidateNetwork struct {
 	*models.SNetwork
 	Schedtags []models.SSchedtag `json:"schedtags"`
 }
+
+type CandidateGroup struct {
+	*models.SGroup
+	ReferCount int
+}
