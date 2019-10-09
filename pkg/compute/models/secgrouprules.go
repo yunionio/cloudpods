@@ -23,13 +23,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -148,47 +149,29 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 }
 
 func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	defsecgroup, _ := data.GetString("secgroup")
-	if len(defsecgroup) == 0 {
-		return nil, httperrors.NewMissingParameterError("secgroup")
-	}
-	secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
-	if secgroup == nil {
-		return nil, httperrors.NewInputParameterError("Security Group %s not found", defsecgroup)
-	}
-	data.Add(jsonutils.NewString(secgroup.GetId()), "secgroup_id")
 
-	priority, _ := data.Int("priority")
-	direction, _ := data.GetString("direction")
-	action, _ := data.GetString("action")
-	cidr, _ := data.GetString("cidr")
-	protocol, _ := data.GetString("protocol")
-
-	if len(cidr) > 0 {
-		if !regutils.MatchCIDR(cidr) && !regutils.MatchIPAddr(cidr) {
-			return nil, httperrors.NewInputParameterError("invalid ip address: %s", cidr)
-		}
-	} else {
-		data.Add(jsonutils.NewString("0.0.0.0/0"), "cidr")
+	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
+	err := secgroupV.Validate(data)
+	if err != nil {
+		return nil, err
 	}
 
-	rule := secrules.SecurityRule{
-		Priority:  int(priority),
-		Direction: secrules.TSecurityRuleDirection(direction),
-		Action:    secrules.TSecurityRuleAction(action),
-		Protocol:  protocol,
-		Ports:     []int{},
-		PortStart: -1,
-		PortEnd:   -1,
+	input := &api.SSecgroupRuleCreateInput{}
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Failed to unmarshal input: %v", err)
 	}
-	ports, _ := data.GetString("ports")
-	if err := rule.ParsePorts(ports); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+
+	err = input.Check()
+	if err != nil {
+		return nil, err
 	}
-	if err := rule.ValidateRule(); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+
+	data, err = manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
 	}
-	return manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	return input.JSON(input), nil
 }
 
 func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
