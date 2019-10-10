@@ -95,6 +95,18 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 	return nil
 }
 
+func (d *SOVSBridgeDriver) PersistentMac() error {
+	args := []string{
+		"ovs-vsctl", "set", "Bridge", d.bridge.String(),
+		"other-config:hwaddr=" + d.inter.Mac,
+	}
+	output, err := procutils.NewCommand(args[0], args[1:]...).Run()
+	if err != nil {
+		return fmt.Errorf("Ovs bridge set mac address failed %s %s", output, err)
+	}
+	return nil
+}
+
 func (o *SOVSBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error {
 	return o.generateIfdownScripts(o, scriptPath, nic)
 }
