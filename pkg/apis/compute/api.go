@@ -132,8 +132,21 @@ type ServerConfigs struct {
 	IsolatedDevices      []*IsolatedDeviceConfig `json:"isolated_devices"`
 	BaremetalDiskConfigs []*BaremetalDiskConfig  `json:"baremetal_disk_configs"`
 
+	InstanceGroupIds []string `json:"groups"`
+
 	// DEPRECATE
 	Suggestion bool `json:"suggestion"`
+}
+
+func NewServerConfigs() *ServerConfigs {
+	return &ServerConfigs{
+		Disks:                make([]*DiskConfig, 0),
+		Networks:             make([]*NetworkConfig, 0),
+		Schedtags:            make([]*SchedtagConfig, 0),
+		IsolatedDevices:      make([]*IsolatedDeviceConfig, 0),
+		BaremetalDiskConfigs: make([]*BaremetalDiskConfig, 0),
+		InstanceGroupIds:     make([]string, 0),
+	}
 }
 
 type DeployConfig struct {

@@ -41,6 +41,8 @@ type BaseHostDesc struct {
 
 	Tenants       map[string]int64          `json:"tenants"`
 	HostSchedtags []computemodels.SSchedtag `json:"schedtags"`
+
+	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 }
 
 type baseHostGetter struct {
@@ -105,6 +107,27 @@ func (b baseHostGetter) HostSchedtags() []computemodels.SSchedtag {
 
 func (b baseHostGetter) Storages() []*api.CandidateStorage {
 	return b.h.Storages
+}
+
+func (b baseHostGetter) InstanceGroups() map[string]*api.CandidateGroup {
+	return b.h.InstanceGroups
+}
+
+func (b baseHostGetter) GetFreeGroupCount(groupId string) (int, error) {
+	// Must Be
+	scg, ok := b.h.InstanceGroups[groupId]
+	if !ok {
+		return 0, fmt.Errorf("No such Group id")
+	}
+	free := scg.Granularity - scg.ReferCount
+	if free < 1 {
+		return 0, nil
+	}
+	pendingScg, ok := b.h.GetPendingUsage().InstanceGroupUsage[groupId]
+	if ok {
+		free -= pendingScg.ReferCount
+	}
+	return free, nil
 }
 
 func (b baseHostGetter) Networks() []*api.CandidateNetwork {
@@ -208,6 +231,9 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 
 	if err := desc.fillSchedtags(); err != nil {
 		return nil, fmt.Errorf("Fill schedtag error: %v", err)
+	}
+	if err := desc.fillInstanceGroups(host); err != nil {
+		return nil, fmt.Errorf("Fill instance group error: %v", err)
 	}
 
 	return desc, nil
@@ -337,6 +363,24 @@ func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 		})
 	}
 	b.Storages = ss
+	return nil
+}
+
+func (b *BaseHostDesc) fillInstanceGroups(host *computemodels.SHost) error {
+	candidateSet := make(map[string]*api.CandidateGroup)
+	groups, groupSet, err := host.InstanceGroups()
+	if err != nil {
+		b.InstanceGroups = candidateSet
+		return err
+	}
+	for i := range groups {
+		id := groups[i].GetId()
+		candidateSet[id] = &api.CandidateGroup{
+			SGroup:     &groups[i],
+			ReferCount: groupSet[id],
+		}
+	}
+	b.InstanceGroups = candidateSet
 	return nil
 }
 

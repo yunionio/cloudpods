@@ -876,6 +876,20 @@ func (manager *SGuestManager) validateCreateData(
 		input.ResetPassword = &resetPassword
 	}
 
+	// check group
+	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
+		newGroupIds := make([]string, len(input.InstanceGroupIds))
+		for index, id := range input.InstanceGroupIds {
+			model, err := GroupManager.FetchByIdOrName(userCred, id)
+			if err != nil {
+				return nil, httperrors.NewResourceNotFoundError("no such group %s", id)
+			}
+			newGroupIds[index] = model.GetId()
+		}
+		// list of id or name ==> ids
+		input.InstanceGroupIds = newGroupIds
+	}
+
 	var hypervisor string
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
@@ -3043,8 +3057,14 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) JoinGroups(userCred mcclient.TokenCredential, params *jsonutils.JSONDict) {
-	// TODO
+func (self *SGuest) JoinGroups(ctx context.Context, userCred mcclient.TokenCredential, groupIds []string) error {
+	for _, id := range groupIds {
+		_, err := GroupguestManager.Attach(ctx, id, self.Id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type SGuestDiskCategory struct {
@@ -3108,6 +3128,7 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 		return
 	}
 	for _, gg := range groupGuests {
+		gg.SetModelManager(GroupguestManager, &gg)
 		gg.Delete(context.Background(), userCred)
 		var group SGroup
 		gq := GroupManager.Query()
@@ -3116,6 +3137,7 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 			log.Errorln(err.Error())
 			return
 		}
+		group.SetModelManager(GroupManager, &group)
 		db.OpsLog.LogDetachEvent(ctx, self, &group, userCred, nil)
 	}
 }
@@ -3150,6 +3172,17 @@ func (self *SGuest) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// delete group
+	joints, err := GroupguestManager.FetchByGuestId(self.Id)
+	if err != nil {
+		return err
+	}
+	for i := range joints {
+		err = joints[i].Detach(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
