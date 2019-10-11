@@ -23,9 +23,12 @@ type SVSCronjob struct {
 	Enabled  bool  `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
 }
 
+// TODO: 为 AnsiblePlaybookID, TemplateID, ServerID 加索引
 type SCronjob struct {
 	SVSCronjob
-	AnsiblePlaybookID string `nullable:"false" create:"required" list:"user" update:"user"`
+	AnsiblePlaybookID string `width:"36" nullable:"false" create:"required" index:"true" list:"user" update:"user"`
+	TemplateID        string `width:"36" nullable:"true" create:"optional" index:"true" list:"user" update:"user"`
+	ServerID          string `width:"36" nullable:"true" create:"optional" index:"true" list:"user" update:"user"`
 	db.SStandaloneResourceBase
 }
 

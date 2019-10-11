@@ -28,7 +28,7 @@ func init() {
 	DevToolCronjobs = NewDevtoolManager(
 		"devtool_cronjob",
 		"devtool_cronjobs",
-		[]string{"id", "ansible_playbook_id", "name", "day", "hour", "min", "sec", "interval", "start", "enabled", "created_at"},
+		[]string{"id", "ansible_playbook_id", "template_id", "server_id", "name", "day", "hour", "min", "sec", "interval", "start", "enabled", "created_at"},
 		[]string{},
 	)
 	registerCompute(&DevToolCronjobs)
