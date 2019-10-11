@@ -321,3 +321,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		return nil, nil, &ce
 	}
 }
+
+func JoinPath(ep string, path string) string {
+	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
+}
