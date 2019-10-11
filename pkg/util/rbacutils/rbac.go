@@ -643,6 +643,8 @@ func String2ScopeDefault(str string, defScope TRbacScope) TRbacScope {
 		return ScopeDomain
 	case string(ScopeProject):
 		return ScopeProject
+	case string(ScopeUser):
+		return ScopeUser
 	case "true":
 		return ScopeSystem
 	default:
