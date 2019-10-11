@@ -548,6 +548,19 @@ func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred
 	return extra, nil
 }
 
+func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "cluster":
+		clusterQuery := LoadbalancerClusterManager.Query("name", "id").Distinct().SubQuery()
+		q = q.Join(clusterQuery, sqlchemy.Equals(q.Field("cluster_id"), clusterQuery.Field("id")))
+		q.GroupBy(clusterQuery.Field("name"))
+		q.AppendField(clusterQuery.Field("name", "cluster"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+	return q, nil
+}
+
 func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
 	return db.IsAdminAllowPerform(userCred, lbagent, "hb")
 }
