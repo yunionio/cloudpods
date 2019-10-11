@@ -15,8 +15,9 @@
 package system_service
 
 type SServiceStatus struct {
-	Loaded bool
-	Active bool
+	Enabled bool
+	Loaded  bool
+	Active  bool
 }
 
 type IServiceManager interface {
