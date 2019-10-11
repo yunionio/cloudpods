@@ -93,28 +93,43 @@ func init() {
 		"devtool-template-bind",
 		"Binding devtool template to a host/vm",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
-			apb, err := modules.DevToolTemplates.Get(s, opts.ID, nil)
+			params := jsonutils.NewDict()
+			params.Set("server_id", jsonutils.NewString(opts.ServerID))
+			_, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "bind", params)
 			if err != nil {
 				return err
 			}
 			// printAnsiblePlaybookObject(apb)
-			log.Infof("apb obj: %+v", apb.(*jsonutils.JSONDict))
-			params := apb.(*jsonutils.JSONDict)
-			apb2, err := modules.AnsiblePlaybooks.Create(s, params)
+			return nil
+		},
+	)
+
+	R(
+		&options.DevtoolTemplateBindingOptions{},
+		"devtool-template-unbind",
+		"Binding devtool template to a host/vm",
+		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
+			params := jsonutils.NewDict()
+			params.Set("server_id", jsonutils.NewString(opts.ServerID))
+			_, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "unbind", params)
 			if err != nil {
 				return err
 			}
-			printAnsiblePlaybookObject(apb2)
-			log.Infof("opts: %+v", opts)
+			// printAnsiblePlaybookObject(apb)
+			return nil
+		},
+	)
 
-			//
-
-			// 2 jobs:
-			// * create ansible playbook;
-			// * create cronjob
-
-			// job1: create playbook
-
+	R(
+		&options.DevtoolTemplateIdOptions{},
+		"devtool-template-delete",
+		"Delete devtool template",
+		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateIdOptions) error {
+			apb, err := modules.DevToolTemplates.Delete(s, opts.ID, nil)
+			if err != nil {
+				return err
+			}
+			printAnsiblePlaybookObject(apb)
 			return nil
 		},
 	)
