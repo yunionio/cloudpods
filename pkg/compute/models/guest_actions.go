@@ -2526,7 +2526,8 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	quotaPlatform := self.GetQuotaPlatformID()
 
 	eipPendingUsage := &SQuota{Eip: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, eipPendingUsage)
+	ownerCred := self.GetOwnerId()
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerCred, quotaPlatform, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
