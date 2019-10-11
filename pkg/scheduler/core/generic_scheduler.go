@@ -349,12 +349,17 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 completed:
 	for len(priorityList) > 0 {
 		log.V(10).Debugf("PriorityList: %#v", priorityList)
+		currentPriority := unit.GetMaxSelectPriority()
 		priorityList0 := HostPriorityList{}
 		for _, it := range priorityList {
 			if count <= 0 {
 				break completed
 			}
 			hostID := it.Host
+			if !currentPriority.IsEmpty() && unit.GetSelectPriority(hostID).Less(currentPriority) {
+				priorityList0 = append(priorityList0, it)
+				continue
+			}
 			var (
 				selectedItem *SelectedCandidate
 				ok           bool
@@ -373,9 +378,12 @@ completed:
 				priorityList0 = append(priorityList0, it)
 			}
 		}
+		if !currentPriority.IsEmpty() {
+			unit.UpdateSelectPriority()
+		}
 		// sort by score
 		priorityList = priorityList0
-		sort.Sort(sort.Reverse(priorityList))
+		//sort.Sort(sort.Reverse(priorityList))
 	}
 
 	for _, sc := range selectedMap {
@@ -581,10 +589,7 @@ func PrioritizeCandidates(
 	}
 
 	wg := sync.WaitGroup{}
-	results := make([]HostPriorityList, 0, len(priorities))
-	for range priorities {
-		results = append(results, nil)
-	}
+	results := make([]HostPriorityList, len(priorities))
 	newPriorities, err := preExecPriorities(priorities, unit, candidates)
 	if err != nil {
 		return nil, err

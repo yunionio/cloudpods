@@ -19,12 +19,12 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
@@ -35,7 +35,8 @@ const (
 )
 
 var (
-	EmptyCapacities = make(map[string]Counter)
+	EmptyCapacities          = make(map[string]Counter)
+	EmptySelectPriorityValue = SSelectPriorityValue(0)
 )
 
 type SharedResourceManager struct {
@@ -402,11 +403,17 @@ type Unit struct {
 	LogManager *SchedLogManager
 
 	AllocatedResources map[string]*AllocatedResource
+
+	SelectPriorityMap        map[string]SSelectPriority
+	SelectPriorityUpdaterMap map[string]SSelectPriorityUpdater
+	SelectPriorityLock       sync.Mutex
 }
 
 func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
 	cmap := make(map[string]*Capacity) // candidate_id, Capacity
 	smap := make(map[string]Score)     // candidate_id, Score
+	spmap := make(map[string]SSelectPriority)
+	spumap := make(map[string]SSelectPriorityUpdater)
 	unit := &Unit{
 		SchedInfo:              info,
 		FailedCandidateMap:     make(map[string]*FailedCandidates),
@@ -421,6 +428,9 @@ func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
 		LogManager:             NewSchedLogManager(),
 		SchedulerManager:       schedManager,
 		AllocatedResources:     make(map[string]*AllocatedResource),
+
+		SelectPriorityMap:        spmap,
+		SelectPriorityUpdaterMap: spumap,
 	}
 	return unit
 }
@@ -569,6 +579,52 @@ func (u *Unit) SetCapacity(id string, name string, capacity Counter) error {
 	return nil
 }
 
+func (u *Unit) GetSelectPriority(id string) SSelectPriorityValue {
+	if sp, ok := u.SelectPriorityMap[id]; ok {
+		return sp.Value()
+	}
+	return EmptySelectPriorityValue
+}
+
+func (u *Unit) SetSelectPriorityWithLock(id string, name string, spv SSelectPriorityValue) {
+	u.SelectPriorityLock.Lock()
+	defer u.SelectPriorityLock.Unlock()
+
+	sp, ok := u.SelectPriorityMap[id]
+	if !ok {
+		sp = NewSSelctPriority()
+		u.SelectPriorityMap[id] = sp
+	}
+
+	sp[name] = spv
+}
+
+func (u *Unit) UpdateSelectPriority() {
+	for hostID, sp := range u.SelectPriorityMap {
+		for name, spv := range sp {
+			sp[name] = u.SelectPriorityUpdaterMap[name](u, spv, hostID)
+		}
+	}
+}
+
+func (u *Unit) GetMaxSelectPriority() (max SSelectPriorityValue) {
+	max = EmptySelectPriorityValue
+	for _, sp := range u.SelectPriorityMap {
+		val := sp.Value()
+		if max.Less(val) {
+			max = val
+		}
+	}
+	return
+}
+
+func (u *Unit) RegisterSelectPriorityUpdater(name string, f SSelectPriorityUpdater) {
+	u.SelectPriorityLock.Lock()
+	defer u.SelectPriorityLock.Unlock()
+
+	u.SelectPriorityUpdaterMap[name] = f
+}
+
 func validateCapacityInput(c Counter) bool {
 	if c != nil && c.GetCount() >= 0 {
 		return true
@@ -697,4 +753,45 @@ func (u *Unit) GetAllocatedResource(candidateId string) *AllocatedResource {
 		u.AllocatedResources[candidateId] = ret
 	}
 	return ret
+}
+
+type SSelectPriority map[string]SSelectPriorityValue
+
+func (s SSelectPriority) Value() (val SSelectPriorityValue) {
+	val = EmptySelectPriorityValue
+	for _, v := range s {
+		if v > val {
+			val = v
+		}
+	}
+	return
+}
+
+func NewSSelctPriority() SSelectPriority {
+	return make(map[string]SSelectPriorityValue)
+}
+
+// SSelectPriorityUpdater will call to update the specified host after each round of selection
+type SSelectPriorityUpdater func(u *Unit, origin SSelectPriorityValue, hostID string) SSelectPriorityValue
+
+type SSelectPriorityValue int
+
+func (s SSelectPriorityValue) Less(sp SSelectPriorityValue) bool {
+	return s < sp
+}
+
+func (s SSelectPriorityValue) Sub(sp SSelectPriorityValue) (ret SSelectPriorityValue) {
+	ret = s - sp
+	if ret.Less(EmptySelectPriorityValue) {
+		ret = EmptySelectPriorityValue
+	}
+	return
+}
+
+func (s SSelectPriorityValue) SubOne() SSelectPriorityValue {
+	return s.Sub(SSelectPriorityValue(1))
+}
+
+func (s SSelectPriorityValue) IsEmpty() bool {
+	return s == EmptySelectPriorityValue
 }

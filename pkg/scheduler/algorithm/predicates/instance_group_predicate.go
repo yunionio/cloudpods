@@ -42,12 +42,35 @@ func (p *InstanceGroupPredicate) PreExecute(u *core.Unit, cs []core.Candidater) 
 }
 
 func (p *InstanceGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
+	return true, nil, nil
+}
+
+type SForcedGroupPredicate struct {
+	InstanceGroupPredicate
+}
+
+func (p *SForcedGroupPredicate) Name() string {
+	return "forced_instance_group"
+}
+
+func (p *SForcedGroupPredicate) Clone() core.FitPredicate {
+	return &SForcedGroupPredicate{}
+}
+
+// SForcedGroupPredicate make sure that there is no more guest with same group whose IsForcedSpe is ture in a host
+// for all forced groups in u.SchedData.InstanceGroupIds, so that the capacity is the min value of the FreeGroupCounts
+func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 	schedDate := u.SchedData()
 
 	instanceGroups := c.Getter().InstanceGroups()
 	minFree := math.MaxInt16
 	for _, id := range schedDate.InstanceGroupIds {
+		detail := schedDate.InstanceGroupsDetail[id]
+		// SForcedGroupPredicate only deal with group whose ForceDispersion is ture
+		if detail.ForceDispersion.IsFalse() {
+			continue
+		}
 		var free int
 		if _, ok := instanceGroups[id]; ok {
 			free, _ = c.Getter().GetFreeGroupCount(id)
@@ -57,7 +80,6 @@ func (p *InstanceGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool,
 				break
 			}
 		} else {
-			detail := schedDate.InstanceGroupsDetail[id]
 			free = detail.Granularity
 		}
 		if free < minFree {
@@ -66,5 +88,67 @@ func (p *InstanceGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool,
 	}
 	// chose the min capacity of groups
 	h.SetCapacity(int64(minFree))
+	return h.GetResult()
+}
+
+type SUnForcedGroupPredicate struct {
+	InstanceGroupPredicate
+}
+
+func (p *SUnForcedGroupPredicate) Name() string {
+	return "unforced_instance_group"
+}
+
+func (p *SUnForcedGroupPredicate) Clone() core.FitPredicate {
+	return &SUnForcedGroupPredicate{}
+}
+
+func (p *SUnForcedGroupPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
+	ret, err := p.InstanceGroupPredicate.PreExecute(u, cs)
+	if err != nil || !ret {
+		return ret, err
+	}
+	u.RegisterSelectPriorityUpdater(p.Name(), func(u *core.Unit, origin core.SSelectPriorityValue,
+		hostID string) core.SSelectPriorityValue {
+
+		return origin.SubOne()
+	})
+	return ret, err
+}
+
+// SUnForcedGroupPredicate make sure that the guests are assigned to these hosts who has enough FreeGroupCount of
+// unforced groups, so that it will improve the priority of these hosts meet the conditions and the priority should
+// be the max value of the FreeGroupCounts
+func (p *SUnForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason,
+	error) {
+
+	h := NewPredicateHelper(p, u, c)
+	schedDate := u.SchedData()
+
+	instanceGroups := c.Getter().InstanceGroups()
+	maxPriority := 0
+	for _, id := range schedDate.InstanceGroupIds {
+		detail := schedDate.InstanceGroupsDetail[id]
+		// SUnForcedGroupPredicate only deal with group whose ForceDispersion is false
+		if detail.ForceDispersion.IsTrue() {
+			continue
+		}
+		var priority int
+		if _, ok := instanceGroups[id]; ok {
+			free, _ := c.Getter().GetFreeGroupCount(id)
+			if free < 1 {
+				priority = 0
+			}
+			priority = free
+		} else {
+			priority = detail.Granularity
+		}
+		if priority > maxPriority {
+			maxPriority = priority
+		}
+	}
+
+	// set priority
+	h.SetSelectPriority(maxPriority)
 	return h.GetResult()
 }
