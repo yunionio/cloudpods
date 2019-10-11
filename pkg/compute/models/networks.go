@@ -1626,26 +1626,53 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return nil, err
 	}
 
-	zoneStr, _ := query.GetString("zone")
-	if len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+	zones := jsonutils.GetQueryStringArray(query, "zone")
+	if len(zones) > 0 {
+		zq := ZoneManager.Query().SubQuery()
+		regions := CloudregionManager.Query().SubQuery()
+		zoneQ := zq.Query(zq.Field("id"), regions.Field("id"), regions.Field("provider")).
+			Join(regions, sqlchemy.Equals(zq.Field("cloudregion_id"), regions.Field("id"))).
+			Filter(
+				sqlchemy.OR(
+					sqlchemy.In(zq.Field("id"), zones),
+					sqlchemy.In(zq.Field("name"), zones),
+				),
+			)
+		rows, err := zoneQ.Rows()
 		if err != nil {
-			return nil, httperrors.NewNotFoundError("Zone %s not found", zoneStr)
+			return nil, err
 		}
-		zone := zoneObj.(*SZone)
-		region := zone.GetRegion()
-		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
-			wires := WireManager.Query().SubQuery()
-			vpcs := VpcManager.Query().SubQuery()
 
-			sq := wires.Query(wires.Field("id")).
-				Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-				Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
-			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
-		} else {
-			sq := WireManager.Query("id").Equals("zone_id", zoneObj.GetId())
-			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		defer rows.Close()
+
+		regionIds := []string{}
+		zoneIds := []string{}
+		for rows.Next() {
+			var zoneId, regionId, provider sql.NullString
+			err = rows.Scan(&zoneId, &regionId, &provider)
+			if err != nil {
+				return nil, err
+			}
+			if len(provider.String) > 0 && utils.IsInStringArray(provider.String, api.REGIONAL_NETWORK_PROVIDERS) {
+				if !utils.IsInStringArray(regionId.String, regionIds) {
+					regionIds = append(regionIds, regionId.String)
+				}
+			} else {
+				zoneIds = append(zoneIds, zoneId.String)
+			}
 		}
+
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		sq := wires.Query(wires.Field("id")).
+			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+			Filter(
+				sqlchemy.OR(
+					sqlchemy.In(wires.Field("zone_id"), zoneIds),
+					sqlchemy.In(vpcs.Field("cloudregion_id"), regionIds),
+				),
+			)
+		q = q.In("wire_id", sq.SubQuery())
 	}
 
 	vpcStr, _ := query.GetString("vpc")

@@ -29,15 +29,15 @@ func init() {
 	type NetworkListOptions struct {
 		options.BaseListOptions
 
-		Ip         string `help:"search networks that contain this IP"`
-		Zone       string `help:"search networks in a zone"`
-		Wire       string `help:"search networks belongs to a wire" json:"-"`
-		Host       string `help:"search networks attached to a host"`
-		Vpc        string `help:"search networks belongs to a VPC"`
-		Region     string `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
-		City       string `help:"search networks belongs to a city"`
-		Usable     *bool  `help:"search usable networks"`
-		ServerType string `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
+		Ip         string   `help:"search networks that contain this IP"`
+		Zone       []string `help:"search networks in zones"`
+		Wire       string   `help:"search networks belongs to a wire" json:"-"`
+		Host       string   `help:"search networks attached to a host"`
+		Vpc        string   `help:"search networks belongs to a VPC"`
+		Region     string   `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
+		City       string   `help:"search networks belongs to a city"`
+		Usable     *bool    `help:"search usable networks"`
+		ServerType string   `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
 		params, err := options.ListStructToParams(opts)
