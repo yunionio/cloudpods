@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
+	"time"
 
 	"yunion.io/x/log"
 
@@ -30,6 +30,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
+var (
+	serviceBlackList map[string]time.Time
+)
+
+func init() {
+	serviceBlackList = make(map[string]time.Time)
+}
+
 type sServiceEndpoints struct {
 	regionId  string
 	serviceId string
@@ -38,7 +46,7 @@ type sServiceEndpoints struct {
 }
 
 func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	log.Debugf("FetchProjectResourceCount")
+	//log.Debugf("FetchProjectResourceCount")
 	eps, err := models.EndpointManager.FetchAll()
 	if err != nil {
 		return
@@ -63,19 +71,21 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 			serviceTbl[key].internal = ep.Url
 		}
 	}
-	for _, ep := range serviceTbl {
+	for srvId, ep := range serviceTbl {
+		if to, ok := serviceBlackList[srvId]; ok {
+			if to.IsZero() || to.After(time.Now()) {
+				continue
+			}
+		}
 		url := ep.internal
 		if url == "" {
 			url = ep.external
 		}
-		if !strings.HasSuffix(url, "/") {
-			url += "/"
-		}
-		url += "project-resources"
+		url = httputils.JoinPath(url, "project-resources")
 		tk, _ := tokens.GetDefaultToken()
 		hdr := http.Header{}
 		hdr.Add("X-Auth-Token", tk)
-		log.Debugf("request %s", url)
+		// log.Debugf("request %s", url)
 		_, ret, err := httputils.JSONRequest(
 			httputils.GetDefaultClient(),
 			ctx, "GET",
@@ -85,7 +95,16 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			// ignore errors
 			// log.Errorf("fetch from %s fail: %s", url, err)
+			errCode := httputils.ErrorCode(err)
+			if errCode == 404 {
+				serviceBlackList[srvId] = time.Time{}
+			} else {
+				serviceBlackList[srvId] = time.Now().Add(time.Hour)
+			}
 			continue
+		}
+		if _, ok := serviceBlackList[srvId]; ok {
+			delete(serviceBlackList, srvId)
 		}
 		projectResCounts := make(map[string][]db.SProjectResourceCount)
 		err = ret.Unmarshal(&projectResCounts)
