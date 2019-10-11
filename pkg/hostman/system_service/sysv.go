@@ -63,6 +63,14 @@ func parseSysvStatus(res string, res2 string, srvname string) SServiceStatus {
 	lines := strings.Split(res, "\n")
 	for _, line := range lines {
 		parts := strings.Split(strings.TrimSpace(line), "\t")
+		for i := 1; i < len(parts); i++ {
+			part := parts[i]
+			part = strings.TrimSpace(part)
+			if strings.HasSuffix(part, ":on") {
+				ret.Enabled = true
+				break
+			}
+		}
 		if len(parts) > 1 && strings.TrimSpace(parts[0]) == srvname {
 			ret.Loaded = true
 			if strings.Index(res2, "running") > 0 {
