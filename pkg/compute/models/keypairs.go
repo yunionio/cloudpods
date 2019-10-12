@@ -68,7 +68,7 @@ func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if jsonutils.QueryBoolean(query, "admin", false) && db.IsAdminAllowList(userCred, manager) {
 		user, _ := query.GetString("user")
 		if len(user) > 0 {
-			uc, _ := db.UserCacheManager.FetchUserByIdOrName(user)
+			uc, _ := db.UserCacheManager.FetchUserByIdOrName(ctx, user)
 			if uc == nil {
 				return nil, httperrors.NewUserNotFoundError("user %s not found", user)
 			}
@@ -119,7 +119,7 @@ func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 
 	if db.IsAdminAllowGet(userCred, self) {
 		extra.Add(jsonutils.NewString(self.OwnerId), "owner_id")
-		uc, _ := db.UserCacheManager.FetchUserById(self.OwnerId)
+		uc, _ := db.UserCacheManager.FetchUserById(ctx, self.OwnerId)
 		if uc != nil {
 			extra.Add(jsonutils.NewString(uc.Name), "owner_name")
 		}
