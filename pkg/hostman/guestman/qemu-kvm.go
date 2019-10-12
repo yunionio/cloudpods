@@ -760,9 +760,12 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	return nil
 }
 
-func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
+func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params *jsonutils.JSONDict) {
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
 	s.manager.GuestStartWorker.Run(
-		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) }, nil, nil)
+		func() { s.asyncScriptStart(ctx, params) }, nil, nil)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {

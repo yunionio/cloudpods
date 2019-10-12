@@ -482,8 +482,12 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 			guest.SaveDesc(desc)
 		}
 		if guest.IsStopped() {
-			params, _ := body.Get("params")
-			guest.StartGuest(ctx, params)
+			var data *jsonutils.JSONDict
+			params, err := body.Get("params")
+			if err != nil {
+				data = params.(*jsonutils.JSONDict)
+			}
+			guest.StartGuest(ctx, data)
 			res := jsonutils.NewDict()
 			res.Set("vnc_port", jsonutils.NewInt(0))
 			return res, nil

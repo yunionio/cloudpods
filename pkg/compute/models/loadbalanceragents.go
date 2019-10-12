@@ -549,6 +549,11 @@ func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred
 }
 
 func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 	switch field {
 	case "cluster":
 		clusterQuery := LoadbalancerClusterManager.Query("name", "id").Distinct().SubQuery()
@@ -556,7 +561,7 @@ func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQ
 		q.GroupBy(clusterQuery.Field("name"))
 		q.AppendField(clusterQuery.Field("name", "cluster"))
 	default:
-		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
 }
