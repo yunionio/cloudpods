@@ -20,12 +20,15 @@ import (
 
 func TestParseSystemd(t *testing.T) {
 	cases := []struct {
-		in         string
-		name       string
-		wantLoaded bool
-		wantActive bool
+		in          string
+		inIsEnabled string
+		name        string
+		wantLoaded  bool
+		wantActive  bool
+		wantEnabled bool
 	}{
-		{`openvswitch.service - LSB: Open vSwitch switch
+		{
+			in: `openvswitch.service - LSB: Open vSwitch switch
    Loaded: loaded (/etc/rc.d/init.d/openvswitch; bad; vendor preset: disabled)
    Active: active (running) since Wed 2019-04-10 15:11:23 CST; 4 days ago
      Docs: man:systemd-sysv-generator(8)
@@ -34,13 +37,38 @@ func TestParseSystemd(t *testing.T) {
            ├─3722 ovsdb-server: monitoring pid 3723 (healthy)
            ├─3723 ovsdb-server /etc/openvswitch/conf.db -vconsole:emer -vsysl...
            ├─3774 ovs-vswitchd: monitoring pid 3775 (healthy)
-           └─3775 ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:em...`, "openvswitch", true, true},
-		{"Unit yunion-host.service could not be found.", "yunion-host", false, false},
+           └─3775 ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:em...`,
+			name:       "openvswitch",
+			wantLoaded: true,
+			wantActive: true,
+		},
+		{
+			in:         "Unit yunion-host.service could not be found.",
+			name:       "yunion-host",
+			wantLoaded: false,
+			wantActive: false,
+		},
+		{
+			name:        "enabled service",
+			inIsEnabled: "a\nb\nenabled\n",
+			wantEnabled: true,
+		},
+		{
+			name:        "enabled-runtime service",
+			inIsEnabled: "a\nb\nenabled-runtime\n",
+			wantEnabled: true,
+		},
 	}
 	for _, c := range cases {
-		status := parseSystemdStatus(c.in, c.name)
-		if status.Loaded != c.wantLoaded || status.Active != c.wantActive {
-			t.Errorf("parseSystemdStatus %s Loaded: want %v got %v Active: want %v got %v", c.name, c.wantLoaded, status.Loaded, c.wantActive, status.Active)
+		status := parseSystemdStatus(c.in, c.inIsEnabled, c.name)
+		if status.Loaded != c.wantLoaded {
+			t.Errorf("parseSystemdStatus %s Loaded: want %v got %v", c.name, c.wantLoaded, status.Loaded)
+		}
+		if status.Active != c.wantActive {
+			t.Errorf("parseSystemdStatus %s Active: want %v got %v", c.name, c.wantActive, status.Active)
+		}
+		if status.Enabled != c.wantEnabled {
+			t.Errorf("parseSystemdStatus %s Enabled: want %v got %v", c.name, c.wantActive, status.Enabled)
 		}
 	}
 }
