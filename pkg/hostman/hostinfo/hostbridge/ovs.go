@@ -326,6 +326,12 @@ func OVSPrepare() error {
 	if !ovs.IsInstalled() {
 		return fmt.Errorf("Service openvswitch not installed!")
 	}
+	if ovs.IsEnabled() {
+		err := ovs.Disable()
+		if err != nil {
+			log.Errorf("Disabling openvswitch service failed: %v", err)
+		}
+	}
 	if !ovs.IsActive() {
 		return ovs.Start(false)
 	}

@@ -54,12 +54,14 @@ func (manager *SSystemdServiceManager) Disable(srvname string) error {
 
 func (manager *SSystemdServiceManager) GetStatus(srvname string) SServiceStatus {
 	res, _ := procutils.NewCommand("systemctl", "status", srvname).Run()
-	return parseSystemdStatus(string(res), srvname)
+	res2, _ := procutils.NewCommand("systemctl", "is-enabled", srvname).Run()
+	return parseSystemdStatus(string(res), string(res2), srvname)
 }
 
-func parseSystemdStatus(res string, srvname string) SServiceStatus {
+func parseSystemdStatus(res string, res2 string, srvname string) SServiceStatus {
 	var ret SServiceStatus
-	lines := strings.Split(string(res), "\n")
+
+	lines := strings.Split(res, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "Loaded:") {
@@ -72,6 +74,15 @@ func parseSystemdStatus(res string, srvname string) SServiceStatus {
 			if len(parts) > 1 && parts[1] == "active" {
 				ret.Active = true
 			}
+		}
+	}
+
+	lines2 := strings.Split(res2, "\n")
+	for _, line := range lines2 {
+		switch line {
+		case "enabled", "enabled-runtime":
+			ret.Enabled = true
+			break
 		}
 	}
 	return ret

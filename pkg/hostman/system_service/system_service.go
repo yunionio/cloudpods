@@ -22,9 +22,11 @@ import (
 
 type ISystemService interface {
 	IsInstalled() bool
+	IsActive() bool
+	IsEnabled() bool
+
 	Start(enable bool) error
 	Stop(disable bool) error
-	IsActive() bool
 	GetConfig(map[string]interface{}) string
 	SetConf(interface{})
 	GetConf() interface{}
@@ -116,6 +118,11 @@ func (s *SBaseSystemService) Stop(disable bool) error {
 func (s *SBaseSystemService) IsActive() bool {
 	status := s.manager.GetStatus(s.name)
 	return status.Active
+}
+
+func (s *SBaseSystemService) IsEnabled() bool {
+	status := s.manager.GetStatus(s.name)
+	return status.Enabled
 }
 
 func (s *SBaseSystemService) GetConfig(map[string]interface{}) string {
