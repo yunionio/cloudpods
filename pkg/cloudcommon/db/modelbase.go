@@ -273,7 +273,7 @@ func (manager *SModelBaseManager) ResourceScope() rbacutils.TRbacScope {
 }
 
 func (manager *SModelBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	return q, nil
+	return q, httperrors.NewBadRequestError("unsupport field %s", field)
 }
 
 func (manager *SModelBaseManager) AllowGetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

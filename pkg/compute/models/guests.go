@@ -476,6 +476,11 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 }
 
 func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 	switch field {
 	case "account":
 		hosts := HostManager.Query().SubQuery()
@@ -487,7 +492,7 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 		q.GroupBy(cloudaccounts.Field("name"))
 		q.AppendField(cloudaccounts.Field("name", "account"))
 	default:
-		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
 }

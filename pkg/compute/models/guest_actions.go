@@ -2668,6 +2668,28 @@ func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.Token
 	return nil, nil
 }
 
+func (self *SGuest) AllowPerformSetQemuParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "set-qemu-params")
+}
+
+func (self *SGuest) PerformSetQemuParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	isaSerial, err := data.GetString("disable_isa_serial")
+	if err == nil {
+		err = self.SetMetadata(ctx, "disable_isa_serial", isaSerial, userCred)
+		if err != nil {
+			return nil, err
+		}
+	}
+	pvpanic, err := data.GetString("disable_pvpanic")
+	if err == nil {
+		err = self.SetMetadata(ctx, "disable_pvpanic", pvpanic, userCred)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
 func (self *SGuest) SwitchToBackup(userCred mcclient.TokenCredential) error {
 	diff, err := db.Update(self, func() error {
 		self.HostId, self.BackupHostId = self.BackupHostId, self.HostId
