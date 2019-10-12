@@ -794,7 +794,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		pwd := ""
 		k := ""
 		if len(keypair) > 0 {
-			k = keypair
+			k = publicKey
 		} else {
 			pwd = passwd
 		}
