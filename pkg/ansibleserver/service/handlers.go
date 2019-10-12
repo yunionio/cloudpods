@@ -39,6 +39,8 @@ func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
 	db.RegisterModelManager(db.OpsLog)
+	db.RegisterModelManager(db.UserCacheManager)
+	db.RegisterModelManager(db.TenantCacheManager)
 	for _, manager := range []db.IModelManager{
 		models.AnsiblePlaybookManager,
 	} {
