@@ -225,3 +225,8 @@ func (self *SESXiGuestDriver) RequestRenewInstance(guest *models.SGuest, bc bill
 func (self *SESXiGuestDriver) IsSupportEip() bool {
 	return false
 }
+
+func (self *SESXiGuestDriver) CancelExpireTime(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return guest.CancelExpireTime(ctx, userCred)
+}

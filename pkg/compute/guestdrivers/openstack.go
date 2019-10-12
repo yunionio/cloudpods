@@ -157,3 +157,8 @@ func (self *SOpenStackGuestDriver) AllowReconfigGuest() bool {
 func (self *SOpenStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
 }
+
+func (self *SOpenStackGuestDriver) CancelExpireTime(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return guest.CancelExpireTime(ctx, userCred)
+}
