@@ -64,8 +64,9 @@ type SSnapshot struct {
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	BackingDiskId string `width:"36" charset:"ascii" nullable:"true" default:""`
+	CloudregionId string    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackingDiskId string    `width:"36" charset:"ascii" nullable:"true" default:""`
+	ExpiredAt     time.Time `nullable:"true" list:"user" create:"optional"`
 }
 
 var SnapshotManager *SSnapshotManager
@@ -412,7 +413,8 @@ func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) (int, error) {
 		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
-func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient.IIdentityProvider, createdBy, diskId, guestId, location, name string) (*SSnapshot, error) {
+func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient.IIdentityProvider,
+	createdBy, diskId, guestId, location, name string, retentionDay int) (*SSnapshot, error) {
 	iDisk, err := DiskManager.FetchById(diskId)
 	if err != nil {
 		return nil, err
@@ -437,6 +439,9 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	}
 	snapshot.Name = name
 	snapshot.Status = api.SNAPSHOT_CREATING
+	if retentionDay > 0 {
+		snapshot.ExpiredAt = time.Now().AddDate(0, 0, retentionDay)
+	}
 	err = SnapshotManager.TableSpec().Insert(snapshot)
 	if err != nil {
 		return nil, err
@@ -845,4 +850,41 @@ func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 func (manager *SSnapshotManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
 	virts := manager.Query().IsFalse("fake_deleted")
 	return db.CalculateProjectResourceCount(virts)
+}
+
+func (manager *SSnapshotManager) CleanupSnapshots(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	var now = time.Now()
+	var snapshot = new(SSnapshot)
+	err := manager.Query().
+		Equals("fake_deleted", false).
+		Equals("created_by", api.SNAPSHOT_AUTO).
+		LE("expired_at", now).First(snapshot)
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("Cleanup snapshots job fetch snapshot failed %s", err)
+		return
+	} else if err == sql.ErrNoRows {
+		log.Infof("No snapshot need to clean ......")
+		return
+	}
+
+	snapshot.SetModelManager(manager, snapshot)
+	region := snapshot.GetRegion()
+	if err = manager.StartSnapshotCleanupTask(ctx, userCred, region, now); err != nil {
+		log.Errorf("Start snaphsot cleanup task failed %s", err)
+		return
+	}
+}
+
+func (manager *SSnapshotManager) StartSnapshotCleanupTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	region *SCloudregion, now time.Time,
+) error {
+	params := jsonutils.NewDict()
+	params.Set("tick", jsonutils.NewTimeString(now))
+	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotCleanupTask", region, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

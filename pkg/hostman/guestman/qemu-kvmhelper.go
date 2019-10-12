@@ -40,6 +40,7 @@ const (
 	OS_NAME_ANDROID = "Android"
 	OS_NAME_VMWARE  = "VMWare"
 	OS_NAME_CIRROS  = "Cirros"
+	OS_NAME_OPENWRT = "OpenWRT"
 
 	MODE_READLINE = "readline"
 	MODE_CONTROL  = "control"
@@ -116,6 +117,16 @@ func (s *SKVMGuestInstance) GetPciBus() string {
 	} else {
 		return "pci.0"
 	}
+}
+
+func (s *SKVMGuestInstance) disableIsaSerialDev() bool {
+	val, _ := s.Desc.GetString("metadata", "disable_isa_serial")
+	return val == "true"
+}
+
+func (s *SKVMGuestInstance) disablePvpanicDev() bool {
+	val, _ := s.Desc.GetString("metadata", "disable_pvpanic")
+	return val == "true"
 }
 
 func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format string) string {
@@ -471,7 +482,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if s.getOsDistribution() != OS_NAME_CIRROS {
+	if !utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
@@ -587,8 +598,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 
 	// add serial device
-	cmd += " -chardev pty,id=charserial0"
-	cmd += " -device isa-serial,chardev=charserial0,id=serial0"
+	if !s.disableIsaSerialDev() {
+		cmd += " -chardev pty,id=charserial0"
+		cmd += " -device isa-serial,chardev=charserial0,id=serial0"
+	}
 
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
@@ -601,7 +614,9 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += " -S"
 	}
 	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
-	cmd += " -device pvpanic"
+	if !s.disablePvpanicDev() {
+		cmd += " -device pvpanic"
+	}
 
 	cmd += "\"\n"
 	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
