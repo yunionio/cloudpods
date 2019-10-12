@@ -27,9 +27,10 @@ func init() {
 	type WireListOptions struct {
 		options.BaseListOptions
 
-		Region string `help:"List hosts in region"`
+		Region string `help:"List wires in region"`
 		Zone   string `help:"list wires in zone" json:"-"`
 		Vpc    string `help:"List wires in vpc"`
+		Host   string `help:"List wires attached to a host"`
 	}
 	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, opts *WireListOptions) error {
 		params, err := options.ListStructToParams(opts)
