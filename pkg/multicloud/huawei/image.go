@@ -84,6 +84,7 @@ type SImage struct {
 	SupportHighPerformance string    `json:"__support_highperformance"`
 	SupportXENGPUType      string    `json:"__support_xen_gpu_type"`
 	SupportKVMGPUType      string    `json:"__support_kvm_gpu_type"`
+	SupportGPUT4           string    `json:"__support_gpu_t4"`
 	SupportKVMAscend310    string    `json:"__support_kvm_ascend_310"`
 	SupportArm             string    `json:"__support_arm"`
 }
@@ -243,7 +244,7 @@ func excludeImage(image SImage) bool {
 		return true
 	}
 
-	if len(image.SupportLargeMemory) > 0 {
+	if len(image.SupportGPUT4) > 0 {
 		return true
 	}
 

@@ -352,6 +352,37 @@ func (self *SKVMHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Contex
 	return err
 }
 
+func (self *SKVMHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if disk.Status != api.DISK_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset disk in status %s", disk.Status)
+	}
+	snapshotId, err := data.GetString("snapshot_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
+	}
+	guests := disk.GetGuests()
+	if len(guests) > 1 {
+		return nil, httperrors.NewBadRequestError("Disk attach muti guests")
+	} else if len(guests) == 1 {
+		if guests[0].Status != api.VM_READY {
+			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
+		}
+	} else {
+		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest")
+	}
+
+	iSnapshot, err := models.SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+	}
+	snapshot := iSnapshot.(*models.SSnapshot)
+	if snapshot.Status != api.SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
+	}
+
+	return data, nil
+}
+
 func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
 	url := fmt.Sprintf("/disks/%s/reset/%s", disk.StorageId, disk.Id)
 
