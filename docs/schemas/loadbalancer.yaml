@@ -89,13 +89,13 @@ LoadbalancerListResponse:
     loadbalancers:
       type: array
       items:
-        $ref: '#/Loadbalancer'
+        $ref: "#/Loadbalancer"
 LoadbalancerResponse:
   type: object
   properties:
     loadbalancer:
       type: object
-      $ref: '#/Loadbalancer'
+      $ref: "#/Loadbalancer"
 
 LoadbalancerListenerCreateRequest:
   type: object
@@ -137,13 +137,13 @@ LoadbalancerListenerListResponse:
     loadbalancerlisteners:
       type: array
       items:
-        $ref: '#/LoadbalancerListener'
+        $ref: "#/LoadbalancerListener"
 LoadbalancerListenerResponse:
   type: object
   properties:
     loadbalancerlistener:
       type: object
-      $ref: '#/LoadbalancerListener'
+      $ref: "#/LoadbalancerListener"
 
 LoadbalancerBackendGroupListResponse:
   type: object
@@ -151,13 +151,13 @@ LoadbalancerBackendGroupListResponse:
     loadbalancerbackendgroups:
       type: array
       items:
-        $ref: '#/LoadbalancerBackendGroup'
+        $ref: "#/LoadbalancerBackendGroup"
 LoadbalancerBackendGroupResponse:
   type: object
   properties:
     loadbalancerbackendgroup:
       type: object
-      $ref: '#/LoadbalancerBackendGroup'
+      $ref: "#/LoadbalancerBackendGroup"
 
 LoadbalancerBackendCreateRequest:
   type: object
@@ -202,13 +202,13 @@ LoadbalancerBackendListResponse:
     loadbalancerbackends:
       type: array
       items:
-        $ref: '#/LoadbalancerBackend'
+        $ref: "#/LoadbalancerBackend"
 LoadbalancerBackendResponse:
   type: object
   properties:
     loadbalancerbackend:
       type: object
-      $ref: '#/LoadbalancerBackend'
+      $ref: "#/LoadbalancerBackend"
 
 LoadbalancerAclEntry:
   type: object
@@ -221,15 +221,36 @@ LoadbalancerAclEntry:
     comment:
       type: string
       description: 注释
-      readOnly: true  
+      readOnly: true
 
 LoadbalancerAclEntries:
   type: array
   items:
-    $ref: '#/LoadbalancerAclEntry'
-
+    $ref: "#/LoadbalancerAclEntry"
+LoadbalancerCachedAclCreateRequest:
+  type: object
+  properties:
+    cachedloadbalanceracl:
+      type: object
+      required:
+        - cloudregion
+        - cloudprovider
+        - acl
+      properties:
+        cloudregion:
+          type: string
+          description: 指定公有云region
+        cloudprovider:
+          type: string
+          description: 指定云账号订阅ID
+        acl:
+          type: string
+          description: 指定需要同步的ACL ID
+        listener:
+          type: string
+          description: 指定负载均衡监听器ID，华为云必须指定该参数。
 LoadbalancerCachedAcl:
-    allOf:
+  allOf:
     - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
     - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
     - type: object
@@ -238,10 +259,10 @@ LoadbalancerCachedAcl:
           type: string
           description: 所属的本地访问控制uuid
         acl_entries:
-            $ref: "#/LoadbalancerAclEntries"
+          $ref: "#/LoadbalancerAclEntries"
 
 LoadbalancerCachedAclResponse:
-    $ref: "#/LoadbalancerCachedAcl"
+  $ref: "#/LoadbalancerCachedAcl"
 
 LoadbalancerCachedAclListResponse:
   type: object
@@ -251,8 +272,28 @@ LoadbalancerCachedAclListResponse:
       items:
         $ref: "#/LoadbalancerCachedAcl"
 
+LoadbalancerCachedCertificateCreateRequest:
+  type: object
+  properties:
+    cachedloadbalancercertificate:
+      type: object
+      required:
+        - cloudregion
+        - cloudprovider
+        - certificate
+      properties:
+        cloudregion:
+          type: string
+          description: 指定公有云region
+        cloudprovider:
+          type: string
+          description: 指定云账号订阅ID
+        certificate:
+          type: string
+          description: 指定需要同步的SSL证书 ID
+
 LoadbalancerCachedCertificateResponse:
-    allOf:
+  allOf:
     - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
     - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
     - type: object
@@ -273,11 +314,11 @@ LoadbalancerCachedCertificateResponse:
         publicKey_bitLen:
           type: int
           description: 公钥长度
-          readOnly: true  
+          readOnly: true
         signature_algorithm:
           type: string
           description: 签名算法
-          readOnly: true  
+          readOnly: true
         fingerprint:
           type: string
           example: sha1:da:39:a3:ee:5e:6b:4b:0d:32:55:bf:ef:95:60:18:90:af:d8:07:09
@@ -287,22 +328,22 @@ LoadbalancerCachedCertificateResponse:
           type: string
           example: 2019-05-23T11:50:33.000000Z
           description: 最早生效时间
-          readOnly: true  
+          readOnly: true
         not_after:
           type: string
           example: 2020-05-23T11:50:33.000000Z
           description: 失效时间
-          readOnly: true  
+          readOnly: true
         common_name:
           type: string
           example: www.onecloud.com
           description: 域名
-          readOnly: true  
+          readOnly: true
         subject_alternative_names:
           type: string
-          example: ''
+          example: ""
           description: 附加域名
-          readOnly: true             
+          readOnly: true
 
 LoadbalancerCachedCertificateListResponse:
   type: object
@@ -310,4 +351,4 @@ LoadbalancerCachedCertificateListResponse:
     cached_loadbalancercertificates:
       type: array
       items:
-        $ref: "#/LoadbalancerCachedCertificateResponse"        
+        $ref: "#/LoadbalancerCachedCertificateResponse"
