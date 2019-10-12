@@ -459,3 +459,8 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 	}
 	return nil
 }
+
+func (self *SKVMGuestDriver) CancelExpireTime(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+	return guest.CancelExpireTime(ctx, userCred)
+}

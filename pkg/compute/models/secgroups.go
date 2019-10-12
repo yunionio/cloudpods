@@ -95,19 +95,6 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 	return q, nil
 }
 
-func (manager *SSecurityGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	switch field {
-	case "tenant":
-		tenantCacheQuery := db.TenantCacheManager.Query("name", "id").Distinct().SubQuery()
-		q.AppendField(tenantCacheQuery.Field("name", "tenant"))
-		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
-		q.GroupBy(tenantCacheQuery.Field("name"))
-	default:
-		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
-	}
-	return q, nil
-}
-
 func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
 	if err != nil {

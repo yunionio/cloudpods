@@ -1501,18 +1501,23 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewBadRequestError(msg)
 	}
+	err = self.startDetachIsolateDevice(ctx, userCred, device)
+	return nil, err
+}
+
+func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msg := fmt.Sprintf("Isolated device %s not found", device)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError(msg)
 	}
 	dev := iDev.(*SIsolatedDevice)
 	host := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 	err = self.detachIsolateDevice(ctx, userCred, dev)
-	return nil, err
+	return err
 }
 
 func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
@@ -1551,11 +1556,16 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewBadRequestError(msg)
 	}
+	err = self.startAttachIsolatedDevice(ctx, userCred, device)
+	return nil, err
+}
+
+func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
 	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msg := fmt.Sprintf("Isolated device %s not found", device)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewBadRequestError(msg)
+		return httperrors.NewBadRequestError(msg)
 	}
 	dev := iDev.(*SIsolatedDevice)
 	host := self.GetHost()
@@ -1567,7 +1577,78 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		msg = err.Error()
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, err == nil)
-	return nil, err
+	return err
+}
+
+func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+	if len(dev.GuestId) > 0 {
+		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
+	}
+	if dev.HostId != self.HostId {
+		return fmt.Errorf("Isolated device and guest are not located in the same host")
+	}
+	_, err := db.Update(dev, func() error {
+		dev.GuestId = self.Id
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_ATTACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SGuest) AllowPerformSetIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-isolated-device")
+}
+
+func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Only allowed to attach isolated device when guest is ready")
+	}
+	var addDevs []string
+	{
+		addDevices, err := data.Get("add_devices")
+		if err == nil {
+			arrAddDev, ok := addDevices.(*jsonutils.JSONArray)
+			if ok {
+				addDevs = arrAddDev.GetStringArray()
+			} else {
+				return nil, httperrors.NewInputParameterError("attach devices is not string array")
+			}
+		}
+	}
+
+	var delDevs []string
+	{
+		delDevices, err := data.Get("del_devices")
+		if err == nil {
+			arrDelDev, ok := delDevices.(*jsonutils.JSONArray)
+			if ok {
+				delDevs = arrDelDev.GetStringArray()
+			} else {
+				return nil, httperrors.NewInputParameterError("detach devices is not string array")
+			}
+		}
+	}
+
+	// detach first
+	for i := 0; i < len(delDevs); i++ {
+		err := self.startDetachIsolateDevice(ctx, userCred, delDevs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := 0; i < len(addDevs); i++ {
+		err := self.startAttachIsolatedDevice(ctx, userCred, addDevs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 func (self *SGuest) AllowPerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2974,6 +3055,18 @@ func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient
 	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
 }
 
+func (self *SGuest) AllowPerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-expire")
+}
+
+func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
+	}
+	err := self.GetDriver().CancelExpireTime(ctx, userCred, self)
+	return nil, err
+}
+
 func (self *SGuest) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "renew")
 }
@@ -3022,11 +3115,9 @@ func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCr
 	guestdisks := self.GetDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt)
-			if err != nil {
-				return err
-			}
+		err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -3034,7 +3125,7 @@ func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+		if len(self.BillingType) == 0 {
 			self.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 		if expireAt != nil && !expireAt.IsZero() {
@@ -3050,6 +3141,23 @@ func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.Token
 		return err
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SGuest) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			GuestManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "guest cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "guest cancel expire time", userCred)
 	return nil
 }
 

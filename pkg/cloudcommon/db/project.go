@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -61,4 +62,17 @@ func (manager *SProjectizedResourceBaseManager) ResourceScope() rbacutils.TRbacS
 
 func (manager *SProjectizedResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return FetchProjectInfo(ctx, data)
+}
+
+func (manager *SProjectizedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "tenant":
+		tenantCacheQuery := TenantCacheManager.Query("name", "id").Distinct().SubQuery()
+		q.AppendField(tenantCacheQuery.Field("name", "tenant"))
+		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
+		q.GroupBy(tenantCacheQuery.Field("name"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+	return q, nil
 }
