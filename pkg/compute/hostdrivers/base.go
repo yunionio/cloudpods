@@ -38,6 +38,10 @@ func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mc
 	return data, nil
 }
 
+func (self *SBaseHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
 func (self *SBaseHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewNotImplementedError("Not Implement ValidateAttachStorage")
 }
