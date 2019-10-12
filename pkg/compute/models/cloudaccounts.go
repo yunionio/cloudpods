@@ -748,7 +748,7 @@ func (self *SCloudaccount) GetProviderCount() (int, error) {
 
 func (self *SCloudaccount) GetHostCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
-	q := HostManager.Query().In("manager_id", subq)
+	q := HostManager.Query().In("manager_id", subq).IsFalse("is_emulated")
 	return q.CountWithError()
 }
 
