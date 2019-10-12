@@ -289,6 +289,9 @@ func (manager *SPolicyManager) allow(scope rbacutils.TRbacScope, userCred mcclie
 		key := queryKey(scope, userCred, service, resource, action, extra...)
 		val := manager.cache.Get(key)
 		if val != nil {
+			if consts.IsRbacDebug() {
+				log.Debugf("query %s:%s:%s:%s from cache %s", service, resource, action, extra, val)
+			}
 			return val.(rbacutils.TRbacResult)
 		}
 		result := manager.allowWithoutCache(scope, userCred, service, resource, action, extra...)
@@ -410,7 +413,7 @@ func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, use
 	}
 
 	if consts.IsRbacDebug() {
-		log.Debugf("[RBAC: %s] %s %s %s %#v permission %s userCred: %s MatchRules: %d(%s) %s", scope, service, resource, action, extra, result, userCred, len(matchRules), jsonutils.Marshal(matchRules), jsonutils.Marshal(policies))
+		log.Debugf("[RBAC: %s] %s %s %s %#v permission %s userCred: %s MatchRules: %d(%s)", scope, service, resource, action, extra, result, userCred, len(matchRules), jsonutils.Marshal(matchRules))
 	}
 	return result
 }
