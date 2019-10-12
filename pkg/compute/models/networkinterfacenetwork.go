@@ -207,3 +207,25 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 	db.OpsLog.LogEvent(&address, db.ACT_CREATE, address.GetShortDesc(ctx), userCred)
 	return nil
 }
+
+func (self *SNetworkinterfacenetwork) GetNetwork() (*SNetwork, error) {
+	network, err := NetworkManager.FetchById(self.NetworkId)
+	if err != nil {
+		return nil, err
+	}
+	return network.(*SNetwork), nil
+}
+
+func (self *SNetworkinterfacenetwork) GetDetailJson() (jsonutils.JSONObject, error) {
+	network, err := self.GetNetwork()
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(map[string]interface{}{
+		"network_id":          self.NetworkId,
+		"ip_addr":             self.IpAddr,
+		"primary":             self.Primary,
+		"networkinterface_id": self.NetworkinterfaceId,
+		"network":             network.Name,
+	}), nil
+}

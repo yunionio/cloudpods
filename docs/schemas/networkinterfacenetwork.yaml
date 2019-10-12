@@ -5,6 +5,10 @@ NetworkinterfaceNetwork:
       type: string
       example: "192.168.0.240"
       description: 弹性网卡IP地址
+    network:
+      type: string 
+      example: test-network 
+      description: 子网名称
     network_id:
       type: string
       example: 19b09a31-1884-4b3f-84cd-ac03827c567d

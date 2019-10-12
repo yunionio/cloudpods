@@ -117,7 +117,16 @@ func (self *SNetworkInterface) GetCustomizeColumns(ctx context.Context, userCred
 		log.Errorf("failed to get network for networkinterface %s(%s) error: %v", self.Name, self.Id, err)
 		return extra
 	}
-	extra.Add(jsonutils.Marshal(networks), "networks")
+	networkArray := jsonutils.NewArray()
+	for _, network := range networks {
+		detail, err := network.GetDetailJson()
+		if err != nil {
+			log.Errorf("failed to get networkinterface network %s detail error: %v", network.IpAddr, err)
+			return extra
+		}
+		networkArray.Add(detail)
+	}
+	extra.Add(networkArray, "networks")
 	return extra
 }
 
