@@ -286,14 +286,14 @@ paths:
     $ref: "./loadbalancer/loadbalancer.yaml"
 
   /cached_loadbalancer_acls:
-    $ref: "./loadbalancer/loadbalancercachedacl.yaml"
-  /cached_loadbalancer_acls/{loadbalancerlistenerId}:
     $ref: "./loadbalancer/loadbalancercachedacls.yaml"
+  /cached_loadbalancer_acls/{loadbalancercachedaclId}:
+    $ref: "./loadbalancer/loadbalancercachedacl.yaml"
 
   /cached_loadbalancercertificates:
+    $ref: "./loadbalancer/loadbalancercachedcertificates.yaml"
+  /cached_loadbalancercertificates/{loadbalancercachedcertificateId}:
     $ref: "./loadbalancer/loadbalancercachedcertificate.yaml"
-  /cached_loadbalancercertificates/{loadbalancerlistenerId}:
-    $ref: "./loadbalancer/loadbalancercachedcertificates.yaml"  
 
   /loadbalancerlisteners:
     $ref: "./loadbalancer/loadbalancerlisteners.yaml"
@@ -337,9 +337,9 @@ paths:
     $ref: "./identity/domain.yaml"
 
   /users:
-    $ref: "./identity/users.yaml" 
+    $ref: "./identity/users.yaml"
   /users/{user_id}:
-    $ref: "./identity/user.yaml" 
+    $ref: "./identity/user.yaml"
   /users/{user_id}/join:
     $ref: "./identity/user_join.yaml"
   /users/{user_id}/leave:
@@ -468,7 +468,6 @@ paths:
   /networkinterfaces/{networkinterfaceId}/networks:
     $ref: "./networkinterface/networks.yaml"
 
-
   /buckets:
     $ref: "./bucket/buckets.yaml"
   /buckets/{bucketName}:
@@ -527,7 +526,6 @@ paths:
     $ref: "./dbinstance/dbinstanceaccounts.yaml"
   /dbinstanceaccounts/{accountId}:
     $ref: "./dbinstance/dbinstanceaccount.yaml"
-
 
   /cloudaccounts:
     $ref: "./cloudaccount/cloudaccounts.yaml"
