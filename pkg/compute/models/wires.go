@@ -792,6 +792,16 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("vpc_id", sq.SubQuery())
 	}
 
+	hostStr, _ := query.GetString("host")
+	if len(hostStr) > 0 {
+		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
+		}
+		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+	}
+
 	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
