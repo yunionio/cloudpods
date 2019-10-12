@@ -223,7 +223,7 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
 	if len(userStr) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		u, err := UserCacheManager.FetchUserByIdOrName(userStr)
+		u, err := UserCacheManager.FetchUserByIdOrName(ctx, userStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("user", userStr)

@@ -1057,4 +1057,27 @@ func init() {
 		printObject(ret)
 		return nil
 	})
+
+	type ServerQemuParams struct {
+		ID               string `help:"ID or name of VM"`
+		DisableIsaSerial string `help:"disable isa serial device" choices:"true|false"`
+		DisablePvpanic   string `help:"disable pvpanic device" choices:"true|false"`
+	}
+
+	R(&ServerQemuParams{}, "server-set-qemu-params", "config qemu params", func(s *mcclient.ClientSession,
+		opts *ServerQemuParams) error {
+		params := jsonutils.NewDict()
+		if len(opts.DisableIsaSerial) > 0 {
+			params.Set("disable_isa_serial", jsonutils.NewString(opts.DisableIsaSerial))
+		}
+		if len(opts.DisablePvpanic) > 0 {
+			params.Set("disable_pvpanic", jsonutils.NewString(opts.DisablePvpanic))
+		}
+		result, err := modules.Servers.PerformAction(s, opts.ID, "set-qemu-params", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

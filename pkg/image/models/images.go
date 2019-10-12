@@ -1073,6 +1073,17 @@ func isActive(localPath string, size int64, chksum string, fastHash string, useF
 	return true
 }
 
+func (self *SImage) IsIso() (error, bool) {
+	if self.DiskFormat == string(api.ImageTypeISO) {
+		return nil, true
+	}
+	img, err := qemuimg.NewQemuImage(self.GetPath(""))
+	if err != nil {
+		return errors.Wrap(err, "open image failed"), false
+	}
+	return nil, img.Format == qemuimg.ISO
+}
+
 func (self *SImage) isActive(useFast bool) bool {
 	return isActive(self.getLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
 }

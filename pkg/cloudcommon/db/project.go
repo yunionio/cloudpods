@@ -72,7 +72,7 @@ func (manager *SProjectizedResourceBaseManager) QueryDistinctExtraField(q *sqlch
 		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
 		q.GroupBy(tenantCacheQuery.Field("name"))
 	default:
-		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
 }
