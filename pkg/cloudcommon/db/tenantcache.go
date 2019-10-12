@@ -172,8 +172,7 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 
 func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
 	if len(idStr) == 0 {
-		log.Debugf("fetch empty tenant!!!!")
-		debug.PrintStack()
+		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
@@ -228,8 +227,7 @@ func (manager *STenantCacheManager) FetchDomainByName(ctx context.Context, idStr
 
 func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
 	if len(idStr) == 0 {
-		log.Debugf("fetch empty tenant!!!!")
-		debug.PrintStack()
+		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
