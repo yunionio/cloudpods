@@ -358,6 +358,7 @@ func (self *SRegion) fetchIVpcs() error {
 			RegionId:        self.RegionId,
 			Status:          *vpc.State,
 			VpcId:           *vpc.VpcId,
+			VpcName:         tags["Name"],
 			InstanceTenancy: *vpc.InstanceTenancy,
 		})
 	}
