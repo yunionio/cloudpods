@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -293,6 +294,10 @@ func init() {
 		Ip            string   `help:"login IP"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
+		err := log.SetLogLevelByString(log.Logger(), "debug")
+		if err != nil {
+			log.Fatalf("Set log level %q: %v", "debug", err)
+		}
 		auth.InitFromClientSession(s)
 		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
 		if args.Debug {
