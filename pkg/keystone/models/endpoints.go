@@ -324,6 +324,27 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
+func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	svcStr := jsonutils.GetAnyString(query, []string{"service", "service_id"})
+	if len(svcStr) > 0 {
+		svcObj, err := ServiceManager.FetchByIdOrName(userCred, svcStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), svcStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		subq := ServiceManager.Query("id").Equals("id", svcObj.GetId())
+		q = q.Equals("service_id", subq.SubQuery())
+	}
+	return q, nil
+}
+
 func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	endpoint.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_CREATE, data, userCred, true)
