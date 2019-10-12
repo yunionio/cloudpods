@@ -1982,18 +1982,6 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 		}
 		// if auto snapshot count gt max auto snapshot count, do clean overdued snapshots
 		cleanOverdueSnapshots = snapCount > autoSnapshotCount
-		// else if snapshot is overdued, do clean overdued snapshots
-		// if snapshotPolicy.RetentionDays > 0 && !cleanOverdueSnapshots {
-		// 这里不用检测过期的快照，过期的快照由另外一个cronjob执行
-		// 	t := now.AddDate(0, 0, -1*snapshotPolicy.RetentionDays)
-		// 	snapCount, err = SnapshotManager.Query().Equals("fake_deleted", false).Equals("disk_id", disk.Id).
-		// 		Equals("created_by", api.SNAPSHOT_AUTO).LT("created_at", t).CountWithError()
-		// 	if err != nil {
-		// 		err = fmt.Errorf("GetSnapshotCount fail %s", err)
-		// 		goto onFail
-		// 	}
-		// 	cleanOverdueSnapshots = snapCount > 0
-		// }
 		if cleanOverdueSnapshots {
 			disk.CleanOverdueSnapshots(ctx, userCred, snapshotPolicy, now)
 		}

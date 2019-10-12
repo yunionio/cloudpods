@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -43,6 +44,17 @@ type SUser struct {
 
 func (user *SUser) GetModelManager() IModelManager {
 	return UserCacheManager
+}
+
+func (u *SUser) IsExpired() bool {
+	if u.LastCheck.IsZero() {
+		return true
+	}
+	now := time.Now().UTC()
+	if u.LastCheck.Add(consts.GetTenantCacheExpireSeconds()).Before(now) {
+		return true
+	}
+	return false
 }
 
 var UserCacheManager *SUserCacheManager
