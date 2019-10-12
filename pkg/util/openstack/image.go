@@ -17,10 +17,12 @@ package openstack
 import (
 	"context"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -60,6 +62,8 @@ type SImage struct {
 	OsHashAlgo      string
 	OsHashValue     string
 	OsHidden        bool
+	OsDistro        string
+	OsType          string
 	Owner           string
 	Size            int
 	MinRAM          int
@@ -170,10 +174,24 @@ func (image *SImage) GetSizeByte() int64 {
 }
 
 func (image *SImage) GetOsType() string {
+	switch image.OsType {
+	case "linux":
+		return osprofile.OS_TYPE_LINUX
+	case "windows":
+		return osprofile.OS_TYPE_WINDOWS
+	default:
+		osType := imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsType
+		if len(osType) > 0 {
+			return osType
+		}
+	}
 	return "Linux"
 }
 
 func (image *SImage) GetOsDist() string {
+	if len(image.OsDistro) > 0 {
+		return image.OsDistro
+	}
 	osDist := imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsDistro
 	if len(osDist) > 0 {
 		return osDist
@@ -243,11 +261,15 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-func (region *SRegion) CreateImage(imageName string) (*SImage, error) {
-	params := map[string]string{
+func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int) (*SImage, error) {
+	params := map[string]interface{}{
 		"container_format":    "bare",
 		"disk_format":         "vmdk",
 		"name":                imageName,
+		"min_disk":            minDiskGb,
+		"min_ram":             minRam,
+		"os_type":             strings.ToLower(osType),
+		"os_distro":           osDist,
 		"hw_qemu_guest_agent": "yes",
 	}
 
