@@ -556,11 +556,6 @@ func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 
 func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	switch field {
-	case "tenant":
-		tenantCacheQuery := db.TenantCacheManager.Query("name", "id").Distinct().SubQuery()
-		q.AppendField(tenantCacheQuery.Field("name", "tenant"))
-		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
-		q.GroupBy(tenantCacheQuery.Field("name"))
 	case "account":
 		cloudproviders := CloudproviderManager.Query().SubQuery()
 		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()

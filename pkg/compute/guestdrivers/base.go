@@ -313,3 +313,9 @@ func (self *SBaseGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (strin
 	}
 	return vpcId, nil
 }
+
+func (self *SBaseGuestDriver) CancelExpireTime(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
+
+	return httperrors.NewBadRequestError("unsupport cancel expire time")
+}

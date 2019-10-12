@@ -170,6 +170,7 @@ type IGuestDriver interface {
 
 	IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool
 	GetUserDataType() string
+	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 }
 
 var guestDrivers map[string]IGuestDriver

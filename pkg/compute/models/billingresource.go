@@ -54,6 +54,16 @@ func (self *SBillingResourceBase) IsValidPrePaid() bool {
 	return false
 }
 
+func (self *SBillingResourceBase) IsValidPostPaid() bool {
+	if self.BillingType == api.BILLING_TYPE_POSTPAID {
+		now := time.Now().UTC()
+		if self.ExpiredAt.After(now) {
+			return true
+		}
+	}
+	return false
+}
+
 type SBillingBaseInfo struct {
 	ChargeType   string    `json:",omitempty"`
 	ExpiredAt    time.Time `json:",omitempty"`
