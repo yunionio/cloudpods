@@ -4510,6 +4510,8 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.IsSystem = genInput.IsSystem
 	userInput.SecgroupId = genInput.SecgroupId
 	userInput.KeypairId = genInput.KeypairId
+	userInput.EipBw = genInput.EipBw
+	userInput.EipChargeType = genInput.EipChargeType
 	userInput.Project = genInput.Project
 	if genInput.ResourceType != "" {
 		userInput.ResourceType = genInput.ResourceType
@@ -4562,6 +4564,10 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	}
 	if host := self.GetHost(); host != nil {
 		r.ResourceType = host.ResourceType
+	}
+	if eip, _ := self.GetEip(); eip != nil && eip.Mode == api.EIP_MODE_STANDALONE_EIP {
+		r.EipBw = eip.Bandwidth
+		r.EipChargeType = eip.ChargeType
 	}
 	if zone := self.getZone(); zone != nil {
 		r.PreferRegion = zone.GetRegion().GetId()
