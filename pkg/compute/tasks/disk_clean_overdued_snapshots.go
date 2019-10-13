@@ -16,9 +16,11 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,6 +35,7 @@ type DiskCleanOverduedSnapshots struct {
 
 func init() {
 	taskman.RegisterTask(DiskCleanOverduedSnapshots{})
+	taskman.RegisterTask(SnapshotCleanupTask{})
 }
 
 func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -92,4 +95,67 @@ func (self *DiskCleanOverduedSnapshots) OnInit(ctx context.Context, obj db.IStan
 		self.SetStageFailed(ctx, err.Error())
 		return
 	}
+}
+
+type SnapshotCleanupTask struct {
+	taskman.STask
+}
+
+func (self *SnapshotCleanupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	now, err := self.Params.GetTime("tick")
+	if err != nil {
+		self.SetStageFailed(ctx, "failed get tick")
+		return
+	}
+	var snapshots = make([]models.SSnapshot, 0)
+	err = models.SnapshotManager.Query().
+		Equals("fake_deleted", false).
+		Equals("created_by", compute.SNAPSHOT_AUTO).
+		LE("expired_at", now).All(&snapshots)
+	if err == sql.ErrNoRows {
+		self.SetStageComplete(ctx, nil)
+		return
+	} else if err != nil {
+		self.SetStageFailed(ctx, fmt.Sprintf("failed get snapshot %s", err))
+		return
+	}
+	self.StartSnapshotsDelete(ctx, snapshots)
+}
+
+func (self *SnapshotCleanupTask) OnInitFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	log.Errorf("delete snapshots failed %s", data)
+	self.OnInit(ctx, obj, data)
+}
+
+func (self *SnapshotCleanupTask) StartSnapshotsDelete(ctx context.Context, snapshots []models.SSnapshot) {
+	snapshot := snapshots[0]
+	snapshots = snapshots[1:]
+	if len(snapshots) > 0 {
+		self.Params.Set("snapshots", jsonutils.Marshal(snapshots))
+	}
+	self.SetStage("OnDeleteSnapshot", nil)
+	snapshot.SetModelManager(models.SnapshotManager, &snapshot)
+	err := snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.GetId())
+	if err != nil {
+		self.OnDeleteSnapshotFailed(ctx, self.GetObject(), nil)
+	}
+}
+
+func (self *SnapshotCleanupTask) OnDeleteSnapshot(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	var snapshots = make([]models.SSnapshot, 0)
+	err := self.Params.Unmarshal(&snapshots, "snapshots")
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+	if len(snapshots) > 0 {
+		self.StartSnapshotsDelete(ctx, snapshots)
+	} else {
+		self.SetStageComplete(ctx, nil)
+	}
+}
+
+func (self *SnapshotCleanupTask) OnDeleteSnapshotFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	log.Errorf("snapshot delete faield %s", data)
+	self.OnDeleteSnapshot(ctx, obj, data)
 }

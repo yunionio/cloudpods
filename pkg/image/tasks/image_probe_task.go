@@ -42,7 +42,14 @@ func init() {
 
 func (self *ImageProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
-	self.StartImageProbe(ctx, image)
+	if err, ok := image.IsIso(); err != nil {
+		self.OnProbeFailed(ctx, image, err.Error())
+	} else if !ok {
+		self.StartImageProbe(ctx, image)
+	} else {
+		// iso do not probe
+		self.OnProbeSuccess(ctx, image)
+	}
 }
 
 func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.SImage) {

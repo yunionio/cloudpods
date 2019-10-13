@@ -690,6 +690,11 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 }
 
 func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 	switch field {
 	case "account":
 		cloudproviders := CloudproviderManager.Query().SubQuery()
@@ -704,7 +709,7 @@ func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 		q.GroupBy(cloudproviders.Field("name"))
 		q.AppendField(cloudproviders.Field("name", "manager"))
 	default:
-		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
 }

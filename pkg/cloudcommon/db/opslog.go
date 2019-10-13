@@ -393,7 +393,7 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	userStrs := jsonutils.GetQueryStringArray(query, "user")
 	if len(userStrs) > 0 {
 		for i := range userStrs {
-			usrObj, err := UserCacheManager.FetchUserByIdOrName(userStrs[i])
+			usrObj, err := UserCacheManager.FetchUserByIdOrName(ctx, userStrs[i])
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2("user", userStrs[i])
