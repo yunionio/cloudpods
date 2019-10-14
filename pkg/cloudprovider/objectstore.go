@@ -133,6 +133,7 @@ type ICloudBucket interface {
 	GetStats() SBucketStats
 	GetLimit() SBucketStats
 	SetLimit(limit SBucketStats) error
+	LimitSupport() SBucketStats
 
 	SetAcl(acl TBucketACLType) error
 
