@@ -861,7 +861,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 			break
 		}
 		// container name matches prefix
-		if matchLen == 0 || container.Name[:matchLen] == prefix[:matchLen] {
+		if container.Name[:matchLen] == prefix[:matchLen] && (len(prefix) <= len(container.Name) || strings.HasPrefix(prefix, container.Name+"/")) {
 			if delimiter == "/" && (len(prefix) == 0 || prefix == container.Name+delimiter) {
 				// populate CommonPrefixes
 				o := &SObject{
@@ -885,7 +885,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 			}
 			if delimiter == "" || len(prefix) >= len(container.Name)+1 {
 				subPrefix := ""
-				if len(prefix) >= len(container.Name) {
+				if len(prefix) >= len(container.Name)+1 {
 					subPrefix = prefix[len(container.Name)+1:]
 				}
 				oResult, err := container.ListFiles(subPrefix, subMarker, delimiter, maxCount, nil)
@@ -940,6 +940,14 @@ func splitKey(key string) (string, string, error) {
 	}
 	containerName := key[:slashPos]
 	key = key[slashPos+1:]
+	return containerName, key, nil
+}
+
+func splitKeyAndBlob(path string) (string, string, error) {
+	containerName, key, err := splitKey(path)
+	if err != nil {
+		return "", "", errors.Wrapf(err, "splitKey: %s", path)
+	}
 	if len(key) == 0 {
 		return "", "", errors.Error("empty blob path")
 	}
@@ -951,15 +959,27 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
-	err = b.UploadStream(containerName, blob, reader, contType)
-	if err != nil {
-		return errors.Wrap(err, "UploadStream")
+	if len(blob) > 0 {
+		// put blob
+		err = b.UploadStream(containerName, blob, reader, contType)
+		if err != nil {
+			return errors.Wrap(err, "UploadStream")
+		}
+	} else {
+		// create container
+		if sizeBytes > 0 {
+			return errors.Wrap(httperrors.ErrForbidden, "not allow to create blob outsize of container")
+		}
+		_, err = b.getOrCreateContainer(containerName, true)
+		if err != nil {
+			return errors.Wrap(err, "getOrCreateContainer")
+		}
 	}
 	return nil
 }
 
 func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
@@ -991,7 +1011,7 @@ func partIndex2BlockId(partIndex int) string {
 }
 
 func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
@@ -1018,7 +1038,7 @@ func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId s
 }
 
 func (b *SStorageAccount) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, blockIds []string) error {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
@@ -1055,7 +1075,7 @@ func (b *SStorageAccount) CompleteMultipartUpload(ctx context.Context, key strin
 }
 
 func (b *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
@@ -1116,7 +1136,7 @@ func (b *SStorageAccount) DeleteObject(ctx context.Context, key string) error {
 }
 
 func (b *SStorageAccount) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
@@ -1133,7 +1153,7 @@ func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBuc
 		return errors.Wrap(err, "GetIBucketByName")
 	}
 	srcAccount := srcIBucket.(*SStorageAccount)
-	srcContName, srcBlob, err := splitKey(srcKey)
+	srcContName, srcBlob, err := splitKeyAndBlob(srcKey)
 	if err != nil {
 		return errors.Wrap(err, "src splitKey")
 	}
@@ -1147,7 +1167,7 @@ func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBuc
 	}
 	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
 
-	containerName, blob, err := splitKey(destKey)
+	containerName, blob, err := splitKeyAndBlob(destKey)
 	if err != nil {
 		return errors.Wrap(err, "dest splitKey")
 	}
@@ -1170,7 +1190,7 @@ func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBuc
 }
 
 func (b *SStorageAccount) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return nil, errors.Wrap(err, "splitKey")
 	}
@@ -1202,7 +1222,7 @@ func (b *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId str
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
 	srcAccount := srcIBucket.(*SStorageAccount)
-	srcContName, srcBlob, err := splitKey(srcKey)
+	srcContName, srcBlob, err := splitKeyAndBlob(srcKey)
 	if err != nil {
 		return "", errors.Wrap(err, "src splitKey")
 	}
@@ -1216,7 +1236,7 @@ func (b *SStorageAccount) CopyPart(ctx context.Context, key string, uploadId str
 	}
 	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
 
-	containerName, blob, err := splitKey(key)
+	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
 	}
