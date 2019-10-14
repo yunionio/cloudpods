@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -60,7 +61,7 @@ type SCachedLoadbalancerCertificate struct {
 	SManagedResourceBase     // 云账号ID
 	SCloudregionResourceBase // Region ID
 
-	CertificateId string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"` // 本地证书ID
+	CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"` // 本地证书ID
 	Certificate   string `create:"required" list:"user" update:"user"`
 	PrivateKey    string `create:"required" list:"admin" update:"user"`
 
@@ -136,7 +137,58 @@ func (lbcert *SCachedLoadbalancerCertificate) StartLoadBalancerCertificateDelete
 	return nil
 }
 
-func (lbcert *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (man *SCachedLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	certificateV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
+	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", ownerId)
+	keyV := map[string]validators.IValidator{
+		"certificate":   certificateV,
+		"cloudregion":   regionV,
+		"cloudprovider": providerV,
+	}
+
+	for _, v := range keyV {
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+
+	// validate local cert
+	cert := certificateV.Model.(*SLoadbalancerCertificate)
+	if len(cert.PrivateKey) == 0 {
+		return nil, httperrors.NewResourceNotReadyError("invalid local certificate, private key is empty.")
+	} else if len(cert.Certificate) == 0 {
+		return nil, httperrors.NewResourceNotReadyError("invalid local certificate, certificate is empty.")
+	} else {
+		data.Set("certificate", jsonutils.NewString(cert.Certificate))
+		data.Set("private_key", jsonutils.NewString(cert.PrivateKey))
+	}
+
+	count, err := man.Query().Equals("certificate_id", certificateV.Model.GetId()).Equals("cloudregion_id", regionV.Model.GetId()).IsFalse("deleted").CountWithError()
+	if err != nil {
+		return nil, err
+	}
+
+	if count > 0 {
+		return nil, httperrors.NewDuplicateResourceError("the certificate cache in region %s aready exists.", regionV.Model.GetId())
+	}
+
+	provider := providerV.Model.(*SCloudprovider)
+	data.Set("manager_id", jsonutils.NewString(provider.Id))
+	name, _ := db.GenerateName(man, ownerId, certificateV.Model.GetName())
+	data.Set("name", jsonutils.NewString(name))
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SetStatus(userCred, api.LB_CREATING, "")
+	if err := self.StartLoadbalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("CachedLoadbalancerCertificate.PostCreate %s", err)
+	}
 	return
 }
 

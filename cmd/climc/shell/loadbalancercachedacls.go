@@ -90,6 +90,29 @@ func init() {
 		printLbAclList(result, modules.LoadbalancerCachedAcls.GetColumns(s))
 		return nil
 	})
+
+	type LoadbalancerCachedAclCreateOptions struct {
+		CLOUDPROVIDER string `help:"cloud provider id"`
+		CLOUDREGION   string `help:"cloud region id"`
+		ACL           string `help:"acl id"`
+		Listener      string `help:"cloud listener id, required by huawei"`
+	}
+
+	R(&LoadbalancerCachedAclCreateOptions{}, "lbacl-cache-create", "Create cached lbacl", func(s *mcclient.ClientSession, opts *LoadbalancerCachedAclCreateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+
+		lbacl, err := modules.LoadbalancerCachedAcls.Create(s, params)
+		if err != nil {
+			return err
+		}
+
+		printObject(lbacl)
+		return nil
+	})
+
 	R(&options.LoadbalancerAclDeleteOptions{}, "lbacl-cache-purge", "Purge cached lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclDeleteOptions) error {
 		lbacl, err := modules.LoadbalancerCachedAcls.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
