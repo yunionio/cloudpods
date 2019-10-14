@@ -323,7 +323,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 	data.Set("fingerprint", jsonutils.NewString(fingerprint))
 	q := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted")
 	count, err := q.CountWithError()
-	if err != sql.ErrNoRows {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 
