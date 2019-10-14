@@ -57,6 +57,13 @@ func (b *SBaseBucket) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
+func (b *SBaseBucket) LimitSupport() cloudprovider.SBucketStats {
+	return cloudprovider.SBucketStats{
+		SizeBytes:   -1,
+		ObjectCount: -1,
+	}
+}
+
 func (b *SBaseBucket) GetLimit() cloudprovider.SBucketStats {
 	return cloudprovider.SBucketStats{}
 }

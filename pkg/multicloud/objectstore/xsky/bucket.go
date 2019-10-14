@@ -47,6 +47,13 @@ func (b *SXskyBucket) GetStats() cloudprovider.SBucketStats {
 	return b.SBucket.GetStats()
 }
 
+func (b *SXskyBucket) LimitSupport() cloudprovider.SBucketStats {
+	return cloudprovider.SBucketStats{
+		SizeBytes:   1,
+		ObjectCount: 1,
+	}
+}
+
 func (b *SXskyBucket) GetLimit() cloudprovider.SBucketStats {
 	limit := cloudprovider.SBucketStats{}
 	bucket, err := b.client.adminApi.getBucketByName(context.Background(), b.Name)
