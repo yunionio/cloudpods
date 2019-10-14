@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -480,19 +481,22 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 		params["ListenerNames.0"] = name
 	}
 
-	if sniSwitch != nil {
-		params["SniSwitch"] = strconv.Itoa(*sniSwitch)
+	if utils.IsInStringArray(protocol, []string{"TCP", "UDP", "TCP_SSL"}) {
+		params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
+
+		if scheduler != nil && len(*scheduler) > 0 {
+			params["Scheduler"] = *scheduler
+		}
+
+		if sessionExpireTime != nil {
+			params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+		}
+	} else {
+		if sniSwitch != nil {
+			params["SniSwitch"] = strconv.Itoa(*sniSwitch)
+		}
 	}
 
-	if sessionExpireTime != nil {
-		params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
-	}
-
-	if scheduler != nil && len(*scheduler) > 0 {
-		params["Scheduler"] = *scheduler
-	}
-
-	params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
 	params = certificateParams(LB_TYPE_APPLICATION, params, cert, "Certificate.")
 
 	resp, err := self.clbRequest("CreateListener", params)

@@ -2022,7 +2022,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return err
 	}
 	_, err = iregion.GetIVMById(self.ExternalId)
-	if err != cloudprovider.ErrNotFound {
+	if err != nil && err != cloudprovider.ErrNotFound {
 		return err
 	}
 
