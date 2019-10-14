@@ -206,6 +206,8 @@ paths:
     $ref: "./snapshotpolicy/bind-disk.yaml"
   /snapshotpolicies/{snapshotpolicyId}/unbind-disks:
     $ref: "./snapshotpolicy/unbind-disk.yaml"
+  /snapshotpolicies/{snapshotpolicyId}/cache:
+    $ref: "./snapshotpolicy/cache.yaml"
 
   /loadbalancers:
     $ref: "./loadbalancer/loadbalancers.yaml"

@@ -115,7 +115,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	}
 	if len(diskId) > 0 {
 		params[fmt.Sprintf("Filters.%d.Name", filter)] = "disk-id"
-		params[fmt.Sprintf("Filters.%d.Values", filter)] = diskId
+		params[fmt.Sprintf("Filters.%d.Values.0", filter)] = diskId
 		filter++
 	}
 	if len(snapshotName) > 0 {

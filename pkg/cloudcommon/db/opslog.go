@@ -104,10 +104,18 @@ const (
 	ACT_CANCEL_SNAPSHOT_POLICY        = "cancel_snapshot_policy"
 	ACT_CANCEL_SNAPSHOT_POLICY_FAILED = "cancel_snapshot_policy_failed"
 
+	ACT_SNAPSHOT_POLICY_BIND_DISK        = "snapshot_policy_bind_disk"
+	ACT_SNAPSHOT_POLICY_BIND_DISK_FAIL   = "snapshot_policy_bind_disk_fail"
+	ACT_SNAPSHOT_POLICY_UNBIND_DISK      = "snapshot_policy_unbind_disk"
+	ACT_SNAPSHOT_POLICY_UNBIND_DISK_FAIL = "snapshot_policy_unbind_disk_fail"
+
 	ACT_DISK_CLEAN_UP_SNAPSHOTS      = "disk_clean_up_snapshots"
 	ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL = "disk_clean_up_snapshots_fail"
 	ACT_DISK_AUTO_SNAPSHOT           = "disk_auto_snapshot"
 	ACT_DISK_AUTO_SNAPSHOT_FAIL      = "disk_auto_snapshot_fail"
+
+	ACT_DISK_AUTO_SYNC_SNAPSHOT      = "disk_auto_sync_snapshot"
+	ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL = "disk_auto_sync_snapshot_fail"
 
 	ACT_ALLOCATING           = "allocating"
 	ACT_BACKUP_ALLOCATING    = "backup_allocating"

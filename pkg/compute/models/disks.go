@@ -274,6 +274,18 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if diskType := jsonutils.GetAnyString(query, []string{"type", "disk_type"}); diskType != "" {
 		q = q.Filter(sqlchemy.Equals(q.Field("disk_type"), diskType))
 	}
+
+	// for snapshotpolicy_id
+	snapshotpolicyStr := jsonutils.GetAnyString(queryDict, []string{"snapshotpolicy", "snapshotpolicy_id"})
+	if len(snapshotpolicyStr) > 0 {
+		snapshotpolicyObj, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyStr)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("snapshotpolicy %s not found: %s", snapshotpolicyStr, err)
+		}
+		snapshotpolicyId := snapshotpolicyObj.GetId()
+		sq := SnapshotPolicyDiskManager.Query("disk_id").Equals("snapshotpolicy_id", snapshotpolicyId)
+		q = q.In("id", sq)
+	}
 	return q, nil
 }
 
@@ -342,7 +354,7 @@ func (self *SDisk) GetRuningGuestCount() (int, error) {
 		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
 }
 
-func (self *SDisk) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SDisk) DetachAllSnapshotpolicies(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
 	if err != nil {
 		return errors.Wrap(err, "detach after delete failed")
@@ -1569,7 +1581,7 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 		return err
 	}
 
-	return self.DetachAfterDelete(ctx, userCred)
+	return self.DetachAllSnapshotpolicies(ctx, userCred)
 }
 
 func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1880,7 +1892,7 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 	}
 }
 
-func (manager *SDiskManager) getAutoSnapshotDisksId() ([]SSnapshotPolicyDisk, error) {
+func (manager *SDiskManager) getAutoSnapshotDisksId(isExternal bool) ([]SSnapshotPolicyDisk, error) {
 
 	t := time.Now()
 	week := t.Weekday()
@@ -1904,7 +1916,11 @@ func (manager *SDiskManager) getAutoSnapshotDisksId() ([]SSnapshotPolicyDisk, er
 
 	diskQ := DiskManager.Query().SubQuery()
 	spdq.Join(diskQ, sqlchemy.Equals(spdq.Field("disk_id"), diskQ.Field("id")))
-	spdq.Filter(sqlchemy.IsNullOrEmpty(diskQ.Field("external_id")))
+	if !isExternal {
+		spdq.Filter(sqlchemy.IsNullOrEmpty(diskQ.Field("external_id")))
+	} else {
+		spdq.Filter(sqlchemy.IsNotEmpty(diskQ.Field("external_id")))
+	}
 	err = spdq.All(&spds)
 	if err != nil {
 		return nil, err
@@ -1935,7 +1951,7 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 }
 
 func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	spds, err := manager.getAutoSnapshotDisksId()
+	spds, err := manager.getAutoSnapshotDisksId(false)
 	if err != nil {
 		log.Errorf("Get auto snapshot disks id failed: %s", err)
 		return
@@ -1948,7 +1964,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 	for i := 0; i < len(spds); i++ {
 		var (
 			disk                  = manager.FetchDiskById(spds[i].DiskId)
-			snapshotPolicy        = SnapshotPolicyManager.FetchSnapshotPolicyById(spds[i].SnapshotpolicyId)
+			snapshotPolicy, _     = SnapshotPolicyManager.FetchSnapshotPolicyById(spds[i].SnapshotpolicyId)
 			snapshotName          = generateAutoSnapshotName()
 			autoSnapshotCount     = options.Options.DefaultMaxSnapshotCount - options.Options.DefaultMaxManualSnapshotCount
 			err                   error
@@ -2103,4 +2119,90 @@ func (self *SDisk) UpdataSnapshotsBackingDisk(backingDiskId string) error {
 		}
 	}
 	return nil
+}
+
+func (manager *SDiskManager) AutoSyncExtDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential,
+	isStart bool) {
+
+	spds, err := manager.getAutoSnapshotDisksId(true)
+	if err != nil {
+		log.Errorf("Get auto snapshot ext disks id failed: %s", err)
+		return
+	}
+	if len(spds) == 0 {
+		log.Infof("CronJob AutoSyncExtDiskSnapshot: No external disk need sync snapshot")
+		return
+	}
+
+	for i := 0; i < len(spds); i++ {
+		disk := manager.FetchDiskById(spds[i].DiskId)
+
+		syncResult := disk.syncSnapshots(ctx, userCred)
+		if syncResult.IsError() {
+			db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT_FAIL, syncResult.Result(), userCred)
+			continue
+		}
+		db.OpsLog.LogEvent(disk, db.ACT_DISK_AUTO_SYNC_SNAPSHOT, "disk auto sync snapshot successfully", userCred)
+	}
+}
+
+func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	extDisk, err := self.GetIDisk()
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	provider := self.GetCloudprovider()
+	syncOwnerId := provider.GetOwnerId()
+	region := self.GetStorage().GetRegion()
+
+	extSnapshots, err := extDisk.GetISnapshots()
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	localSnapshots := SnapshotManager.GetDiskSnapshots(self.Id)
+
+	lockman.LockClass(ctx, SnapshotManager, db.GetLockClassKey(SnapshotManager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, SnapshotManager, db.GetLockClassKey(SnapshotManager, syncOwnerId))
+
+	removed := make([]SSnapshot, 0)
+	commondb := make([]SSnapshot, 0)
+	commonext := make([]cloudprovider.ICloudSnapshot, 0)
+	added := make([]cloudprovider.ICloudSnapshot, 0)
+
+	err = compare.CompareSets(localSnapshots, extSnapshots, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].syncRemoveCloudSnapshot(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], syncOwnerId, region)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i += 1 {
+		local, err := SnapshotManager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncMetadata(ctx, userCred, local, added[i])
+			syncResult.Add()
+		}
+	}
+	return syncResult
 }
