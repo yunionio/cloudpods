@@ -48,4 +48,10 @@ cloud_type:
   type: string
   enum: [Public,Private]
   description: 列出公有云或私有云的磁盘
+snapshotpolicy_id:
+  name: snapshotpolicy_id
+  required: false
+  in: query
+  type: string
+  description: 列出绑定了此快照策略的磁盘
 

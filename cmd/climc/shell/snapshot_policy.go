@@ -101,4 +101,24 @@ func init() {
 			printObject(sp)
 			return nil
 		})
+
+	type SnapshotPolicyCacheOptions struct {
+		ID       string `help:"SnasphotPolicy ID"`
+		REGIONID string `help:"Region ID"`
+		PROVIDER string `help:"Provider ID"`
+	}
+	R(&SnapshotPolicyCacheOptions{}, "snapshot-policy-cache", "upload local snapshotpolicy to cloud",
+		func(s *mcclient.ClientSession, opts *SnapshotPolicyCacheOptions) error {
+			params, err := options.StructToParams(opts)
+			if err != nil {
+				return err
+			}
+			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "cache", params)
+			if err != nil {
+				return err
+			}
+			printObject(sp)
+			return nil
+		},
+	)
 }

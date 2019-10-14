@@ -189,3 +189,18 @@ SnapshotPolicyBindDisk:
       type: string
       example: dd100399-79ef-43a3-8fc3-23adc74b8b87
       description: 待绑定的disk的ID
+
+SnapshotPolicyCache:
+  type: object
+  required:
+    - region_id
+    - provider_id
+  properties:
+    region_id:
+      type: string
+      example: d2ea8591-68b2-4066-802d-c896d1828417
+      description: Region ID
+    provider_id:
+      type: string
+      example: 42fde9ca-8642-4318-8c84-2ead0bdc78d2
+      description: Provider ID
