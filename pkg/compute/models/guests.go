@@ -3171,17 +3171,6 @@ func (self *SGuest) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// delete group
-	joints, err := GroupguestManager.FetchByGuestId(self.Id)
-	if err != nil {
-		return err
-	}
-	for i := range joints {
-		err = joints[i].Detach(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
