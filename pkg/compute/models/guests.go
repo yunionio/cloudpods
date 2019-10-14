@@ -541,6 +541,16 @@ func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
 			return httperrors.NewInputParameterError("Cannot delete server on offline host")
 		}
 	}
+
+	if guest.GetHypervisor() == api.HYPERVISOR_HUAWEI {
+		disks := guest.GetDisks()
+		for _, disk := range disks {
+			if snapshots := SnapshotManager.GetDiskSnapshots(disk.DiskId); len(snapshots) > 0 {
+				return httperrors.NewResourceBusyError("Cannot delete server disk %s must not have snapshots.", disk.GetName())
+			}
+		}
+	}
+
 	return guest.validateDeleteCondition(ctx, false)
 }
 

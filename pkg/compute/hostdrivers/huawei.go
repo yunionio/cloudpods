@@ -15,10 +15,15 @@
 package hostdrivers
 
 import (
+	"context"
 	"fmt"
+
+	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SHuaweiHostDriver struct {
@@ -50,4 +55,31 @@ func (self *SHuaweiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	}
 
 	return nil
+}
+
+func (self *SHuaweiHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if disk.Status != api.DISK_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset disk in status %s", disk.Status)
+	}
+	snapshotId, err := data.GetString("snapshot_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
+	}
+	guests := disk.GetGuests()
+	if len(guests) >= 1 {
+		return nil, httperrors.NewBadRequestError("Disk must be dettached")
+	}
+
+	iSnapshot, err := models.SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+	}
+	snapshot := iSnapshot.(*models.SSnapshot)
+	if snapshot.Status != api.SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
+	} else if snapshot.DiskId != disk.Id {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk %s,Snapshot is belong to disk %s", disk.Id, snapshot.DiskId)
+	}
+
+	return data, nil
 }
