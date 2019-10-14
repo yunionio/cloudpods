@@ -221,17 +221,6 @@ func (lbacl *SLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient
 	for i := range acls {
 		acl := acls[i]
 		acl.SetModelManager(CachedLoadbalancerAclManager, &acl)
-		_, err = db.UpdateWithLock(ctx, &acl, func() error {
-			acl.AclEntries = &SLoadbalancerAclEntries{}
-			for _, entry := range *lbacl.AclEntries {
-				*acl.AclEntries = append(*acl.AclEntries, entry)
-			}
-			return nil
-		})
-		if err != nil {
-			log.Errorf("SLoadbalancerAcl PostUpdate %s", err)
-		}
-
 		err = acl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
 		if err != nil {
 			log.Errorf("SLoadbalancerAcl PostUpdate %s", err)
@@ -312,6 +301,7 @@ func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclie
 		}
 	}
 	diff, err := db.Update(lbacl, func() error {
+		// todo: sync diff to clouds
 		lbacl.AclEntries = &aclEntries
 		return nil
 	})

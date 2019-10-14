@@ -18,21 +18,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/compare"
 )
 
 type SCachedLoadbalancerCertificateManager struct {
@@ -62,18 +62,6 @@ type SCachedLoadbalancerCertificate struct {
 	SCloudregionResourceBase // Region ID
 
 	CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"` // 本地证书ID
-	Certificate   string `create:"required" list:"user" update:"user"`
-	PrivateKey    string `create:"required" list:"admin" update:"user"`
-
-	// derived attributes
-	PublicKeyAlgorithm      string    `create:"optional" list:"user" update:"user"`
-	PublicKeyBitLen         int       `create:"optional" list:"user" update:"user"`
-	SignatureAlgorithm      string    `create:"optional" list:"user" update:"user"`
-	Fingerprint             string    `create:"optional" list:"user" update:"user"`
-	NotBefore               time.Time `create:"optional" list:"user" update:"user"`
-	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
-	CommonName              string    `create:"optional" list:"user" update:"user"`
-	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
 }
 
 func (self *SCachedLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -243,7 +231,7 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	}
 
 	if err.Error() != "NotFound" {
-		return nil, err
+		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.getCert")
 	}
 
 	lbcert = SCachedLoadbalancerCertificate{}
@@ -254,30 +242,14 @@ func (man *SCachedLoadbalancerCertificateManager) GetOrCreateCachedCertificate(c
 	lbcert.Name = cert.Name
 	lbcert.Description = cert.Description
 	lbcert.IsSystem = cert.IsSystem
-	lbcert.Certificate = cert.Certificate
 	lbcert.CertificateId = cert.Id
-	lbcert.Certificate = cert.Certificate
-	lbcert.PrivateKey = cert.PrivateKey
-	lbcert.PublicKeyAlgorithm = cert.PublicKeyAlgorithm
-	lbcert.PublicKeyBitLen = cert.PublicKeyBitLen
-	lbcert.SignatureAlgorithm = cert.SignatureAlgorithm
-	lbcert.Fingerprint = cert.Fingerprint
-	lbcert.NotBefore = cert.NotBefore
-	lbcert.NotAfter = cert.NotAfter
-	lbcert.CommonName = cert.CommonName
-	lbcert.SubjectAlternativeNames = cert.SubjectAlternativeNames
 
 	err = man.TableSpec().Insert(&lbcert)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cachedLoadbalancerCertificateManager.create")
 	}
 
-	lbcert, err = man.getLoadbalancerCertificateByRegion(provider, lblis.CloudregionId, cert.Id)
-	if err == nil {
-		return &lbcert, nil
-	}
-
-	return nil, err
+	return &lbcert, nil
 }
 
 func (lbcert *SCachedLoadbalancerCertificate) StartLoadbalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -302,22 +274,13 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
 
-	lbcert.CommonName = extCertificate.GetCommonName()
-	lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
-	lbcert.Fingerprint = extCertificate.GetFingerprint()
-	lbcert.NotAfter = extCertificate.GetExpireTime()
-	lbcert.Certificate = extCertificate.GetPublickKey()
-	lbcert.PrivateKey = extCertificate.GetPrivateKey()
-
-	// check local cert
-	// todo: check fingerprint not empty & aws 证书不区分region，需要去除重复数据？
-	c := SCachedLoadbalancerCertificate{}
-	q1 := CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint)
+	c := SLoadbalancerCertificate{}
+	q1 := LoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", extCertificate.GetFingerprint())
 	err = q1.First(&c)
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
+			localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, extCertificate.GetPublickKey(), extCertificate.GetPrivateKey(), extCertificate.GetFingerprint())
 			if err != nil {
 				return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
 			}
@@ -327,7 +290,7 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 			return nil, fmt.Errorf("newFromCloudLoadbalancerCertificate.QueryCachedLoadbalancerCertificate %s", err)
 		}
 	} else {
-		lbcert.CertificateId = c.CertificateId
+		lbcert.CertificateId = c.Id
 	}
 
 	err = man.TableSpec().Insert(&lbcert)
@@ -347,10 +310,6 @@ func (lbcert *SCachedLoadbalancerCertificate) SyncWithCloudLoadbalancerCertifica
 	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
 		lbcert.ExternalId = extCertificate.GetGlobalId()
 		lbcert.Name = extCertificate.GetName()
-		lbcert.CommonName = extCertificate.GetCommonName()
-		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
-		lbcert.Fingerprint = extCertificate.GetFingerprint()
-		lbcert.NotAfter = extCertificate.GetExpireTime()
 		return nil
 	})
 	if err != nil {
@@ -384,18 +343,21 @@ func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRe
 		return SCachedLoadbalancerCertificate{}, err
 	}
 
-	if len(certificates) == 1 {
+	if len(certificates) >= 1 {
 		return certificates[0], nil
-	} else if len(certificates) == 0 {
-		return SCachedLoadbalancerCertificate{}, fmt.Errorf("NotFound")
 	} else {
-		return SCachedLoadbalancerCertificate{}, fmt.Errorf("Duplicate certificate %s found for region %s", localCertificateId, regionId)
+		return SCachedLoadbalancerCertificate{}, fmt.Errorf("NotFound")
 	}
 }
 
 func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+	q := man.Query().Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+	// aws 所有region共用一份证书.与region无关
+	if region.GetProviderName() != api.CLOUD_PROVIDER_AWS {
+		q = q.Equals("cloudregion_id", region.Id)
+	}
+
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
 		log.Errorf("failed to get lb certificates for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err

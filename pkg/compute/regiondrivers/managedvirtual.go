@@ -346,11 +346,18 @@ func (self *SManagedVirtualizationRegionDriver) syncLoadbalancerAcl(ctx context.
 		return nil, fmt.Errorf("regionDriver.syncLoadbalancerAcl %s", err)
 	}
 
-	if lbacl.AclEntries != nil {
-		for _, entry := range *lbacl.AclEntries {
+	_localAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
+	if err != nil {
+		return nil, errors.Wrap(err, "regionDriver.FetchById.LoaclAcl")
+	}
+
+	localAcl := _localAcl.(*models.SLoadbalancerAcl)
+	if localAcl.AclEntries != nil {
+		for _, entry := range *localAcl.AclEntries {
 			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
 		}
 	}
+
 	lockman.LockRawObject(ctx, "acl", lbacl.Id)
 	defer lockman.ReleaseRawObject(ctx, "acl", lbacl.Id)
 
@@ -403,10 +410,17 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ct
 	if err != nil {
 		return nil, errors.Wrapf(err, "lbcert.GetIRegion")
 	}
+
+	_localCert, err := db.FetchById(models.LoadbalancerCertificateManager, lbcert.CertificateId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "regionDriver.FetchById.localcert")
+	}
+
+	localCert := _localCert.(*models.SLoadbalancerCertificate)
 	certificate := &cloudprovider.SLoadbalancerCertificate{
 		Name:        fmt.Sprintf("%s-%s", lbcert.Name, rand.String(4)),
-		PrivateKey:  lbcert.PrivateKey,
-		Certificate: lbcert.Certificate,
+		PrivateKey:  localCert.PrivateKey,
+		Certificate: localCert.Certificate,
 	}
 	iLoadbalancerCert, err := iRegion.CreateILoadBalancerCertificate(certificate)
 	if err != nil {
