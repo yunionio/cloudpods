@@ -9,3 +9,17 @@ get:
         $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedCertificateListResponse"
   tags:
     - loadbalancercertificates
+post:
+  summary: 同步SSL证书到指定公有云
+  parameters:
+    - name: cachedloadbalancercertificate
+      in: body
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedCertificateCreateRequest"
+  responses:
+    200:
+      description: 新创建的公有云SSL证书
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedCertificateResponse"
+  tags:
+    - loadbalancercertificates

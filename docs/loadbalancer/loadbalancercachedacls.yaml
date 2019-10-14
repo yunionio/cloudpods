@@ -9,3 +9,17 @@ get:
         $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedAclListResponse"
   tags:
     - loadbalanceracls
+post:
+  summary: 同步ACL到指定公有云
+  parameters:
+    - name: cachedloadbalanceracl
+      in: body
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedAclCreateRequest"
+  responses:
+    200:
+      description: 新创建的公有云ACL
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedAclResponse"
+  tags:
+    - loadbalanceracls
