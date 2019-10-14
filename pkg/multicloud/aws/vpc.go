@@ -332,18 +332,22 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 			}
 		}
 
+		tags := make(map[string]string, 0)
+		for _, tag := range item.Tags {
+			tags[*tag.Key] = *tag.Value
+		}
+
 		vpcs = append(vpcs, SVpc{
-			region: self,
-			// secgroups: nil,
+			region:                  self,
 			RegionId:                self.RegionId,
 			VpcId:                   *item.VpcId,
-			VpcName:                 *item.VpcId,
+			VpcName:                 tags["Name"],
 			CidrBlock:               *item.CidrBlock,
 			CidrBlockAssociationSet: cidrBlockAssociationSet,
 			IsDefault:               *item.IsDefault,
 			Status:                  *item.State,
 			InstanceTenancy:         *item.InstanceTenancy,
-			// Tags:      *item.Tags,
+			Tags:                    tags,
 		})
 	}
 

@@ -684,33 +684,24 @@ func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != api.DISK_READY {
-		return nil, httperrors.NewInvalidStatusError("Cannot reset disk in status %s", self.Status)
-	}
-	snapshotId, err := data.GetString("snapshot_id")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("snapshot_id")
-	}
-	guests := self.GetGuests()
-	if len(guests) > 1 {
-		return nil, httperrors.NewBadRequestError("Disk attach muti guests")
-	} else if len(guests) == 1 {
-		if guests[0].Status != api.VM_READY {
-			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
-		}
-	} else {
-		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest")
+	storage := self.GetStorage()
+	if storage == nil {
+		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
 
-	iSnapshot, err := SnapshotManager.FetchById(snapshotId)
+	host := storage.GetMasterHost()
+	if host == nil {
+		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
+	}
+
+	data, err := host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, data.(*jsonutils.JSONDict))
 	if err != nil {
-		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+		return nil, err
 	}
-	snapshot := iSnapshot.(*SSnapshot)
-	if snapshot.Status != api.SNAPSHOT_READY {
-		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
-	}
+
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	snapshotId, _ := data.GetString("snapshot_id")
+	guests := self.GetGuests()
 	self.StartResetDisk(ctx, userCred, snapshotId, autoStart, guests)
 	return nil, nil
 }
