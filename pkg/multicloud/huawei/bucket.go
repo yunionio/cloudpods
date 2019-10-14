@@ -391,6 +391,13 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	return output.SignedUrl, nil
 }
 
+func (b *SBucket) LimitSupport() cloudprovider.SBucketStats {
+	return cloudprovider.SBucketStats{
+		SizeBytes:   1,
+		ObjectCount: -1,
+	}
+}
+
 func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
 	stats := cloudprovider.SBucketStats{}
 	obscli, err := b.region.getOBSClient()
