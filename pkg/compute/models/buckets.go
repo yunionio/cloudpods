@@ -196,8 +196,13 @@ func (manager *SBucketManager) newFromCloudBucket(
 	bucket.ObjectCnt = stats.ObjectCount
 
 	limit := extBucket.GetLimit()
-	bucket.SizeBytesLimit = limit.SizeBytes
-	bucket.ObjectCntLimit = limit.ObjectCount
+	limitSupport := extBucket.LimitSupport()
+	if limitSupport.SizeBytes > 0 {
+		bucket.SizeBytesLimit = limit.SizeBytes
+	}
+	if limitSupport.ObjectCount > 0 {
+		bucket.ObjectCntLimit = limit.ObjectCount
+	}
 
 	bucket.AccessUrls = jsonutils.Marshal(extBucket.GetAccessUrls())
 
@@ -251,8 +256,13 @@ func (bucket *SBucket) syncWithCloudBucket(
 
 		if !statsOnly {
 			limit := extBucket.GetLimit()
-			bucket.SizeBytesLimit = limit.SizeBytes
-			bucket.ObjectCntLimit = limit.ObjectCount
+			limitSupport := extBucket.LimitSupport()
+			if limitSupport.SizeBytes > 0 {
+				bucket.SizeBytesLimit = limit.SizeBytes
+			}
+			if limitSupport.ObjectCount > 0 {
+				bucket.ObjectCntLimit = limit.ObjectCount
+			}
 
 			bucket.Acl = string(extBucket.GetAcl())
 			bucket.Location = extBucket.GetLocation()
