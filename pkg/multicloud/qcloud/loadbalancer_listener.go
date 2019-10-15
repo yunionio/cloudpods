@@ -703,8 +703,8 @@ func getCertificate(listener *cloudprovider.SLoadbalancerListener) *certificate 
 	if len(listener.CertificateID) > 0 {
 		cert = &certificate{
 			SSLMode:  "UNIDIRECTIONAL",
-			CERTCAID: listener.CertificateID,
-			CERTID:   "",
+			CERTCAID: "",
+			CERTID:   listener.CertificateID,
 		}
 	}
 
