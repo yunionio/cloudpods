@@ -49,7 +49,7 @@ type SSnapshotPolicy struct {
 
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
-	// 0~6, 0 is Monday
+	// 1~7, 1 is Monday
 	RepeatWeekdays uint8 `charset:"utf8" create:"required"`
 	// 0~23
 	TimePoints  uint32            `charset:"utf8" create:"required"`
