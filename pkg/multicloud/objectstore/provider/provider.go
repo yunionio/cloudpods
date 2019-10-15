@@ -42,22 +42,19 @@ func (factory *SObjectStoreProviderFactory) IsSupportObjectStorage() bool {
 	return true
 }
 
-func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	accessKeyID, _ := data.GetString("access_key_id")
-	if len(accessKeyID) == 0 {
+func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("access_key_secret")
-	if len(accessKeySecret) == 0 {
+	if len(input.AccessKeySecret) == 0 {
 		return httperrors.NewMissingParameterError("access_key_secret")
 	}
-	endpointURL, _ := data.GetString("endpoint")
-	if len(endpointURL) == 0 {
+	if len(input.Endpoint) == 0 {
 		return httperrors.NewMissingParameterError("endpoint")
 	}
-	data.Set("account", jsonutils.NewString(accessKeyID))
-	data.Set("secret", jsonutils.NewString(accessKeySecret))
-	data.Set("access_url", jsonutils.NewString(endpointURL))
+	input.Account = input.AccessKeyId
+	input.Secret = input.AccessKeySecret
+	input.AccessUrl = input.Endpoint
 	return nil
 }
 

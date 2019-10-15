@@ -40,8 +40,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	// cloudaccount.MarkSyncing(self.UserCred)
 
 	// do sync
-	tenant, _ := self.GetParams().GetString("tenant")
-	err := cloudaccount.SyncCallSyncAccountTask(ctx, self.UserCred, tenant)
+	err := cloudaccount.SyncCallSyncAccountTask(ctx, self.UserCred)
 
 	if err != nil {
 		cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
