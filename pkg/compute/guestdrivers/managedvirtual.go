@@ -233,6 +233,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 
 			for i := 0; i < len(iDisks); i++ {
 				if iDisks[i].GetGlobalId() == disk.ExternalId {
+					err := cloudprovider.WaitStatus(iDisks[i], api.DISK_READY, 5*time.Second, 60*time.Second)
+					if err != nil {
+						return false, errors.Wrapf(err, "RequestAttachDisk.iVM.WaitStatus")
+					}
+
 					return true, nil
 				}
 			}
