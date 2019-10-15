@@ -49,26 +49,22 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	directoryID, _ := data.GetString("directory_id")
-	if len(directoryID) == 0 {
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.DirectoryId) == 0 {
 		return httperrors.NewMissingParameterError("directory_id")
 	}
-	clientID, _ := data.GetString("client_id")
-	if len(clientID) == 0 {
+	if len(input.ClientId) == 0 {
 		return httperrors.NewMissingParameterError("client_id")
 	}
-	clientSecret, _ := data.GetString("client_secret")
-	if len(clientSecret) == 0 {
+	if len(input.ClientSecret) == 0 {
 		return httperrors.NewMissingParameterError("client_secret")
 	}
-	environment, _ := data.GetString("environment")
-	if len(environment) == 0 {
+	if len(input.Environment) == 0 {
 		return httperrors.NewMissingParameterError("environment")
 	}
-	data.Set("account", jsonutils.NewString(directoryID))
-	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", clientID, clientSecret)))
-	data.Set("access_url", jsonutils.NewString(environment))
+	input.Account = input.DirectoryId
+	input.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
+	input.AccessUrl = input.Environment
 	return nil
 }
 

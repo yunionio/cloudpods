@@ -39,22 +39,21 @@ func (self *SHuaweiProviderFactory) GetName() string {
 	return huawei.CLOUD_PROVIDER_HUAWEI_CN
 }
 
-func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	accessKeyID, _ := data.GetString("access_key_id")
-	if len(accessKeyID) == 0 {
+func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("access_key_secret")
-	if len(accessKeySecret) == 0 {
+	if len(input.AccessKeySecret) == 0 {
 		return httperrors.NewMissingParameterError("access_key_secret")
 	}
-	environment, _ := data.GetString("environment")
-	if len(environment) == 0 {
+	if len(input.Environment) == 0 {
 		return httperrors.NewMissingParameterError("environment")
 	}
-	data.Set("account", jsonutils.NewString(accessKeyID))
-	data.Set("secret", jsonutils.NewString(accessKeySecret))
-	data.Set("access_url", jsonutils.NewString(environment))
+
+	input.Account = input.AccessKeyId
+	input.Secret = input.AccessKeySecret
+	input.AccessUrl = input.Environment
+
 	return nil
 }
 

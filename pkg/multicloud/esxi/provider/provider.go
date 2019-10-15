@@ -47,27 +47,22 @@ func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, ban
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
-func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
+func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.Username) == 0 {
 		return httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
+	if len(input.Password) == 0 {
 		return httperrors.NewMissingParameterError("password")
 	}
-	host, _ := data.GetString("host")
-	if len(host) == 0 {
+	if len(input.Host) == 0 {
 		return httperrors.NewMissingParameterError("host")
 	}
-	port, _ := data.Int("port")
-	accessURL := fmt.Sprintf("https://%s:%d/sdk", host, port)
-	if port == 0 || port == 443 {
-		accessURL = fmt.Sprintf("https://%s/sdk", host)
+	input.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
+	if input.Port == 0 || input.Port == 443 {
+		input.AccessUrl = fmt.Sprintf("https://%s/sdk", input.Host)
 	}
-	data.Set("account", jsonutils.NewString(username))
-	data.Set("secret", jsonutils.NewString(password))
-	data.Set("access_url", jsonutils.NewString(accessURL))
+	input.Account = input.Username
+	input.Secret = input.Password
 	return nil
 }
 

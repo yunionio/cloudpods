@@ -47,21 +47,18 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
-func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	appID, _ := data.GetString("app_id")
-	if len(appID) == 0 {
+func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.AppId) == 0 {
 		return httperrors.NewMissingParameterError("app_id")
 	}
-	secretID, _ := data.GetString("secret_id")
-	if len(secretID) == 0 {
+	if len(input.SecretId) == 0 {
 		return httperrors.NewMissingParameterError("secret_id")
 	}
-	secretKey, _ := data.GetString("secret_key")
-	if len(secretKey) == 0 {
+	if len(input.SecretKey) == 0 {
 		return httperrors.NewMissingParameterError("secret_key")
 	}
-	data.Set("account", jsonutils.NewString(fmt.Sprintf("%s/%s", secretID, appID)))
-	data.Set("secret", jsonutils.NewString(secretKey))
+	input.Account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
+	input.Secret = input.SecretKey
 	return nil
 }
 
