@@ -49,7 +49,7 @@ func (p *NetworkPredicate) Clone() core.FitPredicate {
 
 func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
-	if len(data.HostId) > 0 && len(data.Networks) == 0 {
+	if len(data.Networks) == 0 {
 		return false, nil
 	}
 
