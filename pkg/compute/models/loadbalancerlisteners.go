@@ -404,7 +404,7 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 	}
 
 	if len(lblis.CertificateId) > 0 {
-		if cert := lblis.GetLoadbalancerCertificate(); cert != nil {
+		if cert, _ := lblis.GetLoadbalancerCertificate(); cert != nil {
 			extra.Set("certificate_name", jsonutils.NewString(cert.Name))
 			extra.Set("origin_certificate_id", jsonutils.NewString(cert.CertificateId))
 		}
@@ -530,7 +530,9 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		listener.AccessControlListID = acl.ExternalId
 		listener.AccessControlListType = lblis.AclType
 	}
-	if certificate := lblis.GetLoadbalancerCertificate(); certificate != nil && lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
+	if certificate, err := lblis.GetLoadbalancerCertificate(); err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerListener.GetLoadbalancerListenerParams.certificate")
+	} else if certificate != nil && lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
 		listener.CertificateID = certificate.ExternalId
 	}
 
@@ -607,18 +609,22 @@ func (lblis *SLoadbalancerListener) GetAwsLoadbalancerListenerParams() (*cloudpr
 	return listener, nil
 }
 
-func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SCachedLoadbalancerCertificate {
+func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() (*SCachedLoadbalancerCertificate, error) {
 	if len(lblis.CachedCertificateId) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	ret := &SCachedLoadbalancerCertificate{}
 	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).Equals("cloudregion_id", lblis.CloudregionId).IsFalse("pending_deleted").First(ret)
 	if err != nil {
-		return nil
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
 	}
 
-	return ret
+	return ret, nil
 }
 
 func (lblis *SLoadbalancerListener) GetCachedLoadbalancerAcl() *SCachedLoadbalancerAcl {
