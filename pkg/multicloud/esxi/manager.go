@@ -26,15 +26,18 @@ import (
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/view"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -96,6 +99,30 @@ func NewESXiClient2(providerId string, providerName string, host string, port in
 		}
 	}
 	return cli, nil
+}
+
+func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SESXiClient, SESXiAccessInfo, error) {
+	accessInfo := SESXiAccessInfo{}
+	err := input.Unmarshal(&accessInfo)
+	if err != nil {
+		return nil, SESXiAccessInfo{}, hostutils.ParamsError
+	}
+	passwd := accessInfo.Password
+	if len(accessInfo.VcenterId) > 0 {
+		tmp, err := utils.DescryptAESBase64(accessInfo.VcenterId, passwd)
+		if err == nil {
+			passwd = tmp
+		}
+	}
+	client, err := NewESXiClient("", "", accessInfo.Host, accessInfo.Port, accessInfo.Account, passwd)
+	if err != nil {
+		return nil, accessInfo, err
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	client.context = ctx
+	return client, accessInfo, nil
 }
 
 func (cli *SESXiClient) getUrl() string {
@@ -406,4 +433,77 @@ func (cli *SESXiClient) IsVCenter() bool {
 
 func (cli *SESXiClient) IsValid() bool {
 	return cli.client.Client.Valid()
+}
+
+func (cli *SESXiClient) FindVMByPrivateID(idstr string) (*SVirtualMachine, error) {
+	searchIndex := object.NewSearchIndex(cli.client.Client)
+	instanceUuid := true
+	vmRef, err := searchIndex.FindByUuid(cli.context, nil, idstr, true, &instanceUuid)
+	if err != nil {
+		return nil, errors.Wrap(err, "searchIndex.FindByUuid fail")
+	}
+	if vmRef == nil {
+		return nil, fmt.Errorf("cannot find %s", idstr)
+	}
+	var vm mo.VirtualMachine
+	err = cli.reference2Object(vmRef.Reference(), VIRTUAL_MACHINE_PROPS, &vm)
+	if err != nil {
+		return nil, errors.Wrap(err, "reference2Object fail")
+	}
+
+	return NewVirtualMachine(cli, &vm, nil), nil
+}
+
+func (cli *SESXiClient) DoExtendDiskOnline(_vm *SVirtualMachine, _disk *SVirtualDisk, newSizeMb int64) error {
+	disk := _disk.getVirtualDisk()
+	disk.CapacityInKB = newSizeMb * 1024
+	devSepc := types.VirtualDeviceConfigSpec{Operation: types.VirtualDeviceConfigSpecOperationEdit, Device: disk}
+	spec := types.VirtualMachineConfigSpec{DeviceChange: []types.BaseVirtualDeviceConfigSpec{&devSepc}}
+	vm := object.NewVirtualMachine(cli.client.Client, _vm.getVirtualMachine().Reference())
+	task, err := vm.Reconfigure(cli.context, spec)
+	if err != nil {
+		return errors.Wrapf(err, "vm reconfigure failed")
+	}
+	return task.Wait(cli.context)
+}
+
+func (cli *SESXiClient) ExtendDisk(url string, newSizeMb int64) error {
+	param := types.ExtendVirtualDisk_Task{
+		This:          *cli.client.Client.ServiceContent.VirtualDiskManager,
+		Name:          url,
+		NewCapacityKb: newSizeMb * 1024,
+	}
+	response, err := methods.ExtendVirtualDisk_Task(cli.context, cli.client, &param)
+	if err != nil {
+		return errors.Wrapf(err, "extend virtualdisk task failed")
+	}
+	log.Debugf("extend virtual disk task response: %s", response.Returnval.String())
+	return nil
+}
+
+type SESXiAccessInfo struct {
+	VcenterId string
+	Password  string
+	Host      string
+	Port      int
+	Account   string
+	PrivateId string
+}
+
+func (cli *SESXiClient) CopyDisk(ctx context.Context, src, dst string, isForce bool) error {
+	dm := object.NewVirtualDiskManager(cli.client.Client)
+	task, err := dm.CopyVirtualDisk(ctx, src, nil, dst, nil, nil, isForce)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
+
+func (cli *SESXiClient) MoveDisk(ctx context.Context, src, dst string, isForce bool) error {
+	dm := object.NewVirtualDiskManager(cli.client.Client)
+	task, err := dm.MoveVirtualDisk(ctx, src, nil, dst, nil, isForce)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
 }

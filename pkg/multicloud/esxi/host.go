@@ -21,11 +21,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
@@ -34,7 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm", "datastore"}
+var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm", "datastore", "network"}
 
 type SHostStorageAdapterInfo struct {
 	Device    string
@@ -89,6 +91,10 @@ type SHost struct {
 	storageCache *SDatastoreImageCache
 
 	vms []cloudprovider.ICloudVM
+
+	parent *mo.ComputeResource
+
+	networks []SNetwork
 }
 
 func NewHost(manager *SESXiClient, host *mo.HostSystem, dc *SDatacenter) *SHost {
@@ -587,6 +593,204 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonutils.JSONDict) (*SVirtualMachine, error) {
+	var (
+		deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
+		name         string
+		osName             = "Linux"
+		memoryMB     int64 = 2048
+		numCPUs      int32 = 2
+		bios         string
+	)
+
+	if data.Contains("uuid") {
+		name, _ = data.GetString("uuid")
+	} else {
+		name, _ = data.GetString("name")
+	}
+	if data.Contains("os_name") {
+		osName, _ = data.GetString("os_name")
+	}
+	datastorePath := fmt.Sprintf("[%s] %s", ds.GetName(), name)
+	if data.Contains("mem") {
+		memoryMB, _ = data.Int("mem")
+	}
+	if data.Contains("cpu") {
+		cpunum, _ := data.Int("cpu")
+		numCPUs = int32(cpunum)
+	}
+
+	firmware := ""
+	if data.Contains("bios") {
+		bios, _ = data.GetString("bios")
+	}
+	if len(bios) == 0 {
+		if bios == "BIOS" {
+			firmware = "bios"
+		} else if bios == "UEFI" {
+			firmware = "efi"
+		}
+	}
+
+	guestId := "rhel6_64Guest"
+	if osName == "Windows" {
+		guestId = "windows7Server64Guest"
+	}
+
+	version := "vmx-10"
+	if self.isVersion50() {
+		version = "vmx-08"
+	}
+
+	uuid, _ := data.GetString("uuid")
+
+	spec := types.VirtualMachineConfigSpec{
+		Name:     name,
+		Version:  version,
+		Uuid:     uuid,
+		GuestId:  guestId,
+		NumCPUs:  numCPUs,
+		MemoryMB: memoryMB,
+		Firmware: firmware,
+	}
+	spec.Files = &types.VirtualMachineFileInfo{
+		VmPathName: datastorePath,
+	}
+
+	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
+	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
+	deviceChange = append(deviceChange, addDevSpec(NewSVGADev(500, 100)))
+	disks, _ := data.GetArray("disks")
+	driver := "scsi"
+	if len(disks) > 0 {
+		driver, _ = disks[0].GetString("driver")
+	}
+	if driver == "scsi" || driver == "pvscsi" {
+		if self.isVersion50() {
+			driver = "scsi"
+		}
+		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(1000, 100, driver)))
+	}
+	cdromPath := ""
+	if data.Contains("cdrom") {
+		tmp, _ := data.Get("cdrom")
+		cdromPath, _ = tmp.GetString("path")
+	}
+	var err error
+	if len(cdromPath) != 0 && !strings.HasPrefix(cdromPath, "[") {
+		cdromPath, err = self.FileUrlPathToDsPath(cdromPath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for cdrom path '%s'", cdromPath)
+		}
+	}
+	deviceChange = append(deviceChange, addDevSpec(NewCDROMDev(cdromPath, 16000, 201)))
+
+	var (
+		scsiIdx = 0
+		ideIdx  = 0
+		index   = 0
+		ctrlKey = 0
+	)
+	for _, disk := range disks {
+		imagePath, _ := disk.GetString("image_path")
+		var size int64 = 0
+		if len(imagePath) == 0 {
+			size, _ := disk.Int("size")
+			if size == 0 {
+				size = 30 * 1024
+			}
+		} else {
+			imagePath, err = self.FileUrlPathToDsPath(imagePath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for image path '%s'", imagePath)
+			}
+		}
+		uuid, _ := disk.GetString("disk_id")
+		driver := "scsi"
+		if disk.Contains("driver") {
+			driver, _ = disk.GetString("driver")
+		}
+		if driver == "scsi" || driver == "pyscsi" {
+			if self.isVersion50() {
+				driver = "scsi"
+			}
+			ctrlKey = 1000
+			index = scsiIdx
+			scsiIdx += 1
+		} else {
+			ctrlKey = 200 + ideIdx/2
+			index = ideIdx % 2
+			ideIdx += 1
+		}
+		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
+		spec.FileOperation = "create"
+		deviceChange = append(deviceChange, spec)
+	}
+
+	nics, _ := data.GetArray("nics")
+	for _, nic := range nics {
+		index, _ := nic.Int("index")
+		mac, _ := nic.GetString("mac")
+		driver := "e1000"
+		if nic.Contains("driver") {
+			driver, _ = nic.GetString("driver")
+		}
+		if self.isVersion50() {
+			driver = "e1000"
+		}
+		var vlanId int64 = 1
+		if nic.Contains("vlan") {
+			vlanId, _ = nic.Int("vlan")
+		}
+		dev, err := NewVNICDev(self, mac, driver, int32(vlanId), 4000, 100, int32(index))
+		if err != nil {
+			return nil, errors.Wrap(err, "NewVNICDev")
+		}
+		deviceChange = append(deviceChange, addDevSpec(dev))
+	}
+
+	spec.DeviceChange = deviceChange
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		return nil, errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", self.GetId())
+	}
+	// get vmFloder
+	folders, err := dc.getObjectDatacenter().Folders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "object.DataCenter.Folders")
+	}
+	vmFolder := folders.VmFolder
+	resourcePool, err := self.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.GetResourcePool")
+	}
+	task, err := vmFolder.CreateVM(ctx, spec, resourcePool, self.GetoHostSystem())
+	if err != nil {
+		return nil, errors.Wrap(err, "VmFolder.Create")
+	}
+
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Task.WaitForResult")
+	}
+
+	var moVM mo.VirtualMachine
+	err = self.manager.reference2Object(info.Result.(types.ManagedObjectReference), VIRTUAL_MACHINE_PROPS, &moVM)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
+	}
+
+	return NewVirtualMachine(self.manager, &moVM, self.datacenter), nil
+}
+
+func (host *SHost) isVersion50() bool {
+	version := host.GetVersion()
+	if strings.HasPrefix(version, "5.") {
+		return true
+	}
+	return false
+}
+
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	nics := host.getNicInfo()
 	inics := make([]cloudprovider.ICloudHostNetInterface, len(nics))
@@ -661,4 +865,208 @@ func (host *SHost) GetManagementServerIp() string {
 
 func (host *SHost) IsManagedByVCenter() bool {
 	return len(host.getHostSystem().Summary.ManagementServerIp) > 0
+}
+
+func (host *SHost) FindDataStoreById(id string) (*SDatastore, error) {
+	datastores, err := host.GetDataStores()
+	if err != nil {
+		return nil, err
+	}
+	for i := range datastores {
+		if datastores[i].GetId() == id {
+			return datastores[i].(*SDatastore), nil
+		}
+	}
+	return nil, fmt.Errorf("no such datastore %s", id)
+}
+
+func (host *SHost) GetDataStores() ([]cloudprovider.ICloudStorage, error) {
+	err := host.fetchDatastores()
+	if err != nil {
+		return nil, err
+	}
+	return host.datastores, nil
+}
+
+func (host *SHost) fetchDatastores() error {
+	if host.datastores != nil {
+		return nil
+	}
+
+	dc, err := host.GetDatacenter()
+	if err != nil {
+		return err
+	}
+
+	MAX_TRIES := 3
+	for tried := 0; tried < MAX_TRIES; tried += 1 {
+		hostDss := host.getHostSystem().Datastore
+		if len(hostDss) == 0 {
+			// log.Errorf("host VMs are nil!!!!!")
+			return nil
+		}
+
+		dss, err := dc.fetchDatastores(hostDss)
+		if err != nil {
+			log.Errorf("dc.fetchVms fail %s", err)
+			time.Sleep(time.Second)
+			host.Refresh()
+			continue
+		}
+		host.datastores = dss
+	}
+	return nil
+}
+
+func (host *SHost) FileUrlPathToDsPath(path string) (string, error) {
+	var newPath string
+	dss, err := host.GetDataStores()
+	if err != nil {
+		return newPath, err
+	}
+	for _, ds := range dss {
+		rds := ds.(*SDatastore)
+		if strings.HasPrefix(path, rds.GetUrl()) {
+			newPath = fmt.Sprintf("[%s] %s", ds.GetName(), path[len(rds.GetUrl()):])
+		}
+		break
+	}
+	return newPath, nil
+}
+
+func (host *SHost) FindNetworkByVlanID(vlanID int32) (IVMNetwork, error) {
+	if vlanID > 1 && vlanID < 4095 {
+		return host.findVlanDVPG(int32(vlanID))
+	}
+	n, err := host.findNovlanDVPG()
+	if err != nil {
+		return nil, err
+	}
+	if n != nil {
+		return n, err
+	}
+	return host.findBasicNetwork()
+}
+
+func (host *SHost) findBasicNetwork() (*SNetwork, error) {
+	nets, err := host.GetNetwork()
+	if err != nil {
+		return nil, err
+	}
+	if len(nets) == 0 {
+		return nil, nil
+	}
+	return &nets[0], nil
+}
+
+func (host *SHost) GetNetwork() ([]SNetwork, error) {
+	if host.networks != nil {
+		return host.networks, nil
+	}
+	netMobs := host.getHostSystem().Network
+	nets := make([]SNetwork, 0)
+	err := host.manager.references2Objects(netMobs, NETWORK_PROPS, &nets)
+	if err != nil {
+		return nil, errors.Wrap(err, "references2Objects")
+	}
+	host.networks = nets
+	return host.networks, nil
+}
+
+func (host *SHost) findNovlanDVPG() (*SDistributedVirtualPortgroup, error) {
+	nets, err := host.datacenter.GetNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.datacenter.GetNetworks")
+	}
+	for _, net := range nets {
+		dvpg, ok := net.(*SDistributedVirtualPortgroup)
+		if !ok || !dvpg.ContainHost(host) || len(dvpg.GetActivePorts()) == 0 {
+			continue
+		}
+		nvlan := dvpg.GetVlanId()
+		if nvlan <= 1 || nvlan >= 4095 {
+			return dvpg, nil
+		}
+	}
+	return nil, nil
+}
+
+func (host *SHost) findVlanDVPG(vlanId int32) (*SDistributedVirtualPortgroup, error) {
+	nets, err := host.datacenter.GetNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.datacenter.GetNetworks")
+	}
+	for _, net := range nets {
+		dvpg, ok := net.(*SDistributedVirtualPortgroup)
+		if !ok || !dvpg.ContainHost(host) || len(dvpg.GetActivePorts()) == 0 {
+			continue
+		}
+		nvlan := dvpg.GetVlanId()
+		if nvlan == vlanId {
+			return dvpg, nil
+		}
+	}
+	return nil, nil
+}
+
+func (host *SHost) GetoHostSystem() *object.HostSystem {
+	return object.NewHostSystem(host.manager.client.Client, host.getHostSystem().Reference())
+}
+
+func (host *SHost) GetResourcePool() (*object.ResourcePool, error) {
+	var err error
+	if host.parent == nil {
+		host.parent, err = host.getResourcePool()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return object.NewResourcePool(host.manager.client.Client, *host.parent.ResourcePool), nil
+}
+
+func (host *SHost) getResourcePool() (*mo.ComputeResource, error) {
+	var mcr *mo.ComputeResource
+	var parent interface{}
+
+	moHost := host.getHostSystem()
+
+	switch moHost.Parent.Type {
+	case "ComputeResource":
+		mcr = new(mo.ComputeResource)
+		parent = mcr
+	case "ClusterComputeResource":
+		mcc := new(mo.ClusterComputeResource)
+		mcr = &mcc.ComputeResource
+		parent = mcc
+	default:
+		return nil, errors.Error(fmt.Sprintf("unknown host parent type: %s", moHost.Parent.Type))
+	}
+
+	err := host.manager.reference2Object(*moHost.Parent, []string{"resourcePool"}, parent)
+	if err != nil {
+		return nil, errors.Wrap(err, "SESXiClient.reference2Object")
+	}
+	return mcr, nil
+}
+
+func (host *SHost) GetCluster() (*mo.ComputeResource, error) {
+	return host.getResourcePool()
+}
+
+func (host *SHost) GetSiblingHosts() ([]*SHost, error) {
+	rp, err := host.GetCluster()
+	if err != nil {
+		return nil, err
+	}
+	moHosts := make([]mo.HostSystem, 0, len(rp.Host))
+	err = host.manager.references2Objects(rp.Host, HOST_SYSTEM_PROPS, &moHosts)
+	if err != nil {
+		return nil, errors.Wrap(err, "SESXiClient.references2Objects")
+	}
+
+	ret := make([]*SHost, len(moHosts))
+	for i := range moHosts {
+		ret[i] = NewHost(host.manager, &moHosts[i], host.datacenter)
+	}
+	return ret, nil
 }

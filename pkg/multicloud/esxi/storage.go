@@ -15,20 +15,26 @@
 package esxi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -37,6 +43,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
 )
 
@@ -716,4 +723,129 @@ func (self *SDatastore) MoveVmdk(ctx context.Context, srcPath string, dstPath st
 		return err
 	}
 	return task.Wait(ctx)
+}
+
+func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, host *SHost) (*SVirtualMachine, error) {
+
+	img, err := qemuimg.NewQemuImage(diskFile)
+	if err != nil {
+		return nil, errors.Error(fmt.Sprintf("disk %s not valid", diskFile))
+	}
+	ovfFile := filepath.Join(OVF_TEMPLATE_DIR, "ovf_templ.xml")
+	file, err := os.Open(ovfFile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to open file %s", ovfFile)
+	}
+	ovfContent, err := ioutil.ReadAll(file)
+	file.Close()
+	if err != nil {
+		return nil, err
+	}
+	ovfContent = bytes.ReplaceAll(ovfContent, []byte("%%VIRTUAL_SIZE_BYTES%%"), []byte(strconv.Itoa(int(img.SizeBytes))))
+	if host == nil {
+		cloudHost, err := self.getLocalHost()
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to get local host of datastore %s", self.GetUrl())
+		}
+		host = cloudHost.(*SHost)
+	}
+
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to get datacenter of datastore %s", self.GetUrl())
+	}
+	dc.getDatacenter()
+	//dc.getDatacenter().VmFolder
+	resourcePool, err := host.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to get resourecePool of host %s", host.GetName())
+	}
+	// check name
+	if len(name) == 0 {
+		name := filepath.Base(diskFile)
+		name = strings.Split(name, ".")[0]
+	}
+	ref := host.getHostSystem().Reference()
+	specParams := types.OvfCreateImportSpecParams{HostSystem: &ref, EntityName: name, DiskProvisioning: "thin"}
+	ovfManager := ovf.NewManager(host.manager.client.Client)
+	spec, err := ovfManager.CreateImportSpec(ctx, string(ovfContent), resourcePool, ref, specParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "ovfManager.CreateImportSpec")
+	}
+	if len(spec.Error) != 0 || len(spec.Warning) != 0 {
+		log.Errorf("%s-%s", spec.Error, spec.Warning)
+		return nil, errors.Error("Fail to create import spec")
+	}
+
+	// get vmFloder
+	folders, err := dc.getObjectDatacenter().Folders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "object.DataCenter.Folders")
+	}
+
+	lease, err := resourcePool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, object.NewHostSystem(host.manager.client.Client, ref))
+	if err != nil {
+		return nil, errors.Wrap(err, "resourecePool.ImportVApp")
+	}
+
+	info, err := lease.Wait(ctx, spec.FileItem)
+	if err != nil {
+		return nil, err
+	}
+
+	u := lease.StartUpdater(ctx, info)
+	defer u.Done()
+
+	opts := soap.Upload{ContentLength: img.SizeBytes}
+
+	diskReader, err := os.Open(diskFile)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to open file %s", diskFile)
+	}
+	defer diskReader.Close()
+	err = lease.Upload(ctx, info.Items[0], diskReader, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "lease.Upload")
+	}
+
+	err = lease.Complete(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "lease.Compute")
+	}
+
+	var moVM mo.VirtualMachine
+	err = host.manager.reference2Object(info.Entity, VIRTUAL_MACHINE_PROPS, &moVM)
+	if err != nil {
+		return nil, err
+	}
+	vm := NewVirtualMachine(host.manager, &moVM, dc)
+
+	return vm, nil
+}
+
+func (self *SDatastore) ImportTemplate(ctx context.Context, diskFile, remotePath string, host *SHost) error {
+	name := fmt.Sprintf("yunioncloud.%s%s", remotePath, rand.Int())
+	vm, err := self.ImportVM(ctx, diskFile, name, host)
+	defer func() {
+		if vm == nil {
+			return
+		}
+		err := vm.DeleteVM(ctx)
+		if err != nil {
+			log.Errorf("fail to delete vm %s after import template", vm.GetName())
+		}
+	}()
+	if err == nil {
+		disks, err := vm.GetIDisks()
+		if err != nil {
+			return errors.Wrap(err, "vm.GetIDisks")
+		}
+		disk_url := self.GetPathUrl(disks[0].GetAccessPath())
+		_, err = self.MakeDir(ctx, remotePath)
+		if err != nil {
+			return errors.Wrap(err, "SDatstore.MakeDir")
+		}
+		dst_url := self.GetPathUrl(remotePath)
+		return self.manager.MoveDisk(ctx, disk_url, dst_url, true)
+	}
 }
