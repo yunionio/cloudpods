@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -75,6 +76,8 @@ type SCloudaccount struct {
 
 	SSyncableBaseResource
 	LastAutoSync time.Time `list:"domain"`
+
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"domain_optional"`
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
@@ -258,40 +261,46 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	// check provider
-	// name, _ := data.GetString("name")
-	provider, _ := data.GetString("provider")
-	if !cloudprovider.IsSupported(provider) {
-		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
-	}
-	providerDriver, _ := cloudprovider.GetProviderFactory(provider)
-	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
+
+	tenantV := validators.NewModelIdOrNameValidator("tenant", "tenant", ownerId)
+	tenantV.Optional(true)
+	err = tenantV.Validate(data)
+	if err != nil {
 		return nil, err
 	}
-	brand, _ := data.GetString("brand")
-	if len(brand) > 0 && brand != providerDriver.GetName() {
+
+	input := &api.CloudaccountCreateInput{}
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("failed to unmarshal input params error: %v", err)
+	}
+
+	if !cloudprovider.IsSupported(input.Provider) {
+		return nil, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
+	}
+	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
+	err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(input.Brand) > 0 && input.Brand != providerDriver.GetName() {
 		brands := providerDriver.GetSupportedBrands()
 		if !utils.IsInStringArray(providerDriver.GetName(), brands) {
 			brands = append(brands, providerDriver.GetName())
 		}
-		if !utils.IsInStringArray(brand, brands) {
-			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", brand, brands)
+		if !utils.IsInStringArray(input.Brand, brands) {
+			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", input.Brand, brands)
 		}
 	}
-	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
-	data.Set("is_on_premise", jsonutils.NewBool(providerDriver.IsOnPremise()))
-	// check duplication
-	// url, account, provider must be unique
-	account, _ := data.GetString("account")
-	secret, _ := data.GetString("secret")
-	url, _ := data.GetString("access_url")
+	input.IsPublicCloud = providerDriver.IsPublicCloud()
+	input.IsOnPremise = providerDriver.IsOnPremise()
 
-	q := manager.Query().Equals("provider", provider)
-	if len(account) > 0 {
-		q = q.Equals("account", account)
+	q := manager.Query().Equals("provider", input.Provider)
+	if len(input.Account) > 0 {
+		q = q.Equals("account", input.Account)
 	}
-	if len(url) > 0 {
-		q = q.Equals("access_url", url)
+	if len(input.AccessUrl) > 0 {
+		q = q.Equals("access_url", input.AccessUrl)
 	}
 
 	cnt, err := q.CountWithError()
@@ -302,10 +311,10 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
-	accountId, err := cloudprovider.IsValidCloudAccount(url, account, secret, provider)
+	accountId, err := cloudprovider.IsValidCloudAccount(input.AccessUrl, input.Account, input.Secret, input.Provider)
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
-			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
+			return nil, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
 		}
 		//log.Debugf("ValidateCreateData %s", err.Error())
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
@@ -323,15 +332,13 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		data.Set("account_id", jsonutils.NewString(accountId))
 	}
 
-	syncIntervalSecs, _ := data.Int("sync_interval_seconds")
-	if syncIntervalSecs == 0 {
-		syncIntervalSecs = int64(options.Options.DefaultSyncIntervalSeconds)
-	} else if syncIntervalSecs < int64(options.Options.MinimalSyncIntervalSeconds) {
-		syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
+	if input.SyncIntervalSeconds == 0 {
+		input.SyncIntervalSeconds = options.Options.DefaultSyncIntervalSeconds
+	} else if input.SyncIntervalSeconds < options.Options.MinimalSyncIntervalSeconds {
+		input.SyncIntervalSeconds = options.Options.MinimalSyncIntervalSeconds
 	}
-	data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
 
-	if !jsonutils.QueryBoolean(query, "auto_create_project", false) {
+	if !input.AutoCreateProject {
 		if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
 			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 			params := jsonutils.Marshal(map[string]string{"domain_id": ownerId.GetProjectDomainId()})
@@ -345,7 +352,12 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		}
 	}
 
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return input.JSON(input), nil
 }
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -655,9 +667,19 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
 		newCloudprovider.HealthStatus = self.HealthStatus
 		newCloudprovider.Name = newName
-		if !self.AutoCreateProject {
+		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
 			ownerId := self.GetOwnerId()
-			if ownerId == nil || ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+			if len(self.ProjectId) > 0 {
+				t, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
+				if err != nil {
+					log.Errorf("cannot find tenant %s for domain %s", self.ProjectId, ownerId.GetProjectDomainId())
+					return nil, err
+				}
+				ownerId = &db.SOwnerId{
+					DomainId:  t.DomainId,
+					ProjectId: t.Id,
+				}
+			} else if ownerId == nil || ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
 				ownerId = userCred
 			} else {
 				// find default project of domain
@@ -698,7 +720,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 	newCloudprovider.savePassword(passwd)
 
-	if self.AutoCreateProject {
+	if self.AutoCreateProject && len(self.ProjectId) == 0 {
 		err = newCloudprovider.syncProject(ctx, userCred)
 		if err != nil {
 			log.Errorf("syncproject fail %s", err)
