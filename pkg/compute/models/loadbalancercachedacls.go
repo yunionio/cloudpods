@@ -20,7 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -60,9 +60,8 @@ type SCachedLoadbalancerAcl struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	AclId      string                   `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" create:"required"` // 本地ACL ID
-	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" nullable:"true"  create:"optional"`
-	ListenerId string                   `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
+	AclId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" create:"required"` // 本地ACL ID
+	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`                // huawei only
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -216,61 +215,6 @@ func (lbacl *SCachedLoadbalancerAcl) AllowPerformPatch(ctx context.Context, user
 	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
 }
 
-// PerformPatch patches acl entries by adding then deleting the specified acls.
-// This is intended mainly for command line operations.
-func (lbacl *SCachedLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	aclEntries := gotypes.DeepCopy(*lbacl.AclEntries).(SLoadbalancerAclEntries)
-	{
-		adds := SLoadbalancerAclEntries{}
-		addsV := validators.NewStructValidator("adds", &adds)
-		addsV.Optional(true)
-		err := addsV.Validate(data)
-		if err != nil {
-			return nil, err
-		}
-		for _, add := range adds {
-			found := false
-			for _, aclEntry := range aclEntries {
-				if aclEntry.Cidr == add.Cidr {
-					found = true
-					aclEntry.Comment = add.Comment
-					break
-				}
-			}
-			if !found {
-				aclEntries = append(aclEntries, add)
-			}
-		}
-	}
-	{
-		dels := SLoadbalancerAclEntries{}
-		delsV := validators.NewStructValidator("dels", &dels)
-		delsV.Optional(true)
-		err := delsV.Validate(data)
-		if err != nil {
-			return nil, err
-		}
-		for _, del := range dels {
-			for i := len(aclEntries) - 1; i >= 0; i-- {
-				aclEntry := aclEntries[i]
-				if aclEntry.Cidr == del.Cidr {
-					aclEntries = append(aclEntries[:i], aclEntries[i+1:]...)
-					break
-				}
-			}
-		}
-	}
-	diff, err := db.Update(lbacl, func() error {
-		lbacl.AclEntries = &aclEntries
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	db.OpsLog.LogEvent(lbacl, db.ACT_UPDATE, diff, userCred)
-	return nil, nil
-}
-
 func (lbacl *SCachedLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) error {
 	man := LoadbalancerListenerManager
 	t := man.TableSpec().Instance()
@@ -329,7 +273,7 @@ func (self *SCachedLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Co
 	} else {
 		self.DoPendingDelete(ctx, userCred)
 	}
-	return err
+	return errors.Wrap(err, "cachedLoadbalancerAcl.remove.Delete")
 }
 
 func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId mcclient.IIdentityProvider) error {
@@ -342,21 +286,17 @@ func (acl *SCachedLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Cont
 			if len(ext_listener_id) > 0 {
 				ilistener, err := db.FetchByExternalId(LoadbalancerListenerManager, ext_listener_id)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "cacheLoadbalancerAcl.sync.FetchByExternalId")
 				}
 
 				acl.ListenerId = ilistener.(*SLoadbalancerListener).GetId()
 			}
 		}
 
-		acl.AclEntries = &SLoadbalancerAclEntries{}
-		for _, entry := range extAcl.GetAclEntries() {
-			*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
-		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "cacheLoadbalancerAcl.sync.Update")
 	}
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
 
@@ -382,7 +322,6 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 			_, err := man.TableSpec().Update(&lbacl, func() error {
 				lbacl.Name = acl.Name
 				lbacl.AclId = acl.Id
-				lbacl.AclEntries = acl.AclEntries
 				return nil
 			})
 
@@ -404,7 +343,6 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 	lbacl.ProjectSrc = lblis.ProjectSrc
 	lbacl.Name = acl.Name
 	lbacl.AclId = acl.Id
-	lbacl.AclEntries = acl.AclEntries
 	lbacl.ListenerId = listenerId
 
 	err = man.TableSpec().Insert(&lbacl)
@@ -412,12 +350,7 @@ func (man *SCachedLoadbalancerAclManager) GetOrCreateCachedAcl(ctx context.Conte
 		return nil, err
 	}
 
-	lbacl, err = man.getLoadbalancerAclByRegion(provider, lblis.CloudregionId, acl.Id, listenerId)
-	if err == nil {
-		return &lbacl, nil
-	}
-
-	return nil, err
+	return &lbacl, err
 }
 
 func (man *SCachedLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SCachedLoadbalancerAcl, error) {
@@ -514,24 +447,24 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 
 	newName, err := db.GenerateName(man, projectId, extAcl.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.GenerateName")
 	}
 	acl.ExternalId = extAcl.GetGlobalId()
 	acl.Name = newName
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
-	acl.AclEntries = &SLoadbalancerAclEntries{}
+	aclEntites := SLoadbalancerAclEntries{}
 	for _, entry := range extAcl.GetAclEntries() {
-		*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
+		aclEntites = append(aclEntites, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
 
-	f := acl.AclEntries.Fingerprint()
+	f := aclEntites.Fingerprint()
 	if LoadbalancerAclManager.CountByFingerPrint(f) == 0 {
 		localAcl := SLoadbalancerAcl{}
 		localAcl.Name = acl.Name
 		localAcl.Description = acl.Description
-		localAcl.AclEntries = acl.AclEntries
+		localAcl.AclEntries = &aclEntites
 		localAcl.Fingerprint = f
 		// usercread
 		localAcl.DomainId = userCred.GetProjectDomainId()
@@ -539,14 +472,14 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 		localAcl.ProjectSrc = string(db.PROJECT_SOURCE_CLOUD)
 		err := LoadbalancerAclManager.TableSpec().Insert(&localAcl)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertAcl")
 		}
 	}
 
 	{
 		localAcl, err := LoadbalancerAclManager.FetchByFingerPrint(f)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.FetchByFingerPrint")
 		}
 
 		acl.AclId = localAcl.GetId()
@@ -555,7 +488,7 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	err = man.TableSpec().Insert(&acl)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "cachedLoadbalancerAclManager.new.InsertCachedAcl")
 	}
 
 	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)
