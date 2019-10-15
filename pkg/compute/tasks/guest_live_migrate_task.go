@@ -123,6 +123,24 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 
 // For local storage get disk info
 func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnCachedCdromComplete", nil)
+	isLocalStorage, _ := self.Params.Bool("is_local_storage")
+	if cdrom := guest.GetCdrom(); cdrom != nil && isLocalStorage {
+		targetHostId, _ := self.Params.GetString("target_host_id")
+		targetHost := models.HostManager.FetchHostById(targetHostId)
+		targetStorageCache := targetHost.GetLocalStoragecache()
+		if targetStorageCache != nil {
+			err := targetStorageCache.StartImageCacheTask(ctx, self.UserCred, cdrom.ImageId, "iso", false, self.GetTaskId())
+			if err != nil {
+				self.TaskFailed(ctx, guest, err.Error())
+			}
+			return
+		}
+	}
+	self.OnCachedCdromComplete(ctx, guest, nil)
+}
+
+func (self *GuestMigrateTask) OnCachedCdromComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	header := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	guestStatus, _ := self.Params.GetString("guest_status")
@@ -143,6 +161,10 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 	} else {
 		self.OnSrcPrepareComplete(ctx, guest, nil)
 	}
+}
+
+func (self *GuestMigrateTask) OnCachedCdromCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, data.String())
 }
 
 func (self *GuestMigrateTask) OnCachedImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
