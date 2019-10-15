@@ -52,11 +52,15 @@ func init() {
 	})
 
 	type ImageCreateOptions struct {
-		NAME string
+		NAME          string
+		OsType        string `help:"os type" default:"linux" choices:"linux|windows"`
+		OsDistro      string
+		MinDiskSizeGB int
+		MinRamMb      int
 	}
 
 	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *openstack.SRegion, args *ImageCreateOptions) error {
-		image, err := cli.CreateImage(args.NAME)
+		image, err := cli.CreateImage(args.NAME, args.OsType, args.OsDistro, args.MinDiskSizeGB, args.MinRamMb)
 		if err != nil {
 			return err
 		}
