@@ -609,3 +609,16 @@ func (manager *SIsolatedDeviceManager) DeleteDevicesByHost(ctx context.Context, 
 		dev.Delete(ctx, userCred)
 	}
 }
+
+func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string, count int) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.Query().Equals("hsot_id", hostId).Equals("model", model).IsEmpty("guest_id").Limit(count)
+	err := db.FetchModelObjects(manager, q, &devs)
+	if err != nil {
+		return nil, err
+	}
+	if len(devs) == 0 {
+		return nil, nil
+	}
+	return devs, nil
+}

@@ -1957,6 +1957,10 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 
 	network := &SNetwork{}
 	network.Name = name
+	network.IfnameHint, err = NetworkManager.newIfnameHint(name)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Generate ifname hint failed %s", err)
+	}
 	network.GuestIpStart = splitIp
 	network.GuestIpEnd = self.GuestIpEnd
 	network.GuestIpMask = self.GuestIpMask
