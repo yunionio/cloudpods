@@ -209,8 +209,8 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 	}
 	dayOfWeekPrefix, hourPrefix := "Policy.0.DayOfWeek.", "Policy.0.Hour."
 	for index, day := range input.RepeatWeekdays {
-		if day == 0 {
-			day = 7
+		if day == 7 {
+			day = 0
 		}
 		params[dayOfWeekPrefix+strconv.Itoa(index)] = strconv.Itoa(day)
 	}
