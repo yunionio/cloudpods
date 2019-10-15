@@ -21,12 +21,12 @@ build_image() {
     local tag=$1
     local file=$2
     local path=$3
-    docker build -t "$tag" -f "$2" "$3"
+    sudo docker build -t "$tag" -f "$2" "$3"
 }
 
 push_image() {
     local tag=$1
-    docker push "$tag"
+    sudo docker push "$tag"
 }
 
 COMPONENTS=$@
