@@ -119,6 +119,7 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 }
 
 func (self *SEipAddress) Delete() error {
+	self.Dissociate() //避免eip挂载在弹性网卡之上,导致删除失败
 	return self.region.DeallocateEIP(self.ID)
 }
 
