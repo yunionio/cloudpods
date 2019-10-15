@@ -868,15 +868,37 @@ func (manager *SGuestManager) BatchPreValidate(
 	return nil, nil
 }
 
+func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	ispi, err := InstanceSnapshotManager.FetchByIdOrName(nil, input.InstanceSnapshotId)
+	if err == sql.ErrNoRows {
+		return nil, httperrors.NewBadRequestError("can't find instance snapshot %s", input.InstanceSnapshotId)
+	}
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fetch instance snapshot error %s", err)
+	}
+	isp := ispi.(*SInstanceSnapshot)
+	if isp.Status != api.INSTANCE_SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Instance snapshot not ready")
+	}
+	return isp.ToInstanceCreateInput(input)
+}
+
 func (manager *SGuestManager) validateCreateData(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*api.ServerCreateInput, error) {
-
 	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
 	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(input.InstanceSnapshotId) > 0 {
+		input, err = parseInstanceSnapshot(input)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	resetPassword := true
 	if input.ResetPassword != nil {
 		resetPassword = *input.ResetPassword
@@ -1144,8 +1166,6 @@ func (manager *SGuestManager) validateCreateData(
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
 		input.KeypairId = keypairObj.GetId()
-	} else {
-		input.KeypairId = "None" // TODO: ??? None?
 	}
 
 	if input.SecgroupId != "" {
@@ -3214,6 +3234,15 @@ func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
+func (self *SGuest) isNeedDoResetPasswd() bool {
+	guestdisks := self.GetDisks()
+	disk := guestdisks[0].GetDisk()
+	if len(disk.SnapshotId) > 0 {
+		return false
+	}
+	return true
+}
+
 func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	config := jsonutils.NewDict()
 
@@ -3234,11 +3263,12 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		deployAction = "deploy"
 	}
 
-	// resetPasswd := true
-	// if deployAction == "deploy" {
-	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
-	//}
 	config.Add(jsonutils.NewBool(jsonutils.QueryBoolean(params, "enable_cloud_init", false)), "enable_cloud_init")
+
+	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
+	if deployAction == "create" && resetPasswd {
+		resetPasswd = self.isNeedDoResetPasswd()
+	}
 
 	if resetPasswd {
 		config.Add(jsonutils.JSONTrue, "reset_password")

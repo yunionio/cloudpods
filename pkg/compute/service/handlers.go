@@ -94,6 +94,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.NatGatewayManager,
 		models.NatDEntryManager,
 		models.NatSEntryManager,
+		models.InstanceSnapshotManager,
 		models.SnapshotManager,
 		models.SnapshotPolicyManager,
 		models.BaremetalagentManager,
@@ -156,6 +157,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DBInstanceNetworkManager,
 		models.NetworkinterfacenetworkManager,
 		models.SnapshotPolicyDiskManager,
+		models.InstanceSnapshotJointManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
