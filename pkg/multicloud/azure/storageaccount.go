@@ -862,7 +862,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 		}
 		// container name matches prefix
 		if container.Name[:matchLen] == prefix[:matchLen] && (len(prefix) <= len(container.Name) || strings.HasPrefix(prefix, container.Name+"/")) {
-			if delimiter == "/" && (len(prefix) == 0 || prefix == container.Name+delimiter) {
+			if delimiter == "/" && len(prefix) == 0 {
 				// populate CommonPrefixes
 				o := &SObject{
 					container: &container,
@@ -872,6 +872,8 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 				}
 				result.CommonPrefixes = append(result.CommonPrefixes, o)
 				maxCount -= 1
+			} else if delimiter == "/" && prefix == container.Name+delimiter {
+				// do nothing
 			} else if len(prefix) <= len(container.Name)+1 {
 				// returns contain names only
 				o := &SObject{
