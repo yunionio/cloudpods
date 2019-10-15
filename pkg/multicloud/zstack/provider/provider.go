@@ -43,22 +43,19 @@ func (self *SZStackProviderFactory) GetSupportedBrands() []string {
 	return []string{api.ZSTACK_BRAND_DSTACK}
 }
 
-func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
+func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.Username) == 0 {
 		return httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
+	if len(input.Password) == 0 {
 		return httperrors.NewMissingParameterError("password")
 	}
-	authURL, _ := data.GetString("auth_url")
-	if len(authURL) == 0 {
+	if len(input.AuthUrl) == 0 {
 		return httperrors.NewMissingParameterError("auth_url")
 	}
-	data.Set("account", jsonutils.NewString(username))
-	data.Set("secret", jsonutils.NewString(password))
-	data.Set("access_url", jsonutils.NewString(authURL))
+	input.Account = input.Username
+	input.Secret = input.Password
+	input.AccessUrl = input.AuthUrl
 	return nil
 }
 

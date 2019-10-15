@@ -42,31 +42,27 @@ func (self *SOpenStackProviderFactory) GetName() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
 }
 
-func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	projectName, _ := data.GetString("project_name")
-	if len(projectName) == 0 {
+func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.ProjectName) == 0 {
 		return httperrors.NewMissingParameterError("project_name")
 	}
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
+	if len(input.Username) == 0 {
 		return httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
+	if len(input.Password) == 0 {
 		return httperrors.NewMissingParameterError("password")
 	}
-	authURL, _ := data.GetString("auth_url")
-	if len(authURL) == 0 {
+	if len(input.AuthUrl) == 0 {
 		return httperrors.NewMissingParameterError("auth_url")
 	}
-	account := fmt.Sprintf("%s/%s", projectName, username)
-	if domainName, _ := data.GetString("domain_name"); len(domainName) > 0 {
-		account = fmt.Sprintf("%s/%s", account, domainName)
+
+	input.Account = fmt.Sprintf("%s/%s", input.ProjectName, input.Username)
+	if len(input.DomainName) > 0 {
+		input.Account = fmt.Sprintf("%s/%s", input.Account, input.DomainName)
 	}
 
-	data.Set("account", jsonutils.NewString(account))
-	data.Set("secret", jsonutils.NewString(password))
-	data.Set("access_url", jsonutils.NewString(authURL))
+	input.Secret = input.Password
+	input.AccessUrl = input.AuthUrl
 	return nil
 }
 

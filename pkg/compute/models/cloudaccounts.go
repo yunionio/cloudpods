@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -75,6 +76,8 @@ type SCloudaccount struct {
 
 	SSyncableBaseResource
 	LastAutoSync time.Time `list:"domain"`
+
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"domain_optional"`
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
@@ -258,40 +261,46 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	// check provider
-	// name, _ := data.GetString("name")
-	provider, _ := data.GetString("provider")
-	if !cloudprovider.IsSupported(provider) {
-		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
-	}
-	providerDriver, _ := cloudprovider.GetProviderFactory(provider)
-	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
+
+	tenantV := validators.NewModelIdOrNameValidator("tenant", "tenant", ownerId)
+	tenantV.Optional(true)
+	err = tenantV.Validate(data)
+	if err != nil {
 		return nil, err
 	}
-	brand, _ := data.GetString("brand")
-	if len(brand) > 0 && brand != providerDriver.GetName() {
+
+	input := &api.CloudaccountCreateInput{}
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("failed to unmarshal input params error: %v", err)
+	}
+
+	if !cloudprovider.IsSupported(input.Provider) {
+		return nil, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
+	}
+	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
+	err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(input.Brand) > 0 && input.Brand != providerDriver.GetName() {
 		brands := providerDriver.GetSupportedBrands()
 		if !utils.IsInStringArray(providerDriver.GetName(), brands) {
 			brands = append(brands, providerDriver.GetName())
 		}
-		if !utils.IsInStringArray(brand, brands) {
-			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", brand, brands)
+		if !utils.IsInStringArray(input.Brand, brands) {
+			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", input.Brand, brands)
 		}
 	}
-	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
-	data.Set("is_on_premise", jsonutils.NewBool(providerDriver.IsOnPremise()))
-	// check duplication
-	// url, account, provider must be unique
-	account, _ := data.GetString("account")
-	secret, _ := data.GetString("secret")
-	url, _ := data.GetString("access_url")
+	input.IsPublicCloud = providerDriver.IsPublicCloud()
+	input.IsOnPremise = providerDriver.IsOnPremise()
 
-	q := manager.Query().Equals("provider", provider)
-	if len(account) > 0 {
-		q = q.Equals("account", account)
+	q := manager.Query().Equals("provider", input.Provider)
+	if len(input.Account) > 0 {
+		q = q.Equals("account", input.Account)
 	}
-	if len(url) > 0 {
-		q = q.Equals("access_url", url)
+	if len(input.AccessUrl) > 0 {
+		q = q.Equals("access_url", input.AccessUrl)
 	}
 
 	cnt, err := q.CountWithError()
@@ -302,10 +311,10 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
-	accountId, err := cloudprovider.IsValidCloudAccount(url, account, secret, provider)
+	accountId, err := cloudprovider.IsValidCloudAccount(input.AccessUrl, input.Account, input.Secret, input.Provider)
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
-			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
+			return nil, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
 		}
 		//log.Debugf("ValidateCreateData %s", err.Error())
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
@@ -323,15 +332,13 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		data.Set("account_id", jsonutils.NewString(accountId))
 	}
 
-	syncIntervalSecs, _ := data.Int("sync_interval_seconds")
-	if syncIntervalSecs == 0 {
-		syncIntervalSecs = int64(options.Options.DefaultSyncIntervalSeconds)
-	} else if syncIntervalSecs < int64(options.Options.MinimalSyncIntervalSeconds) {
-		syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
+	if input.SyncIntervalSeconds == 0 {
+		input.SyncIntervalSeconds = options.Options.DefaultSyncIntervalSeconds
+	} else if input.SyncIntervalSeconds < options.Options.MinimalSyncIntervalSeconds {
+		input.SyncIntervalSeconds = options.Options.MinimalSyncIntervalSeconds
 	}
-	data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
 
-	if !jsonutils.QueryBoolean(query, "auto_create_project", false) {
+	if !input.AutoCreateProject {
 		if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
 			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 			params := jsonutils.Marshal(map[string]string{"domain_id": ownerId.GetProjectDomainId()})
@@ -345,7 +352,12 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		}
 	}
 
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return input.JSON(input), nil
 }
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -363,8 +375,7 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.savePassword(self.Secret)
 
 	// if !self.EnableAutoSync {
-	tenant, _ := data.GetString("tenant")
-	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, tenant, "")
+	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	// }
 }
 
@@ -405,7 +416,7 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		syncRange.DeepSync = true
 	}
 	if self.CanSync() || syncRange.Force {
-		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "", "")
+		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
 	return nil, err
 }
@@ -490,19 +501,16 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UPDATE, account.Account, userCred, true)
 
 		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
-		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "", "")
+		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
 
 	return nil, nil
 }
 
-func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, tenant, parentTaskId string) error {
+func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	if syncRange != nil {
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
-	}
-	if len(tenant) > 0 {
-		params.Add(jsonutils.NewString(tenant), "tenant")
 	}
 
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, "", "", nil)
@@ -614,7 +622,7 @@ func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	return provider.GetSubAccounts()
 }
 
-func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount, tenant string) (*SCloudprovider, bool, error) {
+func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount) (*SCloudprovider, bool, error) {
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
 	providerCount, err := q.CountWithError()
@@ -659,12 +667,12 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
 		newCloudprovider.HealthStatus = self.HealthStatus
 		newCloudprovider.Name = newName
-		if !self.AutoCreateProject || len(tenant) > 0 {
+		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
 			ownerId := self.GetOwnerId()
-			if len(tenant) > 0 {
-				t, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
+			if len(self.ProjectId) > 0 {
+				t, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 				if err != nil {
-					log.Errorf("cannot find tenant %s for domain %s", tenant, ownerId.GetProjectDomainId())
+					log.Errorf("cannot find tenant %s for domain %s", self.ProjectId, ownerId.GetProjectDomainId())
 					return nil, err
 				}
 				ownerId = &db.SOwnerId{
@@ -712,7 +720,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 
 	newCloudprovider.savePassword(passwd)
 
-	if self.AutoCreateProject && len(tenant) == 0 {
+	if self.AutoCreateProject && len(self.ProjectId) == 0 {
 		err = newCloudprovider.syncProject(ctx, userCred)
 		if err != nil {
 			log.Errorf("syncproject fail %s", err)
@@ -1288,7 +1296,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 
 	for i := range accounts {
 		if accounts[i].Enabled && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
-			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true, "")
+			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
 }
@@ -1346,12 +1354,12 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	return manager.GetSubAccounts()
 }
 
-func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount, tenant string) []SCloudprovider {
+func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred mcclient.TokenCredential, subAccounts []cloudprovider.SSubAccount) []SCloudprovider {
 	oldProviders := account.GetCloudproviders()
 	existProviders := make([]SCloudprovider, 0)
 	existProviderKeys := make(map[string]int)
 	for i := 0; i < len(subAccounts); i += 1 {
-		provider, _, err := account.importSubAccount(ctx, userCred, subAccounts[i], tenant)
+		provider, _, err := account.importSubAccount(ctx, userCred, subAccounts[i])
 		if err != nil {
 			log.Errorf("importSubAccount fail %s", err)
 		} else {
@@ -1367,7 +1375,7 @@ func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred
 	return existProviders
 }
 
-func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential, tenant string) error {
+func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) error {
 	account.MarkSyncing(userCred)
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
@@ -1376,7 +1384,7 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 		return err
 	}
 	account.markAccountConnected(ctx, userCred)
-	providers := account.importAllSubaccounts(ctx, userCred, subaccounts, tenant)
+	providers := account.importAllSubaccounts(ctx, userCred, subaccounts)
 	for i := range providers {
 		if providers[i].Enabled {
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
@@ -1401,10 +1409,10 @@ func (account *SCloudaccount) markAutoSync(userCred mcclient.TokenCredential) er
 	return nil
 }
 
-func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential, waitChan chan error, autoSync bool, tenant string) {
+func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential, waitChan chan error, autoSync bool) {
 	RunSyncCloudAccountTask(func() {
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
-		err := account.syncAccountStatus(ctx, userCred, tenant)
+		err := account.syncAccountStatus(ctx, userCred)
 		if waitChan != nil {
 			if err != nil {
 				account.markEndSync(userCred)
@@ -1428,9 +1436,9 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 	})
 }
 
-func (account *SCloudaccount) SyncCallSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential, tenant string) error {
+func (account *SCloudaccount) SyncCallSyncAccountTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	waitChan := make(chan error)
-	account.SubmitSyncAccountTask(ctx, userCred, waitChan, false, tenant)
+	account.SubmitSyncAccountTask(ctx, userCred, waitChan, false)
 	err := <-waitChan
 	return err
 }
