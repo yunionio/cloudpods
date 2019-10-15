@@ -1550,14 +1550,44 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
-	device, err := data.GetString("device")
-	if err != nil {
-		msg := "Missing isolated device"
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewBadRequestError(msg)
+	if data.Contains("device") {
+		device, _ := data.GetString("device")
+		err := self.startAttachIsolatedDevice(ctx, userCred, device)
+		return nil, err
+	} else if data.Contains("model") {
+		vmodel, _ := data.GetString("model")
+		var count int64 = 1
+		if data.Contains("count") {
+			count, _ = data.Int("count")
+		}
+		if count < 1 {
+			return nil, httperrors.NewBadRequestError("guest attach gpu count must > 0")
+		}
+		err := self.startAttachIsolatedDevices(ctx, userCred, vmodel, int(count))
+		return nil, err
 	}
-	err = self.startAttachIsolatedDevice(ctx, userCred, device)
-	return nil, err
+	return nil, httperrors.NewMissingParameterError("device||model")
+}
+
+func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, gpuModel string, count int) error {
+	host := self.GetHost()
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+	devs, err := IsolatedDeviceManager.GetDevsOnHost(host.Id, gpuModel, count)
+	if err != nil {
+		return httperrors.NewInternalServerError("fetch gpu failed %s", err)
+	}
+	if len(devs) == 0 || len(devs) != count {
+		return httperrors.NewBadRequestError("guest %s host %s isolated device not enough", self.GetName(), host.GetName())
+	}
+	defer func() { go host.ClearSchedDescCache() }()
+	for i := 0; i < len(devs); i++ {
+		err = self.attachIsolatedDevice(ctx, userCred, &devs[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
@@ -1575,6 +1605,8 @@ func (self *SGuest) startAttachIsolatedDevice(ctx context.Context, userCred mccl
 	var msg string
 	if err != nil {
 		msg = err.Error()
+	} else {
+		go host.ClearSchedDescCache()
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, err == nil)
 	return err
