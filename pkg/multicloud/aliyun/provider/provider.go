@@ -38,17 +38,15 @@ func (self *SAliyunProviderFactory) GetName() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN_CN
 }
 
-func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	accessKeyID, _ := data.GetString("access_key_id")
-	if len(accessKeyID) == 0 {
+func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("access_key_secret")
-	if len(accessKeySecret) == 0 {
+	if len(input.AccessKeySecret) == 0 {
 		return httperrors.NewMissingParameterError("access_key_secret")
 	}
-	data.Set("account", jsonutils.NewString(accessKeyID))
-	data.Set("secret", jsonutils.NewString(accessKeySecret))
+	input.Account = input.AccessKeyId
+	input.Secret = input.AccessKeySecret
 	return nil
 }
 

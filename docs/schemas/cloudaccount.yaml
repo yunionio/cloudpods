@@ -27,6 +27,7 @@ CloudaccountCreate:
     auto_create_project:
       type: boolean
       example: false
+      default: false
       description: 自动在本地创建纳管云上的项目
     access_key_id:
       type: string
@@ -92,6 +93,10 @@ CloudaccountCreate:
       type: string
       example: 123134442
       description: 腾讯云专有的app_id
+    tenant:
+      type: string 
+      example: system
+      description: 项目ID或名称,指定此参数后子账号将归属于指定的项目,优先级高于auto_create_project参数
     
 
 CloudaccountResponse:

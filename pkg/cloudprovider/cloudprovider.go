@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -44,7 +45,7 @@ type ICloudProviderFactory interface {
 	GetName() string
 
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
-	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
+	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error
 	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
 	GetSupportedBrands() []string
 
@@ -202,7 +203,7 @@ func (factory *baseProviderFactory) GetSupportedBrands() []string {
 	return []string{}
 }
 
-func (factory *baseProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+func (factory *baseProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
 	return httperrors.NewNotImplementedError("Not Implemented ValidateCreateCloudaccountData")
 }
 
