@@ -142,7 +142,16 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		nameIdx++
 	}
 
-	img, err := cache.region.CreateImage(imageName)
+	minDiskSizeMb, _ := meta.Int("min_disk")
+	minRamMb, _ := meta.Int("min_ram")
+	osType, _ := meta.GetString("properties", "os_type")
+	osDist, _ := meta.GetString("properties", "os_distribution")
+	minDiskSizeGB := minDiskSizeMb / 1024
+	if minDiskSizeMb%1024 > 0 {
+		minDiskSizeGB += 1
+	}
+
+	img, err := cache.region.CreateImage(imageName, osType, osDist, int(minDiskSizeGB), int(minRamMb))
 	if err != nil {
 		return "", err
 	}
