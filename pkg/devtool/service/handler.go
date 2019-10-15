@@ -32,7 +32,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		models.CronjobManager,
-		models.TemplateManager,
+		// models.TemplateManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

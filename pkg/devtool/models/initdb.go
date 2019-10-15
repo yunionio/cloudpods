@@ -23,7 +23,7 @@ import (
 func InitDB() error {
 	for _, manager := range []db.IModelManager{
 		CronjobManager,
-		TemplateManager,
+		// TemplateManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

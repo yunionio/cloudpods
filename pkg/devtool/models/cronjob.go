@@ -46,7 +46,7 @@ func init() {
 	CronjobManager = &SCronjobManager{
 		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SCronjob{},
-			"devtool_cronjobs",
+			"devtool_cronjobs_tbl",
 			"devtool_cronjob",
 			"devtool_cronjobs",
 		),
