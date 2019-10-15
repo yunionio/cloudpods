@@ -15,7 +15,12 @@
 package esxi
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/vmware/govmomi/vim25/mo"
+
+	"yunion.io/x/log"
 )
 
 func TestFormatName(t *testing.T) {
@@ -38,4 +43,89 @@ func TestFormatName(t *testing.T) {
 			t.Errorf("got: %s want %s", got, c.Want)
 		}
 	}
+}
+
+func TestSESXiClient_FindHostByIp(t *testing.T) {
+	host.getNicInfo()
+	portgroups := make([]mo.DistributedVirtualPortgroup, 0)
+	err := host.manager.references2Objects(host.getHostSystem().Network, DVPORTGROUP_PROPS, &portgroups)
+	if err != nil {
+		log.Errorf(err.Error())
+		return
+	}
+
+	for _, p := range portgroups {
+		fmt.Printf("%v\n", p)
+	}
+}
+
+func TestSESXiClient_GetDatacenters(t *testing.T) {
+	_, err := dc.GetNetworks()
+	if err != nil {
+		return
+	}
+	odc := dc.getDatacenter()
+	fmt.Printf("%s: %s", odc.VmFolder.Type, odc.VmFolder.Value)
+	portgroups := make([]mo.DistributedVirtualPortgroup, 0)
+	err = dc.manager.references2Objects(dc.getDatacenter().Network, DVPORTGROUP_PROPS, &portgroups)
+	if err != nil {
+		log.Errorf(err.Error())
+		return
+	}
+
+	for _, p := range portgroups {
+		fmt.Printf("%v\n", p)
+	}
+}
+
+func TestSDistributedVirtualPortgroup_AddHostToDVS(t *testing.T) {
+	nets, err := dc.GetNetworks()
+	if err != nil {
+		return
+	}
+	for _, net := range nets {
+		if !net.ContainHost(host) {
+			dvgp, ok := net.(*SDistributedVirtualPortgroup)
+			if ok {
+				err := dvgp.AddHostToDVS(host)
+				if err != nil {
+					log.Errorf(err.Error())
+					return
+				}
+			}
+		}
+	}
+}
+
+var (
+	ip, account, passwd string
+	sc                  *SESXiClient
+	dc                  *SDatacenter
+	host                *SHost
+)
+
+func TestMain(m *testing.M) {
+	var err error
+	ip := "192.168.222.202"
+	account := "administrator@vsphere.local"
+	passwd := "123@VMware"
+	sc, err = NewESXiClient("", "", ip, 0, account, passwd)
+	if err != nil {
+		log.Errorf("fail to init ESXiClient")
+		return
+	}
+	dcs, err := sc.GetDatacenters()
+	if err != nil {
+		log.Errorf(err.Error())
+		return
+	}
+	// avoid to occupy memory
+	dc = dcs[:1][0]
+	hostIp := "192.168.222.201"
+	host, err = sc.FindHostByIp(hostIp)
+	if err != nil {
+		log.Errorf(err.Error())
+		return
+	}
+	m.Run()
 }

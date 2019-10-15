@@ -24,6 +24,7 @@ import (
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -36,8 +37,10 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	cloudtypes "yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool", "layoutEx"}
@@ -160,7 +163,15 @@ func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, pa
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk) error {
+func (self *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string) error {
+	disk, err := self.GetIDiskById(uuid)
+	if err != nil {
+		return err
+	}
+	return self.rebuildDisk(ctx, disk.(*SVirtualDisk), imagePath)
+}
+
+func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string) error {
 	uuid := disk.GetId()
 	sizeMb := disk.GetDiskSizeMB()
 	index := disk.index
@@ -171,7 +182,7 @@ func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk
 	if err != nil {
 		return err
 	}
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "")
 }
 
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
@@ -826,11 +837,12 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		ctlKey += int32(index / 2)
 	}
 
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "")
 }
 
-func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32, diskKey int32, ctlKey int32) error {
-	devSpec := NewDiskDev(int64(sizeMb), "", uuid, index, diskKey, ctlKey)
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
+	diskKey int32, ctlKey int32, imagePath string) error {
+	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, diskKey, ctlKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}
@@ -903,6 +915,159 @@ func (self *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
 				break
 			}
 		}
+	}
+	return nil
+}
+
+func (self *SVirtualMachine) DoRename(ctx context.Context, name string) error {
+	task, err := self.getVmObj().Rename(ctx, name)
+	if err != nil {
+		return errors.Wrap(err, "object.VirtualMachine.Rename")
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) GetMoid() string {
+	return self.getVmObj().UUID(self.manager.context)
+}
+
+func (self *SVirtualMachine) GetToolsVersion() string {
+	return self.getVirtualMachine().Guest.ToolsVersion
+}
+
+func (self *SVirtualMachine) DoCustomize(ctx context.Context, params jsonutils.JSONObject) error {
+	spec := new(types.CustomizationSpec)
+
+	ipSettings := new(types.CustomizationGlobalIPSettings)
+	domain := "local"
+	if params.Contains("domain") {
+		domain, _ = params.GetString("domain")
+	}
+	ipSettings.DnsSuffixList = []string{domain}
+
+	// deal nics
+	nics, _ := params.GetArray("nics")
+	serverNics := make([]cloudtypes.SServerNic, len(nics))
+	for i := range nics {
+		var nicType cloudtypes.SServerNic
+		nics[i].Unmarshal(&nicType)
+		serverNics[i] = nicType
+	}
+
+	// find dnsServerList
+	for i := range serverNics {
+		dnsList := netutils2.GetNicDns(&serverNics[i])
+		if len(dnsList) != 0 {
+			ipSettings.DnsServerList = dnsList
+		}
+	}
+	spec.GlobalIPSettings = *ipSettings
+
+	maps := make([]types.CustomizationAdapterMapping, 0, len(nics))
+	for _, nic := range serverNics {
+		conf := types.CustomizationAdapterMapping{}
+		conf.MacAddress = nic.Mac
+		if len(conf.MacAddress) == 0 {
+			conf.MacAddress = "9e:46:27:21:a2:b2"
+		}
+
+		conf.Adapter = types.CustomizationIPSettings{}
+		fixedIp := new(types.CustomizationFixedIp)
+		fixedIp.IpAddress = nic.Ip
+		if len(fixedIp.IpAddress) == 0 {
+			fixedIp.IpAddress = "10.168.26.23"
+		}
+		conf.Adapter.Ip = fixedIp
+		maskLen := nic.Masklen
+		if maskLen == 0 {
+			maskLen = 24
+		}
+		mask := netutils2.Netlen2Mask(maskLen)
+		conf.Adapter.SubnetMask = mask
+
+		if len(nic.Gateway) != 0 {
+			conf.Adapter.Gateway = []string{nic.Gateway}
+		}
+		dnsList := netutils2.GetNicDns(&nic)
+		if len(dnsList) != 0 {
+			conf.Adapter.DnsServerList = dnsList
+			dns := nic.Domain
+			if len(dns) == 0 {
+				dns = "local"
+			}
+			conf.Adapter.DnsDomain = dns
+		}
+		maps = append(maps, conf)
+	}
+	spec.NicSettingMap = maps
+
+	var (
+		osName = "Linux"
+		name   = "yunionhost"
+	)
+	if params.Contains("os_name") {
+		osName, _ = params.GetString("os_name")
+	}
+	if params.Contains("name") {
+		name, _ = params.GetString("name")
+	}
+	if osName == "Linux" {
+		linuxPrep := types.CustomizationLinuxPrep{
+			HostName: &types.CustomizationFixedName{Name: name},
+			Domain:   domain,
+			TimeZone: "Asia/Shanghai",
+		}
+		spec.Identity = &linuxPrep
+	} else {
+		sysPrep := types.CustomizationSysprep{
+			GuiUnattended: types.CustomizationGuiUnattended{
+				TimeZone:  210,
+				AutoLogon: false,
+			},
+			UserData: types.CustomizationUserData{
+				FullName:  "Administrator",
+				OrgName:   "Yunion",
+				ProductId: "",
+				ComputerName: &types.CustomizationFixedName{
+					Name: name,
+				},
+			},
+			Identification: types.CustomizationIdentification{},
+		}
+		spec.Identity = &sysPrep
+	}
+	task, err := self.getVmObj().Customize(ctx, *spec)
+	if err != nil {
+		return errors.Wrap(err, "object.VirtualMachine.Customize")
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPath string) error {
+	lease, err := self.getVmObj().Export(ctx)
+	if err != nil {
+		return errors.Wrap(err, "esxi.SVirtualMachine.DoExportTemplate")
+	}
+	info, err := lease.Wait(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "lease.Wait")
+	}
+
+	u := lease.StartUpdater(ctx, info)
+	defer u.Done()
+
+	if idx >= len(info.Items) {
+		return errors.Error(fmt.Sprintf("No such Device whose index is %d", idx))
+	}
+
+	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{})
+	if err != nil {
+		return errors.Wrap(err, "lease.DownloadFile")
+	}
+
+	err = lease.Complete(ctx)
+	if err != nil {
+		return errors.Wrap(err, "lease.Complete")
 	}
 	return nil
 }

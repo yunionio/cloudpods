@@ -43,7 +43,7 @@ func (dev *SVirtualDevice) getControllerKey() int32 {
 	return dev.dev.GetVirtualDevice().ControllerKey
 }
 
-func (dev *SVirtualDevice) getIndex() int {
+func (dev *SVirtualDevice) GetIndex() int {
 	return dev.index
 }
 
