@@ -232,6 +232,17 @@ type ServerCloneOptions struct {
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
 
+type ServerCreateFromInstanceSnapshot struct {
+	InstaceSnapshotId string `help:"Instace snapshot id or name"`
+	NAME              string `help:"Name of newly server" json:"name"`
+	AutoStart         bool   `help:"Auto start server after it is created"`
+	AllowDelete       bool   `help:"Unlock server to allow deleting"`
+
+	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
+	EipChargeType string `help:"newly allocated EIP charge type" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
+	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
+}
+
 type ServerCreateOptions struct {
 	ServerConfigs
 
@@ -259,6 +270,7 @@ type ServerCreateOptions struct {
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
+	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 

@@ -50,7 +50,7 @@ type SSnapshot struct {
 
 	SManagedResourceBase
 
-	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
+	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
 	// Only onecloud has StorageId
 	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
@@ -288,11 +288,11 @@ func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.To
 
 func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	snapshot := items[0].(*SSnapshot)
-	snapshot.StartSnapshotCreateTask(ctx, userCred, nil)
+	snapshot.StartSnapshotCreateTask(ctx, userCred, nil, "")
 }
 
-func (self *SSnapshot) StartSnapshotCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotCreateTask", self, userCred, params, "", "", nil)
+func (self *SSnapshot) StartSnapshotCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -383,6 +383,10 @@ func (self *SSnapshotManager) GetDiskSnapshots(diskId string) []SSnapshot {
 	return dest
 }
 
+func (self *SSnapshotManager) GetDiskManualSnapshotCount(diskId string) (int, error) {
+	return self.Query().Equals("disk_id", diskId).Equals("fake_deleted", false).CountWithError()
+}
+
 func (self *SSnapshotManager) IsDiskSnapshotsNeedConvert(diskId string) (bool, error) {
 	count, err := self.Query().Equals("disk_id", diskId).
 		In("status", []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}).
@@ -470,6 +474,13 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Status == api.SNAPSHOT_DELETING {
 		return httperrors.NewBadRequestError("Cannot delete snapshot in status %s", self.Status)
+	}
+	count, err := InstanceSnapshotJointManager.Query().Equals("snapshot_id", self.Id).CountWithError()
+	if err != nil {
+		return httperrors.NewInternalServerError("Fetch instance snapshot error %s", err)
+	}
+	if count > 0 {
+		return httperrors.NewBadRequestError("snapshot referenced by instance snapshot")
 	}
 	return self.GetRegionDriver().ValidateSnapshotDelete(ctx, self)
 }

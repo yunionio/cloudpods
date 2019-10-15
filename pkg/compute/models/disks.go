@@ -714,22 +714,21 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
 	snapshotId, _ := data.GetString("snapshot_id")
 	guests := self.GetGuests()
-	self.StartResetDisk(ctx, userCred, snapshotId, autoStart, guests)
-	return nil, nil
+	return nil, self.StartResetDisk(ctx, userCred, snapshotId, autoStart, &guests[0], "")
 }
 
 func (self *SDisk) StartResetDisk(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	snapshotId string, autoStart bool, guests []SGuest,
+	snapshotId string, autoStart bool, guest *SGuest, parentTaskId string,
 ) error {
 	self.SetStatus(userCred, api.DISK_RESET, "")
-	if len(guests) == 1 {
-		guests[0].SetStatus(userCred, api.VM_DISK_RESET, "disk reset")
+	if guest != nil {
+		guest.SetStatus(userCred, api.VM_DISK_RESET, "disk reset")
 	}
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
 	params.Set("auto_start", jsonutils.NewBool(autoStart))
-	task, err := taskman.TaskManager.NewTask(ctx, "DiskResetTask", self, userCred, params, "", "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskResetTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	} else {
@@ -2012,7 +2011,7 @@ func (self *SDisk) CreateSnapshotAuto(
 	}
 
 	db.OpsLog.LogEvent(snap, db.ACT_CREATE, "disk create snapshot auto", userCred)
-	err = snap.StartSnapshotCreateTask(ctx, userCred, nil)
+	err = snap.StartSnapshotCreateTask(ctx, userCred, nil, "")
 	if err != nil {
 		return errors.Wrap(err, "disk auto snapshot start snapshot task")
 	}
