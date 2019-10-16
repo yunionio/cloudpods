@@ -1187,7 +1187,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 				onBatchCreateFail, validateError = manager.BatchPreValidate(
 					ctx, userCred, ownerId, query, cdata.(*jsonutils.JSONDict), len(multiData))
 				if validateError != nil {
-					return nil, err
+					return nil, validateError
 				}
 			}
 			model, err := batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, cdata, i)
