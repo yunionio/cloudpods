@@ -857,3 +857,7 @@ func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context,
 func (self *SKVMRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
 	return nil
 }
+
+func (self *SKVMRegionDriver) ValidateCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *models.SSecurityGroup, vpc *models.SVpc, classic bool) error {
+	return fmt.Errorf("No need to cache secgroup for onecloud region")
+}

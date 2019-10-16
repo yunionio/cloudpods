@@ -240,7 +240,7 @@ func (self *SVpc) Delete() error {
 	}
 	for i := 0; i < len(self.secgroups); i += 1 {
 		secgroup := self.secgroups[i].(*SSecurityGroup)
-		err := self.region.DeleteSecurityGroup(self.VpcId, secgroup.SecurityGroupId)
+		err := self.region.DeleteSecurityGroup(secgroup.SecurityGroupId)
 		if err != nil {
 			log.Errorf("deleteSecurityGroup for VPC delete fail %s", err)
 			return err

@@ -527,3 +527,11 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.GetSecurityGroup(secgroupId)
+}
+
+func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.CreateSecurityGroup(conf.Name, conf.Desc)
+}

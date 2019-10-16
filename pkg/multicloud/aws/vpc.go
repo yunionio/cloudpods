@@ -291,7 +291,7 @@ func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId stri
 	return nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 

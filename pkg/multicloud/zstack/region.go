@@ -290,10 +290,6 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	eips, err := region.GetEips("", "")
 	if err != nil {
@@ -351,6 +347,14 @@ func (region *SRegion) DeleteISkuByName(name string) error {
 
 func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
 	return region.GetInstanceOffering(skuId)
+}
+
+func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.GetSecurityGroup(secgroupId)
+}
+
+func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return region.CreateSecurityGroup(conf.Name, conf.Desc)
 }
 
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {

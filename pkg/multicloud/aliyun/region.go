@@ -747,6 +747,27 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 	return &eips[0], nil
 }
 
+func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
+	if err != nil {
+		return nil, err
+	}
+	vpc, err := region.getVpc(secgroup.VpcId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "region.getVpc(%s)", secgroup.VpcId)
+	}
+	secgroup.vpc = vpc
+	return secgroup, nil
+}
+
+func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
+	if err != nil {
+		return nil, err
+	}
+	return region.GetISecurityGroupById(externalId)
+}
+
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	if len(secgroupId) > 0 {
 		_, total, err := region.GetSecurityGroups("", []string{secgroupId}, 0, 1)

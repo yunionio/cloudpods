@@ -234,10 +234,6 @@ func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManag
 	return userName
 }
 
-func (self *SQcloudGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
-	return api.NORMAL_VPC_ID, nil
-}
-
 func (self *SQcloudGuestDriver) AllowReconfigGuest() bool {
 	return true
 }

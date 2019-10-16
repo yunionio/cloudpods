@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -1379,5 +1380,85 @@ func (self *SManagedVirtualizationRegionDriver) BindIPToNatgatewayRollback(ctx c
 	if err != nil {
 		return errors.Wrapf(err, "rollback about binding eip %s failed", eip.Id)
 	}
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) string {
+	if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
+		return "classic"
+	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
+		return vpc.ExternalId
+	}
+	return region.GetDriver().GetDefaultSecurityGroupVpcId()
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
+	lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
+	defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s-%s", secgroup.Id, vpcId, vpc.ManagerId))
+
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return "", errors.Wrap(err, "vpc.GetRegon")
+	}
+
+	cache, err := models.SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, vpcId, region.Id, vpc.ManagerId)
+	if err != nil {
+		return "", errors.Wrap(err, "SSecurityGroupCache.Register")
+	}
+
+	iRegion, err := vpc.GetIRegion()
+	if err != nil {
+		return "", errors.Wrap(err, "vpc.GetIRegion")
+	}
+
+	var iSecgroup cloudprovider.ICloudSecurityGroup = nil
+	if len(cache.ExternalId) > 0 {
+		iSecgroup, err = iRegion.GetISecurityGroupById(cache.ExternalId)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", errors.Wrap(err, "iRegion.GetSecurityGroupById")
+			}
+			cache.ExternalId = ""
+		}
+	}
+
+	if len(cache.ExternalId) == 0 {
+		conf := &cloudprovider.SecurityGroupCreateInput{
+			Name:  secgroup.Name,
+			Desc:  secgroup.Description,
+			VpcId: vpcId,
+			Rules: secgroup.GetSecRules(""),
+		}
+		iSecgroup, err = iRegion.CreateISecurityGroup(conf)
+		if err != nil {
+			return "", errors.Wrap(err, "iRegion.CreateISecurityGroup")
+		}
+	}
+
+	_, err = db.Update(cache, func() error {
+		cache.ExternalId = iSecgroup.GetGlobalId()
+		cache.Name = iSecgroup.GetName()
+		cache.Status = api.SECGROUP_CACHE_STATUS_READY
+		return nil
+	})
+
+	if err != nil {
+		return "", errors.Wrap(err, "db.Update")
+	}
+
+	err = iSecgroup.SyncRules(secgroup.GetSecRules(""))
+	if err != nil {
+		return "", errors.Wrap(err, "iSecgroup.SyncRules")
+	}
+	return cache.ExternalId, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, task taskman.ITask) error {
+
+	vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, classic)
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
+		return nil, err
+	})
 	return nil
 }

@@ -258,3 +258,26 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string) ([]
 
 	return secgroups, nil
 }
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	// 如果是空规则，onecloud。默认拒绝所有流量
+	if len(rules) == 0 {
+		_, IpNet, _ := net.ParseCIDR("0.0.0.0/0")
+		rules = []secrules.SecurityRule{{
+			Priority:    0,
+			Action:      secrules.SecurityRuleDeny,
+			IPNet:       IpNet,
+			Protocol:    secrules.PROTO_ANY,
+			Direction:   secrules.SecurityRuleIngress,
+			PortStart:   0,
+			PortEnd:     0,
+			Ports:       nil,
+			Description: "",
+		}}
+	}
+	return self.region.syncSecgroupRules(self.FWID, rules)
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.region.DeleteSecurityGroup(self.FWID)
+}

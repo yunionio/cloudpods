@@ -3329,58 +3329,6 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
-	if deployAction == "create" && !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_CONTAINER, api.HYPERVISOR_ESXI, api.HYPERVISOR_XEN}) {
-		nets, err := self.GetNetworks("")
-		if err != nil || len(nets) == 0 {
-			return nil, fmt.Errorf("failed to find network for guest %s: %s", self.Name, err)
-		}
-		net := nets[0].GetNetwork()
-		vpc := net.GetVpc()
-		registerVpcId := vpc.ExternalId
-		externalVpcId := vpc.ExternalId
-		switch self.Hypervisor {
-		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI, api.HYPERVISOR_UCLOUD:
-			break
-		case api.HYPERVISOR_AWS:
-			break
-		case api.HYPERVISOR_QCLOUD, api.HYPERVISOR_OPENSTACK:
-			registerVpcId = "normal"
-		case api.HYPERVISOR_AZURE:
-			registerVpcId, externalVpcId = "normal", "normal"
-			if strings.HasSuffix(host.Name, "-classic") {
-				registerVpcId, externalVpcId = "classic", "classic"
-			}
-		case api.HYPERVISOR_ZSTACK:
-			break
-		default:
-			return nil, fmt.Errorf("Unknown guest %s hypervisor %s for sync secgroup", self.Name, self.Hypervisor)
-		}
-		iregion, err := host.GetIRegion()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get iregion for host %s error: %v", host.Name, err)
-		}
-		secgroupIds := jsonutils.NewArray()
-		secgroups := self.GetSecgroups()
-		for i, secgroup := range secgroups {
-			secgroupCache, err := SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, registerVpcId, vpc.CloudregionId, vpc.ManagerId)
-			if err != nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s(%s), vpc: %s: %s", secgroup.Name, secgroup.Id, vpc.Name, err)
-			}
-
-			externalSecgroupId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, externalVpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
-			if err != nil {
-				return nil, fmt.Errorf("SyncSecurityGroup fail %s", err)
-			}
-			if err := secgroupCache.SetExternalId(userCred, externalSecgroupId); err != nil {
-				return nil, fmt.Errorf("failed to set externalId for secgroup %s(%s) externalId %s: error: %v", secgroup.Name, secgroup.Id, externalSecgroupId, err)
-			}
-			secgroupIds.Add(jsonutils.NewString(externalSecgroupId))
-			if i == 0 {
-				config.Add(jsonutils.NewString(externalSecgroupId), "desc", "external_secgroup_id")
-			}
-		}
-		config.Add(secgroupIds, "desc", "external_secgroup_ids")
-	}
 	return config, nil
 }
 

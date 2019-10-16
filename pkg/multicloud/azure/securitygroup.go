@@ -82,6 +82,7 @@ type SecurityGroupPropertiesFormat struct {
 }
 type SSecurityGroup struct {
 	vpc        *SVpc
+	region     *SRegion
 	Properties *SecurityGroupPropertiesFormat `json:"properties,omitempty"`
 	ID         string
 	Name       string
@@ -354,6 +355,7 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 		secName = "Default-copy"
 	}
 	secgroup := SSecurityGroup{
+		region:   region,
 		Name:     secName,
 		Type:     "Microsoft.Network/networkSecurityGroups",
 		Location: region.Name,
@@ -370,6 +372,7 @@ func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
 	result := []SSecurityGroup{}
 	for i := 0; i < len(secgroups); i++ {
 		if secgroups[i].Location == region.Name {
+			secgroups[i].region = region
 			result = append(result, secgroups[i])
 		}
 	}
@@ -377,12 +380,12 @@ func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 func (region *SRegion) GetSecurityGroupDetails(secgroupId string) (*SSecurityGroup, error) {
-	secgroup := SSecurityGroup{}
+	secgroup := SSecurityGroup{region: region}
 	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	sec, err := self.vpc.region.GetSecurityGroupDetails(self.ID)
+	sec, err := self.region.GetSecurityGroupDetails(self.ID)
 	if err != nil {
 		return err
 	}
@@ -504,4 +507,25 @@ func (region *SRegion) SetSecurityGroup(instanceId, secgroupId string) error {
 
 func (self *SSecurityGroup) GetProjectId() string {
 	return getResourceGroup(self.ID)
+}
+
+func (self *SSecurityGroup) Delete() error {
+	if self.Properties.NetworkInterfaces != nil {
+		for _, nic := range *self.Properties.NetworkInterfaces {
+			nic, err := self.region.GetNetworkInterfaceDetail(nic.ID)
+			if err != nil {
+				return err
+			}
+			nic.Properties.NetworkSecurityGroup = nil
+			if err := self.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+				return err
+			}
+		}
+	}
+	return self.region.client.Delete(self.ID)
+}
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	_, err := self.region.updateSecurityGroupRules(self.ID, rules)
+	return err
 }

@@ -1209,3 +1209,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 	})
 	return nil
 }
+
+func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
+}

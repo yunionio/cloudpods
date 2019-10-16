@@ -156,3 +156,26 @@ SecgroupAddRule:
       type: string
       example: test-rule
       description: 规则描述
+
+SecgroupCache:
+  type: object
+  properties:
+    vpc:
+      type: string
+      example: test-vpc
+      required: true
+      description: vpc名称或ID,建议使用ID
+    classic:
+      type: boolean
+      default: false
+      example: false
+      description: 仅针对支持经典网络的情况,目前仅Azure支持此参数
+
+SecgroupUncache:
+  type: object
+  properties:
+    secgroupcache:
+      type: string
+      example: 2e974625-d7e2-481b-8471-1c46fa9a65b0
+      required: true
+      description: 安全组缓存ID

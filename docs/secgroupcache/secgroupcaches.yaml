@@ -1,0 +1,13 @@
+get:
+  summary: 按指定条件列出安全组缓存列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/secgroupcache.yaml#/secgroup'
+  responses:
+    200:
+      description: 安全组缓存列表信息
+      schema:
+        $ref: '../schemas/secgroupcache.yaml#/SecgroupCacheListResponse'
+  tags:
+    - secgroupcaches

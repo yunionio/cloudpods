@@ -48,3 +48,7 @@ func (self *SAzureRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Co
 func (self *SAzureRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
 }
+
+func (self *SAzureRegionDriver) IsSupportClassicSecurityGroup() bool {
+	return true
+}

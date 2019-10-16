@@ -446,6 +446,18 @@ paths:
     $ref: "./secgroup/public.yaml"
   /secgroups/{secgroupId}/private:
     $ref: "./secgroup/private.yaml"
+  /secgroups/{secgroupId}/cache-secgroup:
+    $ref: "./secgroup/cache-secgroup.yaml"
+  /secgroups/{secgroupId}/uncache-secgroup:
+    $ref: "./secgroup/uncache-secgroup.yaml"
+
+
+  /secgroupcaches:
+    $ref: "./secgroupcache/secgroupcaches.yaml"
+  /secgroupcaches/{cacheId}:
+    $ref: "./secgroupcache/secgroupcache.yaml"
+
+
   /secgrouprules:
     $ref: "./secgrouprule/secgrouprules.yaml"
   /secgrouprules/{secgroupruleId}:

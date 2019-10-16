@@ -292,6 +292,33 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		return err
 	}
 
+	//创建并同步安全组规则
+	{
+		vpc, err := guest.GetVpc()
+		if err != nil {
+			return errors.Wrap(err, "guest.GetVpc")
+		}
+		region, err := vpc.GetRegion()
+		if err != nil {
+			return errors.Wrap(err, "vpc.GetRegion")
+		}
+
+		vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+
+		secgroups := guest.GetSecgroups()
+		for i, secgroup := range secgroups {
+			externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup)
+			if err != nil {
+				return errors.Wrap(err, "RequestSyncSecurityGroup")
+			}
+
+			desc.ExternalSecgroupIds = append(desc.ExternalSecgroupIds, externalId)
+			if i == 0 {
+				desc.ExternalSecgroupId = externalId
+			}
+		}
+	}
+
 	desc.Account = guest.GetDriver().GetLinuxDefaultAccount(desc)
 
 	if guest.GetDriver().IsNeedInjectPasswordByCloudInit(&desc) {
@@ -865,32 +892,24 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 	if err != nil {
 		return err
 	}
-	vpcId, err := guest.GetDriver().GetGuestSecgroupVpcid(guest)
+
+	vpc, err := guest.GetVpc()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "guest.GetVpc")
 	}
-	iregion, err := host.GetIRegion()
-	if err != nil {
-		return err
-	}
+
+	region := host.GetRegion()
+
+	vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+
 	secgroups := guest.GetSecgroups()
 	externalIds := []string{}
 	for _, secgroup := range secgroups {
-		lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-		defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-
-		secgroupCache, err := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
+		externalId, err := region.GetDriver().RequestSyncSecurityGroup(ctx, task.GetUserCred(), vpcId, vpc, &secgroup)
 		if err != nil {
-			return fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s: %s", secgroup.Id, vpcId, err)
+			return errors.Wrap(err, "RequestSyncSecurityGroup")
 		}
-		extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
-		if err != nil {
-			return err
-		}
-		if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
-			return err
-		}
-		externalIds = append(externalIds, extID)
+		externalIds = append(externalIds, externalId)
 	}
 	return iVM.SetSecurityGroups(externalIds)
 }
