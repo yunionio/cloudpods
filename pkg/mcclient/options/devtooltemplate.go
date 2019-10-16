@@ -120,6 +120,11 @@ func (opts *DevtoolTemplateCreateOptions) Params() (*jsonutils.JSONDict, error) 
 		Playbook: *pb,
 	}
 	params := input.JSON(input)
+	params.Add(jsonutils.NewInt(int64(opts.Day)), "day")
+	params.Add(jsonutils.NewInt(int64(opts.Hour)), "hour")
+	params.Add(jsonutils.NewInt(int64(opts.Min)), "min")
+	params.Add(jsonutils.NewInt(int64(opts.Sec)), "sec")
+	params.Add(jsonutils.NewInt(opts.Interval), "interval")
 	return params, nil
 }
 

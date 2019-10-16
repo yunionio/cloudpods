@@ -63,8 +63,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			log.Infof("ansible playbook create opts: %+v", params)
-			// apb, err := modules.Devtool.Create(s, params)
+			log.Infof("devtool playbook create opts: %+v", params)
 			apb, err := modules.DevToolTemplates.Create(s, params)
 			if err != nil {
 				return err
