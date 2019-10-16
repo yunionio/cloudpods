@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -228,8 +229,8 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 	contact, _ := data.GetString("contact")
 	contactType, _ := data.GetString("contact_type")
 	contacts, err := models.ContactManager.FetchByMore(uid, contact, contactType)
-	if err != nil {
-		return nil, errors.Error(fmt.Sprintf(`uid %q don't have contact %q of contact_type %q'`, uid, contact, contactType))
+	if err != nil || len(contacts) == 0 {
+		return nil, errors.Error(fmt.Sprintf("uid '%s' don't have contact '%s' of contact_type '%s'", uid, contact, contactType))
 	}
 	userCred := policy.FetchUserCredential(ctx)
 	scontact := contacts[0]
@@ -262,11 +263,15 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 	}
 	if scontact.Status == models.CONTACT_VERIFYING {
 		verifications, err := models.VerifyManager.FetchByCID(scontact.ID, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-			q = q.Equals("status", models.VERIFICATION_SENT).Desc("created_at")
+			q = q.In("status", []string{models.VERIFICATION_SENT, "init"}).Desc("created_at")
 			return q
 		})
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
+		}
+		if len(verifications) == 0 {
+			// no verifications in status "sent"
+			return makeNewVerify()
 		}
 		current := time.Now()
 		for _, verification := range verifications {
@@ -292,8 +297,11 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 	for i := range uids2 {
 		uids[i] = strings.Trim(uids2[i].String(), `"`)
 	}
-
-	contacts, err := models.ContactManager.FetchByUIDs(uids)
+	uname := false
+	if v := ctx.Value("uname"); v != nil {
+		uname = true
+	}
+	contacts, err := models.ContactManager.FetchByUIDs(uids, uname)
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}
@@ -421,6 +429,91 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 
 	if query.Contains("update_dingtalk") {
 		models.UpdateDingtalk(idstr)
+	}
+	return nil
+}
+
+func (self *NotifyModelDispatcher) UpdateTemplate(ctx context.Context, ctype string, query jsonutils.JSONObject,
+	datas []jsonutils.JSONObject) error {
+
+	type sTemplate struct {
+		ContactType  string
+		Topic        string
+		TemplateType string
+		Content      string
+	}
+	templates := make([]sTemplate, 0, len(datas))
+	topics := sets.NewString()
+	for _, data := range datas {
+		var tem sTemplate
+		err := data.Unmarshal(&tem)
+		if err != nil {
+			return errors.Wrap(err, "data.Unmarshal")
+		}
+		if tem.TemplateType != models.TEMPLATE_TYPE_REMOTE && tem.TemplateType != models.
+			TEMPLATE_TYPE_CONTENT && tem.TemplateType != models.TEMPLATE_TYPE_TITLE {
+
+			return httperrors.NewInputParameterError("no support for such template type '%s'", tem.TemplateType)
+		}
+		tem.ContactType = ctype
+		tem.Topic = strings.ToUpper(tem.Topic)
+		templates = append(templates, tem)
+		topics.Insert(tem.Topic)
+	}
+
+	q := models.TemplateManager.Query().Equals("contact_type", ctype).In("topic", topics.List())
+	templateModels := make([]models.STemplate, 0, 1)
+	err := db.FetchModelObjects(models.ContactManager, q, &templateModels)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects sql: %s", q.String())
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+
+	templateMaps := make(map[string]*models.STemplate)
+	for i := range templateModels {
+		k := fmt.Sprintf("%s/%s/%s", templateModels[i].ContactType, templateModels[i].Topic, templateModels[i].TemplateType)
+		templateMaps[k] = &templateModels[i]
+	}
+
+	userCred := policy.FetchUserCredential(ctx)
+	for _, tem := range templates {
+		k := fmt.Sprintf("%s/%s/%s", tem.ContactType, tem.Topic, tem.TemplateType)
+		if tmod, ok := templateMaps[k]; ok {
+			updateData := jsonutils.NewDict()
+			updateData.Add(jsonutils.NewString(tem.Content), "content")
+			err = UpdateItem(models.TemplateManager, tmod, ctx, userCred, query, updateData)
+			if err != nil {
+				return errors.Wrapf(err, "fail to update template '%s'", tmod.ID)
+			}
+			continue
+		}
+		_, err = self.Create(ctx, query, jsonutils.Marshal(tem), nil)
+		if err != nil {
+			return errors.Wrapf(err, "fail to create template(contact_type: %s, topic: %s, template_type: %s)",
+				tem.ContactType, tem.Topic, tem.TemplateType)
+		}
+	}
+	return nil
+}
+
+func (self *NotifyModelDispatcher) DeleteTemplate(ctx context.Context, query jsonutils.JSONObject, ctype, topic string) error {
+
+	q := models.TemplateManager.Query().Equals("contact_type", ctype)
+	if len(topic) != 0 {
+		q = q.Equals("topic", topic)
+	}
+	templates := make([]models.STemplate, 0, 1)
+	err := db.FetchModelObjects(models.TemplateManager, q, &templates)
+	if err != nil {
+		log.Errorf("db.FetchModelObjects sql: %s", q.String())
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+	userCred := policy.FetchUserCredential(ctx)
+	for i := range templates {
+		err = DeleteItem(&templates[i], ctx, userCred, query, jsonutils.JSONNull)
+		if err != nil {
+			return errors.Wrapf(err, "fail to delete template '%s'", templates[i].ID)
+		}
 	}
 	return nil
 }

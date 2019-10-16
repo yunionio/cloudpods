@@ -37,7 +37,9 @@ func init() {
 		Remark      string   `help:"Remark or description of the notification"`
 		Group       bool     `help:"Send to group"`
 	}
-	R(&NotificationCreateOptions{}, "notify", "Send a notification to sb", func(s *mcclient.ClientSession, args *NotificationCreateOptions) error {
+	R(&NotificationCreateOptions{}, "notify", "Send a notification to someones", func(s *mcclient.ClientSession,
+		args *NotificationCreateOptions) error {
+
 		msg := notify.SNotifyMessage{}
 		if args.Group {
 			msg.Gid = args.Uid

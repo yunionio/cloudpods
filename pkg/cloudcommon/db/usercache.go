@@ -103,10 +103,10 @@ func (manager *SUserCacheManager) fetchUser(
 			return user, nil
 		}
 	}
-	return manager.fetchUserFromKeystone(ctx, idStr)
+	return manager.FetchUserFromKeystone(ctx, idStr)
 }
 
-func (manager *SUserCacheManager) fetchUserFromKeystone(ctx context.Context, idStr string) (*SUser, error) {
+func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idStr string) (*SUser, error) {
 	if len(idStr) == 0 {
 		log.Debugf("fetch empty user!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")

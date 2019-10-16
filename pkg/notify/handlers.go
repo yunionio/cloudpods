@@ -18,12 +18,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -44,7 +47,33 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(models.ConfigManager)
 	db.RegisterModelManager(cache.UserCacheManager)
 	db.RegisterModelManager(cache.UserGroupCacheManager)
+	db.RegisterModelManager(models.TemplateManager)
 	AddNotifyDispatcher("/api/v1/", app)
+}
+
+// Middleware
+func middleware(f appsrv.FilterHandler) appsrv.FilterHandler {
+	hander := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.URL.Query()["uname"]; ok {
+			// Uname
+			params := appctx.AppContextParams(ctx)
+			if uid, ok := params["<uid>"]; ok {
+				userDetail, err := utils.GetUserByIDOrName(ctx, uid)
+				if err != nil {
+					httperrors.NotFoundError(w, "Uid or Uname Not Found")
+					return
+				}
+				params["<uid>"] = userDetail.Id
+			}
+			ctx = context.WithValue(ctx, "uname", true)
+		}
+		f(ctx, w, r)
+	}
+	if consts.IsRbacEnabled() {
+		return auth.AuthenticateWithDelayDecision(hander, true)
+	} else {
+		return auth.Authenticate(hander)
+	}
 }
 
 func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
@@ -56,89 +85,167 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<uid>/update-contact", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(contactUpdateHandler), metadata, "contact_update", tags)
+		middleware(contactUpdateHandler), metadata, "contact_update", tags)
 	// List
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(listHandler), metadata, "list_contacts", tags)
+		middleware(listHandler), metadata, "list_contacts", tags)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/users", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(keyStoneUserListHandler), metadata, "list_users", tags)
+		middleware(keyStoneUserListHandler), metadata, "list_users", tags)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<uid>", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(getHandler), metadata, "list_by_uid", tags)
+		middleware(getHandler), metadata, "list_by_uid", tags)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/delete-contact", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(deleteContactHandler), metadata, "delete", tags)
+		middleware(deleteContactHandler), metadata, "delete", tags)
 
 	// verify-trigger
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<uid>/verify", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(verifyTriggerHandler), metadata, "verify_trigger", tags)
+		middleware(verifyTriggerHandler), metadata, "verify_trigger", tags)
 
 	// Verify Handler, this modelDispatcher need db.DBModelDispatcher'Create function to create Contact so this modelDispatcher is
 	// NotifyModelDispatcher whose DBModelDispatcher has modelManager models.ContactManager
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": models.VerifyManager.KeywordPlural()}
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<id>", prefix, models.VerifyManager.KeywordPlural()),
-		modelDispatcher.Filter(verifyHandler), metadata, "verify", tags)
+		middleware(verifyHandler), metadata, "verify", tags)
 
 	// notification Handler
 	modelDispatcher = NewNotifyModelDispatcher(models.NotificationManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(notificationHandler), metadata, "send_notifications", tags)
+		middleware(notificationHandler), metadata, "send_notifications", tags)
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(listHandler), metadata, "send_notifications", tags)
+		middleware(listHandler), metadata, "send_notifications", tags)
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<id>", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(listHandler), metadata, "list_notification_by_id", tags)
+		middleware(listHandler), metadata, "list_notification_by_id", tags)
 
 	// config Handler
 	modelDispatcher = NewNotifyModelDispatcher(models.ConfigManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(configUpdateHandler), metadata, "update_configs", tags)
+		middleware(configUpdateHandler), metadata, "update_configs", tags)
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(configGetHandler), metadata, "get_configs", tags)
+		middleware(configGetHandler), metadata, "get_configs", tags)
 	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, modelDispatcher.KeywordPlural()),
-		modelDispatcher.Filter(configDeleteHandler), metadata, "delete_configs", tags)
+		middleware(configDeleteHandler), metadata, "delete_configs", tags)
 
 	// email handler for being compatible
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, EMAIL_KEYWORDPLURAL),
-		modelDispatcher.Filter(emailConfigUpdateHandler), metadata, "", tags)
+		middleware(emailConfigUpdateHandler), metadata, "", tags)
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
-		modelDispatcher.Filter(emailConfigGetHandler), metadata, "", tags)
+		middleware(emailConfigGetHandler), metadata, "", tags)
 	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
-		modelDispatcher.Filter(emailConfigDeleteHandler), metadata, "", tags)
+		middleware(emailConfigDeleteHandler), metadata, "", tags)
 	app.AddHandler2("PUT",
 		fmt.Sprintf("%s/%s/<type>", prefix, EMAIL_KEYWORDPLURAL),
-		modelDispatcher.Filter(emailConfigUpdateHandler), metadata, "", tags)
+		middleware(emailConfigUpdateHandler), metadata, "", tags)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/", prefix, SMS_KEYWORDPLURAL),
-		modelDispatcher.Filter(smsConfigUpdateHandler), metadata, "", tags)
+		middleware(smsConfigUpdateHandler), metadata, "", tags)
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
-		modelDispatcher.Filter(smsConfigGetHandler), metadata, "", tags)
+		middleware(smsConfigGetHandler), metadata, "", tags)
 	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
-		modelDispatcher.Filter(smsConfigDeleteHandler), metadata, "", tags)
+		middleware(smsConfigDeleteHandler), metadata, "", tags)
 	app.AddHandler2("PUT",
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
-		modelDispatcher.Filter(smsConfigUpdateHandler), metadata, "", tags)
+		middleware(smsConfigUpdateHandler), metadata, "", tags)
 
+	// Contact Handler
+	modelDispatcher = NewNotifyModelDispatcher(models.TemplateManager)
+	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
+	app.AddHandler2("POST",
+		fmt.Sprintf("%s/%s/<ctype>/update-template", prefix, modelDispatcher.KeywordPlural()),
+		middleware(templateUpdateHandler), metadata, "update_template", tags)
+	// List
+	app.AddHandler2("GET",
+		fmt.Sprintf("%s/%s", prefix, modelDispatcher.KeywordPlural()),
+		middleware(listHandler), metadata, "list_template", tags)
+
+	app.AddHandler2("POST",
+		fmt.Sprintf("%s/%s/delete-template", prefix, modelDispatcher.KeywordPlural()),
+		middleware(deleteTemplateHandler), metadata, "delete", tags)
+
+	app.AddHandler2("POST",
+		fmt.Sprintf("%s/%s/email-url", prefix, modelDispatcher.KeywordPlural()),
+		middleware(updateEmailUrlHandler), metadata, "update_email_url", tags)
+
+	app.AddHandler2("GET",
+		fmt.Sprintf("%s/%s/email-url", prefix, modelDispatcher.KeywordPlural()),
+		middleware(getEmailUrlHandler), metadata, "get_email_url", tags)
+}
+
+func updateEmailUrlHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := policy.FetchUserCredential(ctx)
+	if !userCred.HasSystemAdminPrivilege() {
+		httperrors.ForbiddenError(w, "only system admin can update email url")
+		return
+	}
+	_, _, _, body := fetchEnv(ctx, w, r)
+	if !body.Contains("email_url") {
+		httperrors.InputParameterError(w, "miss email_url")
+	}
+	emailUrl, _ := body.GetString("email_url")
+	eUrl, err := url.Parse(emailUrl)
+	if err != nil {
+		httperrors.InputParameterError(w, "invalid url")
+	}
+	models.TemplateManager.SetEmailUrl(eUrl.String())
+}
+
+func getEmailUrlHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(models.TemplateManager.GetEmailUrl()), "email_url")
+	appsrv.Send(w, ret.PrettyString())
+}
+
+func templateUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
+	if err != nil {
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s or %s", manager.Keyword(),
+			manager.KeywordPlural()))
+		return
+	}
+	ctype := params["<ctype>"]
+	if len(ctype) == 0 {
+		httperrors.InputParameterError(w, "ctype of template should not be empty")
+	}
+	err = manager.UpdateTemplate(ctx, ctype, mergeQueryParams(params, query), data)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+	}
+}
+
+func deleteTemplateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, _, query, body := fetchEnv(ctx, w, r)
+	if !body.Contains("contact_type") {
+		httperrors.InputParameterError(w, "miss contact_type")
+		return
+	}
+	ctype, _ := body.GetString("contact_type")
+	topic, _ := body.GetString("topic")
+	err := manager.DeleteTemplate(ctx, query, ctype, topic)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+	}
 }
 
 func configDeleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -211,14 +318,8 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 			manager.KeywordPlural()))
 		return
 	}
-	// check that if the uid is exist
+
 	uid := params["<uid>"]
-	_, err = utils.GetUserByID(ctx, uid)
-	if err != nil {
-		log.Errorf(`uid %q not found`, uid)
-		httperrors.NotFoundError(w, "Uid Not Found")
-		return
-	}
 	queryDict := mergeQueryParams(params, query)
 	update, _ := body.Bool(manager.Keyword(), "update_dingtalk")
 	if update {
@@ -258,7 +359,7 @@ func deleteContactHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 // verify trigger handler
 func verifyTriggerHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, _, body := fetchEnv(ctx, w, r)
-	data, err := body.Get(models.ContactManager.Keyword())
+	data, err := body.Get(models.ContactManager.Keyword(), models.ContactManager.KeywordPlural())
 	if err != nil {
 		httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
 		return

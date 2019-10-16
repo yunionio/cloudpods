@@ -25,8 +25,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/notify/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
@@ -54,7 +55,7 @@ func sendone(ctx context.Context, userCred mcclient.TokenCredential, notificatio
 	err = NotifyService.Send(ctx, notification.ContactType, contact, notification.Topic, notification.Msg,
 		notification.Priority)
 	if err != nil {
-		log.Errorf("Send notification failed because that %s.", err.Error())
+		log.Errorf("Send notification failed: %s.", err.Error())
 		notification.SetStatus(userCred, NOTIFY_FAIL, err.Error())
 	} else {
 		log.Debugf("send notification successfully")
@@ -82,7 +83,7 @@ func sendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 	)
 	processId, token := verify.ID, verify.Token
 	if contactType == "email" {
-		emailUrl := strings.Replace(options.Options.VerifyEmailUrl, "{0}", processId, 1)
+		emailUrl := strings.Replace(TemplateManager.GetEmailUrl(), "{0}", processId, 1)
 		emailUrl = strings.Replace(emailUrl, "{1}", token, 1)
 
 		// get uName
@@ -105,7 +106,10 @@ func sendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 	err = NotifyService.Send(ctx, contactType, contact, "verify", msg, "")
 	if err != nil {
 		verify.SetStatus(userCred, VERIFICATION_SENT_FAIL, "")
-		log.Errorf("Send verify message failed because that %s.", err.Error())
+		// notify the uid through the webconsole
+		notifyclient.RawNotify([]string{uid}, false, notify.NotifyByWebConsole, notify.NotifyPriorityCritical,
+			"Send Verify Message Failed", jsonutils.NewString(err.Error()))
+		log.Errorf("Send verify message failed: %s.", err.Error())
 		return
 	}
 	verify.SetStatus(userCred, VERIFICATION_SENT, "")
