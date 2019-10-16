@@ -50,14 +50,6 @@ func (input *SSecgroupRuleCreateInput) Check() error {
 		input.CIDR = "0.0.0.0/0"
 	}
 
-	if rule.PortStart > 0 && rule.PortEnd > 0 {
-		if rule.PortStart != rule.PortEnd {
-			input.Ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
-		} else {
-			input.Ports = fmt.Sprintf("%d", input.PortStart)
-		}
-	}
-
 	return rule.ValidateRule()
 }
 

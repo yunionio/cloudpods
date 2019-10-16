@@ -115,6 +115,7 @@ require (
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/soheilhy/cmux v0.1.4 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tencentcloud/tencentcloud-sdk-go v0.0.0-20181108132626-805d01dd0e2e
@@ -150,7 +151,7 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191002154235-995be969f32c
+	yunion.io/x/pkg v0.0.0-20191016032001-c63765174a8c
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20191008135637-33eb2e4f6cc7
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
