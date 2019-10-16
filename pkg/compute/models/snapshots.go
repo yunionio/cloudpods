@@ -581,7 +581,7 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 				if err == nil {
 					val := disk.GetMetadata("disk_delete_after_snapshots", userCred)
 					if cnt == 0 && val == "true" {
-						disk.StartDiskDeleteTask(ctx, userCred, "", false, true)
+						disk.StartDiskDeleteTask(ctx, userCred, "", false, true, false)
 					}
 				} else {
 					// very unlikely

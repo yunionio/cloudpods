@@ -90,7 +90,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 	guest := self.getGuest()
 	guest.SetDisableDelete(self.UserCred, false)
 	self.SetStage("OnGuestDeleteComplete", nil)
-	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
+	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true, false)
 	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy failed: %s", body.String()), self.UserCred, false)
 }
 

@@ -9,10 +9,9 @@ var (
 func init() {
 	InstanceSnapshots = NewComputeManager("instance_snapshot", "instance_snapshots",
 		[]string{"ID", "Name",
-			"Status", "GuestId",
-			"ServerConfig",
+			"Status", "Guest_Id",
 		},
-		[]string{},
+		[]string{"Guest_Name", "Snapshots"},
 	)
 
 	registerCompute(&InstanceSnapshots)

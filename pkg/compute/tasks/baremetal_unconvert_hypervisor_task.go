@@ -45,7 +45,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db
 	if len(guests) == 1 {
 		guest := guests[0]
 		self.SetStage("OnGuestDeleteComplete", nil)
-		guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
+		guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true, false)
 	} else {
 		self.OnGuestDeleteComplete(ctx, baremetal, nil)
 	}
