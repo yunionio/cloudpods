@@ -2206,3 +2206,29 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	}
 	return syncResult
 }
+
+func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	_, err := self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	snapshotQuery := SnapshotManager.Query().Equals("disk_id", self.Id)
+	snapshots := make([]SSnapshot, 0, 1)
+	err = db.FetchModelObjects(SnapshotManager, snapshotQuery, &snapshots)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fail to fetch snapshots of disk %s", self.Id)
+	}
+	for i := range snapshots {
+		snapshot := snapshots[i]
+		lockman.LockObject(ctx, &snapshot)
+		_, err := snapshot.PerformChangeOwner(ctx, userCred, query, data)
+		if err != nil {
+			lockman.ReleaseObject(ctx, &snapshot)
+			return nil, errors.Wrapf(err, "fail to change owner of this disk(%s)'s snapshot %s", self.Id, snapshot.Id)
+		}
+		lockman.ReleaseObject(ctx, &snapshot)
+	}
+	return nil, nil
+}
