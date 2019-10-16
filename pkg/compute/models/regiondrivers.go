@@ -102,6 +102,13 @@ type IRegionDriver interface {
 	RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *SNatGateway, eipId string) error
 	RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask, nat INatHelper, natgateway *SNatGateway) error
 	BindIPToNatgatewayRollback(ctx context.Context, eipId string) error
+
+	RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpc *SVpc, secgroup *SSecurityGroup, classic bool, task taskman.ITask) error
+	RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *SVpc, secgroup *SSecurityGroup) (string, error)
+	IsSupportClassicSecurityGroup() bool
+	IsSecurityGroupBelongVpc() bool
+	GetDefaultSecurityGroupVpcId() string
+	GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, host *SHost, vpc *SVpc, classic bool) string
 }
 
 var regionDrivers map[string]IRegionDriver

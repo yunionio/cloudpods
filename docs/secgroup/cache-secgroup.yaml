@@ -1,0 +1,16 @@
+post:
+  summary: 预创建安全组到云上
+  parameters: 
+    - $ref: '../parameters/secgroup.yaml#/secgroupId'
+    - in: body
+      name: secgroup
+      required: true
+      schema:
+        $ref: '../schemas/secgroup.yaml#/SecgroupCache' 
+  responses:
+    200:
+      description: 安全组信息
+      schema:
+        $ref: '../schemas/secgroup.yaml#/SecgroupResponse'
+  tags:
+    - secgroups

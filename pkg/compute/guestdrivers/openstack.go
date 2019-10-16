@@ -146,10 +146,6 @@ func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SOpenStackGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
-	return api.NORMAL_VPC_ID, nil
-}
-
 func (self *SOpenStackGuestDriver) AllowReconfigGuest() bool {
 	return true
 }

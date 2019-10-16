@@ -1,0 +1,67 @@
+SecgroupCacheResponse:
+  type: object
+  properties:
+    secgroupcache:
+      type: object
+      $ref: '#/SecgroupCache'
+
+SecgroupCache:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - type: object
+      properties:
+        vpc_id:
+          type: string
+          example: normal
+          description: 云上的vpc_id,若返回normal一般是指此安全组是region级别的
+        secgroup_id:
+          type: string 
+          example: a9ee32d4-66f3-4d2d-89b7-b1dea778484c 
+          desciption: 本地安全组ID
+        account:
+          type: string
+          example: openstack
+          description: 资源所属的云账号名称
+        account_id:
+          type: string 
+          example: a9ee32d4-66f3-4d2d-89b7-b1dea778484c
+          desciption: 源所属的云账号ID
+        account_domain:
+          type: string 
+          example: Default 
+          description: 资源账号所属的域
+        account_domain_id:
+          type: string 
+          example: default 
+          description: 资源账号所属的域ID
+        external_id:
+          type: string 
+          example: a359d7d6-54b7-4853-b200-9e4a9cfc5f42
+          description: 安全组对应云上的ID
+        manager:
+          type: string 
+          example: openstack
+          desciption: 安全组所属的子账号ID
+        provider:
+          type: string 
+          example: OpenStack
+          description: 所属云平台
+        region:
+          type: string 
+          example: openstack-RegionOne
+          desciption: 所在区域
+
+
+SecgroupCacheListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    secgroupcaches:
+      type: array
+      items:
+        $ref: '#/SecgroupCache'
+    total:
+      type: integer
+      example: 124

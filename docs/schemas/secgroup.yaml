@@ -1,0 +1,181 @@
+SecgroupCreate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-secgroup
+      description: 安全组名称
+    description:
+      type: string
+      example: secgrou-description
+      description: 安全组描述
+    rules:
+      type: array 
+      items:
+        $ref: '#/SecgroupRuleCreate'
+
+SecgroupRuleCreate:
+  type: object
+  properties:
+    priority:
+      type: integer
+      example: 34
+      default: 1
+      description: 安全组优先级,数字越高，优先级越高 范围 1-100
+    protocol:
+      type: string 
+      example: icmp 
+      enum: [icmp, tcp, udp, any]
+      requried: true
+      description: 协议
+    ports: 
+      type: string 
+      example: 10-200
+      description: 端口或端口范围
+    direction:
+      type: string 
+      example: in 
+      enum: [in, out]
+      requried: true
+      description: 规则出入方向
+    cidr:
+      type: string 
+      example: 0.0.0.0/0
+      default: "0.0.0.0/0"
+      description: IP地址或网络地址
+    action:
+      type: string 
+      example: allow 
+      enum: [allow, deny]
+      requried: true
+      description: 允许或拒绝
+    port_start:
+      type: integer 
+      example: 10 
+      description: 和port_end参数配合使用,若指定ports则此参数失效
+    port_end:
+      type: integer 
+      example: 100 
+      description: 和port_start参数配合使用,若指定ports则此参数失效
+    description: 
+      type: string 
+      example: test-description 
+      description: 规则描述信息
+
+SecgroupResponse:
+  type: object
+  properties:
+    secgroup:
+      type: object
+      $ref: '#/Secgroup'
+
+Secgroup:
+  allOf:
+    - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
+
+SecgroupListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    secgroups:
+      type: array
+      items:
+        $ref: '#/Secgroup'
+    total:
+      type: integer
+      example: 124
+
+SecgroupUpdate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-secgroup
+      description: 安全组名称
+    description:
+      type: string
+      example: secgrou-description
+      description: 安全组描述
+
+SecgroupClone:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-clone-secgroup
+      description: 安全组名称
+    description:
+      type: string
+      example: test-clone-secgroup-description
+      description: 安全组描述
+
+SecgroupUnion:
+  type: object
+  properties:
+    secgroups:
+      type: array
+      items:
+        type: string
+      description: 待合并的安全组名称或ID列表
+
+SecgroupAddRule:
+  type: object
+  properties:
+    priority:
+      type: int
+      example: 10
+      min: 1
+      max: 100
+      description: 规则优先级
+    protocol:
+      type: string
+      example: tcp
+      enum: [tcp, udp, icmp, any]
+      description: 规则协议类型
+    ports:
+      type: string
+      example: 10-20
+      description: 端口，支持单个端口或端口范围
+    direction:
+      type: string
+      example: in
+      enum: [in, out]
+      description: 规则出入方向
+    cidr:
+      type: string
+      example: 10.10.12.0/24
+      description: 规则协议地址
+    action:
+      type: string
+      example: deny
+      enum: [allow, deny]
+      description: 禁止或允许
+    description:
+      type: string
+      example: test-rule
+      description: 规则描述
+
+SecgroupCache:
+  type: object
+  properties:
+    vpc:
+      type: string
+      example: test-vpc
+      required: true
+      description: vpc名称或ID,建议使用ID
+    classic:
+      type: boolean
+      default: false
+      example: false
+      description: 仅针对支持经典网络的情况,目前仅Azure支持此参数
+
+SecgroupUncache:
+  type: object
+  properties:
+    secgroupcache:
+      type: string
+      example: 2e974625-d7e2-481b-8471-1c46fa9a65b0
+      required: true
+      description: 安全组缓存ID

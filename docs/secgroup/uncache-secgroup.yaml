@@ -1,0 +1,16 @@
+post:
+  summary: 删除云上的某个安全组
+  parameters: 
+    - $ref: '../parameters/secgroup.yaml#/secgroupId'
+    - in: body
+      name: secgroup
+      required: true
+      schema:
+        $ref: '../schemas/secgroup.yaml#/SecgroupUncache' 
+  responses:
+    200:
+      description: 安全组信息
+      schema:
+        $ref: '../schemas/secgroup.yaml#/SecgroupResponse'
+  tags:
+    - secgroups

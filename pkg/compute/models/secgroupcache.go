@@ -21,37 +21,38 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SSecurityGroupCacheManager struct {
-	db.SResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 }
 
 type SSecurityGroupCache struct {
-	db.SResourceBase
+	db.SStatusStandaloneResourceBase
+	db.SExternalizedResourceBase
+	SCloudregionResourceBase
 	SManagedResourceBase
 
-	Id            string `width:"128" charset:"ascii" primary:"true" list:"user"`
-	SecgroupId    string `width:"128" charset:"ascii" create:"required"`
-	VpcId         string `width:"128" charset:"ascii" create:"required"`
-	CloudregionId string `width:"128" charset:"ascii" create:"required"`
-	ExternalId    string `width:"256" charset:"utf8" index:"true" list:"admin" create:"admin_optional"`
+	SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
+	VpcId      string `width:"128" charset:"ascii" list:"user" create:"required"`
 }
 
 var SecurityGroupCacheManager *SSecurityGroupCacheManager
 
 func init() {
 	SecurityGroupCacheManager = &SSecurityGroupCacheManager{
-		SResourceBaseManager: db.NewResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SSecurityGroupCache{},
 			"secgroupcache_tbl",
 			"secgroupcache",
@@ -59,12 +60,6 @@ func init() {
 		),
 	}
 	SecurityGroupCacheManager.SetVirtualObject(SecurityGroupCacheManager)
-}
-
-func (self *SSecurityGroupCache) BeforeInsert() {
-	if len(self.Id) == 0 {
-		self.Id = stringutils.UUID4()
-	}
 }
 
 func (manager *SSecurityGroupCacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -79,16 +74,8 @@ func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred m
 	return false
 }
 
-func (self *SSecurityGroupCache) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
-}
-
-func (manager *SSecurityGroupCacheManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	return q.Equals("id", idStr)
-}
-
 func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -117,22 +104,29 @@ func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error
 	return nil, fmt.Errorf("failed to find iregion for secgroupcache %s vpc: %s externalId: %s", self.Id, self.VpcId, self.ExternalId)
 }
 
-func (self *SSecurityGroupCache) DeleteCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if len(self.ExternalId) > 0 {
-		iregion, err := self.GetIRegion()
-		if err != nil {
-			return err
-		}
-		return iregion.DeleteSecurityGroup(self.VpcId, self.ExternalId)
+func (self *SSecurityGroupCache) GetVpc() (*SVpc, error) {
+	vpc, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return vpc.(*SVpc), nil
 }
 
-func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if err := self.DeleteCloudSecurityGroup(ctx, userCred); err != nil {
-		log.Errorf("delete secgroup cache %v error: %v", self, err)
+func (self *SSecurityGroupCache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
 	}
-	return db.DeleteModel(ctx, userCred, self)
+	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if accountInfo != nil {
+		extra.Update(accountInfo)
+	}
+	vpc, _ := self.GetVpc()
+	if vpc != nil {
+		extra.Add(jsonutils.NewString(vpc.Name), "vpc")
+	}
+	return extra
 }
 
 func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) (*SSecurityGroupCache, error) {
@@ -157,12 +151,19 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
 
+	secgroup, err := SecurityGroupManager.FetchById(secgroupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", secgroupId)
+	}
+
 	secgroupCache := &SSecurityGroupCache{
-		SecgroupId:    secgroupId,
-		VpcId:         vpcId,
-		CloudregionId: regionId,
+		SecgroupId: secgroupId,
+		VpcId:      vpcId,
 	}
 	secgroupCache.ManagerId = providerId
+	secgroupCache.Status = api.SECGROUP_CACHE_STATUS_CACHING
+	secgroupCache.CloudregionId = regionId
+	secgroupCache.Name = secgroup.GetName()
 	secgroupCache.SetModelManager(manager, secgroupCache)
 	if err := manager.TableSpec().Insert(secgroupCache); err != nil {
 		log.Errorf("insert secgroupcache error: %v", err)
@@ -184,8 +185,14 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 	return manager.NewCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
 }
 
-func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider *SCloudprovider) ([]SSecurityGroupCache, error) {
+func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider *SCloudprovider, region *SCloudregion, vpcId string) ([]SSecurityGroupCache, error) {
 	q := manager.Query().Equals("manager_id", provider.Id)
+	if region != nil {
+		q = q.Equals("cloudregion_id", region.Id)
+	}
+	if len(vpcId) > 0 {
+		q = q.Equals("vpc_id", vpcId)
+	}
 	caches := []SSecurityGroupCache{}
 	if err := db.FetchModelObjects(manager, q, &caches); err != nil {
 		return nil, err
@@ -209,7 +216,22 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}
 	syncResult := compare.SyncResult{}
 
-	dbSecgroupcaches, err := manager.getSecgroupcachesByProvider(provider)
+	region, err := vpc.GetRegion()
+	if err != nil {
+		syncResult.Error(err)
+		return localSecgroups, remoteSecgroups, syncResult
+	}
+
+	vpcId := ""
+	if region.GetDriver().IsSecurityGroupBelongVpc() {
+		vpcId = vpc.ExternalId
+	} else if region.GetDriver().IsSupportClassicSecurityGroup() && len(secgroups) > 0 {
+		vpcId = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, secgroups[0].GetVpcId() == "classic")
+	} else {
+		vpcId = region.GetDriver().GetDefaultSecurityGroupVpcId()
+	}
+
+	dbSecgroupcaches, err := manager.getSecgroupcachesByProvider(provider, region, vpcId)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -225,7 +247,28 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 		return nil, nil, syncResult
 	}
 
-	//removed暂时删不了, 因为不能确定是哪个vpc底下的,有可能误删
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].Delete(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		_, err = db.Update(&commondb[i], func() error {
+			commondb[i].Status = api.SECGROUP_CACHE_STATUS_READY
+			commondb[i].Name = commonext[i].GetName()
+			commondb[i].Description = commonext[i].GetDescription()
+			return nil
+		})
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
 
 	//相同的不能同步, 原因: 多个平台的安全组可能共用一个本地安全组,下面仅仅是新加的安全组
 	for i := 0; i < len(added); i++ {
@@ -234,12 +277,19 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			syncResult.AddError(err)
 			continue
 		}
-		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, added[i].GetVpcId(), vpc.CloudregionId, provider.Id)
+		cache, err := manager.NewCache(ctx, userCred, secgroup.Id, vpcId, vpc.CloudregionId, provider.Id)
 		if err != nil {
 			syncResult.AddError(fmt.Errorf("failed to create secgroup cache for secgroup %s(%s) provider: %s: %s", secgroup.Name, secgroup.Name, provider.Name, err))
 			continue
 		}
-		if err = cache.SetExternalId(userCred, added[i].GetGlobalId()); err != nil {
+		_, err = db.Update(cache, func() error {
+			cache.Status = api.SECGROUP_CACHE_STATUS_READY
+			cache.Name = added[i].GetName()
+			cache.Description = added[i].GetDescription()
+			cache.ExternalId = added[i].GetGlobalId()
+			return nil
+		})
+		if err != nil {
 			syncResult.AddError(err)
 			continue
 		}
@@ -250,18 +300,25 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	return localSecgroups, remoteSecgroups, syncResult
 }
 
-func (self *SSecurityGroupCache) SetExternalId(userCred mcclient.TokenCredential, externalId string) error {
-	diff, err := db.Update(self, func() error {
-		self.ExternalId = externalId
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("do nothing for delete secgroup cache")
 	return nil
 }
 
-func (self SSecurityGroupCache) GetExternalId() string {
-	return self.ExternalId
+func (self *SSecurityGroupCache) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SSecurityGroupCache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartSecurityGroupCacheDeleteTask(ctx, userCred, "")
+}
+
+func (self *SSecurityGroupCache) StartSecurityGroupCacheDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.SetStatus(userCred, api.SECGROUP_CACHE_STATUS_DELETING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupCacheDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

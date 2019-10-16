@@ -46,7 +46,7 @@ func init() {
 	})
 
 	shellutils.R(&SecurityGroupOptions{}, "security-group-delete", "Delete SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupOptions) error {
-		return cli.DeleteSecurityGroup("", args.ID)
+		return cli.DeleteSecurityGroup(args.ID)
 	})
 
 	type SecurityGroupCreateOptions struct {

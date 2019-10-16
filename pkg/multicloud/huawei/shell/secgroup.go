@@ -43,4 +43,19 @@ func init() {
 		printObject(secgrp)
 		return nil
 	})
+
+	type SecurityGroupCreateOptions struct {
+		NAME string `help:"secgroup name"`
+		VPC  string `help:"ID of VPC"`
+		Desc string `help:"description"`
+	}
+	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create security group", func(cli *huawei.SRegion, args *SecurityGroupCreateOptions) error {
+		result, err := cli.CreateSecurityGroup(args.VPC, args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

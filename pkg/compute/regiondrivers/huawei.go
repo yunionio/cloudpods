@@ -1526,3 +1526,7 @@ func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
 	//can't arrive
 	return ""
 }
+
+func (self *SHuaWeiRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
+}

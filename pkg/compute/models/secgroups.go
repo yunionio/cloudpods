@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -225,6 +227,7 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Failed to unmarshal input: %v", err)
 	}
+	input.Status = api.SECGROUP_STATUS_READY
 
 	for i, rule := range input.Rules {
 		err = rule.Check()
@@ -322,6 +325,59 @@ func totalSecurityGroupCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdent
 	}
 
 	return q.CountWithError()
+}
+
+func (self *SSecurityGroup) AllowPerformUncacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "uncache-secgroup")
+}
+
+func (self *SSecurityGroup) PerformUncacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	cacheV := validators.NewModelIdOrNameValidator("secgroupcache", "secgroupcache", nil)
+	err := cacheV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+	cache := cacheV.Model.(*SSecurityGroupCache)
+	return nil, cache.StartSecurityGroupCacheDeleteTask(ctx, userCred, "")
+}
+
+func (self *SSecurityGroup) AllowPerformCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cache-secgroup")
+}
+
+func (self *SSecurityGroup) PerformCacheSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", nil)
+	err := vpcV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+	vpc := vpcV.Model.(*SVpc)
+	if len(vpc.ExternalId) == 0 {
+		return nil, httperrors.NewInputParameterError("vpc %s(%s) is not a managed resouce", vpc.Name, vpc.Id)
+	}
+
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+	classic, _ := data.Bool("classic")
+	if classic && !region.GetDriver().IsSupportClassicSecurityGroup() {
+		return nil, httperrors.NewInputParameterError("Not support cache classic security group")
+	}
+
+	return nil, self.StartSecurityGroupCacheTask(ctx, userCred, vpc.Id, classic, "")
+}
+
+func (self *SSecurityGroup) StartSecurityGroupCacheTask(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, classic bool, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(vpcId), "vpc_id")
+	params.Add(jsonutils.NewBool(classic), "classic")
+	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupCacheTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -641,6 +697,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		secGrp.SetModelManager(manager, secGrp)
 		secGrp.Id = "default"
 		secGrp.Name = "Default"
+		secGrp.Status = api.SECGROUP_STATUS_READY
 		secGrp.ProjectId = auth.AdminCredential().GetProjectId()
 		secGrp.DomainId = auth.AdminCredential().GetProjectDomainId()
 		// secGrp.IsEmulated = false
@@ -680,6 +737,21 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 			return nil
 		})
 	}
+
+	secgroups := []SSecurityGroup{}
+	q = SecurityGroupManager.Query().NotEquals("status", api.SECGROUP_STATUS_READY)
+	err = db.FetchModelObjects(manager, q, &secgroups)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+
+	for i := range secgroups {
+		db.Update(&secgroups[i], func() error {
+			secgroups[i].Status = api.SECGROUP_STATUS_READY
+			return nil
+		})
+	}
+
 	return nil
 }
 
@@ -712,6 +784,7 @@ func (self *SSecurityGroup) CustomizeDelete(ctx context.Context, userCred mcclie
 }
 
 func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, api.SECGROUP_STATUS_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -721,19 +794,23 @@ func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, us
 }
 
 func (self *SSecurityGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SSharableVirtualResourceBase.DoPendingDelete(ctx, userCred)
+	log.Infof("do nothing for delete secgroup")
+	return nil
 }
 
 func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	rules := []SSecurityGroupRule{}
 	q := SecurityGroupRuleManager.Query().Equals("secgroup_id", self.Id)
-	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules); err != nil {
-		log.Errorf("failed to fetch secgroup %s rules error: %v", self.Name, err)
-		return err
+	err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules)
+	if err != nil {
+		return errors.Wrap(err, "db.FetchModelObjects")
 	}
 	for i := 0; i < len(rules); i++ {
-		if err := rules[i].Delete(ctx, userCred); err != nil {
-			return err
+		lockman.LockObject(ctx, &rules[i])
+		defer lockman.ReleaseObject(ctx, &rules[i])
+		err := rules[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "rules[i].Delete")
 		}
 	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -32,12 +33,37 @@ func init() {
 	taskman.RegisterTask(SecurityGroupDeleteTask{})
 }
 
+func (self *SecurityGroupDeleteTask) getErrorCount() int64 {
+	count, _ := self.GetParams().Int("faild_count")
+	return count
+}
+
+func (self *SecurityGroupDeleteTask) addErrorCount() {
+	count := self.getErrorCount()
+	count += 1
+	self.GetParams().Set("failed_count", jsonutils.NewInt(count))
+}
+
 func (self *SecurityGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStage("OnSecurityGroupUncacheComplete", nil)
+	self.OnSecurityGroupUncacheComplete(ctx, obj, data)
+}
+
+func (self *SecurityGroupDeleteTask) OnSecurityGroupUncacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	secgroup := obj.(*models.SSecurityGroup)
-	secgroupCache := secgroup.GetSecurityGroupCaches()
-	for _, cache := range secgroupCache {
-		cache.Delete(ctx, self.GetUserCred())
+	secgroupCaches := secgroup.GetSecurityGroupCaches()
+	errCount := self.getErrorCount()
+	if len(secgroupCaches) == int(errCount) {
+		if errCount == 0 {
+			secgroup.RealDelete(ctx, self.UserCred)
+		}
+		secgroup.SetStatus(self.UserCred, api.SECGROUP_STATUS_READY, "")
+		self.SetStageComplete(ctx, nil)
+		return
 	}
-	secgroup.RealDelete(ctx, self.GetUserCred())
-	self.SetStageComplete(ctx, nil)
+	secgroupCaches[errCount].StartSecurityGroupCacheDeleteTask(ctx, self.UserCred, self.GetTaskId())
+}
+
+func (self *SecurityGroupDeleteTask) OnSecurityGroupUncacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	self.addErrorCount()
 }
