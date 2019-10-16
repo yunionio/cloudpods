@@ -111,8 +111,8 @@ func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, 
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) GetZone() string {
-	return d.Storage.GetZone()
+func (d *SBaseDisk) GetZoneName() string {
+	return d.Storage.GetZoneName()
 }
 
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,

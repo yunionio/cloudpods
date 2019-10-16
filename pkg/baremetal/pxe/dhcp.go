@@ -15,13 +15,13 @@
 package pxe
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
@@ -130,10 +130,10 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 				// expect to boot.
 			case 17:
 				if data[0] != 0 {
-					err = errors.New("malformed client GUID (option 97), leading byte must be zero")
+					err = errors.Error("malformed client GUID (option 97), leading byte must be zero")
 				}
 			default:
-				err = errors.New("malformed client GUID (option 97), wrong size")
+				err = errors.Error("malformed client GUID (option 97), wrong size")
 			}
 			cliGuid, err = req.Options.String(optCode)
 		}
@@ -158,6 +158,9 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 
 	// TODO: set cache for netConf
 	if req.isPXERequest() {
+		if !o.Options.EnablePxeBoot {
+			return nil, errors.Error("PXE Boot disabled")
+		}
 		// handle PXE DHCP request
 		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %#v", req.RelayAddr, req.ClientAddr, req.ClientMac, netConf)
 		bmDesc, err := req.createOrUpdateBaremetal(session)
@@ -389,10 +392,10 @@ func (s *Server) validateDHCP(pkt dhcp.Packet) (Machine, Firmware, error) {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return mach, 0, errors.New("malformed client GUID (option 97), leading byte must be zero")
+			return mach, 0, errors.Error("malformed client GUID (option 97), leading byte must be zero")
 		}
 	default:
-		return mach, 0, errors.New("malformed client GUID (option 97), wrong size")
+		return mach, 0, errors.Error("malformed client GUID (option 97), wrong size")
 	}
 
 	mach.MAC = pkt.CHAddr()

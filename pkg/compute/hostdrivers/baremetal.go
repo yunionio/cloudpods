@@ -43,7 +43,41 @@ func (self *SBaremetalHostDriver) GetHypervisor() string {
 }
 
 func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
-	return fmt.Errorf("not supported")
+	params := task.GetParams()
+	imageId, err := params.GetString("image_id")
+	if err != nil {
+		return err
+	}
+	_, err = models.CachedimageManager.FetchById(imageId)
+	if err != nil {
+		return err
+	}
+	format, _ := params.GetString("format")
+	isForce := jsonutils.QueryBoolean(params, "is_force", false)
+
+	type contentStruct struct {
+		ImageId string
+		Format  string
+		IsForce bool
+	}
+
+	content := contentStruct{}
+	content.ImageId = imageId
+	content.Format = format
+	if isForce {
+		content.IsForce = true
+	}
+
+	url := "/disks/image_cache"
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(&content), "disk")
+
+	header := task.GetTaskRequestHeader()
+	_, err = host.BaremetalSyncRequest(ctx, "POST", url, header, body)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SBaremetalHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {

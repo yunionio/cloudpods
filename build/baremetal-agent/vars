@@ -1,1 +1,6 @@
 DESCRIPTION="Baremetal Agent Command Line Utility"
+
+REQUIRES=(
+    ipmitool
+    mkisofs
+)

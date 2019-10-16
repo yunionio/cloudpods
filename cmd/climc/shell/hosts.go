@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func init() {
@@ -133,6 +134,12 @@ func init() {
 		return nil
 	})
 
+	R(&HostOpsOptions{}, "host-ipmi-probe", "Do ipmi probe host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "ipmi-probe", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
+		return nil
+	})
+
 	R(&HostDetailOptions{}, "host-ipmi", "Get IPMI information of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
 		result, err := modules.Hosts.GetSpecific(s, args.ID, "ipmi", nil)
 		if err != nil {
@@ -185,7 +192,8 @@ func init() {
 		MemoryReserved    string  `help:"Memory reserved"`
 		CpuReserved       int64   `help:"CPU reserved"`
 		HostType          string  `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
-		AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
+		// AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
+		AccessMac string `help:"Change access MAC, CAUTION!!!!"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -210,8 +218,8 @@ func init() {
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
 		}
-		if len(args.AccessIp) > 0 {
-			params.Add(jsonutils.NewString(args.AccessIp), "access_ip")
+		if len(args.AccessMac) > 0 {
+			params.Add(jsonutils.NewString(args.AccessMac), "access_mac")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")
@@ -472,6 +480,14 @@ func init() {
 		IpmiUser   string `help:"IPMI user name"`
 		IpmiPasswd string `help:"IPMI user password"`
 		IpmiAddr   string `help:"IPMI IP address"`
+
+		AccessIp   string `help:"Access IP address"`
+		AccessNet  string `help:"Access network"`
+		AccessWire string `help:"Access wire"`
+
+		NoPrepare bool `help:"just initialize, do not reboot baremetal to prepare"`
+
+		DisablePxeBoot bool `help:"set enable_pxe_boot to false, which is true by default"`
 	}
 	R(&HostCreateOptions{}, "host-create", "Create a baremetal host", func(s *mcclient.ClientSession, args *HostCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -492,6 +508,21 @@ func init() {
 		}
 		if len(args.IpmiAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpmiAddr), "ipmi_ip_addr")
+		}
+		if len(args.AccessIp) > 0 {
+			params.Add(jsonutils.NewString(args.AccessIp), "access_ip")
+		}
+		if len(args.AccessNet) > 0 {
+			params.Add(jsonutils.NewString(args.AccessNet), "access_net")
+		}
+		if len(args.AccessWire) > 0 {
+			params.Add(jsonutils.NewString(args.AccessWire), "access_wire")
+		}
+		if args.NoPrepare {
+			params.Add(jsonutils.JSONTrue, "no_prepare")
+		}
+		if args.DisablePxeBoot {
+			params.Add(jsonutils.JSONFalse, "enable_pxe_boot")
 		}
 		result, err := modules.Hosts.Create(s, params)
 		if err != nil {
@@ -538,6 +569,27 @@ func init() {
 			return err
 		}
 		printObject(spec)
+		return nil
+	})
+
+	type HostJnlpOptions struct {
+		ID   string `help:"ID or name of host"`
+		Save string `help:"save xml into this file"`
+	}
+	R(&HostJnlpOptions{}, "host-jnlp", "Get host jnlp file contentn", func(s *mcclient.ClientSession, args *HostJnlpOptions) error {
+		spec, err := modules.Hosts.GetSpecific(s, args.ID, "jnlp", nil)
+		if err != nil {
+			return err
+		}
+		jnlp, err := spec.GetString("jnlp")
+		if err != nil {
+			return err
+		}
+		if len(args.Save) > 0 {
+			return fileutils2.FilePutContents(args.Save, jnlp, false)
+		} else {
+			fmt.Println(jnlp)
+		}
 		return nil
 	})
 }

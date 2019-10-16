@@ -101,7 +101,7 @@ func (h *SHostInfo) GetHostId() string {
 	return h.HostId
 }
 
-func (h *SHostInfo) GetZone() string {
+func (h *SHostInfo) GetZoneName() string {
 	return h.Zone
 }
 

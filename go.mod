@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/Azure/azure-sdk-for-go v19.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v34.1.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
@@ -85,7 +85,6 @@ require (
 	github.com/kr/pty v1.1.3
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
-	github.com/marstr/guid v1.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect

@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -51,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -83,9 +85,11 @@ type SHost struct {
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
-	AccessMac  string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False, index=True)
-	AccessIp   string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`               // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`              // Column(VARCHAR(256, charset='ascii'), nullable=True)
+	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=False, index=True)
+
+	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+
+	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(256, charset='ascii'), nullable=True)
 
 	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`              // Column(JSONEncodedDict, nullable=True)
 	SN      string               `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
@@ -107,6 +111,8 @@ type SHost struct {
 	StorageType   string               `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(20, charset='ascii'), nullable=True)
 	StorageDriver string               `width:"20" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`  // Column(VARCHAR(20, charset='ascii'), nullable=True)
 	StorageInfo   jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                             // Column(JSONEncodedDict, nullable=True)
+
+	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
 	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(JSONEncodedDict, nullable=True)
 
@@ -130,6 +136,8 @@ type SHost struct {
 	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
 
 	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
+
+	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"admin" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
@@ -652,6 +660,7 @@ func (self *SHost) PerformUpdateStorage(
 	bs := self.GetBaremetalstorage()
 	capacity, _ := data.Int("capacity")
 	zoneId, _ := data.GetString("zone_id")
+	storageCacheId, _ := data.GetString("storagecache_id")
 	if bs == nil {
 		// 1. create storage
 		storage := SStorage{}
@@ -662,6 +671,7 @@ func (self *SHost) PerformUpdateStorage(
 		storage.Cmtbound = 1.0
 		storage.Status = api.STORAGE_ONLINE
 		storage.ZoneId = zoneId
+		storage.StoragecacheId = storageCacheId
 		err := StorageManager.TableSpec().Insert(&storage)
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
@@ -683,16 +693,17 @@ func (self *SHost) PerformUpdateStorage(
 		return nil, nil
 	}
 	storage := bs.GetStorage()
-	if capacity != int64(storage.Capacity) {
-		diff, err := db.Update(storage, func() error {
-			storage.Capacity = capacity
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("Update baremetal storage error: %v", err)
-		}
-		db.OpsLog.LogEvent(storage, db.ACT_UPDATE, diff, userCred)
+	//if capacity != int64(storage.Capacity)  {
+	diff, err := db.Update(storage, func() error {
+		storage.Capacity = capacity
+		storage.StoragecacheId = storageCacheId
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Update baremetal storage error: %v", err)
 	}
+	db.OpsLog.LogEvent(storage, db.ACT_UPDATE, diff, userCred)
+	//}
 	return nil, nil
 }
 
@@ -2429,7 +2440,33 @@ func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 		})
 		if err != nil {
 			log.Errorln(err.Error())
+		} else {
+			ipmiIp, _ := ipmiInfo.GetString("ip_addr")
+			if len(ipmiIp) > 0 {
+				self.setIpmiIp(userCred, ipmiIp)
+			}
 		}
+	}
+	accessIp, _ := data.GetString("access_ip")
+	if len(accessIp) > 0 {
+		self.setAccessIp(userCred, accessIp)
+	}
+	accessMac, _ := data.GetString("access_mac")
+	if len(accessMac) > 0 {
+		self.setAccessMac(userCred, accessMac)
+	}
+	if len(self.ZoneId) > 0 && self.HostType == api.HOST_TYPE_BAREMETAL {
+		self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
+	}
+}
+
+func (self *SHost) StartBaremetalCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCreateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
 	}
 }
 
@@ -2470,14 +2507,14 @@ func (manager *SHostManager) ValidateSizeParams(data *jsonutils.JSONDict) (*json
 	return data, nil
 }
 
-func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string) (*jsonutils.JSONDict, error) {
+func (manager *SHostManager) inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string) (*jsonutils.JSONDict, error) {
 	for _, key := range []string{
 		"manager_uri",
 		"access_ip",
 	} {
 		val, _ := data.GetString(key)
 		if len(val) > 0 {
-			q := HostManager.Query().Equals(key, val)
+			q := manager.Query().Equals(key, val)
 			if len(zoneId) > 0 {
 				q = q.Equals("zone_id", zoneId)
 			} else {
@@ -2502,25 +2539,28 @@ func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string
 		if len(accessMac2) == 0 {
 			return nil, httperrors.NewInputParameterError("invalid macAddr %s", accessMac)
 		}
-		q := HostManager.Query().Equals("access_mac", accessMac2)
-		if len(hostId) > 0 {
-			q = q.NotEquals("id", hostId)
+		if accessMac2 != api.ACCESS_MAC_ANY {
+			q := manager.Query().Equals("access_mac", accessMac2)
+			if len(hostId) > 0 {
+				q = q.NotEquals("id", hostId)
+			}
+			cnt, err := q.CountWithError()
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
+			}
+			if cnt > 0 {
+				return nil, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
+			}
+			data.Set("access_mac", jsonutils.NewString(accessMac2))
 		}
-		cnt, err := q.CountWithError()
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
-		}
-		if cnt > 0 {
-			return nil, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
-		}
-		data.Set("access_mac", jsonutils.NewString(accessMac2))
 	}
 	return data, nil
 }
 
 func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	zoneId := jsonutils.GetAnyString(data, []string{"zone_id", "zone"})
+	zoneId, zoneKey := jsonutils.GetAnyString2(data, []string{"zone_id", "zone"})
 	if len(zoneId) > 0 {
+		data.Remove(zoneKey)
 		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -2533,7 +2573,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 
-	data, err := inputUniquenessCheck(data, zoneId, "")
+	data, err := manager.inputUniquenessCheck(data, zoneId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -2562,18 +2602,116 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, httperrors.NewInputParameterError("%s", err)
 	}
 	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
-	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
-		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+	if len(ipmiIpAddr) > 0 {
+		net, _ := NetworkManager.GetOnPremiseNetworkOfIP(ipmiIpAddr, "", tristate.None)
+		if net == nil {
+			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+		}
+		// reserve this IP temporarily
+		err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		zoneObj := net.getZone()
+		if zoneObj == nil {
+			return nil, httperrors.NewInputParameterError("IPMI network has no zone???")
+		}
+		originZoneId, _ := data.GetString("zone_id")
+		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
+			return nil, httperrors.NewInputParameterError("IPMI address located in different zone than specified")
+		}
+		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
+	}
+	var accessNet *SNetwork
+	accessIpAddr, _ := data.GetString("access_ip")
+	if len(accessIpAddr) > 0 {
+		net, _ := NetworkManager.GetOnPremiseNetworkOfIP(accessIpAddr, "", tristate.None)
+		if net == nil {
+			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", accessIpAddr)
+		}
+		accessNet = net
+	} else {
+		accessNetStr, _ := data.GetString("access_net")
+		if len(accessNetStr) > 0 {
+			netObj, err := NetworkManager.FetchByIdOrName(userCred, accessNetStr)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2("network", accessNetStr)
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			accessNet = netObj.(*SNetwork)
+		} else {
+			accessWireStr, _ := data.GetString("access_wire")
+			if len(accessWireStr) > 0 {
+				wireObj, err := WireManager.FetchByIdOrName(userCred, accessWireStr)
+				if err != nil {
+					if errors.Cause(err) == sql.ErrNoRows {
+						return nil, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
+					} else {
+						return nil, httperrors.NewGeneralError(err)
+					}
+				}
+				wire := wireObj.(*SWire)
+				lockman.LockObject(ctx, wire)
+				defer lockman.ReleaseObject(ctx, wire)
+				net, err := wire.GetCandidatePrivateNetwork(userCred, false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
+				if err != nil {
+					return nil, httperrors.NewGeneralError(err)
+				}
+				accessNet = net
+			}
+		}
+	}
+	if accessNet != nil {
+		lockman.LockObject(ctx, accessNet)
+		defer lockman.ReleaseObject(ctx, accessNet)
+
+		accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, false)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		if len(accessIpAddr) > 0 && accessIpAddr != accessIp {
+			return nil, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
+		}
+
+		zoneObj := accessNet.getZone()
+		if zoneObj == nil {
+			return nil, httperrors.NewInputParameterError("Access network has no zone???")
+		}
+		originZoneId, _ := data.GetString("zone_id")
+		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
+			return nil, httperrors.NewInputParameterError("Access address located in different zone than specified")
+		}
+
+		// reserve this IP temporarily
+		err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		data.Set("access_ip", jsonutils.NewString(accessIp))
+		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 	ipmiPasswd, _ := ipmiInfo.GetString("password")
 	if len(ipmiPasswd) > 0 && !seclib2.MeetComplxity(ipmiPasswd) {
 		return nil, httperrors.NewWeakPasswordError()
 	}
+	// only baremetal can be created
+	hostType, _ := data.GetString("host_type")
+	if len(hostType) == 0 {
+		hostType = api.HOST_TYPE_BAREMETAL
+		data.Set("host_type", jsonutils.NewString(hostType))
+	}
+	if hostType == api.HOST_TYPE_BAREMETAL {
+		data.Set("is_baremetal", jsonutils.JSONTrue)
+	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := inputUniquenessCheck(data, self.ZoneId, self.Id)
+	data, err := HostManager.inputUniquenessCheck(data, self.ZoneId, self.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -2588,8 +2726,18 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	}
 	if ipmiInfo.Length() > 0 {
 		ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
-		if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
-			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+		if len(ipmiIpAddr) > 0 {
+			net, _ := NetworkManager.GetOnPremiseNetworkOfIP(ipmiIpAddr, "", tristate.None)
+			if net == nil {
+				return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+			}
+			zoneObj := net.getZone()
+			if zoneObj == nil {
+				return nil, httperrors.NewInputParameterError("IPMI network has not zone???")
+			}
+			if zoneObj.GetId() != self.ZoneId {
+				return nil, httperrors.NewInputParameterError("New IPMI address located in another zone!")
+			}
 		}
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
@@ -2986,6 +3134,32 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 	}
 }
 
+func (self *SHost) AllowPerformIpmiProbe(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "ipmi-probe")
+}
+
+func (self *SHost) PerformIpmiProbe(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+		return nil, self.StartIpmiProbeTask(ctx, userCred, "")
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do Ipmi-probe in status %s", self.Status)
+}
+
+func (self *SHost) StartIpmiProbeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	self.SetStatus(userCred, api.BAREMETAL_START_PROBE, "start ipmi-probe task")
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalIpmiProbeTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
+}
+
 func (self *SHost) AllowPerformInitialize(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject,
@@ -3226,6 +3400,12 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			}
 		}
 	}
+	if netif.NicType == api.NIC_TYPE_ADMIN {
+		err := self.setAccessMac(userCred, netif.Mac)
+		if err != nil {
+			return httperrors.NewBadRequestError(err.Error())
+		}
+	}
 	if len(ipAddr) > 0 {
 		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
 		if err != nil {
@@ -3322,7 +3502,17 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	} else if net.WireId != wire.Id {
 		return fmt.Errorf("conflict??? candiate net is not on wire")
 	}
-	return self.Attach2Network(ctx, userCred, netif, net, ipAddr, allocDir, reserve, requireDesignatedIp)
+	err = self.Attach2Network(ctx, userCred, netif, net, ipAddr, allocDir, reserve, requireDesignatedIp)
+	if err != nil {
+		return errors.Wrap(err, "self.Attach2Network")
+	}
+	switch netif.NicType {
+	case api.NIC_TYPE_IPMI:
+		err = self.setIpmiIp(userCred, ipAddr)
+	case api.NIC_TYPE_ADMIN:
+		err = self.setAccessIp(userCred, ipAddr)
+	}
+	return err
 }
 
 func (self *SHost) AllowPerformDisableNetif(ctx context.Context,
@@ -3348,19 +3538,31 @@ func (self *SHost) PerformDisableNetif(ctx context.Context, userCred mcclient.To
 
 func (self *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, reserve bool) error {
 	bn := netif.GetBaremetalNetwork()
+	var ipAddr string
 	if bn != nil {
+		ipAddr = bn.IpAddr
 		self.UpdateDnsRecord(netif, false)
 		self.DeleteBaremetalnetwork(ctx, userCred, bn, reserve)
 	}
-	return nil
+	var err error
+	switch netif.NicType {
+	case api.NIC_TYPE_IPMI:
+		if ipAddr == self.IpmiIp {
+			err = self.setIpmiIp(userCred, "")
+		}
+	case api.NIC_TYPE_ADMIN:
+		if ipAddr == self.AccessIp {
+			err = self.setAccessIp(userCred, "")
+		}
+	}
+	return err
 }
 
 func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, net *SNetwork, ipAddr, allocDir string, reserved, requireDesignatedIp bool) error {
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 
-	usedAddr := net.GetUsedAddresses()
-	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddr, nil, ipAddr, IPAddlocationDirection(allocDir), reserved)
+	freeIp, err := net.GetFreeIP(ctx, userCred, nil, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved)
 	if err != nil {
 		log.Errorf("attach2network: %s", err)
 		return err
@@ -3407,19 +3609,25 @@ func (self *SHost) PerformRemoveNetif(ctx context.Context, userCred mcclient.Tok
 func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, reserve bool) error {
 	wire := netif.GetWire()
 	self.DisableNetif(ctx, userCred, netif, reserve)
-	log.Infof("Remove wire")
+	nicType := netif.NicType
+	mac := netif.Mac
 	err := netif.Remove(ctx, userCred)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "netif.Remove")
+	}
+	if nicType == api.NIC_TYPE_ADMIN && self.AccessMac == mac {
+		err := self.setAccessMac(userCred, "")
+		if err != nil {
+			return errors.Wrap(err, "self.setAccessMac")
+		}
 	}
 	if wire != nil {
-		log.Infof("Remove wire")
 		others := self.GetNetifsOnWire(wire)
 		if len(others) == 0 {
 			hw, _ := HostwireManager.FetchByHostIdAndMac(self.Id, netif.Mac)
 			if hw != nil {
 				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
-				log.Infof("Detach host wire because of remove netif %s", netif.Mac)
+				log.Debugf("Detach host wire because of remove netif %s", netif.Mac)
 				return hw.Delete(ctx, userCred)
 			}
 		}
@@ -4166,4 +4374,101 @@ func (host *SHost) InstanceGroups() ([]SGroup, map[string]int, error) {
 		return nil, nil, err
 	}
 	return groups, groupSet, nil
+}
+
+func (host *SHost) setIpmiIp(userCred mcclient.TokenCredential, ipAddr string) error {
+	if host.IpmiIp == ipAddr {
+		return nil
+	}
+	diff, err := db.Update(host, func() error {
+		host.IpmiIp = ipAddr
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
+	}
+	db.OpsLog.LogEvent(host, db.ACT_UPDATE, diff, userCred)
+	return nil
+}
+
+func (host *SHost) setAccessIp(userCred mcclient.TokenCredential, ipAddr string) error {
+	if host.AccessIp == ipAddr {
+		return nil
+	}
+	diff, err := db.Update(host, func() error {
+		host.AccessIp = ipAddr
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
+	}
+	db.OpsLog.LogEvent(host, db.ACT_UPDATE, diff, userCred)
+	return nil
+}
+
+func (host *SHost) setAccessMac(userCred mcclient.TokenCredential, mac string) error {
+	mac = netutils.FormatMacAddr(mac)
+	if host.AccessMac == mac {
+		return nil
+	}
+	diff, err := db.Update(host, func() error {
+		host.AccessMac = mac
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
+	}
+	db.OpsLog.LogEvent(host, db.ACT_UPDATE, diff, userCred)
+	return nil
+}
+
+func (host *SHost) GetIpmiInfo() (types.SIPMIInfo, error) {
+	info := types.SIPMIInfo{}
+	if host.IpmiInfo != nil {
+		err := host.IpmiInfo.Unmarshal(&info)
+		if err != nil {
+			return info, errors.Wrap(err, "host.IpmiInfo.Unmarshal")
+		}
+	}
+	return info, nil
+}
+
+func (self *SHost) AllowGetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, self, "jnlp")
+}
+
+func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ipmi, err := self.GetIpmiInfo()
+	if err != nil {
+		return nil, httperrors.NewInvalidStatusError("no valid ipmi_info")
+	}
+	if !ipmi.Verified {
+		return nil, httperrors.NewInvalidStatusError("no veried ipmi_info")
+	}
+	if self.SysInfo == nil {
+		return nil, httperrors.NewInvalidStatusError("no valid sys_info")
+	}
+	ipmiPass, err := utils.DescryptAESBase64(self.Id, ipmi.Password)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("decrypt ipmi password fail: %s", err)
+	}
+	bmc := bmconsole.NewBMCConsole(ipmi.IpAddr, ipmi.Username, ipmiPass, false)
+	manufacture, _ := self.SysInfo.GetString("manufacture")
+	var jnlp string
+	switch strings.ToLower(manufacture) {
+	case "hp", "hpe":
+		jnlp, err = bmc.GetIloConsoleJNLP(ctx)
+	case "dell":
+		sku, _ := self.SysInfo.GetString("sku")
+		model, _ := self.SysInfo.GetString("model")
+		jnlp, err = bmc.GetIdracConsoleJNLP(ctx, sku, model)
+	default:
+		return nil, httperrors.NewNotImplementedError("Unsupported manufacture %s", manufacture)
+	}
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(jnlp), "jnlp")
+	return ret, nil
 }
