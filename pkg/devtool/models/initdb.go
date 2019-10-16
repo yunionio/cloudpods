@@ -24,6 +24,7 @@ func InitDB() error {
 	for _, manager := range []db.IModelManager{
 		CronjobManager,
 		// TemplateManager,
+>>>>>>> eaadd0c138cb153372c208d247ad01c95e20bfeb
 	} {
 		err := manager.InitializeData()
 		if err != nil {
