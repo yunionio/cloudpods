@@ -45,7 +45,7 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	host := guest.GetHost()
 	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && host != nil && host.HostType != api.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
-		self.OnGuestStopComplete(ctx, obj, data)
+		self.OnGuestStopComplete(ctx, guest, data)
 		return
 	}
 	if len(guest.BackupHostId) > 0 {
@@ -77,9 +77,29 @@ func (self *GuestDeleteTask) OnMasterHostStopGuestCompleteFailed(ctx context.Con
 	self.OnGuestStopComplete(ctx, guest, nil) // ignore stop error
 }
 
-func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestDeleteTask) StartDeleteGuestSnapshots(ctx context.Context, guest *models.SGuest) {
+	guest.StartDeleteGuestSnapshots(ctx, self.UserCred, self.GetTaskId())
+}
 
+func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(self.Params, "delete_snapshots", false) {
+		self.SetStage("OnStartEipDissociate", nil)
+		guest.StartDeleteGuestSnapshots(ctx, self.UserCred, self.Id)
+		return
+	}
+	self.OnStartEipDissociate(ctx, guest, data)
+}
+
+func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
+	self.OnGuestStopComplete(ctx, guest, err) // ignore stop error
+}
+
+func (self *GuestDeleteTask) OnStartEipDissociateFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	log.Errorf("Delete guest snapshots faield: %s", data)
+	self.OnStartEipDissociate(ctx, guest, nil)
+}
+
+func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	eip, _ := guest.GetEip()
 	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
@@ -92,12 +112,8 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 			eip.StartEipDissociateTask(ctx, self.UserCred, false, self.GetTaskId())
 		}
 	} else {
-		self.OnEipDissociateComplete(ctx, obj, nil)
+		self.OnEipDissociateComplete(ctx, guest, nil)
 	}
-}
-
-func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	self.OnGuestStopComplete(ctx, obj, err) // ignore stop error
 }
 
 func (self *GuestDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
@@ -117,12 +133,15 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 
 	guestdisks := guest.GetDisks()
 	if len(guestdisks) == 0 {
+		// on guest disks detached
 		self.doClearSecurityGroupComplete(ctx, guest)
 		return
 	}
-	lastDisk := guestdisks[len(guestdisks)-1].GetDisk() // remove last detachable disk
+	// detach last detachable disk
+	lastDisk := guestdisks[len(guestdisks)-1].GetDisk()
 	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
 	if !lastDisk.IsDetachable() {
+		// no more disk need detach
 		self.doClearSecurityGroupComplete(ctx, guest)
 		return
 	}
@@ -238,7 +257,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 	} else if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
-		self.SetStage("on_guest_delete_complete", nil)
+		self.SetStage("OnGuestDeleteComplete", nil)
 		guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), "")
 	}
 }

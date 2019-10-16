@@ -190,7 +190,7 @@ func (self *SVirtualizedGuestDriver) StartGuestResetTask(guest *models.SGuest, c
 
 func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
 	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge,
-		jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false))
+		jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false), false)
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {

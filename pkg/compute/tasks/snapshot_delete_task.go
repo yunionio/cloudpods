@@ -30,6 +30,8 @@ import (
 func init() {
 	taskman.RegisterTask(SnapshotDeleteTask{})
 	taskman.RegisterTask(BatchSnapshotsDeleteTask{})
+	taskman.RegisterTask(GuestDeleteSnapshotsTask{})
+	taskman.RegisterTask(DiskDeleteSnapshotsTask{})
 }
 
 /***************************** Snapshot Delete Task *****************************/
@@ -188,4 +190,106 @@ func (self *BatchSnapshotsDeleteTask) OnStorageDeleteSnapshot(ctx context.Contex
 		snapshots[i].RealDelete(ctx, self.UserCred)
 	}
 	self.SetStageComplete(ctx, nil)
+}
+
+type GuestDeleteSnapshotsTask struct {
+	taskman.STask
+}
+
+func (self *GuestDeleteSnapshotsTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	instanceSnapshots, _ := guest.GetInstanceSnapshots()
+	self.StartDeleteInstanceSnapshots(ctx, guest, instanceSnapshots)
+}
+
+func (self *GuestDeleteSnapshotsTask) StartDeleteInstanceSnapshots(
+	ctx context.Context, guest *models.SGuest, instanceSnapshots []models.SInstanceSnapshot) {
+	if len(instanceSnapshots) > 0 {
+		instanceSnapshot := instanceSnapshots[0]
+		instanceSnapshots := instanceSnapshots[1:]
+		self.Params.Set("instance_snapshots", jsonutils.Marshal(instanceSnapshots))
+		self.SetStage("OnInstanceSnapshotDelete", nil)
+		instanceSnapshot.SetModelManager(models.InstanceSnapshotManager, &instanceSnapshot)
+		instanceSnapshot.StartInstanceSnapshotDeleteTask(ctx, self.UserCred, self.Id)
+		return
+	}
+	snapshots, _ := guest.GetDiskSnapshotsNotInInstanceSnapshots()
+	self.StartDeleteDiskSnapshots(ctx, guest, snapshots)
+}
+
+func (self *GuestDeleteSnapshotsTask) OnInstanceSnapshotDelete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	instanceSnapshots := make([]models.SInstanceSnapshot, 0)
+	self.Params.Unmarshal(&instanceSnapshots, "instance_snapshots")
+	self.StartDeleteInstanceSnapshots(ctx, guest, instanceSnapshots)
+}
+
+func (self *GuestDeleteSnapshotsTask) OnInstanceSnapshotDeleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	log.Errorln(data.String())
+	instanceSnapshots := make([]models.SInstanceSnapshot, 0)
+	self.Params.Unmarshal(&instanceSnapshots, "instance_snapshots")
+	self.StartDeleteInstanceSnapshots(ctx, guest, instanceSnapshots)
+}
+
+func (self *GuestDeleteSnapshotsTask) StartDeleteDiskSnapshots(
+	ctx context.Context, guest *models.SGuest, snapshots []models.SSnapshot) {
+	if len(snapshots) > 0 {
+		snapshot := snapshots[0]
+		snapshots := snapshots[1:]
+		self.Params.Set("snapshots", jsonutils.Marshal(snapshots))
+		self.SetStage("OnSnapshotDelete", nil)
+		snapshot.SetModelManager(models.SnapshotManager, &snapshot)
+		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
+		return
+	}
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeleteSnapshotsTask) OnSnapshotDelete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	snapshots := make([]models.SSnapshot, 0)
+	self.Params.Unmarshal(&snapshots, "snapshots")
+	self.StartDeleteDiskSnapshots(ctx, guest, snapshots)
+}
+
+func (self *GuestDeleteSnapshotsTask) OnSnapshotDeleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	log.Errorln(data.String())
+	snapshots := make([]models.SSnapshot, 0)
+	self.Params.Unmarshal(&snapshots, "snapshots")
+	self.StartDeleteDiskSnapshots(ctx, guest, snapshots)
+}
+
+type DiskDeleteSnapshotsTask struct {
+	taskman.STask
+}
+
+func (self *DiskDeleteSnapshotsTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	disk := obj.(*models.SDisk)
+	snapshots, _ := disk.GetSnapshotsNotInInstanceSnapshot()
+	self.StartDeleteDiskSnapshots(ctx, disk, snapshots)
+}
+
+func (self *DiskDeleteSnapshotsTask) StartDeleteDiskSnapshots(
+	ctx context.Context, disk *models.SDisk, snapshots []models.SSnapshot) {
+	if len(snapshots) > 0 {
+		snapshot := snapshots[0]
+		snapshots := snapshots[1:]
+		self.Params.Set("snapshots", jsonutils.Marshal(snapshots))
+		self.SetStage("OnSnapshotDelete", nil)
+		snapshot.SetModelManager(models.SnapshotManager, &snapshot)
+		snapshot.StartSnapshotDeleteTask(ctx, self.UserCred, false, self.Id)
+		return
+	}
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DiskDeleteSnapshotsTask) OnSnapshotDelete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	snapshots := make([]models.SSnapshot, 0)
+	self.Params.Unmarshal(&snapshots, "snapshots")
+	self.StartDeleteDiskSnapshots(ctx, disk, snapshots)
+}
+
+func (self *DiskDeleteSnapshotsTask) OnSnapshotDeleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	log.Errorln(data.String())
+	snapshots := make([]models.SSnapshot, 0)
+	self.Params.Unmarshal(&snapshots, "snapshots")
+	self.StartDeleteDiskSnapshots(ctx, disk, snapshots)
 }
