@@ -468,11 +468,12 @@ func sendWithoutUserCred(notifications []SNotification) {
 	wg.Wait()
 }
 
-func ReSend(minutes int) {
-	scope := time.Duration(minutes) * time.Minute
+func ReSend(seconds int) {
+	scope := time.Duration(seconds) * time.Second
 	notifications, err := NotificationManager.FetchNotOK(time.Now().Add(-scope))
 	if err != nil {
 		return
 	}
+	log.Debugf("Start to resend message with a total of %d", len(notifications))
 	sendWithoutUserCred(notifications)
 }

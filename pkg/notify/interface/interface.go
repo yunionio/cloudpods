@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 )
 
 type INotifyService interface {
@@ -32,6 +33,10 @@ type INotifyService interface {
 type IServiceConfigStore interface {
 	GetConfig(serviceName string) (SConfig, error)
 	SetConfig(serviceName string, config SConfig) error
+}
+
+type ITemplateStore interface {
+	NotifyFilter(contactType, topic, msg string) (params apis.SendParams, err error)
 }
 
 type SConfig map[string]string

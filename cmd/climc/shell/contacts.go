@@ -167,17 +167,10 @@ func init() {
 	}
 	R(&ContactsVerifyOptions{}, "contact-verify-trigger", "Trigger contact verify", func(s *mcclient.ClientSession, args *ContactsVerifyOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.CONTACT_TYPE), "contact_type")
-		params.Add(jsonutils.NewString(args.CONTACT), "contact")
-		/*
-		   if len(args.Email) > 0 {
-		       params.Add(jsonutils.NewString(args.Email), "email")
-		   }
-		   if len(args.Mobile) > 0 {
-		       params.Add(jsonutils.NewString(args.Mobile), "mobile")
-		   }
-		*/
-
+		tmpDict := jsonutils.NewDict()
+		tmpDict.Add(jsonutils.NewString(args.CONTACT_TYPE), "contact_type")
+		tmpDict.Add(jsonutils.NewString(args.CONTACT), "contact")
+		params.Add(tmpDict, "contact")
 		_, err := modules.Contacts.PerformAction(s, args.UID, "verify", params)
 		if err != nil {
 			return err

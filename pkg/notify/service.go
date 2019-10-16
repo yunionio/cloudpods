@@ -43,6 +43,9 @@ func StartService() {
 	baseOpts := &options.Options.BaseOptions
 	common_options.ParseOptions(opts, os.Args, "notify.conf", "notify")
 
+	// init email url
+	models.TemplateManager.SetEmailUrl(options.Options.VerifyEmailUrl)
+
 	// init auth
 	app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!")
@@ -60,7 +63,7 @@ func StartService() {
 	cache.RegistUserCredCacheUpdater()
 
 	// init notify service
-	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager)
+	models.NotifyService = rpc.NewSRpcService(opts.SocketFileDir, models.ConfigManager, models.TemplateManager)
 	models.NotifyService.InitAll()
 	defer models.NotifyService.StopAll()
 
@@ -72,7 +75,8 @@ func StartService() {
 	resend := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 		models.ReSend(opts.ReSendScope)
 	}
-	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Minute, resend)
+	cron.AddJobAtIntervals("ReSendNotifications", time.Duration(opts.ReSendScope)*time.Second, resend)
+	cron.Start()
 
 	app.ServeForever(applicaion, baseOpts)
 }
