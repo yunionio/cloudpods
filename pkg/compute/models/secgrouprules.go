@@ -16,13 +16,13 @@ package models
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"net"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
@@ -58,12 +58,12 @@ type SSecurityGroupRule struct {
 	db.SResourceBase
 	Id          string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Priority    int64  `default:"1" list:"user" update:"user" list:"user"`
-	Protocol    string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user"`
-	Ports       string `width:"256" charset:"ascii" list:"user" update:"user"`
+	Protocol    string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	Ports       string `width:"256" charset:"ascii" list:"user" update:"user" create:"optional"`
 	Direction   string `width:"3" charset:"ascii" list:"user" create:"required"`
-	CIDR        string `width:"256" charset:"ascii" list:"user" update:"user"`
+	CIDR        string `width:"256" charset:"ascii" list:"user" update:"user" create:"required"`
 	Action      string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Description string `width:"256" charset:"utf8" list:"user" update:"user"`
+	Description string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
 	SecgroupID  string `width:"128" charset:"ascii" create:"required"`
 }
 
@@ -149,9 +149,15 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 }
 
 func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	priorityV := validators.NewRangeValidator("priority", 1, 100)
+	priorityV.Optional(true)
+	err := priorityV.Validate(data)
+	if err != nil {
+		return nil, err
+	}
 
 	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
-	err := secgroupV.Validate(data)
+	err = secgroupV.Validate(data)
 	if err != nil {
 		return nil, err
 	}
@@ -175,126 +181,70 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 }
 
 func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _priority, _ := data.GetString("priority"); len(_priority) > 0 {
-		if priority, err := strconv.Atoi(_priority); err != nil {
-			return nil, httperrors.NewInputParameterError("UnSupport priority %s, only support 1-100", err.Error())
-		} else {
-			if priority < 1 || priority > 100 {
-				return nil, httperrors.NewInputParameterError("UnSupport priority range, only support 1-100")
-			}
-		}
-	}
-	var fields []string
-	for _, field := range []string{"direction", "action", "cidr", "protocol", "ports"} {
-		if key, _ := data.GetString(field); len(key) > 0 {
-			if field == "direction" {
-				key += ":"
-			}
-			fields = append(fields, key)
-		} else {
-			switch field {
-			case "direction":
-				fields = append(fields, self.Direction+":")
-			case "action":
-				fields = append(fields, self.Action)
-			case "cidr":
-				if len(self.CIDR) > 0 {
-					fields = append(fields, self.CIDR)
-				}
-			case "protocol":
-				protocol := self.Protocol
-				if protocol == "" {
-					protocol = secrules.PROTO_ANY
-				}
-				fields = append(fields, protocol)
-			case "ports":
-				if len(self.Ports) > 0 {
-					fields = append(fields, self.Ports)
-				}
-			}
-		}
-	}
-	if _, err := secrules.ParseSecurityRule(strings.Join(fields, " ")); err != nil {
+	priorityV := validators.NewRangeValidator("priority", 1, 100)
+	priorityV.Optional(true)
+	err := priorityV.Validate(data)
+	if err != nil {
 		return nil, err
 	}
+
+	input := &api.SSecgroupRuleCreateInput{
+		Direction: self.Direction,
+		Action:    self.Action,
+		CIDR:      self.CIDR,
+		Protocol:  self.Protocol,
+		Ports:     self.Ports,
+	}
+
+	err = jsonutils.Update(input, data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = input.Check()
+	if err != nil {
+		return nil, err
+	}
+
 	return self.SResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (self *SSecurityGroupRule) String() string {
-	var fields []string
-	for _, field := range []string{"direction", "action", "cidr", "protocol", "ports"} {
-		switch field {
-		case "direction":
-			if len(self.Direction) == 0 {
-				self.Direction = "in"
-			}
-			fields = append(fields, self.Direction+":")
-		case "action":
-			fields = append(fields, self.Action)
-		case "cidr":
-			if len(self.CIDR) > 0 && self.CIDR != "0.0.0.0/0" {
-				fields = append(fields, self.CIDR)
-			}
-		case "protocol":
-			protocol := self.Protocol
-			if protocol == "" {
-				protocol = secrules.PROTO_ANY
-			}
-			fields = append(fields, protocol)
-		case "ports":
-			if len(self.Ports) > 0 {
-				fields = append(fields, self.Ports)
-			}
-		}
+	rule, err := self.toRule()
+	if err != nil {
+		return ""
 	}
-	return fields[0] + strings.Join(fields[1:], " ")
+	return rule.String()
 }
 
 func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
-	rule, err := secrules.ParseSecurityRule(self.String())
+	rule := secrules.SecurityRule{
+		Priority:    int(self.Priority),
+		Direction:   secrules.TSecurityRuleDirection(self.Direction),
+		Action:      secrules.TSecurityRuleAction(self.Action),
+		Protocol:    self.Protocol,
+		Description: self.Description,
+	}
+	if regutils.MatchCIDR(self.CIDR) {
+		_, rule.IPNet, _ = net.ParseCIDR(self.CIDR)
+	} else if regutils.MatchIPAddr(self.CIDR) {
+		rule.IPNet = &net.IPNet{
+			IP:   net.ParseIP(self.CIDR),
+			Mask: net.CIDRMask(32, 32),
+		}
+	} else {
+		rule.IPNet = &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 32),
+		}
+	}
+
+	err := rule.ParsePorts(self.Ports)
 	if err != nil {
 		return nil, err
 	}
-	rule.Description = self.Description
-	rule.Priority = int(self.Priority)
-	return rule, nil
-}
 
-func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
-	rules := make([]secrules.SecurityRule, 0)
-	ruleStr := self.String()
-	if rule, err := secrules.ParseSecurityRule(ruleStr); err != nil {
-		return nil, err
-	} else if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			_rule := secrules.SecurityRule{
-				Priority:    int(self.Priority),
-				Action:      rule.Action,
-				IPNet:       rule.IPNet,
-				Protocol:    rule.Protocol,
-				Direction:   rule.Direction,
-				PortStart:   -1,
-				PortEnd:     -1,
-				Ports:       []int{port},
-				Description: self.Description,
-			}
-			rules = append(rules, _rule)
-		}
-	} else {
-		_rule := secrules.SecurityRule{
-			Priority:    int(self.Priority),
-			Action:      rule.Action,
-			IPNet:       rule.IPNet,
-			Protocol:    rule.Protocol,
-			Direction:   rule.Direction,
-			PortStart:   rule.PortStart,
-			PortEnd:     rule.PortEnd,
-			Ports:       []int{},
-			Description: self.Description,
-		}
-		rules = append(rules, _rule)
-	}
-	return rules, nil
+	return &rule, rule.ValidateRule()
 }
 
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -362,25 +312,12 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 	secrule := &SSecurityGroupRule{
 		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
-		Ports:       "",
+		Ports:       rule.GetPortsString(),
 		Direction:   string(rule.Direction),
 		CIDR:        cidr,
 		Action:      string(rule.Action),
 		Description: rule.Description,
 		SecgroupID:  secgroup.Id,
-	}
-
-	if len(rule.Ports) > 0 {
-		_ports := []string{}
-		for _, port := range rule.Ports {
-			_ports = append(_ports, fmt.Sprintf("%d", port))
-		}
-		secrule.Ports = strings.Join(_ports, ",")
-	} else if rule.PortStart > 0 && rule.PortEnd > 0 {
-		secrule.Ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
-		if rule.PortStart == rule.PortEnd {
-			secrule.Ports = fmt.Sprintf("%d", rule.PortStart)
-		}
 	}
 
 	err := manager.TableSpec().Insert(secrule)
