@@ -76,11 +76,12 @@ func GetNicDHCPConfig(
 		case 6:
 			conf.BootFile = "bootia32.efi"
 		default:
-			bootFile := "pxelinux.0"
-			if o.Options.EnableTftpHttpDownload {
-				bootFile = "lpxelinux.0"
-			}
-			conf.BootFile = bootFile
+			//if o.Options.EnableTftpHttpDownload {
+			// bootFile = "lpxelinux.0"
+			//}else {
+			// bootFile := "pxelinux.0"
+			//}
+			conf.BootFile = "lpxelinux.0"
 		}
 		pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
 		if f, err := os.Open(pxePath); err != nil {

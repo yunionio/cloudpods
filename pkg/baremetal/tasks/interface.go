@@ -28,6 +28,7 @@ import (
 type IBaremetal interface {
 	GetId() string
 	GetZoneId() string
+	GetStorageCacheId() string
 	GetTaskQueue() *TaskQueue
 	GetSSHConfig() (*types.SSHConfig, error)
 	TestSSHConfig() bool
@@ -51,6 +52,13 @@ type IBaremetal interface {
 	DoPowerShutdown(soft bool) error
 	DoPXEBoot() error
 	// DoDiskBoot() error
+
+	DoRedfishPowerOn() error
+	GetAccessIp() string
+	EnablePxeBoot() bool
+	GenerateBootISO() error
+	SendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string, reserve bool) error
+	DoNTPConfig() error
 
 	RemoveServer()
 	InitializeServer(name string) error

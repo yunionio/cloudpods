@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -79,9 +80,9 @@ func (ln *SLoadbalancerNetwork) Network() *SNetwork {
 type SLoadbalancerNetworkRequestData struct {
 	Loadbalancer *SLoadbalancer
 	NetworkId    string
-	reserved     bool                   // allocate from reserved
-	Address      string                 // the address user intends to use
-	strategy     IPAddlocationDirection // allocate bottom up, top down, randomly
+	reserved     bool                      // allocate from reserved
+	Address      string                    // the address user intends to use
+	strategy     api.IPAllocationDirection // allocate bottom up, top down, randomly
 }
 
 type SLoadbalancerNetworkDeleteData struct {

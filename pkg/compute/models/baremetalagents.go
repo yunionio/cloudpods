@@ -44,6 +44,8 @@ type SBaremetalagent struct {
 	AgentType string `width:"32" charset:"ascii" nullable:"true" default:"baremetal" list:"admin" update:"admin" create:"admin_optional"`
 
 	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
+
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"admin_optional"`
 }
 
 var BaremetalagentManager *SBaremetalagentManager
@@ -81,6 +83,13 @@ func (self *SBaremetalagent) AllowDeleteItem(ctx context.Context, userCred mccli
 func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Status == api.BAREMETAL_AGENT_ENABLED {
 		return fmt.Errorf("Cannot delete in status %s", self.Status)
+	}
+	storageCache, _ := self.getStorageCache()
+	if storageCache != nil {
+		err := storageCache.ValidateDeleteCondition(ctx)
+		if err != nil {
+			return fmt.Errorf("storagecache cannot be delete: %s", err)
+		}
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -210,4 +219,38 @@ func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId
 		}
 	}
 	return &agents[0]
+}
+
+func (cache *SBaremetalagent) getStorageCache() (*SStoragecache, error) {
+	if len(cache.StoragecacheId) > 0 {
+		cacheObj, err := StoragecacheManager.FetchById(cache.StoragecacheId)
+		if err != nil {
+			return nil, err
+		}
+		return cacheObj.(*SStoragecache), nil
+	}
+	return nil, nil
+}
+
+func (agent *SBaremetalagent) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := agent.SStandaloneResourceBase.CustomizeDelete(ctx, userCred, query, data)
+	if err != nil {
+		return err
+	}
+	cache, _ := agent.getStorageCache()
+	if cache != nil {
+		err = cache.Delete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (agent *SBaremetalagent) setStoragecacheId(cacheId string) error {
+	_, err := db.Update(agent, func() error {
+		agent.StoragecacheId = cacheId
+		return nil
+	})
+	return err
 }

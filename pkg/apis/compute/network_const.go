@@ -56,3 +56,13 @@ var (
 		CLOUD_PROVIDER_UCLOUD,
 	}
 )
+
+type IPAllocationDirection string
+
+const (
+	IPAllocationStepdown IPAllocationDirection = "stepdown"
+	IPAllocationStepup   IPAllocationDirection = "stepup"
+	IPAllocationRadnom   IPAllocationDirection = "random"
+	IPAllocationNone     IPAllocationDirection = "none"
+	IPAllocationDefault                        = ""
+)

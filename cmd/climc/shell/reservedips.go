@@ -24,14 +24,18 @@ import (
 
 func init() {
 	type NetworkReserveIPOptions struct {
-		NETWORK string   `help:"IP or name of network"`
-		NOTES   string   `help:"Why reserve this IP"`
-		IPS     []string `help:"IPs to reserve"`
+		NETWORK  string   `help:"IP or name of network"`
+		NOTES    string   `help:"Why reserve this IP"`
+		IPS      []string `help:"IPs to reserve"`
+		Duration string   `help:"reservation duration, e.g. 1I, 1H, 2M"`
 	}
 	R(&NetworkReserveIPOptions{}, "network-reserve-ip", "Reserve an IP address from pool", func(s *mcclient.ClientSession, args *NetworkReserveIPOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewStringArray(args.IPS), "ips")
 		params.Add(jsonutils.NewString(args.NOTES), "notes")
+		if len(args.Duration) > 0 {
+			params.Add(jsonutils.NewString(args.Duration), "duration")
+		}
 		net, err := modules.Networks.PerformAction(s, args.NETWORK, "reserve-ip", params)
 		if err != nil {
 			return err
@@ -58,6 +62,7 @@ func init() {
 	type ReservedIPListOptions struct {
 		options.BaseListOptions
 		Network string `help:"Network filter"`
+		All     bool   `help:"show expired reserved ips"`
 	}
 	R(&ReservedIPListOptions{}, "reserved-ip-list", "Show all reserved IPs for any network", func(s *mcclient.ClientSession, args *ReservedIPListOptions) error {
 		var params *jsonutils.JSONDict
@@ -71,6 +76,9 @@ func init() {
 		}
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network")
+		}
+		if args.All {
+			params.Add(jsonutils.JSONTrue, "all")
 		}
 		result, err := modules.ReservedIPs.List(s, params)
 		if err != nil {

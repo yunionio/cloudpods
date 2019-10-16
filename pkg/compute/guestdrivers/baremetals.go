@@ -120,7 +120,7 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 	return httperrors.NewUnsupportOperationError("Cannot resize disk for baremtal")
 }
 
-func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
+func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection) {
 	netifs, net := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netifs != nil {
 		nicCnt := 1
@@ -142,7 +142,7 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 			}
 			nicConfs = append(nicConfs, nicConf)
 		}
-		return net, nicConfs, models.IPAllocationStepup
+		return net, nicConfs, api.IPAllocationStepup
 	}
 	return net, nil, ""
 }
@@ -214,7 +214,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 			}
 			nicConfs = append(nicConfs, nicConf)
 		}
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, models.IPAllocationStepup, false, nicConfs)
+		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, api.IPAllocationStepup, false, nicConfs)
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")
 }
@@ -237,8 +237,24 @@ func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	task.ScheduleRun(nil) // skip
-	return nil
+	diskCat := guest.CategorizeDisks()
+	var imageId string
+	if diskCat.Root != nil {
+		imageId = diskCat.Root.GetTemplateId()
+	}
+	if len(imageId) == 0 {
+		task.ScheduleRun(nil)
+		return nil
+	}
+	storage := diskCat.Root.GetStorage()
+	if storage == nil {
+		return fmt.Errorf("no valid storage")
+	}
+	storageCache := storage.GetStoragecache()
+	if storageCache == nil {
+		return fmt.Errorf("no valid storage cache")
+	}
+	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {

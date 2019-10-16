@@ -78,13 +78,26 @@ func authMiddleware(h handlerFunc) appsrv.FilterHandler {
 type bmObjHandlerFunc func(ctx *Context, bm *baremetal.SBaremetalInstance)
 
 func bmObjMiddleware(h bmObjHandlerFunc) appsrv.FilterHandler {
+	return bmObjMiddlewareWithFetch(h, true)
+}
+
+func bmObjMiddlewareWithFetch(h bmObjHandlerFunc, fetch bool) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		newCtx := NewContext(ctx, w, r)
 		bmId := newCtx.Params()[PARAMS_BMID_KEY]
 		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
 		if baremetal == nil {
-			newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
-			return
+			if fetch {
+				err := newCtx.GetBaremetalManager().InitBaremetal(bmId, false)
+				if err != nil {
+					newCtx.ResponseError(err)
+					return
+				}
+				baremetal = newCtx.GetBaremetalManager().GetBaremetalById(bmId)
+			} else {
+				newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
+				return
+			}
 		}
 		h(newCtx, baremetal)
 	}

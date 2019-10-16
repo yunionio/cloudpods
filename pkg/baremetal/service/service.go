@@ -15,12 +15,12 @@
 package service
 
 import (
-	"fmt"
-	"net/http"
 	"os"
+	"path/filepath"
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/baremetal/handler"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
@@ -29,6 +29,8 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+
+	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
 )
 
 type BaremetalService struct {
@@ -41,13 +43,29 @@ func New() *BaremetalService {
 
 func (s *BaremetalService) StartService() {
 	common_options.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
-	app_common.InitAuth(&o.Options.CommonOptions, s.startAgent)
+
+	if len(o.Options.CachePath) == 0 {
+		o.Options.CachePath = filepath.Join(filepath.Dir(o.Options.BaremetalsPath), "bm_image_cache")
+		log.Infof("No cachepath, use default %s", o.Options.CachePath)
+	}
+	if len(o.Options.BootIsoPath) == 0 {
+		o.Options.BootIsoPath = filepath.Join(filepath.Dir(o.Options.BaremetalsPath), "bm_boot_iso")
+		log.Infof("No BootIsoPath, use default %s", o.Options.BootIsoPath)
+		err := os.MkdirAll(o.Options.BootIsoPath, os.FileMode(0760))
+		if err != nil {
+			log.Fatalf("fail to create BootIsoPath %s", o.Options.BootIsoPath)
+		}
+	}
+
+	app_common.InitAuth(&o.Options.CommonOptions, func() {
+		log.Infof("auth complete")
+	})
 
 	fsdriver.Init(nil)
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
 	handler.InitHandlers(app)
 
-	s.startFileServer()
+	s.startAgent(app)
 
 	app_common.ServeForeverWithCleanup(app, &o.Options.BaseOptions, func() {
 		tasks.OnStop()
@@ -55,21 +73,8 @@ func (s *BaremetalService) StartService() {
 	})
 }
 
-func (s *BaremetalService) startFileServer() {
-	if !o.Options.EnableTftpHttpDownload {
-		return
-	}
-	fs := http.FileServer(http.Dir(o.Options.TftpRoot))
-	http.Handle("/tftp/", http.StripPrefix("/tftp/", fs))
-	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf("%s:%d", o.Options.Address, o.Options.Port+1000), nil); err != nil {
-			panic(fmt.Sprintf("start http file server: %v", err))
-		}
-	}()
-}
-
-func (s *BaremetalService) startAgent() {
-	err := baremetal.Start()
+func (s *BaremetalService) startAgent(app *appsrv.Application) {
+	err := baremetal.Start(app)
 	if err != nil {
 		log.Fatalf("Start agent error: %v", err)
 	}

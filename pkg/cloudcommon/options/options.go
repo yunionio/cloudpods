@@ -70,6 +70,8 @@ type BaseOptions struct {
 
 	NonDefaultDomainProjects bool `help:"allow projects in non-default domains" default:"false"`
 
+	TimeZone string `help:"time zone" default:"Asia/Shanghai"`
+
 	structarg.BaseOptions
 }
 

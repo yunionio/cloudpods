@@ -35,10 +35,10 @@ type SRbdImageCacheManager struct {
 	storage      IStorage
 }
 
-func NewRbdImageCacheManager(manager *SStorageManager, cachePath string, storage IStorage, storagecacheId string) *SRbdImageCacheManager {
+func NewRbdImageCacheManager(manager IStorageManager, cachePath string, storage IStorage, storagecacheId string) *SRbdImageCacheManager {
 	imageCacheManager := new(SRbdImageCacheManager)
 
-	imageCacheManager.storagemanager = manager
+	imageCacheManager.storageManager = manager
 	imageCacheManager.storagecacaheId = storagecacheId
 	imageCacheManager.storage = storage
 

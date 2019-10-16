@@ -21,8 +21,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -46,13 +49,16 @@ type SZoneInfo struct {
 }
 
 type SBaseAgent struct {
-	virtual interface{}
+	object.SObject
 
 	ListenInterface *net.Interface
 	ListenIPs       []net.IP
 	AgentId         string
 	AgentName       string
 	Zone            *SZoneInfo
+
+	CachePath    string
+	CacheManager *storageman.SLocalImageCacheManager
 
 	stop bool
 }
@@ -74,10 +80,10 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 }
 
 func (agent *SBaseAgent) IAgent() IAgent {
-	return agent.virtual.(IAgent)
+	return agent.GetVirtualObject().(IAgent)
 }
 
-func (agent *SBaseAgent) Init(iagent IAgent, ifname string) error {
+func (agent *SBaseAgent) Init(iagent IAgent, ifname string, cachePath string) error {
 	iface, err := net.InterfaceByName(ifname)
 	if err != nil {
 		return err
@@ -101,9 +107,10 @@ func (agent *SBaseAgent) Init(iagent IAgent, ifname string) error {
 		return fmt.Errorf("Interface %s ip address not found", ifname)
 	}
 	log.Debugf("Interface %s ip address: %v", iface.Name, ips)
-	agent.virtual = iagent
+	agent.SetVirtualObject(iagent)
 	agent.ListenInterface = iface
 	agent.ListenIPs = ips
+	agent.CachePath = cachePath
 	return nil
 }
 
@@ -258,7 +265,7 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	} else {
 		cloudBmAgent := ret.Data[0]
 		agentId, _ := cloudBmAgent.GetString("id")
-		cloudObj, err = agent.updateBaremetalAgent(session, agentId)
+		cloudObj, err = agent.updateBaremetalAgent(session, agentId, "")
 		if err != nil {
 			return err
 		}
@@ -275,6 +282,25 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 
 	agent.AgentId = agentId
 	agent.AgentName = agentName
+
+	storageCacheId, _ := cloudObj.GetString("storagecache_id")
+	if len(storageCacheId) == 0 {
+		storageCacheId, err = agent.createStorageCache(session)
+		if err != nil {
+			return err
+		}
+		_, err = agent.updateBaremetalAgent(session, agentId, storageCacheId)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = agent.updateStorageCache(session, storageCacheId)
+		if err != nil {
+			return err
+		}
+	}
+	agent.CacheManager = storageman.NewLocalImageCacheManager(agent.IAgent(), agent.CachePath, storageCacheId)
+
 	return nil
 }
 
@@ -297,13 +323,17 @@ func (agent *SBaseAgent) GetListenUri() string {
 }
 
 func (agent *SBaseAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
-	accessIP, err := agent.IAgent().GetAccessIP()
-	if err != nil {
-		return nil, err
-	}
 	params := jsonutils.NewDict()
 	if agent.AgentId == "" {
-		params.Add(jsonutils.NewString(fmt.Sprintf("%s_%s", agent.IAgent().GetAgentType(), accessIP)), "name")
+		agentName, err := agent.getName()
+		if err != nil {
+			return nil, errors.Wrap(err, "agent.getName")
+		}
+		params.Add(jsonutils.NewString(agentName), "name")
+	}
+	accessIP, err := agent.IAgent().GetAccessIP()
+	if err != nil {
+		return nil, errors.Wrap(err, "agent.IAgent().GetAccessIP()")
 	}
 	params.Add(jsonutils.NewString(accessIP.String()), "access_ip")
 	params.Add(jsonutils.NewString(agent.GetManagerUri()), "manager_uri")
@@ -314,6 +344,45 @@ func (agent *SBaseAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
 	return params, nil
 }
 
+func (agent *SBaseAgent) getName() (string, error) {
+	accessIP, err := agent.IAgent().GetAccessIP()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s", agent.IAgent().GetAgentType(), accessIP), nil
+}
+
+func (agent *SBaseAgent) createStorageCache(session *mcclient.ClientSession) (string, error) {
+	body := jsonutils.NewDict()
+	agentName, err := agent.getName()
+	if err != nil {
+		return "", errors.Wrap(err, "agent.getName")
+	}
+	body.Set("name", jsonutils.NewString("imagecache-"+agentName))
+	body.Set("path", jsonutils.NewString(agent.CachePath))
+	body.Set("external_id", jsonutils.NewString(agent.AgentId))
+	sc, err := modules.Storagecaches.Create(session, body)
+	if err != nil {
+		return "", errors.Wrap(err, "modules.Storagecaches.Create")
+	}
+	storageCacheId, err := sc.GetString("id")
+	if err != nil {
+		return "", errors.Wrap(err, "sc.GetString id")
+	}
+	return storageCacheId, nil
+}
+
+func (agent *SBaseAgent) updateStorageCache(session *mcclient.ClientSession, storageCacheId string) error {
+	body := jsonutils.NewDict()
+	body.Set("path", jsonutils.NewString(agent.CachePath))
+	body.Set("external_id", jsonutils.NewString(agent.AgentId))
+	_, err := modules.Storagecaches.Update(session, storageCacheId, body)
+	if err != nil {
+		return errors.Wrap(err, "modules.Storagecaches.Update")
+	}
+	return nil
+}
+
 func (agent *SBaseAgent) createBaremetalAgent(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 	params, err := agent.getCreateUpdateInfo()
 	if err != nil {
@@ -322,10 +391,17 @@ func (agent *SBaseAgent) createBaremetalAgent(session *mcclient.ClientSession) (
 	return modules.Baremetalagents.Create(session, params)
 }
 
-func (agent *SBaseAgent) updateBaremetalAgent(session *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
-	params, err := agent.getCreateUpdateInfo()
-	if err != nil {
-		return nil, err
+func (agent *SBaseAgent) updateBaremetalAgent(session *mcclient.ClientSession, id string, storageCacheId string) (jsonutils.JSONObject, error) {
+	var params jsonutils.JSONObject
+	var err error
+	if len(storageCacheId) > 0 {
+		params = jsonutils.NewDict()
+		params.(*jsonutils.JSONDict).Set("storagecache_id", jsonutils.NewString(storageCacheId))
+	} else {
+		params, err = agent.getCreateUpdateInfo()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return modules.Baremetalagents.Update(session, id, params)
 }

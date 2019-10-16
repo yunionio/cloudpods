@@ -27,11 +27,12 @@ import (
 type TBillingCycleUnit string
 
 const (
-	BillingCycleHour  = TBillingCycleUnit("H")
-	BillingCycleDay   = TBillingCycleUnit("D")
-	BillingCycleWeek  = TBillingCycleUnit("W")
-	BillingCycleMonth = TBillingCycleUnit("M")
-	BillingCycleYear  = TBillingCycleUnit("Y")
+	BillingCycleMinute = TBillingCycleUnit("I")
+	BillingCycleHour   = TBillingCycleUnit("H")
+	BillingCycleDay    = TBillingCycleUnit("D")
+	BillingCycleWeek   = TBillingCycleUnit("W")
+	BillingCycleMonth  = TBillingCycleUnit("M")
+	BillingCycleYear   = TBillingCycleUnit("Y")
 )
 
 var (
@@ -49,6 +50,8 @@ func ParseBillingCycle(cycleStr string) (SBillingCycle, error) {
 		return cycle, ErrInvalidBillingCycle
 	}
 	switch cycleStr[len(cycleStr)-1:] {
+	case string(BillingCycleMinute), strings.ToLower(string(BillingCycleMinute)):
+		cycle.Unit = BillingCycleMinute
 	case string(BillingCycleHour), strings.ToLower(string(BillingCycleHour)):
 		cycle.Unit = BillingCycleHour
 	case string(BillingCycleDay), strings.ToLower(string(BillingCycleDay)):
@@ -75,11 +78,13 @@ func (cycle *SBillingCycle) String() string {
 	return fmt.Sprintf("%d%s", cycle.Count, cycle.Unit)
 }
 
-func (cycle *SBillingCycle) EndAt(tm time.Time) time.Time {
+func (cycle SBillingCycle) EndAt(tm time.Time) time.Time {
 	if tm.IsZero() {
 		tm = time.Now().UTC()
 	}
 	switch cycle.Unit {
+	case BillingCycleMinute:
+		return tm.Add(time.Minute * time.Duration(cycle.Count))
 	case BillingCycleHour:
 		return tm.Add(time.Hour * time.Duration(cycle.Count))
 	case BillingCycleDay:
@@ -95,13 +100,18 @@ func (cycle *SBillingCycle) EndAt(tm time.Time) time.Time {
 	}
 }
 
+func (cycle SBillingCycle) Duration() time.Duration {
+	now := time.Now().UTC()
+	endAt := cycle.EndAt(now)
+	return endAt.Sub(now)
+}
+
 func (cycle *SBillingCycle) GetDays() int {
 	switch cycle.Unit {
+	case BillingCycleMinute:
+		return cycle.Count / 24 / 60
 	case BillingCycleHour:
-		if cycle.Count%24 == 0 {
-			return cycle.Count / 24
-		}
-		return 0
+		return cycle.Count / 24
 	case BillingCycleDay:
 		return cycle.Count
 	case BillingCycleWeek:
@@ -113,16 +123,12 @@ func (cycle *SBillingCycle) GetDays() int {
 
 func (cycle *SBillingCycle) GetWeeks() int {
 	switch cycle.Unit {
+	case BillingCycleMinute:
+		return cycle.Count / 7 / 24 / 60
 	case BillingCycleHour:
-		if cycle.Count%(7*24) == 0 {
-			return cycle.Count / (7 * 24)
-		}
-		return 0
+		return cycle.Count / 7 / 24
 	case BillingCycleDay:
-		if cycle.Count%7 == 0 {
-			return cycle.Count / 7
-		}
-		return 0
+		return cycle.Count / 7
 	case BillingCycleWeek:
 		return cycle.Count
 	default:
