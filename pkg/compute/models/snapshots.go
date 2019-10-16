@@ -700,6 +700,11 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	// bugfix for now:
+	disk, err := self.GetDisk()
+	if err == nil {
+		syncOwnerId = disk.GetOwnerId()
+	}
 	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	return nil
@@ -716,12 +721,14 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.Name = newName
 	snapshot.Status = extSnapshot.GetStatus()
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
+	var localDisk *SDisk
 	if len(extSnapshot.GetDiskId()) > 0 {
 		disk, err := db.FetchByExternalId(DiskManager, extSnapshot.GetDiskId())
 		if err != nil {
 			log.Errorf("snapshot %s missing disk?", snapshot.Name)
 		} else {
 			snapshot.DiskId = disk.GetId()
+			localDisk = disk.(*SDisk)
 		}
 	}
 
@@ -736,6 +743,10 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		return nil, err
 	}
 
+	// bugfix for now:
+	if localDisk != nil {
+		syncOwnerId = localDisk.GetOwnerId()
+	}
 	SyncCloudProject(userCred, &snapshot, syncOwnerId, extSnapshot, snapshot.ManagerId)
 
 	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
