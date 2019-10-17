@@ -167,6 +167,8 @@ func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, g
 func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
+	// try to leave all groups
+	guest.LeaveAllGroups(ctx, self.UserCred)
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 
@@ -276,7 +278,6 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.LeaveAllGroups(ctx, self.UserCred)
 	guest.DetachAllNetworks(ctx, self.UserCred)
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)

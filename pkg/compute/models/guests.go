@@ -406,6 +406,17 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Filter(cond(q.Field("id"), sgq))
 	}
 
+	groupFilter := jsonutils.GetAnyString(queryDict, []string{"group", "group_id"})
+	if len(groupFilter) != 0 {
+		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupFilter)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("group %s not found", groupFilter)
+		}
+		queryDict.Add(jsonutils.NewString(groupObj.GetId()), "group")
+		ggSub := GroupguestManager.Query("guest_id").Equals("group_id", groupObj.GetId()).SubQuery()
+		q = q.Join(ggSub, sqlchemy.Equals(ggSub.Field("guest_id"), q.Field("id")))
+	}
+
 	orderByDisk, _ := queryDict.GetString("order_by_disk")
 	if orderByDisk == "asc" || orderByDisk == "desc" {
 		guestdisks := GuestdiskManager.Query().SubQuery()
@@ -1477,6 +1488,16 @@ func (self *SGuest) getExtBandwidth() int {
 func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	fields := stringutils2.NewSortedStrings(jsonutils.GetQueryStringArray(query, "field"))
+
+	if query.Contains("group") {
+		groupId, _ := query.GetString("group")
+		q := GroupguestManager.Query().Equals("group_id", groupId).Equals("guest_id", self.Id)
+		var groupGuest SGroupguest
+		err := q.First(&groupGuest)
+		if err == nil {
+			extra.Add(jsonutils.NewTimeString(groupGuest.CreatedAt), "attach_time")
+		}
+	}
 	return self.moreExtraInfo(extra, fields)
 }
 
