@@ -152,6 +152,10 @@ func DetectMemoryInfo() (*SMemory, error) {
 		return nil, err
 	}
 	smem.MemInfo = sysutils.ParseDMIMemInfo(strings.Split(string(ret), "\n"))
+	if smem.MemInfo.Total == 0 {
+		// in case dmidecode is not work, use gopsutil
+		smem.MemInfo.Total = smem.Total
+	}
 	return smem, nil
 }
 
