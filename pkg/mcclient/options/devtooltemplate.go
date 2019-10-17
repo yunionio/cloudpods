@@ -125,6 +125,8 @@ func (opts *DevtoolTemplateCreateOptions) Params() (*jsonutils.JSONDict, error) 
 	params.Add(jsonutils.NewInt(int64(opts.Min)), "min")
 	params.Add(jsonutils.NewInt(int64(opts.Sec)), "sec")
 	params.Add(jsonutils.NewInt(opts.Interval), "interval")
+	params.Add(jsonutils.NewBool(opts.Start), "start")
+	params.Add(jsonutils.NewBool(opts.Enabled), "enabled")
 	return params, nil
 }
 
@@ -132,6 +134,7 @@ type DevtoolTemplateUpdateOptions struct {
 	ID   string `json:"-" help:"name/id of the playbook"`
 	Name string
 	DevtoolTemplateCommonOptions
+	Rebind bool `help:"Unbind and Bind all related servers" default:"false"`
 }
 
 func (opts *DevtoolTemplateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -144,5 +147,13 @@ func (opts *DevtoolTemplateUpdateOptions) Params() (*jsonutils.JSONDict, error) 
 		Playbook: *pb,
 	}
 	params := input.JSON(input)
+	params.Add(jsonutils.NewBool(opts.Rebind), "rebind")
+	params.Add(jsonutils.NewInt(int64(opts.Day)), "day")
+	params.Add(jsonutils.NewInt(int64(opts.Hour)), "hour")
+	params.Add(jsonutils.NewInt(int64(opts.Min)), "min")
+	params.Add(jsonutils.NewInt(int64(opts.Sec)), "sec")
+	params.Add(jsonutils.NewInt(opts.Interval), "interval")
+	params.Add(jsonutils.NewBool(opts.Start), "start")
+	params.Add(jsonutils.NewBool(opts.Enabled), "enabled")
 	return params, nil
 }
