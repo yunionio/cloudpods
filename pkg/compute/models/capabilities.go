@@ -100,7 +100,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if len(domainId) > 0 {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(domainId), "domain_id")
 	}
-	publicNetworkCount, _ := getNetworkPublicCount(region, zone, domainId)
+	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
+	publicNetworkCount, _ := getNetworkPublicCount(region, zone, domainId, serverType)
 	capa.PublicNetworkCount = publicNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
@@ -342,14 +343,14 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 }
 
 func getNetworkCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
-	return getNetworkCountByFilter(region, zone, domainId, tristate.None)
+	return getNetworkCountByFilter(region, zone, domainId, tristate.None, "")
 }
 
-func getNetworkPublicCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
-	return getNetworkCountByFilter(region, zone, domainId, tristate.True)
+func getNetworkPublicCount(region *SCloudregion, zone *SZone, domainId, serverType string) (int, error) {
+	return getNetworkCountByFilter(region, zone, domainId, tristate.True, serverType)
 }
 
-func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string, isPublic tristate.TriState) (int, error) {
+func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string, isPublic tristate.TriState, serverType string) (int, error) {
 	if zone != nil && region == nil {
 		region = zone.GetRegion()
 	}
@@ -398,6 +399,9 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
 					sqlchemy.Equals(q.Field("domain_id"), domainId))))
 		}
+	}
+	if len(serverType) > 0 {
+		q = q.Filter(sqlchemy.Equals(networks.Field("server_type"), serverType))
 	}
 	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
