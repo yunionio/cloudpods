@@ -94,11 +94,11 @@ func init() {
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
 			params := jsonutils.NewDict()
 			params.Set("server_id", jsonutils.NewString(opts.ServerID))
-			_, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "bind", params)
+			apb, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "bind", params)
 			if err != nil {
 				return err
 			}
-			// printAnsiblePlaybookObject(apb)
+			printAnsiblePlaybookObject(apb)
 			return nil
 		},
 	)
@@ -110,11 +110,11 @@ func init() {
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
 			params := jsonutils.NewDict()
 			params.Set("server_id", jsonutils.NewString(opts.ServerID))
-			_, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "unbind", params)
+			apb, err := modules.DevToolTemplates.PerformAction(s, opts.ID, "unbind", params)
 			if err != nil {
 				return err
 			}
-			// printAnsiblePlaybookObject(apb)
+			printAnsiblePlaybookObject(apb)
 			return nil
 		},
 	)
