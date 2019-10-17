@@ -165,6 +165,14 @@ func (h *PredicateHelper) SetCapacityCounter(counter core.Counter) {
 	h.Unit.SetCapacity(h.Candidate.IndexKey(), h.predicate.Name(), counter)
 }
 
+func (h *PredicateHelper) SetSelectPriority(sp int) {
+	if sp < 0 {
+		sp = 0
+	}
+
+	h.Unit.SetSelectPriorityWithLock(h.Candidate.IndexKey(), h.predicate.Name(), core.SSelectPriorityValue(sp))
+}
+
 func (h *PredicateHelper) Exclude(reason string) {
 	h.SetCapacity(0)
 	h.AppendPredicateFailMsg(reason)

@@ -23,7 +23,7 @@ var (
 func init() {
 	InstanceGroup = NewComputeManager("instancegroup", "instancegroups",
 		[]string{"ID", "Name", "Service_Type", "Parent_Id", "Zone_Id", "Sched_Strategy", "Domain_Id", "Project_Id",
-			"Granularity"},
+			"Granularity", "Is_Froced_Sep"},
 		[]string{})
 
 	registerCompute(&InstanceGroup)

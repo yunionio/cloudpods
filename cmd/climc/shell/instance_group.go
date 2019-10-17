@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -62,10 +64,11 @@ func init() {
 		NAME   string `help:"name of instance group"`
 		ZONEID string `help:"zone id" json:"zone_id"`
 
-		ServiceType   string `help:"service type"`
-		ParentId      string `help:"parent id"`
-		SchedStrategy string `help:"scheduler strategy"`
-		Granularity   string `help:"the upper limit number of guests with this group in a host"`
+		ServiceType     string `help:"service type"`
+		ParentId        string `help:"parent id"`
+		SchedStrategy   string `help:"scheduler strategy"`
+		Granularity     string `help:"the upper limit number of guests with this group in a host"`
+		ForceDispersion bool   `help:"force to make guest dispersion"`
 	}
 
 	R(&InstanceGroupCreateOptions{}, "instance-group-create", "Create a instance group",
@@ -93,5 +96,31 @@ func init() {
 			return nil
 		},
 	)
+
+	type InstanceGroupUpdateOptions struct {
+		ID              string `help:"ID or Name of servers to update" json:"-"`
+		Name            string `help:"New name to change"`
+		Granularity     string `help:"the upper limit number of guests with this group in a host"`
+		ForceDispersion string `help:"force to make guest dispersion" choices:"yes|no" json:"-"`
+	}
+
+	R(&InstanceGroupUpdateOptions{}, "instance-group-update", "update a instance group",
+		func(s *mcclient.ClientSession, args *InstanceGroupUpdateOptions) error {
+			params, err := options.StructToParams(args)
+			if err != nil {
+				return err
+			}
+			if args.ForceDispersion == "yes" {
+				params.Set("force_dispersion", jsonutils.JSONTrue)
+			} else {
+				params.Set("force_dispersion", jsonutils.JSONFalse)
+			}
+			ret, err := modules.InstanceGroup.Update(s, args.ID, params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
 
 }

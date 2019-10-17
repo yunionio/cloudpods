@@ -143,9 +143,7 @@ func (data *SchedInfo) reviseData() {
 }
 
 func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	skipByHypervisor := d.IsContainer || d.Hypervisor == SchedTypeContainer
-	skipByBackup := d.Backup
-	return skipByHypervisor || skipByBackup
+	return d.IsContainer || d.Hypervisor == SchedTypeContainer
 }
 
 func (d *SchedInfo) GetCandidateHostTypes() []string {

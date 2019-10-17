@@ -4340,15 +4340,11 @@ func (host *SHost) IsMaintaining() bool {
 
 // InstanceGroups returns the group of guest in host and their frequency of occurrence
 func (host *SHost) InstanceGroups() ([]SGroup, map[string]int, error) {
-	guests := host.GetGuests()
-	if len(guests) == 0 {
-		return []SGroup{}, make(map[string]int), nil
-	}
-	guestIds := make([]string, len(guests))
-	for i := range guests {
-		guestIds[i] = guests[i].GetId()
-	}
-	q := GroupguestManager.Query().In("guest_id", guestIds)
+	q := GuestManager.Query("id")
+	guestQ := q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), host.Id),
+		sqlchemy.Equals(q.Field("backup_host_id"), host.Id))).SubQuery()
+	groupQ := GroupguestManager.Query().SubQuery()
+	q = groupQ.Query().Join(guestQ, sqlchemy.Equals(guestQ.Field("id"), groupQ.Field("guest_id")))
 	groupguests := make([]SGroupguest, 0, 1)
 	err := db.FetchModelObjects(GroupguestManager, q, &groupguests)
 	if err != nil {
