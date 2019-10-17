@@ -115,7 +115,7 @@ func init() {
 			}
 			cronjob, err := modules.DevToolCronjobs.Create(s, params)
 			if err != nil {
-				log.Infof("modules.DevToolCronjobs.Create error %s", err)
+				log.Errorf("modules.DevToolCronjobs.Create error %s", err)
 				return err
 			}
 			printObject(cronjob)
