@@ -4378,7 +4378,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 		ServerConfigs: new(api.ServerConfigs),
 	}
 	desc.Id = self.Id
-	//self.FillGroupSchedDesc(desc)
+	self.FillGroupSchedDesc(config.ServerConfigs)
 	self.FillDiskSchedDesc(config.ServerConfigs)
 	self.FillNetSchedDesc(config.ServerConfigs)
 	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
@@ -4396,18 +4396,19 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 	return desc
 }
 
-/*func (self *SGuest) FillGroupSchedDesc(desc *schedapi.ServerConfig) {
+func (self *SGuest) FillGroupSchedDesc(desc *api.ServerConfigs) {
 	groups := make([]SGroupguest, 0)
 	err := GroupguestManager.Query().Equals("guest_id", self.Id).All(&groups)
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
-	for i := 0; i < len(groups); i++ {
-		desc.Set(fmt.Sprintf("srvtag.%d", i),
-			jsonutils.NewString(fmt.Sprintf("%s:%s", groups[i].SrvtagId, groups[i].Tag)))
+	groupids := make([]string, len(groups))
+	for i := range groups {
+		groupids[i] = groups[i].GroupId
 	}
-}*/
+	desc.InstanceGroupIds = groupids
+}
 
 func (self *SGuest) FillDiskSchedDesc(desc *api.ServerConfigs) {
 	guestDisks := make([]SGuestdisk, 0)

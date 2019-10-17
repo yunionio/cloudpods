@@ -14,7 +14,11 @@
 
 package models
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/db"
+import (
+	"yunion.io/x/pkg/tristate"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+)
 
 const (
 	REDIS_TYPE = "REDIS"
@@ -44,16 +48,14 @@ func init() {
 type SGroup struct {
 	db.SVirtualResourceBase
 
-	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-
-	ParentId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-
-	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-
+	ServiceType   string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	ParentId      string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	ZoneId        string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"required"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
 	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 
 	// the upper limit number of guests with this group in a host
-	Granularity int `nullable:"false" list:"user" get:"user" create:"optional" default:"1"`
+	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1"`
+	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true"`
 }
 
 func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
