@@ -48,7 +48,7 @@ func init() {
 		Name string `help:"cloud region ID or Name" json:"-"`
 	}
 
-	R(&CronjobListOptions{}, "devtool-cronjob-list", "List Devtool Cronjobs", func(s *mcclient.ClientSession, args *CronjobListOptions) error {
+	R(&CronjobListOptions{}, "devtoolcronjob-list", "List Devtool Cronjobs", func(s *mcclient.ClientSession, args *CronjobListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
@@ -71,7 +71,7 @@ func init() {
 	}
 	R(
 		&CronjobCreateOptions{},
-		"devtool-cronjob-create",
+		"devtoolcronjob-create",
 		"Create a cronjob repo component",
 		func(s *mcclient.ClientSession, args *CronjobCreateOptions) error {
 			result, err := modules.AnsiblePlaybooks.Get(s, args.NAME, nil)
@@ -126,7 +126,7 @@ func init() {
 	type DevToolCronjobShowOptions struct {
 		ID string `help:"ID or Name of the DevToolCronjob to show"`
 	}
-	R(&DevToolCronjobShowOptions{}, "devtool-cronjob-show", "Show cronjob details", func(s *mcclient.ClientSession, args *DevToolCronjobShowOptions) error {
+	R(&DevToolCronjobShowOptions{}, "devtoolcronjob-show", "Show cronjob details", func(s *mcclient.ClientSession, args *DevToolCronjobShowOptions) error {
 		result, err := modules.DevToolCronjobs.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -147,7 +147,7 @@ func init() {
 		Enable   bool   `help:"Set job status enabled"`
 		Disable  bool   `help:"Set job status enabled"`
 	}
-	R(&DevToolCronjobUpdateOptions{}, "devtool-cronjob-update", "Update DevToolCronjob", func(s *mcclient.ClientSession, args *DevToolCronjobUpdateOptions) error {
+	R(&DevToolCronjobUpdateOptions{}, "devtoolcronjob-update", "Update DevToolCronjob", func(s *mcclient.ClientSession, args *DevToolCronjobUpdateOptions) error {
 		result, err := modules.DevToolCronjobs.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -210,7 +210,7 @@ func init() {
 		return nil
 	})
 
-	R(&DevToolCronjobShowOptions{}, "devtool-cronjob-delete", "Delete DevToolCronjob", func(s *mcclient.ClientSession, args *DevToolCronjobShowOptions) error {
+	R(&DevToolCronjobShowOptions{}, "devtoolcronjob-delete", "Delete DevToolCronjob", func(s *mcclient.ClientSession, args *DevToolCronjobShowOptions) error {
 		result, err := modules.DevToolCronjobs.Delete(s, args.ID, nil)
 		if err != nil {
 			return err

@@ -42,7 +42,7 @@ func init() {
 		Name string `help:"cloud region ID or Name" json:"-"`
 	}
 
-	R(&TemplateListOptions{}, "devtool-template-list", "List Devtool Templates", func(s *mcclient.ClientSession, args *TemplateListOptions) error {
+	R(&TemplateListOptions{}, "devtooltemplate-list", "List Devtool Templates", func(s *mcclient.ClientSession, args *TemplateListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
@@ -55,7 +55,7 @@ func init() {
 
 	R(
 		&options.DevtoolTemplateCreateOptions{},
-		"devtool-template-create",
+		"devtooltemplate-create",
 		"Create a template repo component",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateCreateOptions) error {
 
@@ -75,7 +75,7 @@ func init() {
 
 	R(
 		&options.DevtoolTemplateIdOptions{},
-		"devtool-template-show",
+		"devtooltemplate-show",
 		"Show devtool template",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateIdOptions) error {
 			apb, err := modules.DevToolTemplates.Get(s, opts.ID, nil)
@@ -89,7 +89,7 @@ func init() {
 
 	R(
 		&options.DevtoolTemplateBindingOptions{},
-		"devtool-template-bind",
+		"devtooltemplate-bind",
 		"Binding devtool template to a host/vm",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
 			params := jsonutils.NewDict()
@@ -105,7 +105,7 @@ func init() {
 
 	R(
 		&options.DevtoolTemplateBindingOptions{},
-		"devtool-template-unbind",
+		"devtooltemplate-unbind",
 		"Binding devtool template to a host/vm",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
 			params := jsonutils.NewDict()
@@ -121,7 +121,7 @@ func init() {
 
 	R(
 		&options.DevtoolTemplateIdOptions{},
-		"devtool-template-delete",
+		"devtooltemplate-delete",
 		"Delete devtool template",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateIdOptions) error {
 			apb, err := modules.DevToolTemplates.Delete(s, opts.ID, nil)
@@ -133,97 +133,21 @@ func init() {
 		},
 	)
 
-	/*
-		type DevToolTemplateShowOptions struct {
-			ID string `help:"ID or Name of the DevToolTemplate to show"`
-		}
-		R(&DevToolTemplateShowOptions{}, "devtool-template-show", "Show template details", func(s *mcclient.ClientSession, args *DevToolTemplateShowOptions) error {
-			result, err := modules.DevToolTemplates.Get(s, args.ID, nil)
+	R(
+		&options.DevtoolTemplateUpdateOptions{},
+		"devtooltemplate-update",
+		"Update ansible playbook",
+		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateUpdateOptions) error {
+			params, err := opts.Params()
 			if err != nil {
 				return err
 			}
-			printObject(result)
+			apb, err := modules.DevToolTemplates.Update(s, opts.ID, params)
+			if err != nil {
+				return err
+			}
+			printAnsiblePlaybookObject(apb)
 			return nil
-		})
-
-		type DevToolTemplateUpdateOptions struct {
-			ID       string `help:"ID or Name of DevToolTemplate to update"`
-			Day      int    `help:"Template runs at given day" json:"-" default:"-1"`
-			Hour     int    `help:"Template runs at given hour" json:"-" default:"-1"`
-			Min      int    `help:"Template runs at given min" default:"-1"`
-			Sec      int    `help:"Template runs at given sec" default:"-1"`
-			Interval int    `help:"Template runs at given interval" default:"-1"`
-			Start    bool   `help:"start job when created"`
-			Stop     bool   `help:"start job when created"`
-			Enable   bool   `help:"Set job status enabled"`
-			Disable  bool   `help:"Set job status enabled"`
-		}
-		R(&DevToolTemplateUpdateOptions{}, "devtool-template-update", "Update DevToolTemplate", func(s *mcclient.ClientSession, args *DevToolTemplateUpdateOptions) error {
-			result, err := modules.DevToolTemplates.Get(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-
-			params := jsonutils.NewDict()
-			interval, _ := result.Int("interval")
-			day, _ := result.Int("day")
-			params.Add(jsonutils.NewString(args.ID), "id")
-			params.Add(jsonutils.NewInt(int64(interval)), "interval")
-			params.Add(jsonutils.NewInt(int64(day)), "day")
-
-			log.Infof("DevToolTemplateUpdateOptions args: %+v", args)
-			if args.Interval >= 0 {
-				params.Add(jsonutils.NewInt(int64(args.Interval)), "interval")
-				if args.Interval > 0 {
-					params.Add(jsonutils.NewInt(0), "day")
-				}
-			} else if args.Day >= 0 {
-				params.Add(jsonutils.NewInt(int64(args.Day)), "day")
-				if args.Day > 0 {
-					params.Add(jsonutils.NewInt(0), "interval")
-				}
-			}
-			if args.Hour >= 0 {
-				params.Add(jsonutils.NewInt(int64(args.Hour)), "hour")
-			}
-			if args.Min >= 0 {
-				params.Add(jsonutils.NewInt(int64(args.Min)), "min")
-			}
-			if args.Sec >= 0 {
-				params.Add(jsonutils.NewInt(int64(args.Sec)), "sec")
-			}
-
-			if args.Start && args.Stop {
-				return fmt.Errorf("can not set job start and stop at the same time")
-			} else if args.Start {
-				params.Add(jsonutils.JSONTrue, "start")
-			} else if args.Stop {
-				params.Add(jsonutils.JSONFalse, "start")
-			}
-			if args.Enable && args.Disable {
-				return fmt.Errorf("can not set job enabled and disabled at the same time")
-			} else if args.Enable {
-				params.Add(jsonutils.JSONTrue, "enabled")
-			} else if args.Disable {
-				params.Add(jsonutils.JSONFalse, "enabled")
-			}
-
-			result, err = modules.DevToolTemplates.Update(s, args.ID, params)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		})
-
-		R(&DevToolTemplateShowOptions{}, "devtool-template-delete", "Delete DevToolTemplate", func(s *mcclient.ClientSession, args *DevToolTemplateShowOptions) error {
-			result, err := modules.DevToolTemplates.Delete(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-			printObject(result)
-			return nil
-		})
-
-	*/
+		},
+	)
 }
