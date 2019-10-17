@@ -660,6 +660,12 @@ InstanceCreate:
     guest_image_id:
       type: string
       example: 如果使用主机镜像创建主机，需要额外指定主机镜像的 ID，来检验 disks 的 Image ID 是否正确
+    groups:
+      type: array
+      description: 主机组列表
+      items:
+        type: string
+        description: 主机组的ID或者Name
 
 
 InstanceDisk:
@@ -1112,3 +1118,18 @@ InstanceVncResponse:
     server:
       type: object
       $ref: '#/InstanceVnc'
+
+InstanceBindGroups:
+  type: object
+  required:
+    - group.0
+    - group.1
+  properties:
+    group.0:
+      type: string
+      example: vv100455-79ef-43a3-8fc3-23adc74b8b87
+      description: 主机组的ID或者Name
+    group.1:
+      type: string
+      example: dd100399-79ef-43a3-8fc3-23adc74b8b87
+      description: 主机组的ID或者Name

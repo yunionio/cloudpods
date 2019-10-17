@@ -1071,28 +1071,38 @@ func init() {
 		return nil
 	})
 
-	type ServerGroupOptions struct {
-		ID      string `help:"ID or name of VM"`
-		GROUPID string `help:"ID or name of instance group"`
+	type ServerGroupsOptions struct {
+		ID    string   `help:"ID or name of VM"`
+		Group []string `help:"ids or names of group"`
 	}
-	R(&ServerGroupOptions{}, "server-join-group", "Join a group", func(s *mcclient.ClientSession,
-		opts *ServerGroupOptions) error {
 
-		ret, err := modules.GroupGuest.Attach(s, opts.ID, opts.GROUPID, jsonutils.JSONNull)
+	R(&ServerGroupsOptions{}, "server-join-groups", "Join multiple groups", func(s *mcclient.ClientSession,
+		opts *ServerGroupsOptions) error {
+
+		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		server, err := modules.Servers.PerformAction(s, opts.ID, "bind-groups", params)
+		if err != nil {
+			return err
+		}
+		printObject(server)
 		return nil
 	})
-	R(&ServerGroupOptions{}, "server-leave-group", "Leave a group", func(s *mcclient.ClientSession,
-		opts *ServerGroupOptions) error {
 
-		ret, err := modules.GroupGuest.Detach(s, opts.ID, opts.GROUPID, jsonutils.JSONNull)
+	R(&ServerGroupsOptions{}, "server-leave-groups", "Leave multiple groups", func(s *mcclient.ClientSession,
+		opts *ServerGroupsOptions) error {
+
+		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
 		}
-		printObject(ret)
+		server, err := modules.Servers.PerformAction(s, opts.ID, "unbind-groups", params)
+		if err != nil {
+			return err
+		}
+		printObject(server)
 		return nil
 	})
 

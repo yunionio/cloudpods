@@ -1,0 +1,13 @@
+instancegroupId:
+  name: instancegroupId
+  required: true
+  in: path
+  description: 实例组的ID
+granularity:
+  name: granularity
+  in: query
+  description: 粒度
+guest:
+  name: guest
+  in: query
+  description: 主机的ID或者Name

@@ -1,0 +1,16 @@
+post:
+  summary: 批量绑定主机组
+  parameters:
+    - $ref: '../parameters/instance.yaml#/instanceId'
+    - in: body
+      name: groups
+      required: true
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceBindGroups'
+  responses:
+    200:
+      description: 实例信息
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceResponse'
+  tags:
+    - instance
