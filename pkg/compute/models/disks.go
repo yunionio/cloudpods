@@ -919,7 +919,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
 	storage := self.GetStorage()
-	if storage.StorageType == api.STORAGE_RBD {
+	if storage != nil && storage.StorageType == api.STORAGE_RBD {
 		scnt, err := self.GetSnapshotCount()
 		if err != nil {
 			return err
