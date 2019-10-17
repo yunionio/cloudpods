@@ -1,0 +1,149 @@
+CanDelete:
+  type: string
+  example: true
+  description: 可否删除
+CanUpdate:
+  type: string
+  example: false
+  description: 可否更新
+CreatedAt:
+  type: string
+  example: 2019-05-30T08:46:12.000000Z
+  description: 资源创建时间
+UpdatedAt:
+  type: string
+  example: 2019-05-30T08:46:12.000000Z
+  description: 资源最近一次更新时间
+
+InstanceGroup:
+  type: object
+  description: 实例组
+  properties:
+    id:
+      type: string
+      example: ea27c0ce-5870-49f3-8d57-f53e63f40361
+      description: 实例组ID
+      readOnly: true
+    name:
+      type: string
+      description: 实例名称
+      example: mysql-group
+    granularity:
+      type: integer
+      description: 粒度
+      example: 1
+    force_dispersion:
+      type: boolean
+      description: 是否强制
+      example: false
+    can_delete:
+      $ref: '#/CanDelete'
+    can_update:
+      $ref: '#/CanUpdate'
+    created_at:
+      $ref: '#/CreatedAt'
+    updated_at:
+      $ref: '#/UpdatedAt'
+    is_emulated:
+      type: boolean
+      example: false
+      description: 是否是虚拟出来的实例
+    status:
+      type: string
+      example: init
+      description: 状态
+    update_version:
+      type: integer
+      example: 2
+      description: 资源被更新的次数
+
+InstanceGroupCreate:
+  type: object
+  properties:
+    instancegroup:
+      type: object
+      required:
+        - name
+        - granularity
+        - force_dispersion
+      properties:
+        name:
+          type: string
+          example: mysql-group
+          description: 实例组的名称
+        granularity:
+          type: integer
+          description: 粒度
+          example: 1
+        force_dispersion:
+          type: boolean
+          description: 是否强制
+          example: false
+
+InstanceGroupListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    total:
+      type: integer
+      example: 12
+    instancegroups:
+      type: array
+      items:
+        $ref: '#/InstanceGroup'
+
+
+InstanceGroupResponse:
+  type: object
+  properties:
+    instancegroup:
+      type: object
+      $ref: '#/InstanceGroup'
+
+InstanceGroupGuest:
+  type: object
+  properties:
+    guest_id:
+      type: string
+      example: f7749379-34b1-4219-8835-257615cf34f6
+      description: 主机ID
+    group_id:
+      type: string
+      example: f7749379-34b1-4219-8835-257615cf34f6
+      description: 实例组ID
+
+InstanceGroupGuestResponse:
+  type: object
+  properties:
+    instancegroupGuest:
+      type: object
+      $ref: '#/InstanceGroupGuest'
+
+InstanceGroupGuestListResponse:
+  type: object
+  properties:
+    total:
+      type: integer
+      example: 20
+    instancegroupGuests:
+      type: array
+      items:
+        $ref: '#/InstanceGroupGuest'
+
+InstanceGroupBindGuests:
+  type: object
+  required:
+    - guest.0
+    - guest.1
+  properties:
+    guest.0:
+      type: string
+      example: vv100455-79ef-43a3-8fc3-23adc74b8b87
+      description: 主机的ID或者Name
+    guest.1:
+      type: string
+      example: dd100399-79ef-43a3-8fc3-23adc74b8b87
+      description: 主机的ID或者Name
+

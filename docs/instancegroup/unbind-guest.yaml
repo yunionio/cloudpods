@@ -1,0 +1,16 @@
+post:
+  summary: 批量解绑主机
+  parameters:
+    - $ref: '../parameters/instancegroup.yaml#/instancegroupId'
+    - in: body
+      name: guests
+      required: true
+      schema:
+        $ref: '../schemas/instancegroup.yaml#/InstanceGroupBindGuests'
+  responses:
+    200:
+      description: 主机组
+      schema:
+        $ref: '../schemas/instancegroup.yaml#/InstanceGroupResponse'
+  tags:
+    - instancegroup

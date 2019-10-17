@@ -24,6 +24,7 @@ get:
     - $ref: '../parameters/instance.yaml#/secgroup'
     - $ref: '../parameters/instance.yaml#/disk'
     - $ref: '../parameters/instance.yaml#/usable_server_for_eip'
+    - $ref: '../parameters/instance.yaml#/group'
   responses:
     200:
       description: 实例列表信息

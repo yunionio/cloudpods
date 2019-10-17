@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -86,12 +87,21 @@ func (self *SGroupguest) Detach(ctx context.Context, userCred mcclient.TokenCred
 
 func (self *SGroupguestManager) FetchByGuestId(guestId string) ([]SGroupguest, error) {
 	q := self.Query().Equals("guest_id", guestId)
+	return self.fetchByQuery(q)
+}
+
+func (self *SGroupguestManager) fetchByQuery(q *sqlchemy.SQuery) ([]SGroupguest, error) {
 	joints := make([]SGroupguest, 0, 1)
 	err := db.FetchModelObjects(self, q, &joints)
 	if err != nil {
 		return nil, err
 	}
 	return joints, err
+}
+
+func (self *SGroupguestManager) FetchByGroupId(groupId string) ([]SGroupguest, error) {
+	q := self.Query().Equals("group_id", groupId)
+	return self.fetchByQuery(q)
 }
 
 func (self *SGroupguestManager) Attach(ctx context.Context, groupId, guestId string) (*SGroupguest, error) {

@@ -153,7 +153,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancernetworkManager,
 		models.GuestdiskManager,
 		models.GroupnetworkManager,
-		models.GroupguestManager,
 		models.StoragecachedimageManager,
 		models.CloudproviderRegionManager,
 		models.DBInstanceNetworkManager,
