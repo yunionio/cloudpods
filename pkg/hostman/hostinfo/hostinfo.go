@@ -831,6 +831,9 @@ func (h *SHostInfo) getReservedMem() int {
 	if reserved > options.HostOptions.MaxReservedMemory {
 		return options.HostOptions.MaxReservedMemory
 	}
+	if reserved == 0 {
+		panic("memory reserve value is 0, need help")
+	}
 	return reserved
 }
 
