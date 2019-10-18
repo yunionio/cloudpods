@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -144,7 +143,7 @@ func (self *SEipAddress) GetMode() string {
 }
 
 func (self *SEipAddress) GetPort() *Port {
-	if len(self.PortId) > 0 {
+	if len(self.PortId) == 0 {
 		return nil
 	}
 
