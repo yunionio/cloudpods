@@ -105,7 +105,7 @@ func GetModels(opts *GetModelsOptions) error {
 		Details: options.Bool(true),
 		Filter: []string{
 			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
-			"manager_id.isnull()",            // len(manager_id) > 0 is for pubcloud objects
+			"manager_id.isnullorempty()",     // len(manager_id) > 0 is for pubcloud objects
 		},
 		OrderBy: []string{"updated_at", "id"},
 		Order:   "asc",
