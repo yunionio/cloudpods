@@ -51,6 +51,7 @@ require (
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/golang-plus/errors v1.0.0
 	github.com/golang-plus/testing v1.0.0 // indirect
@@ -131,9 +132,10 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
-	golang.org/x/net v0.0.0-20190603091049-60506f45cf65
-	golang.org/x/sys v0.0.0-20190620070143-6f217b454f45
+	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
+	golang.org/x/net v0.0.0-20191007182048-72f939374954
+	golang.org/x/sys v0.0.0-20191008105621-543471e840be
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
 	google.golang.org/grpc v1.19.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
