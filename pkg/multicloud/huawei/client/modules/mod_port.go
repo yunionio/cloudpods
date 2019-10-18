@@ -43,7 +43,7 @@ func NewPortManager(regionId string, projectId string, signer auth.Signer, debug
 		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
-		ProjectId:     "",
+		ProjectId:     projectId,
 		version:       "v1",
 		Keyword:       "port",
 		KeywordPlural: "ports",

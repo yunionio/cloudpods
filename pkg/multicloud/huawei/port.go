@@ -139,7 +139,7 @@ func (self *SRegion) GetPort(portId string) (Port, error) {
 	return port, err
 }
 
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0030591299.html
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0133195888.html
 func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
 	ports := make([]Port, 0)
 	querys := map[string]string{}
