@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -153,6 +152,25 @@ func (self *SEipAddress) GetIpAddr() string {
 
 func (self *SEipAddress) GetMode() string {
 	return api.EIP_MODE_STANDALONE_EIP
+}
+
+func (self *SEipAddress) GetPort() *Port {
+	if len(self.PortId) == 0 {
+		return nil
+	}
+
+	if self.port != nil {
+		return self.port
+	}
+
+	port, err := self.region.GetPort(self.PortId)
+	if err != nil {
+		return nil
+	} else {
+		self.port = &port
+	}
+
+	return self.port
 }
 
 func (self *SEipAddress) GetAssociationType() string {
