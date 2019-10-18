@@ -16,7 +16,6 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -39,7 +38,6 @@ func init() {
 		if err != nil {
 			return err
 		}
-		log.Errorf("create playbook params: %+v", params)
 		apb, err := modules.AnsiblePlaybooks.Create(s, params)
 		if err != nil {
 			return err

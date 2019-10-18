@@ -192,9 +192,9 @@ func (obj *SDevtoolTemplate) PerformBind(ctx context.Context, userCred mcclient.
 
 	newAnsiblPlaybookParams := jsonutils.NewDict()
 	newAnsiblPlaybookParams.Add(jsonutils.NewString(newPlaybookName), "name")
-	newAnsiblPlaybookParams.Add(host, "playbook", "host")
-	newAnsiblPlaybookParams.Add(file, "playbook", "file")
-	newAnsiblPlaybookParams.Add(mod, "playbook", "mod")
+	newAnsiblPlaybookParams.Add(host, "playbook", "inventory")
+	newAnsiblPlaybookParams.Add(file, "playbook", "files")
+	newAnsiblPlaybookParams.Add(mod, "playbook", "modules")
 
 	apb, err := modules.AnsiblePlaybooks.Create(s, newAnsiblPlaybookParams)
 	if err != nil {
