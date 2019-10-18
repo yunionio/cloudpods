@@ -42,7 +42,7 @@ function label() {
     for try in $(seq 3)
     do
         echo "Send $MSG ..."
-        hub api repos/{owner}/{repo}/issues/$PRN/comments -f "body=$MSG" > /dev/null
+        hub api repos/{owner}/{repo}/issues/${PRN}/comments -f "body=$MSG" > /dev/null
         if [ "$?" -ne "0" ]; then
             echo "Send $MSG fail!"
             return 1
@@ -59,7 +59,7 @@ function label() {
     return 1
 }
 
-if ! mergeable $PR; then
+if ! mergeable $PR > /dev/null; then
     echo "Pull request $PR is not mergeable (DIRTY), exit..."
     exit 1
 fi
@@ -89,12 +89,12 @@ fi
 
 echo "All check passed, going to approve and lgtm the Pull Request #$PR..."
 
-if ! label /lgtm lgtm; then
+if ! label "$PR" "/lgtm" "lgtm"; then
     echo "Label lgtm failed"
     exit 1
 fi
 
-if ! label /approve approved; then
+if ! label "$PR" "/approve" "approved"; then
     echo "Label approved failed"
     exit 1
 fi
