@@ -53,13 +53,23 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
+	if jsonutils.QueryBoolean(self.Params, "delete_snapshots", false) {
 
+	} else {
+		self.OnDeleteSnapshots(ctx, disk)
+	}
+}
+
+func (self *DiskDeleteTask) OnDeleteSnapshots(ctx context.Context, disk *models.SDisk) {
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 	if options.Options.EnablePendingDelete && !isPurge && !overridePendingDelete {
 		if disk.PendingDeleted {
 			self.SetStageComplete(ctx, nil)
 			return
+		}
+		if jsonutils.QueryBoolean(self.Params, "delete_sanpshots", false) {
+			disk.SetMetadata(ctx, "__delete_snapshots_on_delete", "true", self.UserCred)
 		}
 		self.startPendingDeleteDisk(ctx, disk)
 	} else {
@@ -143,6 +153,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 		self.SetStageComplete(ctx, nil)
 		return
 	}
+
 	disk := obj.(*models.SDisk)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.UserCred)

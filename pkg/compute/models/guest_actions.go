@@ -905,10 +905,13 @@ func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.Token
 
 func (self *SGuest) StartAutoDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELETE, "auto-delete after stop", userCred)
-	return self.StartDeleteGuestTask(ctx, userCred, parentTaskId, false, false)
+	return self.StartDeleteGuestTask(ctx, userCred, parentTaskId, false, false, false)
 }
 
-func (self *SGuest) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, isPurge bool, overridePendingDelete bool) error {
+func (self *SGuest) StartDeleteGuestTask(
+	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string,
+	isPurge, overridePendingDelete, deleteSnapshots bool,
+) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.Status), "guest_status")
 	if isPurge {
@@ -916,6 +919,9 @@ func (self *SGuest) StartDeleteGuestTask(ctx context.Context, userCred mcclient.
 	}
 	if overridePendingDelete {
 		params.Add(jsonutils.JSONTrue, "override_pending_delete")
+	}
+	if deleteSnapshots {
+		params.Add(jsonutils.JSONTrue, "delete_snapshots")
 	}
 	self.SetStatus(userCred, api.VM_START_DELETE, "")
 	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
@@ -1170,7 +1176,7 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	if host != nil && host.Enabled {
 		return nil, httperrors.NewInvalidStatusError("Cannot purge server on enabled host")
 	}
-	err = self.StartDeleteGuestTask(ctx, userCred, "", true, false)
+	err = self.StartDeleteGuestTask(ctx, userCred, "", true, false, false)
 	return nil, err
 }
 
@@ -1465,7 +1471,9 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
 }
 
-func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string, purge bool) error {
+func (self *SGuest) StartGuestDetachdiskTask(
+	ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string, purge bool,
+) error {
 	taskData := jsonutils.NewDict()
 	taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 	taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
@@ -4062,4 +4070,13 @@ func (self *SGuest) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInvalidStatusError("host is not a baremetal")
 	}
 	return host.GetDetailsJnlp(ctx, userCred, query)
+}
+
+func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteSnapshotsTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

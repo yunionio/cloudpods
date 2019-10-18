@@ -3208,13 +3208,17 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	overridePendingDelete := false
-	purge := false
+	var (
+		overridePendingDelete = false
+		purge                 = false
+		deleteSnapshots       = false
+	)
 	if query != nil {
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
+		deleteSnapshots = jsonutils.QueryBoolean(query, "delete_snapshots", false)
 	}
-	return self.StartDeleteGuestTask(ctx, userCred, "", purge, overridePendingDelete)
+	return self.StartDeleteGuestTask(ctx, userCred, "", purge, overridePendingDelete, deleteSnapshots)
 }
 
 func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -4023,7 +4027,7 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 		return
 	}
 	for i := 0; i < len(guests); i += 1 {
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true, false)
 	}
 }
 
@@ -4087,7 +4091,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, false)
 	}
 }
 
@@ -4105,7 +4109,7 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 			}
 		}
 		guests[i].SetDisableDelete(userCred, false)
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, false)
 	}
 }
 
@@ -4721,4 +4725,33 @@ func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient
 	// ret := jsonutils.NewDict()
 	// ret.Set("vnics", jsonutils.Marshal(nics))
 	return jsonutils.Marshal(nics), nil
+}
+
+func (self *SGuest) GetInstanceSnapshots() ([]SInstanceSnapshot, error) {
+	instanceSnapshots := make([]SInstanceSnapshot, 0)
+	q := InstanceSnapshotManager.Query().Equals("guest_id", self.Id)
+	err := db.FetchModelObjects(InstanceSnapshotManager, q, &instanceSnapshots)
+	if err != nil {
+		return nil, err
+	}
+	return instanceSnapshots, nil
+}
+
+func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error) {
+	guestDisks := self.GetDisks()
+	diskIds := make([]string, len(guestDisks))
+	for i := 0; i < len(guestDisks); i++ {
+		diskIds[i] = guestDisks[i].DiskId
+	}
+	snapshots := make([]SSnapshot, 0)
+	q := SnapshotManager.Query().IsFalse("fake_deleted").In("disk_id", diskIds)
+	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
+	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
+		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))
+	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
+	if err != nil {
+		log.Errorf("fetch db snapshots failed %s", err)
+		return nil, err
+	}
+	return snapshots, nil
 }
