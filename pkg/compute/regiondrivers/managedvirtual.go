@@ -1297,9 +1297,56 @@ func (self *SManagedVirtualizationRegionDriver) DealNatGatewaySpec(spec string) 
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
-	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+	natgateway *models.SNatGateway, eipId string) error {
 
-	task.ScheduleRun(nil)
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		model, err := models.ElasticipManager.FetchById(eipId)
+		if err != nil {
+			return nil, err
+		}
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
+		eip := model.(*models.SElasticip)
+		// check again
+		if len(eip.AssociateId) > 0 {
+			return nil, fmt.Errorf("eip %s has been associated with resource %s", eip.Id, eip.AssociateId)
+		}
+		_, err = db.Update(eip, func() error {
+			eip.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+			eip.AssociateId = natgateway.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to update eip '%s' in database", eip.Id)
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask,
+	nat models.INatHelper, natgateway *models.SNatGateway) error {
+
+	eip := &models.SElasticip{}
+	err := models.ElasticipManager.Query().Equals("associate_id", natgateway.Id).First(eip)
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch eip associate with natgateway %s", natgateway.Id)
+	}
+	eip.SetModelManager(models.ElasticipManager, eip)
+	lockman.LockObject(ctx, eip)
+	defer lockman.ReleaseObject(ctx, eip)
+	iregion, err := eip.GetIRegion()
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch iregion of eip %s", eip.Id)
+	}
+	ieip, err := iregion.GetIEipById(eip.GetExternalId())
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch cloudeip of eip %s", eip.Id)
+	}
+	err = eip.SyncInstanceWithCloudEip(ctx, task.GetUserCred(), ieip)
+	if err != nil {
+		return errors.Wrapf(err, "fail to sync eip %s from cloud", eip.Id)
+	}
 	return nil
 }
 
@@ -1310,5 +1357,27 @@ func (self *SManagedVirtualizationRegionDriver) RequestPreSnapshotPolicyApply(ct
 
 		return data, nil
 	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
+	model, err := models.ElasticipManager.FetchById(eipId)
+	if err != nil {
+		return err
+	}
+	lockman.LockObject(ctx, model)
+	defer lockman.ReleaseObject(ctx, model)
+	eip := model.(*models.SElasticip)
+	if eip.AssociateType != api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY {
+		return nil
+	}
+	_, err = db.Update(eip, func() error {
+		eip.AssociateId = ""
+		eip.AssociateType = ""
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "rollback about binding eip %s failed", eip.Id)
+	}
 	return nil
 }
