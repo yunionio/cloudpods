@@ -27,6 +27,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -863,30 +864,99 @@ func (self *SAliyunRegionDriver) DealNatGatewaySpec(spec string) string {
 	return ""
 }
 
-func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
-	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+// RequestBindIPToNatgateway in aliyun don't need to check eip again which is different from SManagerResongDriver.
+// RequestBindIPToNatgateway because func ieip.Associate will fail if eip has been associate
+func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *models.SNatGateway,
+	eipId string) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if !needBind {
-			return nil, nil
+		model, err := models.ElasticipManager.FetchById(eipId)
+		if err != nil {
+			return nil, err
 		}
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
+		eip := model.(*models.SElasticip)
 		iregion, err := natgateway.GetIRegion()
 		if err != nil {
 			return nil, err
 		}
-		ieip, err := iregion.GetIEipById(eipID)
+		ieip, err := iregion.GetIEipById(eip.GetExternalId())
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch eip failed")
 		}
 		err = ieip.Associate(natgateway.GetExternalId())
 		if err != nil {
-			return nil, errors.Wrap(err, "bind eip to natgateway")
+			return nil, errors.Wrap(err, "fail to bind eip to natgateway")
 		}
 
-		err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_ASSOCIATE, 10*time.Second, 300*time.Second)
+		err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 5*time.Second, 100*time.Second)
 		if err != nil {
 			return nil, err
 		}
+
+		// database
+		_, err = db.Update(eip, func() error {
+			eip.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+			eip.AssociateId = natgateway.GetId()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to update eip '%s' in database", eip.Id)
+		}
 		return nil, nil
 	})
+	return nil
+}
+
+func (self *SAliyunRegionDriver) RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask,
+	nat models.INatHelper, natgateway *models.SNatGateway) error {
+
+	count, err := nat.CountByEIP()
+	if err != nil {
+		return errors.Wrapf(err, "fail to count by eip")
+	}
+	if count > 0 {
+		return nil
+	}
+	eip := &models.SElasticip{}
+	err = models.ElasticipManager.Query().Equals("associate_id", natgateway.Id).First(eip)
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch eip associate with natgateway %s", natgateway.Id)
+	}
+	eip.SetModelManager(models.ElasticipManager, eip)
+	lockman.LockObject(ctx, eip)
+	defer lockman.ReleaseObject(ctx, eip)
+	iregion, err := eip.GetIRegion()
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch iregion")
+	}
+	ieip, err := iregion.GetIEipById(eip.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "fetch eip failed")
+	}
+	err = ieip.Dissociate()
+	if err != nil {
+		return errors.Wrap(err, "fail to unbind eip from natgateway")
+	}
+
+	err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 5*time.Second, 100*time.Second)
+	if err != nil {
+		return err
+	}
+
+	// database
+	_, err = db.Update(eip, func() error {
+		eip.AssociateType = ""
+		eip.AssociateId = ""
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "fail to update eip '%s' in database", eip.Id)
+	}
+	return nil
+}
+
+func (self *SAliyunRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
+
 	return nil
 }

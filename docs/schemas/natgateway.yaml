@@ -154,8 +154,8 @@ DNatEntry:
       example: tcp
     name:
       type: string
-      description: DNAT名称
-      example: 111.230.80.43/udp/32
+      description: DNAT名称(处理过的)
+      example: hello-ea27c0ce-5870-49f3-8d57-f53e63f40361
     natgateway:
       type: string
       description: 所属NAT网关名称
@@ -168,6 +168,10 @@ DNatEntry:
       type: string
       description: DNAT状态
       example: available
+    real_name:
+      type: string
+      description: DNAT真实的名称
+      example: hello
 
 DNatEntryListResponse:
   type: object
@@ -215,7 +219,8 @@ SNatEntry:
       description: 公网IP
     name:
       type: string
-      example: snat-2zeqqfcow4t67ahduei7x
+      description: SNAT名称（经过处理的）
+      example: hello-ea27c0ce-5870-49f3-8d57-f53e63f40361
     natgateway:
       type: string
       example: test-nat
@@ -238,6 +243,10 @@ SNatEntry:
       type: string
       example: available
       description: SNAT状态
+    real_name:
+      type: string
+      example: hello
+      description: SNAT真实的名称
 
 SNatEntryListResponse:
   type: object

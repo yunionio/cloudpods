@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -513,4 +514,124 @@ func (self *SNatGateway) GetIRegion() (cloudprovider.ICloudRegion, error) {
 		return nil, fmt.Errorf("failed to find region for sp %s", self.Name)
 	}
 	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (nm *SNatGetewayManager) NatNameToReal(name string, natgatewayId string) string {
+	index := strings.Index(name, natgatewayId)
+	if index < 0 {
+		return name
+	}
+	return name[:index-1]
+}
+
+func (nm *SNatGetewayManager) NatNameFromReal(name string, natgatewayId string) string {
+	return fmt.Sprintf("%s-%s", name, natgatewayId)
+}
+
+type INatHelper interface {
+	db.IModel
+	CountByEIP() (int, error)
+	GetNatgateway() (*SNatGateway, error)
+	SetStatus(userCred mcclient.TokenCredential, status string, reason string) error
+}
+
+type SNatEntryManager struct {
+	db.SStatusStandaloneResourceBaseManager
+}
+
+func NewNatEntryManager(dt interface{}, tableName string, keyword string, keywordPlural string) SNatEntryManager {
+	return SNatEntryManager{db.NewStatusStandaloneResourceBaseManager(dt, tableName, keyword, keywordPlural)}
+}
+
+type SNatEntry struct {
+	db.SStatusStandaloneResourceBase
+	db.SExternalizedResourceBase
+
+	NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+}
+
+func (manager *SNatEntryManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{NatGatewayManager},
+	}
+}
+
+func (self *SNatEntryManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SNatEntryManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SNatEntry) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SNatEntry) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SNatEntry) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
+}
+
+func (self *SNatEntry) GetNatgateway() (*SNatGateway, error) {
+	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
+	if err != nil {
+		return nil, err
+	}
+	return model.(*SNatGateway), nil
+}
+
+func (man *SNatEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = managedResourceFilterByAccount(q, query, "natgateway_id", func() *sqlchemy.SQuery {
+		natgateways := NatGatewayManager.Query().SubQuery()
+		return natgateways.Query(natgateways.Field("id"))
+	})
+
+	return q, nil
+}
+
+func (self *SNatEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
+	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fetch NatGateway whose id is %s failed", self.NatgatewayId)
+	}
+	natgateway := model.(*SNatGateway)
+	return natgateway.GetINatGateway()
+}
+
+func (self *SNatEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("NAT Entry delete do nothing")
+	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
+	return nil
+}
+
+func (self *SNatEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := db.DeleteModel(ctx, userCred, self)
+	if err != nil {
+		return err
+	}
+	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
+	return nil
+}
+
+func (self *SNatEntry) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
+	if data.Contains("name") {
+		name, _ := data.GetString("name")
+		natgateway, err := self.GetNatgateway()
+		if err != nil {
+			return nil, err
+		}
+		data.Set("name", jsonutils.NewString(NatGatewayManager.NatNameFromReal(name, natgateway.GetId())))
+	}
+	return nil, nil
 }
