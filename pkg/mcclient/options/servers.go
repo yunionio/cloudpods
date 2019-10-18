@@ -468,6 +468,7 @@ func (opts *ServerUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 type ServerDeleteOptions struct {
 	ID                    []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	OverridePendingDelete *bool    `help:"Delete server directly instead of pending delete" short-token:"f"`
+	DeleteSnapshots       *bool    `help:"Delete server snapshots"`
 }
 
 type ServerDeployOptions struct {

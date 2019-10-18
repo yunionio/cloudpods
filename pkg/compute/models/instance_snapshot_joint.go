@@ -35,7 +35,7 @@ func (manager *SInstanceSnapshotJointManager) GetMasterFieldName() string {
 }
 
 func (manager *SInstanceSnapshotJointManager) GetSlaveFieldName() string {
-	return "disk_id"
+	return "snapshot_id"
 }
 
 var InstanceSnapshotJointManager *SInstanceSnapshotJointManager

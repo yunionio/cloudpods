@@ -81,12 +81,16 @@ func init() {
 	type DiskDeleteOptions struct {
 		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
 		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete" short-token:"f"`
+		DeleteSnapshots       bool     `help:"Delete disk snapshots before delete disk"`
 	}
 
 	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
 		params := jsonutils.NewDict()
 		if args.OverridePendingDelete {
 			params.Add(jsonutils.JSONTrue, "override_pending_delete")
+		}
+		if args.DeleteSnapshots {
+			params.Add(jsonutils.JSONTrue, "delete_snapshots")
 		}
 		ret := modules.Disks.BatchDeleteWithParam(s, args.ID, params, nil)
 		printBatchResults(ret, modules.Disks.GetColumns(s))

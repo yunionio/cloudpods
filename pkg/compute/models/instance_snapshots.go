@@ -67,24 +67,30 @@ func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcc
 
 func (self *SInstanceSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra = self.getMoreDetails(extra)
+	return extra
+}
+
+func (self *SInstanceSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
 		extra.Set("guest_status", jsonutils.NewString(guest.Status))
 		extra.Set("guest_name", jsonutils.NewString(guest.Name))
 	}
+	snapshots, _ := self.GetSnapshots()
+	snapshotsDesc := jsonutils.NewDict()
+	for i := 0; i < len(snapshots); i++ {
+		snapshotsDesc.Set(snapshots[i].Id, jsonutils.NewString(snapshots[i].Name))
+	}
+	extra.Set("snapshots", snapshotsDesc)
 	return extra
 }
-
-// func (self *SInstanceSnapshot) getMoreDetails()
 
 func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
-		extra.Set("guest_status", jsonutils.NewString(guest.Status))
-		extra.Set("guest_name", jsonutils.NewString(guest.Name))
-	}
+	extra = self.getMoreDetails(extra)
 	return extra, nil
 }
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
@@ -208,4 +214,8 @@ func (self *SInstanceSnapshot) StartInstanceSnapshotDeleteTask(
 
 func (self *SInstanceSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
+}
+
+func (self *SInstanceSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
 }

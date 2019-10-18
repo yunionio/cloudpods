@@ -92,7 +92,7 @@ func (self *SGuest) DoPerformPrepaidRecycle(ctx context.Context, userCred mcclie
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	if autoDelete {
-		self.StartDeleteGuestTask(ctx, userCred, "", false, true)
+		self.StartDeleteGuestTask(ctx, userCred, "", false, true, false)
 	}
 
 	return nil, nil

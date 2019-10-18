@@ -1604,7 +1604,7 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 
-	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false)
+	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false, false)
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1620,7 +1620,8 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	return self.StartDiskDeleteTask(ctx, userCred, "", false,
-		jsonutils.QueryBoolean(query, "override_pending_delete", false))
+		jsonutils.QueryBoolean(query, "override_pending_delete", false),
+		jsonutils.QueryBoolean(query, "delete_snapshots", false))
 }
 
 func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
@@ -1722,13 +1723,19 @@ func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (self *SDisk) StartDiskDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, isPurge, overridePendingDelete bool) error {
+func (self *SDisk) StartDiskDeleteTask(
+	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string,
+	isPurge, overridePendingDelete, deleteSnapshots bool,
+) error {
 	params := jsonutils.NewDict()
 	if isPurge {
 		params.Add(jsonutils.JSONTrue, "purge")
 	}
 	if overridePendingDelete {
 		params.Add(jsonutils.JSONTrue, "override_pending_delete")
+	}
+	if deleteSnapshots {
+		params.Add(jsonutils.JSONTrue, "delete_snapshots")
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "DiskDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -1887,7 +1894,7 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 		return
 	}
 	for i := 0; i < len(disks); i += 1 {
-		disks[i].StartDiskDeleteTask(ctx, userCred, "", false, false)
+		disks[i].StartDiskDeleteTask(ctx, userCred, "", false, false, false)
 	}
 }
 
@@ -2204,4 +2211,18 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 		}
 	}
 	return syncResult
+}
+
+func (self *SDisk) GetSnapshotsNotInInstanceSnapshot() ([]SSnapshot, error) {
+	snapshots := make([]SSnapshot, 0)
+	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
+	q := SnapshotManager.Query().IsFalse("fake_deleted")
+	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
+		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))
+	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)
+	if err != nil {
+		log.Errorf("Fetch db snapshots failed %s", err)
+		return nil, err
+	}
+	return snapshots, nil
 }

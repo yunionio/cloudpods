@@ -37,7 +37,6 @@ type GuestDiskSnapshotTask struct {
 
 func (self *GuestDiskSnapshotTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, api.VM_START_SNAPSHOT, "StartDiskSnapshot")
 	self.DoDiskSnapshot(ctx, guest)
 }
 
