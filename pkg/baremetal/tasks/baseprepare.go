@@ -420,6 +420,7 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 func (task *sBaremetalPrepareTask) removeObsoleteNics(i *baremetalPrepareInfo) []string {
 	removes := make([]string, 0)
 	existNics := task.baremetal.GetNics()
+	log.Debugf("Existing nics: %s", jsonutils.Marshal(existNics))
 	for idx := range existNics {
 		if utils.IsInStringArray(existNics[idx].Type, api.NIC_TYPES) {
 			continue

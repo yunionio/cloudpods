@@ -490,63 +490,64 @@ func TestCheckDisksAllocable(t *testing.T) {
 		t.Fatalf("Calculate bitmain layout err: %v", err)
 	}
 
-	tdiskDefault := []*Disk{
-		{Size: -1},
-		{Size: -1},
+	tdiskDefault := []*api.DiskConfig{
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
-	tdisk1 := []*Disk{
-		{Size: 960000},
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
+	tdisk1 := []*api.DiskConfig{
+		{SizeMb: 960000},
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
-	tdisk2 := []*Disk{
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
+	tdisk2 := []*api.DiskConfig{
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
-	tdisk3 := []*Disk{
-		{Size: 102398},
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
+	tdisk3 := []*api.DiskConfig{
+		{SizeMb: 102398},
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
-	btdisk1 := []*Disk{
-		{Size: 61438},
-		{Size: -1},
+	btdisk1 := []*api.DiskConfig{
+		{SizeMb: 61438},
+		{SizeMb: -1},
 	}
 
-	btdisk2 := []*Disk{
-		{Size: 61440},
-		{Size: -1},
+	btdisk2 := []*api.DiskConfig{
+		{SizeMb: 61440},
+		{SizeMb: -1},
 	}
 
-	btdisk3 := []*Disk{
-		{Size: -1},
-		{Size: -1},
+	btdisk3 := []*api.DiskConfig{
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
-	btPcieDisk := []*Disk{
-		{Size: 44440},
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
-		{Size: -1},
+	btPcieDisk := []*api.DiskConfig{
+		{SizeMb: 44440},
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
+		{SizeMb: -1},
 	}
 
 	type args struct {
 		layouts []Layout
-		disks   []*Disk
+		disks   []*api.DiskConfig
 	}
 	tests := []struct {
-		name string
-		args args
-		want bool
+		name       string
+		args       args
+		want       bool
+		extraCount int
 	}{
 		{
 			name: "default none type config should allocable",
@@ -554,7 +555,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: defaultLayout,
 				disks:   tdiskDefault,
 			},
-			want: true,
+			want:       true,
+			extraCount: 0,
 		},
 		{
 			name: "should not allocable",
@@ -562,7 +564,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: layout,
 				disks:   tdisk1,
 			},
-			want: false,
+			want:       false,
+			extraCount: 0,
 		},
 		{
 			name: "should allocable",
@@ -570,7 +573,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: layout,
 				disks:   tdisk2,
 			},
-			want: true,
+			want:       true,
+			extraCount: 1,
 		},
 		{
 			name: "should allocable2",
@@ -578,7 +582,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: layout,
 				disks:   tdisk3,
 			},
-			want: true,
+			want:       true,
+			extraCount: 1,
 		},
 		{
 			name: "Bitmain allocable 61438 should true",
@@ -586,7 +591,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: bitmainLayout,
 				disks:   btdisk1,
 			},
-			want: true,
+			want:       true,
+			extraCount: 2,
 		},
 		{
 			name: "Bitmain allocable 61440 should false",
@@ -594,7 +600,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: bitmainLayout,
 				disks:   btdisk2,
 			},
-			want: false,
+			want:       false,
+			extraCount: 0,
 		},
 		{
 			name: "Bitmain allocable autoextend should true",
@@ -602,7 +609,8 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: bitmainLayout,
 				disks:   btdisk3,
 			},
-			want: true,
+			want:       true,
+			extraCount: 2,
 		},
 		{
 			name: "Bitmain allocable PCIE disk should true",
@@ -610,13 +618,14 @@ func TestCheckDisksAllocable(t *testing.T) {
 				layouts: bitmainLayout,
 				disks:   btPcieDisk,
 			},
-			want: true,
+			want:       true,
+			extraCount: 0,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CheckDisksAllocable(tt.args.layouts, tt.args.disks); got != tt.want {
-				t.Errorf("CheckDisksAllocable() = %v, want %v", got, tt.want)
+			if got, extraDisks := CheckDisksAllocable(tt.args.layouts, tt.args.disks); got != tt.want || len(extraDisks) != tt.extraCount {
+				t.Errorf("CheckDisksAllocable() = %v, %d, want %v %d", got, len(extraDisks), tt.want, tt.extraCount)
 			}
 		})
 	}

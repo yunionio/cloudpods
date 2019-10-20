@@ -17,10 +17,9 @@ package tasks
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -28,27 +27,30 @@ import (
 
 type IServerBaseDeployTask interface {
 	IPXEBootTask
+
 	DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error)
 	PostDeploys(term *ssh.Client) error
 }
 
 type SBaremetalServerBaseDeployTask struct {
-	*SBaremetalPXEBootTaskBase
-	serverDeployTask IServerBaseDeployTask
+	SBaremetalPXEBootTaskBase
 }
 
 func newBaremetalServerBaseDeployTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-	deployTask IServerBaseDeployTask,
-) (*SBaremetalServerBaseDeployTask, error) {
-	task := new(SBaremetalServerBaseDeployTask)
-	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
-	task.SBaremetalPXEBootTaskBase = baseTask
-	_, err := baseTask.InitPXEBootTask(task, data)
-	task.serverDeployTask = deployTask
-	return task, err
+) SBaremetalServerBaseDeployTask {
+	task := SBaremetalServerBaseDeployTask{
+		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(baremetal, taskId, data),
+	}
+	// any inheritance must call:
+	// task.SetStage(task.InitPXEBootTask)
+	return task
+}
+
+func (self *SBaremetalServerBaseDeployTask) IServerBaseDeployTask() IServerBaseDeployTask {
+	return self.GetVirtualObject().(IServerBaseDeployTask)
 }
 
 func (self *SBaremetalServerBaseDeployTask) GetName() string {
@@ -63,13 +65,17 @@ func (self *SBaremetalServerBaseDeployTask) GetFinishAction() string {
 	return ""
 }
 
+func (self *SBaremetalServerBaseDeployTask) DoDeploys(_ *ssh.Client) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 func (self *SBaremetalServerBaseDeployTask) PostDeploys(_ *ssh.Client) error {
 	return nil
 }
 
 func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {
 	log.Infof("%s called on stage pxeboot, args: %v", self.GetName(), args)
-	result, err := self.serverDeployTask.DoDeploys(term)
+	result, err := self.IServerBaseDeployTask().DoDeploys(term)
 	if err != nil {
 		return errors.Wrap(err, "Do deploy")
 	}
@@ -80,7 +86,7 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	if err != nil {
 		return errors.Wrap(err, "Sync disk")
 	}
-	if err := self.serverDeployTask.PostDeploys(term); err != nil {
+	if err := self.IServerBaseDeployTask().PostDeploys(term); err != nil {
 		return errors.Wrap(err, "post deploy")
 	}
 	onFinishAction := self.GetFinishAction()

@@ -19,6 +19,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/golang-plus/uuid"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -141,10 +143,15 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 			log.Errorf("[DHCP] parse vendor option %d error: %v", optCode, err)
 		}
 	}
+	var cliUUID uuid.UUID
+	if len(cliGuid) == 17 {
+		copy(cliUUID[:], []byte(cliGuid)[1:])
+	}
 	req.VendorClassId = vendorClsId
 	req.ClientArch = cliArch
 	req.NetworkInterfaceIdent = netIfIdent
-	req.ClientGuid = cliGuid
+	req.ClientGuid = cliUUID.String()
+	log.Debugf("Client GUID: %s", req.ClientGuid)
 	return req, err
 }
 

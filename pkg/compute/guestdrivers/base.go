@@ -203,6 +203,10 @@ func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) RequestGuestHotRemoveIso(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }

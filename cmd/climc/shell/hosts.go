@@ -592,4 +592,32 @@ func init() {
 		}
 		return nil
 	})
+
+	type HostInsertIsoOptions struct {
+		ID    string `help:"ID or name of host" json:"-"`
+		Image string `help:"ID or name or ISO image name" json:"image"`
+		Boot  bool   `help:"Boot from ISO on next reset" json:"boot"`
+	}
+	R(&HostInsertIsoOptions{}, "host-insert-iso", "Insert ISO into virtual cd-rom of host", func(s *mcclient.ClientSession, args *HostInsertIsoOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Hosts.PerformAction(s, args.ID, "insert-iso", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type HostEjectIsoOptions struct {
+		ID string `help:"ID or name of host" json:"-"`
+	}
+	R(&HostEjectIsoOptions{}, "host-eject-iso", "Eject ISO from virtual cd-rom of host", func(s *mcclient.ClientSession, args *HostEjectIsoOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Hosts.PerformAction(s, args.ID, "eject-iso", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

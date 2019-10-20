@@ -67,6 +67,14 @@ const (
 	BAREMETAL_PROBING     = "probing"
 	BAREMETAL_PROBE_FAIL  = "probe_fail"
 
+	BAREMETAL_START_INSERT_ISO = "start_insert"
+	BAREMETAL_INSERTING_ISO    = "inserting_iso"
+	BAREMETAL_INSERT_FAIL      = "insert_fail"
+
+	BAREMETAL_START_EJECT_ISO = "start_eject"
+	BAREMETAL_EJECTING_ISO    = "ejecting_iso"
+	BAREMETAL_EJECT_FAIL      = "eject_fail"
+
 	HOST_STATUS_RUNNING = BAREMETAL_RUNNING
 	HOST_STATUS_READY   = BAREMETAL_READY
 	HOST_STATUS_UNKNOWN = BAREMETAL_UNKNOWN
@@ -74,6 +82,11 @@ const (
 	HOST_START_MAINTAIN = "start_maintain"
 	HOST_MAINTAINING    = "maintaining"
 	HOST_MAINTAIN_FAILE = "maintain_fail"
+)
+
+const (
+	BAREMETAL_CDROM_ACTION_INSERT = "insert"
+	BAREMETAL_CDROM_ACTION_EJECT  = "eject"
 )
 
 const (

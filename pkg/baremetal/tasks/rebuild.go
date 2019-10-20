@@ -23,18 +23,20 @@ import (
 )
 
 type SBaremetalServerRebuildTask struct {
-	*SBaremetalServerBaseDeployTask
+	SBaremetalServerBaseDeployTask
 }
 
 func NewBaremetalServerRebuildTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	task := new(SBaremetalServerRebuildTask)
-	baseTask, err := newBaremetalServerBaseDeployTask(baremetal, taskId, data, task)
-	task.SBaremetalServerBaseDeployTask = baseTask
-	return task, err
+) ITask {
+	task := &SBaremetalServerRebuildTask{
+		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
+	task.SetStage(task.InitPXEBootTask)
+	return task
 }
 
 func (self *SBaremetalServerRebuildTask) GetName() string {
