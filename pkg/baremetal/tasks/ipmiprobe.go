@@ -32,20 +32,20 @@ import (
 )
 
 type SBaremetalIpmiProbeTask struct {
-	*SBaremetalTaskBase
+	SBaremetalTaskBase
 }
 
 func NewBaremetalIpmiProbeTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
-	task := new(SBaremetalIpmiProbeTask)
-	task.SBaremetalTaskBase = baseTask
+) ITask {
+	task := &SBaremetalIpmiProbeTask{
+		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
 	task.SetStage(task.DoIpmiProbe)
-	log.Debugf("Start SBaremetalIpmiProbeTask XXXXXX!!!!!")
-	return task, nil
+	return task
 }
 
 func (self *SBaremetalIpmiProbeTask) GetName() string {
@@ -101,6 +101,7 @@ func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv
 	updateInfo["cpu_desc"] = sysInfo.CpuDesc
 	updateInfo["mem_size"] = sysInfo.MemoryGB * 1024
 	updateInfo["sn"] = sysInfo.SerialNumber
+	updateInfo["uuid"] = sysInfo.UUID
 	dmiSysInfo := &types.SDMISystemInfo{
 		Manufacture: sysInfo.Manufacturer,
 		Model:       sysInfo.Model,
@@ -161,7 +162,7 @@ func (self *SBaremetalIpmiProbeTask) sendNicInfo(index int, mac net.HardwareAddr
 	nicInfo := &types.SNicDevInfo{
 		Mac: mac,
 	}
-	err := self.Baremetal.SendNicInfo(nicInfo, index, "", true, "", false)
+	err := self.Baremetal.SendNicInfo(nicInfo, index, "", false, "", false)
 	if err != nil {
 		return errors.Wrap(err, "SendNicInfo")
 	}
@@ -174,6 +175,7 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 		// ignore error for qemu
 		log.Errorf("ipmitool.GetSysInfo error %s", err)
 	}
+	guid := ipmitool.GetSysGuid(cli)
 	var conf *types.SIPMILanConfig
 	var channel int
 	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
@@ -203,6 +205,9 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 			SN:          sysInfo.SN,
 		}
 		updateInfo["sys_info"] = dmiSysInfo
+	}
+	if len(guid) > 0 {
+		updateInfo["uuid"] = guid
 	}
 	updateInfo["is_baremetal"] = true
 	ipmiInfo := self.Baremetal.GetRawIPMIConfig()

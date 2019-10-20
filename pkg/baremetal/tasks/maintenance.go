@@ -23,19 +23,20 @@ import (
 )
 
 type SBaremetalMaintenanceTask struct {
-	*SBaremetalPXEBootTaskBase
+	SBaremetalPXEBootTaskBase
 }
 
 func NewBaremetalMaintenanceTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	task := new(SBaremetalMaintenanceTask)
-	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
-	task.SBaremetalPXEBootTaskBase = baseTask
-	_, err := baseTask.InitPXEBootTask(task, data)
-	return task, err
+) ITask {
+	task := &SBaremetalMaintenanceTask{
+		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
+	task.SetStage(task.InitPXEBootTask)
+	return task
 }
 
 func (self *SBaremetalMaintenanceTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {

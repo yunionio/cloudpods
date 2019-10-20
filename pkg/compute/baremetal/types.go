@@ -92,7 +92,7 @@ func (s BaremetalStorage) GetBlock() int64 {
 	return s.Block
 }
 
-type Disk struct {
+/*type Disk struct {
 	Backend         string  `json:"backend"`
 	ImageID         string  `json:"image_id"`
 	Fs              *string `json:"fs"`
@@ -106,4 +106,4 @@ type Disk struct {
 	ImageDiskFormat string  `json:"image_disk_format"`
 	Size            int64   `json:"size"`
 	Storage         *string `json:"storage"`
-}
+}*/

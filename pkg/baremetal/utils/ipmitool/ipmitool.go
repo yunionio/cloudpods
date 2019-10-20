@@ -138,6 +138,23 @@ func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	return ssh.ParseOutput(out), nil
 }
 
+func GetSysGuid(exector IPMIExecutor) string {
+	args := []string{"mc", "guid"}
+	// args := []string{"raw", "0x06", "0x37"}
+	lines, err := exector.ExecuteCommand(args...)
+	if err != nil {
+		// ignore error
+		log.Errorf("mc guid error: %s", err)
+	}
+	for _, line := range lines {
+		key, val := stringutils.SplitKeyValue(line)
+		if key == "System GUID" {
+			return val
+		}
+	}
+	return ""
+}
+
 func GetSysInfo(exector IPMIExecutor) (*types.SIPMISystemInfo, error) {
 	// TODO: do cache
 	args := []string{"fru", "print", "0"}

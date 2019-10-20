@@ -25,9 +25,6 @@ func MountVirtualCdrom(ctx context.Context, api IRedfishDriver, cdromUrl string,
 	if err != nil {
 		return errors.Wrap(err, "api.GetVirtualCdromInfo")
 	}
-	if cdInfo.Image == cdromUrl {
-		return nil
-	}
 	if !cdInfo.SupportAction {
 		return errors.Error("action not supported")
 	}

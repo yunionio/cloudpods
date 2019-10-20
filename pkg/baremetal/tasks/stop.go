@@ -16,16 +16,16 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type SBaremetalServerStopTask struct {
-	*SBaremetalTaskBase
+	SBaremetalTaskBase
 	startTime time.Time
 }
 
@@ -33,18 +33,23 @@ func NewBaremetalServerStopTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
-	self := &SBaremetalServerStopTask{
-		SBaremetalTaskBase: baseTask,
+) ITask {
+	task := &SBaremetalServerStopTask{
+		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
 	}
-	self.SetStage(self.WaitForStop)
-	if err := self.Baremetal.DoPowerShutdown(true); err != nil {
-		return nil, fmt.Errorf("Do power shutdown error: %v", err)
+	task.SetVirtualObject(task)
+	task.SetStage(task.DoStop)
+	return task
+}
+
+func (task *SBaremetalServerStopTask) DoStop(ctx context.Context, args interface{}) error {
+	task.SetStage(task.WaitForStop)
+	if err := task.Baremetal.DoPowerShutdown(true); err != nil {
+		return errors.Wrap(err, "Do power shutdown error")
 	}
-	self.startTime = time.Now()
-	ExecuteTask(self, nil)
-	return self, nil
+	task.startTime = time.Now()
+	ExecuteTask(task, nil)
+	return nil
 }
 
 func (self *SBaremetalServerStopTask) GetName() string {
@@ -54,7 +59,7 @@ func (self *SBaremetalServerStopTask) GetName() string {
 func (self *SBaremetalServerStopTask) WaitForStop(ctx context.Context, args interface{}) error {
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
-		return fmt.Errorf("GetPowerStatus: %v", err)
+		return errors.Wrap(err, "GetPowerStatus")
 	}
 	if status == types.POWER_STATUS_OFF {
 		self.SetStage(self.OnStopComplete)
@@ -66,7 +71,7 @@ func (self *SBaremetalServerStopTask) WaitForStop(ctx context.Context, args inte
 		isSoft = false
 	}
 	if err := self.Baremetal.DoPowerShutdown(isSoft); err != nil {
-		return err
+		return errors.Wrap(err, "DoPowerShutdown")
 	}
 	time.Sleep(10 * time.Second)
 	ExecuteTask(self, nil)

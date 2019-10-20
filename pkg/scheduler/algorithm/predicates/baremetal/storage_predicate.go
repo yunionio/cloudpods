@@ -17,7 +17,7 @@ package baremetal
 import (
 	"fmt"
 
-	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	// computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -35,7 +35,7 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 	return &StoragePredicate{}
 }
 
-func toBaremetalDisks(disks []*computeapi.DiskConfig) []*baremetal.Disk {
+/*func toBaremetalDisks(disks []*computeapi.DiskConfig) []*baremetal.Disk {
 	ret := make([]*baremetal.Disk, len(disks))
 	for i, disk := range disks {
 		ret[i] = &baremetal.Disk{
@@ -51,7 +51,7 @@ func toBaremetalDisks(disks []*computeapi.DiskConfig) []*baremetal.Disk {
 		}
 	}
 	return ret
-}
+}*/
 
 func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
@@ -64,7 +64,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		storageInfo,
 	)
 
-	if err == nil && baremetal.CheckDisksAllocable(layouts, toBaremetalDisks(schedData.Disks)) {
+	if err == nil && baremetal.IsDisksAllocable(layouts, schedData.Disks) {
 		h.SetCapacity(int64(1))
 	} else {
 		h.SetCapacity(int64(0))

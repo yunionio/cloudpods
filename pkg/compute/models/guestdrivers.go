@@ -62,7 +62,7 @@ type IGuestDriver interface {
 
 	ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error)
 
-	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params []*api.BaremetalDiskConfig) error
+	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params []*api.BaremetalDiskConfig, disks []*api.DiskConfig) ([]*api.DiskConfig, error)
 
 	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection)
 
@@ -150,6 +150,7 @@ type IGuestDriver interface {
 	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error
 
 	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, task taskman.ITask) error
+	RequestGuestHotRemoveIso(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestRebuildRootDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	RequestDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, snapshotId, diskId string) error

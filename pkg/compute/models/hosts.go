@@ -137,6 +137,8 @@ type SHost struct {
 	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
 
 	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"admin" create:"admin_optional" update:"admin"`
+
+	Uuid string `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
@@ -3099,7 +3101,18 @@ func (self *SHost) AllowPerformPrepare(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, self, "prepare")
 }
 
+func (self *SHost) isRedfishCapable() bool {
+	ipmiInfo, _ := self.GetIpmiInfo()
+	if ipmiInfo.Verified && ipmiInfo.RedfishApi {
+		return true
+	}
+	return false
+}
+
 func (self *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.isRedfishCapable() && len(self.AccessMac) == 0 {
+		return nil, httperrors.NewInvalidStatusError("need valid access_mac to do prepare")
+	}
 	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PREPARE_FAIL}) {
 		var onfinish string
 		if self.GetBaremetalServer() != nil {
@@ -3756,7 +3769,7 @@ func (self *SHost) AllowPerformCacheImage(ctx context.Context,
 }
 
 func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != api.HOST_ONLINE {
+	if self.HostType == api.HOST_TYPE_BAREMETAL || self.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Cannot perform cache image in status %s", self.Status)
 	}
 	imageId, _ := data.GetString("image")
@@ -4449,7 +4462,7 @@ func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCr
 	switch strings.ToLower(manufacture) {
 	case "hp", "hpe":
 		jnlp, err = bmc.GetIloConsoleJNLP(ctx)
-	case "dell":
+	case "dell", "dell inc.":
 		sku, _ := self.SysInfo.GetString("sku")
 		model, _ := self.SysInfo.GetString("model")
 		jnlp, err = bmc.GetIdracConsoleJNLP(ctx, sku, model)
@@ -4462,4 +4475,75 @@ func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCr
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(jnlp), "jnlp")
 	return ret, nil
+}
+
+func (self *SHost) AllowPerformInsertIso(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "insert-iso")
+}
+
+func (self *SHost) PerformInsertIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+		imageStr, err := data.GetString("image")
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, false)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("image", imageStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if image.Status != cloudprovider.IMAGE_STATUS_ACTIVE {
+			return nil, httperrors.NewInvalidStatusError("Image status is not active")
+		}
+		boot := jsonutils.QueryBoolean(data, "boot", false)
+		return nil, self.StartInsertIsoTask(ctx, userCred, image.Id, boot, "")
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do insert-iso in status %s", self.Status)
+}
+
+func (self *SHost) StartInsertIsoTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, boot bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(imageId), "image_id")
+	if boot {
+		data.Add(jsonutils.JSONTrue, "boot")
+	}
+	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_INSERT), "action")
+	self.SetStatus(userCred, api.BAREMETAL_START_INSERT_ISO, "start insert iso task")
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
+}
+
+func (self *SHost) AllowPerformEjectIso(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "eject-iso")
+}
+
+func (self *SHost) PerformEjectIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+		return nil, self.StartEjectIsoTask(ctx, userCred, "")
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do eject-iso in status %s", self.Status)
+}
+
+func (self *SHost) StartEjectIsoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_EJECT), "action")
+	self.SetStatus(userCred, api.BAREMETAL_START_EJECT_ISO, "start eject iso task")
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
 }
