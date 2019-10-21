@@ -30,7 +30,7 @@ var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ss := s.(*jsonutils.JSONDict)
-	ret := ss.CopyIncludes("id", "type", "enabled", "domain_id", "domain", "project_domain", "can_update", "can_delete", "is_public")
+	ret := ss.CopyIncludes("id", "type", "enabled", "domain_id", "domain", "project_domain", "can_update", "can_delete", "is_public", "description", "delete_fail_reason", "update_fail_reason")
 	blobJson, _ := ss.Get("blob")
 	if blobJson != nil {
 		policy := rbacutils.SRbacPolicy{}
@@ -82,7 +82,7 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 		ret.Add(blobJson, "blob")
 	}
 	for _, k := range []string{
-		"type", "enabled", "domain", "domain_id", "project_domain",
+		"type", "enabled", "domain", "domain_id", "project_domain", "description",
 	} {
 		if s.Contains(k) {
 			val, err := s.Get(k)
@@ -96,8 +96,12 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 }
 
 func init() {
-	Policies = SPolicyManager{NewIdentityV3Manager("policy", "policies",
-		[]string{"id", "type", "policy", "enabled", "domain_id", "domain", "project_domain", "is_public"},
+	Policies = SPolicyManager{NewIdentityV3Manager(
+		"policy", "policies",
+		[]string{"id", "type", "policy", "enabled",
+			"domain_id", "domain", "project_domain",
+			"is_public", "description",
+		},
 		[]string{})}
 
 	Policies.SetReadFilter(policyReadFilter).SetWriteFilter(policyWriteFilter).SetNameField("type")
