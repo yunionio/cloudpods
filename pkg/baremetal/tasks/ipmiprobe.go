@@ -206,7 +206,9 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 		}
 		updateInfo["sys_info"] = dmiSysInfo
 	}
-	if len(guid) > 0 {
+	// XXX
+	// Qemu's IPMI guid is not correct, just ignore it
+	if len(guid) > 0 && sysInfo.SN != "" && sysInfo.SN != "Not Specified" {
 		updateInfo["uuid"] = guid
 	}
 	updateInfo["is_baremetal"] = true

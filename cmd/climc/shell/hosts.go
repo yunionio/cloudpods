@@ -51,6 +51,8 @@ func init() {
 
 		StorageNotAttached bool `help:"List hosts not attach specified storage"`
 
+		Uuid string `help:"find host with given system uuid"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
@@ -68,6 +70,9 @@ func init() {
 			params.Add(jsonutils.NewInt(1), "enabled")
 		} else if opts.Disabled {
 			params.Add(jsonutils.NewInt(0), "enabled")
+		}
+		if len(opts.Uuid) > 0 {
+			params.Add(jsonutils.NewString(opts.Uuid), "uuid")
 		}
 		result, err := modules.Hosts.List(s, params)
 		if err != nil {
@@ -193,7 +198,8 @@ func init() {
 		CpuReserved       int64   `help:"CPU reserved"`
 		HostType          string  `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
 		// AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
-		AccessMac string `help:"Change access MAC, CAUTION!!!!"`
+		AccessMac string `help:"Change baremetal access MAC, CAUTION!!!!"`
+		Uuid      string `help:"Change baremetal UUID,  CAUTION!!!!"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -220,6 +226,9 @@ func init() {
 		}
 		if len(args.AccessMac) > 0 {
 			params.Add(jsonutils.NewString(args.AccessMac), "access_mac")
+		}
+		if len(args.Uuid) > 0 {
+			params.Add(jsonutils.NewString(args.Uuid), "uuid")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")
@@ -485,9 +494,12 @@ func init() {
 		AccessNet  string `help:"Access network"`
 		AccessWire string `help:"Access wire"`
 
-		NoPrepare bool `help:"just initialize, do not reboot baremetal to prepare"`
+		NoProbe   bool `help:"just save the record, do not probe"`
+		NoPrepare bool `help:"just probe, do not reboot baremetal to prepare"`
 
 		DisablePxeBoot bool `help:"set enable_pxe_boot to false, which is true by default"`
+
+		Uuid string `help:"host uuid"`
 	}
 	R(&HostCreateOptions{}, "host-create", "Create a baremetal host", func(s *mcclient.ClientSession, args *HostCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -518,11 +530,17 @@ func init() {
 		if len(args.AccessWire) > 0 {
 			params.Add(jsonutils.NewString(args.AccessWire), "access_wire")
 		}
+		if args.NoProbe {
+			params.Add(jsonutils.JSONTrue, "no_probe")
+		}
 		if args.NoPrepare {
 			params.Add(jsonutils.JSONTrue, "no_prepare")
 		}
 		if args.DisablePxeBoot {
 			params.Add(jsonutils.JSONFalse, "enable_pxe_boot")
+		}
+		if len(args.Uuid) > 0 {
+			params.Add(jsonutils.NewString(args.Uuid), "uuid")
 		}
 		result, err := modules.Hosts.Create(s, params)
 		if err != nil {

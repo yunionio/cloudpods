@@ -1028,7 +1028,7 @@ LABEL start
 			fmt.Sprintf("token=%s", auth.GetTokenString()),
 			fmt.Sprintf("url=%s", b.GetNotifyUrl()),
 		}
-		bootmode := "pxe"
+		bootmode := api.BOOT_MODE_PXE
 		if !isTftp {
 			adminNic := b.GetAdminNic()
 			var addr string
@@ -1052,7 +1052,7 @@ LABEL start
 			args = append(args, fmt.Sprintf("gateway=%s", gateway))
 			args = append(args, fmt.Sprintf("addr=%s", addr))
 			args = append(args, fmt.Sprintf("mask=%s", mask))
-			bootmode = "iso"
+			bootmode = api.BOOT_MODE_ISO
 		}
 		args = append(args, fmt.Sprintf("bootmod=%s", bootmode))
 		resp += fmt.Sprintf("    append %s\n", strings.Join(args, " "))

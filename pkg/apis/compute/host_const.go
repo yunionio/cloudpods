@@ -117,3 +117,8 @@ var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
 const (
 	ACCESS_MAC_ANY = "00:00:00:00:00:00"
 )
+
+const (
+	BOOT_MODE_PXE = "pxe"
+	BOOT_MODE_ISO = "iso"
+)
