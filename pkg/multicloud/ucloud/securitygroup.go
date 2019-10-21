@@ -246,6 +246,9 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string) ([]
 	}
 	err := self.DoListAll("DescribeFirewall", params, &secgroups)
 	if err != nil {
+		if strings.Contains(err.Error(), "not exist") {
+			return nil, cloudprovider.ErrNotFound
+		}
 		return nil, err
 	}
 

@@ -512,17 +512,17 @@ func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	if len(secgroupId) > 0 {
 		_, err := self.GetSecurityGroupDetails(secgroupId)
-		if err == cloudprovider.ErrNotSupported {
+		if err == cloudprovider.ErrNotFound {
 			secgroupId = ""
 		} else if err != nil {
-			return "", err
+			return "", errors.Wrapf(err, "self.GetSecurityGroupDetails(%s)", secgroupId)
 		}
 	}
 
 	if len(secgroupId) == 0 {
 		extID, err := self.CreateSecurityGroup(vpcId, name, desc)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "self.CreateSecurityGroup")
 		}
 		secgroupId = extID
 	}
@@ -708,11 +708,11 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 	var AddRules []secrules.SecurityRule
 
 	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
-		return err
+		return errors.Wrapf(err, "syncSecgroupRules.GetSecurityGroupDetails(%s)", secgroupId)
 	} else {
 		remoteRules, err := secgroup.GetRulesWithExtId()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "secgroup.GetRulesWithExtId")
 		}
 
 		sort.Sort(secrules.SecurityRuleSet(rules))
