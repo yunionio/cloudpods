@@ -53,7 +53,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHostManager struct {
@@ -2693,10 +2692,6 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		data.Set("access_ip", jsonutils.NewString(accessIp))
 		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
-	}
-	ipmiPasswd, _ := ipmiInfo.GetString("password")
-	if len(ipmiPasswd) > 0 && !seclib2.MeetComplxity(ipmiPasswd) {
-		return nil, httperrors.NewWeakPasswordError()
 	}
 	// only baremetal can be created
 	hostType, _ := data.GetString("host_type")
