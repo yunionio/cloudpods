@@ -60,6 +60,7 @@ func init() {
 		FILE     string `help:"path to policy file"`
 		Enabled  bool   `help:"create policy enabled"`
 		Disabled bool   `help:"create policy disabled"`
+		Desc     string `help:"policy description"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
 		policyBytes, err := ioutil.ReadFile(args.FILE)
@@ -78,6 +79,9 @@ func init() {
 		} else if args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
+		if len(args.Desc) > 0 {
+			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
 
 		result, err := modules.Policies.Create(s, params)
 		if err != nil {
@@ -95,6 +99,7 @@ func init() {
 		Type     string `help:"policy type"`
 		Enabled  bool   `help:"update policy enabled"`
 		Disabled bool   `help:"update policy disabled"`
+		Desc     string `help:"Description"`
 	}
 	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
@@ -116,6 +121,9 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
+		}
+		if len(args.Desc) > 0 {
+			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		result, err := modules.Policies.Patch(s, policyId, params)
 		if err != nil {
