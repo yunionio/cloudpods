@@ -51,7 +51,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHostManager struct {
@@ -2565,9 +2564,14 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
 		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 	}
-	ipmiPasswd, _ := ipmiInfo.GetString("password")
-	if len(ipmiPasswd) > 0 && !seclib2.MeetComplxity(ipmiPasswd) {
-		return nil, httperrors.NewWeakPasswordError()
+	// only baremetal can be created
+	hostType, _ := data.GetString("host_type")
+	if len(hostType) == 0 {
+		hostType = api.HOST_TYPE_BAREMETAL
+		data.Set("host_type", jsonutils.NewString(hostType))
+	}
+	if hostType == api.HOST_TYPE_BAREMETAL {
+		data.Set("is_baremetal", jsonutils.JSONTrue)
 	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
