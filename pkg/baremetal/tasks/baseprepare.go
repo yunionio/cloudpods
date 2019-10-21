@@ -364,6 +364,8 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 	size, diskType := task.collectDiskInfo(i.diskInfo)
 	updateInfo["storage_size"] = size
 	updateInfo["storage_type"] = diskType
+	updateInfo["boot_mode"] = getBootMode(cli)
+	updateInfo["uuid"] = getSystemGuid(cli)
 	updateData := jsonutils.Marshal(updateInfo)
 	updateData.(*jsonutils.JSONDict).Update(i.ipmiInfo.ToPrepareParams())
 	_, err := modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
@@ -541,6 +543,7 @@ type ipmiIPConfig struct {
 func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(ipAddr), "ip")
+	params.Add(jsonutils.JSONTrue, "is_on_premise")
 	listRet, err := modules.Networks.List(task.getClientSession(), params)
 	if err != nil {
 		return nil, err
@@ -575,6 +578,39 @@ func getCPUInfo(cli *ssh.Client) (*types.SCPUInfo, error) {
 		return nil, err
 	}
 	return sysutils.ParseCPUInfo(ret)
+}
+
+func getBootMode(cli *ssh.Client) string {
+	lines, err := cli.Run("cat /proc/cmdline")
+	if err != nil {
+		return api.BOOT_MODE_PXE
+	}
+	const (
+		key = "bootmode="
+	)
+	for _, line := range lines {
+		pos := strings.Index(line, key)
+		if pos >= 0 {
+			if strings.HasPrefix(line[pos+len(key):], api.BOOT_MODE_ISO) {
+				return api.BOOT_MODE_ISO
+			}
+		}
+	}
+	return api.BOOT_MODE_PXE
+}
+
+func getSystemGuid(cli *ssh.Client) string {
+	lines, err := cli.Run("/usr/sbin/dmidecode -s system-uuid")
+	if err != nil {
+		return ""
+	}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if len(line) > 0 {
+			return sysutils.NormalizeUuid(line)
+		}
+	}
+	return ""
 }
 
 func getDMICPUInfo(cli *ssh.Client) (*types.SDMICPUInfo, error) {

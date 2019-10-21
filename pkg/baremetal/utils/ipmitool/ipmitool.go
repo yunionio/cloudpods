@@ -149,7 +149,7 @@ func GetSysGuid(exector IPMIExecutor) string {
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
 		if key == "System GUID" {
-			return val
+			return sysutils.NormalizeUuid(val)
 		}
 	}
 	return ""
