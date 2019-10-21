@@ -722,10 +722,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			}
 			status := iVM.GetStatus()
 			if status == api.VM_READY || status == api.VM_RUNNING {
-				if len(instanceType) > 0 {
-					if instanceType == iVM.GetInstanceType() {
-						return true
-					}
+				iInstanceType := iVM.GetInstanceType()
+				if len(instanceType) > 0 && len(iInstanceType) > 0 && instanceType == iInstanceType {
+					return true
 				} else {
 					// aws 目前取不到内存。返回值永远为0
 					if iVM.GetVcpuCount() == int(vcpuCount) && (iVM.GetVmemSizeMB() == int(vmemSize) || iVM.GetVmemSizeMB() == 0) {
