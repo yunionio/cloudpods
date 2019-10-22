@@ -1,0 +1,16 @@
+post:
+  summary: 保存主机镜像
+  parameters:
+    - $ref: '../parameters/instance.yaml#/instanceId'
+    - in: body
+      name: server
+      required: true
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceSaveImage'
+  responses:
+    200:
+      description: 实例信息
+      schema:
+        $ref: '../schemas/instance.yaml#/InstanceResponse'
+  tags:
+    - instance

@@ -1,0 +1,107 @@
+GuestImageListResponse:
+  type: object
+  properties:
+    limit:
+      type: interger
+      example: 20
+    guestimages:
+      type: array
+      items:
+        $ref: '#/GuestImage'
+    total:
+      type: integer
+      example: 124
+
+GuestImageResponse:
+  type: object
+  properties:
+    guestimage:
+      type: object
+      $ref: '#/GuestImage'
+
+GuestImage:
+  type: object
+  description: 主机镜像
+  properties:
+    id:
+      type: string
+      example: ea27c0ce-5870-49f3-8d57-f53e63f40361
+      description: 镜像ID
+      readOnly: true
+    can_delete:
+      type: boolean
+      example: true
+      description: 镜像是否可以删除
+    can_update:
+      type: boolean
+      example: true
+      description: 镜像是否可以更新
+    created_at:
+      type: string
+      example: 2019-05-30T09:23:16.000000Z
+      description: 镜像创建时间
+    name:
+      type: string
+      example: ubuntu-16.04.5-server-20181117.qcow2
+      description: 镜像名称
+    properties:
+      type: object
+      $ref: './image.yaml#/ImageProperties'
+    protected:
+      type: boolean
+      example: true
+      description: 是否受保护
+    size:
+      type: integer
+      example: 792592384
+      description: 主机镜像实际大小(系统盘镜像和数据盘镜像的大小之和),单位Byte
+    min_ram_size:
+      type: integer
+      example: 2048
+      description: 创建vm时的最低内存限制
+    root_image:
+      type: object
+      $ref: '#/SubImageInfo'
+      description: 系统盘镜像
+    data_images:
+      type: array
+      items:
+        $ref: '#/SubImageInfo'
+      description: 数据盘镜像列表
+    status:
+      type: string
+      example: active
+      enum: [queued,saving,active,converting]
+      description: 镜像状态, queued(队列中), saving(保存中), active(可用)
+    tenant:
+      type: string
+      example: system
+      description: 所属项目名称
+    tenant_id:
+      type: string
+      example: a7f2e2a81a1e4850a41eae5f140ceb14
+      description: 所属项目ID
+    updated_at:
+      type: string
+      example: 2019-05-30T09:26:41.000000Z
+      description: 最近一次更新时间
+
+SubImageInfo:
+  type: object
+  description: 子镜像信息
+  properties:
+    id:
+      type: string
+      example: fasd2344-5470-32f3-4d47-f53323f40361
+      description: 子镜像的ID
+    name:
+      type: string
+      example: root
+      description: 子镜像的Name
+    min_disk_mb:
+      type: integer
+      example: 40960
+      description: 磁盘最低大小限制(MB)
+    disk_format:
+      type: string
+      description: 磁盘格式

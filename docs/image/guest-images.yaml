@@ -1,0 +1,13 @@
+get:
+  summary: 按指定条件列出主机镜像
+  parameters:
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/limit"
+
+  responses:
+    200:
+      description: 主机镜像列表信息
+      schema:
+        $ref: "../schemas/guest_image.yaml#/GuestImageListResponse"
+  tags:
+    - guestimage

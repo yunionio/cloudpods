@@ -139,6 +139,8 @@ paths:
     $ref: "./instance/revoke-secgroup.yaml"
   /servers/{instanceId}/save-image:
     $ref: "./instance/save-image.yaml"
+  /servers/{instanceId}/save-guest-image:
+    $ref: "./instance/save-guest-image.yaml"
   /servers/{instanceId}/send-keys:
     $ref: "./instance/send-keys.yaml"
   /servers/{instanceId}/set-extra-option:
@@ -174,6 +176,12 @@ paths:
     $ref: "./image/image.yaml"
   /images/{imageId}/mark-standard:
     $ref: "./image/image-standard.yaml"
+
+  /guestimages:
+    $ref: "./image/guest-images.yaml"
+  /guestimages/{imageId}:
+    $ref: "./image/guest-image.yaml"
+
 
   /natgateways:
     $ref: "./natgateway/natgateways.yaml"

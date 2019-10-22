@@ -297,3 +297,15 @@ func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, us
 	}
 	return nil
 }
+
+func (self *SVirtualizedGuestDriver) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
+	guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveGuestImageTask", guest, userCred, params, parentTaskId,
+		"", nil); err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
