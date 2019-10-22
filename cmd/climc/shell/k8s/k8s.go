@@ -29,10 +29,8 @@ import (
 
 func init() {
 	// cluster resources
-	initCluster()
 	initKubeCluster()
 	initKubeMachine()
-	initNode()
 	initKubeCerts()
 
 	// helm resources
@@ -79,7 +77,7 @@ func kubeResourceCmdN(prefix, suffix string) string {
 
 func clusterContext(clusterId string) modulebase.ManagerContext {
 	return modulebase.ManagerContext{
-		InstanceManager: k8s.Clusters,
+		InstanceManager: k8s.KubeClusters,
 		InstanceId:      clusterId,
 	}
 }
