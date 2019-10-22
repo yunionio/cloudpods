@@ -507,6 +507,9 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid input %s", err)
 	}
+	if syncRange.FullSync || len(syncRange.Region) > 0 || len(syncRange.Zone) > 0 || len(syncRange.Host) > 0 {
+		syncRange.DeepSync = true
+	}
 	if self.CanSync() || syncRange.Force {
 		err = self.StartSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
