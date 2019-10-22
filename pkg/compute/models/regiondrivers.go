@@ -99,7 +99,9 @@ type IRegionDriver interface {
 
 	//Nat gateway
 	DealNatGatewaySpec(spec string) string
-	RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *SNatGateway, needBind bool, eipID string) error
+	RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *SNatGateway, eipId string) error
+	RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask, nat INatHelper, natgateway *SNatGateway) error
+	BindIPToNatgatewayRollback(ctx context.Context, eipId string) error
 }
 
 var regionDrivers map[string]IRegionDriver

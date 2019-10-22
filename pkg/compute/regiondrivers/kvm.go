@@ -832,8 +832,14 @@ func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *mo
 func (self *SKVMRegionDriver) DealNatGatewaySpec(spec string) string {
 	return spec
 }
-func (self *SKVMRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
-	natgateway *models.SNatGateway, needBind bool, eipID string) error {
+func (self *SKVMRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask, natgateway *models.SNatGateway,
+	eipId string) error {
+
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestUnBindIPFromNatgateway(ctx context.Context, task taskman.ITask,
+	nat models.INatHelper, natgateway *models.SNatGateway) error {
 
 	return nil
 }
@@ -845,5 +851,9 @@ func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context,
 
 		return data, nil
 	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
 	return nil
 }
