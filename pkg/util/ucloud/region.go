@@ -198,7 +198,7 @@ func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	if len(secgroupId) > 0 {
 		_, err := self.GetSecurityGroupById(secgroupId)
-		if err == cloudprovider.ErrNotSupported {
+		if err == cloudprovider.ErrNotFound {
 			secgroupId = ""
 		} else if err != nil {
 			return "", err
