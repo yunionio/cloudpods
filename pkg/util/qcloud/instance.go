@@ -792,6 +792,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if total == 1 {
 		return &eip[0], nil
 	}
+	self.Refresh()
 	for _, address := range self.PublicIpAddresses {
 		eip := SEipAddress{region: self.host.zone.region}
 		eip.AddressIp = address
