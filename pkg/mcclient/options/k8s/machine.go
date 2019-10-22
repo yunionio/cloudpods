@@ -21,7 +21,17 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
+
+type MachineListOptions struct {
+	options.BaseListOptions
+	Cluster string `help:"Filter by cluster"`
+}
+
+func (o MachineListOptions) Params() (*jsonutils.JSONDict, error) {
+	return options.ListStructToParams(&o)
+}
 
 type MachineCreateOptions struct {
 	CLUSTER  string `help:"Cluster id"`
