@@ -26,7 +26,7 @@ func initKubeMachine() {
 	cmdN := func(action string) string {
 		return fmt.Sprintf("kubemachine-%s", action)
 	}
-	R(&o.NodeListOptions{}, cmdN("list"), "List k8s node machines", func(s *mcclient.ClientSession, args *o.NodeListOptions) error {
+	R(&o.MachineListOptions{}, cmdN("list"), "List k8s node machines", func(s *mcclient.ClientSession, args *o.MachineListOptions) error {
 		params, err := args.Params()
 		if err != nil {
 			return err
