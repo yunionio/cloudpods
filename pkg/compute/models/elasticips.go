@@ -275,24 +275,6 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		vmExtId := added[i].GetAssociationExternalId()
-		if len(vmExtId) > 0 {
-			vm, err := db.FetchByExternalId(GuestManager, vmExtId)
-			if err != nil && err != sql.ErrNoRows {
-				log.Errorf("failed to found guest by externalId %s error: %v", vmExtId, err)
-				continue
-			}
-			if vm != nil {
-				guest := vm.(*SGuest)
-				result := guest.SyncVMEip(ctx, userCred, provider, added[i], syncOwnerId)
-				if result.IsError() {
-					syncResult.UpdateError(fmt.Errorf(result.Result()))
-				} else {
-					syncResult.Update()
-				}
-				continue
-			}
-		}
 		new, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
@@ -309,12 +291,7 @@ func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclien
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
-	if err != nil {
-		return self.SetStatus(userCred, api.EIP_STATUS_UNKNOWN, "sync to delete")
-	} else {
-		return self.RealDelete(ctx, userCred)
-	}
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
@@ -404,6 +381,10 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	err = self.SyncInstanceWithCloudEip(ctx, userCred, ext)
+	if err != nil {
+		return errors.Wrap(err, "fail to sync associated instance of EIP")
+	}
 	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	return nil
@@ -441,7 +422,10 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
-
+	err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
+	}
 	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
