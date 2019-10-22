@@ -36,14 +36,14 @@ import (
 )
 
 type SNatDEntryManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	SNatEntryManager
 }
 
 var NatDEntryManager *SNatDEntryManager
 
 func init() {
 	NatDEntryManager = &SNatDEntryManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SNatEntryManager: NewNatEntryManager(
 			SNatDEntry{},
 			"natdtables_tbl",
 			"natdentry",
@@ -54,8 +54,7 @@ func init() {
 }
 
 type SNatDEntry struct {
-	db.SStatusStandaloneResourceBase
-	db.SExternalizedResourceBase
+	SNatEntry
 
 	ExternalIP   string `width:"17" charset:"ascii" list:"user" create:"required"`
 	ExternalPort int    `list:"user" create:"required"`
@@ -63,63 +62,17 @@ type SNatDEntry struct {
 	InternalIP   string `width:"17" charset:"ascii" list:"user" create:"required"`
 	InternalPort int    `list:"user" create:"required"`
 	IpProtocol   string `width:"8" charset:"ascii" list:"user" create:"required"`
-
-	NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-}
-
-func (manager *SNatDEntryManager) GetContextManagers() [][]db.IModelManager {
-	return [][]db.IModelManager{
-		{NatGatewayManager},
-	}
-}
-
-func (self *SNatDEntryManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SNatDEntryManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SNatDEntry) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SNatDEntry) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SNatDEntry) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (self *SNatDEntry) GetNatgateway() (*SNatGateway, error) {
-	_natgateway, err := NatGatewayManager.FetchById(self.NatgatewayId)
-	if err != nil {
-		return nil, err
-	}
-	return _natgateway.(*SNatGateway), nil
 }
 
 func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "natgateway", ModelKeyword: "natgateway", OwnerId: userCred},
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	q, err = managedResourceFilterByAccount(q, query, "natgateway_id", func() *sqlchemy.SQuery {
-		natgateways := NatGatewayManager.Query().SubQuery()
-		return natgateways.Query(natgateways.Field("id"))
-	})
-
-	return q, nil
 }
 
 func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -158,7 +111,9 @@ func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Add(jsonutils.NewBool(true), "need_bind")
 	}
 	data.Remove("external_ip_id")
-	data.Add(jsonutils.NewString(eip.ExternalId), "external_ip_id")
+	data.Add(jsonutils.NewString(eip.Id), "eip_id")
+	data.Add(jsonutils.NewString(eip.ExternalId), "eip_external_id")
+	data.Set("name", jsonutils.NewString(NatGatewayManager.NatNameFromReal(input.Name, input.NatgatewayId)))
 	return data, nil
 }
 
@@ -268,11 +223,7 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	table := SNatDEntry{}
 	table.SetModelManager(manager, &table)
 
-	newName, err := db.GenerateName(manager, ownerId, extEntry.GetName())
-	if err != nil {
-		return nil, err
-	}
-	table.Name = newName
+	table.Name = NatGatewayManager.NatNameFromReal(extEntry.GetName(), nat.Id)
 	table.Status = extEntry.GetStatus()
 	table.ExternalId = extEntry.GetGlobalId()
 	table.IsEmulated = extEntry.IsEmulated()
@@ -283,7 +234,7 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	table.InternalPort = extEntry.GetInternalPort()
 	table.IpProtocol = extEntry.GetIpProtocol()
 
-	err = manager.TableSpec().Insert(&table)
+	err := manager.TableSpec().Insert(&table)
 	if err != nil {
 		log.Errorf("newFromCloudNatDTable fail %s", err)
 		return nil, err
@@ -299,18 +250,26 @@ func (self *SNatDEntry) GetExtraDetails(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, err
 	}
-	return extra, nil
+
+	return self.getMoreDetails(ctx, userCred, extra), nil
 }
 
 func (self *SNatDEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(ctx, userCred, extra)
+}
+
+func (self *SNatDEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	query *jsonutils.JSONDict) *jsonutils.JSONDict {
+
 	natgateway, err := self.GetNatgateway()
 	if err != nil {
 		log.Errorf("failed to get naggateway %s for dtable %s(%s) error: %v", self.NatgatewayId, self.Name, self.Id, err)
-		return extra
+		return query
 	}
-	extra.Add(jsonutils.NewString(natgateway.Name), "natgateway")
-	return extra
+	query.Add(jsonutils.NewString(natgateway.Name), "natgateway")
+	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())))
+	return query
 }
 
 func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -327,39 +286,15 @@ func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func (self *SNatDEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
-	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Fetch NatGateway whose id is %s failed", self.NatgatewayId)
-	}
-	natgateway := model.(*SNatGateway)
-	return natgateway.GetINatGateway()
-}
-
-func (self *SNatDEntry) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	log.Infof("DNAT delete do nothing")
-	self.SetStatus(userCred, api.NAT_STATUS_DELETING, "")
-	return nil
-}
-
 func (self *SNatDEntry) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if len(self.ExternalId) > 0 {
-		return self.StartDeleteVpcTask(ctx, userCred)
+		return self.StartDeleteDNatTask(ctx, userCred)
 	} else {
 		return self.RealDelete(ctx, userCred)
 	}
 }
 
-func (self *SNatDEntry) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := db.DeleteModel(ctx, userCred, self)
-	if err != nil {
-		return err
-	}
-	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
-	return nil
-}
-
-func (self *SNatDEntry) StartDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SNatDEntry) StartDeleteDNatTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "SNatDEntryDeleteTask", self, userCred, nil, "", "", nil)
 	if err != nil {
 		log.Errorf("Start dnatEntry deleteTask fail %s", err)
@@ -376,4 +311,9 @@ func (self *SNatDEntryManager) canBindIP(ipAddr string) bool {
 		return false
 	}
 	return true
+}
+
+func (self *SNatDEntry) CountByEIP() (int, error) {
+	q := NatDEntryManager.Query().Equals("external_ip", self.ExternalIP)
+	return q.CountWithError()
 }

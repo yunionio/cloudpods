@@ -147,4 +147,9 @@ const (
 	ACT_MKDIR         = "创建目录"
 	ACT_DELETE_OBJECT = "删除对象"
 	ACT_UPLOAD_OBJECT = "上传对象"
+
+	ACT_NAT_CREATE_SNAT = "创建SNAT规则"
+	ACT_NAT_CREATE_DNAT = "创建DNAT规则"
+	ACT_NAT_DELETE_SNAT = "删除SNAT规则"
+	ACT_NAT_DELETE_DNAT = "删除DNAT规则"
 )
