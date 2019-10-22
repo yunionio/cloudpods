@@ -44,6 +44,8 @@ const (
 	ALIYUN_API_VERSION_LB  = "2014-05-15"
 	ALIYUN_API_VERSION_KVS = "2015-01-01"
 
+	ALIYUN_API_VERSION_TRIAL = "2017-12-04"
+
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
 
 	ALIYUN_RAM_API_VERSION = "2015-05-01"
@@ -176,6 +178,14 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 		return nil, err
 	}
 	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.Debug)
+}
+
+func (self *SAliyunClient) trialRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "actiontrail.cn-hangzhou.aliyuncs.com", ALIYUN_API_VERSION_TRIAL, apiName, params, self.Debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {

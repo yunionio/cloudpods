@@ -40,6 +40,18 @@ func (self *SQcloudProviderFactory) GetName() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD_CN
 }
 
+func (self *SQcloudProviderFactory) IsCloudeventRegional() bool {
+	return true
+}
+
+func (self *SQcloudProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 7
+}
+
+func (self *SQcloudProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 30
+}
+
 func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	if len(instanceId) == 0 {
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")

@@ -66,27 +66,28 @@ type SAzureClient struct {
 
 var DEFAULT_API_VERSION = map[string]string{
 	"vmSizes": "2018-06-01", //2015-05-01-preview,2015-06-15,2016-03-30,2016-04-30-preview,2016-08-30,2017-03-30,2017-12-01,2018-04-01,2018-06-01,2018-10-01
-	"Microsoft.Compute/virtualMachineScaleSets":      "2017-12-01",
-	"Microsoft.Compute/virtualMachines":              "2018-04-01",
-	"Microsoft.ClassicCompute/virtualMachines":       "2017-04-01",
-	"Microsoft.Compute/operations":                   "2018-10-01",
-	"Microsoft.ClassicCompute/operations":            "2017-04-01",
-	"Microsoft.Network/virtualNetworks":              "2018-08-01",
-	"Microsoft.ClassicNetwork/virtualNetworks":       "2017-11-15", //avaliable 2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01,2017-11-15
-	"Microsoft.Compute/disks":                        "2018-06-01", //avaliable 2016-04-30-preview,2017-03-30,2018-04-01,2018-06-01
-	"Microsoft.Storage/storageAccounts":              "2016-12-01", //2018-03-01-preview,2018-02-01,2017-10-01,2017-06-01,2016-12-01,2016-05-01,2016-01-01,2015-06-15,2015-05-01-preview
-	"Microsoft.ClassicStorage/storageAccounts":       "2016-04-01", //2014-01-01,2014-04-01,2014-04-01-beta,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
-	"Microsoft.Compute/snapshots":                    "2018-06-01", //2016-04-30-preview,2017-03-30,2018-04-01,2018-06-01
-	"Microsoft.Compute/images":                       "2018-10-01", //2016-04-30-preview,2016-08-30,2017-03-30,2017-12-01,2018-04-01,2018-06-01,2018-10-01
-	"Microsoft.Storage":                              "2016-12-01", //2018-03-01-preview,2018-02-01,2017-10-01,2017-06-01,2016-12-01,2016-05-01,2016-01-01,2015-06-15,2015-05-01-preview
-	"Microsoft.Network/publicIPAddresses":            "2018-06-01", //2014-12-01-preview, 2015-05-01-preview, 2015-06-15, 2016-03-30, 2016-06-01, 2016-07-01, 2016-08-01, 2016-09-01, 2016-10-01, 2016-11-01, 2016-12-01, 2017-03-01, 2017-04-01, 2017-06-01, 2017-08-01, 2017-09-01, 2017-10-01, 2017-11-01, 2018-01-01, 2018-02-01, 2018-03-01, 2018-04-01, 2018-05-01, 2018-06-01, 2018-07-01, 2018-08-01
-	"Microsoft.Network/networkSecurityGroups":        "2018-06-01",
-	"Microsoft.Network/networkInterfaces":            "2018-06-01", //2014-12-01-preview, 2015-05-01-preview, 2015-06-15, 2016-03-30, 2016-06-01, 2016-07-01, 2016-08-01, 2016-09-01, 2016-10-01, 2016-11-01, 2016-12-01, 2017-03-01, 2017-04-01, 2017-06-01, 2017-08-01, 2017-09-01, 2017-10-01, 2017-11-01, 2018-01-01, 2018-02-01, 2018-03-01, 2018-04-01, 2018-05-01, 2018-06-01, 2018-07-01, 2018-08-01
-	"Microsoft.Network":                              "2018-06-01",
-	"Microsoft.ClassicNetwork/reservedIps":           "2016-04-01", //2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
-	"Microsoft.ClassicNetwork/networkSecurityGroups": "2016-11-01", //2015-06-01,2015-12-01,2016-04-01,2016-11-01
-	"Microsoft.ClassicCompute/domainNames":           "2015-12-01", //2014-01-01, 2014-06-01, 2015-06-01, 2015-10-01, 2015-12-01, 2016-04-01, 2016-11-01, 2017-11-01, 2017-11-15
-	"Microsoft.Compute/locations":                    "2018-06-01",
+	"Microsoft.Compute/virtualMachineScaleSets":       "2017-12-01",
+	"Microsoft.Compute/virtualMachines":               "2018-04-01",
+	"Microsoft.ClassicCompute/virtualMachines":        "2017-04-01",
+	"Microsoft.Compute/operations":                    "2018-10-01",
+	"Microsoft.ClassicCompute/operations":             "2017-04-01",
+	"Microsoft.Network/virtualNetworks":               "2018-08-01",
+	"Microsoft.ClassicNetwork/virtualNetworks":        "2017-11-15", //avaliable 2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01,2017-11-15
+	"Microsoft.Compute/disks":                         "2018-06-01", //avaliable 2016-04-30-preview,2017-03-30,2018-04-01,2018-06-01
+	"Microsoft.Storage/storageAccounts":               "2016-12-01", //2018-03-01-preview,2018-02-01,2017-10-01,2017-06-01,2016-12-01,2016-05-01,2016-01-01,2015-06-15,2015-05-01-preview
+	"Microsoft.ClassicStorage/storageAccounts":        "2016-04-01", //2014-01-01,2014-04-01,2014-04-01-beta,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
+	"Microsoft.Compute/snapshots":                     "2018-06-01", //2016-04-30-preview,2017-03-30,2018-04-01,2018-06-01
+	"Microsoft.Compute/images":                        "2018-10-01", //2016-04-30-preview,2016-08-30,2017-03-30,2017-12-01,2018-04-01,2018-06-01,2018-10-01
+	"Microsoft.Storage":                               "2016-12-01", //2018-03-01-preview,2018-02-01,2017-10-01,2017-06-01,2016-12-01,2016-05-01,2016-01-01,2015-06-15,2015-05-01-preview
+	"Microsoft.Network/publicIPAddresses":             "2018-06-01", //2014-12-01-preview, 2015-05-01-preview, 2015-06-15, 2016-03-30, 2016-06-01, 2016-07-01, 2016-08-01, 2016-09-01, 2016-10-01, 2016-11-01, 2016-12-01, 2017-03-01, 2017-04-01, 2017-06-01, 2017-08-01, 2017-09-01, 2017-10-01, 2017-11-01, 2018-01-01, 2018-02-01, 2018-03-01, 2018-04-01, 2018-05-01, 2018-06-01, 2018-07-01, 2018-08-01
+	"Microsoft.Network/networkSecurityGroups":         "2018-06-01",
+	"Microsoft.Network/networkInterfaces":             "2018-06-01", //2014-12-01-preview, 2015-05-01-preview, 2015-06-15, 2016-03-30, 2016-06-01, 2016-07-01, 2016-08-01, 2016-09-01, 2016-10-01, 2016-11-01, 2016-12-01, 2017-03-01, 2017-04-01, 2017-06-01, 2017-08-01, 2017-09-01, 2017-10-01, 2017-11-01, 2018-01-01, 2018-02-01, 2018-03-01, 2018-04-01, 2018-05-01, 2018-06-01, 2018-07-01, 2018-08-01
+	"Microsoft.Network":                               "2018-06-01",
+	"Microsoft.ClassicNetwork/reservedIps":            "2016-04-01", //2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
+	"Microsoft.ClassicNetwork/networkSecurityGroups":  "2016-11-01", //2015-06-01,2015-12-01,2016-04-01,2016-11-01
+	"Microsoft.ClassicCompute/domainNames":            "2015-12-01", //2014-01-01, 2014-06-01, 2015-06-01, 2015-10-01, 2015-12-01, 2016-04-01, 2016-11-01, 2017-11-01, 2017-11-15
+	"Microsoft.Compute/locations":                     "2018-06-01",
+	"microsoft.insights/eventtypes/management/values": "2017-03-01-preview",
 }
 
 func NewAzureClient(providerId string, providerName string, envName, tenantId, clientId, clientSecret, subscriptionId string, debug bool) (*SAzureClient, error) {
@@ -226,10 +227,14 @@ func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error
 	return self.ListResources(resourceType, retVal, []string{"value"})
 }
 
-func (self *SAzureClient) ListResources(resourceType string, retVal interface{}, keys []string) error {
+func (self *SAzureClient) ListAllWithNextToken(resourceType string, retVal interface{}) (string, error) {
+	return self.ListResourcesWithNextLink(resourceType, retVal, []string{"value"})
+}
+
+func (self *SAzureClient) ListResourcesWithNextLink(resourceType string, retVal interface{}, keys []string) (string, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 	url := "/subscriptions"
 	if len(self.subscriptionId) > 0 {
@@ -240,13 +245,22 @@ func (self *SAzureClient) ListResources(resourceType string, retVal interface{},
 	}
 	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
-		return err
+		return "", err
 	}
 	// fmt.Printf("%s: %s\n", resourceType, body)
 	if retVal != nil {
-		return body.Unmarshal(retVal, keys...)
+		err = body.Unmarshal(retVal, keys...)
+		if err != nil {
+			return "", err
+		}
 	}
-	return nil
+	nextLink, _ := body.GetString("nextLink")
+	return nextLink, nil
+}
+
+func (self *SAzureClient) ListResources(resourceType string, retVal interface{}, keys []string) error {
+	_, err := self.ListResourcesWithNextLink(resourceType, retVal, keys)
+	return err
 }
 
 func (self *SAzureClient) ListSubscriptions() (jsonutils.JSONObject, error) {
@@ -631,7 +645,11 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 	}
 	url := fmt.Sprintf("%s%s?api-version=%s", domain, baseURL, version)
 	if strings.Index(baseURL, "?") > 0 {
-		url = fmt.Sprintf("%s%s&api-version=%s", domain, baseURL, version)
+		if strings.Contains(baseURL, "api-version") {
+			url = domain + baseURL
+		} else {
+			url = fmt.Sprintf("%s%s&api-version=%s", domain, baseURL, version)
+		}
 	}
 	req := &http.Request{}
 	if len(body) != 0 {

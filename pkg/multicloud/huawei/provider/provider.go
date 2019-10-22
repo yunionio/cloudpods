@@ -39,6 +39,18 @@ func (self *SHuaweiProviderFactory) GetName() string {
 	return huawei.CLOUD_PROVIDER_HUAWEI_CN
 }
 
+func (self *SHuaweiProviderFactory) IsCloudeventRegional() bool {
+	return true
+}
+
+func (self *SHuaweiProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 7
+}
+
+func (self *SHuaweiProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 7
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
 	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")

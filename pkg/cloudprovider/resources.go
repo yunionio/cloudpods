@@ -132,6 +132,8 @@ type ICloudRegion interface {
 	CreateIElasticcaches(ec *SCloudElasticCacheInput) (ICloudElasticcache, error)
 
 	GetProvider() string
+
+	GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]ICloudEvent, error) //获取公有云操作日志接口
 }
 
 type ICloudZone interface {
@@ -912,4 +914,17 @@ type ICloudElasticcacheParameter interface {
 	GetDescription() string
 	GetModifiable() bool
 	GetForceRestart() bool
+}
+
+type ICloudEvent interface {
+	GetName() string
+	GetService() string
+	GetAction() string
+	GetResourceType() string
+	GetRequestId() string
+	GetRequest() jsonutils.JSONObject
+	GetAccount() string
+	IsSuccess() bool
+
+	GetCreatedAt() time.Time
 }
