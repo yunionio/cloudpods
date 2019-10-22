@@ -93,22 +93,21 @@ func (lbcert *SLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, 
 	return false
 }
 
-func (self *SLoadbalancerCertificate) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return false
-}
-
 func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data.Set("certificate", jsonutils.NewString(lbcert.Certificate))
-	data.Set("private_key", jsonutils.NewString(lbcert.PrivateKey))
-	data, err := LoadbalancerCertificateManager.validateCertKey(ctx, data)
-	if err != nil {
-		return nil, err
+	if data.Contains("certificate") || data.Contains("private_key") {
+		return nil, httperrors.NewForbiddenError("not allowed update content of certificate")
 	}
-	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
+
+	updateData := jsonutils.NewDict()
+	if name, err := data.GetString("name"); err == nil {
+		updateData.Set("name", jsonutils.NewString(name))
+	}
+
+	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, updateData); err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	return updateData, nil
 }
 
 func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -219,17 +218,38 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	data := query.(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
-	})
-	if err != nil {
-		return nil, err
-	}
 
+	data := query.(*jsonutils.JSONDict)
 	if jsonutils.QueryBoolean(query, "usable", false) {
-		q = q.IsNotEmpty("certificate").IsNotEmpty("private_key")
+		region, _ := data.GetString("cloudregion")
+		manager, _ := data.GetString("manager")
+
+		// 证书可用包含两类：1.本地证书内容不为空 2.公有云中已经存在，但是证书内容不完整的证书
+		if len(region) > 0 || len(manager) > 0 {
+			q2 := CachedLoadbalancerCertificateManager.Query("certificate_id").IsFalse("pending_deleted")
+			if len(region) > 0 {
+				q2 = q2.Equals("cloudregion_id", region)
+			}
+
+			if len(manager) > 0 {
+				q2 = q2.Equals("manager_id", manager)
+			}
+
+			count, err := q2.CountWithError()
+			if err != sql.ErrNoRows {
+				return nil, err
+			}
+
+			if count > 0 {
+				conditionA := sqlchemy.AND(sqlchemy.IsNotEmpty(q.Field("certificate")), sqlchemy.IsNotEmpty(q.Field("private_key")))
+				conditionB := sqlchemy.In(q.Field("id"), q2.SubQuery())
+				q = q.Filter(sqlchemy.OR(conditionA, conditionB))
+			} else {
+				q = q.IsNotEmpty("certificate").IsNotEmpty("private_key")
+			}
+		} else {
+			q = q.IsNotEmpty("certificate").IsNotEmpty("private_key")
+		}
 	}
 
 	return q, nil

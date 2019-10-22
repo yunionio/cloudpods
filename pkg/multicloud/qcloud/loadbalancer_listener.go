@@ -34,6 +34,14 @@ var HTTP_CODES = []string{
 	api.LB_HEALTH_CHECK_HTTP_CODE_5xx,
 }
 
+const (
+	PROTOCOL_TCP     = "TCP"
+	PROTOCOL_UDP     = "UDP"
+	PROTOCOL_TCP_SSL = "TCP_SSL"
+	PROTOCOL_HTTP    = "HTTP"
+	PROTOCOL_HTTPS   = "HTTPS"
+)
+
 type certificate struct {
 	SSLMode  string `json:"SSLMode"`
 	CERTCAID string `json:"CertCaId"`
@@ -266,15 +274,15 @@ func (self *SLBListener) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SLBListener) GetListenerType() string {
 	switch self.Protocol {
-	case "TCP":
+	case PROTOCOL_TCP:
 		return api.LB_LISTENER_TYPE_TCP
-	case "UDP":
+	case PROTOCOL_UDP:
 		return api.LB_LISTENER_TYPE_UDP
-	case "HTTP":
+	case PROTOCOL_HTTP:
 		return api.LB_LISTENER_TYPE_HTTP
-	case "HTTPS":
+	case PROTOCOL_HTTPS:
 		return api.LB_LISTENER_TYPE_HTTPS
-	case "TCP_SSL":
+	case PROTOCOL_TCP_SSL:
 		return api.LB_LISTENER_TYPE_TCP
 	default:
 		return ""
@@ -714,15 +722,15 @@ func getCertificate(listener *cloudprovider.SLoadbalancerListener) *certificate 
 func getProtocol(listener *cloudprovider.SLoadbalancerListener) string {
 	switch listener.ListenerType {
 	case api.LB_LISTENER_TYPE_HTTPS:
-		return "HTTPS"
+		return PROTOCOL_HTTPS
 	case api.LB_LISTENER_TYPE_HTTP:
-		return "HTTP"
+		return PROTOCOL_HTTP
 	case api.LB_LISTENER_TYPE_TCP:
-		return "TCP"
+		return PROTOCOL_TCP
 	case api.LB_LISTENER_TYPE_UDP:
-		return "UDP"
+		return PROTOCOL_UDP
 	case "tcp_ssl":
-		return "TCP_SSL"
+		return PROTOCOL_TCP_SSL
 	default:
 		return ""
 	}
