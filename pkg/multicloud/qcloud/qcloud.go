@@ -49,6 +49,7 @@ const (
 	QCLOUD_API_VERSION         = "2017-03-12"
 	QCLOUD_CLB_API_VERSION     = "2018-03-17"
 	QCLOUD_BILLING_API_VERSION = "2018-07-09"
+	QCLOUD_AUDIT_API_VERSION   = "2019-03-19"
 )
 
 type SQcloudClient struct {
@@ -114,6 +115,11 @@ func jsonRequest(client *common.Client, apiName string, params map[string]string
 func vpcRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("vpc", params)
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, true)
+}
+
+func auditRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := apiDomain("cloudaudit", params)
+	return _jsonRequest(client, domain, QCLOUD_AUDIT_API_VERSION, apiName, params, debug, true)
 }
 
 func cbsRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
@@ -361,6 +367,9 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 		if strings.Contains(err.Error(), "Code=ResourceNotFound") {
 			return nil, cloudprovider.ErrNotFound
 		}
+		if strings.Contains(err.Error(), "Code=UnsupportedRegion") {
+			return nil, cloudprovider.ErrNotSupported
+		}
 		if needRetry {
 			log.Errorf("request url %s\nparams: %s\nerror: %v\ntry after %d seconds", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
 			time.Sleep(time.Second * time.Duration(i*10))
@@ -398,6 +407,14 @@ func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return vpcRequest(cli, apiName, params, client.Debug)
+}
+
+func (client *SQcloudClient) auditRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return auditRequest(cli, apiName, params, client.Debug)
 }
 
 func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

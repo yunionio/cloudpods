@@ -48,6 +48,7 @@ const (
 	ServiceNameNAT  ServiceNameType = "nat"  // Nat网关 NAT
 	ServiceNameDCS  ServiceNameType = "dcs"  // 分布式缓存服务
 	ServiceNameRDS  ServiceNameType = "rds"  // 关系型数据库 RDS
+	ServiceNameCTS  ServiceNameType = "cts"  //云审计服务
 )
 
 type SManagerContext struct {
