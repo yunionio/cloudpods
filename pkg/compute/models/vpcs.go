@@ -614,7 +614,7 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 		}
 		data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
-		return nil, httperrors.NewNotImplementedError("Cannot create VPC in private cloud")
+		data.Set("status", jsonutils.NewString(api.VPC_STATUS_AVAILABLE))
 	}
 
 	cidrBlock, _ := data.GetString("cidr_block")
