@@ -289,15 +289,6 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx contex
 		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
 	}
 
-	lblis, err := lbacl.GetListener()
-	if err == nil {
-		if api.LB_BOOL_ON == lblis.AclStatus {
-			acl.AccessControlEnable = true
-		}
-	} else {
-		return nil, fmt.Errorf("regionDriver.createLoadbalancerAcl %s", err)
-	}
-
 	_originAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
 	if err != nil {
 		return nil, errors.Wrap(err, "regionDriver.FetchAcl")
@@ -313,6 +304,8 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerAcl(ctx contex
 	if err != nil {
 		return nil, err
 	}
+
+	lbacl.SetModelManager(models.CachedLoadbalancerAclManager, lbacl)
 	if err := db.SetExternalId(lbacl, userCred, iLoadbalancerAcl.GetGlobalId()); err != nil {
 		return nil, err
 	}
@@ -335,15 +328,6 @@ func (self *SManagedVirtualizationRegionDriver) syncLoadbalancerAcl(ctx context.
 	acl := &cloudprovider.SLoadbalancerAccessControlList{
 		Name:   lbacl.Name,
 		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
-	}
-
-	lblis, err := lbacl.GetListener()
-	if err == nil {
-		if api.LB_BOOL_ON == lblis.AclStatus {
-			acl.AccessControlEnable = true
-		}
-	} else {
-		return nil, fmt.Errorf("regionDriver.syncLoadbalancerAcl %s", err)
 	}
 
 	_localAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)

@@ -16,12 +16,16 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -29,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/pkg/errors"
 )
 
 type SHuaWeiRegionDriver struct {
@@ -925,6 +928,48 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 	return nil
 }
 
+func (self *SHuaWeiRegionDriver) syncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SCachedLoadbalancerAcl) (jsonutils.JSONObject, error) {
+	iRegion, err := lbacl.GetIRegion()
+	if err != nil {
+		return nil, err
+	}
+
+	acl := &cloudprovider.SLoadbalancerAccessControlList{
+		Name:   lbacl.Name,
+		Entrys: []cloudprovider.SLoadbalancerAccessControlListEntry{},
+	}
+
+	lblis, err := lbacl.GetListener()
+	if err == nil {
+		if api.LB_BOOL_ON == lblis.AclStatus {
+			acl.AccessControlEnable = true
+		}
+	} else {
+		return nil, fmt.Errorf("huaweiRegionDriver.syncLoadbalancerAcl %s", err)
+	}
+
+	_localAcl, err := db.FetchById(models.LoadbalancerAclManager, lbacl.AclId)
+	if err != nil {
+		return nil, errors.Wrap(err, "huaweiRegionDriver.FetchById.LoaclAcl")
+	}
+
+	localAcl := _localAcl.(*models.SLoadbalancerAcl)
+	if localAcl.AclEntries != nil {
+		for _, entry := range *localAcl.AclEntries {
+			acl.Entrys = append(acl.Entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.Cidr, Comment: entry.Comment})
+		}
+	}
+
+	lockman.LockRawObject(ctx, "acl", lbacl.Id)
+	defer lockman.ReleaseRawObject(ctx, "acl", lbacl.Id)
+
+	iLoadbalancerAcl, err := iRegion.GetILoadBalancerAclById(lbacl.ExternalId)
+	if err != nil {
+		return nil, err
+	}
+	return nil, iLoadbalancerAcl.Sync(acl)
+}
+
 func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		{
@@ -1139,7 +1184,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 		}
 		iRegion, err := lbbg.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.")
 		}
 		loadbalancer := lbbg.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -1151,12 +1196,12 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 				return nil, nil
 			}
 
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerById")
 		}
 
 		cachedLbbgs, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetCachedBackendGroups")
 		}
 
 		for _, cachedLbbg := range cachedLbbgs {
@@ -1169,43 +1214,41 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 				if err == cloudprovider.ErrNotFound {
 					continue
 				}
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
 			}
 
-			cachedLbbs, err := cachedLbbg.GetCachedBackends()
+			ilbbs, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadbalancerBackends")
 			}
 
-			for _, cachedLbb := range cachedLbbs {
-				if len(cachedLbb.ExternalId) == 0 {
+			for _, ilbb := range ilbbs {
+				iLoadbalancerBackendGroup.RemoveBackendServer(ilbb.GetId(), ilbb.GetWeight(), ilbb.GetPort())
+
+				_cachedLbb, err := db.FetchByExternalId(models.HuaweiCachedLbManager, ilbb.GetGlobalId())
+				if err != nil {
+					if err != sql.ErrNoRows {
+						return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.FetchByExternalId")
+					}
 					continue
 				}
 
-				_lbb, err := db.FetchById(models.LoadbalancerBackendManager, cachedLbb.BackendId)
+				cachedLbb := _cachedLbb.(*models.SHuaweiCachedLb)
+				err = db.DeleteModel(ctx, userCred, cachedLbb)
 				if err != nil {
-					return nil, err
-				}
-
-				lbb := _lbb.(*models.SLoadbalancerBackend)
-				iLoadbalancerBackendGroup.RemoveBackendServer(cachedLbb.ExternalId, lbb.Weight, lbb.Port)
-
-				cachedLbb.SetModelManager(models.HuaweiCachedLbManager, &cachedLbb)
-				err = db.DeleteModel(ctx, userCred, &cachedLbb)
-				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteModel")
 				}
 			}
 
 			err = iLoadbalancerBackendGroup.Delete()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.Delete")
 			}
 
 			cachedLbbg.SetModelManager(models.HuaweiCachedLbbgManager, &cachedLbbg)
 			err = db.DeleteModel(ctx, userCred, &cachedLbbg)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteModel")
 			}
 		}
 
