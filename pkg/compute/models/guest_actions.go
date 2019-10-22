@@ -318,11 +318,11 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_SUSPEND}) {
 		cdrom := self.getCdrom(false)
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
-			return nil, httperrors.NewBadRequestError("Cannot migrate with cdrom")
+			return nil, httperrors.NewBadRequestError("Cannot live migrate with cdrom")
 		}
 		devices := self.GetIsolatedDevices()
 		if devices != nil && len(devices) > 0 {
-			return nil, httperrors.NewBadRequestError("Cannot migrate with isolated devices")
+			return nil, httperrors.NewBadRequestError("Cannot live migrate with isolated devices")
 		}
 		if !self.CheckQemuVersion(self.GetQemuVersion(userCred), "1.1.2") {
 			return nil, httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")

@@ -54,7 +54,7 @@ type SSnapshot struct {
 
 	// Only onecloud has StorageId
 	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
-	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin" create:"optional"`
+	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"user" create:"optional"`
 	Location    string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	Size        int    `nullable:"false" list:"user" create:"required"` // MB
 	OutOfChain  bool   `nullable:"false" default:"false" list:"admin" create:"optional"`
