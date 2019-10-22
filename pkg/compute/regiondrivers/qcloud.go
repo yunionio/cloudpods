@@ -16,6 +16,7 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 
@@ -145,6 +146,8 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 					return nil, httperrors.NewConflictError(err.Error())
 				}
 			}
+
+			data.Set("backend_group_id", jsonutils.NewString(lbbg.GetId()))
 		}
 	}
 
@@ -303,33 +306,100 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 		}
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetIRegion")
 		}
 
 		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
-		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
-			count, err := lbbg.RefCount()
-			if err != nil {
-				return nil, err
-			}
-			if count == 0 {
-				return nil, nil
-			}
+		count, err := lbbg.RefCount()
+		if err != nil {
+			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.RefCount")
+		}
+		if count == 0 {
+			return nil, nil
 		}
 
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListeners")
 		}
-		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
-		if err != nil {
-			return nil, err
-		}
+
 		guest := lbb.GetGuest()
 		if guest == nil {
 			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
 		}
-		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+
+		// delete
+		if forword, _ := iLoadbalancer.GetMetadata().Int("Forward"); forword == 0 {
+			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListenerRules")
+			}
+
+			return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+		} else {
+			lblis, err := lbbg.GetLoadbalancerListeners()
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListeners")
+				}
+			} else {
+				for i := range lblis {
+					_lblis := lblis[i]
+					if utils.IsInStringArray(_lblis.ListenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
+						external_id := fmt.Sprintf("%s/%s", lb.ExternalId, _lblis.ExternalId)
+						iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(external_id)
+						if err != nil {
+							return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
+						}
+						backends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
+						if err != nil {
+							return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.GetILoadbalancerBackends")
+						}
+
+						for i := range backends {
+							if backends[i].GetBackendId() == guest.ExternalId && backends[i].GetPort() == lbb.Port && backends[i].GetWeight() == lbb.Weight {
+								err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+								if err != nil {
+									return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.RemoveBackendServer")
+								}
+							}
+						}
+					}
+				}
+			}
+
+			lbrs, err := lbbg.GetLoadbalancerListenerRules()
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListenerRules")
+				}
+			} else {
+				for i := range lbrs {
+					lbr := lbrs[i]
+					external_id := fmt.Sprintf("%s/%s", lb.ExternalId, lbr.ExternalId)
+					iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(external_id)
+					if err != nil {
+						return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
+					}
+
+					backends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
+					if err != nil {
+						return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.GetILoadbalancerBackends")
+					}
+
+					for i := range backends {
+						if backends[i].GetBackendId() == guest.ExternalId && backends[i].GetPort() == lbb.Port && backends[i].GetWeight() == lbb.Weight {
+							err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+							if err != nil {
+								return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.rule.RemoveBackendServer")
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return nil, nil
 	})
 	return nil
 }
@@ -511,7 +581,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		}
 		// ====腾讯云添加后端服务器=====
 		if len(rule.BackendGroupID) > 0 {
-			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(rule.BackendGroupID)
+			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(iListenerRule.GetBackendGroupId())
 			if err != nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s: %s", lbr.Name, err)
 			}
