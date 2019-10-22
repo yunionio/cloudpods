@@ -18,7 +18,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -53,8 +55,11 @@ func (self *BaremetalCreateTask) OnIpmiProbeComplete(ctx context.Context, obj db
 		self.SetStageComplete(ctx, nil)
 		return
 	}
-	if baremetal.AccessMac == "" && !ipmiInfo.CdromBoot {
-		self.SetStageComplete(ctx, nil)
+	if baremetal.AccessMac == "" && baremetal.Uuid == "" && !ipmiInfo.CdromBoot {
+		msg := "Fail to find access_mac or uuid, host-prepare aborted. Please supply either access_mac or uuid and try host-prepare"
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, msg)
 		return
 	}
 	self.SetStage("OnPrepareComplete", nil)

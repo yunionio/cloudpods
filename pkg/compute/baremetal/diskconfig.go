@@ -386,7 +386,12 @@ func expandLayoutSplits(layouts []Layout) []Layout {
 	return ret
 }
 
-func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
+func IsDisksAllocable(layouts []Layout, disks []*api.DiskConfig) bool {
+	allocable, _ := CheckDisksAllocable(layouts, disks)
+	return allocable
+}
+
+func CheckDisksAllocable(layouts []Layout, disks []*api.DiskConfig) (bool, []*api.DiskConfig) {
 	layouts = ExpandNoneConf(layouts)
 	layouts = expandLayoutSplits(layouts)
 	storeIndex := 0
@@ -400,9 +405,9 @@ func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
 		if storeFreeSize < 0 {
 			storeFreeSize = layouts[storeIndex].Size - 2 // start, end space
 		}
-		if disk.Size > 0 {
-			if storeFreeSize >= disk.Size {
-				storeFreeSize -= disk.Size
+		if disk.SizeMb > 0 {
+			if storeFreeSize >= int64(disk.SizeMb) {
+				storeFreeSize -= int64(disk.SizeMb)
 				diskIndex++
 				if storeFreeSize == 0 {
 					storeIndex++
@@ -419,9 +424,14 @@ func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
 		}
 	}
 	if diskIndex < len(disks) {
-		return false
+		return false, nil
 	}
-	return true
+	extraDisks := make([]*api.DiskConfig, 0)
+	for ; storeIndex < layoutLen; storeIndex += 1 {
+		disk := api.DiskConfig{SizeMb: -1}
+		extraDisks = append(extraDisks, &disk)
+	}
+	return true, extraDisks
 }
 
 func NewBaremetalDiskConfigs(dss ...string) ([]*api.BaremetalDiskConfig, error) {

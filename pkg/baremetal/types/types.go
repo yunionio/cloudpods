@@ -37,4 +37,6 @@ type IBaremetalServer interface {
 	DoDeploy(term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error)
 	SaveDesc(desc jsonutils.JSONObject) error
 	GetNicByMac(mac net.HardwareAddr) *types.SNic
+
+	GetRootTemplateId() string
 }

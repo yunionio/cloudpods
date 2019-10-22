@@ -70,6 +70,7 @@ func initBaremetalsHandler(app *appsrv.Application) {
 	AddHandler(app, "POST", bmActionPrefix("prepare"), bmObjMiddleware(handleBaremetalPrepare))
 	AddHandler(app, "POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
 	AddHandler(app, "POST", bmActionPrefix("ipmi-probe"), bmObjMiddleware(handleBaremetalIpmiProbe))
+	AddHandler(app, "POST", bmActionPrefix("cdrom"), bmObjMiddleware(handleBaremetalCdromTask))
 
 	// server actions handler
 	AddHandler(app, "POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
@@ -105,7 +106,7 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 		bm.SyncStatus(baremetalstatus.PREPARE, "")
 	}
 	log.Infof("Get notify from pxe rom os, start exec task: %s", task.GetName())
-	task.SSHExecute(task, remoteAddr, key, nil)
+	task.SSHExecute(remoteAddr, key, nil)
 	ctx.ResponseOk()
 }
 
@@ -151,6 +152,11 @@ func handleBaremetalResetBMC(ctx *Context, bm *baremetal.SBaremetalInstance) {
 
 func handleBaremetalIpmiProbe(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	bm.StartBaremetalIpmiProbeTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	ctx.ResponseOk()
+}
+
+func handleBaremetalCdromTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	bm.StartBaremetalCdromTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }
 

@@ -201,9 +201,9 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		data.IsolatedDevices = append(data.IsolatedDevices, dev)
 	}
 	if len(o.RaidConfig) > 0 {
-		if data.Hypervisor != "baremetal" {
-			return nil, fmt.Errorf("RaidConfig is applicable to baremetal ONLY")
-		}
+		// if data.Hypervisor != "baremetal" {
+		// 	return nil, fmt.Errorf("RaidConfig is applicable to baremetal ONLY")
+		// }
 		for _, conf := range o.RaidConfig {
 			raidConf, err := cmdline.ParseBaremetalDiskConfig(conf)
 			if err != nil {

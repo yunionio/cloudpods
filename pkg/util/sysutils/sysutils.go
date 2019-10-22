@@ -347,3 +347,15 @@ func ParseIPMIUser(lines []string) []compute.IPMIUser {
 	}
 	return ret
 }
+
+const (
+	UUID_EMPTY = "00000000-0000-0000-0000-000000000000"
+)
+
+func NormalizeUuid(uuid string) string {
+	uuid = strings.ToLower(uuid)
+	if uuid == UUID_EMPTY {
+		uuid = ""
+	}
+	return uuid
+}

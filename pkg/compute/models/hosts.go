@@ -137,6 +137,9 @@ type SHost struct {
 	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
 
 	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"admin" create:"admin_optional" update:"admin"`
+
+	Uuid     string `width:"64" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	BootMode string `width:"8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
@@ -618,7 +621,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 		}
 		return &hs
 	}
-	log.Errorf("Cannot find baremetalstorage??")
+	// log.Errorf("Cannot find baremetalstorage??")
 	return nil
 }
 
@@ -2256,20 +2259,6 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 }
 
 func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	/*zone := self.GetZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
-		extra.Add(jsonutils.NewString(zone.Name), "zone")
-		if len(zone.ExternalId) > 0 {
-			extra.Add(jsonutils.NewString(zone.ExternalId), "")
-		}
-		region := zone.GetRegion()
-		if region != nil {
-			extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
-			extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
-		}
-	}*/
-
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
 
@@ -2341,6 +2330,16 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
 	} else {
 		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
+	}
+
+	if self.IsBaremetal {
+		err := self.canPrepare()
+		if err == nil {
+			extra.Add(jsonutils.JSONTrue, "can_prepare")
+		} else {
+			extra.Add(jsonutils.JSONFalse, "can_prepare")
+			extra.Add(jsonutils.NewString(err.Error()), "prepare_fail_reason")
+		}
 	}
 
 	return extra
@@ -2454,8 +2453,12 @@ func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 	if len(accessMac) > 0 {
 		self.setAccessMac(userCred, accessMac)
 	}
-	if len(self.ZoneId) > 0 && self.HostType == api.HOST_TYPE_BAREMETAL {
-		self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
+	noProbe := jsonutils.QueryBoolean(data, "no_probe", false)
+	if len(self.ZoneId) > 0 && self.HostType == api.HOST_TYPE_BAREMETAL && !noProbe {
+		ipmiInfo, _ := self.GetIpmiInfo()
+		if len(ipmiInfo.IpAddr) > 0 {
+			self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
+		}
 	}
 }
 
@@ -2572,6 +2575,8 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 
+	noProbe := jsonutils.QueryBoolean(data, "no_probe", false)
+
 	data, err := manager.inputUniquenessCheck(data, zoneId, "")
 	if err != nil {
 		return nil, err
@@ -2601,7 +2606,10 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, httperrors.NewInputParameterError("%s", err)
 	}
 	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
-	if len(ipmiIpAddr) > 0 {
+	if len(ipmiIpAddr) == 0 {
+		noProbe = true
+	}
+	if len(ipmiIpAddr) > 0 && !noProbe {
 		net, _ := NetworkManager.GetOnPremiseNetworkOfIP(ipmiIpAddr, "", tristate.None)
 		if net == nil {
 			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
@@ -2621,77 +2629,79 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
-	var accessNet *SNetwork
-	accessIpAddr, _ := data.GetString("access_ip")
-	if len(accessIpAddr) > 0 {
-		net, _ := NetworkManager.GetOnPremiseNetworkOfIP(accessIpAddr, "", tristate.None)
-		if net == nil {
-			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", accessIpAddr)
-		}
-		accessNet = net
-	} else {
-		accessNetStr, _ := data.GetString("access_net")
-		if len(accessNetStr) > 0 {
-			netObj, err := NetworkManager.FetchByIdOrName(userCred, accessNetStr)
-			if err != nil {
-				if errors.Cause(err) == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("network", accessNetStr)
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
+	if !noProbe {
+		var accessNet *SNetwork
+		accessIpAddr, _ := data.GetString("access_ip")
+		if len(accessIpAddr) > 0 {
+			net, _ := NetworkManager.GetOnPremiseNetworkOfIP(accessIpAddr, "", tristate.None)
+			if net == nil {
+				return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", accessIpAddr)
 			}
-			accessNet = netObj.(*SNetwork)
+			accessNet = net
 		} else {
-			accessWireStr, _ := data.GetString("access_wire")
-			if len(accessWireStr) > 0 {
-				wireObj, err := WireManager.FetchByIdOrName(userCred, accessWireStr)
+			accessNetStr, _ := data.GetString("access_net")
+			if len(accessNetStr) > 0 {
+				netObj, err := NetworkManager.FetchByIdOrName(userCred, accessNetStr)
 				if err != nil {
 					if errors.Cause(err) == sql.ErrNoRows {
-						return nil, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
+						return nil, httperrors.NewResourceNotFoundError2("network", accessNetStr)
 					} else {
 						return nil, httperrors.NewGeneralError(err)
 					}
 				}
-				wire := wireObj.(*SWire)
-				lockman.LockObject(ctx, wire)
-				defer lockman.ReleaseObject(ctx, wire)
-				net, err := wire.GetCandidatePrivateNetwork(userCred, false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
-				if err != nil {
-					return nil, httperrors.NewGeneralError(err)
+				accessNet = netObj.(*SNetwork)
+			} else {
+				accessWireStr, _ := data.GetString("access_wire")
+				if len(accessWireStr) > 0 {
+					wireObj, err := WireManager.FetchByIdOrName(userCred, accessWireStr)
+					if err != nil {
+						if errors.Cause(err) == sql.ErrNoRows {
+							return nil, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
+						} else {
+							return nil, httperrors.NewGeneralError(err)
+						}
+					}
+					wire := wireObj.(*SWire)
+					lockman.LockObject(ctx, wire)
+					defer lockman.ReleaseObject(ctx, wire)
+					net, err := wire.GetCandidatePrivateNetwork(userCred, false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
+					if err != nil {
+						return nil, httperrors.NewGeneralError(err)
+					}
+					accessNet = net
 				}
-				accessNet = net
 			}
 		}
-	}
-	if accessNet != nil {
-		lockman.LockObject(ctx, accessNet)
-		defer lockman.ReleaseObject(ctx, accessNet)
+		if accessNet != nil {
+			lockman.LockObject(ctx, accessNet)
+			defer lockman.ReleaseObject(ctx, accessNet)
 
-		accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, false)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
+			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, false)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
 
-		if len(accessIpAddr) > 0 && accessIpAddr != accessIp {
-			return nil, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
-		}
+			if len(accessIpAddr) > 0 && accessIpAddr != accessIp {
+				return nil, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
+			}
 
-		zoneObj := accessNet.getZone()
-		if zoneObj == nil {
-			return nil, httperrors.NewInputParameterError("Access network has no zone???")
-		}
-		originZoneId, _ := data.GetString("zone_id")
-		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
-			return nil, httperrors.NewInputParameterError("Access address located in different zone than specified")
-		}
+			zoneObj := accessNet.getZone()
+			if zoneObj == nil {
+				return nil, httperrors.NewInputParameterError("Access network has no zone???")
+			}
+			originZoneId, _ := data.GetString("zone_id")
+			if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
+				return nil, httperrors.NewInputParameterError("Access address located in different zone than specified")
+			}
 
-		// reserve this IP temporarily
-		err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
-		if err != nil {
-			return nil, err
+			// reserve this IP temporarily
+			err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
+			if err != nil {
+				return nil, err
+			}
+			data.Set("access_ip", jsonutils.NewString(accessIp))
+			data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 		}
-		data.Set("access_ip", jsonutils.NewString(accessIp))
-		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 	// only baremetal can be created
 	hostType, _ := data.GetString("host_type")
@@ -2702,6 +2712,15 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	if hostType == api.HOST_TYPE_BAREMETAL {
 		data.Set("is_baremetal", jsonutils.JSONTrue)
 	}
+
+	if noProbe {
+		accessMac, _ := data.GetString("access_mac")
+		uuid, _ := data.GetString("uuid")
+		if len(accessMac) == 0 && len(uuid) == 0 {
+			return nil, httperrors.NewInputParameterError("missing access_mac and uuid in no_probe mode")
+		}
+	}
+
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -3099,19 +3118,42 @@ func (self *SHost) AllowPerformPrepare(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, self, "prepare")
 }
 
-func (self *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PREPARE_FAIL}) {
-		var onfinish string
-		if self.GetBaremetalServer() != nil {
-			if self.Status == api.BAREMETAL_RUNNING {
-				onfinish = "restart"
-			} else if self.Status == api.BAREMETAL_READY {
-				onfinish = "shotdown"
-			}
-		}
-		return nil, self.StartPrepareTask(ctx, userCred, onfinish, "")
+func (self *SHost) isRedfishCapable() bool {
+	ipmiInfo, _ := self.GetIpmiInfo()
+	if ipmiInfo.Verified && ipmiInfo.RedfishApi {
+		return true
 	}
-	return nil, httperrors.NewInvalidStatusError("Cannot prepare baremetal in status %s", self.Status)
+	return false
+}
+
+func (self *SHost) canPrepare() error {
+	if !self.IsBaremetal {
+		return httperrors.NewInvalidStatusError("not a baremetal")
+	}
+	if !self.isRedfishCapable() && len(self.AccessMac) == 0 && len(self.Uuid) == 0 {
+		return httperrors.NewInvalidStatusError("need valid access_mac and uuid to do prepare")
+	}
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PREPARE_FAIL}) {
+		return httperrors.NewInvalidStatusError("Cannot prepare baremetal in status %s", self.Status)
+	}
+	server := self.GetBaremetalServer()
+	if server != nil && server.Status != api.VM_ADMIN {
+		return httperrors.NewInvalidStatusError("Cannot prepare baremetal in server status %s", server.Status)
+	}
+	return nil
+}
+
+func (self *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.canPrepare()
+	if err != nil {
+		return nil, err
+	}
+	var onfinish string
+	server := self.GetBaremetalServer()
+	if server != nil && self.Status == api.BAREMETAL_READY {
+		onfinish = "shutdown"
+	}
+	return nil, self.StartPrepareTask(ctx, userCred, onfinish, "")
 }
 
 func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.TokenCredential, onfinish, parentTaskId string) error {
@@ -3418,6 +3460,7 @@ func (self *SHost) AllowPerformEnableNetif(ctx context.Context,
 }
 
 func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	log.Debugf("enable_netif %s", data)
 	mac, _ := data.GetString("mac")
 	netif := self.GetNetInterface(mac)
 	if netif == nil {
@@ -3442,6 +3485,7 @@ func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.Tok
 func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, network, ipAddr, allocDir string, netType string, reserve, requireDesignatedIp bool) error {
 	bn := netif.GetBaremetalNetwork()
 	if bn != nil {
+		log.Debugf("Netif has been attach2network? %s", jsonutils.Marshal(bn))
 		return nil
 	}
 	var net *SNetwork
@@ -3497,15 +3541,15 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	} else if net.WireId != wire.Id {
 		return fmt.Errorf("conflict??? candiate net is not on wire")
 	}
-	err = self.Attach2Network(ctx, userCred, netif, net, ipAddr, allocDir, reserve, requireDesignatedIp)
+	bn, err = self.Attach2Network(ctx, userCred, netif, net, ipAddr, allocDir, reserve, requireDesignatedIp)
 	if err != nil {
 		return errors.Wrap(err, "self.Attach2Network")
 	}
 	switch netif.NicType {
 	case api.NIC_TYPE_IPMI:
-		err = self.setIpmiIp(userCred, ipAddr)
+		err = self.setIpmiIp(userCred, bn.IpAddr)
 	case api.NIC_TYPE_ADMIN:
-		err = self.setAccessIp(userCred, ipAddr)
+		err = self.setAccessIp(userCred, bn.IpAddr)
 	}
 	return err
 }
@@ -3553,17 +3597,16 @@ func (self *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCred
 	return err
 }
 
-func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, net *SNetwork, ipAddr, allocDir string, reserved, requireDesignatedIp bool) error {
+func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, net *SNetwork, ipAddr, allocDir string, reserved, requireDesignatedIp bool) (*SHostnetwork, error) {
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
 
 	freeIp, err := net.GetFreeIP(ctx, userCred, nil, nil, ipAddr, api.IPAllocationDirection(allocDir), reserved)
 	if err != nil {
-		log.Errorf("attach2network: %s", err)
-		return err
+		return nil, errors.Wrap(err, "net.GetFreeIP")
 	}
 	if len(ipAddr) > 0 && ipAddr != freeIp && requireDesignatedIp {
-		return fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
+		return nil, fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
 	}
 	bn := &SHostnetwork{}
 	bn.BaremetalId = self.Id
@@ -3572,13 +3615,12 @@ func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCr
 	bn.MacAddr = netif.Mac
 	err = HostnetworkManager.TableSpec().Insert(bn)
 	if err != nil {
-		log.Errorf("HostnetworkManager.TableSpec().Insert fail %s", err)
-		return err
+		return nil, errors.Wrap(err, "HostnetworkManager.TableSpec().Insert")
 	}
 	db.OpsLog.LogAttachEvent(ctx, self, net, userCred, jsonutils.NewString(freeIp))
 	self.UpdateDnsRecord(netif, true)
 	net.UpdateBaremetalNetmap(bn, self.GetNetifName(netif))
-	return nil
+	return bn, nil
 }
 
 func (self *SHost) AllowPerformRemoveNetif(ctx context.Context,
@@ -3756,7 +3798,7 @@ func (self *SHost) AllowPerformCacheImage(ctx context.Context,
 }
 
 func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != api.HOST_ONLINE {
+	if self.HostType == api.HOST_TYPE_BAREMETAL || self.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Cannot perform cache image in status %s", self.Status)
 	}
 	imageId, _ := data.GetString("image")
@@ -4449,7 +4491,7 @@ func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCr
 	switch strings.ToLower(manufacture) {
 	case "hp", "hpe":
 		jnlp, err = bmc.GetIloConsoleJNLP(ctx)
-	case "dell":
+	case "dell", "dell inc.":
 		sku, _ := self.SysInfo.GetString("sku")
 		model, _ := self.SysInfo.GetString("model")
 		jnlp, err = bmc.GetIdracConsoleJNLP(ctx, sku, model)
@@ -4462,4 +4504,75 @@ func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCr
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(jnlp), "jnlp")
 	return ret, nil
+}
+
+func (self *SHost) AllowPerformInsertIso(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "insert-iso")
+}
+
+func (self *SHost) PerformInsertIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+		imageStr, err := data.GetString("image")
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, false)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("image", imageStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if image.Status != cloudprovider.IMAGE_STATUS_ACTIVE {
+			return nil, httperrors.NewInvalidStatusError("Image status is not active")
+		}
+		boot := jsonutils.QueryBoolean(data, "boot", false)
+		return nil, self.StartInsertIsoTask(ctx, userCred, image.Id, boot, "")
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do insert-iso in status %s", self.Status)
+}
+
+func (self *SHost) StartInsertIsoTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, boot bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(imageId), "image_id")
+	if boot {
+		data.Add(jsonutils.JSONTrue, "boot")
+	}
+	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_INSERT), "action")
+	self.SetStatus(userCred, api.BAREMETAL_START_INSERT_ISO, "start insert iso task")
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
+}
+
+func (self *SHost) AllowPerformEjectIso(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "eject-iso")
+}
+
+func (self *SHost) PerformEjectIso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
+		return nil, self.StartEjectIsoTask(ctx, userCred, "")
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot do eject-iso in status %s", self.Status)
+}
+
+func (self *SHost) StartEjectIsoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(api.BAREMETAL_CDROM_ACTION_EJECT), "action")
+	self.SetStatus(userCred, api.BAREMETAL_START_EJECT_ISO, "start eject iso task")
+	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalCdromTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
 }

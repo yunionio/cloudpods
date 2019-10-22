@@ -15,6 +15,7 @@
 package pxe
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -141,11 +143,34 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 			log.Errorf("[DHCP] parse vendor option %d error: %v", optCode, err)
 		}
 	}
+	var cliUUIDStr string
+	if len(cliGuid) == 17 {
+		cliUUIDStr = formatUuidString([]byte(cliGuid)[1:])
+	}
 	req.VendorClassId = vendorClsId
 	req.ClientArch = cliArch
 	req.NetworkInterfaceIdent = netIfIdent
-	req.ClientGuid = cliGuid
+	req.ClientGuid = cliUUIDStr
+	log.Debugf("Client GUID: %s", req.ClientGuid)
 	return req, err
+}
+
+func swapBytes(input []byte) []byte {
+	output := make([]byte, len(input))
+	for i := range input {
+		output[i] = input[len(input)-1-i]
+	}
+	return output
+}
+
+func formatUuidString(uuidBytes []byte) string {
+	return strings.Join([]string{
+		hex.EncodeToString(swapBytes(uuidBytes[0:4])),
+		hex.EncodeToString(swapBytes(uuidBytes[4:6])),
+		hex.EncodeToString(swapBytes(uuidBytes[6:8])),
+		hex.EncodeToString(uuidBytes[8:10]),
+		hex.EncodeToString(uuidBytes[10:16]),
+	}, "-")
 }
 
 func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.ResponseConfig, error) {
@@ -240,6 +265,19 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 	return &network, err
 }
 
+func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*modulebase.ListResult, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(req.ClientGuid), "uuid")
+	ret, err := modules.Hosts.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret.Data) > 1 {
+		return nil, httperrors.NewDuplicateResourceError("duplicate uuid %s", req.ClientGuid)
+	}
+	return ret, nil
+}
+
 func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modulebase.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
@@ -253,14 +291,23 @@ func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, 
 
 // createOrUpdateBaremetal create or update baremetal by client MAC
 func (req *dhcpRequest) createOrUpdateBaremetal(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
-	ret, err := req.findBaremetalsOfAnyMac(session, true)
+	// first try UUID
+	ret, err := req.findBaremetalsByUuid(session)
 	if err != nil {
 		return nil, err
 	}
 	if len(ret.Data) == 0 {
-		ret, err = req.findBaremetalsOfAnyMac(session, false)
+		// try mac and is_baremetal=true
+		ret, err = req.findBaremetalsOfAnyMac(session, true)
 		if err != nil {
 			return nil, err
+		}
+		if len(ret.Data) == 0 {
+			// try mac and host_type=baremetal
+			ret, err = req.findBaremetalsOfAnyMac(session, false)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	switch len(ret.Data) {

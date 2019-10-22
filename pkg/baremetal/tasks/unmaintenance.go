@@ -25,38 +25,44 @@ import (
 )
 
 type SBaremetalUnmaintenanceTask struct {
-	*SBaremetalTaskBase
+	SBaremetalTaskBase
 }
 
 func NewBaremetalUnmaintenanceTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	task := new(SBaremetalUnmaintenanceTask)
-	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
-	task.SBaremetalTaskBase = baseTask
+) ITask {
+	task := &SBaremetalUnmaintenanceTask{
+		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
+	task.SetStage(task.DoUnmaintenance)
+	return task
+}
+
+func (task *SBaremetalUnmaintenanceTask) DoUnmaintenance(ctx context.Context, args interface{}) error {
 	var err error
 	if jsonutils.QueryBoolean(task.data, "guest_running", false) {
 		err = task.EnsurePowerShutdown(false)
 		if err != nil {
-			return task, fmt.Errorf("EnsurePowerShutdown hard: %v", err)
+			return fmt.Errorf("EnsurePowerShutdown hard: %v", err)
 		}
 		err = task.EnsurePowerUp()
 		if err != nil {
-			return task, fmt.Errorf("EnsurePowerUp disk: %v", err)
+			return fmt.Errorf("EnsurePowerUp disk: %v", err)
 		}
 		task.Baremetal.SyncStatus(baremetalstatus.RUNNING, "")
 		SetTaskComplete(task, nil)
-		return task, nil
+		return nil
 	}
 	task.SetStage(task.WaitForStop)
 	err = task.EnsurePowerShutdown(true)
 	if err != nil {
-		return task, fmt.Errorf("EnsurePowerShutdown soft: %v", err)
+		return fmt.Errorf("EnsurePowerShutdown soft: %v", err)
 	}
 	ExecuteTask(task, nil)
-	return task, nil
+	return nil
 }
 
 func (self *SBaremetalUnmaintenanceTask) WaitForStop(ctx context.Context, args interface{}) error {

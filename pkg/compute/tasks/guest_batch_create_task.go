@@ -131,7 +131,16 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	}
 
 	// allocate disks
-	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs)
+	extraDisks, err := guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs, input.Disks)
+	if err != nil {
+		log.Errorf("PrepareDiskRaidConfig fail: %s", err)
+		guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, err.Error())
+		return err
+	}
+	if len(extraDisks) > 0 {
+		input.Disks = append(input.Disks, extraDisks...)
+	}
+
 	var backupCandidateDisks []*schedapi.CandidateDisk
 	if candidate.BackupCandidate != nil {
 		backupCandidateDisks = candidate.BackupCandidate.Disks
