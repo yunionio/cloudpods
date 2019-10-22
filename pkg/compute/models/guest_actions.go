@@ -862,6 +862,9 @@ func (self *SGuest) AllowPerformInsertiso(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
 	cdrom := self.getCdrom(false)
 	if cdrom != nil && len(cdrom.ImageId) > 0 {
 		return nil, httperrors.NewBadRequestError("CD-ROM not empty, please eject first")
@@ -886,7 +889,7 @@ func (self *SGuest) AllowPerformEjectiso(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) PerformEjectiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Hypervisor != api.HYPERVISOR_KVM {
+	if !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL}) {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
 	cdrom := self.getCdrom(false)

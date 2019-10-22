@@ -24,16 +24,16 @@ import (
 )
 
 type SBaremetalServerPrepareTask struct {
-	*SBaremetalTaskBase
+	SBaremetalTaskBase
 }
 
 func NewBaremetalServerPrepareTask(
 	baremetal IBaremetal,
 ) *SBaremetalServerPrepareTask {
-	baseTask := newBaremetalTaskBase(baremetal, "", nil)
 	task := &SBaremetalServerPrepareTask{
-		SBaremetalTaskBase: baseTask,
+		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, "", nil),
 	}
+	task.SetVirtualObject(task)
 	task.SetSSHStage(task.OnPXEBootRequest)
 	return task
 }

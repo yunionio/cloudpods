@@ -16,11 +16,13 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -104,7 +106,9 @@ func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string) *
 	q := manager.Query().Equals("network_id", network.Id).Equals("ip_addr", ip)
 	err := q.First(&rip)
 	if err != nil {
-		log.Errorf("GetReservedIP fail: %s", err)
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Errorf("GetReservedIP fail: %s", err)
+		}
 		return nil
 	}
 	return &rip

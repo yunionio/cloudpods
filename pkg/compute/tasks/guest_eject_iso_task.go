@@ -41,7 +41,7 @@ func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStanda
 	guest := obj.(*models.SGuest)
 	if guest.EjectIso(self.UserCred) && guest.Status == api.VM_RUNNING {
 		self.SetStage("OnConfigSyncComplete", nil)
-		guest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
+		guest.GetDriver().RequestGuestHotRemoveIso(ctx, guest, self)
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}

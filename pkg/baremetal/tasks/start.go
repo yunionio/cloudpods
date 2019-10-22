@@ -16,33 +16,47 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type SBaremetalServerStartTask struct {
-	*SBaremetalTaskBase
+	SBaremetalTaskBase
 }
 
 func NewBaremetalServerStartTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
-	self := &SBaremetalServerStartTask{
-		SBaremetalTaskBase: baseTask,
+) ITask {
+	task := &SBaremetalServerStartTask{
+		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
 	}
-	if err := self.Baremetal.DoPXEBoot(); err != nil {
-		return nil, fmt.Errorf("DoPXEBoot: %v", err)
+	task.SetVirtualObject(task)
+	task.SetStage(task.DoBoot)
+	return task
+}
+
+func (self *SBaremetalServerStartTask) DoBoot(ctx context.Context, args interface{}) error {
+	conf := self.Baremetal.GetRawIPMIConfig()
+	if !conf.CdromBoot {
+		err := self.Baremetal.DoPXEBoot()
+		if err != nil {
+			return errors.Wrap(err, "DoPXEBoot")
+		}
+	} else {
+		err := self.Baremetal.DoRedfishPowerOn()
+		if err != nil {
+			return errors.Wrap(err, "DoRedfishPowerOn")
+		}
 	}
 	self.SetStage(self.WaitForStart)
 	ExecuteTask(self, nil)
-	return self, nil
+	return nil
 }
 
 func (self *SBaremetalServerStartTask) GetName() string {
@@ -50,15 +64,15 @@ func (self *SBaremetalServerStartTask) GetName() string {
 }
 
 func (self *SBaremetalServerStartTask) WaitForStart(ctx context.Context, args interface{}) error {
-	self.SetStage(self.OnStartComplete)
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
-		return fmt.Errorf("GetPowerStatus: %v", err)
+		return errors.Wrap(err, "GetPowerStatus")
 	}
 	log.Infof("%s WaitForStart status=%s", self.GetName(), status)
 	if status == types.POWER_STATUS_ON {
-		ExecuteTask(self, nil)
+		self.SetStage(self.OnStartComplete)
 	}
+	ExecuteTask(self, nil)
 	return nil
 }
 

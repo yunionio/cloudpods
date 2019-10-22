@@ -953,7 +953,7 @@ func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
 	return fmt.Sprintf("http://%s:%d/tftp/%s", serverIP, o.Options.Port+1000, filename)
 }
 
-func (b *SBaremetalInstance) getImageCacheUrl() string {
+func (b *SBaremetalInstance) GetImageCacheUrl() string {
 	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
 		log.Errorf("Get http file server: %v", err)
@@ -1028,6 +1028,7 @@ LABEL start
 			fmt.Sprintf("token=%s", auth.GetTokenString()),
 			fmt.Sprintf("url=%s", b.GetNotifyUrl()),
 		}
+		bootmode := api.BOOT_MODE_PXE
 		if !isTftp {
 			adminNic := b.GetAdminNic()
 			var addr string
@@ -1051,7 +1052,9 @@ LABEL start
 			args = append(args, fmt.Sprintf("gateway=%s", gateway))
 			args = append(args, fmt.Sprintf("addr=%s", addr))
 			args = append(args, fmt.Sprintf("mask=%s", mask))
+			bootmode = api.BOOT_MODE_ISO
 		}
+		args = append(args, fmt.Sprintf("bootmod=%s", bootmode))
 		resp += fmt.Sprintf("    append %s\n", strings.Join(args, " "))
 	} else {
 		resp += fmt.Sprintf("    COM32 %s\n", b.getSyslinuxPath("chain.c32", isTftp))
@@ -1388,12 +1391,7 @@ func (b *SBaremetalInstance) remove() {
 
 func (b *SBaremetalInstance) StartNewTask(factory tasks.TaskFactory, taskId string, data jsonutils.JSONObject) {
 	go func() {
-		task, err := factory(b, taskId, data)
-		if err != nil {
-			log.Errorf("New task %#v error: %v", factory, err)
-			tasks.SetTaskFail(task, err)
-			return
-		}
+		task := factory(b, taskId, data)
 		b.SetTask(task)
 	}()
 }
@@ -1423,6 +1421,11 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 
 func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
 	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, taskId, data)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartBaremetalCdromTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	b.StartNewTask(tasks.NewBaremetalCdromTask, taskId, data)
 	return nil
 }
 
@@ -1905,7 +1908,7 @@ func replaceHostAddr(urlStr string, addr string) string {
 func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error {
 	session := s.baremetal.GetClientSession()
 	token := session.GetToken().GetTokenString()
-	urlStr := s.baremetal.getImageCacheUrl()
+	urlStr := s.baremetal.GetImageCacheUrl()
 	imageId := s.GetRootTemplateId()
 	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, urlStr, imageId, devName)
 	log.Infof("rootcreate cmd: %q", cmd)
@@ -1945,24 +1948,35 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 		return nil, errors.Error("Empty disks in desc")
 	}
 
-	rootDisk := disks[0]
-	rootSize, _ := rootDisk.Int("size")
-	err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create root")
+	rootImageId := s.GetRootTemplateId()
+	diskOffset := 0
+	if len(rootImageId) > 0 {
+		rootDisk := disks[0]
+		rootSize, _ := rootDisk.Int("size")
+		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create root")
+		}
+		tool.RetrievePartitionInfo()
+		parts := tool.GetPartitions()
+		if len(parts) == 0 {
+			return nil, errors.Error("Root disk create failed, no partitions")
+		}
+		log.Infof("Resize root to %d MB", rootSize)
+		if err := tool.ResizePartition(0, rootSize); err != nil {
+			return nil, errors.Wrapf(err, "Fail to resize root to %d", rootSize)
+		}
+		diskOffset = 1
+	} else {
+		tool.RetrievePartitionInfo()
+		parts := tool.GetPartitions()
+		if len(parts) > 0 {
+			return nil, errors.Error("should no partition!!!")
+		}
 	}
 
-	tool.RetrievePartitionInfo()
-	parts := tool.GetPartitions()
-	if len(parts) == 0 {
-		return nil, errors.Error("Root disk create failed, no partitions")
-	}
-	log.Infof("Resize root to %d MB", rootSize)
-	if err := tool.ResizePartition(0, rootSize); err != nil {
-		return nil, errors.Wrapf(err, "Fail to resize root to %d", rootSize)
-	}
-	if len(disks) > 1 {
-		for _, disk := range disks[1:] {
+	if len(disks) > diskOffset {
+		for _, disk := range disks[diskOffset:] {
 			sz, err := disk.Int("size")
 			if err != nil {
 				sz = -1

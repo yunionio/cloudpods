@@ -26,7 +26,7 @@ import (
 )
 
 type SBaremetalResetBMCTask struct {
-	*SBaremetalPXEBootTaskBase
+	SBaremetalPXEBootTaskBase
 	term *ssh.Client
 }
 
@@ -34,12 +34,13 @@ func NewBaremetalResetBMCTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	task := new(SBaremetalResetBMCTask)
-	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
-	task.SBaremetalPXEBootTaskBase = baseTask
-	_, err := baseTask.InitPXEBootTask(task, data)
-	return task, err
+) ITask {
+	task := &SBaremetalResetBMCTask{
+		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
+	task.SetStage(task.InitPXEBootTask)
+	return task
 }
 
 func (self *SBaremetalResetBMCTask) GetName() string {

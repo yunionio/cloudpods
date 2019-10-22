@@ -17,6 +17,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -82,26 +83,28 @@ func (self *SBaremetalGuestDriver) GetMaxVMemSizeGB() int {
 	return 4096
 }
 
-func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, confs []*api.BaremetalDiskConfig) error {
+func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, confs []*api.BaremetalDiskConfig, disks []*api.DiskConfig) ([]*api.DiskConfig, error) {
 	baremetalStorage := models.ConvertStorageInfo2BaremetalStorages(host.StorageInfo)
 	if baremetalStorage == nil {
-		return fmt.Errorf("Convert storage info error")
+		return nil, fmt.Errorf("Convert storage info error")
 	}
 	if len(confs) == 0 {
 		parsedConf, _ := baremetal.ParseDiskConfig("")
-		nConfs := []*api.BaremetalDiskConfig{&parsedConf}
-		layouts, err := baremetal.CalculateLayout(nConfs, baremetalStorage)
-		if err != nil {
-			return err
-		}
-		return host.UpdateDiskConfig(userCred, layouts)
-	} else {
-		layouts, err := baremetal.CalculateLayout(confs, baremetalStorage)
-		if err != nil {
-			return err
-		}
-		return host.UpdateDiskConfig(userCred, layouts)
+		confs = []*api.BaremetalDiskConfig{&parsedConf}
 	}
+	layouts, err := baremetal.CalculateLayout(confs, baremetalStorage)
+	if err != nil {
+		return nil, err
+	}
+	err = host.UpdateDiskConfig(userCred, layouts)
+	if err != nil {
+		return nil, err
+	}
+	allocable, extra := baremetal.CheckDisksAllocable(layouts, disks)
+	if !allocable {
+		return nil, fmt.Errorf("baremetal.CheckDisksAllocable not allocable")
+	}
+	return extra, nil
 }
 
 func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
@@ -257,9 +260,19 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Contex
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
 }
 
+func (self *SBaremetalGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+	host := guest.GetHost()
+	return host.StartInsertIsoTask(ctx, task.GetUserCred(), filepath.Base(path), false, task.GetTaskId())
+}
+
+func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host := guest.GetHost()
+	return host.StartEjectIsoTask(ctx, task.GetUserCred(), task.GetTaskId())
+}
+
 func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	task.ScheduleRun(nil) // skip
-	return nil
+	host := guest.GetHost()
+	return host.StartInsertIsoTask(ctx, task.GetUserCred(), imageId, true, task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
@@ -345,15 +358,15 @@ func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userC
 			return nil, httperrors.NewInputParameterError("Invalid raid config: %v", err)
 		}
 	}
-	if len(input.Disks) <= 0 {
-		return nil, httperrors.NewInputParameterError("Root disk must be present")
-	}
+	//if len(input.Disks) <= 0 {
+	//	return nil, httperrors.NewInputParameterError("Root disk must be present")
+	//}
 
-	disk0 := input.Disks[0]
+	//disk0 := input.Disks[0]
 
-	if disk0.ImageId == "" {
-		return nil, httperrors.NewInputParameterError("Root disk must have templete")
-	}
+	//if disk0.ImageId == "" {
+	//	return nil, httperrors.NewInputParameterError("Root disk must have templete")
+	//}
 	return input, nil
 }
 

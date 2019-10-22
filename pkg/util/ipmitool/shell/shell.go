@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -37,6 +39,8 @@ func init() {
 			return err
 		}
 		printutils.PrintInterfaceObject(info)
+		guid := ipmitool.GetSysGuid(client)
+		fmt.Println("UUID:", guid)
 		return nil
 	})
 }

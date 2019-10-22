@@ -24,18 +24,20 @@ import (
 )
 
 type SBaremetalServerCreateTask struct {
-	*SBaremetalServerBaseDeployTask
+	SBaremetalServerBaseDeployTask
 }
 
 func NewBaremetalServerCreateTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (ITask, error) {
-	task := new(SBaremetalServerCreateTask)
-	baseTask, err := newBaremetalServerBaseDeployTask(baremetal, taskId, data, task)
-	task.SBaremetalServerBaseDeployTask = baseTask
-	return task, err
+) ITask {
+	task := &SBaremetalServerCreateTask{
+		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(baremetal, taskId, data),
+	}
+	task.SetVirtualObject(task)
+	task.SetStage(task.InitPXEBootTask)
+	return task
 }
 
 func (self *SBaremetalServerCreateTask) GetName() string {
@@ -63,12 +65,15 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 		return nil, self.onError(term, err)
 	}
 	data.Add(jsonutils.Marshal(disks), "disks")
-	deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, true)
-	if err != nil {
-		return nil, self.onError(term, err)
-	}
-	if deployInfo != nil {
-		data.Update(deployInfo)
+	rootImageId := self.Baremetal.GetServer().GetRootTemplateId()
+	if len(rootImageId) > 0 {
+		deployInfo, err := self.Baremetal.GetServer().DoDeploy(term, self.data, true)
+		if err != nil {
+			return nil, self.onError(term, err)
+		}
+		if deployInfo != nil {
+			data.Update(deployInfo)
+		}
 	}
 	return data, nil
 }
