@@ -473,6 +473,12 @@ func (self *SBaremetalGuestDriver) StartGuestSaveImage(ctx context.Context, user
 	return httperrors.NewUnsupportOperationError("Cannot save image for baremtal")
 }
 
+func (self *SBaremetalGuestDriver) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
+	guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+
+	return httperrors.NewUnsupportOperationError("Cannot save image for baremtal")
+}
+
 func (self *SBaremetalGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerResetTask", guest, userCred, nil, "", parentTaskId, nil)
 	if err != nil {

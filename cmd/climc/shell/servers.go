@@ -555,6 +555,23 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerSaveImageOptions{}, "server-save-guest-image",
+		"save root disk and data disks to new images and upload to glance.", func(s *mcclient.ClientSession,
+			opts *options.ServerSaveImageOptions) error {
+
+			params, err := options.StructToParams(opts)
+			if err != nil {
+				return err
+			}
+			srv, err := modules.Servers.PerformAction(s, opts.ID, "save-guest-image", params)
+			if err != nil {
+				return err
+			}
+			printObject(srv)
+			return nil
+		},
+	)
+
 	type ServerChangeOwnerOptions struct {
 		ID      string `help:"Server to change owner" json:"-"`
 		PROJECT string `help:"Project ID or change" json:"tenant"`

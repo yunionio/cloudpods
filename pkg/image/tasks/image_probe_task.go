@@ -165,6 +165,7 @@ func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SIm
 		self.SetStage("OnConvertComplete", nil)
 		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
 	} else {
+		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageFailed(ctx, reason)
 	}
 }
@@ -179,6 +180,7 @@ func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SI
 		self.SetStage("OnConvertComplete", nil)
 		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
 	} else {
+		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageComplete(ctx, nil)
 	}
 }

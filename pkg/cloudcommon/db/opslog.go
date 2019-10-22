@@ -80,11 +80,12 @@ const (
 	ACT_SPLIT = "net_split"
 	ACT_MERGE = "net_merge"
 
-	ACT_SAVING     = "saving"
-	ACT_SAVE       = "save"
-	ACT_SAVE_FAIL  = "save_fail"
-	ACT_PROBE      = "probe"
-	ACT_PROBE_FAIL = "probe_fail"
+	ACT_SAVING            = "saving"
+	ACT_SAVE              = "save"
+	ACT_SAVE_FAIL         = "save_fail"
+	ACT_PROBE             = "probe"
+	ACT_PROBE_FAIL        = "probe_fail"
+	ACT_IMAGE_DELETE_FAIL = "delete_fail"
 
 	ACT_SWITCHED      = "switched"
 	ACT_SWITCH_FAILED = "switch_failed"
@@ -216,6 +217,8 @@ const (
 	ACT_GUEST_ATTACH_ISOLATED_DEVICE_FAIL = "guest_attach_isolated_deivce_fail"
 	ACT_GUEST_DETACH_ISOLATED_DEVICE      = "guest_detach_isolated_deivce"
 	ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL = "guest_detach_isolated_deivce_fail"
+	ACT_GUEST_SAVE_GUEST_IMAGE            = "guest_save_guest_image"
+	ACT_GUEST_SAVE_GUEST_IMAGE_FAIL       = "guest_save_guest_image_fail"
 
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
 
