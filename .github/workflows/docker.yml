@@ -28,7 +28,7 @@ jobs:
 
     - name: Build
       run: |
-        run apt-get install librados-dev
+        sudo apt-get install librados-dev librbd-dev
         make cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
         make cmd/logger cmd/region cmd/scheduler cmd/webconsole
         make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway
