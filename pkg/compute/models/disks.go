@@ -1695,6 +1695,7 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		snapshotpoliciesJson.Add(spsDict)
 	}
 	extra.Add(snapshotpoliciesJson, "snapshotpolicies")
+	extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
 	return extra
 }
 
