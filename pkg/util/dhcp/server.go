@@ -87,7 +87,7 @@ func NewDHCPServer2(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPSe
 }
 
 type DHCPHandler interface {
-	ServeDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) (Packet, error)
+	ServeDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) (Packet, []string, error)
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
@@ -117,13 +117,25 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 				}
 			}()
 
-			resp, err := handler.ServeDHCP(pkt, addr, intf)
+			resp, targets, err := handler.ServeDHCP(pkt, addr, intf)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)
 				return
 			}
 			if resp == nil {
 				// log.Warningf("[DHCP] hander response null packet")
+				return
+			}
+			if len(targets) > 0 {
+				targetUdpAddr := *addr
+				for _, target := range targets {
+					log.Debugf("[DHCP] Send packet back to %s", target)
+					targetUdpAddr.IP = net.ParseIP(target)
+					resp.SetGIAddr(targetUdpAddr.IP)
+					if err = s.conn.SendDHCP(resp, &targetUdpAddr, mac, intf); err != nil {
+						log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.CHAddr(), err)
+					}
+				}
 				return
 			}
 			//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
