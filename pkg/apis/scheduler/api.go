@@ -51,6 +51,7 @@ type ServerConfig struct {
 	Ncpu        int    `json:"vcpu_count"`
 	Name        string `json:"name"`
 	GuestStatus string `json:"guest_status"`
+	Cdrom       string `json:"cdrom"`
 
 	// DEPRECATED
 	Metadata       map[string]string `json:"__meta__"`
