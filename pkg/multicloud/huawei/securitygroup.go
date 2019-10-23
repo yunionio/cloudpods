@@ -170,6 +170,9 @@ func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SSecurityGroup) GetDescription() string {
+	if self.Description == self.VpcID {
+		return ""
+	}
 	return self.Description
 }
 
@@ -331,4 +334,13 @@ func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 
 func (self *SSecurityGroup) GetProjectId() string {
 	return ""
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.region.DeleteSecurityGroup(self.ID)
+}
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	rules = SecurityRuleSetToAllowSet(rules)
+	return self.region.syncSecgroupRules(self.ID, rules)
 }

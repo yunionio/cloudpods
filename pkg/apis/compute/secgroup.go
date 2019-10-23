@@ -57,6 +57,7 @@ type SSecgroupCreateInput struct {
 	apis.Meta
 
 	Name        string
+	Status      string
 	Description string
 	Rules       []SSecgroupRuleCreateInput
 }

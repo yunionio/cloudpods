@@ -17,7 +17,6 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -139,14 +138,6 @@ func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return api.VM_AZURE_DEFAULT_LOGIN_USER
-}
-
-func (self *SAzureGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
-	host := guest.GetHost()
-	if host != nil && strings.HasSuffix(host.Name, "-classic") {
-		return "classic", nil
-	}
-	return api.NORMAL_VPC_ID, nil
 }
 
 func (self *SAzureGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {

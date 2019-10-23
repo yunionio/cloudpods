@@ -30,6 +30,7 @@ import (
 )
 
 type SClassicSecurityGroup struct {
+	region     *SRegion
 	vpc        *SClassicVpc
 	Properties ClassicSecurityGroupProperties `json:"properties,omitempty"`
 	ID         string
@@ -175,7 +176,7 @@ func (self *SClassicSecurityGroup) GetName() string {
 
 func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
-	secgrouprules, err := self.vpc.region.getClassicSecurityGroupRules(self.ID)
+	secgrouprules, err := self.region.getClassicSecurityGroupRules(self.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -217,6 +218,7 @@ func (region *SRegion) CreateClassicSecurityGroup(name string) (*SClassicSecurit
 		name = "Default-copy"
 	}
 	secgroup := SClassicSecurityGroup{
+		region:   region,
 		Name:     name,
 		Type:     "Microsoft.ClassicNetwork/networkSecurityGroups",
 		Location: region.Name,
@@ -248,8 +250,12 @@ func (region *SRegion) deleteClassicSecurityGroup(secgroupId string) error {
 	return region.client.Delete(secgroupId)
 }
 
+func (self *SClassicSecurityGroup) Delete() error {
+	return self.region.deleteClassicSecurityGroup(self.ID)
+}
+
 func (self *SClassicSecurityGroup) Refresh() error {
-	sec, err := self.vpc.region.GetClassicSecurityGroupDetails(self.ID)
+	sec, err := self.region.GetClassicSecurityGroupDetails(self.ID)
 	if err != nil {
 		return err
 	}
@@ -376,4 +382,9 @@ func (region *SRegion) syncClassicSecurityGroup(secgroupId, name, desc string, r
 
 func (self *SClassicSecurityGroup) GetProjectId() string {
 	return getResourceGroup(self.ID)
+}
+
+func (self *SClassicSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	_, err := self.region.syncClassicSecgroupRules(self.ID, rules)
+	return err
 }

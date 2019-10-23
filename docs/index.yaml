@@ -343,6 +343,31 @@ paths:
   /serverskus/{serverskuId}/disable:
     $ref: "./serversku/disable.yaml"
 
+  /secgroupcaches:
+    $ref: "./secgroupcache/secgroupcaches.yaml"
+  /secgroupcaches/{cacheId}:
+    $ref: "./secgroupcache/secgroupcache.yaml"
+
+  /keypairs:
+    $ref: "./keypair/keypairs.yaml"
+  /keypairs/{keypairId}:
+    $ref: "./keypair/keypair.yaml"
+
+  /elasticips:
+    $ref: "./elasticip/elasticips.yaml"
+  /elasticips/{elasticipId}:
+    $ref: "./elasticip/elasticip.yaml"
+  /elasticips/{elasticipId}/associate:
+    $ref: "./elasticip/associate.yaml"
+  /elasticips/{elasticipId}/dissociate:
+    $ref: "./elasticip/dissociate.yaml"
+  /elasticips/{elasticipId}/change-bandwidth:
+    $ref: "./elasticip/change-bandwidth.yaml"
+  /elasticips/{elasticipId}/purge:
+    $ref: "./elasticip/purge.yaml"
+  /elasticips/{elasticipId}/sync:
+    $ref: "./elasticip/sync.yaml"
+
   /networkinterfaces:
     $ref: "./networkinterface/networkinterfaces.yaml"
   /networkinterfaces/{networkinterfaceId}:

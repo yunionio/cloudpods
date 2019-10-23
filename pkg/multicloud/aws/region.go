@@ -1014,3 +1014,25 @@ func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoad
 
 	return ret, nil
 }
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, total, err := self.GetSecurityGroups("", secgroupId, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &secgroups[0], nil
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	groupId, err := self.createSecurityGroup(conf.VpcId, conf.Name, "", conf.Desc)
+	if err != nil {
+		return nil, err
+	}
+	return self.GetISecurityGroupById(groupId)
+}

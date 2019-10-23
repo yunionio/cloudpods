@@ -192,10 +192,22 @@ func (self *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
 }
 
 // https://docs.ucloud.cn/api/unet-api/delete_firewall
-func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+func (self *SRegion) DeleteSecurityGroup(secgroupId string) error {
 	params := NewUcloudParams()
 	params.Set("FWId", secgroupId)
 	return self.DoAction("DeleteFirewall", params, nil)
+}
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.GetSecurityGroupById(secgroupId)
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	externalId, err := self.CreateDefaultSecurityGroup(conf.Name, conf.Desc)
+	if err != nil {
+		return nil, err
+	}
+	return self.GetISecurityGroupById(externalId)
 }
 
 // https://docs.ucloud.cn/api/unet-api/describe_firewall

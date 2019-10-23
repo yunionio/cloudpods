@@ -546,7 +546,7 @@ func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	return err
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(secGrpId string) error {
 	params := make(map[string]string)
 	params["SecurityGroupId"] = secGrpId
 
@@ -558,6 +558,14 @@ func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	return nil
 }
 
+func (self *SSecurityGroup) Delete() error {
+	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
+}
+
 func (self *SSecurityGroup) GetProjectId() string {
 	return ""
+}
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	return self.vpc.region.syncSecgroupRules(self.SecurityGroupId, rules)
 }
