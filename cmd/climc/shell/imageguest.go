@@ -104,7 +104,52 @@ func init() {
 				printObject(image)
 			}
 			return nil
-		})
+		},
+	)
+
+	type GuestImageUpdateOptions struct {
+		ID             string `help:"id of guest image"`
+		Name           string `help:"new name of guest image"`
+		Protected      string `help:"delete protection" choices:"enable|disable"`
+		OsType         string `help:"os type"`
+		OsDistribution string `help:"os distribution"`
+		DiskDriver     string `help:"disk driver"`
+		NetDriver      string `help:"net driver"`
+	}
+	R(&GuestImageUpdateOptions{}, "guest-image-update", "update guest image", func(s *mcclient.ClientSession,
+		args *GuestImageUpdateOptions) error {
+
+		params := jsonutils.NewDict()
+		if len(args.Name) > 0 {
+			params.Add(jsonutils.NewString(args.Name), "name")
+		}
+		if len(args.Protected) > 0 {
+			if args.Protected == "enable" {
+				params.Add(jsonutils.JSONTrue, "protected")
+			} else {
+				params.Add(jsonutils.JSONFalse, "protected")
+			}
+		}
+		properties := jsonutils.NewDict()
+		if len(args.OsType) > 0 {
+			properties.Add(jsonutils.NewString(args.OsType), "os_type")
+		}
+		if len(args.OsDistribution) > 0 {
+			properties.Add(jsonutils.NewString(args.OsDistribution), "os_distribution")
+		}
+		if len(args.DiskDriver) > 0 {
+			properties.Add(jsonutils.NewString(args.DiskDriver), "disk_driver")
+		}
+		if len(args.NetDriver) > 0 {
+			properties.Add(jsonutils.NewString(args.NetDriver), "net_driver")
+		}
+		params.Add(properties, "properties")
+		_, err := modules.GuestImages.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 
 	type GuestImageOptions struct {
 		ID string `help:"Guest Image id or name"`

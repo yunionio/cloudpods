@@ -4725,7 +4725,11 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 }
 
 func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.ServerCreateInput) error {
-	// that data disks has image id show that these image is part of guest image.
+	// There is no need to check the availability of guest imag if input.Disks is empty
+	if len(input.Disks) == 0 {
+		return nil
+	}
+	// That data disks has image id show that these image is part of guest image
 	for _, config := range input.Disks[1:] {
 		if len(config.ImageId) != 0 && len(input.GuestImageID) == 0 {
 			return httperrors.NewMissingParameterError("guest_image_id")
