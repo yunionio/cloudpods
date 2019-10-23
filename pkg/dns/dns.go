@@ -85,7 +85,9 @@ type SRegionDNS struct {
 	AdminUser     string
 	AdminPassword string
 	Region        string
-	K8sManager    *k8s.SKubeClusterManager
+	K8sSkip       bool
+
+	K8sManager *k8s.SKubeClusterManager
 }
 
 func New() *SRegionDNS {
@@ -424,17 +426,20 @@ func (r *SRegionDNS) findInternalRecordIps(req *recordRequest) []string {
 		}
 	}
 
-	k8sCli, err := r.getK8sClient()
-	if err != nil {
-		ylog.Warningf("Get k8s client error: %v, skip it.", err)
-		return nil
+	if !r.K8sSkip {
+		k8sCli, err := r.getK8sClient()
+		if err != nil {
+			ylog.Warningf("Get k8s client error: %v, skip it.", err)
+			return nil
+		}
+		// 3. try k8s service backends
+		ips, err := getK8sServiceBackends(k8sCli, req)
+		if err != nil {
+			ylog.Errorf("Get k8s service backends error: %v", err)
+		}
+		return ips
 	}
-	// 3. try k8s service backends
-	ips, err := getK8sServiceBackends(k8sCli, req)
-	if err != nil {
-		ylog.Errorf("Get k8s service backends error: %v", err)
-	}
-	return ips
+	return nil
 }
 
 func ips2DnsRecords(ips []string) []msg.Service {
