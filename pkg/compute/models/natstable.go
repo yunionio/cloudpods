@@ -332,7 +332,7 @@ func (self *SNatSEntry) getMoreDetails(ctx context.Context, userCred mcclient.To
 		return query
 	}
 	query.Add(jsonutils.NewString(natgateway.Name), "natgateway")
-	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())))
+	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())), "real_name")
 	return query
 }
 
