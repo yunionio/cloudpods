@@ -554,7 +554,7 @@ func (self *SImage) ImageProbeAndCustomization(
 
 func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if self.Status != api.IMAGE_STATUS_QUEUED {
-		if self.IsGuestImage.IsTrue() {
+		if self.IsGuestImage.IsTrue() && !self.CanUpdate(data) {
 			return nil, httperrors.NewForbiddenError("image is the part of guest imgae")
 		}
 		appParams := appsrv.AppContextGetParams(ctx)
@@ -757,7 +757,7 @@ func (manager *SImageManager) getExpiredPendingDeleteDisks() []SImage {
 	q := manager.Query()
 	// those images part of guest image will be clean in GuestImageManager.CleanPendingDeleteImages
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at",
-		deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize).IsFalse("belong_guest_image")
+		deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize).IsFalse("is_guest_image")
 
 	disks := make([]SImage, 0)
 	err := db.FetchModelObjects(ImageManager, q, &disks)
@@ -1259,4 +1259,12 @@ func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcc
 	}
 	subimg.SetStatusSeeding(true)
 	return nil, nil
+}
+
+func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
+	dict := data.(*jsonutils.JSONDict)
+	if dict.Length() == 1 && !dict.Contains("description") {
+		return false
+	}
+	return true
 }

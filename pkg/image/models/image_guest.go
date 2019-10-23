@@ -110,7 +110,6 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	// HACK
 	appParams := appsrv.AppContextGetParams(ctx)
 	appParams.Request.ContentLength = 0
-	kwargs.Add(jsonutils.NewString("此镜像为主机镜像子镜像，不可操作"), "description")
 
 	for i := 0; i < len(images); i++ {
 		params := jsonutils.DeepCopy(kwargs).(*jsonutils.JSONDict)
@@ -291,6 +290,7 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		if !image.IsData.IsTrue() {
 			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat}
 			extra.Add(jsonutils.NewInt(int64(image.MinRamMB)), "min_ram_mb")
+			extra.Add(jsonutils.NewString(image.DiskFormat), "disk_format")
 			continue
 		}
 		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat})
@@ -336,6 +336,23 @@ func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.
 	}
 
 	return self.getMoreDetails(ctx, userCred, query, extra), nil
+}
+
+func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) {
+
+	if !data.Contains("name") && !data.Contains("properties") {
+		return
+	}
+	params := data.(*jsonutils.JSONDict)
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestImageUpdateTask", self, userCred, params, "", "",
+		nil); err != nil {
+
+		log.Errorf("GusetImage %s fail to start GuestImageUpdateTask", self.Id)
+		return
+	} else {
+		task.ScheduleRun(nil)
+	}
 }
 
 var checkStatus = map[string]int{
