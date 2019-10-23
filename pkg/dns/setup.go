@@ -50,7 +50,9 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	go rDNS.initK8s()
+	if !rDNS.K8sSkip {
+		go rDNS.initK8s()
+	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		rDNS.Next = next
@@ -123,6 +125,8 @@ func parseConfig(c *caddy.Controller) (*SRegionDNS, error) {
 						return nil, err
 					}
 					rDNS.Upstream = u
+				case "k8s_skip":
+					rDNS.K8sSkip = true
 				default:
 					if c.Val() != "}" {
 						return nil, c.Errf("unknown property %q", c.Val())
