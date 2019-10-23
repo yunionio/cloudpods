@@ -15,13 +15,13 @@
 package pxe
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
@@ -65,25 +65,29 @@ type dhcpRequest struct {
 	netConfig *types.SNetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, error) {
+func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, []string, error) {
 	req, err := h.newRequest(pkt, h.baremetalManager)
 	if err != nil {
 		log.Errorf("[DHCP] new request by packet error: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	log.V(4).Debugf("[DHCP] request packet: %#v", req)
 
 	if req.RelayAddr.String() == "0.0.0.0" {
-		return nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", req.ClientMac)
+		return nil, nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", req.ClientMac)
 	}
-	conf, err := req.fetchConfig(h.baremetalManager.GetClientSession())
+	conf, targets, err := req.fetchConfig(h.baremetalManager.GetClientSession())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if conf == nil {
-		return nil, fmt.Errorf("Empty packet config")
+		return nil, nil, fmt.Errorf("Empty packet config")
 	}
-	return dhcp.MakeReplyPacket(pkt, conf)
+	pkg, err := dhcp.MakeReplyPacket(pkt, conf)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "dhcp.MakeReplyPacket")
+	}
+	return pkg, targets, nil
 }
 
 func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpRequest, error) {
@@ -129,10 +133,10 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 				// expect to boot.
 			case 17:
 				if data[0] != 0 {
-					err = errors.New("malformed client GUID (option 97), leading byte must be zero")
+					err = errors.Error("malformed client GUID (option 97), leading byte must be zero")
 				}
 			default:
-				err = errors.New("malformed client GUID (option 97), wrong size")
+				err = errors.Error("malformed client GUID (option 97), wrong size")
 			}
 			cliGuid, err = req.Options.String(optCode)
 		}
@@ -147,13 +151,18 @@ func (h *DHCPHandler) newRequest(pkt dhcp.Packet, man IBaremetalManager) (*dhcpR
 	return req, err
 }
 
-func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.ResponseConfig, error) {
+func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.ResponseConfig, []string, error) {
 	// 1. find_network_conf
 	netConf, err := req.findNetworkConf(session, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.netConfig = netConf
+	var dhcpAddrList []string
+	if len(netConf.GuestDhcp) > 0 {
+		dhcpAddrList = strings.Split(netConf.GuestDhcp, ",")
+	}
+	log.Debugf("dhcpAddrList %s", dhcpAddrList)
 
 	// TODO: set cache for netConf
 	if req.isPXERequest() {
@@ -161,16 +170,21 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %#v", req.RelayAddr, req.ClientAddr, req.ClientMac, netConf)
 		bmDesc, err := req.createOrUpdateBaremetal(session)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		err = req.doInitBaremetalAdminNetif(bmDesc)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// always response PXE request
 		// let bootloader decide boot local or remote
 		// if req.baremetalInstance.NeedPXEBoot() {
-		return req.baremetalInstance.GetPXEDHCPConfig(req.ClientArch)
+		conf, err := req.baremetalInstance.GetPXEDHCPConfig(req.ClientArch)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "req.baremetalInstance.GetPXEDHCPConfig")
+		}
+		return conf, dhcpAddrList, nil
+
 		// }
 		// ignore
 		// log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", req.ClientMac, req.ClientGuid)
@@ -184,7 +198,7 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 			// from guestdhcp import GuestDHCPHelperTask
 			// task = GuestDHCPHelperTask(self)
 			// task.start()
-			return nil, nil
+			return nil, nil, nil
 		}
 		req.baremetalInstance = bmInstance
 		ipmiNic := req.baremetalInstance.GetIPMINic(req.ClientMac)
@@ -192,16 +206,20 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 			err = req.baremetalInstance.InitAdminNetif(
 				req.ClientMac, req.netConfig.WireId, api.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, false, "")
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		} else {
 			err = req.baremetalInstance.RegisterNetif(req.ClientMac, req.netConfig.WireId)
 			if err != nil {
 				log.Errorf("RegisterNetif error: %v", err)
-				return nil, err
+				return nil, nil, err
 			}
 		}
-		return req.baremetalInstance.GetDHCPConfig(req.ClientMac)
+		conf, err := req.baremetalInstance.GetDHCPConfig(req.ClientMac)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "req.baremetalInstance.GetDHCPConfig")
+		}
+		return conf, dhcpAddrList, nil
 	}
 }
 
@@ -214,7 +232,7 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 			fmt.Sprintf("guest_gateway.equals(%s)", req.RelayAddr)),
 			"filter.0")
 		params.Add(jsonutils.NewString(
-			fmt.Sprintf("guest_dhcp.equals(%s)", req.RelayAddr)),
+			fmt.Sprintf("guest_dhcp.contains(%s)", req.RelayAddr)),
 			"filter.1")
 		params.Add(jsonutils.JSONTrue, "filter_any")
 	}
@@ -230,9 +248,16 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 		}
 		return nil, fmt.Errorf("DHCP relay from %s(%s) for %s, find no match network", req.RelayAddr, req.ClientAddr, req.ClientMac)
 	}
-
+	idx := 0
+	for i := range ret.Data {
+		netType, _ := ret.Data[i].GetString("server_type")
+		if netType == api.NETWORK_TYPE_PXE {
+			idx = i
+			break
+		}
+	}
 	network := types.SNetworkConfig{}
-	err = ret.Data[0].Unmarshal(&network)
+	err = ret.Data[idx].Unmarshal(&network)
 	return &network, err
 }
 
@@ -388,10 +413,10 @@ func (s *Server) validateDHCP(pkt dhcp.Packet) (Machine, Firmware, error) {
 		// well accept these buggy ROMs.
 	case 17:
 		if guid[0] != 0 {
-			return mach, 0, errors.New("malformed client GUID (option 97), leading byte must be zero")
+			return mach, 0, errors.Error("malformed client GUID (option 97), leading byte must be zero")
 		}
 	default:
-		return mach, 0, errors.New("malformed client GUID (option 97), wrong size")
+		return mach, 0, errors.Error("malformed client GUID (option 97), wrong size")
 	}
 
 	mach.MAC = pkt.CHAddr()
