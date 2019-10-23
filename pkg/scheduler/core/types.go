@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -89,6 +90,8 @@ type CandidatePropertyGetter interface {
 
 	InstanceGroups() map[string]*api.CandidateGroup
 	GetFreeGroupCount(groupId string) (int, error)
+
+	GetIpmiInfo() types.SIPMIInfo
 }
 
 // Candidater replace host Candidate resource info
