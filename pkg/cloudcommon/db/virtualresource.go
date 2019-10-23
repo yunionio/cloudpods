@@ -62,7 +62,7 @@ type SVirtualResourceBase struct {
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 
 	PendingDeletedAt time.Time ``
-	PendingDeleted   bool      `nullable:"false" default:"false" index:"true" get:"admin"`
+	PendingDeleted   bool      `nullable:"false" default:"false" index:"true" get:"user"`
 }
 
 func (model *SVirtualResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {
