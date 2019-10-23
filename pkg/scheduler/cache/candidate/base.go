@@ -22,11 +22,11 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/scheduler/api"
-
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
@@ -43,6 +43,7 @@ type BaseHostDesc struct {
 	HostSchedtags []computemodels.SSchedtag `json:"schedtags"`
 
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
+	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
 }
 
 type baseHostGetter struct {
@@ -192,6 +193,10 @@ func (b baseHostGetter) GetFreePort(netId string) int {
 	return b.h.GetFreePort(netId)
 }
 
+func (b baseHostGetter) GetIpmiInfo() types.SIPMIInfo {
+	return b.h.IpmiInfo
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault
@@ -232,8 +237,13 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 	if err := desc.fillSchedtags(); err != nil {
 		return nil, fmt.Errorf("Fill schedtag error: %v", err)
 	}
+
 	if err := desc.fillInstanceGroups(host); err != nil {
 		return nil, fmt.Errorf("Fill instance group error: %v", err)
+	}
+
+	if err := desc.fillIpmiInfo(host); err != nil {
+		return nil, fmt.Errorf("Fill ipmi info error: %v", err)
 	}
 
 	return desc, nil
@@ -381,6 +391,15 @@ func (b *BaseHostDesc) fillInstanceGroups(host *computemodels.SHost) error {
 		}
 	}
 	b.InstanceGroups = candidateSet
+	return nil
+}
+
+func (b *BaseHostDesc) fillIpmiInfo(host *computemodels.SHost) error {
+	info, err := host.GetIpmiInfo()
+	if err != nil {
+		return err
+	}
+	b.IpmiInfo = info
 	return nil
 }
 
