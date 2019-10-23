@@ -438,6 +438,9 @@ func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) 
 		return err
 	}
 	url, err := body.GetString("id")
+	if err != nil {
+		return errors.Wrap(err, "failed to found id for update operation")
+	}
 	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
 	if err != nil {
 		return err
