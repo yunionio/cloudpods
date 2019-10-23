@@ -121,27 +121,27 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	if id, _ := data.GetString("vpc"); len(id) > 0 {
 		vpc, err := db.FetchByIdOrName(VpcManager, userCred, id)
 		if err != nil {
-			return nil, fmt.Errorf("getting vpc failed")
+			return nil, httperrors.NewBadRequestError("getting vpc failed: %v", err)
 		}
 
 		region, _ = vpc.(*SVpc).GetRegion()
 	} else if id, _ := data.GetString("zone"); len(id) > 0 {
 		zone, err := db.FetchByIdOrName(ZoneManager, userCred, id)
 		if err != nil {
-			return nil, fmt.Errorf("getting zone failed")
+			return nil, httperrors.NewBadRequestError("getting zone failed: %v", err)
 		}
 
 		region = zone.(*SZone).GetRegion()
 	} else if id, _ := data.GetString("network"); len(id) > 0 {
 		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(id, ",")[0])
 		if err != nil {
-			return nil, fmt.Errorf("getting network failed")
+			return nil, httperrors.NewBadRequestError("getting network failed: %v", err)
 		}
 		region = network.(*SNetwork).getRegion()
 	}
 
 	if region == nil {
-		return nil, fmt.Errorf("getting region failed")
+		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
