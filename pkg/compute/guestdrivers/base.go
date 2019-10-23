@@ -303,21 +303,6 @@ func (self *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gu
 	return nil // do nothing
 }
 
-func (self *SBaseGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
-	vpcId := ""
-	guestnets, err := guest.GetNetworks("")
-	if err != nil {
-		return "", err
-	}
-	for _, network := range guestnets {
-		if vpc := network.GetNetwork().GetVpc(); vpc != nil {
-			vpcId = vpc.ExternalId
-			break
-		}
-	}
-	return vpcId, nil
-}
-
 func (self *SBaseGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 

@@ -796,10 +796,6 @@ func (self *SRegion) instanceOperation(instanceId string, opname string, extra m
 	return err
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId string, secgroupId string) error {
-	return self.deleteSecurityGroup(secgroupId)
-}
-
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
@@ -919,4 +915,12 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return region.GetIBucketById(name)
+}
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.GetSecurityGroupDetails(secgroupId)
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.CreateSecurityGroup(conf.Name, conf.Desc)
 }

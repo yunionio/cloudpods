@@ -55,7 +55,7 @@ type SSecurityGroupRule struct {
 }
 
 type SSecurityGroup struct {
-	vpc *SVpc
+	region *SRegion
 
 	Description        string
 	ID                 string
@@ -88,7 +88,7 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 	if err != nil {
 		return nil, err
 	}
-	secgroup := &SSecurityGroup{}
+	secgroup := &SSecurityGroup{region: region}
 	return secgroup, resp.Unmarshal(secgroup, "security_group")
 }
 
@@ -120,6 +120,9 @@ func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
 				}
 			}
 		}
+	}
+	for i := range secgroups {
+		secgroups[i].region = region
 	}
 
 	return secgroups, nil
@@ -237,7 +240,7 @@ func (secgroup *SSecurityGroup) IsEmulated() bool {
 }
 
 func (secgroup *SSecurityGroup) Refresh() error {
-	new, err := secgroup.vpc.region.GetSecurityGroup(secgroup.ID)
+	new, err := secgroup.region.GetSecurityGroup(secgroup.ID)
 	if err != nil {
 		return err
 	}
@@ -419,9 +422,13 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.S
 	return err
 }
 
-func (region *SRegion) DeleteSecurityGroup(vpcId, secGroupId string) error {
+func (region *SRegion) DeleteSecurityGroup(secGroupId string) error {
 	_, err := region.Delete("network", "/v2.0/security-groups/"+secGroupId, "")
 	return err
+}
+
+func (secgroup *SSecurityGroup) Delete() error {
+	return secgroup.region.DeleteSecurityGroup(secgroup.ID)
 }
 
 func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGroup, error) {
@@ -435,10 +442,15 @@ func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurity
 	if err != nil {
 		return nil, err
 	}
-	secgroup := &SSecurityGroup{}
+	secgroup := &SSecurityGroup{region: region}
 	return secgroup, resp.Unmarshal(secgroup, "security_group")
 }
 
 func (secgroup *SSecurityGroup) GetProjectId() string {
 	return secgroup.TenantID
+}
+
+func (secgroup *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	_, err := secgroup.region.syncSecgroupRules(secgroup.ID, rules)
+	return err
 }

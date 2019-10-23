@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定安全组缓存详情信息
+  parameters:
+    - $ref: '../parameters/secgroupcache.yaml#/cacheId'
+  responses:
+    200:
+      description: 安全组信息
+      schema:
+        $ref: '../schemas/secgroupcache.yaml#/SecgroupCacheResponse'
+  tags:
+    - secgroupcaches
+
+delete:
+  summary: 删除指定安全组缓存
+  parameters:
+    - $ref: '../parameters/secgroupcache.yaml#/cacheId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/secgroupcache.yaml#/SecgroupCacheResponse'
+  tags:
+    - secgroupcaches

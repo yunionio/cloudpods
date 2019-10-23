@@ -126,7 +126,7 @@ func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, erro
 	}
 	iSecgroups := []cloudprovider.ICloudSecurityGroup{}
 	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = vpc
+		secgroups[i].region = vpc.region
 		iSecgroups = append(iSecgroups, &secgroups[i])
 	}
 	return iSecgroups, nil

@@ -176,4 +176,37 @@ func init() {
 		printObject(secgroups)
 		return nil
 	})
+
+	type SecurityGroupCacheSecurityGroup struct {
+		ID      string `help:"ID or Name of security group"`
+		VPC     string `help:"ID or Name of vpc"`
+		Classic *bool  `help:"Is classic vpc"`
+	}
+
+	R(&SecurityGroupCacheSecurityGroup{}, "secgroup-cache-secgroup", "Cache security group for special vpc", func(s *mcclient.ClientSession, args *SecurityGroupCacheSecurityGroup) error {
+		params, err := options.StructToParams(args)
+		secgroups, err := modules.SecGroups.PerformAction(s, args.ID, "cache-secgroup", params)
+		if err != nil {
+			return err
+		}
+		printObject(secgroups)
+		return nil
+	})
+
+	type SecurityGroupUncacheSecurityGroup struct {
+		ID    string `help:"ID or Name of security group"`
+		CACHE string `help:"ID of secgroup cache"`
+	}
+
+	R(&SecurityGroupUncacheSecurityGroup{}, "secgroup-uncache-secgroup", "Unache special secgroup cache", func(s *mcclient.ClientSession, args *SecurityGroupUncacheSecurityGroup) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.CACHE), "secgroupcache")
+		secgroups, err := modules.SecGroups.PerformAction(s, args.ID, "uncache-secgroup", params)
+		if err != nil {
+			return err
+		}
+		printObject(secgroups)
+		return nil
+	})
+
 }

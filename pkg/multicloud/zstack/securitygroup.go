@@ -265,7 +265,7 @@ func (region *SRegion) DeleteSecurityGroupRules(ruleIds []string) error {
 }
 
 func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, error) {
-	secgroup := &SSecurityGroup{}
+	secgroup := &SSecurityGroup{region: region}
 	params := map[string]map[string]string{
 		"params": {
 			"name":        name,
@@ -356,4 +356,12 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 		}
 	}
 	return region.AddSecurityGroupRule(secgroupId, addRules)
+}
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	return self.region.syncSecgroupRules(self.UUID, rules)
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.region.client.delete("security-groups", self.UUID, "Permissive")
 }

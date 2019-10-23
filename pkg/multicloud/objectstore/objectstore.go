@@ -195,10 +195,6 @@ func (cli *SObjectStoreClient) GetIDiskById(id string) (cloudprovider.ICloudDisk
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) DeleteSecurityGroup(vpcId, secgroupId string) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (cli *SObjectStoreClient) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }

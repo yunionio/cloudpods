@@ -31,7 +31,7 @@ import (
 )
 
 type SecurityGroupPolicy struct {
-	vpc               *SVpc
+	region            *SRegion
 	PolicyIndex       int                          // 安全组规则索引号。
 	Protocol          string                       // 协议, 取值: TCP,UDP, ICMP。
 	Port              string                       // 端口(all, 离散port, range)。
@@ -61,7 +61,7 @@ type SecurityGroupPolicySet struct {
 }
 
 type SSecurityGroup struct {
-	vpc                    *SVpc
+	region                 *SRegion
 	SecurityGroupId        string    //		安全组实例ID，例如：sg-ohuuioma。
 	SecurityGroupName      string    //		安全组名称，可任意命名，但不得超过60个字符。
 	SecurityGroupDesc      string    //		安全组备注，最多100个字符。
@@ -214,7 +214,7 @@ func (self *SecurityGroupPolicy) toRules() []secrules.SecurityRule {
 	}
 
 	if len(self.AddressTemplate.AddressGroupId) > 0 {
-		addressGroup, total, err := self.vpc.region.AddressGroupList(self.AddressTemplate.AddressGroupId, "", 0, 1)
+		addressGroup, total, err := self.region.AddressGroupList(self.AddressTemplate.AddressGroupId, "", 0, 1)
 		if err != nil {
 			log.Errorf("Get AddressList %s failed %v", self.AddressTemplate.AddressId, err)
 			return nil
@@ -248,7 +248,7 @@ func (self *SecurityGroupPolicy) toRules() []secrules.SecurityRule {
 
 func (self *SecurityGroupPolicy) getAddressRules(rule secrules.SecurityRule, addressId string) ([]secrules.SecurityRule, error) {
 	result := []secrules.SecurityRule{}
-	address, total, err := self.vpc.region.AddressList(addressId, "", 0, 1)
+	address, total, err := self.region.AddressList(addressId, "", 0, 1)
 	if err != nil {
 		log.Errorf("Get AddressList %s failed %v", self.AddressTemplate.AddressId, err)
 		return nil, err
@@ -268,7 +268,7 @@ func (self *SecurityGroupPolicy) getAddressRules(rule secrules.SecurityRule, add
 }
 
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	secgroup, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId)
+	secgroup, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Egress...)
 	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Ingress...)
 	for i := 0; i < len(originRules); i++ {
-		originRules[i].vpc = self.vpc
+		originRules[i].region = self.region
 	}
 	sort.Sort(SecurityGroupRuleSet(originRules))
 	rules := []secrules.SecurityRule{}
@@ -316,11 +316,16 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
+	if new, err := self.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
 		return err
 	} else {
 		return jsonutils.Update(self, new)
 	}
+}
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	_, err := self.region.syncSecgroupRules(self.SecurityGroupId, rules)
+	return err
 }
 
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
@@ -455,7 +460,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &secgrp, nil
 }
 
-func (self *SRegion) deleteSecurityGroup(secGroupId string) error {
+func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["SecurityGroupId"] = secGroupId
@@ -547,7 +552,7 @@ func (self *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGr
 	if len(description) == 0 {
 		params["GroupDescription"] = "Customize Create"
 	}
-	secgroup := SSecurityGroup{}
+	secgroup := SSecurityGroup{region: self}
 	if body, err := self.vpcRequest("CreateSecurityGroup", params); err != nil {
 		return nil, err
 	} else if err := body.Unmarshal(&secgroup, "SecurityGroup"); err != nil {
@@ -558,4 +563,8 @@ func (self *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGr
 
 func (self *SSecurityGroup) GetProjectId() string {
 	return ""
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.region.DeleteSecurityGroup(self.SecurityGroupId)
 }

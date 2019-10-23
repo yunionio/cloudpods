@@ -495,3 +495,12 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 func (self *SSecurityGroup) GetProjectId() string {
 	return ""
 }
+
+func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {
+	rules = SecurityRuleSetToAllowSet(rules)
+	return self.vpc.region.syncSecgroupRules(self.SecurityGroupId, rules)
+}
+
+func (self *SSecurityGroup) Delete() error {
+	return self.vpc.region.DeleteSecurityGroup(self.SecurityGroupId)
+}

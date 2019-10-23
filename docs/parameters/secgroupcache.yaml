@@ -1,0 +1,13 @@
+cacheId:
+  name: cacheId
+  required: true
+  in: path
+  type: string
+  description: 安全组缓存ID
+
+
+secgroup:
+  name: secgroup
+  in: query 
+  type: string 
+  description: 安全组ID,仅过滤此安全组底下的缓存

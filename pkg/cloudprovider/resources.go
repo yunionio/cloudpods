@@ -69,8 +69,8 @@ type ICloudRegion interface {
 	GetIVMById(id string) (ICloudVM, error)
 	GetIDiskById(id string) (ICloudDisk, error)
 
-	DeleteSecurityGroup(vpcId, secgroupId string) error
-	SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error)
+	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
+	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
 	CreateEIP(eip *SEip) (ICloudEIP, error)
@@ -327,6 +327,9 @@ type ICloudSecurityGroup interface {
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
 	GetVpcId() string
+
+	SyncRules(rules []secrules.SecurityRule) error
+	Delete() error
 }
 
 type ICloudRouteTable interface {

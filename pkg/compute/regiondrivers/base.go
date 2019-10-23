@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -190,4 +191,28 @@ func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task
 	natgateway *models.SNatGateway, needBind bool, eipID string) error {
 
 	return fmt.Errorf("Not implement RequestBindIPToNatgateway")
+}
+
+func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, task taskman.ITask) error {
+	return fmt.Errorf("Not Implemented RequestCacheSecurityGroup")
+}
+
+func (self *SBaseRegionDriver) IsSupportClassicSecurityGroup() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
+	return api.NORMAL_VPC_ID
+}
+
+func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) string {
+	return ""
+}
+
+func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
+	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }

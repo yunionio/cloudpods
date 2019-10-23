@@ -505,8 +505,16 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0060595555.html
-func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+func (self *SRegion) DeleteSecurityGroup(secgroupId string) error {
 	return DoDelete(self.ecsClient.SecurityGroups.Delete, secgroupId, nil, nil)
+}
+
+func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.GetSecurityGroupDetails(secgroupId)
+}
+
+func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
+	return self.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
 }
 
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
@@ -520,11 +528,11 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 	}
 
 	if len(secgroupId) == 0 {
-		extID, err := self.CreateSecurityGroup(vpcId, name, desc)
+		secgroup, err := self.CreateSecurityGroup(vpcId, name, desc)
 		if err != nil {
 			return "", errors.Wrap(err, "self.CreateSecurityGroup")
 		}
-		secgroupId = extID
+		secgroupId = secgroup.GetId()
 	}
 
 	// 华为云默认deny。不需要显式指定
@@ -684,7 +692,7 @@ func (self *SRegion) GetProvider() string {
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 // 目前desc字段并没有用到
-func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (string, error) {
+func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (*SSecurityGroup, error) {
 	// 华为不允许创建名称为default的安全组
 	if strings.ToLower(name) == "default" {
 		name = fmt.Sprintf("%s-%s", vpcId, name)
@@ -698,9 +706,9 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	}
 	params.Add(secgroupObj, "security_group")
 
-	secgroup := SSecurityGroup{}
+	secgroup := SSecurityGroup{region: self}
 	err := DoCreate(self.ecsClient.SecurityGroups.Create, params, &secgroup)
-	return secgroup.GetId(), err
+	return &secgroup, err
 }
 
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {

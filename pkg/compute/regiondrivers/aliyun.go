@@ -957,6 +957,9 @@ func (self *SAliyunRegionDriver) RequestUnBindIPFromNatgateway(ctx context.Conte
 }
 
 func (self *SAliyunRegionDriver) BindIPToNatgatewayRollback(ctx context.Context, eipId string) error {
-
 	return nil
+}
+
+func (self *SAliyunRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
 }
