@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -127,35 +128,33 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
-	storageaccount := &SStorageAccount{}
 	storageaccounts, err := self.region.GetStorageAccounts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetStorageAccounts")
 	}
 	if len(storageaccounts) == 0 {
-		storageaccount, err = self.region.CreateStorageAccount(self.region.Name)
+		storageaccount, err := self.region.CreateStorageAccount(self.region.Name)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "CreateStorageAccount")
 		}
-	} else {
-		for i := 0; i < len(storageaccounts); i++ {
-			if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
-				storageaccount = &storageaccounts[i]
-				break
-			}
-		}
-		if id, ok := storageaccount.Tags["id"]; !ok || id == self.region.Name {
-			if storageaccount.Tags == nil {
-				storageaccount.Tags = map[string]string{}
-			}
-			storageaccount.Tags["id"] = self.region.Name
-			err = self.region.client.Update(jsonutils.Marshal(storageaccount), nil)
-			if err != nil {
-				return nil, err
-			}
+		return storageaccount, nil
+	}
+	for i := 0; i < len(storageaccounts); i++ {
+		if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
+			return &storageaccounts[i], nil
 		}
 	}
-	return storageaccount, nil
+
+	storageaccount := storageaccounts[0]
+	if storageaccount.Tags == nil {
+		storageaccount.Tags = map[string]string{}
+	}
+	storageaccount.Tags["id"] = self.region.Name
+	err = self.region.client.Update(jsonutils.Marshal(storageaccount), nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Update(%s)", jsonutils.Marshal(storageaccount).String())
+	}
+	return &storageaccount, nil
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool, tmpPath string) (string, error) {
@@ -197,28 +196,28 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	defer os.Remove(tmpFile)
 	f, err := os.Create(tmpFile)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "os.Create(tmpFile)")
 	}
 	defer f.Close()
 	if _, err := io.Copy(f, reader); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "io.Copy(f, reader)")
 	}
 
 	storageaccount, err := self.checkStorageAccount()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "self.checkStorageAccount")
 	}
 
 	blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "storageaccount.UploadFile")
 	}
 
 	size, _ := meta.Int("size")
 
 	img, err := self.region.CreateImageByBlob(image.ImageId, image.OsType, blobURI, int32(size>>30))
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "CreateImageByBlob")
 	}
 	return img.GetGlobalId(), nil
 }
