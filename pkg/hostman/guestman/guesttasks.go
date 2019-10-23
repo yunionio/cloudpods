@@ -350,7 +350,15 @@ func NewGuestLiveMigrateTask(
 }
 
 func (s *SGuestLiveMigrateTask) Start() {
-	s.Monitor.MigrateSetCapability("zero-blocks", "on", s.startMigrate)
+	s.Monitor.MigrateSetCapability("zero-blocks", "on", s.onSetZeroBlocks)
+}
+
+func (s *SGuestLiveMigrateTask) onSetZeroBlocks(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability error: %s", res))
+		return
+	}
+	s.Monitor.MigrateSetCapability("auto-converge", "on", s.startMigrate)
 }
 
 func (s *SGuestLiveMigrateTask) startMigrate(res string) {
