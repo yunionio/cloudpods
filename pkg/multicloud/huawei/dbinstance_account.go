@@ -15,6 +15,9 @@
 package huawei
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -37,6 +40,14 @@ func (account *SDBInstanceAccount) GetGlobalId() string {
 
 func (account *SDBInstanceAccount) GetName() string {
 	return account.Name
+}
+
+func (account *SDBInstanceAccount) Delete() error {
+	return account.instance.region.DeleteDBInstanceAccount(account.instance.Id, account.Name)
+}
+
+func (region *SRegion) DeleteDBInstanceAccount(instanceId string, account string) error {
+	return DoDeleteWithSpec(region.ecsClient.DBInstance.DeleteInContextWithSpec, nil, instanceId, fmt.Sprintf("db_user/%s", account), nil, nil)
 }
 
 func (account *SDBInstanceAccount) GetStatus() string {
@@ -79,4 +90,54 @@ func (region *SRegion) GetDBInstancePrivvileges(instanceId string, username stri
 		return nil, err
 	}
 	return privileges, nil
+}
+
+func (account *SDBInstanceAccount) RevokePrivilege(database string) error {
+	return account.instance.region.RevokeDBInstancePrivilege(account.instance.Id, account.Name, database)
+}
+
+func (region *SRegion) RevokeDBInstancePrivilege(instanceId string, account, database string) error {
+	params := map[string]interface{}{
+		"db_name": database,
+		"users": []map[string]interface{}{
+			map[string]interface{}{
+				"name": account,
+			},
+		},
+	}
+	return DoDeleteWithSpec(region.ecsClient.DBInstance.DeleteInContextWithSpec, nil, instanceId, "db_privilege", nil, jsonutils.Marshal(params))
+}
+
+func (account *SDBInstanceAccount) GrantPrivilege(database, privilege string) error {
+	return account.instance.region.GrantDBInstancePrivilege(account.instance.Id, account.Name, database, privilege)
+}
+
+func (region *SRegion) GrantDBInstancePrivilege(instanceId string, account, database string, privilege string) error {
+	readonly := false
+	switch privilege {
+	case api.DATABASE_PRIVILEGE_R:
+		readonly = true
+	case api.DATABASE_PRIVILEGE_RW:
+	default:
+		return fmt.Errorf("Unknown privilege %s", privilege)
+	}
+	params := map[string]interface{}{
+		"db_name": database,
+		"users": []map[string]interface{}{
+			map[string]interface{}{
+				"name":     account,
+				"readonly": readonly,
+			},
+		},
+	}
+	_, err := region.ecsClient.DBInstance.PerformAction("db_privilege", instanceId, jsonutils.Marshal(params))
+	return err
+}
+
+func (account *SDBInstanceAccount) ResetPassword(password string) error {
+	return account.instance.region.ResetDBInstanceAccountPassword(account.instance.Id, account.Name, password)
+}
+
+func (region *SRegion) ResetDBInstanceAccountPassword(instanceId, account, password string) error {
+	return fmt.Errorf("The API does not exist or has not been published in the environment")
 }

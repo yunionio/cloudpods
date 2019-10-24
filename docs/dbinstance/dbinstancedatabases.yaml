@@ -9,6 +9,6 @@ get:
     200:
       description: RDS实例数据库列表信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceDatabaseListResponse'
+        $ref: '../schemas/dbinstance_database.yaml#/DBInstanceDatabaseListResponse'
   tags:
     - dbinstancedatabase

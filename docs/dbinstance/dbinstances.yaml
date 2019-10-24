@@ -18,3 +18,19 @@ get:
         $ref: '../schemas/dbinstance.yaml#/DBInstanceListResponse'
   tags:
     - dbinstance
+
+post:
+  summary: 创建RDS实例
+  parameters:
+    - in: body
+      name: dbinstance
+      required: true
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceCreate'
+  responses:
+    200:
+      description: 新建RDS实例信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceResponse'
+  tags:
+    - dbinstance

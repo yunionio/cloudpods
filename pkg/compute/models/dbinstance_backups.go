@@ -17,12 +17,16 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -33,14 +37,14 @@ import (
 )
 
 type SDBInstanceBackupManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
 }
 
 var DBInstanceBackupManager *SDBInstanceBackupManager
 
 func init() {
 	DBInstanceBackupManager = &SDBInstanceBackupManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SDBInstanceBackup{},
 			"dbinstancebackups_tbl",
 			"dbinstancebackup",
@@ -51,17 +55,19 @@ func init() {
 }
 
 type SDBInstanceBackup struct {
-	db.SStatusStandaloneResourceBase
+	db.SVirtualResourceBase
 	SCloudregionResourceBase
 	SManagedResourceBase
 	db.SExternalizedResourceBase
 
-	StartTime    time.Time `list:"user"`
-	EndTime      time.Time `list:"user"`
-	BackupMode   string    `width:"32" charset:"ascii" nullable:"true" list:"user"`
-	DBNames      string    `width:"512" charset:"ascii" nullable:"true" list:"user"`
-	BackupSizeMb int       `nullable:"false" list:"user"`
-	DBInstanceId string    `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	Engine        string    `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	EngineVersion string    `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	StartTime     time.Time `list:"user"`
+	EndTime       time.Time `list:"user"`
+	BackupMode    string    `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	DBNames       string    `width:"512" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	BackupSizeMb  int       `nullable:"false" list:"user"`
+	DBInstanceId  string    `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceBackupManager) GetContextManagers() [][]db.IModelManager {
@@ -91,10 +97,23 @@ func (self *SDBInstanceBackup) AllowDeleteItem(ctx context.Context, userCred mcc
 }
 
 func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
+
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+
 	data := query.(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
@@ -103,7 +122,63 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *
 }
 
 func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implemented")
+	instanceV := validators.NewModelIdOrNameValidator("dbinstance", "dbinstance", userCred)
+	err := instanceV.Validate(data)
+	if err != nil {
+		return nil, err
+	}
+	input := &api.SDBInstanceBackupCreateInput{}
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Failed to unmarshal input params: %v", err)
+	}
+	input.BackupMode = api.BACKUP_MODE_MANUAL
+	input.DBNames = strings.Join(input.Databases, ",")
+	instance := instanceV.Model.(*SDBInstance)
+	if instance.Status != api.DBINSTANCE_RUNNING {
+		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
+	}
+	input.Engine = instance.Engine
+	input.EngineVersion = instance.EngineVersion
+	input.ManagerId = instance.ManagerId
+	region := instance.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewInputParameterError("failed to found region for dbinstance %s(%s)", instance.Name, instance.Id)
+	}
+	input.CloudregionId = region.Id
+	input, err = region.GetDriver().ValidateCreateDBInstanceBackupData(ctx, userCred, ownerId, instance, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return input.JSON(input), nil
+}
+
+func (self *SDBInstanceBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.StartDBInstanceBackupCreateTask(ctx, userCred, nil, "")
+}
+
+func (self *SDBInstanceBackup) StartDBInstanceBackupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_CREATING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceBackupCreateTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SDBInstanceBackup) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to found region for rds backup %s(%s)", self.Name, self.Id)
+	}
+	return driver.GetIRegionById(region.ExternalId)
 }
 
 func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByInstance(instance *SDBInstance) ([]SDBInstanceBackup, error) {
@@ -125,16 +200,42 @@ func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByProviderId(provid
 	return backups, nil
 }
 
-func (self *SDBInstanceBackup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SDBInstanceBackup) GetDBInstance() (*SDBInstance, error) {
+	if len(self.DBInstanceId) > 0 {
+		instance, err := DBInstanceManager.FetchById(self.DBInstanceId)
+		if err != nil {
+			return nil, err
+		}
+		return instance.(*SDBInstance), nil
+	}
+	return nil, fmt.Errorf("empty dbinstance id")
 }
 
-func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
+func (self *SDBInstanceBackup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	dbinstance, err := self.GetDBInstance()
+	if err == nil {
+		extra.Add(jsonutils.NewString(dbinstance.Name), "dbinstance")
+	}
+	cloudregionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if cloudregionInfo != nil {
+		extra.Update(cloudregionInfo)
+	}
+
+	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if accountInfo != nil {
+		extra.Update(accountInfo)
+	}
+
+	return extra
+}
+
+func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, instance *SDBInstance, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 
 	result := compare.SyncResult{}
-	dbBackups, err := region.GetDBInstanceBackups(provider)
+	dbBackups, err := region.GetDBInstanceBackups(provider, instance)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -150,7 +251,7 @@ func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Conte
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err := removed[i].Delete(ctx, userCred)
+		err := removed[i].RealDelete(ctx, userCred)
 		if err != nil {
 			result.DeleteError(err)
 		} else {
@@ -184,6 +285,8 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 		self.StartTime = extBackup.GetStartTime()
 		self.EndTime = extBackup.GetEndTime()
 		self.BackupSizeMb = extBackup.GetBackupSizeMb()
+		self.Engine = extBackup.GetEngine()
+		self.EngineVersion = extBackup.GetEngineVersion()
 		self.DBNames = extBackup.GetDBNames()
 
 		if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
@@ -199,6 +302,10 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 	if err != nil {
 		return errors.Wrapf(err, "SyncWithCloudDBInstancebackup.UpdateWithLock")
 	}
+
+	provider := self.GetCloudprovider()
+	SyncCloudProject(userCred, self, provider.GetOwnerId(), extBackup, self.ManagerId)
+
 	return nil
 }
 
@@ -219,6 +326,8 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx contex
 	backup.ManagerId = provider.Id
 	backup.Status = extBackup.GetStatus()
 	backup.StartTime = extBackup.GetStartTime()
+	backup.Engine = extBackup.GetEngine()
+	backup.EngineVersion = extBackup.GetEngineVersion()
 	backup.EndTime = extBackup.GetEndTime()
 	backup.BackupSizeMb = extBackup.GetBackupSizeMb()
 	backup.DBNames = extBackup.GetDBNames()
@@ -238,5 +347,31 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx contex
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceBackup.Insert")
 	}
+
+	SyncCloudProject(userCred, &backup, provider.GetOwnerId(), extBackup, backup.ManagerId)
+
+	return nil
+}
+
+func (self *SDBInstanceBackup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("dbinstance backup delete do nothing")
+	return nil
+}
+
+func (self *SDBInstanceBackup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SDBInstanceBackup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDBInstanceBackupDeleteTask(ctx, userCred, "")
+}
+
+func (self *SDBInstanceBackup) StartDBInstanceBackupDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	self.SetStatus(userCred, api.DBINSTANCE_BACKUP_DELETING, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceBackupDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
 	return nil
 }

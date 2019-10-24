@@ -63,6 +63,33 @@ func (database *SDBInstanceDatabase) GetCharacterSet() string {
 	return database.CharacterSetName
 }
 
+func (database *SDBInstanceDatabase) Delete() error {
+	return database.instance.region.DeleteDBInstanceDatabase(database.DBInstanceId, database.DBName)
+}
+
+func (region *SRegion) DeleteDBInstanceDatabase(instanceId string, dbName string) error {
+	params := map[string]string{
+		"DBInstanceId": instanceId,
+		"DBName":       dbName,
+	}
+
+	_, err := region.rdsRequest("DeleteDatabase", params)
+	return err
+}
+
+func (region *SRegion) CreateDBInstanceDatabae(instanceId, characterSet, dbName, desc string) error {
+	params := map[string]string{
+		"DBInstanceId":     instanceId,
+		"DBName":           dbName,
+		"CharacterSetName": characterSet,
+		"DBDescription":    desc,
+	}
+
+	_, err := region.rdsRequest("CreateDatabase", params)
+	return err
+
+}
+
 func (region *SRegion) GetDBInstanceDatabases(instanceId, dbName string, offset int, limit int) ([]SDBInstanceDatabase, int, error) {
 	if limit > 500 || limit <= 0 {
 		limit = 500

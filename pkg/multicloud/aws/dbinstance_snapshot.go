@@ -66,6 +66,14 @@ func (snapshot *SDBInstanceSnapshot) GetName() string {
 	return snapshot.DBSnapshotIdentifier
 }
 
+func (snapshot *SDBInstanceSnapshot) GetEngine() string {
+	return snapshot.Engine
+}
+
+func (snapshot *SDBInstanceSnapshot) GetEngineVersion() string {
+	return snapshot.EngineVersion
+}
+
 func (snapshot *SDBInstanceSnapshot) GetStartTime() time.Time {
 	return snapshot.SnapshotCreateTime
 }

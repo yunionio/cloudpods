@@ -15,9 +15,11 @@
 package multicloud
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SDBInstanceBase struct {
@@ -48,6 +50,58 @@ func (instance *SDBInstanceBase) GetIDBInstanceAccounts() ([]cloudprovider.IClou
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceAccounts")
 }
 
+func (instance *SDBInstanceBase) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackups")
+}
+
 func (instance *SDBInstanceBase) GetCategory() string {
 	return ""
+}
+
+func (instance *SDBInstanceBase) Reboot() error {
+	return fmt.Errorf("Not Implemmented Reboot")
+}
+
+func (instance *SDBInstanceBase) Delete() error {
+	return fmt.Errorf("Not Implemmented Delete")
+}
+
+func (instance *SDBInstanceBase) GetMasterInstanceId() string {
+	return ""
+}
+
+func (instance *SDBInstanceBase) GetSecurityGroupId() string {
+	return ""
+}
+
+func (instance *SDBInstanceBase) Renew(bc billing.SBillingCycle) error {
+	return fmt.Errorf("Not Implemented Renew")
+}
+
+func (instance *SDBInstanceBase) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedDBInstanceChangeConfig) error {
+	return fmt.Errorf("Not Implemented ChnageConfig")
+}
+
+func (instance *SDBInstanceBase) OpenPublicConnection() error {
+	return fmt.Errorf("Not Implemented OpenPublicConnection")
+}
+
+func (instance *SDBInstanceBase) ClosePublicConnection() error {
+	return fmt.Errorf("Not Implemented ClosePublicConnection")
+}
+
+func (instance *SDBInstanceBase) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCreateConfig) error {
+	return fmt.Errorf("Not Implemented CreateDatabase")
+}
+
+func (instance *SDBInstanceBase) CreateAccount(conf *cloudprovider.SDBInstanceAccountCreateConfig) error {
+	return fmt.Errorf("Not Implemented CreateAccount")
+}
+
+func (instance *SDBInstanceBase) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
+	return "", fmt.Errorf("Not Implemented CreateIBackup")
+}
+
+func (instance *SDBInstanceBase) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
+	return fmt.Errorf("Not Implemented RecoveryFromBackup")
 }

@@ -7,6 +7,6 @@ get:
     200:
       description: RDS实例网络列表信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceNetworkListResponse'
+        $ref: '../schemas/dbinstance_network.yaml#/DBInstanceNetworkListResponse'
   tags:
     - dbinstance

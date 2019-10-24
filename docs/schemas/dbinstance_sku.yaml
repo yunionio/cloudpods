@@ -1,0 +1,105 @@
+DBInstanceSku:
+  allOf:
+    - $ref: "./common.yaml#/CloudregionResourceBaseResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS套餐信息
+      properties:
+        disk_size_gb:
+          type: integer
+          example: 20
+          description: RDS实例存储大小
+        storage_type:
+          type: string
+          example: cloud_essd
+          description: RDS实例存储类型
+        engine:
+          type: string
+          example: MySQL
+          description: RDS实例引擎
+          readOnly: true
+        engine_version:
+          type: string
+          example: "5.7"
+          description: RDS实例引擎版本
+        instance_type:
+          type: string
+          example: mysql.n1.micro.1
+          description: RDS实例规格
+        category:
+          type: string
+          example: basic
+          description: RDS实例高可用类型
+        vcpu_count:
+          type: integer
+          example: 1
+          description: RDS实例CPU核数
+        vmem_size_mb:
+          type: integer
+          example: 1024
+          description: RDS实例内存大小
+        iops:
+          type: integer 
+          example: 9000 
+          description: iops 
+        max_disk_size_gb:
+          type: integer 
+          example: 4000 
+          description: 最大存储大小 
+        min_disk_size_gb: 
+          type: integer 
+          example: 20 
+          description: 最小存储大小
+        disk_size_step:
+          type: integer 
+          example: 5 
+          description: 存储步长,单位GB
+        provider: 
+          type: string 
+          example: Aliyun 
+          description: 平台
+        status:
+          type: string 
+          example: available 
+          description: 套餐状态
+        zone1:
+          type: string 
+          example: fa39a6af-eafc-43bb-8683-bfdc04d6e18d
+          description: zone1的ID
+        zone2:
+          type: string 
+          example: fa39a6af-eafc-43bb-8683-bfdc04d6e18d
+          description: zone2的ID
+        zone3:
+          type: string 
+          example: fa39a6af-eafc-43bb-8683-bfdc04d6e18d
+          description: zone3的ID
+        zone_id:
+          type: string 
+          example: us-east-1b 
+          description: 公有云套餐zone代码
+
+
+DBInstanceSkuListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstance_skus:
+      type: array
+      items:
+        $ref: '#/DBInstanceSku'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceSkuResponse:
+  type: object
+  properties:
+    dbinstance_sku:
+      type: object
+      $ref: '#/DBInstanceSku'
+
+
+

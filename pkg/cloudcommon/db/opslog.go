@@ -239,6 +239,14 @@ const (
 	ACT_UPLOAD_OBJECT = "upload_obj"
 	ACT_DELETE_OBJECT = "delete_obj"
 	ACT_MKDIR         = "mkdir"
+
+	ACT_GRANT_PRIVILEGE  = "grant_privilege"
+	ACT_REVOKE_PRIVILEGE = "revoke_privilege"
+	ACT_SET_PRIVILEGES   = "set_privileges"
+	ACT_REBOOT           = "reboot"
+	ACT_RESTORE          = "restore"
+	ACT_CHANGE_CONFIG    = "change_config"
+	ACT_RESET_PASSWORD   = "reset_password"
 )
 
 type SOpsLogManager struct {

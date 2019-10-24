@@ -13,6 +13,10 @@ DBInstance:
           type: integer
           example: 20
           description: RDS实例存储大小
+        storage_type:
+          type: string
+          example: cloud_essd
+          description: RDS实例存储类型
         engine:
           type: string
           example: MySQL
@@ -50,7 +54,30 @@ DBInstance:
           type: string
           example: vpc-2zecuo9v4idebme295ofy
           description: RDS实例VPC ID
-
+        disable_delete:
+          type: boolean 
+          example: true 
+          description: 是否锁定(删除保护)
+        connection_str:
+          type: string 
+          example: rm-2zeyj104t2b0c2270mo.mysql.rds.aliyuncs.com 
+          description: 外网连接地址
+        internal_connection_str:
+          type: string 
+          example: fsdghello.mysql.rds.aliyuncs.com
+          description: 内网连接地址
+        secgroup_id:
+          type: string 
+          example: 318e8b0e-c392-4ac2-8562-40303f79a5c9
+          description: 安全组id
+        secgroup:
+          type: string 
+          example: Default 
+          description: 安全组名称
+        iops:
+          type: integer 
+          example: 500 
+          description: IOPS大小
 
 DBInstanceListResponse:
   type: object
@@ -73,209 +100,151 @@ DBInstanceResponse:
       type: object
       $ref: '#/DBInstance'
 
-DBInstanceNetwork:
-  allOf:
-    - $ref: "./common.yaml#/ResourceBaseResponse"
-    - type: object
-      description: RDS实例网络
-      properties:
-        dbinstance_id:
-          type: string
-          example: "20f8b552-1b86-4595-89e3-49d123b25215"
-          description: RDS实例ID
-        ip_addr:
-          type: string
-          example: 10.10.140.141
-          description: 实例内网IP地址
-        network_id:
-          type: string
-          example: "38897a74-17b4-4c21-86b3-4f8528ced003"
-          description: 实例子网ID
 
-
-DBInstanceNetworkListResponse:
+DBInstanceCreate:
   type: object
   properties:
-    limit: 
-      type: integer
-      example: 20
-    dbinstancenetworks:
-      type: array
-      items:
-        $ref: '#/DBInstanceNetwork'
-    total:
-      type: integer
-      example: 124
+    zone1:
+      type: string 
+      example: test-zone 
+      description: 可用区1名称或ID
+    zone2:
+      type: string 
+      example: test-zone 
+      description: 可用区2名称或ID
+    zone3:
+      type: string 
+      example: test-zone 
+      description: 可用区3名称或ID
+    network:
+      type: string
+      example: test-network
+      required: true
+      description: IP子网ID或名称
+    address:
+      type: string
+      example: 10.12.2.12
+      description: 内网IP,需要在network网段内
+    vcpu_count:
+      type: integer 
+      example: 1
+      description: RDS实例CPU核数 
+    vmem_size_mb:
+      type: integer 
+      example: 2
+      description: RDS实例内存大小 
+    storage_type:
+      type: string 
+      required: true
+      example: cloud_ssd 
+      enum: [local_ssd, cloud_essd, cloud_ssd]
+      description: RDS实例存储类型
+    disk_size_gb:
+      type: integer 
+      required: true
+      example: 30 
+      description: RDS实例存储大小
+    port:
+      type: integer 
+      example: 3306
+      description: RDS实例连接端口
+    category:
+      type: string 
+      example: basic 
+      enum: [basic, high_availability, always_on, finance, single, replica]
+      description: RDS实例类别(单机、高可用、只读)
+    engine:
+      type: string 
+      example: MySQL
+      description: RDS实例引擎
+    engine_version:
+      type: string 
+      example: 8.0
+      description: RDS实例引擎版本
+    instance_type:
+      type: string 
+      example: mysql.n4.large.1 
+      description: RDS实例规格,若不指定CPU及内存，此参数必填
+    duration:
+      type: string 
+      example: 1m
+      description: 包年包月时长
+    master_instance:
+      type: string 
+      example: test-master-instance 
+      description: 主RDS实例名称或ID,创建只读实例时需要指定
+    secgroup:
+      type: string 
+      example: test-secgroup 
+      description: 安全组名称或ID
+    password:
+      type: string 
+      example: bsnt{Hz{Z3p6
+      description: 密码信息 
+    description: 
+      type: string 
+      example: test-description 
+      description: 描述信息
+    disable_delete:
+      type: boolean 
+      example: true 
+      default: true
+      description: 是否锁定(删除保护)
 
-DBInstanceNetworkResponse:
+
+DBInstanceChangeConfig:
   type: object
   properties:
-    dbinstancenetwork:
+    instance_type:
+      type: string
+      example: mssql.x4.8xlarge.e2
+      description: 更换RDS实例规格
+    vcpu_count:
+      type: integer
+      example: 6
+      description: 更改CPU大小
+    vmem_size_mb:
+      type: int
+      example: 1024
+      description: 更改内存大小
+    storage_type:
+      type: string 
+      example: local_ssd 
+      description: 存储类型 
+    disk_size_gb:
+      type: integer 
+      example: 40
+      description: 存储磁盘大小
+    category:
+      type: string 
+      example: high_availability 
+      description: 更改实例类型
+
+DBInstancePublicConnection:
+  type: object
+  properties:
+    open:
+      type: boolean
+      example: true
+      default: true
+      description: 关闭或打开外网地址
+
+DBInstanceRecovery:
+  type: object
+  properties:
+    databases:
       type: object
-      $ref: '#/DBInstanceNetwork'
-
-
-
-DBInstanceParameter:
-  allOf:
-    - $ref: "./common.yaml#/StandaloneResponse"
-    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
-    - type: object
-      description: RDS实例参数
-      properties:
-        key:
-          type: string
-          example: read_buffer_size
-          description: RDS实例参数
-        value:
-          type: string
-          example: "131072"
-          description: RDS实例参数值
-          readOnly: true
-        dbinstance_id:
-          type: string
-          example: d0fe1519-8de5-4e13-844a-7367f4210f83
-          description: RDS实例ID
-          readOnly: true
-
-DBInstanceParameterListResponse:
-  type: object
-  properties:
-    limit: 
-      type: integer
-      example: 20
-    dbinstanceparameters:
-      type: array
-      items:
-        $ref: '#/DBInstanceParameter'
-    total:
-      type: integer
-      example: 124
-
-DBInstanceParameterResponse:
-  type: object
-  properties:
-    dbinstanceparameter:
-      type: object
-      $ref: '#/DBInstanceParameter'
-
-
-DBInstanceDatabase:
-  allOf:
-    - $ref: "./common.yaml#/StatusStandaloneResponse"
-    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
-    - type: object
-      description: RDS实例参数
-      properties:
-        character_set:
-          type: string
-          example: utf8
-          description: RDS实例参数
-        dbinstance_id:
-          type: string
-          example: d0fe1519-8de5-4e13-844a-7367f4210f83
-          description: RDS实例ID
-          readOnly: true
-
-DBInstanceDatabaseListResponse:
-  type: object
-  properties:
-    limit: 
-      type: integer
-      example: 20
-    dbinstancedatabases:
-      type: array
-      items:
-        $ref: '#/DBInstanceDatabase'
-    total:
-      type: integer
-      example: 124
-
-DBInstanceDatabaseResponse:
-  type: object
-  properties:
-    dbinstancedatabase:
-      type: object
-      $ref: '#/DBInstanceDatabase'
-
-DBInstanceBackup:
-  allOf:
-    - $ref: "./common.yaml#/StatusStandaloneResponse"
-    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
-    - type: object
-      description: RDS实例参数
-      properties:
-        start_time:
-          type: string
-          example: "2019-06-22T02:31:08.000000Z"
-          description: RDS实例备份开始时间
-        end_time:
-          type: string
-          example: "2019-06-22T02:33:24.000000Z"
-          description: RDS实例备份结束时间
-        backup_mode:
-          type: string
-          example: full_backup
-          description: RDS实例备份类型，手动或自动
-        backup_size_mb:
-          type: integer
-          example: 21
-          description: 备份大小
-        dbinstance_id:
-          type: string
-          example: d0fe1519-8de5-4e13-844a-7367f4210f83
-          description: RDS实例ID
-          readOnly: true
-        cloudregion_id:
-          type: string
-          example: c8b87bc0-fd97-4b28-83ad-2a8f9b755bab
-          description: RDS备份所属的region id
-          readOnly: true
-
-DBInstanceBackupListResponse:
-  type: object
-  properties:
-    limit: 
-      type: integer
-      example: 20
-    dbinstancebackups:
-      type: array
-      items:
-        $ref: '#/DBInstanceBackup'
-    total:
-      type: integer
-      example: 124
-
-DBInstanceBackupResponse:
-  type: object
-  properties:
+      additionalProperties:
+        type: string 
+        example: 
+          source-database1: dest-database1
+          source-database2: dest-database2
+        description: 源数据库名称->目的数据库名称
+      description: 数据库列表,为空代表恢复整个备份内容,databases源数据库内容可以从backup的dbnames中获取,目的数据库不可与目标rds实例数据库重复
     dbinstancebackup:
-      type: object
-      $ref: '#/DBInstanceBackup'
+      type: string 
+      example: test-backup
+      required: true
+      description: 实例备份名称或ID
 
 
-DBInstanceAccount:
-  allOf:
-    - $ref: "./common.yaml#/StandaloneResponse"
-    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
-
-DBInstanceAccountListResponse:
-  type: object
-  properties:
-    limit: 
-      type: integer
-      example: 20
-    dbinstanceaccounts:
-      type: array
-      items:
-        $ref: '#/DBInstanceAccount'
-    total:
-      type: integer
-      example: 124
-
-DBInstanceAccountResponse:
-  type: object
-  properties:
-    dbinstanceaccount:
-      type: object
-      $ref: '#/DBInstanceAccount'

@@ -15,6 +15,8 @@
 package huawei
 
 import (
+	"fmt"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -45,6 +47,15 @@ func (database *SDBInstanceDatabase) GetStatus() string {
 
 func (database *SDBInstanceDatabase) GetCharacterSet() string {
 	return database.CharacterSet
+}
+
+func (database *SDBInstanceDatabase) Delete() error {
+	return database.instance.region.DeleteDBInstanceDatabase(database.instance.Id, database.Name)
+}
+
+func (region *SRegion) DeleteDBInstanceDatabase(instanceId, database string) error {
+	_, err := region.ecsClient.DBInstance.DeleteInContextWithSpec(nil, instanceId, fmt.Sprintf("database/%s", database), nil, nil, "")
+	return err
 }
 
 func (region *SRegion) GetDBInstanceDatabases(instanceId string) ([]SDBInstanceDatabase, error) {

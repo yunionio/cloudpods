@@ -11,6 +11,6 @@ get:
     200:
       description: RDS实例备份列表信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceBackupListResponse'
+        $ref: '../schemas/dbinstance_backup.yaml#/DBInstanceBackupListResponse'
   tags:
     - dbinstancebackup

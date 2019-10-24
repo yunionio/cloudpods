@@ -27,8 +27,9 @@ func init() {
 	type CloudregionListOptions struct {
 		options.BaseListOptions
 
-		Usable    *bool `help:"List regions where networks are usable"`
-		UsableVpc *bool `help:"List regions where VPC are usable"`
+		Usable    *bool  `help:"List regions where networks are usable"`
+		UsableVpc *bool  `help:"List regions where VPC are usable"`
+		Service   string `help:"List regions which service has available skus" choices:"dbinstances|servers"`
 
 		City string `help:"List regions in the specified city"`
 	}

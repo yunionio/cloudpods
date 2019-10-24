@@ -14,16 +14,60 @@
 
 package modules
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+import (
+	"fmt"
 
-var (
-	DBInstanceAccounts modulebase.ResourceManager
+	"github.com/pkg/errors"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/pkg/utils"
 )
 
+var (
+	DBInstanceAccounts SDBInstanceAccountManager
+)
+
+type SDBInstanceAccountManager struct {
+	modulebase.ResourceManager
+}
+
+func (this *SDBInstanceAccountManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	data, err := this.Get(s, id, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	account := struct {
+		Id     string
+		Name   string
+		Secret string
+	}{}
+
+	err = data.Unmarshal(&account)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal")
+	}
+
+	if len(account.Secret) == 0 {
+		return nil, fmt.Errorf("No login secret found")
+	}
+
+	password, err := utils.DescryptAESBase64(account.Id, account.Secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "Descrypt")
+	}
+
+	return jsonutils.Marshal(map[string]string{
+		"account":  account.Name,
+		"password": password,
+	}), nil
+}
+
 func init() {
-	DBInstanceAccounts = NewComputeManager("dbinstanceaccount", "dbinstanceaccounts",
-		[]string{"ID", "Name", "DBInstance_id"},
-		[]string{})
+	DBInstanceAccounts = SDBInstanceAccountManager{NewComputeManager("dbinstanceaccount", "dbinstanceaccounts",
+		[]string{"ID", "Name", "DBInstance_id", "Status", "Dbinstanceprivileges"},
+		[]string{})}
 
 	registerCompute(&DBInstanceAccounts)
 }
