@@ -638,7 +638,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 	case api.VM_STARTING:
 		status = cloudprovider.CloudVMStatusStopped
 	case api.VM_STOPPING:
-		status = cloudprovider.CloudVMStatusRunning
+		status = cloudprovider.CloudVMStatusStopping
 	case api.VM_CHANGE_FLAVOR:
 		status = cloudprovider.CloudVMStatusChangeFlavor
 	case api.VM_DEPLOYING:

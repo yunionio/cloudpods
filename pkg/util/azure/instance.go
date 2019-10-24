@@ -514,7 +514,7 @@ func (self *SInstance) GetStatus() string {
 				case "running":
 					return api.VM_RUNNING
 				case "stopping":
-					return api.VM_START_STOP
+					return api.VM_STOPPING
 				case "starting":
 					return api.VM_STARTING
 				case "deleting":
