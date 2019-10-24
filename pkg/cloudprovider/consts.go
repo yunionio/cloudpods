@@ -20,6 +20,7 @@ import (
 
 const (
 	CloudVMStatusRunning      = "running"
+	CloudVMStatusStopping     = "stopping"
 	CloudVMStatusSuspend      = "suspend"
 	CloudVMStatusStopped      = "stopped"
 	CloudVMStatusChangeFlavor = "change_flavor"
