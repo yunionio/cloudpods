@@ -82,7 +82,8 @@ type SNetwork struct {
 	GuestIpMask  int8   `nullable:"false" list:"user" update:"user" create:"required"`                            // Column(TINYINT, nullable=False)
 	GuestGateway string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	GuestDns     string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	GuestDhcp    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// allow multiple dhcp, seperated by ","
+	GuestDhcp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
 	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
 
@@ -1212,8 +1213,17 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
 		ipStr, _ := data.GetString(key)
-		if len(ipStr) > 0 && !regutils.MatchIPAddr(ipStr) {
-			return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+		if len(ipStr) > 0 {
+			if key == "guest_dhcp" {
+				ipList := strings.Split(ipStr, ",")
+				for _, ipstr := range ipList {
+					if !regutils.MatchIPAddr(ipstr) {
+						return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+					}
+				}
+			} else if !regutils.MatchIPAddr(ipStr) {
+				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+			}
 		}
 	}
 
@@ -1430,9 +1440,18 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 		if len(ipStr) > 0 {
 			if self.isManaged() {
 				return nil, httperrors.NewForbiddenError("Cannot update a managed network")
+			}
+			if key == "guest_dhcp" {
+				ipList := strings.Split(ipStr, ",")
+				for _, ipstr := range ipList {
+					if !regutils.MatchIPAddr(ipstr) {
+						return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+					}
+				}
 			} else if !regutils.MatchIPAddr(ipStr) {
 				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
+
 		}
 	}
 

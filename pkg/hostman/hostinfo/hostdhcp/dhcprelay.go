@@ -83,7 +83,12 @@ func (r *SDHCPRelay) Setup(addr string) error {
 	return nil
 }
 
-func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, []string, error) {
+	pkg, err := r.serveDHCPInternal(pkt, addr, intf)
+	return pkg, nil, err
+}
+
+func (r *SDHCPRelay) serveDHCPInternal(pkt dhcp.Packet, _ *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {
