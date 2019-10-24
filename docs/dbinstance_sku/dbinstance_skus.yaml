@@ -1,0 +1,15 @@
+get:
+  summary: 按指定条件列出RDS套餐
+  parameters:
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/provider'
+    - $ref: '../parameters/common.yaml#/cloudregion'
+  responses:
+    200:
+      description: RDS套餐列表信息
+      schema:
+        $ref: "../schemas/dbinstance_sku.yaml#/DBInstanceSkuListResponse"
+  tags:
+    - dbinstance-sku
+

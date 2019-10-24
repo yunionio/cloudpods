@@ -14,7 +14,9 @@
 
 package modules
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+)
 
 /*
 添加新manager注意事项：
@@ -146,6 +148,12 @@ func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []
 func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
 		BaseManager: *modulebase.NewBaseManager("cloudmeta", "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}
+
+func NewYunionmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager("yunionmeta", "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 

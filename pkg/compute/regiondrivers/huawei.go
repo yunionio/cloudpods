@@ -28,8 +28,11 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 type SHuaWeiRegionDriver struct {
@@ -1528,5 +1531,110 @@ func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
 }
 
 func (self *SHuaWeiRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
+		return nil, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
+	}
+
+	if input.DiskSizeGB < 40 || input.DiskSizeGB > 4000 {
+		return nil, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
+	}
+
+	if input.DiskSizeGB%10 > 0 {
+		return nil, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
+	}
+
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+	if len(desc.Password) == 0 {
+		desc.Password = seclib2.RandomPassword2(12)
+	}
+
+	user := "root"
+	if desc.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
+		user = "rdsuser"
+	}
+
+	account := models.SDBInstanceAccount{
+		DBInstanceId: instance.Id,
+	}
+	account.Name = user
+	account.Status = api.DBINSTANCE_USER_AVAILABLE
+	account.ExternalId = user
+	account.SetModelManager(models.DBInstanceAccountManager, &account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(&account)
+	if err != nil {
+		return err
+	}
+
+	return account.SetPassword(desc.Password)
+}
+
+func (self *SHuaWeiRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
+	switch resource {
+	case models.DBInstanceManager.KeywordPlural():
+		years := bc.GetYears()
+		months := bc.GetMonths()
+		if (years >= 1 && years <= 3) || (months >= 1 && months <= 9) {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
+		return nil, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
+	}
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
+		return nil, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
+	}
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+	if len(input.Name) < 4 || len(input.Name) > 64 {
+		return nil, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
+	}
+
+	if len(input.Databases) > 0 && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+		return nil, httperrors.NewInputParameterError("Huawei only supports specified databases with %s", api.DBINSTANCE_TYPE_SQLSERVER)
+	}
+
+	return input, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {
+	if input.DiskSizeGB != 0 && input.DiskSizeGB < instance.DiskSizeGB {
+		return httperrors.NewUnsupportOperationError("Huawei DBInstance Disk cannot be thrink")
+	}
+	if len(input.Category) > 0 && input.Category != instance.Category {
+		return httperrors.NewUnsupportOperationError("Huawei DBInstance category cannot change")
+	}
+	if len(input.StorageType) > 0 && input.StorageType != instance.StorageType {
+		return httperrors.NewUnsupportOperationError("Huawei DBInstance storage type cannot change")
+	}
+	return nil
+}
+
+func (self *SHuaWeiRegionDriver) IsSupportDBInstancePublicConnection() bool {
+	//目前华为云未对外开放打开远程连接的API接口
+	return false
+}
+
+func (self *SHuaWeiRegionDriver) ValidateResetDBInstancePassword(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string) error {
+	return httperrors.NewUnsupportOperationError("Huawei current not support reset dbinstance account password")
+}
+
+func (self *SHuaWeiRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
 	return true
 }

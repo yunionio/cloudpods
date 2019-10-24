@@ -1,0 +1,16 @@
+post:
+  summary: 调整RDS实例配置
+  parameters: 
+    - $ref: '../parameters/dbinstance.yaml#/dbinstanceId'
+    - in: body 
+      name: dbinstance 
+      required: true 
+      schema:
+        $ref: '../schemas/dbinstance.yaml#DBInstanceChangeConfig'
+  responses:
+    200:
+      description: RDS实例信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceResponse'
+  tags:
+    - dbinstance

@@ -1,0 +1,44 @@
+DBInstanceParameterListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstanceparameters:
+      type: array
+      items:
+        $ref: '#/DBInstanceParameter'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceParameterResponse:
+  type: object
+  properties:
+    dbinstanceparameter:
+      type: object
+      $ref: '#/DBInstanceParameter'
+
+DBInstanceParameter:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例参数
+      properties:
+        key:
+          type: string
+          example: read_buffer_size
+          description: RDS实例参数
+        value:
+          type: string
+          example: "131072"
+          description: RDS实例参数值
+          readOnly: true
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+
+

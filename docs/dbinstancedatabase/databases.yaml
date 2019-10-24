@@ -1,0 +1,30 @@
+get:
+  summary: 按指定条件列出RDS实例数据库列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/dbinstance.yaml#/dbinstance'
+
+  responses:
+    200:
+      description: RDS实例数据库列表信息
+      schema:
+        $ref: '../schemas/dbinstance_database.yaml#/DBInstanceDatabaseListResponse'
+  tags:
+    - dbinstancedatabase
+
+post:
+  summary: 创建RDS实例数据库
+  parameters:
+    - in: body
+      name: dbinstancedatabase
+      required: true
+      schema:
+        $ref: '../schemas/dbinstance_database.yaml#/DBInstanceDatabaseCreate'
+  responses:
+    200:
+      description: 新建RDS实例数据库信息
+      schema:
+        $ref: '../schemas/dbinstance_database.yaml#/DBInstanceDatabaseResponse'
+  tags:
+    - dbinstancedatabase

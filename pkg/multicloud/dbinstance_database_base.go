@@ -14,6 +14,12 @@
 
 package multicloud
 
+import "fmt"
+
 type SDBInstanceDatabaseBase struct {
 	SResourceBase
+}
+
+func (db *SDBInstanceDatabaseBase) Delete() error {
+	return fmt.Errorf("Not Implemented Delete")
 }

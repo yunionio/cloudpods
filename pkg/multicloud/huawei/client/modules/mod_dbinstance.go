@@ -17,6 +17,8 @@ package modules
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
@@ -32,11 +34,31 @@ func NewDBInstanceManager(regionId string, projectId string, signer auth.Signer,
 		Region:        regionId,
 		ProjectId:     projectId,
 		version:       "v3",
-		Keyword:       "instance",
+		Keyword:       "",
 		KeywordPlural: "instances",
 
 		ResourceKeyword: "instances",
 	}}
+}
+
+func (self *SDBInstanceManager) Get(id string, querys map[string]string) (jsonutils.JSONObject, error) {
+	if len(id) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	resp, err := self.GetInContextWithSpec(nil, "", "", map[string]string{"id": id}, "")
+	if err != nil {
+		return nil, err
+	}
+	instances, err := resp.GetArray("instances")
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	} else if len(instances) == 1 {
+		return instances[0], nil
+	}
+	return nil, cloudprovider.ErrDuplicateId
 }
 
 func (self *SDBInstanceManager) ListParameters(queries map[string]string) (*responses.ListResult, error) {

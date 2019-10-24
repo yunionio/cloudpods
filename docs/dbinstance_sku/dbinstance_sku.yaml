@@ -1,0 +1,12 @@
+get:
+  summary: 获取指定RDS套餐详情信息
+  parameters:
+    - $ref: '../parameters/dbinstance_sku.yaml#/skuId'
+  responses:
+    200:
+      description: RDS套餐信息
+      schema:
+        $ref: '../schemas/dbinstance_sku.yaml#/DBInstanceSkuResponse'
+  tags:
+    - dbinstance-sku
+

@@ -20,11 +20,14 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -34,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
@@ -962,4 +966,209 @@ func (self *SAliyunRegionDriver) BindIPToNatgatewayRollback(ctx context.Context,
 
 func (self *SAliyunRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+	if input.BillingType == billing_api.BILLING_TYPE_PREPAID && len(input.MasterInstanceId) > 0 {
+		return nil, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
+	}
+
+	wire := network.GetWire()
+	if wire == nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
+	}
+	zone := wire.GetZone()
+	if zone == nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
+	}
+
+	match := false
+	for _, sku := range skus {
+		if utils.IsInStringArray(zone.Id, []string{sku.Zone1, sku.Zone2, sku.Zone3}) {
+			match = true
+			break
+		}
+	}
+
+	if !match {
+		return nil, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+	}
+
+	var master *models.SDBInstance
+	var slaves []models.SDBInstance
+	var err error
+	if len(input.MasterInstanceId) > 0 {
+		_master, _ := models.DBInstanceManager.FetchById(input.MasterInstanceId)
+		master = _master.(*models.SDBInstance)
+		slaves, err = master.GetSlaveDBInstances()
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		switch master.Engine {
+		case api.DBINSTANCE_TYPE_MYSQL:
+			switch master.EngineVersion {
+			case "5.6":
+				break
+			case "5.7", "8.0":
+				if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_HA {
+					return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s", master.EngineVersion, master.Category)
+				}
+				if master.StorageType != api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD {
+					return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s", master.EngineVersion, master.Category, master.StorageType, api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD)
+				}
+			default:
+				return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s", master.EngineVersion)
+			}
+		case api.DBINSTANCE_TYPE_SQLSERVER:
+			if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON || master.EngineVersion != "2017_ent" {
+				return nil, httperrors.NewInputParameterError("SQL Server only support create readonly dbinstance for 2017_ent")
+			}
+			if len(slaves) >= 7 {
+				return nil, httperrors.NewInputParameterError("SQL Server cannot have more than seven read-only dbinstances")
+			}
+		default:
+			return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance which master dbinstance engine is", master.Engine)
+		}
+	}
+
+	switch input.Engine {
+	case api.DBINSTANCE_TYPE_MYSQL:
+		if input.VmemSizeMb/1024 >= 64 && len(slaves) >= 10 {
+			return nil, httperrors.NewInputParameterError("Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created")
+		} else if input.VmemSizeMb/1024 < 64 && len(slaves) >= 5 {
+			return nil, httperrors.NewInputParameterError("Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created")
+		}
+	case api.DBINSTANCE_TYPE_SQLSERVER:
+		if input.Category == api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON {
+			vpc := network.GetVpc()
+			count, err := vpc.GetNetworkCount()
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+			if count < 2 {
+				return nil, httperrors.NewInputParameterError("At least two networks are required under vpc %s(%s) whith aliyun %s(%s)", vpc.Name, vpc.Id, input.Engine, input.Category)
+			}
+		}
+	}
+
+	if len(input.Name) > 0 {
+		if strings.HasPrefix(input.Description, "http://") || strings.HasPrefix(input.Description, "https://") {
+			return nil, httperrors.NewInputParameterError("Description can not start with http:// or https://")
+		}
+	}
+
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
+	switch resource {
+	case models.DBInstanceManager.KeywordPlural():
+		years := bc.GetYears()
+		months := bc.GetMonths()
+		if (years >= 1 && years <= 3) || (months >= 1 && months <= 9) {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SAliyunRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIDBInstance")
+		}
+
+		desc := &cloudprovider.SDBInstanceBackupCreateConfig{
+			Name: backup.Name,
+		}
+		if len(backup.DBNames) > 0 {
+			desc.Databases = strings.Split(backup.DBNames, ",")
+		}
+
+		_, err = iRds.CreateIBackup(desc)
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.CreateBackup")
+		}
+
+		backups, err := iRds.GetIDBInstanceBackups()
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.GetIDBInstanceBackups")
+		}
+		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, backup.GetRegion(), backups)
+		log.Infof("SyncDBInstanceBackups for dbinstance %s(%s) result: %s", instance.Name, instance.Id, result.Result())
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+	if len(input.Name) < 2 || len(input.Name) > 16 {
+		return nil, httperrors.NewInputParameterError("Aliyun DBInstance account name length shoud be 2~16 characters")
+	}
+
+	DENY_KEY := map[string][]string{
+		api.DBINSTANCE_TYPE_MYSQL:     api.ALIYUN_MYSQL_DENY_KEYWORKD,
+		api.DBINSTANCE_TYPE_SQLSERVER: api.ALIYUN_SQL_SERVER_DENY_KEYWORD,
+	}
+
+	if keys, ok := DENY_KEY[instance.Engine]; ok && utils.IsInStringArray(input.Name, keys) {
+		return nil, httperrors.NewInputParameterError("%s is reserved for aliyun %s, please use another", input.Name, instance.Engine)
+	}
+
+	for i, s := range input.Name {
+		if !unicode.IsLetter(s) && !unicode.IsDigit(s) && s != '_' {
+			return nil, httperrors.NewInputParameterError("invalid character %s for account name", s)
+		}
+		if s == '_' && (i == 0 || i == len(input.Name)) {
+			return nil, httperrors.NewInputParameterError("account name can not start or end with _")
+		}
+	}
+
+	for _, privilege := range input.Privileges {
+		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, privilege.Privilege)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+	if len(input.CharacterSet) == 0 {
+		return nil, httperrors.NewMissingParameterError("character_set")
+	}
+
+	for _, account := range input.Accounts {
+		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, account.Privilege)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+	return input, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, privilege string) error {
+	switch privilege {
+	case api.DATABASE_PRIVILEGE_RW:
+	case api.DATABASE_PRIVILEGE_R:
+	case api.DATABASE_PRIVILEGE_DDL, api.DATABASE_PRIVILEGE_DML:
+		if instance.Engine != api.DBINSTANCE_TYPE_MYSQL && instance.Engine != api.DBINSTANCE_TYPE_MARIADB {
+			return httperrors.NewInputParameterError("%s only support aliyun %s or %s", privilege, api.DBINSTANCE_TYPE_MARIADB, api.DBINSTANCE_TYPE_MYSQL)
+		}
+	case api.DATABASE_PRIVILEGE_OWNER:
+		if instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
+			return httperrors.NewInputParameterError("%s only support aliyun %s", privilege, api.DBINSTANCE_TYPE_SQLSERVER)
+		}
+	default:
+		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
+	}
+	return nil
 }

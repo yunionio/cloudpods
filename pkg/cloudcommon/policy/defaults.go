@@ -128,6 +128,18 @@ var (
 				},
 				{
 					Service:  "compute",
+					Resource: "dbinstance_skus",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "dbinstance_skus",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
 					Resource: "serverskus",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,

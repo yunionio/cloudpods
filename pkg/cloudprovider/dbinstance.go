@@ -14,6 +14,8 @@
 
 package cloudprovider
 
+import "yunion.io/x/onecloud/pkg/util/billing"
+
 type SDBInstanceNetwork struct {
 	IP        string
 	NetworkId string
@@ -22,4 +24,69 @@ type SDBInstanceNetwork struct {
 type SExtraIp struct {
 	IP  string
 	URL string
+}
+
+type SInstanceType struct {
+	InstanceType string
+	ZoneIds      []string
+}
+
+type SManagedDBInstanceCreateConfig struct {
+	SInstanceType
+	Name             string
+	Description      string
+	StorageType      string
+	DiskSizeGB       int
+	InstanceType     string
+	InstanceTypes    []SInstanceType
+	VcpuCount        int
+	VmemSizeMb       int
+	VpcId            string
+	SecgroupId       string
+	NetworkId        string
+	Address          string
+	Engine           string
+	EngineVersion    string
+	Category         string
+	Port             int
+	MasterInstanceId string
+	Password         string
+	Username         string
+
+	BillingCycle *billing.SBillingCycle
+}
+
+type SManagedDBInstanceChangeConfig struct {
+	DiskSizeGB   int
+	StorageType  string
+	InstanceType string
+}
+
+type SDBInstanceDatabaseCreateConfig struct {
+	Name         string
+	CharacterSet string
+	Description  string
+}
+
+type SDBInstancePrivilege struct {
+	Account   string
+	Database  string
+	Privilege string
+}
+
+type SDBInstanceAccountCreateConfig struct {
+	Name        string
+	Description string
+	Password    string
+}
+
+type SDBInstanceBackupCreateConfig struct {
+	Name        string
+	Description string
+	Databases   []string
+}
+
+type SDBInstanceRecoveryConfig struct {
+	BackupId  string
+	Databases map[string]string
 }
