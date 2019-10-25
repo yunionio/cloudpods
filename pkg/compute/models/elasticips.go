@@ -905,6 +905,34 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewUnsupportOperationError("fixed public eip cannot be dissociated")
 	}
 
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY {
+		model, err := NatGatewayManager.FetchById(self.AssociateId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to fetch natgateway %s", self.AssociateId)
+		}
+		natgateway := model.(*SNatGateway)
+		sCount, err := natgateway.GetSTableSize(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("ip", self.IpAddr)
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to get stable size of natgateway %s", self.AssociateId)
+		}
+		if sCount > 0 {
+			return nil, httperrors.NewUnsupportOperationError(
+				"the associated natgateway has corresponding snat rules with eip %s, please delete them firstly", self.IpAddr)
+		}
+		dCount, err := natgateway.GetDTableSize(func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			return q.Equals("external_ip", self.IpAddr)
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to get dtable size of natgateway %s", self.AssociateId)
+		}
+		if dCount > 0 {
+			return nil, httperrors.NewUnsupportOperationError(
+				"the associated natgateway has corresponding dnat rules with eip %s, please delete them firstly", self.IpAddr)
+		}
+	}
+
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
 
 	err := self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
@@ -992,9 +1020,9 @@ func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclie
 func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
-	vm := self.GetAssociateVM()
-	if vm != nil {
-		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
+	instance := self.GetAssociateResource()
+	if instance != nil {
+		extra.Add(jsonutils.NewString(instance.GetName()), "associate_name")
 	}
 	return extra
 }
