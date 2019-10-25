@@ -43,7 +43,6 @@ func NewBaremetalServerStopTask(
 		return nil, fmt.Errorf("Do power shutdown error: %v", err)
 	}
 	self.startTime = time.Now()
-	ExecuteTask(self, nil)
 	return self, nil
 }
 
