@@ -2651,6 +2651,12 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 			result.Error(err)
 			return result
 		}
+		if disk.PendingDeleted != self.PendingDeleted { //避免主机正常,磁盘在回收站的情况
+			db.Update(disk, func() error {
+				disk.PendingDeleted = self.PendingDeleted
+				return nil
+			})
+		}
 		newdisks = append(newdisks, sSyncDiskPair{disk: disk, vdisk: vdisks[i]})
 	}
 
