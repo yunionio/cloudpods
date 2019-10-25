@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/Azure/azure-sdk-for-go v34.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v34.4.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
@@ -152,7 +152,7 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191016032001-c63765174a8c
+	yunion.io/x/pkg v0.0.0-20191024065906-00964c53d82f
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20191008135637-33eb2e4f6cc7
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
