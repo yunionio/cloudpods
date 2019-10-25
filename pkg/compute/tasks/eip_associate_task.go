@@ -43,6 +43,7 @@ func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElastic
 		db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_ASSOCIATE, msg, self.UserCred, false)
 	}
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, msg, self.UserCred, false)
 }
 
 func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -86,6 +87,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	server.StartSyncstatus(ctx, self.UserCred, "")
 	logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, nil, self.UserCred, true)
 
 	self.SetStageComplete(ctx, nil)
 }
