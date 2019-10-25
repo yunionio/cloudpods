@@ -248,7 +248,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].Delete(ctx, userCred)
+		err = removed[i].RealDelete(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
