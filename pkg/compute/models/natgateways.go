@@ -333,7 +333,7 @@ func (self *SNatGateway) syncRemoveCloudNatGateway(ctx context.Context, userCred
 	if err != nil { // cannot delete
 		return self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 	}
-	return self.Delete(ctx, userCred)
+	return self.purge(ctx, userCred)
 }
 
 func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extNat cloudprovider.ICloudNatGateway) error {

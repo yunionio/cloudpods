@@ -1111,7 +1111,7 @@ func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	return table.Delete(ctx, userCred)
+	return table.RealDelete(ctx, userCred)
 }
 
 func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1138,7 +1138,7 @@ func (table *SNatDEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	return table.Delete(ctx, userCred)
+	return table.RealDelete(ctx, userCred)
 }
 
 func (nat *SNatGateway) purgeDTables(ctx context.Context, userCred mcclient.TokenCredential) error {
