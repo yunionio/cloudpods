@@ -230,6 +230,18 @@ func (self *SNatGateway) GetSTable() ([]SNatSEntry, error) {
 	return tables, nil
 }
 
+func (self *SNatGateway) GetSTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (int, error) {
+	q := NatSEntryManager.Query().Equals("natgateway_id", self.Id)
+	q = filter(q)
+	return q.CountWithError()
+}
+
+func (self *SNatGateway) GetDTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (int, error) {
+	q := NatDEntryManager.Query().Equals("natgateway_id", self.Id)
+	q = filter(q)
+	return q.CountWithError()
+}
+
 func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {

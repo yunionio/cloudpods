@@ -39,13 +39,22 @@ func init() {
 func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, model db.IModel) {
 	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
 	self.SetStageFailed(ctx, msg)
+	var logOp string
 	if model != nil {
 		switch srv := model.(type) {
 		case *models.SGuest:
 			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			logOp = logclient.ACT_VM_DISSOCIATE
+		case *models.SNatGateway:
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
+		case *models.SLoadbalancer:
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+			logOp = logclient.ACT_LOADBALANCER_DISSOCIATE
 		}
 		db.OpsLog.LogEvent(model, db.ACT_EIP_DETACH, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, msg, self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, model, logOp, msg, self.UserCred, false)
 	}
 }
 
@@ -54,17 +63,23 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	if eip.IsAssociated() {
 
-		var model db.IModel
+		var (
+			model db.IModel
+			logOp string
+		)
 
 		if server := eip.GetAssociateVM(); server != nil {
 			if server.Status != api.VM_DISSOCIATE_EIP {
 				server.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
 			}
 			model = server
+			logOp = logclient.ACT_VM_DISSOCIATE
 		} else if lb := eip.GetAssociateLoadbalancer(); lb != nil {
 			model = lb
+			logOp = logclient.ACT_LOADBALANCER_DISSOCIATE
 		} else if nat := eip.GetAssociateNatGateway(); nat != nil {
 			model = nat
+			logOp = logclient.ACT_NATGATEWAY_DISSOCIATE
 		} else {
 			self.TaskFail(ctx, eip, "unsupported associate type", nil)
 			return
@@ -96,6 +111,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "dissociate")
 
 		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
+		logclient.AddActionLogWithStartable(self, eip, logOp, nil, self.UserCred, true)
 
 		switch srv := model.(type) {
 		case *models.SGuest:
