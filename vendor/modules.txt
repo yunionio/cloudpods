@@ -1,6 +1,6 @@
 # github.com/360EntSecGroup-Skylar/excelize v1.4.0
 github.com/360EntSecGroup-Skylar/excelize
-# github.com/Azure/azure-sdk-for-go v34.1.0+incompatible
+# github.com/Azure/azure-sdk-for-go v34.4.0+incompatible
 github.com/Azure/azure-sdk-for-go/storage
 github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-autorest v10.15.5+incompatible
@@ -770,7 +770,7 @@ yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20191016032001-c63765174a8c
+# yunion.io/x/pkg v0.0.0-20191024065906-00964c53d82f
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable
