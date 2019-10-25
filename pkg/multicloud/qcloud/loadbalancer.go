@@ -143,13 +143,9 @@ func onecloudHealthCodeToQcloud(codes string) int {
 
 // https://cloud.tencent.com/document/product/214/30693
 // todo:  1.限制比较多必须加参数校验 2.Onecloud 不支持双向证书可能存在兼容性问题
-// 应用型负载均衡 https监听默认开启SNI。传统型不支持设置SNI
+// 应用型负载均衡 传统型不支持设置SNI
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	sniSwitch := 0
-	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
-		sniSwitch = 1
-	}
-
 	hc := getHealthCheck(listener)
 	cert := getCertificate(listener)
 
@@ -481,7 +477,7 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 		params["ListenerNames.0"] = name
 	}
 
-	if utils.IsInStringArray(protocol, []string{"TCP", "UDP", "TCP_SSL"}) {
+	if utils.IsInStringArray(protocol, []string{PROTOCOL_TCP, PROTOCOL_UDP, PROTOCOL_TCP_SSL}) {
 		params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
 
 		if scheduler != nil && len(*scheduler) > 0 {
@@ -492,7 +488,7 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 			params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
 		}
 	} else {
-		if sniSwitch != nil {
+		if protocol == PROTOCOL_HTTPS && sniSwitch != nil {
 			params["SniSwitch"] = strconv.Itoa(*sniSwitch)
 		}
 	}
