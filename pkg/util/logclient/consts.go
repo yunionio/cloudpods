@@ -164,4 +164,9 @@ const (
 	ACT_SET_PRIVILEGES   = "设置权限"
 	ACT_RESTORE          = "备份恢复"
 	ACT_RESET_PASSWORD   = "重置密码"
+
+	ACT_VM_ASSOCIATE            = "绑定虚拟机"
+	ACT_VM_DISSOCIATE           = "解绑虚拟机"
+	ACT_NATGATEWAY_DISSOCIATE   = "解绑NAT网关"
+	ACT_LOADBALANCER_DISSOCIATE = "解绑负载均衡"
 )
