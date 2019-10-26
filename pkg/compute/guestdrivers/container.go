@@ -199,3 +199,7 @@ func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx co
 func (self *SContainerDriver) IsSupportGuestClone() bool {
 	return false
 }
+
+func (self *SContainerDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return false, nil
+}
