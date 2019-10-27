@@ -71,15 +71,15 @@ func init() {
 	type HostWireUpdateOptions struct {
 		HOST      string `help:"ID or Name of Host"`
 		WIRE      string `help:"ID or Name of Wire"`
-		Mac       string `help:"Mac address"`
+		MacAddr   string `help:"Mac address"`
 		Interface string `help:"Interface"`
 		Bridge    string `help:"Bridge"`
 		IsMaster  string `help:"Master interface" choices:"true|false"`
 	}
 	R(&HostWireUpdateOptions{}, "host-wire-update", "Update host wire information", func(s *mcclient.ClientSession, args *HostWireUpdateOptions) error {
 		params := jsonutils.NewDict()
-		if len(args.Mac) > 0 {
-			params.Add(jsonutils.NewString(args.Mac), "mac_addr")
+		if len(args.MacAddr) > 0 {
+			params.Add(jsonutils.NewString(args.MacAddr), "mac_addr")
 		}
 		if len(args.Interface) > 0 {
 			params.Add(jsonutils.NewString(args.Interface), "interface")
