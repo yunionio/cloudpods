@@ -946,7 +946,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	query := jsonutils.NewDict()
 	query.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
 	_, err := modules.Hostwires.Update(h.GetSession(),
-		h.HostId, nic.Network, query, content)
+		h.HostId, nic.WireId, query, content)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
