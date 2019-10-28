@@ -135,6 +135,7 @@ func (m *QmpMonitor) actionResult(res *Response) string {
 func (m *QmpMonitor) callBack(res *Response) {
 	m.mutex.Lock()
 	if len(m.callbackQueue) == 0 {
+		m.mutex.Unlock()
 		return
 	}
 	cb := m.callbackQueue[0]

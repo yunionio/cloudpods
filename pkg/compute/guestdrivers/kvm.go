@@ -116,15 +116,16 @@ func (self *SKVMGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, gues
 func findVNCPort(results string) int {
 	vncInfo := strings.Split(results, "\n")
 	addrParts := strings.Split(vncInfo[1], ":")
-	port, _ := strconv.Atoi(addrParts[len(addrParts)-1])
+	port, _ := strconv.Atoi(strings.TrimSpace(addrParts[len(addrParts)-1]))
 	return port
 }
 
 func findVNCPort2(results string) int {
 	vncInfo := strings.Split(results, "\n")
 	for i := 0; i < len(vncInfo); i++ {
-		if strings.HasSuffix(vncInfo[i], "(ipv4)") {
-			addrParts := strings.Split(vncInfo[i], ":")
+		lineStr := strings.TrimSpace(vncInfo[i])
+		if strings.HasSuffix(lineStr, "(ipv4)") {
+			addrParts := strings.Split(lineStr, ":")
 			v := addrParts[len(addrParts)-1]
 			port, _ := strconv.Atoi(v[0 : len(v)-7])
 			return port
@@ -169,7 +170,9 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 														Server: 0.0.0.0:5902 (ipv4)
 														Auth: none (Sub: none)
 	*/
+
 	var port int
+
 	if guest.CheckQemuVersion(guest.GetMetadata("__qemu_version", userCred), "2.12.1") && strings.HasSuffix(cmd, "vnc") {
 		port = findVNCPort2(results)
 	} else {
