@@ -104,6 +104,7 @@ func (m *HmpMonitor) read(r io.Reader) {
 func (m *HmpMonitor) callBack(res string) {
 	m.mutex.Lock()
 	if len(m.callbackQueue) == 0 {
+		m.mutex.Unlock()
 		return
 	}
 	cb := m.callbackQueue[0]
@@ -212,7 +213,11 @@ func (m *HmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 }
 
 func (m *HmpMonitor) GetVersion(callback StringCallback) {
-	m.Query("info version", callback)
+	_cb := func(versionStr string) {
+		versionStr = strings.TrimSpace(versionStr)
+		callback(versionStr)
+	}
+	m.Query("info version", _cb)
 }
 
 func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
@@ -223,7 +228,7 @@ func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 		// merge output
 		for _, line := range lines {
 			parts := regexp.MustCompile(`\s+`).Split(line, -1)
-			if parts[0][len(parts[0])-1] == ':' {
+			if strings.HasSuffix(parts[0], ":") {
 				mergedOutput = append(mergedOutput, "")
 			} else if regexp.MustCompile(`\(#block\d+\):`).MatchString(line) {
 				mergedOutput = append(mergedOutput, "")
@@ -236,13 +241,14 @@ func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 		var outputJson = jsonutils.NewArray()
 		for _, line := range mergedOutput {
 			parts := regexp.MustCompile(`\s+`).Split(line, -1)
-			if parts[0][len(parts[0])-1] == ':' ||
+			if strings.HasSuffix(parts[0], ":") ||
 				regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
 
 				drv := jsonutils.NewDict()
-				drv.Set("device", jsonutils.NewString(parts[0]))
-				if parts[0][len(parts[0])-1] == ':' {
-					drv.Set("device", jsonutils.NewString(parts[0][:len(parts)-1]))
+				if strings.HasSuffix(parts[0], ":") {
+					drv.Set("device", jsonutils.NewString(parts[0][:len(parts[0])-1]))
+				} else {
+					drv.Set("device", jsonutils.NewString(parts[0]))
 				}
 				if regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
 					inserted := jsonutils.NewDict()
