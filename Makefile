@@ -143,8 +143,20 @@ gendocgo-check: gendocgo
 	fi
 .PHONY: gendocgo adddocgo gendocgo-check
 
+goimports-check:
+	@goimports -w -local "yunion.io/x/:yunion.io/x/onecloud" pkg cmd; \
+	if git status --short | grep -E '^.M .*/[^.]+.go'; then \
+		echo "$@: working tree modified (possibly by goimports)" >&2 ; \
+		echo "$@: " >&2 ; \
+		echo "$@: import spec should be grouped in order: std, 3rd-party, yunion.io/x, yunion.io/x/onecloud" >&2 ; \
+		echo "$@: see \"yun\" branch at https://github.com/yousong/tools" >&2 ; \
+		false ; \
+	fi
+.PHONY: goimports-check
+
 check: fmt-check
 check: gendocgo-check
+check: goimports-check
 .PHONY: check
 
 
