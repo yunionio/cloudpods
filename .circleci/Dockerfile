@@ -24,6 +24,7 @@ RUN useradd -c "OneCloud Builder" --create-home --home-dir /home/build --shell /
 USER build
 ENV HOME /home/build
 WORKDIR /home/build
+USER build
 
 ENV GOPATH="/home/build/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
