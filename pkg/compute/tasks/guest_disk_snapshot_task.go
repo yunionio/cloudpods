@@ -16,10 +16,12 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -72,11 +74,20 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, g
 		log.Infof("OnDiskSnapshotComplete called with data no location")
 		return
 	}
-	db.Update(snapshot, func() error {
+	var osType string
+	if snapshot.DiskType == compute.DISK_TYPE_SYS {
+		osType = guest.GetOS()
+	}
+	_, err = db.Update(snapshot, func() error {
 		snapshot.Location = location
 		snapshot.Status = api.SNAPSHOT_READY
+		snapshot.OsType = osType
 		return nil
 	})
+	if err != nil {
+		self.TaskFailed(ctx, guest, fmt.Sprintf("update sanpshot failed: %s", err))
+		return
+	}
 
 	guest.SetStatus(self.UserCred, api.VM_SNAPSHOT_SUCC, "")
 	self.TaskComplete(ctx, guest, nil)
