@@ -207,6 +207,10 @@ type ServerCreateInput struct {
 	GuestImageID string
 }
 
+type ServerCreateOutput struct {
+	Server
+}
+
 type ServerCloneInput struct {
 	apis.Meta
 

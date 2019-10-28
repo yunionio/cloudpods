@@ -1,0 +1,934 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  AuthContext:
+    properties:
+      ip:
+        type: string
+        x-go-name: Ip
+      source:
+        type: string
+        x-go-name: Source
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+  AuthV2Input:
+    properties:
+      context:
+        $ref: '#/definitions/AuthContext'
+      password_credentials:
+        $ref: '#/definitions/PasswordCredentials'
+      tenant_id:
+        type: string
+        x-go-name: TenantId
+      tenant_name:
+        type: string
+        x-go-name: TenantName
+      token:
+        properties:
+          id:
+            type: string
+            x-go-name: Id
+        type: object
+        x-go-name: Token
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+  BaremetalDiskConfig:
+    properties:
+      adapter:
+        format: int64
+        type: integer
+        x-go-name: Adapter
+      cachedbadbbu:
+        type: boolean
+        x-go-name: Cachedbadbbu
+      conf:
+        description: raid config
+        type: string
+        x-go-name: Conf
+      count:
+        format: int64
+        type: integer
+        x-go-name: Count
+      direct:
+        type: boolean
+        x-go-name: Direct
+      driver:
+        type: string
+        x-go-name: Driver
+      ra:
+        type: boolean
+        x-go-name: RA
+      range:
+        items:
+          format: int64
+          type: integer
+        type: array
+        x-go-name: Range
+      size:
+        items:
+          format: int64
+          type: integer
+        type: array
+        x-go-name: Size
+      splits:
+        type: string
+        x-go-name: Splits
+      strip:
+        format: int64
+        type: integer
+        x-go-name: Strip
+      type:
+        description: |-
+          Index int `json:"index"`
+          disk type
+        type: string
+        x-go-name: Type
+      wt:
+        type: boolean
+        x-go-name: WT
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  DeployConfig:
+    properties:
+      action:
+        type: string
+        x-go-name: Action
+      content:
+        type: string
+        x-go-name: Content
+      path:
+        type: string
+        x-go-name: Path
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  DiskConfig:
+    properties:
+      backend:
+        type: string
+        x-go-name: Backend
+      cache:
+        type: string
+        x-go-name: Cache
+      disk_id:
+        type: string
+        x-go-name: DiskId
+      disk_type:
+        type: string
+        x-go-name: DiskType
+      driver:
+        type: string
+        x-go-name: Driver
+      format:
+        type: string
+        x-go-name: Format
+      fs:
+        type: string
+        x-go-name: Fs
+      image_id:
+        type: string
+        x-go-name: ImageId
+      image_properties:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: ImageProperties
+      index:
+        format: int64
+        type: integer
+        x-go-name: Index
+      medium:
+        type: string
+        x-go-name: Medium
+      mountpoint:
+        type: string
+        x-go-name: Mountpoint
+      schedtags:
+        items:
+          $ref: '#/definitions/SchedtagConfig'
+        type: array
+        x-go-name: Schedtags
+      size:
+        format: int64
+        type: integer
+        x-go-name: SizeMb
+      snapshot_id:
+        type: string
+        x-go-name: SnapshotId
+      storage_id:
+        type: string
+        x-go-name: Storage
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  IsolatedDeviceConfig:
+    properties:
+      dev_type:
+        type: string
+        x-go-name: DevType
+      id:
+        type: string
+        x-go-name: Id
+      index:
+        format: int64
+        type: integer
+        x-go-name: Index
+      model:
+        type: string
+        x-go-name: Model
+      vendor:
+        type: string
+        x-go-name: Vendor
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  JSONObject:
+    allOf:
+    - properties:
+        IsZero:
+          description: |-
+            FromString(str string) error
+            Equals(obj ISerializable) bool
+          type: boolean
+        String:
+          type: string
+      type: object
+    - allOf:
+      - properties:
+          IsZero:
+            description: |-
+              FromString(str string) error
+              Equals(obj ISerializable) bool
+            type: boolean
+          String:
+            type: string
+        type: object
+      properties:
+        Interface:
+          description: IsZero() bool
+          type: object
+        PrettyString:
+          description: String() string
+          type: string
+        QueryString:
+          type: string
+        YAMLString:
+          type: string
+      type: object
+    properties:
+      Interface:
+        description: IsZero() bool
+        type: object
+      PrettyString:
+        description: String() string
+        type: string
+      QueryString:
+        type: string
+      YAMLString:
+        type: string
+    type: object
+    x-go-package: yunion.io/x/onecloud/vendor/yunion.io/x/jsonutils
+  NetworkConfig:
+    properties:
+      address:
+        type: string
+        x-go-name: Address
+      address6:
+        type: string
+        x-go-name: Address6
+      bw_limit:
+        format: int64
+        type: integer
+        x-go-name: BwLimit
+      domain_id:
+        type: string
+        x-go-name: Domain
+      driver:
+        type: string
+        x-go-name: Driver
+      exit:
+        type: boolean
+        x-go-name: Exit
+      ifname:
+        type: string
+        x-go-name: Ifname
+      index:
+        format: int64
+        type: integer
+        x-go-name: Index
+      mac:
+        type: string
+        x-go-name: Mac
+      net_type:
+        type: string
+        x-go-name: NetType
+      network:
+        type: string
+        x-go-name: Network
+      private:
+        type: boolean
+        x-go-name: Private
+      project_id:
+        type: string
+        x-go-name: Project
+      require_designated_ip:
+        type: boolean
+        x-go-name: RequireDesignatedIP
+      require_teaming:
+        type: boolean
+        x-go-name: RequireTeaming
+      reserved:
+        type: boolean
+        x-go-name: Reserved
+      schedtags:
+        items:
+          $ref: '#/definitions/SchedtagConfig'
+        type: array
+        x-go-name: Schedtags
+      standby_addr_count:
+        format: int64
+        type: integer
+        x-go-name: StandbyAddrCount
+      standby_port_count:
+        format: int64
+        type: integer
+        x-go-name: StandbyPortCount
+      try_teaming:
+        type: boolean
+        x-go-name: TryTeaming
+      vip:
+        type: boolean
+        x-go-name: Vip
+      wire:
+        type: string
+        x-go-name: Wire
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  PasswordCredentials:
+    properties:
+      password:
+        type: string
+        x-go-name: Password
+      username:
+        type: string
+        x-go-name: Username
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+  SchedtagConfig:
+    properties:
+      id:
+        type: string
+        x-go-name: Id
+      strategy:
+        type: string
+        x-go-name: Strategy
+      weight:
+        format: int64
+        type: integer
+        x-go-name: Weight
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  ServerCreateInput:
+    properties:
+      __os_profile__:
+        $ref: '#/definitions/JSONObject'
+      __parent_task_id:
+        description: Used to store BaremetalConvertHypervisorTaskId
+        type: string
+        x-go-name: ParentTaskId
+      GuestImageID:
+        description: Guest Image ID
+        type: string
+      auto_prepaid_recycle:
+        type: boolean
+        x-go-name: AutoPrepaidRecycle
+      auto_start:
+        type: boolean
+        x-go-name: AutoStart
+      backup:
+        type: boolean
+        x-go-name: Backup
+      baremetal:
+        description: DEPRECATE or not used fields
+        type: boolean
+        x-go-name: Baremetal
+      baremetal_disk_configs:
+        items:
+          $ref: '#/definitions/BaremetalDiskConfig'
+        type: array
+        x-go-name: BaremetalDiskConfigs
+      billing_cycle:
+        type: string
+        x-go-name: BillingCycle
+      billing_type:
+        type: string
+        x-go-name: BillingType
+      bios:
+        type: string
+        x-go-name: Bios
+      boot_order:
+        type: string
+        x-go-name: BootOrder
+      cdrom:
+        type: string
+        x-go-name: Cdrom
+      count:
+        format: int64
+        type: integer
+        x-go-name: Count
+      default_storage_type:
+        description: default stroage type if host is given
+        type: string
+        x-go-name: DefaultStorageType
+      deploy_configs:
+        items:
+          $ref: '#/definitions/DeployConfig'
+        type: array
+        x-go-name: DeployConfigs
+      description:
+        type: string
+        x-go-name: Description
+      disable_delete:
+        type: boolean
+        x-go-name: DisableDelete
+      disks:
+        items:
+          $ref: '#/definitions/DiskConfig'
+        type: array
+        x-go-name: Disks
+      domain_id:
+        type: string
+        x-go-name: Domain
+      duration:
+        type: string
+        x-go-name: Duration
+      eip:
+        type: string
+        x-go-name: Eip
+      eip_bw:
+        format: int64
+        type: integer
+        x-go-name: EipBw
+      eip_charge_type:
+        type: string
+        x-go-name: EipChargeType
+      enable_cloud_init:
+        type: boolean
+        x-go-name: EnableCloudInit
+      generate_name:
+        type: string
+        x-go-name: GenerateName
+      groups:
+        items:
+          type: string
+        type: array
+        x-go-name: InstanceGroupIds
+      hypervisor:
+        type: string
+        x-go-name: Hypervisor
+      instance_snapshot_id:
+        type: string
+        x-go-name: InstanceSnapshotId
+      instance_type:
+        type: string
+        x-go-name: InstanceType
+      is_system:
+        type: boolean
+        x-go-name: IsSystem
+      isolated_devices:
+        items:
+          $ref: '#/definitions/IsolatedDeviceConfig'
+        type: array
+        x-go-name: IsolatedDevices
+      keypair_id:
+        type: string
+        x-go-name: KeypairId
+      name:
+        type: string
+        x-go-name: Name
+      nets:
+        items:
+          $ref: '#/definitions/NetworkConfig'
+        type: array
+        x-go-name: Networks
+      os_type:
+        type: string
+        x-go-name: OsType
+      password:
+        type: string
+        x-go-name: Password
+      prefer_backup_host:
+        type: string
+        x-go-name: PreferBackupHost
+      prefer_host_id:
+        type: string
+        x-go-name: PreferHost
+      prefer_region_id:
+        description: prefer options
+        type: string
+        x-go-name: PreferRegion
+      prefer_wire_id:
+        type: string
+        x-go-name: PreferWire
+      prefer_zone_id:
+        type: string
+        x-go-name: PreferZone
+      project_id:
+        type: string
+        x-go-name: Project
+      reset_password:
+        type: boolean
+        x-go-name: ResetPassword
+      resource_type:
+        description: ResourceType "shared|prepaid|dedicated"`
+        type: string
+        x-go-name: ResourceType
+      schedtags:
+        items:
+          $ref: '#/definitions/SchedtagConfig'
+        type: array
+        x-go-name: Schedtags
+      secgrp_id:
+        type: string
+        x-go-name: SecgroupId
+      shutdown_behavior:
+        type: string
+        x-go-name: ShutdownBehavior
+      suggestion:
+        description: DEPRECATE
+        type: boolean
+        x-go-name: Suggestion
+      user_data:
+        type: string
+        x-go-name: UserData
+      vcpu_count:
+        format: int64
+        type: integer
+        x-go-name: VcpuCount
+      vdi:
+        type: string
+        x-go-name: Vdi
+      vga:
+        type: string
+        x-go-name: Vga
+      vmem_size:
+        format: int64
+        type: integer
+        x-go-name: VmemSize
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  ServerCreateOutput:
+    properties:
+      admin_secgrp_id:
+        type: string
+        x-go-name: AdminSecgrpId
+      backup_host_id:
+        type: string
+        x-go-name: BackupHostId
+      billing_cycle:
+        type: string
+        x-go-name: BillingCycle
+      billing_type:
+        type: string
+        x-go-name: BillingType
+      bios:
+        type: string
+        x-go-name: Bios
+      boot_order:
+        type: string
+        x-go-name: BootOrder
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      deleted:
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      description:
+        type: string
+        x-go-name: Description
+      disable_delete:
+        type: boolean
+        x-go-name: DisableDelete
+      domain_id:
+        type: string
+        x-go-name: DomainId
+      expired_at:
+        format: date-time
+        type: string
+        x-go-name: ExpiredAt
+      external_id:
+        type: string
+        x-go-name: ExternalId
+      flavor_id:
+        type: string
+        x-go-name: FlavorId
+      host_id:
+        type: string
+        x-go-name: HostId
+      hypervisor:
+        type: string
+        x-go-name: Hypervisor
+      id:
+        type: string
+        x-go-name: Id
+      instance_type:
+        type: string
+        x-go-name: InstanceType
+      is_emulated:
+        type: boolean
+        x-go-name: IsEmulated
+      is_system:
+        type: boolean
+        x-go-name: IsSystem
+      keypair_id:
+        type: string
+        x-go-name: KeypairId
+      machine:
+        type: string
+        x-go-name: Machine
+      name:
+        type: string
+        x-go-name: Name
+      os_type:
+        type: string
+        x-go-name: OsType
+      pending_deleted:
+        type: boolean
+        x-go-name: PendingDeleted
+      pending_deleted_at:
+        format: date-time
+        type: string
+        x-go-name: PendingDeletedAt
+      project_src:
+        type: string
+        x-go-name: ProjectSrc
+      secgrp_id:
+        type: string
+        x-go-name: SecgrpId
+      shutdown_behavior:
+        type: string
+        x-go-name: ShutdownBehavior
+      status:
+        type: string
+        x-go-name: Status
+      tenant_id:
+        type: string
+        x-go-name: ProjectId
+      updated_at:
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      updated_version:
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+      vcpu_count:
+        format: int64
+        type: integer
+        x-go-name: VcpuCount
+      vdi:
+        type: string
+        x-go-name: Vdi
+      vga:
+        type: string
+        x-go-name: Vga
+      vmem_size:
+        format: int64
+        type: integer
+        x-go-name: VmemSize
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  ServerStopInput:
+    properties:
+      is_force:
+        description: Force stop server
+        type: boolean
+        x-go-name: IsForce
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  ServerUpdateInput:
+    properties:
+      description:
+        type: string
+        x-go-name: Description
+      name:
+        type: string
+        x-go-name: Name
+      shutdown_behavior:
+        type: string
+        x-go-name: ShutdownBehavior
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/compute
+  TenantV2:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+        x-go-name: CreatedAt
+      deleted:
+        type: boolean
+        x-go-name: Deleted
+      deleted_at:
+        format: date-time
+        type: string
+        x-go-name: DeletedAt
+      description:
+        type: string
+        x-go-name: Description
+      domain_id:
+        type: string
+        x-go-name: DomainId
+      id:
+        type: string
+        x-go-name: Id
+      is_emulated:
+        type: boolean
+        x-go-name: IsEmulated
+      name:
+        type: string
+        x-go-name: Name
+      updated_at:
+        format: date-time
+        type: string
+        x-go-name: UpdatedAt
+      updated_version:
+        format: int64
+        type: integer
+        x-go-name: UpdateVersion
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+  TokenV2:
+    properties:
+      token:
+        properties:
+          expires:
+            format: date-time
+            type: string
+            x-go-name: Expires
+          id:
+            type: string
+            x-go-name: Id
+          tenants:
+            items:
+              $ref: '#/definitions/TenantV2'
+            type: array
+            x-go-name: Tenant
+        type: object
+        x-go-name: Token
+    type: object
+    x-go-package: yunion.io/x/onecloud/pkg/apis/identity
+host: '"10.168.222.136:8889"'
+info:
+  contact:
+    email: lizexi@yunion.cn
+    name: Zexi Li
+  description: Documentation of OneCloud API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: "1.0"
+paths:
+  /servers:
+    get:
+      description: List instance servers
+      operationId: serverListInput
+      parameters:
+      - default: 20
+        description: Query page limit
+        format: int64
+        in: query
+        name: limit
+        type: integer
+        x-go-name: Limit
+      - default: 0
+        description: Query page offset
+        format: int64
+        in: query
+        name: offset
+        type: integer
+        x-go-name: Offset
+      - description: Name of the field to be ordered by
+        in: query
+        items:
+          type: string
+        name: order_by
+        type: array
+        x-go-name: OrderBy
+      - description: List order
+        enum:
+        - desc
+        - asc
+        in: query
+        name: order
+        type: string
+        x-go-name: Order
+      - default: false
+        description: Show more details
+        in: query
+        name: details
+        type: boolean
+        x-go-name: Details
+      - description: Filter results by a simple keyword search
+        in: query
+        name: search
+        type: string
+        x-go-name: Search
+      - description: Piggyback metadata information
+        in: query
+        name: meta
+        type: boolean
+        x-go-name: Meta
+      - description: Filters
+        in: query
+        items:
+          type: string
+        name: filters
+        type: array
+        x-go-name: Filter
+      responses:
+        "200":
+          $ref: '#/responses/serverListOutput'
+      tags:
+      - instance
+    post:
+      description: Create instance server by hypervisor
+      operationId: serverCreateInput
+      parameters:
+      - in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/ServerCreateInput'
+        x-go-name: Server
+      responses:
+        "200":
+          $ref: '#/responses/serverOutput'
+      summary: Create instance server
+      tags:
+      - instance
+  /servers/{id}:
+    delete:
+      description: Delete specific server
+      operationId: serverDeleteInput
+      parameters:
+      - description: The ID or Name of object
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - description: 从回收站删除资源时需要指定此参数为true, 回收站资源到期会自动释放。到期清理时间由服务参数PendingDeleteExpireSeconds确定。默认是259200秒（3天）
+        in: query
+        name: override_pending_delete
+        type: boolean
+        x-go-name: OverridePendingDelete
+      responses:
+        "200":
+          $ref: '#/responses/serverOutput'
+      tags:
+      - instance
+    get:
+      description: Get server details
+      operationId: serverShowInput
+      parameters:
+      - description: The ID or Name of object
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      responses:
+        "200":
+          $ref: '#/responses/serverOutput'
+      tags:
+      - instance
+    put:
+      description: Update server
+      operationId: serverUpdateInput
+      parameters:
+      - description: The ID or Name of object
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: server
+        schema:
+          $ref: '#/definitions/ServerUpdateInput'
+        x-go-name: Body
+      responses:
+        "200":
+          $ref: '#/responses/serverOutput'
+      tags:
+      - instance
+  /servers/{id}/stop:
+    post:
+      description: Stop server
+      operationId: serverStop
+      parameters:
+      - description: The ID or Name of object
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: Id
+      - in: body
+        name: server
+        schema:
+          $ref: '#/definitions/ServerStopInput'
+        x-go-name: Input
+      responses:
+        "200":
+          $ref: '#/responses/serverOutput'
+      tags:
+      - instance
+  /v2.0/tokens:
+    post:
+      description: keystone v2 authentication
+      operationId: authV2Input
+      parameters:
+      - in: body
+        name: Auth
+        required: true
+        schema:
+          $ref: '#/definitions/AuthV2Input'
+      responses:
+        "200":
+          $ref: '#/responses/authV2Output'
+      summary: keystone v2 authenticate api, auth by username/password or token string
+      tags:
+      - authentication
+produces:
+- application/json
+responses:
+  authV2Output:
+    schema:
+      properties:
+        access:
+          $ref: '#/definitions/TokenV2'
+      type: object
+  serverListOutput:
+    schema:
+      properties:
+        servers:
+          $ref: '#/definitions/ServerCreateOutput'
+      type: object
+  serverOutput:
+    schema:
+      properties:
+        server:
+          $ref: '#/definitions/ServerCreateOutput'
+      type: object
+schemes:
+- https
+- http
+securityDefinitions:
+  keystone:
+    in: header
+    name: X-Auth-Token
+    type: apiKey
+swagger: "2.0"
