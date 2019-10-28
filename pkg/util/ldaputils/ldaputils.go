@@ -19,9 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/ldap.v3"
-
 	"github.com/pkg/errors"
+	"gopkg.in/ldap.v3"
 
 	"yunion.io/x/log"
 )

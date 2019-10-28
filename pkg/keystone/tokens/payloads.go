@@ -24,8 +24,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type TScopedPayloadVersion byte

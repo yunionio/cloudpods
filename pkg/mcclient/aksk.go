@@ -16,13 +16,13 @@ package mcclient
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
-	"io"
-	"strings"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/s3auth"

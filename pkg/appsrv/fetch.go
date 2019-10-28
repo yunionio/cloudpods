@@ -15,11 +15,12 @@
 package appsrv
 
 import (
+	"encoding/xml"
 	"io/ioutil"
 	"net/http"
 
-	"encoding/xml"
 	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 )
 

@@ -25,13 +25,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	yerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	cnutils "yunion.io/x/onecloud/pkg/cloudnet/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 var regexpIfname = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]{0,14}`)

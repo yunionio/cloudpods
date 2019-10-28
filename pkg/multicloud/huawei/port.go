@@ -15,10 +15,11 @@
 package huawei
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/pkg/utils"
 )
 
 type SFixedIP struct {

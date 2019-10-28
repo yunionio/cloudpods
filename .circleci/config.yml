@@ -5,7 +5,7 @@ version: 2
 jobs:
   check:
     docker:
-      - image: yunionio/onecloud-ci:v1.0.2
+      - image: yunionio/onecloud-ci:v1.0.3
         environment:
           ONECLOUD_CI_BUILD: "1"
     working_directory: /home/build/go/src/yunion.io/x/onecloud
