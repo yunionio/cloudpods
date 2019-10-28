@@ -702,14 +702,12 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 
 	// bugfix for now:
 	disk, err := self.GetDisk()
-	if err == sql.ErrNoRows {
-		syncOwnerId = self.GetOwnerId()
-	} else if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return errors.Wrapf(err, "get disk of snapshot %s error", self.Id)
-	} else {
-		syncOwnerId = disk.GetOwnerId()
 	}
-	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
+	if err == nil {
+		self.SyncCloudProjectId(userCred, disk.GetOwnerId())
+	}
 
 	return nil
 }
@@ -749,9 +747,10 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 
 	// bugfix for now:
 	if localDisk != nil {
-		syncOwnerId = localDisk.GetOwnerId()
+		snapshot.SyncCloudProjectId(userCred, localDisk.GetOwnerId())
+	} else {
+		SyncCloudProject(userCred, &snapshot, syncOwnerId, extSnapshot, snapshot.ManagerId)
 	}
-	SyncCloudProject(userCred, &snapshot, syncOwnerId, extSnapshot, snapshot.ManagerId)
 
 	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
 
