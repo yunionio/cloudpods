@@ -32,7 +32,7 @@ func NewResourceManager(serviceType string, keyword, keywordPlural string,
 
 func NewComputeManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("compute", "", "", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager("compute_v2", "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
