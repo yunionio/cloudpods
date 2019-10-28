@@ -15,17 +15,17 @@
 package fernetool
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
 
 	"github.com/fernet/fernet-go"
-
-	"crypto/sha1"
-	"encoding/base64"
-	"encoding/hex"
 	"github.com/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 

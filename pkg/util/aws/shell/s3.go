@@ -16,8 +16,10 @@ package shell
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"os"
+
+	"github.com/aws/aws-sdk-go/service/s3"
+
 	"yunion.io/x/onecloud/pkg/util/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"

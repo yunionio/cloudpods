@@ -21,9 +21,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/structarg"
 
-	"yunion.io/x/onecloud/pkg/util/shellutils"
-
 	_ "yunion.io/x/onecloud/cmd/cryptool/shell"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {
