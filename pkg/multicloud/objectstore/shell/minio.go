@@ -16,6 +16,7 @@ package shell
 
 import (
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/util/shellutils"

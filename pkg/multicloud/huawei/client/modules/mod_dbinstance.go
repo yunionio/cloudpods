@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"

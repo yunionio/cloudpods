@@ -15,27 +15,20 @@
 package loader
 
 import (
-	"yunion.io/x/log"
+	"yunion.io/x/log" // on-premise virtualization technologies
 
-	// on-premise virtualization technologies
-	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider"
-
-	// private clouds
-	_ "yunion.io/x/onecloud/pkg/multicloud/openstack/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider"
-
-	// public clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/azure/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/esxi/provider" // private clouds
 	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
-	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider"
-
-	// object storages
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
 	_ "yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/openstack/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/provider"
+	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/provider" // object storages
+	_ "yunion.io/x/onecloud/pkg/multicloud/zstack/provider" // public clouds
 )
 
 func init() {

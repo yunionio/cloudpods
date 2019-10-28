@@ -15,8 +15,9 @@
 package models
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type SDBInstanceJointsManager struct {

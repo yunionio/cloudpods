@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
@@ -33,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 func NewEtcdModelHandler(manger base.IEtcdModelManager) *SEtcdModelHandler {

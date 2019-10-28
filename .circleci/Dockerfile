@@ -13,9 +13,9 @@ RUN true \
 
 WORKDIR /opt
 RUN true \
-	&& wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz \
-	&& tar xzf go1.12.6.linux-amd64.tar.gz \
-	&& rm -vf  go1.12.6.linux-amd64.tar.gz \
+	&& wget https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz \
+	&& tar xzf go1.13.3.linux-amd64.tar.gz \
+	&& rm -vf  go1.13.3.linux-amd64.tar.gz \
 	&& true
 ENV GOROOT="/opt/go"
 ENV PATH="/opt/go/bin:${PATH}"
@@ -23,6 +23,16 @@ ENV PATH="/opt/go/bin:${PATH}"
 RUN useradd -c "OneCloud Builder" --create-home --home-dir /home/build --shell /bin/bash build
 ENV HOME /home/build
 WORKDIR /home/build
+USER build
 
 ENV GOPATH="/home/build/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
+
+RUN true \
+	&& mkdir -p "$GOPATH" \
+	&& d="$GOPATH/src/golang.org/x/tools" \
+	&& mkdir -p "$d" \
+	&& git clone --branch yun --depth 8 https://github.com/yousong/tools "$d" \
+	&& cd "$d" \
+	&& go install ./cmd/goimports \
+	&& true

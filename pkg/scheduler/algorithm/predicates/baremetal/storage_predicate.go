@@ -15,9 +15,8 @@
 package baremetal
 
 import (
-	"fmt"
+	"fmt" // computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 
-	// computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"

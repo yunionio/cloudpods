@@ -23,9 +23,8 @@ import (
 	"yunion.io/x/pkg/util/wait"
 	u "yunion.io/x/pkg/utils"
 
-	o "yunion.io/x/onecloud/pkg/scheduler/options"
-
 	"yunion.io/x/onecloud/pkg/scheduler/models"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type HistoryItem struct {

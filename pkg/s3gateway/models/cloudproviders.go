@@ -20,13 +20,13 @@ import (
 
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/s3gateway/session"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
-	"yunion.io/x/pkg/utils"
 )
 
 type SCloudproviderManagerDelegate struct {
