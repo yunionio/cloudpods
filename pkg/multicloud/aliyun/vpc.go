@@ -18,12 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (

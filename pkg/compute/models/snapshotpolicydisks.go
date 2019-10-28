@@ -20,11 +20,11 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"

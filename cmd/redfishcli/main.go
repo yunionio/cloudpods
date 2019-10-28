@@ -21,11 +21,10 @@ import (
 
 	"yunion.io/x/structarg"
 
-	"yunion.io/x/onecloud/pkg/util/redfish"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
-
 	_ "yunion.io/x/onecloud/cmd/redfishcli/shell"
+	"yunion.io/x/onecloud/pkg/util/redfish"
 	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {

@@ -20,8 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/sqlchemy"
-	// "yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy" // "yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -31,7 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-
 	"yunion.io/x/onecloud/pkg/yunionconf/options"
 )
 

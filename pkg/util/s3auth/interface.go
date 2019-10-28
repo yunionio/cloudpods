@@ -17,6 +17,7 @@ package s3auth
 import (
 	"net/http"
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )

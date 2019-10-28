@@ -16,6 +16,7 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 

@@ -19,7 +19,6 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
 type Request struct {

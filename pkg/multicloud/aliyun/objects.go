@@ -15,10 +15,11 @@
 package aliyun
 
 import (
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
 
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 

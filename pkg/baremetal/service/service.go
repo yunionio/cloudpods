@@ -29,7 +29,6 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-
 	_ "yunion.io/x/onecloud/pkg/util/redfish/loader"
 )
 
