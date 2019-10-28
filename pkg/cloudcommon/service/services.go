@@ -22,12 +22,12 @@ import (
 	"syscall"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/signalutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/pkg/util/signalutils"
-	"yunion.io/x/pkg/utils"
 )
 
 type IService interface {

@@ -19,12 +19,12 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )

@@ -34,7 +34,6 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
-
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
