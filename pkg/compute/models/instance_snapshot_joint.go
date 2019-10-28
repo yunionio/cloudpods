@@ -49,3 +49,11 @@ func (manager *SInstanceSnapshotJointManager) CreateJoint(instanceSnapshotId, sn
 	instanceSnapshotJoint.DiskIndex = diskIndex
 	return manager.TableSpec().Insert(instanceSnapshotJoint)
 }
+
+func (manager *SInstanceSnapshotJointManager) IsSubSnapshot(snapshotId string) (bool, error) {
+	count, err := manager.Query().Equals("snapshot_id", snapshotId).CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

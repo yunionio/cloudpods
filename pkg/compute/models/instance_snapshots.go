@@ -67,21 +67,40 @@ func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcc
 
 func (self *SInstanceSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(userCred, extra)
 	return extra
 }
 
-func (self *SInstanceSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
 		extra.Set("guest_status", jsonutils.NewString(guest.Status))
-		extra.Set("guest_name", jsonutils.NewString(guest.Name))
+		extra.Set("guest", jsonutils.NewString(guest.Name))
 	}
+	var osType, storageType string
 	snapshots, _ := self.GetSnapshots()
-	snapshotsDesc := jsonutils.NewDict()
+	snapshotsDesc := jsonutils.NewArray()
 	for i := 0; i < len(snapshots); i++ {
-		snapshotsDesc.Set(snapshots[i].Id, jsonutils.NewString(snapshots[i].Name))
+		if snapshots[i].DiskType == compute.DISK_TYPE_SYS {
+			osType = snapshots[i].OsType
+		}
+		if len(snapshots[i].StorageId) > 0 && len(storageType) == 0 {
+			storage := snapshots[i].GetStorage()
+			storageType = storage.StorageType
+		}
+		jsonDict := jsonutils.Marshal(&snapshots[i]).(*jsonutils.JSONDict)
+		metaFields := db.GetDetailFields(SnapshotManager, userCred)
+		jsonDict = jsonDict.CopyIncludes(metaFields...)
+		snapshotsDesc.Add(jsonDict)
 	}
 	extra.Set("snapshots", snapshotsDesc)
+	if len(osType) > 0 {
+		properties := jsonutils.NewDict()
+		properties.Set("os_type", jsonutils.NewString(osType))
+		extra.Set("properties", properties)
+	}
+	if len(storageType) > 0 {
+		extra.Set("storage_type", jsonutils.NewString(storageType))
+	}
 	return extra
 }
 
@@ -90,7 +109,7 @@ func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcc
 	if err != nil {
 		return nil, err
 	}
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(userCred, extra)
 	return extra, nil
 }
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
