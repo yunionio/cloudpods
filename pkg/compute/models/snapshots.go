@@ -60,6 +60,7 @@ type SSnapshot struct {
 	OutOfChain  bool   `nullable:"false" default:"false" list:"admin" create:"optional"`
 	FakeDeleted bool   `nullable:"false" default:"false"`
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	OsType      string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
@@ -216,10 +217,12 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 		}
 		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
 	}
+	if t, _ := InstanceSnapshotJointManager.IsSubSnapshot(self.Id); t {
+		extra.Set("is_sub_snapshot", jsonutils.JSONTrue)
+	}
 
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
-
 	return extra
 }
 
