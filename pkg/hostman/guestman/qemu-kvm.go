@@ -424,15 +424,30 @@ func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Co
 
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
+		// try qmp first, if qmp connect failed, use hmp
 		timeutils2.AddTimeout(100*time.Millisecond, func() {
-			s.Monitor = monitor.NewQmpMonitor(
+			var mon monitor.Monitor
+			mon = monitor.NewQmpMonitor(
 				s.onMonitorDisConnect,                            // on monitor disconnect
 				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
 				func() { s.onMonitorConnected(ctx) },             // on monitor connected
 				s.onReceiveQMPEvent,                              // on reveive qmp event
 			)
-			s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
-
+			err := mon.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+			if err != nil {
+				log.Errorf("Guest %s qmp monitor connect failed %s, try hmp", s.GetName(), err)
+				mon = monitor.NewHmpMonitor(
+					s.onMonitorDisConnect,                            // on monitor disconnect
+					func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
+					func() { s.onMonitorConnected(ctx) },             // on monitor connected
+				)
+				err = mon.Connect("127.0.0.1", s.GetHmpMonitorPort(-1))
+				if err != nil {
+					mon = nil
+					log.Errorf("Guest %s hmp monitor connect failed %s, something wrong", s.GetName(), err)
+				}
+			}
+			s.Monitor = mon
 		})
 	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
 		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath)
