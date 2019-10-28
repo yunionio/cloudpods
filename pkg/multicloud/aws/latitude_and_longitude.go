@@ -15,9 +15,8 @@
 package aws
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 // https://docs.aws.amazon.com/general/latest/gr/rande.html

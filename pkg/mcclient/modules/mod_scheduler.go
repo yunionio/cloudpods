@@ -20,10 +20,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-
-	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 )
 
 var (

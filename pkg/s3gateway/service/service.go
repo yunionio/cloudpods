@@ -23,10 +23,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 	"yunion.io/x/onecloud/pkg/s3gateway/handlers"
 	"yunion.io/x/onecloud/pkg/s3gateway/options"
-
-	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
 func StartService() {

@@ -16,9 +16,11 @@ package huawei
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 // date: 2019.07.15

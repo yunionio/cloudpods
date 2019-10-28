@@ -19,10 +19,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/storage"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"

@@ -22,9 +22,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/pkg/utils"
 )
 
 func NewLinuxBridgeDeriver(bridge, inter, ip string) (*SLinuxBridgeDriver, error) {

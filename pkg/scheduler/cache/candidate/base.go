@@ -22,11 +22,10 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/scheduler/api"
-
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -27,7 +28,6 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 
-	"net/url"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"

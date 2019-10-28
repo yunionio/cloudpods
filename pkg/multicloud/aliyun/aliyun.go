@@ -21,14 +21,14 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	v "yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
