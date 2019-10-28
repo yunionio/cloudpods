@@ -13,9 +13,9 @@ RUN true \
 
 WORKDIR /opt
 RUN true \
-	&& wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz \
-	&& tar xzf go1.12.6.linux-amd64.tar.gz \
-	&& rm -vf  go1.12.6.linux-amd64.tar.gz \
+	&& wget https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz \
+	&& tar xzf go1.13.3.linux-amd64.tar.gz \
+	&& rm -vf  go1.13.3.linux-amd64.tar.gz \
 	&& true
 ENV GOROOT="/opt/go"
 ENV PATH="/opt/go/bin:${PATH}"
