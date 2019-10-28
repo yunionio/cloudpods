@@ -17,12 +17,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"yunion.io/x/onecloud/pkg/util/ucloud"
 
 	"yunion.io/x/log"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/ucloud"
 	_ "yunion.io/x/onecloud/pkg/util/ucloud/shell"
 )
 

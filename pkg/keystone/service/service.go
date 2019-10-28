@@ -27,20 +27,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
-
-	// "yunion.io/x/onecloud/pkg/keystone/keys"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy" // "yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
-	"yunion.io/x/onecloud/pkg/keystone/models"
-	"yunion.io/x/onecloud/pkg/keystone/options"
-	"yunion.io/x/onecloud/pkg/keystone/tokens"
-
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/logclient"
-
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
+	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
+	"yunion.io/x/onecloud/pkg/keystone/tokens"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func keystoneUUIDGenerator() string {

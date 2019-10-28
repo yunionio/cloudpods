@@ -19,12 +19,14 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/coredns/coredns/plugin/pkg/log"
+
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 

@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,6 +35,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SManagedVirtualizedGuestDriver struct {

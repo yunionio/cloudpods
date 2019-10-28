@@ -23,15 +23,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"yunion.io/x/onecloud/pkg/util/imagetools"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/multipart"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
+	"yunion.io/x/onecloud/pkg/util/multipart"
 )
 
 type SBackupStorageRef struct {

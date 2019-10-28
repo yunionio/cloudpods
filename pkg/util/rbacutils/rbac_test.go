@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/pkg/util/netutils"
 )
 

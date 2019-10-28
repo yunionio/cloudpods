@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/prometheus"
@@ -30,17 +31,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/gin/middleware"
-
-	_ "github.com/go-sql-driver/mysql"
-	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
-	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
-	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 )
 
 func StartService() error {
