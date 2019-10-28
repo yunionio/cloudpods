@@ -27,3 +27,12 @@ USER build
 
 ENV GOPATH="/home/build/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
+
+RUN true \
+	&& mkdir -p "$GOPATH" \
+	&& d="$GOPATH/src/golang.org/x/tools" \
+	&& mkdir -p "$d" \
+	&& git clone --branch yun --depth 8 https://github.com/yousong/tools "$d" \
+	&& cd "$d" \
+	&& go install ./cmd/goimports \
+	&& true
