@@ -17,9 +17,10 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/errors"
 )
 
 type SGuestImageJointManager struct {

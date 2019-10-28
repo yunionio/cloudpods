@@ -8,6 +8,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -16,10 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 type SDBInstanceSkuManager struct {

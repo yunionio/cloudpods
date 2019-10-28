@@ -28,10 +28,9 @@ import (
 	"regexp"
 	"strings"
 
-	"yunion.io/x/pkg/util/netutils"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
