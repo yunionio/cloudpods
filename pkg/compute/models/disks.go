@@ -589,6 +589,12 @@ func (self *SDisk) GetSnapshotCount() (int, error) {
 		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
+func (self *SDisk) GetManualSnapshotCount() (int, error) {
+	return SnapshotManager.Query().
+		Equals("disk_id", self.Id).Equals("fake_deleted", false).
+		Equals("created_by", api.SNAPSHOT_MANUAL).CountWithError()
+}
+
 func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SStorage, taskId string, userCred mcclient.TokenCredential, rebuild bool, snapshot string, task taskman.ITask) error {
 	log.Infof("Allocating disk on host %s ...", host.GetName())
 
@@ -1695,7 +1701,12 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		snapshotpoliciesJson.Add(spsDict)
 	}
 	extra.Add(snapshotpoliciesJson, "snapshotpolicies")
-	extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+	manualSnapshotCount, _ := self.GetManualSnapshotCount()
+	if utils.IsInStringArray(self.GetStorage().StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
+		extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
+		extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+	}
+
 	return extra
 }
 
