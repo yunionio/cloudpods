@@ -45,6 +45,7 @@ func init() {
 	initConfigMap()
 	initDeployment()
 	initStatefulset()
+	initDaemonSet()
 	initPod()
 	initService()
 	initIngress()
@@ -56,6 +57,8 @@ func init() {
 	initPVC()
 	initJob()
 	initCronJob()
+
+	initRbac()
 
 	initApp()
 }
