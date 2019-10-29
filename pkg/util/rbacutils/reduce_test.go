@@ -15,10 +15,53 @@
 package rbacutils
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 )
 
 func TestReduce(t *testing.T) {
+
+	actions := []string{"create", "delete", "get", "list", "perform", "update"}
+	compute := []string{"disks", "snapshotpolicies", "snapshots"}
+	image := []string{"images"}
+	caseIn := make([]SRbacRule, 0, len(actions)*(len(compute)+len(image)))
+
+	generate := func(serviceName string, resources []string, denyFunc func(resource, action string) bool) {
+		for _, resource := range resources {
+			for _, action := range actions {
+				if denyFunc(resource, action) {
+					caseIn = append(caseIn, SRbacRule{
+						Service:  serviceName,
+						Resource: resource,
+						Action:   action,
+						Result:   Deny,
+					})
+					continue
+				}
+				caseIn = append(caseIn, SRbacRule{
+					Service:  serviceName,
+					Resource: resource,
+					Action:   action,
+					Result:   Allow,
+				})
+			}
+		}
+	}
+
+	generate("compute", compute, func(resource, action string) bool {
+		if resource == "snapshotpolicies" {
+			return true
+		}
+		if resource == "snapshots" && action == "list" {
+			return true
+		}
+		return false
+	})
+	generate("image", image, func(resource, actions string) bool {
+		return true
+	})
+
 	cases := map[string]struct {
 		in   []SRbacRule
 		want []SRbacRule
@@ -43,78 +86,6 @@ func TestReduce(t *testing.T) {
 					Action:   "delete",
 					Result:   Allow,
 				},
-			},
-			want: []SRbacRule{
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Result:   Allow,
-				},
-			},
-		},
-		"merge2": {
-			in: []SRbacRule{
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Action:   "get",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Action:   "create",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "networks",
-					Action:   "get",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "networks",
-					Action:   "create",
-					Result:   Deny,
-				},
-			},
-			want: []SRbacRule{
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Action:   "",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "networks",
-					Action:   "get",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "networks",
-					Action:   "create",
-					Result:   Deny,
-				},
-			},
-		},
-		"merge3": {
-			in: []SRbacRule{
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Action:   "get",
-					Result:   Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "servers",
-					Action:   "get",
-					Extra:    []string{"vnc"},
-					Result:   Deny,
-				},
 				{
 					Service:  "compute",
 					Resource: "servers",
@@ -130,8 +101,8 @@ func TestReduce(t *testing.T) {
 				{
 					Service:  "compute",
 					Resource: "servers",
-					Action:   "delete",
-					Result:   Deny,
+					Action:   "perform",
+					Result:   Allow,
 				},
 			},
 			want: []SRbacRule{
@@ -140,24 +111,63 @@ func TestReduce(t *testing.T) {
 					Resource: "servers",
 					Result:   Allow,
 				},
+			},
+		},
+		"merge2": {
+			in: caseIn,
+			want: []SRbacRule{
 				{
 					Service:  "compute",
-					Resource: "servers",
-					Action:   "get",
-					Extra:    []string{"vnc"},
+					Resource: "disks",
+					Action:   "",
+					Result:   Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "snapshotpolicies",
+					Action:   "",
 					Result:   Deny,
 				},
 				{
 					Service:  "compute",
-					Resource: "servers",
-					Action:   "delete",
+					Resource: "snapshots",
+					Action:   "*",
+					Result:   Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "snapshots",
+					Action:   "list",
+					Result:   Deny,
+				},
+				{
+					Service:  "image",
+					Resource: "images",
+					Action:   "",
 					Result:   Deny,
 				},
 			},
 		},
 	}
+
 	for name, c := range cases {
 		got := reduceRules(c.in)
-		t.Logf("[%s]: want: %s got: %s", name, c.want, got)
+		for i := range c.want {
+			c.want[i].Extra = []string{}
+		}
+		sort.Slice(got, genLess(got))
+		sort.Slice(c.want, genLess(c.want))
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("[%s]: want: %s got: %s", name, c.want, got)
+		}
+	}
+}
+
+func genLess(rules []SRbacRule) func(i, j int) bool {
+	return func(i, j int) bool {
+		if rules[i].Service == rules[j].Service {
+			return rules[i].Resource < rules[j].Resource
+		}
+		return rules[i].Service < rules[j].Service
 	}
 }

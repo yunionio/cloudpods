@@ -177,6 +177,9 @@ func (n *sRbacNode) reduce() {
 	for k := range n.downStream {
 		n.downStream[k].reduce()
 	}
+	if n.level == levelService || n.level == levelResource {
+		return
+	}
 	n.reduceDownstream()
 }
 
