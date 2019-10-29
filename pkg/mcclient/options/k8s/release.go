@@ -112,7 +112,7 @@ func (o ReleaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type ReleaseUpgradeOptions struct {
-	ClusterBaseOptions
+	NamespaceWithClusterOptions
 	ReleaseCreateUpdateOptions
 	NAME        string `help:"Release instance name"`
 	CHARTNAME   string `help:"Helm chart name, e.g stable/etcd"`
@@ -125,7 +125,7 @@ func (o ReleaseUpgradeOptions) Params() (*jsonutils.JSONDict, error) {
 	if err != nil {
 		return nil, err
 	}
-	params.Update(o.ClusterBaseOptions.Params())
+	params.Update(o.NamespaceWithClusterOptions.Params())
 	params.Add(jsonutils.NewString(o.CHARTNAME), "chart_name")
 	params.Add(jsonutils.NewString(o.NAME), "release_name")
 	if o.ReuseValues {
@@ -138,18 +138,18 @@ func (o ReleaseUpgradeOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type ReleaseDeleteOptions struct {
-	ClusterBaseOptions
+	NamespaceWithClusterOptions
 	NAME string `help:"Release instance name"`
 }
 
 type ReleaseHistoryOptions struct {
-	ClusterBaseOptions
+	NamespaceWithClusterOptions
 	NAME string `help:"Release instance name"`
 	Max  int64  `help:"History limit size"`
 }
 
 func (o ReleaseHistoryOptions) Params() *jsonutils.JSONDict {
-	params := o.ClusterBaseOptions.Params()
+	params := o.NamespaceWithClusterOptions.Params()
 	if o.Max >= 1 {
 		params.Add(jsonutils.NewInt(o.Max), "max")
 	}
@@ -157,14 +157,14 @@ func (o ReleaseHistoryOptions) Params() *jsonutils.JSONDict {
 }
 
 type ReleaseRollbackOptions struct {
-	ClusterBaseOptions
+	NamespaceWithClusterOptions
 	NAME        string `help:"Release instance name"`
 	REVISION    int64  `help:"Release history revision number"`
 	Description string `help:"Release rollback description string"`
 }
 
 func (o ReleaseRollbackOptions) Params() *jsonutils.JSONDict {
-	params := o.ClusterBaseOptions.Params()
+	params := o.NamespaceWithClusterOptions.Params()
 	params.Add(jsonutils.NewInt(o.REVISION), "revision")
 	if o.Description != "" {
 		params.Add(jsonutils.NewString(o.Description), "description")
