@@ -333,3 +333,27 @@ func (r *SIDracRefishApi) GetConsoleJNLP(ctx context.Context) (string, error) {
 	bmc := bmconsole.NewBMCConsole(r.GetHost(), r.GetUsername(), r.GetPassword(), r.IsDebug)
 	return bmc.GetIdracConsoleJNLP(ctx, "", "")
 }
+
+func (r *SIDracRefishApi) GetSystemLogsPath() string {
+	return "/redfish/v1/Managers/iDRAC.Embedded.1/Logs/Sel"
+}
+
+func (r *SIDracRefishApi) GetManagerLogsPath() string {
+	return "/redfish/v1/Managers/iDRAC.Embedded.1/Logs/Lclog"
+}
+
+func (r *SIDracRefishApi) GetClearSystemLogsPath() string {
+	return "/redfish/v1/Managers/iDRAC.Embedded.1/LogServices/Sel/Actions/LogService.ClearLog"
+}
+
+func (r *SIDracRefishApi) GetClearManagerLogsPath() string {
+	return "/redfish/v1/Managers/iDRAC.Embedded.1/LogServices/Lclog/Actions/LogService.ClearLog"
+}
+
+func (r *SIDracRefishApi) GetPowerPath() string {
+	return "/redfish/v1/Chassis/System.Embedded.1/Power"
+}
+
+func (r *SIDracRefishApi) GetThermalPath() string {
+	return "/redfish/v1/Chassis/System.Embedded.1/Thermal"
+}

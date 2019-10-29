@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,6 +62,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -96,6 +98,10 @@ func (m *SBaremetalManager) GetClientSession() *mcclient.ClientSession {
 
 func (m *SBaremetalManager) GetZoneId() string {
 	return m.Agent.Zone.Id
+}
+
+func (m *SBaremetalManager) GetZoneName() string {
+	return m.Agent.Zone.Name
 }
 
 func (m *SBaremetalManager) loadConfigs() error {
@@ -469,6 +475,8 @@ type SBaremetalInstance struct {
 	taskQueue  *tasks.TaskQueue
 	server     baremetaltypes.IBaremetalServer
 	serverLock *sync.Mutex
+
+	cronJobs []IBaremetalCronJob
 }
 
 func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*SBaremetalInstance, error) {
@@ -478,6 +486,11 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 		descLock:   new(sync.Mutex),
 		taskQueue:  tasks.NewTaskQueue(),
 		serverLock: new(sync.Mutex),
+	}
+	bm.cronJobs = []IBaremetalCronJob{
+		NewStatusProbeJob(bm, time.Duration(o.Options.StatusProbeIntervalSeconds)*time.Second),
+		NewLogFetchJob(bm, time.Duration(o.Options.LogFetchIntervalSeconds)*time.Second),
+		NewSendMetricsJob(bm, time.Duration(o.Options.SendMetricsIntervalSeconds)*time.Second),
 	}
 	err := os.MkdirAll(bm.GetDir(), 0755)
 	if err != nil {
@@ -1061,7 +1074,7 @@ LABEL start
 		resp += "    APPEND hd0 0\n"
 		b.ClearSSHConfig()
 	}
-	log.Infof("[TFTP response]: \n%s", resp)
+	// log.Debugf("[SysLinux config]: \n%s", resp)
 	return resp
 }
 
@@ -1295,11 +1308,25 @@ func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
 }
 
-func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfishDriver {
+func (b *SBaremetalInstance) isRedfishCapable() bool {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
+		return false
+	}
+	if !conf.Verified {
+		return false
+	}
+	if !conf.RedfishApi {
+		return false
+	}
+	return true
+}
+
+func (b *SBaremetalInstance) GetRedfishCli(ctx context.Context) redfish.IRedfishDriver {
+	if !b.isRedfishCapable() {
 		return nil
 	}
+	conf := b.GetIPMIConfig()
 	return redfish.NewRedfishDriver(ctx, "https://"+conf.IpAddr,
 		conf.Username, conf.Password, false)
 }
@@ -1374,8 +1401,55 @@ func (b *SBaremetalInstance) GetZoneId() string {
 	return b.manager.GetZoneId()
 }
 
+func (b *SBaremetalInstance) GetZoneName() string {
+	return b.manager.GetZoneName()
+}
+
 func (b *SBaremetalInstance) GetStorageCacheId() string {
 	return b.manager.Agent.CacheManager.GetId()
+}
+
+func (b *SBaremetalInstance) GetBootMode() string {
+	bootMode, _ := b.desc.GetString("boot_mode")
+	if len(bootMode) == 0 {
+		bootMode = api.BOOT_MODE_PXE
+	}
+	return bootMode
+}
+
+func (b *SBaremetalInstance) GetRegion() string {
+	r, _ := b.desc.GetString("region")
+	return r
+}
+
+func (b *SBaremetalInstance) GetRegionId() string {
+	r, _ := b.desc.GetString("region_id")
+	return r
+}
+
+func (b *SBaremetalInstance) GetSerialNumber() string {
+	r, _ := b.desc.GetString("sn")
+	return r
+}
+
+func (b *SBaremetalInstance) GetManufacture() string {
+	r, _ := b.desc.GetString("sys_info", "manufacture")
+	return r
+}
+
+func (b *SBaremetalInstance) GetModel() string {
+	r, _ := b.desc.GetString("sys_info", "model")
+	return r
+}
+
+func (b *SBaremetalInstance) GetNodeCount() string {
+	r, _ := b.desc.GetString("node_count")
+	return r
+}
+
+func (b *SBaremetalInstance) GetMemGb() string {
+	memMb, _ := b.desc.Int("mem_size")
+	return strconv.FormatInt(memMb/1024, 10)
 }
 
 func (b *SBaremetalInstance) DelayedRemove(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1748,6 +1822,146 @@ func (b *SBaremetalInstance) DoNTPConfig() error {
 		return errors.Wrap(err, "redfishApi.SetNTPConf")
 	}
 	return nil
+}
+
+func (b *SBaremetalInstance) fetchLogs(ctx context.Context, logType string, since time.Time) ([]redfish.SEvent, error) {
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		// errors.Wrap(httperrors.ErrNotSupported, "no valid redfish api")
+		return nil, nil
+	}
+	switch logType {
+	case redfish.EVENT_TYPE_SYSTEM:
+		return redfishApi.ReadSystemLogs(ctx, since)
+	case redfish.EVENT_TYPE_MANAGER:
+		return redfishApi.ReadManagerLogs(ctx, since)
+	}
+	return nil, errors.Wrap(httperrors.ErrNotSupported, logType)
+}
+
+func (b *SBaremetalInstance) clearLogs(ctx context.Context, logType string) error {
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		return errors.Wrap(httperrors.ErrNotSupported, "no valid redfish api")
+	}
+	switch logType {
+	case redfish.EVENT_TYPE_SYSTEM:
+		return redfishApi.ClearSystemLogs(ctx)
+	case redfish.EVENT_TYPE_MANAGER:
+		return redfishApi.ClearManagerLogs(ctx)
+	}
+	return errors.Wrap(httperrors.ErrNotSupported, logType)
+}
+
+func (b *SBaremetalInstance) doCronJobs(ctx context.Context) {
+	for _, job := range b.cronJobs {
+		now := time.Now().UTC()
+		if job.NeedsToRun(now) {
+			log.Debugf("need to run %s", job.Name())
+			func() {
+				job.StartRun()
+				defer job.StopRun()
+				err := job.Do(ctx, now)
+				if err != nil {
+					log.Errorf("Baremetal %s do cronjob %s fail: %s", b.GetName(), job.Name(), err)
+				}
+			}()
+		}
+	}
+}
+
+func (b *SBaremetalInstance) fetchPowerThermalMetrics(ctx context.Context) ([]influxdb.SKeyValue, []influxdb.SKeyValue, error) {
+	redfishApi := b.GetRedfishCli(ctx)
+	if redfishApi == nil {
+		return nil, nil, errors.Wrap(httperrors.ErrNotSupported, "no valid redfish api")
+	}
+	powers, err := redfishApi.GetPower(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "redfishApi.GetPower")
+	}
+	thermals, err := redfishApi.GetThermal(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "redfishApi.Thermal")
+	}
+	powerMetrics := powers[0].ToMetrics()
+	thermalMetrics := make([]influxdb.SKeyValue, 0)
+	for _, t := range thermals {
+		thermalMetrics = append(thermalMetrics, t.ToMetric())
+	}
+	return powerMetrics, thermalMetrics, nil
+}
+
+func (b *SBaremetalInstance) getTags() []influxdb.SKeyValue {
+	tags := []influxdb.SKeyValue{
+		{
+			Key:   "id",
+			Value: b.GetId(),
+		},
+		{
+			Key:   "name",
+			Value: b.GetName(),
+		},
+		{
+			Key:   "zone_id",
+			Value: b.GetZoneId(),
+		},
+		{
+			Key:   "zone",
+			Value: b.GetZoneName(),
+		},
+		{
+			Key:   "boot_mode",
+			Value: b.GetBootMode(),
+		},
+		{
+			Key:   "host_type",
+			Value: "baremetal",
+		},
+		{
+			Key:   "region",
+			Value: b.GetRegion(),
+		},
+		{
+			Key:   "region_id",
+			Value: b.GetRegionId(),
+		},
+		{
+			Key:   "sn",
+			Value: b.GetSerialNumber(),
+		},
+		{
+			Key:   "manufacture",
+			Value: b.GetManufacture(),
+		},
+		{
+			Key:   "model",
+			Value: b.GetModel(),
+		},
+		{
+			Key:   "status",
+			Value: b.GetStatus(),
+		},
+		{
+			Key:   "ncpu",
+			Value: b.GetNodeCount(),
+		},
+		{
+			Key:   "mem_gb",
+			Value: b.GetMemGb(),
+		},
+	}
+	srvId := b.GetServerId()
+	if len(srvId) > 0 {
+		tags = append(tags, influxdb.SKeyValue{
+			Key:   "server_id",
+			Value: srvId,
+		})
+		tags = append(tags, influxdb.SKeyValue{
+			Key:   "server",
+			Value: b.GetServerName(),
+		})
+	}
+	return tags
 }
 
 type SBaremetalServer struct {

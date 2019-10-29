@@ -17,6 +17,7 @@ package ilo
 import (
 	"context"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -118,10 +119,13 @@ func (r *SILORefishApi) SetNextBootVirtualCdrom(ctx context.Context) error {
 	return nil
 }
 
-func (r *SILORefishApi) readLogs(ctx context.Context, subsys string) ([]redfish.SEvent, error) {
-	path, _, err := r.GetResource(ctx, subsys, "0", "LogServices", "0", "Entries")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetResource")
+func (r *SILORefishApi) readLogs(ctx context.Context, path string, subsys string, typeStr string, since time.Time) ([]redfish.SEvent, error) {
+	if len(path) == 0 {
+		var err error
+		path, _, err = r.GetResource(ctx, subsys, "0", "LogServices", "0", "Entries")
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResource")
+		}
 	}
 	resp, err := r.Get(ctx, path)
 	if err != nil {
@@ -132,7 +136,7 @@ func (r *SILORefishApi) readLogs(ctx context.Context, subsys string) ([]redfish.
 		return nil, errors.Wrap(err, "GetArray")
 	}
 	events := make([]redfish.SEvent, 0)
-	for idx := range paths {
+	for idx := len(paths) - 1; idx >= 0; idx -= 1 {
 		eventPath, err := paths[idx].GetString(r.IRedfishDriver().LinkKey())
 		if err != nil {
 			return nil, errors.Wrap(err, "GetString")
@@ -147,29 +151,42 @@ func (r *SILORefishApi) readLogs(ctx context.Context, subsys string) ([]redfish.
 		if err != nil {
 			return nil, errors.Wrap(err, "eventResp.Unmarshal")
 		}
+		if !since.IsZero() && tmpEvent.Created.Before(since) {
+			break
+		}
 		tmpEvent.EventId, _ = eventResp.GetString("Oem", "Hp", "EventNumber")
 		if len(tmpEvent.EventId) == 0 {
 			tmpEvent.EventId, _ = eventResp.GetString("Oem", "Hpe", "EventNumber")
 		}
+		tmpEvent.Type = typeStr
 		events = append(events, tmpEvent)
 	}
+	redfish.SortEvents(events)
 	return events, nil
 }
 
-func (r *SILORefishApi) ReadSystemLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.readLogs(ctx, "Systems")
+func (r *SILORefishApi) ReadSystemLogs(ctx context.Context, since time.Time) ([]redfish.SEvent, error) {
+	return r.readLogs(ctx, "/redfish/v1/Systems/1/LogServices/IML/Entries/", "Systems", redfish.EVENT_TYPE_SYSTEM, since)
 }
 
-func (r *SILORefishApi) ReadManagerLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.readLogs(ctx, "Managers")
+func (r *SILORefishApi) ReadManagerLogs(ctx context.Context, since time.Time) ([]redfish.SEvent, error) {
+	return r.readLogs(ctx, "/redfish/v1/Managers/1/LogServices/IEL/Entries/", "Managers", redfish.EVENT_TYPE_MANAGER, since)
+}
+
+func (r *SILORefishApi) GetClearSystemLogsPath() string {
+	return "/redfish/v1/Systems/1/LogServices/IML/Actions/LogService.ClearLog/"
+}
+
+func (r *SILORefishApi) GetClearManagerLogsPath() string {
+	return "/redfish/v1/Managers/1/LogServices/IEL/Actions/LogService.ClearLog/"
 }
 
 func (r *SILORefishApi) ClearSystemLogs(ctx context.Context) error {
-	return r.ClearLogs(ctx, "Systems", 0)
+	return r.ClearLogs(ctx, r.IRedfishDriver().GetClearManagerLogsPath(), "Systems", 0)
 }
 
 func (r *SILORefishApi) ClearManagerLogs(ctx context.Context) error {
-	return r.ClearLogs(ctx, "Managers", 0)
+	return r.ClearLogs(ctx, r.IRedfishDriver().GetClearManagerLogsPath(), "Managers", 0)
 }
 
 func (r *SILORefishApi) LogItemsKey() string {
@@ -281,4 +298,12 @@ func (r *SILORefishApi) MountVirtualCdrom(ctx context.Context, path string, cdro
 	}
 	log.Debugf("%s", resp.PrettyString())
 	return nil
+}
+
+func (r *SILORefishApi) GetPowerPath() string {
+	return "/redfish/v1/Chassis/1/Power/"
+}
+
+func (r *SILORefishApi) GetThermalPath() string {
+	return "/redfish/v1/Chassis/1/Thermal/"
 }
