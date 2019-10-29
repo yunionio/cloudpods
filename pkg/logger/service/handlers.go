@@ -33,6 +33,7 @@ func initHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		models.ActionLog,
+		models.BaremetalEventManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

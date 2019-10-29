@@ -17,8 +17,10 @@ package shell
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/printutils"
@@ -79,9 +81,18 @@ func init() {
 	})
 
 	type ReadLogsOptions struct {
+		Since string `help:"read logs after, format: YYYY-MM-DD"`
 	}
 	shellutils.R(&ReadLogsOptions{}, "system-logs", "Read system logs", func(cli redfish.IRedfishDriver, args *ReadLogsOptions) error {
-		events, err := cli.ReadSystemLogs(context.Background())
+		var sinceTm time.Time
+		var err error
+		if len(args.Since) > 0 {
+			sinceTm, err = timeutils.ParseTimeStr(args.Since)
+			if err != nil {
+				return err
+			}
+		}
+		events, err := cli.ReadSystemLogs(context.Background(), sinceTm)
 		if err != nil {
 			return err
 		}
@@ -89,7 +100,15 @@ func init() {
 		return nil
 	})
 	shellutils.R(&ReadLogsOptions{}, "manager-logs", "Read manager logs", func(cli redfish.IRedfishDriver, args *ReadLogsOptions) error {
-		events, err := cli.ReadManagerLogs(context.Background())
+		var sinceTm time.Time
+		var err error
+		if len(args.Since) > 0 {
+			sinceTm, err = timeutils.ParseTimeStr(args.Since)
+			if err != nil {
+				return err
+			}
+		}
+		events, err := cli.ReadManagerLogs(context.Background(), sinceTm)
 		if err != nil {
 			return err
 		}
