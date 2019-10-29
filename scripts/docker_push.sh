@@ -21,8 +21,8 @@ readlink_mac() {
   REAL_PATH=$PHYS_DIR/$TARGET_FILE
 }
 
-pushd $(cd "$(dirname "$0")"; pwd)
-readlink_mac $BASH_SOURCE
+pushd $(cd "$(dirname "$0")"; pwd) > /dev/null
+readlink_mac $(basename "$0")
 cd "$(dirname "$REAL_PATH")"
 CUR_DIR=$(pwd)
 SRC_DIR=$(cd .. && pwd)
