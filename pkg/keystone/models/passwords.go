@@ -15,14 +15,16 @@
 package models
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -73,6 +75,22 @@ type SPassword struct {
 	ExpiresAtInt int64     `nullable:"true"`
 }
 
+func shaPassword(passwd string) string {
+	shaOut := sha256.Sum224([]byte(passwd))
+	return hex.EncodeToString(shaOut[:])
+}
+
+func (manager *SPasswordManager) FetchLastPassword(localUserId int) (*SPassword, error) {
+	passes, err := manager.fetchByLocaluserId(localUserId)
+	if err != nil {
+		return nil, err
+	}
+	if len(passes) == 0 {
+		return nil, nil
+	}
+	return &passes[0], nil
+}
+
 func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPassword, error) {
 	passes := make([]SPassword, 0)
 	passwords := manager.Query().SubQuery()
@@ -92,6 +110,25 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 	return passes, nil
 }
 
+func (manager *SPasswordManager) verifyPassword(localUserId int, password string) error {
+	if o.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
+		return errors.Error("too simple password")
+	}
+	if o.Options.PasswordUniqueHistoryCheck > 0 {
+		shaPass := shaPassword(password)
+		histPasses, err := manager.fetchByLocaluserId(localUserId)
+		if err != nil {
+			return errors.Wrap(err, "manager.fetchByLocaluserId")
+		}
+		for i := 0; i < len(histPasses) && i < o.Options.PasswordUniqueHistoryCheck; i += 1 {
+			if histPasses[i].Password == shaPass {
+				return errors.Error("repeated password")
+			}
+		}
+	}
+	return nil
+}
+
 func (manager *SPasswordManager) savePassword(localUserId int, password string) error {
 	hash, err := seclib2.BcryptPassword(password)
 	if err != nil {
@@ -100,7 +137,13 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string) 
 	rec := SPassword{}
 	rec.LocalUserId = localUserId
 	rec.PasswordHash = hash
-	rec.CreatedAtInt = time.Now().UnixNano() / 1000
+	rec.Password = shaPassword(password)
+	now := time.Now()
+	rec.CreatedAtInt = now.UnixNano() / 1000
+	if o.Options.PasswordExpirationDays > 0 {
+		rec.ExpiresAt = now.Add(24 * time.Hour * time.Duration(o.Options.PasswordExpirationDays))
+		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
+	}
 	err = manager.TableSpec().Insert(&rec)
 	if err != nil {
 		return errors.Wrap(err, "Insert")

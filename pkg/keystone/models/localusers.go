@@ -21,6 +21,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -74,6 +75,17 @@ func (user *SLocalUser) GetName() string {
 	return user.Name
 }
 
+func (manager *SLocalUserManager) FetchLocalUser(usrExt *api.SUserExtended) (*SLocalUser, error) {
+	localUser := SLocalUser{}
+	localUser.SetModelManager(manager, &localUser)
+	q := manager.Query().Equals("id", usrExt.LocalId)
+	err := q.First(&localUser)
+	if err != nil {
+		return nil, errors.Wrap(err, "Query")
+	}
+	return &localUser, nil
+}
+
 func (manager *SLocalUserManager) register(userId string, domainId string, name string) (*SLocalUser, error) {
 	localUser := SLocalUser{}
 	localUser.SetModelManager(manager, &localUser)
@@ -120,4 +132,28 @@ func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLoca
 	}
 
 	return &localUser, nil
+}
+
+func (usr *SLocalUser) SaveFailedAuth() error {
+	_, err := db.Update(usr, func() error {
+		usr.FailedAuthCount += 1
+		usr.FailedAuthAt = time.Now()
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	return nil
+}
+
+func (usr *SLocalUser) ClearFailedAuth() error {
+	_, err := db.Update(usr, func() error {
+		usr.FailedAuthCount = 0
+		usr.FailedAuthAt = time.Time{}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	return nil
 }
