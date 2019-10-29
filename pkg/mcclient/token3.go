@@ -56,10 +56,10 @@ type KeystoneProjectV3 struct {
 }
 
 type KeystoneUserV3 struct {
-	Id                  string
-	Name                string
-	Domain              KeystoneDomainV3
-	Password_expires_at time.Time
+	Id                string
+	Name              string
+	Domain            KeystoneDomainV3
+	PasswordExpiresAt time.Time
 
 	Displayname string
 	Email       string
@@ -95,7 +95,7 @@ type KeystoneTokenV3 struct {
 
 type TokenCredentialV3 struct {
 	Token KeystoneTokenV3 `json:"token"`
-	Id    string          `json:"-"`
+	Id    string          `json:"id"`
 }
 
 func (token *TokenCredentialV3) GetTokenString() string {
@@ -155,7 +155,7 @@ func (this *TokenCredentialV3) GetExpires() time.Time {
 }
 
 func (this *TokenCredentialV3) IsValid() bool {
-	return this.ValidDuration() > 0
+	return len(this.Id) > 0 && this.ValidDuration() > 0
 }
 
 func (this *TokenCredentialV3) ValidDuration() time.Duration {

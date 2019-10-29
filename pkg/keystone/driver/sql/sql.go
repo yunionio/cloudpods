@@ -22,6 +22,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
+	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -49,10 +50,19 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
+	localUser, err := models.LocalUserManager.FetchLocalUser(usrExt)
+	if err != nil {
+		return nil, errors.Wrap(err, "LocalUserManager.FetchLocalUser")
+	}
 	err = models.VerifyPassword(usrExt, ident.Password.User.Password)
 	if err != nil {
+		localUser.SaveFailedAuth()
+		if localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
+			models.UserManager.LockUser(usrExt.Id)
+		}
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}
+	localUser.ClearFailedAuth()
 	return usrExt, nil
 }
 
