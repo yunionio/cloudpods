@@ -468,3 +468,7 @@ func (self *SKVMGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return guest.CancelExpireTime(ctx, userCred)
 }
+
+func (self *SKVMGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return true, nil
+}

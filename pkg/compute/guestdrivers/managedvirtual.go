@@ -982,3 +982,7 @@ func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
 	}
 	return nil
 }
+
+func (self *SManagedVirtualizedGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return false, nil
+}

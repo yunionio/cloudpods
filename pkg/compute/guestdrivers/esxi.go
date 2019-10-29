@@ -230,3 +230,7 @@ func (self *SESXiGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return guest.CancelExpireTime(ctx, userCred)
 }
+
+func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	return false, nil
+}

@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -515,4 +516,13 @@ func (self *SBaremetalGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context
 
 func (self *SBaremetalGuestDriver) IsSupportGuestClone() bool {
 	return false
+}
+
+func (self *SBaremetalGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
+	host := guest.GetHost()
+	ipmiInfo, err := host.GetIpmiInfo()
+	if err != nil {
+		return false, errors.Wrap(err, "host.GetIpmiInfo")
+	}
+	return ipmiInfo.CdromBoot, nil
 }
