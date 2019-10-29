@@ -359,7 +359,7 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		return ErrEmptyPolicy
 	}
 
-	policy.Rules = CompactRules(rules)
+	policy.Rules = rules
 
 	return nil
 }
