@@ -118,12 +118,50 @@ func (r *SILORefishApi) SetNextBootVirtualCdrom(ctx context.Context) error {
 	return nil
 }
 
+func (r *SILORefishApi) readLogs(ctx context.Context, subsys string) ([]redfish.SEvent, error) {
+	path, _, err := r.GetResource(ctx, subsys, "0", "LogServices", "0", "Entries")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetResource")
+	}
+	resp, err := r.Get(ctx, path)
+	if err != nil {
+		return nil, errors.Wrap(err, path)
+	}
+	paths, err := resp.GetArray(r.IRedfishDriver().MemberKey())
+	if err != nil {
+		return nil, errors.Wrap(err, "GetArray")
+	}
+	events := make([]redfish.SEvent, 0)
+	for idx := range paths {
+		eventPath, err := paths[idx].GetString(r.IRedfishDriver().LinkKey())
+		if err != nil {
+			return nil, errors.Wrap(err, "GetString")
+		}
+		eventResp, err := r.Get(ctx, eventPath)
+		if err != nil {
+			log.Errorf("GetEvent fail %s", err)
+			continue
+		}
+		tmpEvent := redfish.SEvent{}
+		err = eventResp.Unmarshal(&tmpEvent)
+		if err != nil {
+			return nil, errors.Wrap(err, "eventResp.Unmarshal")
+		}
+		tmpEvent.EventId, _ = eventResp.GetString("Oem", "Hp", "EventNumber")
+		if len(tmpEvent.EventId) == 0 {
+			tmpEvent.EventId, _ = eventResp.GetString("Oem", "Hpe", "EventNumber")
+		}
+		events = append(events, tmpEvent)
+	}
+	return events, nil
+}
+
 func (r *SILORefishApi) ReadSystemLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.ReadLogs(ctx, "Systems", 0)
+	return r.readLogs(ctx, "Systems")
 }
 
 func (r *SILORefishApi) ReadManagerLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.ReadLogs(ctx, "Managers", 0)
+	return r.readLogs(ctx, "Managers")
 }
 
 func (r *SILORefishApi) ClearSystemLogs(ctx context.Context) error {
@@ -135,7 +173,7 @@ func (r *SILORefishApi) ClearManagerLogs(ctx context.Context) error {
 }
 
 func (r *SILORefishApi) LogItemsKey() string {
-	return "Items"
+	return "Members"
 }
 
 func (r *SILORefishApi) GetIndicatorLED(ctx context.Context) (bool, error) {

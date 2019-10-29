@@ -40,6 +40,7 @@ type SSystemInfo struct {
 
 type SEvent struct {
 	Created  time.Time `json:"Created"`
+	EventId  string    `json:"MessageID"`
 	Message  string    `json:"Message"`
 	Severity string    `json:"Severity"`
 }
