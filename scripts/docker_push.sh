@@ -3,7 +3,27 @@
 set -o errexit
 set -o pipefail
 
-pushd $(dirname $(readlink -f "$BASH_SOURCE")) > /dev/null
+readlink_mac() {
+  cd `dirname $1`
+  TARGET_FILE=`basename $1`
+
+  # Iterate down a (possible) chain of symlinks
+  while [ -L "$TARGET_FILE" ]
+  do
+    TARGET_FILE=`readlink $TARGET_FILE`
+    cd `dirname $TARGET_FILE`
+    TARGET_FILE=`basename $TARGET_FILE`
+  done
+
+  # Compute the canonicalized name by finding the physical path
+  # for the directory we're in and appending the target file.
+  PHYS_DIR=`pwd -P`
+  REAL_PATH=$PHYS_DIR/$TARGET_FILE
+}
+
+pushd $(cd "$(dirname "$0")"; pwd)
+readlink_mac $BASH_SOURCE
+cd "$(dirname "$REAL_PATH")"
 CUR_DIR=$(pwd)
 SRC_DIR=$(cd .. && pwd)
 popd > /dev/null
@@ -31,6 +51,7 @@ push_image() {
 
 COMPONENTS=$@
 
+cd $SRC_DIR
 for compent in $COMPONENTS; do
     build_bin $compent
     img_name="$REGISTRY/$compent:$TAG"
