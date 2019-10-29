@@ -198,6 +198,18 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		self.markStageFailed(ctx, guest, fmt.Sprintf("Update fail %s", err))
 		return
 	}
+	changeConfigSpec := jsonutils.NewDict()
+	if addCpu > 0 {
+		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
+	}
+	if addMem > 0 {
+		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(addMem)))
+	}
+	if len(instanceType) > 0 {
+		changeConfigSpec.Set("instance_type", jsonutils.NewString(instanceType))
+	}
+
+	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR, changeConfigSpec.String(), self.UserCred)
 
 	var pendingUsage models.SQuota
 	err = self.GetPendingUsage(&pendingUsage)
