@@ -1540,6 +1540,9 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 	count, _ := q.CountWithError()
 	extra.Add(jsonutils.NewInt(int64(count)), "disk_count")
 
+	cdromSupport, _ := self.GetDriver().IsSupportCdrom(self)
+	extra.Set("cdrom_support", jsonutils.NewBool(cdromSupport))
+
 	return extra
 }
 
