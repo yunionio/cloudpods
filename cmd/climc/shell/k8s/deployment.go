@@ -41,5 +41,22 @@ func initDeployment() {
 			return nil
 		})
 
-	cmd.AddR(createCmd)
+	updateCmd := NewCommand(
+		&o.DeploymentUpdateOptions{},
+		cmdN("update"),
+		"Update deployment resource",
+		func(s *mcclient.ClientSession, args *o.DeploymentUpdateOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Deployments.Update(s, args.NAME, params)
+			if err != nil {
+				return err
+			}
+			printObjectYAML(ret)
+			return nil
+		})
+
+	cmd.AddR(createCmd, updateCmd)
 }
