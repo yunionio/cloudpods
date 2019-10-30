@@ -17,6 +17,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"yunion.io/x/log"
 
@@ -26,6 +27,7 @@ import (
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -65,6 +67,11 @@ func (s *BaremetalService) StartService() {
 	handler.InitHandlers(app)
 
 	s.startAgent(app)
+
+	cron := cronman.InitCronJobManager(false, o.Options.CronJobWorkerCount)
+	cron.AddJobAtIntervals("BaremetalCronJobs", 10*time.Second, baremetal.DoCronJobs)
+	cron.Start()
+	defer cron.Stop()
 
 	app_common.ServeForeverWithCleanup(app, &o.Options.BaseOptions, func() {
 		tasks.OnStop()

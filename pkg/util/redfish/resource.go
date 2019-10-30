@@ -14,7 +14,15 @@
 
 package redfish
 
-import "time"
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"yunion.io/x/onecloud/pkg/util/influxdb"
+)
 
 type SCdromInfo struct {
 	Image         string `json:"Image"`
@@ -38,11 +46,27 @@ type SSystemInfo struct {
 	ResetTypeSupported   []string `json:"ResetTypeSupported"`
 }
 
+const (
+	EVENT_TYPE_SYSTEM  = "system"
+	EVENT_TYPE_MANAGER = "manager"
+)
+
 type SEvent struct {
 	Created  time.Time `json:"Created"`
-	EventId  string    `json:"MessageID"`
+	EventId  string    `json:"Id"`
 	Message  string    `json:"Message"`
 	Severity string    `json:"Severity"`
+	Type     string    `json:"type"`
+}
+
+type SEventList []SEvent
+
+func (el SEventList) Len() int           { return len(el) }
+func (el SEventList) Swap(i, j int)      { el[i], el[j] = el[j], el[i] }
+func (el SEventList) Less(i, j int) bool { return el[i].Created.Before(el[j].Created) }
+
+func SortEvents(el []SEvent) {
+	sort.Sort(SEventList(el))
 }
 
 type SBiosInfo struct {
@@ -59,10 +83,46 @@ type SPower struct {
 	} `json:"PowerMetrics"`
 }
 
+func (p SPower) ToMetrics() []influxdb.SKeyValue {
+	return []influxdb.SKeyValue{
+		{
+			Key:   "PowerCapacityWatts",
+			Value: strconv.FormatInt(int64(p.PowerCapacityWatts), 10),
+		},
+		{
+			Key:   "PowerConsumedWatts",
+			Value: strconv.FormatInt(int64(p.PowerConsumedWatts), 10),
+		},
+		{
+			Key:   "AverageConsumedWatts",
+			Value: strconv.FormatInt(int64(p.PowerMetrics.AverageConsumedWatts), 10),
+		},
+		{
+			Key:   "IntervalInMin",
+			Value: strconv.FormatInt(int64(p.PowerMetrics.IntervalInMin), 10),
+		},
+		{
+			Key:   "MaxConsumedWatts",
+			Value: strconv.FormatInt(int64(p.PowerMetrics.MaxConsumedWatts), 10),
+		},
+		{
+			Key:   "MinConsumedWatts",
+			Value: strconv.FormatInt(int64(p.PowerMetrics.MinConsumedWatts), 10),
+		},
+	}
+}
+
 type STemperature struct {
-	Name            string `help:"Name"`
+	Name            string `json:"Name"`
 	PhysicalContext string `json:"PhysicalContext"`
 	ReadingCelsius  int    `json:"ReadingCelsius"`
+}
+
+func (t STemperature) ToMetric() influxdb.SKeyValue {
+	return influxdb.SKeyValue{
+		Key:   fmt.Sprintf("%s/%s", t.PhysicalContext, strings.ReplaceAll(t.Name, " ", "")),
+		Value: strconv.FormatInt(int64(t.ReadingCelsius), 10),
+	}
 }
 
 type SNTPConf struct {

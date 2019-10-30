@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -190,7 +191,7 @@ func (r *SBaseRedfishClient) Probe(ctx context.Context) error {
 		urlPath, _ := respMap[k].GetString(r.IRedfishDriver().LinkKey())
 		if len(urlPath) > 0 {
 			r.Registries[k] = urlPath
-			log.Debugf("%s %s", k, urlPath)
+			// log.Debugf("%s %s", k, urlPath)
 		}
 	}
 	if len(r.Registries) == 0 {
@@ -522,20 +523,21 @@ func Int2str(i int) string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
-func (r *SBaseRedfishClient) ReadLogs(ctx context.Context, subsys string, index int) ([]SEvent, error) {
-	_, manager, err := r.GetResource(ctx, subsys, "0", "LogServices", Int2str(index))
-	if err != nil {
-		return nil, errors.Wrap(err, "GetResource Managers 0")
-	}
-	manager = r.IRedfishDriver().GetParent(manager)
-	path, _ := manager.GetString("Entries", r.IRedfishDriver().LinkKey())
+func (r *SBaseRedfishClient) readLogs(ctx context.Context, path string, subsys string, index int, typeStr string, since time.Time) ([]SEvent, error) {
 	if len(path) == 0 {
-		return nil, errors.Wrap(err, "no entry???")
+		var err error
+		path, _, err = r.GetResource(ctx, subsys, "0", "LogServices", Int2str(index), "Entries")
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResource Managers 0")
+		}
 	}
 	events := make([]SEvent, 0)
 	for {
 		resp, err := r.Get(ctx, path)
 		if err != nil {
+			if httputils.ErrorCode(err) == 404 {
+				break
+			}
 			return nil, errors.Wrap(err, path)
 		}
 		tmpEvents := make([]SEvent, 0)
@@ -543,47 +545,84 @@ func (r *SBaseRedfishClient) ReadLogs(ctx context.Context, subsys string, index 
 		if err != nil {
 			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		events = append(events, tmpEvents...)
+		for i := range tmpEvents {
+			tmpEvents[i].Type = typeStr
+		}
+		timeBreak := false
+		for i := range tmpEvents {
+			if !since.IsZero() && tmpEvents[i].Created.Before(since) {
+				timeBreak = true
+				break
+			}
+			if !strings.Contains(tmpEvents[i].Message, "Log cleared.") {
+				events = append(events, tmpEvents[i])
+			}
+		}
+		if timeBreak {
+			break
+		}
 		nextPage, _ := resp.GetString("@odata.nextLink")
+		if len(nextPage) == 0 {
+			nextPage, _ = resp.GetString("Members@odata.nextLink")
+		}
 		if len(nextPage) > 0 {
 			path = nextPage
 		} else {
 			break
 		}
 	}
+	SortEvents(events)
 	return events, nil
 }
 
-func (r *SBaseRedfishClient) ReadSystemLogs(ctx context.Context) ([]SEvent, error) {
-	return r.ReadLogs(ctx, "Managers", 0)
+func (r *SBaseRedfishClient) GetSystemLogsPath() string {
+	return ""
 }
 
-func (r *SBaseRedfishClient) ReadManagerLogs(ctx context.Context) ([]SEvent, error) {
-	return r.ReadLogs(ctx, "Managers", 1)
+func (r *SBaseRedfishClient) GetManagerLogsPath() string {
+	return ""
 }
 
-func (r *SBaseRedfishClient) ClearLogs(ctx context.Context, subsys string, index int) error {
-	_, logInfo, err := r.GetResource(ctx, subsys, "0", "LogServices", Int2str(index))
-	if err != nil {
-		return errors.Wrap(err, "GetResource Managers 0")
+func (r *SBaseRedfishClient) ReadSystemLogs(ctx context.Context, since time.Time) ([]SEvent, error) {
+	return r.readLogs(ctx, r.IRedfishDriver().GetSystemLogsPath(), "Managers", 0, EVENT_TYPE_SYSTEM, since)
+}
+
+func (r *SBaseRedfishClient) ReadManagerLogs(ctx context.Context, since time.Time) ([]SEvent, error) {
+	return r.readLogs(ctx, r.IRedfishDriver().GetManagerLogsPath(), "Managers", 1, EVENT_TYPE_MANAGER, since)
+}
+
+func (r *SBaseRedfishClient) ClearLogs(ctx context.Context, urlPath string, subsys string, index int) error {
+	if len(urlPath) == 0 {
+		_, logInfo, err := r.GetResource(ctx, subsys, "0", "LogServices", Int2str(index))
+		if err != nil {
+			return errors.Wrap(err, "GetResource Managers 0")
+		}
+		urlPath, err = logInfo.GetString("Actions", "#LogService.ClearLog", "target")
+		if err != nil {
+			return errors.Wrap(err, "Actions.#LogService.ClearLog.target")
+		}
 	}
-	urlPath, err := logInfo.GetString("Actions", "#LogService.ClearLog", "target")
-	if err != nil {
-		return errors.Wrap(err, "Actions.#LogService.ClearLog.target")
-	}
-	_, _, err = r.Post(ctx, urlPath, jsonutils.NewDict())
+	_, _, err := r.Post(ctx, urlPath, jsonutils.NewDict())
 	if err != nil {
 		return errors.Wrap(err, "r.Post")
 	}
 	return nil
 }
 
+func (r *SBaseRedfishClient) GetClearSystemLogsPath() string {
+	return ""
+}
+
+func (r *SBaseRedfishClient) GetClearManagerLogsPath() string {
+	return ""
+}
+
 func (r *SBaseRedfishClient) ClearSystemLogs(ctx context.Context) error {
-	return r.ClearLogs(ctx, "Managers", 0)
+	return r.ClearLogs(ctx, r.IRedfishDriver().GetClearSystemLogsPath(), "Managers", 0)
 }
 
 func (r *SBaseRedfishClient) ClearManagerLogs(ctx context.Context) error {
-	return r.ClearLogs(ctx, "Managers", 1)
+	return r.ClearLogs(ctx, r.IRedfishDriver().GetClearManagerLogsPath(), "Managers", 1)
 }
 
 func (r *SBaseRedfishClient) GetBiosInfo(ctx context.Context) (SBiosInfo, error) {
@@ -654,10 +693,25 @@ func (r *SBaseRedfishClient) SetIndicatorLED(ctx context.Context, on bool) error
 	return r.SetIndicatorLEDInternal(ctx, "Chassis", valStr)
 }
 
+func (r *SBaseRedfishClient) GetPowerPath() string {
+	return ""
+}
+
+func (r *SBaseRedfishClient) GetThermalPath() string {
+	return ""
+}
+
 func (r *SBaseRedfishClient) GetPower(ctx context.Context) ([]SPower, error) {
-	_, resp, err := r.GetResource(ctx, "Chassis", "0", "Power")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetResource")
+	path := r.IRedfishDriver().GetPowerPath()
+	var resp jsonutils.JSONObject
+	var err error
+	if len(path) > 0 {
+		resp, err = r.Get(ctx, path)
+	} else {
+		_, resp, err = r.GetResource(ctx, "Chassis", "0", "Power")
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResource")
+		}
 	}
 	powers := make([]SPower, 0)
 	err = resp.Unmarshal(&powers, "PowerControl")
@@ -668,9 +722,16 @@ func (r *SBaseRedfishClient) GetPower(ctx context.Context) ([]SPower, error) {
 }
 
 func (r *SBaseRedfishClient) GetThermal(ctx context.Context) ([]STemperature, error) {
-	_, resp, err := r.GetResource(ctx, "Chassis", "0", "Thermal")
-	if err != nil {
-		return nil, errors.Wrap(err, "GetResource")
+	path := r.IRedfishDriver().GetThermalPath()
+	var resp jsonutils.JSONObject
+	var err error
+	if len(path) > 0 {
+		resp, err = r.Get(ctx, path)
+	} else {
+		_, resp, err = r.GetResource(ctx, "Chassis", "0", "Thermal")
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResource")
+		}
 	}
 	temps := make([]STemperature, 0)
 	err = resp.Unmarshal(&temps, "Temperatures")
