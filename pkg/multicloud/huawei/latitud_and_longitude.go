@@ -24,6 +24,7 @@ import (
 // ref: https://countrycode.org
 var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"cn-east-2":      {Latitude: 31.210344, Longitude: 121.455364, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
+	"cn-east-3":      {Latitude: 31.210344, Longitude: 121.455364, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-north-1":     {Latitude: 39.997743, Longitude: 116.304542, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-north-4":     {Latitude: 39.997743, Longitude: 116.304542, City: api.CITY_BEI_JING, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-south-1":     {Latitude: 23.12911, Longitude: 113.264385, City: api.CITY_GUANG_ZHOU, CountryCode: api.COUNTRY_CODE_CN},
@@ -34,4 +35,5 @@ var LatitudeAndLongitude = map[string]cloudprovider.SGeographicInfo{
 	"eu-west-0":      {Latitude: 48.856614, Longitude: 2.3522219, City: api.CITY_PARIS, CountryCode: api.COUNTRY_CODE_FR},
 	"cn-northeast-1": {Latitude: 38.91400300000001, Longitude: 121.614682, City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"cn-southwest-2": {Latitude: 26.6470035286, Longitude: 106.6302113880, City: api.CITY_GUI_YANG, CountryCode: api.COUNTRY_CODE_CN},
+	"af-south-1":     {Latitude: -26.1714537, Longitude: 27.8999389, City: api.CITY_JOHANNESBURG, CountryCode: api.COUNTRY_CODE_ZA},
 }
