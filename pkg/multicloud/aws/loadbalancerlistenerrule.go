@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -202,8 +203,12 @@ func (self *SRegion) CreateElbListenerRule(listenerId string, config *cloudprovi
 		return nil, err
 	}
 
+	if len(ret.Rules) == 0 {
+		return nil, errors.Wrap(fmt.Errorf("empty rules"), "Region.CreateElbListenerRule.len")
+	}
+
 	rule := SElbListenerRule{}
-	err = unmarshalAwsOutput(ret, "", &rule)
+	err = unmarshalAwsOutput(ret.Rules[0], "", &rule)
 	if err != nil {
 		return nil, err
 	}

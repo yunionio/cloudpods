@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
@@ -551,6 +552,18 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 	action.SetTargetGroupArn(listener.BackendGroupID)
 	params.SetDefaultActions([]*elbv2.Action{action})
 	if listenerType == "HTTPS" {
+		err = cloudprovider.WaitCreated(3*time.Second, 30*time.Second, func() bool {
+			_, err := self.GetILoadBalancerCertificateById(listener.CertificateID)
+			if err == nil {
+				return true
+			}
+
+			return false
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "Region.GetILoadBalancerCertificateById")
+		}
+
 		cert := &elbv2.Certificate{
 			CertificateArn: &listener.CertificateID,
 		}

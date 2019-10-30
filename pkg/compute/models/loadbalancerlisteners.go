@@ -56,8 +56,8 @@ func init() {
 }
 
 type SLoadbalancerHTTPRateLimiter struct {
-	HTTPRequestRate       int `nullable:"true" list:"user" create:"optional" update:"user"`
-	HTTPRequestRatePerSrc int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HTTPRequestRate       int `nullable:"true" list:"user" create:"optional" update:"user"` // 限定监听接收请示速率
+	HTTPRequestRatePerSrc int `nullable:"true" list:"user" create:"optional" update:"user"` // 源IP监听请求最大速率
 }
 
 type SLoadbalancerRateLimiter struct {
@@ -65,20 +65,20 @@ type SLoadbalancerRateLimiter struct {
 }
 
 type SLoadbalancerHealthCheck struct {
-	HealthCheck     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheck     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查开启状态 on|off
+	HealthCheckType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查协议 HTTP|TCP
 
-	HealthCheckDomain   string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckURI      string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckHttpCode string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckDomain   string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查域名 yunion.cn
+	HealthCheckURI      string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查路径 /
+	HealthCheckHttpCode string `charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // HTTP正常状态码 http_2xx,http_3xx
 
-	HealthCheckRise     int `nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckFall     int `nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"`
-	HealthCheckInterval int `nullable:"true" list:"user" create:"optional" update:"user"`
+	HealthCheckRise     int `nullable:"true" list:"user" create:"optional" update:"user"` //  健康检查健康阈值 3秒
+	HealthCheckFall     int `nullable:"true" list:"user" create:"optional" update:"user"` //  健康检查不健康阈值 15秒
+	HealthCheckTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查超时时间 10秒
+	HealthCheckInterval int `nullable:"true" list:"user" create:"optional" update:"user"` // 健康检查间隔时间 5秒
 
-	HealthCheckReq string `list:"user" create:"optional" update:"user"`
-	HealthCheckExp string `list:"user" create:"optional" update:"user"`
+	HealthCheckReq string `list:"user" create:"optional" update:"user"` // UDP监听健康检查的请求串
+	HealthCheckExp string `list:"user" create:"optional" update:"user"` // UDP监听健康检查的响应串
 }
 
 type SLoadbalancerTCPListener struct{}
@@ -86,13 +86,13 @@ type SLoadbalancerUDPListener struct{}
 
 // TODO sensible default for knobs
 type SLoadbalancerHTTPListener struct {
-	StickySession              string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	StickySessionType          string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
-	StickySessionCookieTimeout int    `nullable:"true" list:"user" create:"optional" update:"user"`
+	StickySession              string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`  // 会话保持开启状态 on|off
+	StickySessionType          string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`  // Cookie处理方式 insert(植入cookie)|server(重写cookie)
+	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"` // Cookie名称
+	StickySessionCookieTimeout int    `nullable:"true" list:"user" create:"optional" update:"user"`                             // 会话超时时间
 
-	XForwardedFor bool `nullable:"true" list:"user" create:"optional" update:"user"`
-	Gzip          bool `nullable:"true" list:"user" create:"optional" update:"user"`
+	XForwardedFor bool `nullable:"true" list:"user" create:"optional" update:"user"` // 获取客户端真实IP
+	Gzip          bool `nullable:"true" list:"user" create:"optional" update:"user"` // Gzip数据压缩
 }
 
 // TODO
@@ -125,10 +125,10 @@ type SLoadbalancerListener struct {
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
 
-	ClientRequestTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"`
-	ClientIdleTimeout     int `nullable:"true" list:"user" create:"optional" update:"user"`
-	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"`
-	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"`
+	ClientRequestTimeout  int `nullable:"true" list:"user" create:"optional" update:"user"` // 连接请求超时时间
+	ClientIdleTimeout     int `nullable:"true" list:"user" create:"optional" update:"user"` // 连接空闲超时时间
+	BackendConnectTimeout int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接超时时间
+	BackendIdleTimeout    int `nullable:"true" list:"user" create:"optional" update:"user"` // 后端连接空闲时间
 
 	AclStatus   string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 	AclType     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
@@ -502,6 +502,11 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		EstablishedTimeout:      lblis.BackendConnectTimeout,
 		AccessControlListStatus: lblis.AclStatus,
 
+		ClientRequestTimeout:  lblis.ClientRequestTimeout,
+		ClientIdleTimeout:     lblis.ClientIdleTimeout,
+		BackendIdleTimeout:    lblis.BackendIdleTimeout,
+		BackendConnectTimeout: lblis.BackendConnectTimeout,
+
 		HealthCheckReq: lblis.HealthCheckReq,
 		HealthCheckExp: lblis.HealthCheckExp,
 
@@ -845,18 +850,17 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		}
 	}
 
-	if len(lblis.BackendGroupId) == 0 && len(groupId) == 0 {
-		lblis.BackendGroupId = lb.BackendGroupId
-	} else if lblis.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
+	switch lblis.GetProviderName() {
+	case api.CLOUD_PROVIDER_HUAWEI:
 		if len(groupId) > 0 {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 			if err != nil {
 				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			} else {
+				lblis.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
 			}
-
-			lblis.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
 		}
-	} else if lblis.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+	case api.CLOUD_PROVIDER_AWS:
 		if len(groupId) > 0 {
 			group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
 			if err != nil {
@@ -865,9 +869,46 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 				lblis.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 			}
 		}
-	} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
-		lblis.BackendGroupId = group.GetId()
+	default:
+		if len(lblis.BackendGroupId) == 0 && len(groupId) == 0 {
+			lblis.BackendGroupId = lb.BackendGroupId
+		} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+			lblis.BackendGroupId = group.GetId()
+		}
 	}
+}
+
+func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extListener cloudprovider.ICloudLoadbalancerListener) error {
+	exteralLbbgId := extListener.GetBackendGroupId()
+	if len(exteralLbbgId) == 0 {
+		return nil
+	}
+
+	switch lblis.GetProviderName() {
+	case api.CLOUD_PROVIDER_HUAWEI:
+		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
+		if err != nil {
+			return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+		}
+
+		if _group != nil {
+			group := _group.(*SHuaweiCachedLbbg)
+			if group.AssociatedId != lblis.Id {
+				_, err := db.UpdateWithLock(ctx, group, func() error {
+					group.AssociatedId = lblis.Id
+					group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+					return nil
+				})
+				if err != nil {
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate")
+				}
+			}
+		}
+	default:
+		return nil
+	}
+
+	return nil
 }
 
 func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -890,6 +931,11 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 	})
 	if err != nil {
 		return err
+	}
+
+	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener)
+	if err != nil {
+		return errors.Wrap(err, "LoadbalancerListener.SyncWithCloudLoadbalancerListener")
 	}
 
 	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
@@ -919,22 +965,9 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 		return nil, err
 	}
 
-	groupId := extListener.GetBackendGroupId()
-	if lblis.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && len(groupId) > 0 {
-		group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
-		if err != nil {
-			log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-		}
-
-		cachedGroup := group.(*SHuaweiCachedLbbg)
-		_, err = db.UpdateWithLock(context.Background(), cachedGroup, func() error {
-			cachedGroup.AssociatedId = lblis.GetId()
-			cachedGroup.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
-			return nil
-		})
-		if err != nil {
-			log.Errorf("Update huawei loadbalancer backendgroup cache %s failed: %s", groupId, err)
-		}
+	err = lblis.updateCachedLoadbalancerBackendGroupAssociate(ctx, extListener)
+	if err != nil {
+		return nil, errors.Wrap(err, "LoadbalancerListener.newFromCloudLoadbalancerListener")
 	}
 
 	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, lblis.ManagerId)

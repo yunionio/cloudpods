@@ -81,7 +81,9 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
 	// 同步未关联负载均衡的后端服务器组
-	syncAwsLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	if provider.Provider == compute.CLOUD_PROVIDER_AWS {
+		syncAwsLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
 
 	for i := 0; i < len(localLbs); i++ {
 		func() {

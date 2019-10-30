@@ -19,9 +19,13 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -164,4 +168,46 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SAwsGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
+}
+
+func (self *SAwsGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, err
+	}
+	ivm, err := ihost.GetIVMById(guest.ExternalId)
+	if err != nil {
+		log.Errorf("fail to find ivm by id %s", err)
+		return nil, err
+	}
+
+	err = guest.SyncAllWithCloudVM(ctx, userCred, host, ivm)
+	if err != nil {
+		return nil, err
+	}
+
+	ieip, err := ivm.GetIEIP()
+	if err != nil {
+		return nil, errors.Wrap(err, "AwsGuestDriver.GetIEIP")
+	}
+
+	// 如果aws已经绑定了EIP，则要把多余的公有IP删除
+	if ieip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
+		publicIP, err := guest.GetPublicIp()
+		if err != nil {
+			return nil, errors.Wrap(err, "AwsGuestDriver.GetPublicIp")
+		}
+
+		if publicIP != nil {
+			err = db.DeleteModel(ctx, userCred, publicIP)
+			if err != nil {
+				return nil, errors.Wrap(err, "AwsGuestDriver.DeletePublicIp")
+			}
+		}
+	}
+
+	status := GetCloudVMStatus(ivm)
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.NewString(status), "status")
+	return body, nil
 }

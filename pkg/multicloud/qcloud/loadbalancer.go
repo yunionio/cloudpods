@@ -404,7 +404,7 @@ func (self *SRegion) GetLoadbalancers(ids []string) ([]SLoadbalancer, error) {
 
 func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	if len(id) == 0 {
-		return nil, fmt.Errorf("GetLoadbalancer id should not empty")
+		return nil, fmt.Errorf("GetILoadbalancer id should not empty")
 	}
 
 	lbs, err := self.GetLoadbalancers([]string{id})
@@ -418,7 +418,7 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	case 1:
 		return &lbs[0], nil
 	default:
-		return nil, fmt.Errorf("GetLoadbalancer %s found %d", id, len(lbs))
+		return nil, fmt.Errorf("GetILoadbalancer %s found %d", id, len(lbs))
 	}
 }
 

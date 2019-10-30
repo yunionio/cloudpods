@@ -337,7 +337,12 @@ func (lbcert *SCachedLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertifi
 
 func (man *SCachedLoadbalancerCertificateManager) getLoadbalancerCertificateByRegion(provider *SCloudprovider, regionId string, localCertificateId string) (SCachedLoadbalancerCertificate, error) {
 	certificates := []SCachedLoadbalancerCertificate{}
-	q := man.Query().Equals("cloudregion_id", regionId).Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId).IsFalse("pending_deleted")
+	q := man.Query().Equals("manager_id", provider.Id).Equals("certificate_id", localCertificateId).IsFalse("pending_deleted")
+	// aws 所有region共用一份证书.与region无关
+	if provider.GetName() != api.CLOUD_PROVIDER_AWS {
+		q = q.Equals("cloudregion_id", regionId)
+	}
+
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
 		log.Errorf("failed to get lb certificate for region: %v provider: %v error: %v", regionId, provider, err)
 		return SCachedLoadbalancerCertificate{}, err
