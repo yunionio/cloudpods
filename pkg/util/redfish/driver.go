@@ -16,6 +16,7 @@ package redfish
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -59,8 +60,12 @@ type IRedfishDriver interface {
 
 	Reset(ctx context.Context, action string) error
 
-	ReadSystemLogs(ctx context.Context) ([]SEvent, error)
-	ReadManagerLogs(ctx context.Context) ([]SEvent, error)
+	GetSystemLogsPath() string
+	GetManagerLogsPath() string
+	GetClearSystemLogsPath() string
+	GetClearManagerLogsPath() string
+	ReadSystemLogs(ctx context.Context, since time.Time) ([]SEvent, error)
+	ReadManagerLogs(ctx context.Context, since time.Time) ([]SEvent, error)
 	ClearSystemLogs(ctx context.Context) error
 	ClearManagerLogs(ctx context.Context) error
 
@@ -71,6 +76,8 @@ type IRedfishDriver interface {
 	GetIndicatorLED(ctx context.Context) (bool, error)
 	SetIndicatorLED(ctx context.Context, on bool) error
 
+	GetPowerPath() string
+	GetThermalPath() string
 	GetPower(ctx context.Context) ([]SPower, error)
 	GetThermal(ctx context.Context) ([]STemperature, error)
 

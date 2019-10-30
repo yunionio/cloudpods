@@ -46,6 +46,10 @@ type BaremetalOptions struct {
 	CachePath     string `help:"local image cache directory"`
 	EnablePxeBoot bool   `help:"Enable DHCP PXE boot" default:"true"`
 	BootIsoPath   string `help:"iso boot image path"`
+
+	StatusProbeIntervalSeconds int `help:"interval to probe baremetal status, default is 60 seconds" default:"60"`
+	LogFetchIntervalSeconds    int `help:"interval to fetch baremetal log, default is 900 seconds" default:"900"`
+	SendMetricsIntervalSeconds int `help:"interval to send baremetal metrics, default is 300 seconds" default:"300"`
 }
 
 var (

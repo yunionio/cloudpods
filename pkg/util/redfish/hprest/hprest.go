@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -210,7 +211,7 @@ func (r *SHpRestApi) BmcReset(ctx context.Context) error {
 	return nil
 }
 
-func (r *SHpRestApi) readLogs(ctx context.Context, subsys string) ([]redfish.SEvent, error) {
+func (r *SHpRestApi) readLogs(ctx context.Context, subsys string, since time.Time) ([]redfish.SEvent, error) {
 	_, manager, err := r.GetResource(ctx, subsys, "0", "Logs", "0")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetResource Managers 0")
@@ -236,7 +237,17 @@ func (r *SHpRestApi) readLogs(ctx context.Context, subsys string) ([]redfish.SEv
 		if err != nil {
 			return nil, errors.Wrap(err, "resp.Unmarshal")
 		}
-		events = append(events, tmpEvents...)
+		timeBreak := false
+		for i := range tmpEvents {
+			if !since.IsZero() && tmpEvents[i].Created.Before(since) {
+				timeBreak = true
+				break
+			}
+			events = append(events, tmpEvents[i])
+		}
+		if timeBreak {
+			break
+		}
 		nextPage, _ := resp.Int("links", "NextPage", "page")
 		if nextPage > 0 {
 			nextPath = fmt.Sprintf("%s?page=%d", path, nextPage)
@@ -247,12 +258,12 @@ func (r *SHpRestApi) readLogs(ctx context.Context, subsys string) ([]redfish.SEv
 	return events, nil
 }
 
-func (r *SHpRestApi) ReadSystemLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.readLogs(ctx, "Systems")
+func (r *SHpRestApi) ReadSystemLogs(ctx context.Context, since time.Time) ([]redfish.SEvent, error) {
+	return r.readLogs(ctx, "Systems", since)
 }
 
-func (r *SHpRestApi) ReadManagerLogs(ctx context.Context) ([]redfish.SEvent, error) {
-	return r.readLogs(ctx, "Managers")
+func (r *SHpRestApi) ReadManagerLogs(ctx context.Context, since time.Time) ([]redfish.SEvent, error) {
+	return r.readLogs(ctx, "Managers", since)
 }
 
 func (r *SHpRestApi) clearLogs(ctx context.Context, subsys string) error {
