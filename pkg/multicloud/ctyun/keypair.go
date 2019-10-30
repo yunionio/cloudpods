@@ -12,4 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package ctyun
+
+// http://ctyun-api-url/apiproxy/v3/order/getZoneConfig
+type SKeypair struct {
+}

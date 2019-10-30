@@ -12,4 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package shell
+
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/ctyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
+
+func init() {
+	type VJobShowOptions struct {
+		JOBID string `help:"Job ID"`
+	}
+	shellutils.R(&VJobShowOptions{}, "job-show", "Show job", func(cli *ctyun.SRegion, args *VJobShowOptions) error {
+		job, e := cli.GetJob(args.JOBID)
+		if e != nil {
+			return e
+		}
+		printObject(job)
+		return nil
+	})
+}
