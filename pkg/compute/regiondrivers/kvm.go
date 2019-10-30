@@ -591,6 +591,11 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, 
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SCachedLoadbalancerCertificate, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil

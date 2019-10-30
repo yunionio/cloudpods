@@ -225,30 +225,14 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 
 	// todo:// 等待镜像导入完成
-	for i := 1; i < 120; i++ {
-		time.Sleep(2 * time.Minute)
-		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&task.TaskId}})
-		if err != nil {
-			return "", err
-		}
-
-		err = FillZero(ret)
-		if err != nil {
-			return "", err
-		}
-
-		log.Debugf("DescribeImportImage Task %s", ret.String())
-		for _, item := range ret.ImportImageTasks {
-			if *item.Status == "completed" {
-				// add name tag
-				self.region.addTags(*item.ImageId, "Name", image.ImageId)
-				return *item.ImageId, nil
-			}
-		}
+	err = cloudprovider.WaitStatusWithDelay(task, ImageImportStatusCompleted, 2*time.Minute, 2*time.Minute, 4*time.Hour)
+	if err != nil {
+		return "", errors.Wrap(err, "SStoragecache.WaitStatusWithDelay")
 	}
 
-	return task.ImageId, fmt.Errorf("uploadImage uncompleted: %s", task)
-
+	// add name tag
+	self.region.addTags(task.ImageId, "Name", image.ImageId)
+	return task.ImageId, nil
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {

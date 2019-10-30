@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -92,7 +93,7 @@ func (man *SAwsCachedLbManager) CreateAwsCachedLb(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -209,7 +210,26 @@ func (lbb *SAwsCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadbala
 
 func (lbb *SAwsCachedLb) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) error {
 	lbb.SetModelManager(AwsCachedLbManager, lbb)
+	cacheLbbg, err := lbb.GetCachedBackendGroup()
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLb.SyncWithCloudLoadbalancerBackend.GetCachedBackendGroup")
+	}
+
+	localLbbg, err := cacheLbbg.GetLocalBackendGroup(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLb.SyncWithCloudLoadbalancerBackend.GetLocalBackendGroup")
+	}
+
+	locallbb, err := newLocalBackendFromCloudLoadbalancerBackend(ctx, userCred, localLbbg, extLoadbalancerBackend, syncOwnerId)
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLb.SyncWithCloudLoadbalancerBackend.newLocalBackendFromCloudLoadbalancerBackend")
+	}
+
 	diff, err := db.UpdateWithLock(ctx, lbb, func() error {
+		if locallbb != nil {
+			lbb.BackendId = locallbb.GetId()
+		}
+
 		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
 	})
 	if err != nil {

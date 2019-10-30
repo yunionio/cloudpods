@@ -224,6 +224,12 @@ func (client *SAwsClient) fetchBuckets() error {
 			log.Errorf("s3cli.GetBucketLocation error %s", err)
 			continue
 		}
+
+		if output == nil {
+			log.Errorf("s3cli.GetBucketLocation nil output")
+			continue
+		}
+
 		location := *output.LocationConstraint
 		region, err := client.getIRegionByRegionId(location)
 		if err != nil {

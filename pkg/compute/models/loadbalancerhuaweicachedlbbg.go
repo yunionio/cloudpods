@@ -17,10 +17,14 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -129,7 +133,7 @@ func (lbbg *SHuaweiCachedLbbg) GetICloudLoadbalancerBackendGroup() (cloudprovide
 
 func (man *SHuaweiCachedLbbgManager) GetUsableCachedBackendGroups(backendGroupId string, protocolType string) ([]SHuaweiCachedLbbg, error) {
 	ret := []SHuaweiCachedLbbg{}
-	err := man.TableSpec().Query().Equals("backend_group_id", backendGroupId).Equals("protocol_type", protocolType).IsNullOrEmpty("associated_id").IsNotEmpty("external_id").All(&ret)
+	err := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", backendGroupId).Equals("protocol_type", protocolType).IsNullOrEmpty("associated_id").IsNotEmpty("external_id").All(&ret)
 	if err != nil {
 		return ret, err
 	}
@@ -152,17 +156,18 @@ func (man *SHuaweiCachedLbbgManager) GetUsableCachedBackendGroup(backendGroupId 
 
 func (man *SHuaweiCachedLbbgManager) GetCachedBackendGroupByAssociateId(associateId string) (*SHuaweiCachedLbbg, error) {
 	ret := &SHuaweiCachedLbbg{}
-	err := man.TableSpec().Query().Equals("associated_id", associateId).First(ret)
+	err := man.Query().IsFalse("pending_deleted").Equals("associated_id", associateId).First(ret)
 	if err != nil {
 		return nil, err
 	}
 
+	ret.SetModelManager(man, ret)
 	return ret, nil
 }
 
 func (man *SHuaweiCachedLbbgManager) GetCachedBackendGroups(backendGroupId string) ([]SHuaweiCachedLbbg, error) {
 	ret := []SHuaweiCachedLbbg{}
-	err := man.TableSpec().Query().Equals("backend_group_id", backendGroupId).All(&ret)
+	err := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", backendGroupId).All(&ret)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +177,7 @@ func (man *SHuaweiCachedLbbgManager) GetCachedBackendGroups(backendGroupId strin
 
 func (man *SHuaweiCachedLbbgManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SHuaweiCachedLbbg, error) {
 	lbbgs := []SHuaweiCachedLbbg{}
-	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	q := man.Query().IsFalse("pending_deleted").Equals("loadbalancer_id", lb.Id)
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
 		log.Errorf("failed to get lbbgs for lb: %s error: %v", lb.Name, err)
 		return nil, err
@@ -257,11 +262,66 @@ func (lbbg *SHuaweiCachedLbbg) syncRemoveCloudLoadbalancerBackendgroup(ctx conte
 	return err
 }
 
+func (lbbg *SHuaweiCachedLbbg) isBackendsMatch(backends []SLoadbalancerBackend, ibackends []cloudprovider.ICloudLoadbalancerBackend) bool {
+	if len(ibackends) != len(backends) {
+		return false
+	}
+
+	locals := []string{}
+	remotes := []string{}
+
+	for i := range backends {
+		guest := backends[i].GetGuest()
+		seg := strings.Join([]string{guest.ExternalId, strconv.Itoa(backends[i].Weight), strconv.Itoa(backends[i].Port)}, "/")
+		locals = append(locals, seg)
+	}
+
+	for i := range ibackends {
+		ibackend := ibackends[i]
+		seg := strings.Join([]string{ibackend.GetBackendId(), strconv.Itoa(ibackend.GetWeight()), strconv.Itoa(ibackend.GetPort())}, "/")
+		remotes = append(remotes, seg)
+	}
+
+	for i := range remotes {
+		if !utils.IsInStringArray(remotes[i], locals) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (lbbg *SHuaweiCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) error {
 	lbbg.SetModelManager(HuaweiCachedLbbgManager, lbbg)
+
+	ibackends, err := extLoadbalancerBackendgroup.GetILoadbalancerBackends()
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetILoadbalancerBackends")
+	}
+
+	localLbbg, err := lbbg.GetLocalBackendGroup(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetLocalBackendGroup")
+	}
+
+	backends, err := localLbbg.GetBackends()
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetBackends")
+	}
+
+	var newLocalLbbg *SLoadbalancerBackendGroup
+	if !lbbg.isBackendsMatch(backends, ibackends) {
+		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+		if err != nil {
+			return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.newLocalBackendgroupFromCloudLoadbalancerBackendgroup")
+		}
+	}
+
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
-
+		if newLocalLbbg != nil {
+			lbbg.BackendGroupId = newLocalLbbg.GetId()
+		}
 		return nil
 	})
 	if err != nil {

@@ -281,6 +281,9 @@ func (region *SRegion) constructHTTPCreateListenerParams(params map[string]strin
 		}
 		params["HealthCheckTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
 	}
+	params["RequestTimeout"] = fmt.Sprintf("%d", listener.ClientRequestTimeout)
+	params["IdleTimeout"] = fmt.Sprintf("%d", listener.ClientIdleTimeout)
+
 	params["StickySession"] = listener.StickySession
 	params["StickySessionType"] = listener.StickySessionType
 	params["Cookie"] = listener.StickySessionCookie
@@ -304,6 +307,12 @@ func (region *SRegion) CreateLoadbalancerHTTPSListener(lb *SLoadbalancer, listen
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	params = region.constructHTTPCreateListenerParams(params, listener)
 	params["ServerCertificateId"] = listener.CertificateID
+	if listener.EnableHTTP2 {
+		params["EnableHttp2"] = "on"
+	} else {
+		params["EnableHttp2"] = "off"
+	}
+
 	if len(listener.TLSCipherPolicy) > 0 {
 		params["TLSCipherPolicy"] = listener.TLSCipherPolicy
 	}
@@ -361,6 +370,12 @@ func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener
 	params := region.constructBaseCreateListenerParams(lb, listener)
 	params = region.constructHTTPCreateListenerParams(params, listener)
 	params["ServerCertificateId"] = listener.CertificateID
+	if listener.EnableHTTP2 {
+		params["EnableHttp2"] = "on"
+	} else {
+		params["EnableHttp2"] = "off"
+	}
+
 	if len(lb.LoadBalancerSpec) > 0 && len(listener.TLSCipherPolicy) > 0 {
 		params["TLSCipherPolicy"] = listener.TLSCipherPolicy
 	}
