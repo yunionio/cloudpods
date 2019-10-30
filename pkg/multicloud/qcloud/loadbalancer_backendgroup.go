@@ -37,6 +37,10 @@ func (self *SLBBackendGroup) GetLoadbalancerId() string {
 	return self.lb.GetId()
 }
 
+func (self *SLBBackendGroup) GetILoadbalancer() cloudprovider.ICloudLoadbalancer {
+	return self.lb
+}
+
 func (self *SLBBackendGroup) GetProtocolType() string {
 	return ""
 }

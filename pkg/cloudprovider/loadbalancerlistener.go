@@ -31,6 +31,11 @@ type SLoadbalancerListener struct {
 	Description             string
 	EstablishedTimeout      int
 
+	ClientRequestTimeout  int
+	ClientIdleTimeout     int
+	BackendConnectTimeout int
+	BackendIdleTimeout    int
+
 	HealthCheckReq string
 	HealthCheckExp string
 

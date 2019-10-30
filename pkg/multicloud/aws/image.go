@@ -35,6 +35,10 @@ const (
 	ImageStatusCreating     ImageStatusType = "pending"
 	ImageStatusAvailable    ImageStatusType = "available"
 	ImageStatusCreateFailed ImageStatusType = "failed"
+
+	ImageImportStatusCompleted   = "completed"
+	ImageImportStatusUncompleted = "uncompleted"
+	ImageImportStatusError       = "error"
 )
 
 type TImageOwnerType string
@@ -53,6 +57,8 @@ var (
 )
 
 type ImageImportTask struct {
+	region *SRegion
+
 	ImageId  string
 	RegionId string
 	TaskId   string
@@ -93,6 +99,56 @@ type SImage struct {
 	OSVersion string
 	OSDist    string
 	OSBuildId string
+}
+
+func (self *ImageImportTask) GetId() string {
+	return self.TaskId
+}
+
+func (self *ImageImportTask) GetName() string {
+	return self.GetId()
+}
+
+func (self *ImageImportTask) GetGlobalId() string {
+	return self.GetId()
+}
+
+func (self *ImageImportTask) Refresh() error {
+	return nil
+}
+
+func (self *ImageImportTask) IsEmulated() bool {
+	return true
+}
+
+func (self *ImageImportTask) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
+func (self *ImageImportTask) GetStatus() string {
+	ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
+	if err != nil {
+		log.Errorf("DescribeImportImageTasks %s", err)
+		return ImageImportStatusError
+	}
+
+	err = FillZero(ret)
+	if err != nil {
+		log.Errorf("DescribeImportImageTask.FillZero %s", err)
+		return ImageImportStatusError
+	}
+
+	// 打印上传进度
+	log.Debugf("DescribeImportImage Task %s", ret.String())
+	for _, item := range ret.ImportImageTasks {
+		if *item.Status == "completed" {
+			return ImageImportStatusCompleted
+		} else {
+			return ImageImportStatusUncompleted
+		}
+	}
+
+	return ImageImportStatusUncompleted
 }
 
 func (self *SImage) GetMinRamSizeMb() int {

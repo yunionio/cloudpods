@@ -456,6 +456,30 @@ func (manager *SElasticipManager) getEipForInstance(instanceType string, instanc
 	return &eip, nil
 }
 
+func (manager *SElasticipManager) getPublicIpForInstance(instanceType string, instanceId string) (*SElasticip, error) {
+	eip := SElasticip{}
+
+	q := manager.Query()
+	q = q.Equals("associate_type", instanceType)
+	q = q.Equals("associate_id", instanceId)
+	q = q.Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
+
+	err := q.First(&eip)
+
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("getEipForInstance query fail %s", err)
+			return nil, err
+		} else {
+			return nil, nil
+		}
+	}
+
+	eip.SetModelManager(manager, &eip)
+
+	return &eip, nil
+}
+
 func (self *SElasticip) IsAssociated() bool {
 	if len(self.AssociateId) == 0 {
 		return false

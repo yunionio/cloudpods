@@ -17,9 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -314,8 +317,61 @@ func (lbbg *SAwsCachedLbbg) syncRemoveCloudLoadbalancerBackendgroup(ctx context.
 	return err
 }
 
+func (lbbg *SAwsCachedLbbg) isBackendsMatch(backends []SLoadbalancerBackend, ibackends []cloudprovider.ICloudLoadbalancerBackend) bool {
+	if len(ibackends) != len(backends) {
+		return false
+	}
+
+	locals := []string{}
+	remotes := []string{}
+
+	for i := range backends {
+		guest := backends[i].GetGuest()
+		seg := strings.Join([]string{guest.ExternalId, strconv.Itoa(backends[i].Port)}, "/")
+		locals = append(locals, seg)
+	}
+
+	for i := range ibackends {
+		ibackend := ibackends[i]
+		seg := strings.Join([]string{ibackend.GetBackendId(), strconv.Itoa(ibackend.GetPort())}, "/")
+		remotes = append(remotes, seg)
+	}
+
+	for i := range remotes {
+		if !utils.IsInStringArray(remotes[i], locals) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) error {
 	lbbg.SetModelManager(AwsCachedLbbgManager, lbbg)
+
+	ibackends, err := extLoadbalancerBackendgroup.GetILoadbalancerBackends()
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetILoadbalancerBackends")
+	}
+
+	localLbbg, err := lbbg.GetLocalBackendGroup(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetLocalBackendGroup")
+	}
+
+	backends, err := localLbbg.GetBackends()
+	if err != nil {
+		return errors.Wrap(err, "AwsCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.GetBackends")
+	}
+
+	var newLocalLbbg *SLoadbalancerBackendGroup
+	if !lbbg.isBackendsMatch(backends, ibackends) {
+		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+		if err != nil {
+			return errors.Wrap(err, "HuaweiCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.newLocalBackendgroupFromCloudLoadbalancerBackendgroup")
+		}
+	}
+
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 		metadata := extLoadbalancerBackendgroup.GetMetadata()
@@ -327,6 +383,9 @@ func (lbbg *SAwsCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Co
 		}
 		if interval, _ := metadata.Int("health_check_interval"); interval > 0 {
 			lbbg.HealthCheckInterval = int(interval)
+		}
+		if newLocalLbbg != nil {
+			lbbg.BackendGroupId = newLocalLbbg.GetId()
 		}
 		return nil
 	})

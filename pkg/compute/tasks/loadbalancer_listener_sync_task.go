@@ -52,12 +52,6 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 
-	// // todo: 这个if应该可以删除
-	// if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI || lblis.GetProviderName() != api.CLOUD_PROVIDER_AWS {
-	// 	self.OnLoadbalancerBackendgroupSyncComplete(ctx, lblis, data)
-	// 	return
-	// }
-
 	lbbg := lblis.GetLoadbalancerBackendGroup()
 	if lbbg == nil {
 		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find lbbg for lblis %s", lblis.Name))
@@ -65,7 +59,10 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 	}
 
 	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
-	if err := region.GetDriver().RequestSyncLoadbalancerBackendGroup(ctx, self.GetUserCred(), lblis, lbbg, self); err != nil {
+	driver := region.GetDriver()
+	userCred := self.GetUserCred()
+	err := driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, lbbg, self)
+	if err != nil {
 		self.taskFail(ctx, lblis, err.Error())
 	}
 }
@@ -82,9 +79,9 @@ func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete
 	}
 }
 
-func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncCompleteFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
-	self.SetStageFailed(ctx, reason.String())
+	self.taskFail(ctx, lblis, reason.String())
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {

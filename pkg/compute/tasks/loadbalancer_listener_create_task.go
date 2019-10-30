@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -65,7 +66,12 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 
 	params := jsonutils.NewDict()
 	params.Set("listenerId", jsonutils.NewString(lblis.GetId()))
-	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
+	group, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
+	if err != nil && err != sql.ErrNoRows {
+		self.taskFail(ctx, lblis, err.Error())
+		return
+	}
+
 	if group != nil {
 		// 服务器组存在
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()

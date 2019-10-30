@@ -248,7 +248,7 @@ func (self *SEipAddress) Associate(instanceId string) error {
 		return err
 	}
 
-	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, 10*time.Second, 10*time.Second, 180*time.Second)
 	return err
 }
 
