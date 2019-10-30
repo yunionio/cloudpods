@@ -1502,7 +1502,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		secgroup, _ := dbinstance.GetSecgroup()
 		if secgroup != nil {
 			vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
-			_, err = region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
+			desc.SecgroupId, err = region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
 			if err != nil {
 				return nil, errors.Wrap(err, "SyncSecurityGroup")
 			}
