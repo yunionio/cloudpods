@@ -56,7 +56,10 @@ type SDBInstanceSku struct {
 	MaxDiskSizeGb int    `list:"user" create:"optional"`
 	MinDiskSizeGb int    `list:"user" create:"optional"`
 
-	IOPS int `list:"user" create:"optional"`
+	IOPS           int `list:"user" create:"optional"`
+	TPS            int `list:"user" create:"optional"`
+	QPS            int `list:"user" create:"optional"`
+	MaxConnections int `list:"user" create:"optional"`
 
 	VcpuCount  int `nullable:"false" default:"1" list:"user" create:"optional"`
 	VmemSizeMb int `nullable:"false" list:"user" create:"required"`
@@ -146,6 +149,8 @@ func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Conte
 		"engine":         input.Engine,
 		"engine_version": input.EngineVersion,
 		"iops":           input.IOPS,
+		"qps":            input.QPS,
+		"tps":            input.TPS,
 		"vcpu_count":     input.VcpuCount,
 		"vmem_size_mb":   input.VmemSizeMb,
 	} {
@@ -415,6 +420,9 @@ func (sku SDBInstanceSku) GetGlobalId() string {
 func (sku *SDBInstanceSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, isku SDBInstanceSku) error {
 	_, err := db.Update(sku, func() error {
 		sku.Status = isku.Status
+		sku.TPS = isku.TPS
+		sku.QPS = isku.QPS
+		sku.MaxConnections = isku.MaxConnections
 		return nil
 	})
 	return err
