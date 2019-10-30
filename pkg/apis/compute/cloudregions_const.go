@@ -115,8 +115,9 @@ const (
 	CITY_HOLLAND = "Holland" //荷兰
 
 	// 南非
-	CITY_PRETORIA  = "Pretoria"  //比勒陀利亚
-	CITY_CAPE_TOWN = "Cape Town" //开普敦
+	CITY_PRETORIA     = "Pretoria"     //比勒陀利亚
+	CITY_CAPE_TOWN    = "Cape Town"    //开普敦
+	CITY_JOHANNESBURG = "Johannesburg" //约翰内斯堡
 
 	// 泰国
 	CITY_BANGKOK = "Bangkok" //曼谷
