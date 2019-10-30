@@ -679,6 +679,12 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 			break
 		}
 	}
+
+	cityStr, _ := query.GetString("city")
+	if cityStr == "Other" {
+		q = q.IsNullOrEmpty("city")
+		query.(*jsonutils.JSONDict).Remove("city")
+	}
 	return q, nil
 }
 

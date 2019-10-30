@@ -59,6 +59,9 @@ func (this *SCloudregionManager) getRegionAttributeList(session *mcclient.Client
 	cities := make(map[string]int)
 	for i := range listResult.Data {
 		cityStr, _ := listResult.Data[i].GetString(attr)
+		if len(cityStr) == 0 && attr == "city" {
+			cityStr = "Other"
+		}
 		if len(cityStr) > 0 {
 			if _, ok := cities[cityStr]; ok {
 				cities[cityStr] += 1
