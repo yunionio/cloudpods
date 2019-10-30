@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
+	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -199,7 +199,7 @@ func (manager *SUserManager) initSysUser() error {
 	if err != nil {
 		return errors.Wrap(err, "insert")
 	}
-	err = usr.initLocalData(options.Options.BootstrapAdminUserPassword)
+	err = usr.initLocalData(o.Options.BootstrapAdminUserPassword)
 	if err != nil {
 		return errors.Wrap(err, "initLocalData")
 	}
@@ -372,6 +372,16 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 	return q
 }
 
+func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	passwd, _ := data.GetString("password")
+	if len(passwd) > 0 {
+		if o.Options.PasswordMinimalLength > 0 && len(passwd) < o.Options.PasswordMinimalLength {
+			return nil, errors.Error("too simple password")
+		}
+	}
+	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if data.Contains("name") {
 		if user.IsAdminUser() {
@@ -390,6 +400,17 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			if data.Contains(k) {
 				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
+		}
+	}
+	passwd, _ := data.GetString("password")
+	if len(passwd) > 0 {
+		usrExt, err := UserManager.FetchUserExtended(user.Id, "", "", "")
+		if err != nil {
+			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
+		}
+		err = PasswordManager.verifyPassword(usrExt.LocalId, passwd)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
 	}
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
@@ -797,5 +818,22 @@ func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred m
 			return httperrors.NewGeneralError(err)
 		}
 	}
+	return nil
+}
+
+func (manager *SUserManager) LockUser(uid string) error {
+	usrObj, err := manager.FetchById(uid)
+	if err != nil {
+		return errors.Wrapf(err, "manager.FetchById %s", uid)
+	}
+	usr := usrObj.(*SUser)
+	diff, err := db.Update(usr, func() error {
+		usr.Enabled = tristate.False
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update")
+	}
+	db.OpsLog.LogEvent(usr, db.ACT_UPDATE, diff, GetDefaultAdminCred())
 	return nil
 }
