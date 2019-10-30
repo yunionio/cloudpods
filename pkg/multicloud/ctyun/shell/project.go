@@ -12,4 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package shell
+
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/ctyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
+
+func init() {
+	type VProjectListOptions struct {
+	}
+	shellutils.R(&VProjectListOptions{}, "project-list", "List projects", func(cli *ctyun.SRegion, args *VProjectListOptions) error {
+		projects, e := cli.FetchProjects()
+		if e != nil {
+			return e
+		}
+		printList(projects, 0, 0, 0, nil)
+		return nil
+	})
+}

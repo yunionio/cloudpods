@@ -144,6 +144,11 @@ type SS3CloudAccountCreateOptions struct {
 	Endpoint string `help:"S3 endpoint" required:"true" positional:"true" json:"endpoint"`
 }
 
+type SCtyunCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredentialWithEnvironment
+}
+
 // update credential options
 
 type SCloudAccountUpdateCredentialBaseOptions struct {
@@ -196,6 +201,11 @@ type SZStackCloudAccountUpdateCredentialOptions struct {
 }
 
 type SS3CloudAccountUpdateCredentialOptions struct {
+	SCloudAccountUpdateCredentialBaseOptions
+	SAccessKeyCredential
+}
+
+type SCtyunCloudAccountUpdateCredentialOptions struct {
 	SCloudAccountUpdateCredentialBaseOptions
 	SAccessKeyCredential
 }
@@ -255,5 +265,9 @@ type SZStackCloudAccountUpdateOptions struct {
 }
 
 type SS3CloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SCtyunCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
