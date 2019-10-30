@@ -1582,14 +1582,29 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
-	device, err := data.GetString("device")
-	if err != nil {
-		msg := "Missing isolated device"
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewBadRequestError(msg)
+	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
+	if !detachAllDevice {
+		device, err := data.GetString("device")
+		if err != nil {
+			msg := "Missing isolated device"
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+			return nil, httperrors.NewBadRequestError(msg)
+		}
+		err = self.startDetachIsolateDevice(ctx, userCred, device)
+		return nil, err
+	} else {
+		devs := self.GetIsolatedDevices()
+		host := self.GetHost()
+		lockman.LockObject(ctx, host)
+		defer lockman.ReleaseObject(ctx, host)
+		for i := 0; i < len(devs); i++ {
+			err := self.detachIsolateDevice(ctx, userCred, &devs[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
 	}
-	err = self.startDetachIsolateDevice(ctx, userCred, device)
-	return nil, err
 }
 
 func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
