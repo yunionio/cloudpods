@@ -98,6 +98,7 @@ const (
 
 	//华为云实例类型
 	HUAWEI_DBINSTANCE_CATEGORY_HA      = "ha"      //主备
+	HUAWEI_DBINSTANCE_CATEGORY_GR      = "gr"      //金融版
 	HUAWEI_DBINSTANCE_CATEGORY_SINGLE  = "single"  //单机
 	HUAWEI_DBINSTANCE_CATEGORY_REPLICA = "replica" //只读
 

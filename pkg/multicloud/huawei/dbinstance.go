@@ -477,6 +477,20 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		if len(desc.ZoneIds) == 0 {
 			desc.ZoneIds = zoneIds
 		}
+	case api.HUAWEI_DBINSTANCE_CATEGORY_GR:
+		params["ha"] = map[string]string{
+			"mode":             "Gr",
+			"replication_mode": "semisync",
+		}
+		if len(desc.ZoneIds) == 0 {
+			for _, zone1 := range zoneIds {
+				for _, zone2 := range zoneIds {
+					for _, zone3 := range zoneIds {
+						desc.ZoneIds = append(desc.ZoneIds, fmt.Sprintf("%s,%s,%s", zone1, zone2, zone3))
+					}
+				}
+			}
+		}
 	case api.HUAWEI_DBINSTANCE_CATEGORY_REPLICA:
 	}
 
