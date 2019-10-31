@@ -1127,7 +1127,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 	}
 
 	for _, privilege := range input.Privileges {
-		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, privilege.Privilege)
+		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, input.Name, privilege.Privilege)
 		if err != nil {
 			return nil, err
 		}
@@ -1142,7 +1142,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx contex
 	}
 
 	for _, account := range input.Accounts {
-		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, account.Privilege)
+		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, account.Account, account.Privilege)
 		if err != nil {
 			return nil, err
 		}
@@ -1155,7 +1155,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.
 	return input, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, privilege string) error {
+func (self *SAliyunRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
 	switch privilege {
 	case api.DATABASE_PRIVILEGE_RW:
 	case api.DATABASE_PRIVILEGE_R:

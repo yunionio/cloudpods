@@ -34,14 +34,14 @@ import (
 )
 
 type SDBInstanceDatabaseManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
 }
 
 var DBInstanceDatabaseManager *SDBInstanceDatabaseManager
 
 func init() {
 	DBInstanceDatabaseManager = &SDBInstanceDatabaseManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SDBInstanceDatabase{},
 			"dbinstancedatabases_tbl",
 			"dbinstancedatabase",
@@ -52,7 +52,7 @@ func init() {
 }
 
 type SDBInstanceDatabase struct {
-	db.SStatusStandaloneResourceBase
+	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
 	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -87,7 +87,7 @@ func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred m
 }
 
 func (manager *SDBInstanceDatabaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 }
 
 func (self *SDBInstanceDatabase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra, _ = self.getMoreDetails(ctx, userCred, extra)
 	return extra
 }
@@ -239,7 +239,7 @@ func (manager *SDBInstanceDatabaseManager) SyncDBInstanceDatabases(ctx context.C
 	}
 
 	for i := 0; i < len(commondb); i++ {
-		err := commondb[i].SyncWithCloudDBInstanceDatabase(ctx, userCred, commonext[i])
+		err := commondb[i].SyncWithCloudDBInstanceDatabase(ctx, userCred, instance, commonext[i])
 		if err != nil {
 			result.UpdateError(err)
 		} else {
@@ -258,11 +258,13 @@ func (manager *SDBInstanceDatabaseManager) SyncDBInstanceDatabases(ctx context.C
 	return result
 }
 
-func (self *SDBInstanceDatabase) SyncWithCloudDBInstanceDatabase(ctx context.Context, userCred mcclient.TokenCredential, extDatabase cloudprovider.ICloudDBInstanceDatabase) error {
+func (self *SDBInstanceDatabase) SyncWithCloudDBInstanceDatabase(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, extDatabase cloudprovider.ICloudDBInstanceDatabase) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extDatabase.GetStatus()
 		self.Name = extDatabase.GetName()
 		self.CharacterSet = extDatabase.GetCharacterSet()
+		self.ProjectId = instance.ProjectId
+		self.DomainId = instance.DomainId
 
 		return nil
 	})
@@ -284,6 +286,8 @@ func (manager *SDBInstanceDatabaseManager) newFromCloudDBInstanceDatabase(ctx co
 	database.Status = extDatabase.GetStatus()
 	database.CharacterSet = extDatabase.GetCharacterSet()
 	database.ExternalId = extDatabase.GetGlobalId()
+	database.ProjectId = instance.ProjectId
+	database.DomainId = instance.DomainId
 
 	err := manager.TableSpec().Insert(&database)
 	if err != nil {
@@ -298,7 +302,7 @@ func (self *SDBInstanceDatabase) Delete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SDBInstanceDatabase) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SDBInstanceDatabase) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

@@ -267,7 +267,7 @@ func (self *SBaseRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Co
 	return fmt.Errorf("Not Implement ValidateChangeDBInstanceConfigData")
 }
 
-func (self *SBaseRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, privilege string) error {
+func (self *SBaseRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
 	return fmt.Errorf("Not Implement ValidateDBInstanceAccountPrivilege")
 }
 
