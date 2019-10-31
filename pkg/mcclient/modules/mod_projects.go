@@ -17,6 +17,8 @@ package modules
 import (
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -217,7 +219,7 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 	return ret, nil
 }
 
-// Add Many user[uids] to project(pid) with role(rid)
+// Remove Many user[uids] to project(pid) with role(rid)
 func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSession, pid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// params format:
 	// {
@@ -277,6 +279,66 @@ func (this *ProjectManagerV3) FetchId(s *mcclient.ClientSession, project string,
 		query.Add(jsonutils.NewString(domainId), "domain_id")
 	}
 	return this.GetId(s, project, query)
+}
+
+func (this *ProjectManagerV3) JoinProject(s *mcclient.ClientSession, rid, pid, uid string) error {
+	_, err := RolesV3.PutInContexts(s, rid, nil, []modulebase.ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// create project and attach users & roles
+func (this *ProjectManagerV3) DoCreateProject(s *mcclient.ClientSession, p jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	/*
+		params format:
+		{
+			user : ["TestA", "TestB"],
+			role : ["RoleA", "RoleB"],
+		}
+	*/
+	params := p.(*jsonutils.JSONDict)
+	_user, _ := params.Get("user")
+	_role, _ := params.Get("role")
+	params.Remove("user")
+	params.Remove("role")
+
+	// create project
+	response, err := Projects.Create(s, params)
+	if err != nil {
+		return nil, err
+	}
+
+	pid, err := response.GetString("id")
+	if err != nil {
+		return nil, httperrors.NewResourceNotFoundError("project is not found")
+	}
+
+	// assgin users to project
+	users := _user.(*jsonutils.JSONArray).GetStringArray()
+	roles := _role.(*jsonutils.JSONArray).GetStringArray()
+	if len(users) > 0 && len(roles) > 0 {
+		var projectG errgroup.Group
+
+		for i := range users {
+			uid := users[i]
+			for j := range roles {
+				rid := roles[j]
+
+				projectG.Go(func() error {
+					return this.JoinProject(s, rid, pid, uid)
+				})
+			}
+		}
+
+		if err := projectG.Wait(); err != nil {
+			return nil, err
+		}
+	}
+
+	return response, nil
 }
 
 func init() {

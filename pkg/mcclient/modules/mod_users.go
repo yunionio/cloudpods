@@ -17,6 +17,8 @@ package modules
 import (
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -158,6 +160,54 @@ func (this *UserManagerV3) DoJoinGroups(s *mcclient.ClientSession, uid string, p
 		<-ch
 	}
 	return ret, nil
+}
+
+// create user && assgin user with project_domain、project、role
+func (this *UserManagerV3) DoCreateUser(s *mcclient.ClientSession, p jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// params format:
+	// {
+	//     "project": ["projectA", "projectB"],
+	//     "role": ["RoleA", "RoleB"],
+	// }
+	params := p.(*jsonutils.JSONDict)
+	_project, _ := params.Get("project")
+	_role, _ := params.Get("role")
+	params.Remove("project")
+	params.Remove("role")
+
+	response, err := UsersV3.Create(s, params)
+	if err != nil {
+		return nil, err
+	}
+
+	uid, err := response.GetString("id")
+	if err != nil {
+		return nil, err
+	}
+
+	// assgin project & role
+	projects := _project.(*jsonutils.JSONArray).GetStringArray()
+	roles := _role.(*jsonutils.JSONArray).GetStringArray()
+	if len(projects) > 0 && len(roles) > 0 {
+		var projectG errgroup.Group
+
+		for i := range projects {
+			pid := projects[i]
+			for j := range roles {
+				rid := roles[j]
+
+				projectG.Go(func() error {
+					return Projects.JoinProject(s, rid, pid, uid)
+				})
+			}
+		}
+
+		if err := projectG.Wait(); err != nil {
+			return nil, err
+		}
+	}
+
+	return response, nil
 }
 
 func (this *UserManagerV3) FetchId(s *mcclient.ClientSession, user string, domain string) (string, error) {
