@@ -1511,7 +1511,12 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageI
 func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
-		self.DiskType = api.DISK_TYPE_SYS
+		// support for create vm from guest image
+		if len(diskConfig.DiskType) == 0 {
+			self.DiskType = api.DISK_TYPE_SYS
+		} else {
+			self.DiskType = diskConfig.DiskType
+		}
 	} else if len(diskConfig.SnapshotId) > 0 {
 		self.SnapshotId = diskConfig.SnapshotId
 		self.DiskType = diskConfig.DiskType

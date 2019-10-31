@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -37,6 +38,10 @@ func init() {
 
 func (self *GuestImageUpdateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guestImage := obj.(*models.SGuestImage)
+
+	self.Params.Add(jsonutils.NewString(guestImage.Status), "old_status")
+	guestImage.SetStatus(self.UserCred, image.IMAGE_STATUS_UPDATING, "")
+
 	subImages, err := models.GuestImageJointManager.GetImagesByFilter(guestImage.GetId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Asc("name")
 	})
@@ -75,10 +80,14 @@ func (self *GuestImageUpdateTask) OnInit(ctx context.Context, obj db.IStandalone
 			return
 		}
 	}
+	oldStatus, _ := self.Params.GetString("old_status")
+	guestImage.SetStatus(self.UserCred, oldStatus, "")
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestImageUpdateTask) taskFailed(ctx context.Context, guestImage *models.SGuestImage, reason string) {
+	oldStatus, _ := self.Params.GetString("old_status")
+	guestImage.SetStatus(self.UserCred, oldStatus, "")
 	db.OpsLog.LogEvent(guestImage, db.ACT_SUBIMAGE_UPDATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guestImage, logclient.ACT_SUBIMAGE_UPDATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
