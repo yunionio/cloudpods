@@ -300,7 +300,7 @@ func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, us
 
 func (self *SVirtualizedGuestDriver) StartGuestSaveGuestImage(ctx context.Context, userCred mcclient.TokenCredential,
 	guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-
+	guest.SetStatus(userCred, api.VM_START_SAVE_DISK, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveGuestImageTask", guest, userCred, params, parentTaskId,
 		"", nil); err != nil {
 		return err

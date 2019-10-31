@@ -538,6 +538,12 @@ type ServerSaveImageOptions struct {
 	AutoStart *bool  `help:"Auto start server after image saved"`
 }
 
+type ServerSaveGuestImageOptions struct {
+	ID        string `help:"ID or name of server" json:"-"`
+	IMAGE     string `help:"Image name" json:"name"`
+	AutoStart *bool  `help:"Auto start server after image saved"`
+}
+
 type ServerRebuildRootOptions struct {
 	ID            string `help:"Server to rebuild root" json:"-"`
 	ImageId       string `help:"New root Image template ID" json:"image_id" token:"image"`

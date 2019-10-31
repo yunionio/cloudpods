@@ -198,7 +198,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) {
 		return nil, httperrors.NewBadRequestError("Cannot save image in status %s", self.Status)
 	}
-	if !data.Contains("name") {
+	if !data.Contains("name") && !data.Contains("generate_name") {
 		return nil, httperrors.NewMissingParameterError("Image name is required")
 	}
 	if self.Hypervisor != api.HYPERVISOR_KVM {
@@ -237,7 +237,7 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 
 	kwargs.Add(images, "images")
 
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
 	ret, err := modules.GuestImages.Create(s, kwargs)
 	if err != nil {
 		return nil, err
