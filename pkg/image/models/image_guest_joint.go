@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -82,7 +83,9 @@ func (gm *SGuestImageJointManager) GetGuestImageByImageId(imageId string) (*SGue
 	return model.(*SGuestImage), nil
 }
 
-func (gm *SGuestImageJointManager) GetImagesByGuestImageId(guestImageId string) ([]SImage, error) {
+func (gm *SGuestImageJointManager) GetImagesByFilter(guestImageId string,
+	filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) ([]SImage, error) {
+
 	giJoints, err := gm.GetByGuestImageId(guestImageId)
 	if err != nil {
 		return nil, errors.Wrap(err, "get joints of guest and image failed")
@@ -95,12 +98,19 @@ func (gm *SGuestImageJointManager) GetImagesByGuestImageId(guestImageId string) 
 		imageIds[i] = giJoints[i].ImageId
 	}
 	q := ImageManager.Query().In("id", imageIds)
+	q = filter(q)
 	images := make([]SImage, 0, len(imageIds))
 	err = db.FetchModelObjects(ImageManager, q, &images)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch images failed")
 	}
 	return images, nil
+}
+
+func (gm *SGuestImageJointManager) GetImagesByGuestImageId(guestImageId string) ([]SImage, error) {
+	return gm.GetImagesByFilter(guestImageId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q
+	})
 }
 
 func (gt *SGuestImageJoint) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -169,4 +169,6 @@ const (
 	ACT_VM_DISSOCIATE           = "解绑虚拟机"
 	ACT_NATGATEWAY_DISSOCIATE   = "解绑NAT网关"
 	ACT_LOADBALANCER_DISSOCIATE = "解绑负载均衡"
+
+	ACT_SUBIMAGE_UPDATE = "更新子镜像"
 )
