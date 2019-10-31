@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -76,9 +77,12 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 	database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")
 
 	input := api.SDBInstanceDatabaseCreateInput{}
+	self.GetParams().Unmarshal(&input)
 	for _, _account := range input.Accounts {
-		account, _ := instance.GetDBInstanceAccount(_account.DBInstancedccountId)
-		if account != nil {
+		account, err := instance.GetDBInstanceAccount(_account.DBInstancedccountId)
+		if err != nil {
+			log.Errorf("failed to found account %s(%s) for instance %s(%s) error: %v", _account.Account, _account.DBInstancedccountId, instance.Name, instance.Id, err)
+		} else {
 			account.StartGrantPrivilegeTask(ctx, self.UserCred, database.Name, _account.Privilege, "")
 		}
 	}

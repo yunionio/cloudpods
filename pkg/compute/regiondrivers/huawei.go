@@ -1582,6 +1582,10 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return nil, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
 	}
 
+	if len(input.Name) < 4 || len(input.Name) > 64 {
+		return nil, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
+	}
+
 	if input.DiskSizeGB < 40 || input.DiskSizeGB > 4000 {
 		return nil, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
 	}
@@ -1680,4 +1684,14 @@ func (self *SHuaWeiRegionDriver) ValidateResetDBInstancePassword(ctx context.Con
 
 func (self *SHuaWeiRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
 	return true
+}
+
+func (self *SHuaWeiRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string, privilege string) error {
+	if account == "root" {
+		return httperrors.NewInputParameterError("No need to grant or revoke privilege for admin account")
+	}
+	if utils.IsInStringArray(privilege, []string{api.DATABASE_PRIVILEGE_RW, api.DATABASE_PRIVILEGE_R}) {
+		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
+	}
+	return nil
 }
