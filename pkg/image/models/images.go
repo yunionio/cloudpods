@@ -554,7 +554,7 @@ func (self *SImage) ImageProbeAndCustomization(
 
 func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if self.Status != api.IMAGE_STATUS_QUEUED {
-		if self.IsGuestImage.IsTrue() && !self.CanUpdate(data) {
+		if !self.CanUpdate(data) {
 			return nil, httperrors.NewForbiddenError("image is the part of guest imgae")
 		}
 		appParams := appsrv.AppContextGetParams(ctx)
@@ -1263,8 +1263,6 @@ func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcc
 
 func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
 	dict := data.(*jsonutils.JSONDict)
-	if dict.Length() == 1 && !dict.Contains("description") {
-		return false
-	}
-	return true
+	// Only allow update description for now when Image is part of guest image
+	return self.IsGuestImage.IsFalse() || (dict.Length() == 1 && dict.Contains("description"))
 }

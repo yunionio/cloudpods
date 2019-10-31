@@ -66,7 +66,7 @@ func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context
 		self.taskFailed(ctx, guest, "subtask failed")
 	}
 
-	if restart, _ := self.GetParams().Bool("restart"); restart {
+	if restart, _ := self.GetParams().Bool("auto_start"); restart {
 		self.SetStage("on_start_server_complete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {

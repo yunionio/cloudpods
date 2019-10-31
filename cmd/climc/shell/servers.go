@@ -556,9 +556,9 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerSaveImageOptions{}, "server-save-guest-image",
+	R(&options.ServerSaveGuestImageOptions{}, "server-save-guest-image",
 		"save root disk and data disks to new images and upload to glance.", func(s *mcclient.ClientSession,
-			opts *options.ServerSaveImageOptions) error {
+			opts *options.ServerSaveGuestImageOptions) error {
 
 			params, err := options.StructToParams(opts)
 			if err != nil {
