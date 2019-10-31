@@ -333,6 +333,18 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "image",
+					Resource: "guestimages",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "image",
+					Resource: "guestimages",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "log",
 					Resource: "actions",
 					Action:   PolicyActionList,
