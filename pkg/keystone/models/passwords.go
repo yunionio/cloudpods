@@ -110,7 +110,7 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 	return passes, nil
 }
 
-func (manager *SPasswordManager) verifyPassword(localUserId int, password string) error {
+func (manager *SPasswordManager) validatePassword(localUserId int, password string) error {
 	if o.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
 		return errors.Error("too simple password")
 	}
@@ -129,7 +129,7 @@ func (manager *SPasswordManager) verifyPassword(localUserId int, password string
 	return nil
 }
 
-func (manager *SPasswordManager) savePassword(localUserId int, password string) error {
+func (manager *SPasswordManager) savePassword(localUserId int, password string, isSystemAccount bool) error {
 	hash, err := seclib2.BcryptPassword(password)
 	if err != nil {
 		return errors.Wrap(err, "seclib2.BcryptPassword")
@@ -140,7 +140,7 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string) 
 	rec.Password = shaPassword(password)
 	now := time.Now()
 	rec.CreatedAtInt = now.UnixNano() / 1000
-	if o.Options.PasswordExpirationDays > 0 {
+	if o.Options.PasswordExpirationDays > 0 && !isSystemAccount {
 		rec.ExpiresAt = now.Add(24 * time.Hour * time.Duration(o.Options.PasswordExpirationDays))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}

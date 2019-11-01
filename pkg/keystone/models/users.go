@@ -244,6 +244,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("created_at"),
 		users.Field("last_active_at"),
 		users.Field("domain_id"),
+		users.Field("is_system_account"),
 		localUsers.Field("id", "local_id"),
 		localUsers.Field("name", "local_name"),
 		domains.Field("name", "domain_name"),
@@ -300,13 +301,15 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	if len(passes) == 0 {
 		return nil
 	}
-	//for i := range passes {
+	// password expiration check skip system account
+	if !passes[0].ExpiresAt.IsZero() && passes[0].ExpiresAt.Before(time.Now()) && !user.IsSystemAccount {
+		return errors.Error("password expires")
+	}
 	err = seclib2.BcryptVerifyPassword(passwd, passes[0].PasswordHash)
 	if err == nil {
 		return nil
 	}
-	//}
-	return fmt.Errorf("invalid password for %s", user.Name)
+	return errors.Error("invalid password")
 }
 
 func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -421,7 +424,7 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 		}
-		err = PasswordManager.verifyPassword(usrExt.LocalId, passwd)
+		err = PasswordManager.validatePassword(usrExt.LocalId, passwd)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
@@ -483,6 +486,19 @@ func userExtra(user *SUser, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
 	credCnt, _ := user.GetCredentialCount()
 	extra.Add(jsonutils.NewInt(int64(credCnt)), "credential_count")
+
+	localUser, _ := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
+	if localUser != nil {
+		if localUser.FailedAuthCount > 0 {
+			extra.Add(jsonutils.NewInt(int64(localUser.FailedAuthCount)), "failed_auth_count")
+			extra.Add(jsonutils.NewTimeString(localUser.FailedAuthAt), "failed_auth_at")
+		}
+		localPass, _ := PasswordManager.FetchLastPassword(localUser.Id)
+		if localPass != nil && !localPass.ExpiresAt.IsZero() {
+			extra.Add(jsonutils.NewTimeString(localPass.ExpiresAt), "password_expires_at")
+		}
+	}
+
 	return extra
 }
 
@@ -492,7 +508,7 @@ func (user *SUser) initLocalData(passwd string) error {
 		return errors.Wrap(err, "register localuser")
 	}
 	if len(passwd) > 0 {
-		err = PasswordManager.savePassword(localUsr.Id, passwd)
+		err = PasswordManager.savePassword(localUsr.Id, passwd, user.IsSystemAccount.Bool())
 		if err != nil {
 			return errors.Wrap(err, "save password")
 		}
@@ -521,7 +537,7 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 			log.Errorf("UserManager.FetchUserExtended fail %s", err)
 			return
 		}
-		err = PasswordManager.savePassword(usrExt.LocalId, passwd)
+		err = PasswordManager.savePassword(usrExt.LocalId, passwd, user.IsSystemAccount.Bool())
 		if err != nil {
 			log.Errorf("fail to set password %s", err)
 			return

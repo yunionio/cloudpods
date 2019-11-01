@@ -671,7 +671,14 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 		return nil, fmt.Errorf("not found user %s", token.GetUserId())
 	}
 	data := jsonutils.NewDict()
-	for _, k := range []string{"displayname", "email", "id", "name", "enabled", "mobile", "allow_web_console", "created_at", "enable_mfa", "is_system_account", "last_active_at", "last_login_ip", "last_login_source", "idp_driver"} {
+	for _, k := range []string{
+		"displayname", "email", "id", "name",
+		"enabled", "mobile", "allow_web_console",
+		"created_at", "enable_mfa", "is_system_account",
+		"last_active_at", "last_login_ip",
+		"last_login_source", "idp_driver",
+		"password_expires_at", "failed_auth_count", "failed_auth_at",
+	} {
 		v, e := usr.Get(k)
 		if e == nil {
 			data.Add(v, k)
