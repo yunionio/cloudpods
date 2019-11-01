@@ -15,10 +15,15 @@
 package hostdrivers
 
 import (
+	"context"
 	"fmt"
+
+	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SUCloudHostDriver struct {
@@ -64,4 +69,14 @@ func (self *SUCloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	}
 
 	return nil
+}
+
+func (self *SUCloudHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if len(guests) > 0 {
+		return nil, httperrors.NewInputParameterError("Ucloud reset disk operation required disk not be attached")
+	}
+	if disk.DiskType != api.DISK_TYPE_DATA {
+		return nil, httperrors.NewInputParameterError("Ucloud only support data disk reset operation")
+	}
+	return data, nil
 }
