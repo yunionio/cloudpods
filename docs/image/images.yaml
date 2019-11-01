@@ -1,18 +1,35 @@
 get:
   summary: 按指定条件列出镜像
   parameters:
-    - $ref: '../parameters/common.yaml#/offset'
-    - $ref: '../parameters/common.yaml#/limit'
-    - $ref: '../parameters/common.yaml#/pending_delete'
-    - $ref: '../parameters/image.yaml#/is_public'
-    - $ref: '../parameters/image.yaml#/owner'
-    - $ref: '../parameters/image.yaml#/name'
-    - $ref: '../parameters/image.yaml#/disk_format'
-    - $ref: '../parameters/image.yaml#/disk_formats'
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/pending_delete"
+    - $ref: "../parameters/image.yaml#/is_public"
+    - $ref: "../parameters/image.yaml#/owner"
+    - $ref: "../parameters/image.yaml#/name"
+    - $ref: "../parameters/image.yaml#/disk_format"
+    - $ref: "../parameters/image.yaml#/disk_formats"
   responses:
     200:
       description: 镜像列表信息
       schema:
         $ref: "../schemas/image.yaml#/ImageListResponse"
+  tags:
+    - images
+
+post:
+  summary: 上传或创建镜像
+  parameters:
+    - $ref: "../parameters/image.yaml#/content-type"
+    - $ref: "../parameters/image.yaml#/x-image-meta-name"
+    - $ref: "../parameters/image.yaml#/x-image-meta-description"
+    - in: body
+      type: file
+      description: 镜像二进制文件内容,若body为空,仅创建镜像数据库字段，可以通过put接口再次上传body内容
+  responses:
+    200:
+      description: 上传的镜像信息
+      schema:
+        $ref: "../schemas/image.yaml#/ImageResponse"
   tags:
     - images

@@ -1,0 +1,11 @@
+post:
+  summary: 取消磁盘共享
+  parameters:
+    - $ref: "../parameters/disk.yaml#/diskId"
+  responses:
+    200:
+      description: 磁盘信息
+      schema:
+        $ref: "../schemas/disk.yaml#/DiskResponse"
+  tags:
+    - disk

@@ -145,6 +145,7 @@ func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
+// deprecate
 func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
 		BaseManager: *modulebase.NewBaseManager("cloudmeta", "", "", columns, adminColumns),

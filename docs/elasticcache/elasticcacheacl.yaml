@@ -1,0 +1,40 @@
+get:
+  summary: 获取指定ElasticCache实例访问控制详情信息
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/aclId"
+  responses:
+    200:
+      description: ElasticCache实例访问控制信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclResponse"
+  tags:
+    - elasticcacheacl
+
+put:
+  summary: 更新指定ElasticCache实例访问控制
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/aclId"
+    - in: body
+      name: elasticcacheacl
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclUpdate"
+  responses:
+    200:
+      description: 被删除ElasticCache实例的访问控制信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclResponse"
+  tags:
+    - elasticcacheacl
+
+delete:
+  summary: 删除指定ElasticCache实例访问控制
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/aclId"
+  responses:
+    200:
+      description: 被删除ElasticCache实例的访问控制信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclResponse"
+  tags:
+    - elasticcacheacl

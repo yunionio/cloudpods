@@ -17,6 +17,7 @@ package huawei
 import (
 	"fmt"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -48,7 +49,7 @@ func (self *SElasticcacheParameter) GetGlobalId() string {
 }
 
 func (self *SElasticcacheParameter) GetStatus() string {
-	return ""
+	return api.ELASTIC_CACHE_PARAMETER_STATUS_AVAILABLE
 }
 
 func (self *SElasticcacheParameter) GetParameterKey() string {

@@ -1,0 +1,19 @@
+get:
+  summary: 按指定条件列出ElasticCaches实例套餐列表
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/provider"
+    - $ref: "../parameters/common.yaml#/zone"
+    - $ref: "../parameters/common.yaml#/city"
+    - $ref: "../parameters/common.yaml#/cloudregion"
+    - $ref: "../parameters/elasticcache.yaml#/engine_version"
+    - $ref: "../parameters/elasticcache.yaml#/local_category"
+
+  responses:
+    200:
+      description: ElasticCache实例套餐信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheSkuListResponse"
+  tags:
+    - elasticcachesku

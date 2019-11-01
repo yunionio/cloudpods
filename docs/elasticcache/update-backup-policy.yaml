@@ -1,0 +1,15 @@
+post:
+  summary: 设置ElasticCache实例备份策略
+  parameters:
+    - in: body
+      name: elasticcache
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheBackupPolicy"
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

@@ -17,12 +17,17 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -46,7 +51,7 @@ func init() {
 }
 
 type SElasticcacheParameter struct {
-	db.SStandaloneResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
@@ -123,6 +128,7 @@ func (self *SElasticcacheParameter) syncRemoveCloudElasticcacheParameter(ctx con
 
 func (self *SElasticcacheParameter) SyncWithCloudElasticcacheParameter(ctx context.Context, userCred mcclient.TokenCredential, extParameter cloudprovider.ICloudElasticcacheParameter) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
+		self.Status = extParameter.GetStatus()
 		self.Key = extParameter.GetParameterKey()
 		self.Value = extParameter.GetParameterValue()
 		self.Modifiable = extParameter.GetModifiable()
@@ -144,6 +150,7 @@ func (manager *SElasticcacheParameterManager) newFromCloudElasticcacheParameter(
 	parameter.SetModelManager(manager, &parameter)
 
 	parameter.ElasticcacheId = elasticcache.Id
+	parameter.Status = extParameter.GetStatus()
 	parameter.Name = extParameter.GetName()
 	parameter.ExternalId = extParameter.GetGlobalId()
 	parameter.Key = extParameter.GetParameterKey()
@@ -159,4 +166,50 @@ func (manager *SElasticcacheParameterManager) newFromCloudElasticcacheParameter(
 	}
 
 	return &parameter, nil
+}
+
+func (self *SElasticcacheParameter) GetRegion() *SCloudregion {
+	ieb, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
+	if err != nil {
+		return nil
+	}
+
+	return ieb.(*SElasticcache).GetRegion()
+}
+
+func (self *SElasticcacheParameter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if !self.Modifiable {
+		return nil, httperrors.NewConflictError("%s is not modifiable", self.Name)
+	}
+
+	_, err := data.GetString("value")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("value")
+	}
+
+	return data, nil
+}
+
+func (self *SElasticcacheParameter) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	v, _ := data.Get("value")
+	params := jsonutils.NewDict()
+	paramsObj := jsonutils.NewDict()
+	paramsObj.Add(v, self.Name)
+	params.Add(paramsObj, "parameters")
+
+	self.SetStatus(userCred, api.ELASTIC_CACHE_PARAMETER_STATUS_UPDATING, "")
+	if err := self.StartUpdateElasticcacheParameterTask(ctx, userCred, params, ""); err != nil {
+		log.Errorf("ElasticcacheParameter %s", err.Error())
+	}
+
+	return
+}
+
+func (self *SElasticcacheParameter) StartUpdateElasticcacheParameterTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheParameterUpdateTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

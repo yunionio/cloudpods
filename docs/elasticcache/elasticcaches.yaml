@@ -1,0 +1,36 @@
+get:
+  summary: 按指定条件列出ElasticCache实例
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/provider"
+    - $ref: "../parameters/common.yaml#/account"
+    - $ref: "../parameters/common.yaml#/cloudprovider"
+    - $ref: "../parameters/common.yaml#/billing_type"
+    - $ref: "../parameters/common.yaml#/cloudregion"
+    - $ref: "../parameters/common.yaml#/zone"
+    - $ref: "../parameters/common.yaml#/vpc"
+
+  responses:
+    200:
+      description: ElasticCache实例列表信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheListResponse"
+  tags:
+    - elasticcache
+
+post:
+  summary: 创建ElasticCache实例
+  parameters:
+    - in: body
+      name: elasticcache
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheCreate"
+  responses:
+    200:
+      description: 新创建的ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

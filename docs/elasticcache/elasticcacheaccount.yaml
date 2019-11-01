@@ -1,0 +1,23 @@
+get:
+  summary: 获取指定ElasticCache实例用户详情信息
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/accountId"
+  responses:
+    200:
+      description: ElasticCache实例用户信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAccountResponse"
+  tags:
+    - elasticcacheaccount
+
+delete:
+  summary: 删除指定ElasticCache实例用户
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/accountId"
+  responses:
+    200:
+      description: 被删除ElasticCache实例的用户信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAccountResponse"
+  tags:
+    - elasticcacheaccount

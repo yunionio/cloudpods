@@ -1,0 +1,30 @@
+get:
+  summary: 按指定条件列出ElasticCache实例访问控制列表
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/elasticcache.yaml#/elasticcache_id"
+
+  responses:
+    200:
+      description: ElasticCache实例访问控制列表信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclListResponse"
+  tags:
+    - elasticcacheacl
+
+post:
+  summary: 创建ElasticCache实例ACL
+  parameters:
+    - in: body
+      name: elasticcacheacl
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclCreate"
+  responses:
+    200:
+      description: 新创建的ElasticCache实例ACL信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAclResponse"
+  tags:
+    - elasticcacheacl
