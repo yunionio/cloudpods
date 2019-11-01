@@ -52,6 +52,10 @@ func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred m
 	return data, nil
 }
 
+func (self *SAzureHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.NewBadRequestError("Azure not support reset disk, you can create new disk with snapshot")
+}
+
 func (self *SAzureHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_STANDARD_LRS, api.STORAGE_STANDARDSSD_LRS, api.STORAGE_PREMIUM_LRS}) {
 		if sizeGb < 1 || sizeGb > 4095 {

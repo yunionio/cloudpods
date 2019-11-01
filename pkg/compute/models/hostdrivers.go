@@ -33,7 +33,7 @@ type IHostDriver interface {
 	RequestUncacheImage(ctx context.Context, host *SHost, storageCache *SStoragecache, task taskman.ITask) error
 
 	ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
-	ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
+	ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, snapshot *SSnapshot, guests []SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	ValidateDiskSize(storage *SStorage, sizeGb int) error
 	RequestPrepareSaveDiskOnHost(ctx context.Context, host *SHost, disk *SDisk, imageId string, task taskman.ITask) error
 	RequestSaveUploadImageOnHost(ctx context.Context, host *SHost, disk *SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error
