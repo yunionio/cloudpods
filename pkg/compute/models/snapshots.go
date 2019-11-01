@@ -84,27 +84,6 @@ func init() {
 	SnapshotManager.SetVirtualObject(SnapshotManager)
 }
 
-func ValidateSnapshotName(name string, owner mcclient.IIdentityProvider) error {
-	q := SnapshotManager.Query()
-	q = SnapshotManager.FilterByName(q, name)
-	q = SnapshotManager.FilterByOwner(q, owner, SnapshotManager.NamespaceScope())
-	q = SnapshotManager.FilterBySystemAttributes(q, nil, nil, SnapshotManager.ResourceScope())
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return err
-	}
-	if cnt != 0 {
-		return httperrors.NewConflictError("Name %s conflict", name)
-	}
-	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
-		return httperrors.NewBadRequestError("Name must start with letter")
-	}
-	if len(name) < 2 || len(name) > 128 {
-		return httperrors.NewBadRequestError("Snapshot name length must within 2~128")
-	}
-	return nil
-}
-
 func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -236,21 +215,40 @@ func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	diskV := validators.NewModelIdOrNameValidator("disk", "disk", ownerId)
-	if err := diskV.Validate(data); err != nil {
+	err := diskV.Validate(data)
+	if err != nil {
 		return nil, err
 	}
 	disk := diskV.Model.(*SDisk)
 
-	snapshotName, err := data.GetString("name")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("name")
+	input := &api.SSnapshotCreateInput{
+		DiskType: disk.DiskType,
+		Size:     disk.DiskSize,
 	}
-	err = ValidateSnapshotName(snapshotName, ownerId)
+
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
+	}
+
+	storage := disk.GetStorage()
+	if len(disk.ExternalId) == 0 {
+		input.StorageId = disk.StorageId
+	}
+	input.ManagerId = storage.ManagerId
+	region := storage.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
+	}
+	input.CloudregionId = region.Id
+
+	driver, err := storage.GetRegionDriver()
 	if err != nil {
 		return nil, err
 	}
+	input.OutOfChain = driver.SnapshotIsOutOfChain(disk)
 
-	err = disk.GetStorage().GetRegion().GetDriver().ValidateSnapshotCreate(ctx, userCred, disk, data)
+	err = driver.ValidateCreateSnapshotData(ctx, userCred, disk, storage, input)
 	if err != nil {
 		return nil, err
 	}
@@ -262,26 +260,6 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}
 
-	input := &api.SSnapshotCreateInput{}
-	input.Name = snapshotName
-	input.ProjectId = ownerId.GetProjectId()
-	input.DomainId = ownerId.GetProjectDomainId()
-	input.DiskId = disk.Id
-	input.CreatedBy = api.SNAPSHOT_MANUAL
-	input.Size = disk.DiskSize
-	input.DiskType = disk.DiskType
-	input.OutOfChain = disk.GetStorage().GetRegion().GetDriver().SnapshotIsOutOfChain(disk)
-	storage := disk.GetStorage()
-	if len(disk.ExternalId) == 0 {
-		input.StorageId = disk.StorageId
-	}
-	if cloudregion := storage.GetRegion(); cloudregion != nil {
-		input.CloudregionId = cloudregion.GetId()
-	}
-	provider := disk.GetCloudprovider()
-	if provider != nil {
-		input.ManagerId = provider.Id
-	}
 	return input.JSON(input), nil
 }
 
