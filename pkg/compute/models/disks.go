@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -702,6 +703,9 @@ func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.DISK_READY}) {
+		return nil, httperrors.NewInputParameterError("Cannot reset disk in status %s", self.Status)
+	}
 	storage := self.GetStorage()
 	if storage == nil {
 		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
@@ -712,15 +716,28 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
 	}
 
-	data, err := host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, data.(*jsonutils.JSONDict))
+	snapshotV := validators.NewModelIdOrNameValidator("snapshot", "snapshot", userCred)
+	err := snapshotV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+	snapshot := snapshotV.Model.(*SSnapshot)
+	if snapshot.Status != api.SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
+	}
+
+	if snapshot.DiskId != self.Id {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk %s(%s),Snapshot is belong to disk %s", self.Name, self.Id, snapshot.DiskId)
+	}
+
+	guests := self.GetGuests()
+	data, err = host.GetHostDriver().ValidateResetDisk(ctx, userCred, self, snapshot, guests, data.(*jsonutils.JSONDict))
 	if err != nil {
 		return nil, err
 	}
 
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
-	snapshotId, _ := data.GetString("snapshot_id")
-	guests := self.GetGuests()
-	return nil, self.StartResetDisk(ctx, userCred, snapshotId, autoStart, &guests[0], "")
+	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, autoStart, &guests[0], "")
 }
 
 func (self *SDisk) StartResetDisk(

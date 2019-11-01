@@ -18,10 +18,14 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SQcloudHostDriver struct {
@@ -61,6 +65,15 @@ func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 		return fmt.Errorf("Not support create %s disk", storage.StorageType)
 	}
 	return nil
+}
+
+func (self *SQcloudHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	for _, guest := range guests {
+		if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+			return nil, httperrors.NewBadGatewayError("Qcloud reset disk required guest status is running or read")
+		}
+	}
+	return data, nil
 }
 
 func (self *SQcloudHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
