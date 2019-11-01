@@ -149,8 +149,8 @@ func (self *SBaseRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsh
 	return fmt.Errorf("Not Implement RequestDeleteSnapshot")
 }
 
-func (self *SBaseRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
-	return fmt.Errorf("Not Implement ValidateSnapshotCreate")
+func (self *SBaseRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+	return fmt.Errorf("Not Implement ValidateCreateSnapshotData")
 }
 
 func (self *SBaseRegionDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {

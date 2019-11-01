@@ -845,9 +845,8 @@ func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context
 	return nil
 }
 
-func (self *SAliyunRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
-	name, _ := data.GetString("name")
-	if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
+func (self *SAliyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+	if strings.HasPrefix(input.Name, "auto") || strings.HasPrefix(input.Name, "http://") || strings.HasPrefix(input.Name, "https://") {
 		return httperrors.NewBadRequestError(
 			"Snapshot for %s name can't start with auto, http:// or https://", self.GetProvider())
 	}

@@ -97,7 +97,7 @@ type IRegionDriver interface {
 
 	// Region Driver Snapshot Apis
 	ValidateSnapshotDelete(ctx context.Context, snapshot *SSnapshot) error
-	ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, data *jsonutils.JSONDict) error
+	ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, storage *SStorage, input *api.SSnapshotCreateInput) error
 	RequestCreateSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
 	RequestDeleteSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
 	SnapshotIsOutOfChain(disk *SDisk) bool

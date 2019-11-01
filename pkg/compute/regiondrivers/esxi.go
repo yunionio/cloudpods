@@ -51,6 +51,6 @@ func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx con
 	return nil, httperrors.NewNotImplementedError("%s does not support creating loadbalancer certificate", self.GetProvider())
 }
 
-func (self *SEsxiRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+func (self *SEsxiRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
 	return fmt.Errorf("%s does not support creating snapshot", self.GetProvider())
 }
