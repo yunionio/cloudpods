@@ -50,6 +50,19 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 	return cp.GetCloudaccount()
 }
 
+func (self *SManagedResourceBase) GetRegionDriver() (IRegionDriver, error) {
+	cloudprovider := self.GetCloudprovider()
+	provider := api.CLOUD_PROVIDER_ONECLOUD
+	if cloudprovider != nil {
+		provider = cloudprovider.Provider
+	}
+	driver := GetRegionDriver(provider)
+	if driver == nil {
+		return nil, fmt.Errorf("failed to get %s region drivder", provider)
+	}
+	return driver, nil
+}
+
 func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	provider := self.GetCloudprovider()
 	if provider == nil {

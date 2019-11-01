@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SnapshotCreateTask struct {
@@ -41,12 +42,14 @@ func (self *SnapshotCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 func (self *SnapshotCreateTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {
 	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_FAILED, reason)
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *SnapshotCreateTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "")
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DONE, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
