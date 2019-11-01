@@ -1,12 +1,12 @@
 post:
   summary: 清除弹性EIP数据库记录(并不真正删除资源)
-  parameters: 
+  parameters:
     - $ref: "../parameters/elasticip.yaml#/elasticipId"
   responses:
     200:
       description: 弹性IP信息
       schema:
-        $ref: "../schemas/elasticip.yaml#ElasticIpResponse"
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
 
   tags:
     - elasticips

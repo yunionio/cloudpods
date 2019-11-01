@@ -1,0 +1,25 @@
+get:
+  summary: 按指定条件列出ElasticCache实例备份列表
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/cloudregion"
+    - $ref: "../parameters/elasticcache.yaml#/elasticcache_id"
+
+  responses:
+    200:
+      description: ElasticCache实例备份列表信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheBackupListResponse"
+  tags:
+    - elasticcachebackup
+
+post:
+  summary: 创建ElasticCache实例备份
+  responses:
+    200:
+      description: 新创建的ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheBackupResponse"
+  tags:
+    - elasticcachebackup

@@ -1,13 +1,13 @@
 post:
   summary: 解绑弹性EIP
-  parameters: 
+  parameters:
     - $ref: "../parameters/elasticip.yaml#/elasticipId"
     - $ref: "../parameters/elasticip.yaml#/auto_delete"
   responses:
     200:
       description: 弹性IP信息
       schema:
-        $ref: "../schemas/elasticip.yaml#ElasticIpResponse"
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
 
   tags:
     - elasticips

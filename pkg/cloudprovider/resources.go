@@ -128,6 +128,8 @@ type ICloudRegion interface {
 	CreateIDBInstance(desc *SManagedDBInstanceCreateConfig) (ICloudDBInstance, error)
 
 	GetIElasticcaches() ([]ICloudElasticcache, error)
+	GetIElasticcacheById(id string) (ICloudElasticcache, error)
+	CreateIElasticcaches(ec *SCloudElasticCacheInput) (ICloudElasticcache, error)
 
 	GetProvider() string
 }
@@ -839,10 +841,31 @@ type ICloudElasticcache interface {
 	GetMaintainStartTime() string
 	GetMaintainEndTime() string
 
+	GetAuthMode() string
+
 	GetICloudElasticcacheAccounts() ([]ICloudElasticcacheAccount, error)
 	GetICloudElasticcacheAcls() ([]ICloudElasticcacheAcl, error)
 	GetICloudElasticcacheBackups() ([]ICloudElasticcacheBackup, error)
 	GetICloudElasticcacheParameters() ([]ICloudElasticcacheParameter, error)
+
+	GetICloudElasticcacheAccount(accountId string) (ICloudElasticcacheAccount, error)
+	GetICloudElasticcacheAcl(aclId string) (ICloudElasticcacheAcl, error)
+	GetICloudElasticcacheBackup(backupId string) (ICloudElasticcacheBackup, error)
+
+	Restart() error
+	Delete() error
+	ChangeInstanceSpec(spec string) error
+	SetMaintainTime(maintainStartTime, maintainEndTime string) error
+	AllocatePublicConnection(port int) (string, error) // return url & error info
+	ReleasePublicConnection() error
+
+	CreateAccount(account SCloudElasticCacheAccountInput) (ICloudElasticcacheAccount, error)
+	CreateAcl(aclName, securityIps string) (ICloudElasticcacheAcl, error)
+	CreateBackup() (ICloudElasticcacheBackup, error)
+	FlushInstance() error
+	UpdateAuthMode(noPasswordAccess bool) error
+	UpdateInstanceParameters(config jsonutils.JSONObject) error
+	UpdateBackupPolicy(config SCloudElasticCacheBackupPolicyUpdateInput) error
 }
 
 type ICloudElasticcacheAccount interface {
@@ -850,12 +873,19 @@ type ICloudElasticcacheAccount interface {
 
 	GetAccountType() string
 	GetAccountPrivilege() string
+
+	Delete() error
+	ResetPassword(input SCloudElasticCacheAccountResetPasswordInput) error
+	UpdateAccount(input SCloudElasticCacheAccountUpdateInput) error
 }
 
 type ICloudElasticcacheAcl interface {
 	ICloudResource
 
 	GetIpList() string
+
+	Delete() error
+	UpdateAcl(securityIps string) error
 }
 
 type ICloudElasticcacheBackup interface {
@@ -868,6 +898,9 @@ type ICloudElasticcacheBackup interface {
 
 	GetStartTime() time.Time
 	GetEndTime() time.Time
+
+	Delete() error
+	RestoreInstance(instanceId string) error
 }
 
 type ICloudElasticcacheParameter interface {

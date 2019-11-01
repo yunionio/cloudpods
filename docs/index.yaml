@@ -579,6 +579,52 @@ paths:
     $ref: "./dbinstanceaccount/set-privileges.yaml"
 
 
+  /elasticcaches:
+    $ref: "./elasticcache/elasticcaches.yaml"
+  /elasticcaches/{elasticcacheId}:
+    $ref: "./elasticcache/elasticcache.yaml"
+  /elasticcaches/{elasticcacheId}/allocate-public-connection:
+    $ref: "./elasticcache/allocate-public-connection.yaml"
+  /elasticcaches/{elasticcacheId}/release-public-connection:
+    $ref: "./elasticcache/release-public-connection.yaml"
+  /elasticcaches/{elasticcacheId}/change-spec:
+    $ref: "./elasticcache/change-spec.yaml"
+  /elasticcaches/{elasticcacheId}/login-info:
+    $ref: "./elasticcache/login-info.yaml"
+  /elasticcaches/{elasticcacheId}/flush-instance:
+    $ref: "./elasticcache/flush-instance.yaml"
+  /elasticcaches/{elasticcacheId}/restart:
+    $ref: "./elasticcache/restart.yaml"
+  /elasticcaches/{elasticcacheId}/set-maintain-time:
+    $ref: "./elasticcache/set-maintain-time.yaml"
+  /elasticcaches/{elasticcacheId}/update-auth-mode:
+    $ref: "./elasticcache/update-auth-mode.yaml"
+  /elasticcaches/{elasticcacheId}/update-backup-policy:
+    $ref: "./elasticcache/update-backup-policy.yaml"
+  /elasticcaches/{elasticcacheId}/update-instance-parameters:
+    $ref: "./elasticcache/update-instance-parameters.yaml"
+  /elasticcacheparameters:
+    $ref: "./elasticcache/elasticcacheparameters.yaml"
+  /elasticcacheparameters/{parameterId}:
+    $ref: "./elasticcache/elasticcacheparameter.yaml"
+  /elasticcacheacls:
+    $ref: "./elasticcache/elasticcacheacls.yaml"
+  /elasticcacheacls/{aclId}:
+    $ref: "./elasticcache/elasticcacheacl.yaml"
+  /elasticcachebackups:
+    $ref: "./elasticcache/elasticcachebackups.yaml"
+  /elasticcachebackups/{backupId}:
+    $ref: "./elasticcache/elasticcachebackup.yaml"
+  /elasticcachebackups/{backupId}/restore-instance:
+    $ref: "./elasticcache/restore-instance.yaml"
+  /elasticcacheaccounts:
+    $ref: "./elasticcache/elasticcacheaccounts.yaml"
+  /elasticcacheaccounts/{accountId}:
+    $ref: "./elasticcache/elasticcacheaccount.yaml"
+  /elasticcacheaccounts/{accountId}/reset-password:
+    $ref: "./elasticcache/reset-password.yaml"
+  /elasticcacheskus:
+    $ref: "./elasticcache/elasticcacheskus.yaml"
 
   /cloudaccounts:
     $ref: "./cloudaccount/cloudaccounts.yaml"

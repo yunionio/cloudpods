@@ -18,9 +18,15 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
+// https://help.aliyun.com/document_detail/61081.html?spm=a2c4g.11186623.6.752.3d7630beuL57kI
 type SElasticcacheBackup struct {
 	multicloud.SElasticcacheBackupBase
 
@@ -54,7 +60,28 @@ func (self *SElasticcacheBackup) GetGlobalId() string {
 }
 
 func (self *SElasticcacheBackup) GetStatus() string {
-	return ""
+	switch self.BackupStatus {
+	case "Success", "running":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_SUCCESS
+	case "Failed":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_FAILED
+	default:
+		return self.BackupStatus
+	}
+}
+
+func (self *SElasticcacheBackup) Refresh() error {
+	ibackup, err := self.cacheDB.GetICloudElasticcacheBackup(self.GetId())
+	if err != nil {
+		return err
+	}
+
+	err = jsonutils.Update(self, ibackup.(*SElasticcacheBackup))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (self *SElasticcacheBackup) GetBackupSizeMb() int {
@@ -62,11 +89,25 @@ func (self *SElasticcacheBackup) GetBackupSizeMb() int {
 }
 
 func (self *SElasticcacheBackup) GetBackupType() string {
-	return self.BackupType
+	switch self.BackupType {
+	case "FullBackup":
+		return api.ELASTIC_CACHE_BACKUP_TYPE_FULL
+	case "IncrementalBackup":
+		return api.ELASTIC_CACHE_BACKUP_TYPE_INCREMENTAL
+	default:
+		return self.BackupType
+	}
 }
 
 func (self *SElasticcacheBackup) GetBackupMode() string {
-	return self.BackupMode
+	switch self.BackupMode {
+	case "Automated":
+		return api.ELASTIC_CACHE_BACKUP_MODE_AUTOMATED
+	case "Manual":
+		return api.ELASTIC_CACHE_BACKUP_MODE_MANUAL
+	default:
+		return self.BackupMode
+	}
 }
 
 func (self *SElasticcacheBackup) GetDownloadURL() string {
@@ -79,4 +120,23 @@ func (self *SElasticcacheBackup) GetStartTime() time.Time {
 
 func (self *SElasticcacheBackup) GetEndTime() time.Time {
 	return self.BackupEndTime
+}
+
+func (self *SElasticcacheBackup) Delete() error {
+	return cloudprovider.ErrNotSupported
+}
+
+// https://help.aliyun.com/document_detail/61083.html?spm=a2c4g.11186623.6.753.216f67ddzpyvTL
+func (self *SElasticcacheBackup) RestoreInstance(instanceId string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["BackupId"] = self.GetId()
+
+	// 目前没有查询备份ID的接口，因此，备份ID没什么用
+	err := DoAction(self.cacheDB.region.kvsRequest, "RestoreInstance", params, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.RestoreInstance")
+	}
+
+	return nil
 }

@@ -15,10 +15,13 @@
 package huawei
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -96,7 +99,28 @@ func (self *SElasticcache) GetGlobalId() string {
 }
 
 func (self *SElasticcache) GetStatus() string {
-	return self.Status
+	switch self.Status {
+	case "RUNNING":
+		return api.ELASTIC_CACHE_STATUS_RUNNING
+	case "CREATING":
+		return api.ELASTIC_CACHE_STATUS_DEPLOYING
+	case "CREATEFAILED":
+		return api.ELASTIC_CACHE_STATUS_CREATE_FAILED
+	case "ERROR":
+		return api.ELASTIC_CACHE_STATUS_ERROR
+	case "RESTARTING":
+		return api.ELASTIC_CACHE_STATUS_RESTARTING
+	case "FROZEN":
+		return api.ELASTIC_CACHE_STATUS_UNAVAILABLE
+	case "EXTENDING":
+		return api.ELASTIC_CACHE_STATUS_CHANGING
+	case "RESTORING":
+		return api.ELASTIC_CACHE_STATUS_TRANSFORMING // ?
+	case "FLUSHING":
+		return api.ELASTIC_CACHE_STATUS_FLUSHING
+	}
+
+	return ""
 }
 
 func (self *SElasticcache) GetBillingType() string {
@@ -148,6 +172,15 @@ func (self *SElasticcache) GetArchType() string {
 	   dcs.master_standby：表示实例类型为主备
 	   dcs.cluster：表示实例类型为集群
 	*/
+	if strings.Contains(self.ResourceSpecCode, "single") {
+		return "single"
+	} else if strings.Contains(self.ResourceSpecCode, "ha") {
+		return "master"
+	} else if strings.Contains(self.ResourceSpecCode, "cluster") {
+		return "cluster"
+	} else if strings.Contains(self.ResourceSpecCode, "proxy") {
+		return "cluster"
+	}
 
 	return ""
 }
@@ -332,4 +365,331 @@ func (self *SRegion) GetElasticCache(instanceId string) (*SElasticcache, error) 
 
 	cache.region = self
 	return &cache, nil
+}
+
+func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	ec, err := self.GetElasticCache(id)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetIElasticCacheById.GetElasticCache")
+	}
+
+	return ec, nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423047.html
+func (self *SRegion) zoneNameToDcsZoneIds(zoneIds []string) ([]string, error) {
+	type Z struct {
+		ID                   string `json:"id"`
+		Code                 string `json:"code"`
+		Name                 string `json:"name"`
+		Port                 string `json:"port"`
+		ResourceAvailability string `json:"resource_availability"`
+	}
+
+	rs := []Z{}
+	err := doListAll(self.ecsClient.DcsAvailableZone.List, nil, &rs)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.zoneNameToDcsZoneIds")
+	}
+
+	zoneMap := map[string]string{}
+	for i := range rs {
+		if rs[i].ResourceAvailability == "true" {
+			zoneMap[rs[i].Code] = rs[i].ID
+		}
+	}
+
+	ret := []string{}
+	for _, zone := range zoneIds {
+		if id, ok := zoneMap[zone]; ok {
+			ret = append(ret, id)
+		} else {
+			return nil, errors.Wrap(fmt.Errorf("zone %s not found or not available", zone), "region.zoneNameToDcsZoneIds")
+		}
+	}
+
+	return ret, nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423019.html
+func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	params := jsonutils.NewDict()
+	params.Set("name", jsonutils.NewString(ec.InstanceName))
+	params.Set("engine", jsonutils.NewString(ec.Engine))
+	params.Set("engine_version", jsonutils.NewString(ec.EngineVersion))
+	params.Set("capacity", jsonutils.NewInt(ec.CapacityGB))
+	params.Set("vpc_id", jsonutils.NewString(ec.VpcId))
+	params.Set("security_group_id", jsonutils.NewString(ec.SecurityGroupId))
+	params.Set("subnet_id", jsonutils.NewString(ec.NetworkId))
+	params.Set("product_id", jsonutils.NewString(ec.InstanceType))
+	zones, err := self.zoneNameToDcsZoneIds(ec.ZoneIds)
+	if err != nil {
+		return nil, err
+	}
+	params.Set("available_zones", jsonutils.NewStringArray(zones))
+
+	if len(ec.Password) > 0 {
+		params.Set("no_password_access", jsonutils.NewString("false"))
+		params.Set("password", jsonutils.NewString(ec.Password))
+
+		// todo: 这里换成常量
+		if ec.Engine == "Memcache" {
+			params.Set("access_user", jsonutils.NewString(ec.UserName))
+		}
+	} else {
+		params.Set("no_password_access", jsonutils.NewString("true"))
+	}
+
+	if len(ec.EipId) > 0 {
+		params.Set("enable_publicip", jsonutils.NewString("true"))
+		params.Set("publicip_id", jsonutils.NewString(ec.EipId))
+		// enable_ssl
+	} else {
+		params.Set("enable_publicip", jsonutils.NewString("false"))
+	}
+
+	if len(ec.PrivateIpAddress) > 0 {
+		params.Set("private_ip", jsonutils.NewString(ec.PrivateIpAddress))
+	}
+
+	if len(ec.MaintainBegin) > 0 {
+		params.Set("maintain_begin", jsonutils.NewString(ec.MaintainBegin))
+		params.Set("maintain_end", jsonutils.NewString(ec.MaintainEnd))
+	}
+
+	if ec.ChargeType == billing_api.BILLING_TYPE_PREPAID && ec.BC != nil {
+		bssParam := jsonutils.NewDict()
+		bssParam.Set("charging_mode", jsonutils.NewString("prePaid"))
+		bssParam.Set("is_auto_pay", jsonutils.NewString("true"))
+		bssParam.Set("is_auto_renew", jsonutils.NewString("false"))
+		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() >= 9 {
+			bssParam.Set("period_type", jsonutils.NewString("month"))
+			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BC.GetMonths())))
+		} else if ec.BC.GetYears() >= 1 && ec.BC.GetYears() <= 3 {
+			bssParam.Set("period_type", jsonutils.NewString("year"))
+			bssParam.Set("period_num", jsonutils.NewInt(int64(ec.BC.GetYears())))
+		} else {
+			return nil, fmt.Errorf("region.CreateIElasticcaches invalid billing cycle.reqired month (1~9) or  year(1~3)")
+		}
+
+		params.Set("bss_param", bssParam)
+	}
+
+	ret := &SElasticcache{}
+	err = DoCreate(self.ecsClient.Elasticcache.Create, params, ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.CreateIElasticcaches")
+	}
+
+	ret.region = self
+	return ret, nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423030.html
+func (self *SElasticcache) Restart() error {
+	resp, err := self.region.ecsClient.Elasticcache.Restart(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.Restart")
+	}
+
+	rets, err := resp.GetArray("results")
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.results")
+	}
+
+	for _, r := range rets {
+		if ret, _ := r.GetString("result"); ret != "success" {
+			return fmt.Errorf("elasticcache.Restart failed")
+		}
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423022.html
+func (self *SElasticcache) Delete() error {
+	err := DoDelete(self.region.ecsClient.Elasticcache.Delete, self.GetId(), nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.Delete")
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423024.html
+func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
+	segs := strings.Split(spec, ":")
+	if len(segs) < 2 {
+		return fmt.Errorf("elasticcache.ChangeInstanceSpec invalid sku %s", spec)
+	}
+
+	if !strings.HasPrefix(segs[1], "m") || !strings.HasSuffix(segs[1], "g") {
+		return fmt.Errorf("elasticcache.ChangeInstanceSpec sku %s memeory size is invalid.", spec)
+	}
+
+	newCapacity := segs[1][1 : len(segs[1])-1]
+	_, err := self.region.ecsClient.Elasticcache.ChangeInstanceSpec(self.GetId(), newCapacity)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.ChangeInstanceSpec")
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423021.html
+func (self *SElasticcache) SetMaintainTime(maintainStartTime, maintainEndTime string) error {
+	params := jsonutils.NewDict()
+	params.Set("maintain_begin", jsonutils.NewString(maintainStartTime))
+	params.Set("maintain_end", jsonutils.NewString(maintainEndTime))
+	err := DoUpdate(self.region.ecsClient.Elasticcache.Update, self.GetId(), params, nil)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.SetMaintainTime")
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/usermanual-dcs/dcs-zh-ug-180314001.html
+// 目前只有Redis3.0版本密码模式的实例支持通过公网访问Redis实例，其他版本暂不支持公网访问。
+// todo: 目前没找到api
+func (self *SElasticcache) AllocatePublicConnection(port int) (string, error) {
+	return "", cloudprovider.ErrNotSupported
+}
+
+// todo: 目前没找到api
+func (self *SElasticcache) ReleasePublicConnection() error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SElasticcache) CreateAccount(account cloudprovider.SCloudElasticCacheAccountInput) (cloudprovider.ICloudElasticcacheAccount, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423031.html
+
+func (self *SElasticcache) CreateAcl(aclName, securityIps string) (cloudprovider.ICloudElasticcacheAcl, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423029.html
+func (self *SElasticcache) UpdateInstanceParameters(config jsonutils.JSONObject) error {
+	params := jsonutils.NewDict()
+	params.Set("redis_config", config)
+	err := DoUpdateWithSpec(self.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "configs", params)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.UpdateInstanceParameters")
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423033.html
+func (self *SElasticcache) CreateBackup() (cloudprovider.ICloudElasticcacheBackup, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func backupPeriodTrans(config cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput) *jsonutils.JSONArray {
+	segs := strings.Split(config.PreferredBackupPeriod, ",")
+	ret := jsonutils.NewArray()
+	for _, seg := range segs {
+		switch seg {
+		case "Monday":
+			ret.Add(jsonutils.NewString("1"))
+		case "Tuesday":
+			ret.Add(jsonutils.NewString("2"))
+		case "Wednesday":
+			ret.Add(jsonutils.NewString("3"))
+		case "Thursday":
+			ret.Add(jsonutils.NewString("4"))
+		case "Friday":
+			ret.Add(jsonutils.NewString("5"))
+		case "Saturday":
+			ret.Add(jsonutils.NewString("6"))
+		case "Sunday":
+			ret.Add(jsonutils.NewString("7"))
+		}
+	}
+
+	return ret
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423021.html
+func (self *SElasticcache) UpdateBackupPolicy(config cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput) error {
+	params := jsonutils.NewDict()
+	policy := jsonutils.NewDict()
+	policy.Set("save_days", jsonutils.NewInt(int64(config.BackupReservedDays)))
+	policy.Set("backup_type", jsonutils.NewString(config.BackupType))
+	plan := jsonutils.NewDict()
+	backTime := strings.ReplaceAll(config.PreferredBackupTime, "Z", "")
+	backupPeriod := backupPeriodTrans(config)
+	plan.Set("begin_at", jsonutils.NewString(backTime))
+	plan.Set("period_type", jsonutils.NewString("weekly"))
+	plan.Set("backup_at", backupPeriod)
+	policy.Set("periodical_backup_plan", plan)
+	params.Set("instance_backup_policy", policy)
+	err := DoUpdateWithSpec(self.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "configs", params)
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.UpdateInstanceParameters")
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423030.html
+// 当前版本，只有DCS2.0实例支持清空数据功能，即flush操作。
+func (self *SElasticcache) FlushInstance() error {
+	resp, err := self.region.ecsClient.Elasticcache.Flush(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.FlushInstance")
+	}
+
+	rets, err := resp.GetArray("results")
+	if err != nil {
+		return errors.Wrap(err, "elasticcache.FlushInstance")
+	}
+
+	for _, r := range rets {
+		if ret, _ := r.GetString("result"); ret != "success" {
+			return fmt.Errorf("elasticcache.FlushInstance failed")
+		}
+	}
+
+	return nil
+}
+
+// SElasticcacheAccount => ResetPassword
+func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SElasticcache) GetAuthMode() string {
+	switch self.NoPasswordAccess {
+	case "true":
+		return "on"
+	default:
+		return "off"
+	}
+}
+
+func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SElasticcache) GetICloudElasticcacheAcl(aclId string) (cloudprovider.ICloudElasticcacheAcl, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SElasticcache) GetICloudElasticcacheBackup(backupId string) (cloudprovider.ICloudElasticcacheBackup, error) {
+	backups, err := self.GetICloudElasticcacheBackups()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, backup := range backups {
+		if backup.GetId() == backupId {
+			return backup, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }

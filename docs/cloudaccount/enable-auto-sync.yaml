@@ -1,17 +1,17 @@
 post:
   summary: 开启云账号自动同步
-  parameters: 
+  parameters:
     - $ref: "../parameters/cloudaccount.yaml#/cloudaccountId"
     - in: body
       name: cloudaccount
       required: true
       schema:
-        $ref: '../schemas/cloudaccount.yaml#/CloudaccountEnableAutoSync' 
+        $ref: "../schemas/cloudaccount.yaml#/CloudaccountEnableAutoSync"
   responses:
     200:
       description: 云账号信息
       schema:
-        $ref: "../schemas/cloudaccount.yaml#CloudaccountResponse"
+        $ref: "../schemas/cloudaccount.yaml#/CloudaccountResponse"
 
   tags:
     - cloudaccount

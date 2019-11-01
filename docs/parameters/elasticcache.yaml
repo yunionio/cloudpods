@@ -1,0 +1,52 @@
+elasticcacheId:
+  name: elasticcacheId
+  required: true
+  in: path
+  type: string
+  description: ElasticCache实例名称或ID,建议使用ID
+
+parameterId:
+  name: parameterId
+  required: true
+  in: path
+  type: string
+  description: ElasticCache实例参数名称或ID,建议使用ID
+
+aclId:
+  name: aclId
+  required: true
+  in: path
+  type: string
+  description: ElasticCache实例访问控制名称或ID,建议使用ID
+
+backupId:
+  name: backupId
+  required: true
+  in: path
+  type: string
+  description: ElasticCache实例备份名称或ID,建议使用ID
+
+accountId:
+  name: accountId
+  required: true
+  in: path
+  type: string
+  description: ElasticCache实例用户名称或ID,建议使用ID
+
+elasticcache_id:
+  name: elasticcache_id
+  in: query
+  type: string
+  description: 根据ElasticCache实例名称或ID过滤资源
+
+engine_version:
+  name: engine_version
+  in: query
+  type: string
+  description: 根据ElasticCache实例版本过滤资源
+
+local_category:
+  name: local_category
+  in: query
+  type: string
+  description: 根据ElasticCache类型过滤资源

@@ -1,11 +1,11 @@
 post:
   summary: 从预付费资源池中移除
-  parameters: 
+  parameters:
     - $ref: "../parameters/host.yaml#/hostId"
   responses:
     200:
       description: 宿主机信息
       schema:
-        $ref: "../schemas/host.yaml#HostResponse"
+        $ref: "../schemas/host.yaml#/HostResponse"
   tags:
     - host

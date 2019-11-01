@@ -1,0 +1,626 @@
+ElasticCache:
+  allOf:
+    - $ref: "./common.yaml#/VirtualResourceBaseResponse"
+    - $ref: "./common.yaml#/BillingResourceBaseResponse"
+    - $ref: "./common.yaml#/ManagedResourceBaseResponse"
+    - $ref: "./common.yaml#/ProviderBaseResponse"
+    - $ref: "./common.yaml#/ZoneResourceBaseResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例
+      properties:
+        engine:
+          type: string
+          example: Redis
+          description: ElasticCache实例引擎
+          readOnly: true
+        engine_version:
+          type: string
+          example: "3.0"
+          description: ElasticCache实例引擎版本
+        instance_type:
+          type: string
+          example: redis.master.micro.default
+          description: ElasticCache实例规格
+        arch_type:
+          type: string
+          example: cluster
+          description: ElasticCache实例架构类型
+        network_id:
+          type: string
+          example: 39326a92-8691-49e9-886a-097125c48067
+          description: ElasticCache实例子网ID
+        vcpu_count:
+          type: integer
+          example: 1
+          description: ElasticCache实例CPU核数
+        capacity_mb:
+          type: integer
+          example: 1024
+          description: ElasticCache实例内存大小
+        vpc_id:
+          type: string
+          example: 5d0a3589-4ec5-4509-8e53-6505457577b0
+          description: ElasticCache实例VPC ID
+        vpc:
+          type: string
+          example: vpc-2zecuo9v4idebme295ofy
+          description: ElasticCache实例VPC ID
+        private_connect_port:
+          type: integer
+          example: 6379
+          description: ElasticCache实例内网端口
+        private_ip_addr:
+          type: string
+          example: 192.168.0.100
+          description: ElasticCache实例内网IP
+        private_dns:
+          type: string
+          example: redisx.aliyuncs.com
+          description: ElasticCache实例内网域名
+        public_connect_port:
+          type: integer
+          example: 6379
+          description: ElasticCache实例公网端口
+        public_ip_addr:
+          type: string
+          example: 192.168.0.100
+          description: ElasticCache实例公网IP
+        public_dns:
+          type: string
+          example: redisx.aliyuncs.com
+          description: ElasticCache实例公网域名
+        maintain_start_time:
+          type: string
+          example: 00:00Z
+          description: ElasticCache实例维护开始时间
+        maintain_end_time:
+          type: string
+          example: 02:00Z
+          description: ElasticCache实例维护结束时间
+
+ElasticCacheListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcaches:
+      type: array
+      items:
+        $ref: "#/ElasticCache"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheResponse:
+  type: object
+  properties:
+    elasticcache:
+      type: object
+      $ref: "#/ElasticCache"
+
+ElasticCacheNetwork:
+  allOf:
+    - $ref: "./common.yaml#/ResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例网络
+      properties:
+        elasticcache_id:
+          type: string
+          example: "20f8b552-1b86-4595-89e3-49d123b25215"
+          description: ElasticCache实例ID
+        ip_addr:
+          type: string
+          example: 10.10.140.141
+          description: 实例内网IP地址
+        network_id:
+          type: string
+          example: "38897a74-17b4-4c21-86b3-4f8528ced003"
+          description: 实例子网ID
+
+ElasticCacheNetworkListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcachenetworks:
+      type: array
+      items:
+        $ref: "#/ElasticCacheNetwork"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheNetworkResponse:
+  type: object
+  properties:
+    elasticcachenetwork:
+      type: object
+      $ref: "#/ElasticCacheNetwork"
+
+ElasticCacheParameter:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例参数
+      properties:
+        key:
+          type: string
+          example: read_buffer_size
+          description: ElasticCache实例参数
+        value:
+          type: string
+          example: "131072"
+          description: ElasticCache实例参数值
+          readOnly: true
+        force_restart:
+          type: boolean
+          example: false
+          description: 重启生效, True（重启生效）/False
+          readOnly: true
+        modifiable:
+          type: boolean
+          example: false
+          description: 参数可修改, True（可修改）/False(不可修改)
+          readOnly: true
+
+ElasticCacheParameterListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcacheparameters:
+      type: array
+      items:
+        $ref: "#/ElasticCacheParameter"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheParameterResponse:
+  type: object
+  properties:
+    elasticcacheparameter:
+      type: object
+      $ref: "#/ElasticCacheParameter"
+
+ElasticCacheAcl:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例访问控制参数
+      properties:
+        Name:
+          type: string
+          example: web_acl
+          description: ElasticCache实例访问控制Name参数
+        IpList:
+          type: string
+          example: 192.168.0.1,192.168.0.2
+          description: ElasticCache实例访问控制IpList参数
+        elasticcache_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: ElasticCache实例ID
+          readOnly: true
+
+ElasticCacheAclListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcacheacls:
+      type: array
+      items:
+        $ref: "#/ElasticCacheAcl"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheAclResponse:
+  type: object
+  properties:
+    elasticcacheacl:
+      type: object
+      $ref: "#/ElasticCacheAcl"
+
+ElasticCacheBackup:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例备份参数
+      properties:
+        start_time:
+          type: string
+          example: "2019-06-22T02:31:08.000000Z"
+          description: ElasticCache实例备份开始时间
+        end_time:
+          type: string
+          example: "2019-06-22T02:33:24.000000Z"
+          description: ElasticCache实例备份结束时间
+        backup_type:
+          type: string
+          example: full_backup
+          description: ElasticCache实例备份类型， 全量|增量额
+        backup_mode:
+          type: string
+          example: manual
+          description: ElasticCache实例备份类型， 自动|手动
+        backup_size_mb:
+          type: integer
+          example: 21
+          description: 备份大小
+        elasticcache_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: ElasticCache实例ID
+          readOnly: true
+        download_url:
+          type: string
+          example: redisx.aliyuncs.com/redis.bak
+          description: ElasticCache备份下载链接
+          readOnly: true
+
+ElasticCacheBackupListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcachebackups:
+      type: array
+      items:
+        $ref: "#/ElasticCacheBackup"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheBackupResponse:
+  type: object
+  properties:
+    elasticcachebackup:
+      type: object
+      $ref: "#/ElasticCacheBackup"
+
+ElasticCacheAccount:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例账号参数
+      properties:
+        password:
+          type: string
+          example: abcFFFssx
+          description: 账号密码
+        account_privilege:
+          type: string
+          example: read
+          description: 账号权限 read | write | repl（复制, 复制权限支持读写，且开放SYNC/PSYNC命令）
+        account_type:
+          type: string
+          example: normal
+          description: 账号类型 normal |admin
+        elasticcache_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: ElasticCache实例ID
+          readOnly: true
+
+ElasticCacheAccountListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcacheaccounts:
+      type: array
+      items:
+        $ref: "#/ElasticCacheAccount"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheAccountResponse:
+  type: object
+  properties:
+    elasticcacheaccount:
+      type: object
+      $ref: "#/ElasticCacheAccount"
+
+ElasticCacheSku:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: ElasticCache实例套餐信息
+      properties:
+        cloudregion_id:
+          type: string
+          example: 2c328dbb-dc40-41f0-8fbd-20a0cbe1829b
+          description: 实例所在区域ID
+        engine:
+          type: string
+          example: redis
+          description: 实例引擎
+        engine_arch:
+          type: string
+          example: cluster
+          description: 实例架构
+        engine_version:
+          type: string
+          example: "2.8"
+          description: 实例版本
+          readOnly: true
+        id:
+          type: string
+          example: de76d65b-6134-4945-8ce7-0789d37b5072
+          description: 实例ID
+          readOnly: true
+        instance_spec:
+          type: string
+          example: redis.sharding.basic.small.defaut
+          description: 实例规格
+          readOnly: true
+        name:
+          type: string
+          example: redis.sharding.basic.small.default:v2.8
+          description: 实例规格名称
+          readOnly: true
+        local_category:
+          type: string
+          example: cluster
+          description: 实例在Onecloud中所属类别
+          readOnly: true
+        memory_size_mb:
+          type: integer
+          example: 16384
+          description: 实例内存大小MB
+          readOnly: true
+        postpaid_status:
+          type: string
+          example: available
+          description: 实例按需付费可用状态 available|soldout
+          readOnly: true
+        prepaid_status:
+          type: string
+          example: available
+          description: 实例预付费可用状态 available|soldout
+          readOnly: true
+        provider:
+          type: string
+          example: Aliyun
+          description: 实例Provider
+          readOnly: true
+        zone_id:
+          type: string
+          example: Aliyun
+          description: 实例所在可用区ID
+          readOnly: true
+        storage_type:
+          type: string
+          example: inmemory
+          description: 实例存储类型
+          readOnly: true
+        max_connections:
+          type: integer
+          example: 1000000
+          description: 实例最大连接数
+          readOnly: true
+
+ElasticCacheSkuListResponse:
+  type: object
+  properties:
+    limit:
+      type: integer
+      example: 20
+    elasticcacheskus:
+      type: array
+      items:
+        $ref: "#/ElasticCacheSku"
+    total:
+      type: integer
+      example: 124
+
+ElasticCacheSkuResponse:
+  type: object
+  properties:
+    elasticcachesku:
+      type: object
+      $ref: "#/ElasticCacheSku"
+
+ElasticCacheCreate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-instance
+      description: 实例名称
+    cloudregion:
+      type: string
+      example: ebb5abd3-8ffb-42ec-8bc6-38ba5b949885
+      description: 实例所在区域 Id
+    zone:
+      type: string
+      example: 70802da8-affe-4247-8ce8-610f205019ca
+      description: 实例所在可用区 Id
+    network:
+      type: string
+      example: 70802da8-affe-4247-8ce8-610f205019ca
+      description: 实例所在子网 Id
+    engine:
+      type: string
+      example: redis
+      description: 实例引擎 redis
+    engine_version:
+      type: string
+      example: "4.0"
+      enum: ["2.8", "3.0", "4.0", "5.0"]
+    password:
+      type: string
+      example: dfdf11AAZ
+      description: 实例访问密码
+    instance_type:
+      type: string
+      example: 80802da8-affe-4247-8ce8-610f205019ca
+      description: 实例规格ID
+    billing_type:
+      type: string
+      example: postpaid
+      description: 计费类型， postpaid|prepaid
+    billing_cycle:
+      type: string
+      example: 1M
+      description: 计费周期， eg. 1M 1Y
+
+ElasticCacheAccountCreate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-instance
+      description: 账号名称
+    password:
+      type: string
+      example: dfdf11AAZ
+      description: 账号访问密码
+    account_privilege:
+      type: string
+      example: read
+      description: 账号权限 read|write|repl
+    elasticache:
+      type: string
+      example: 90802da8-affe-4247-8ce8-610f205019ca
+      description: 实例ID
+
+ElasticCacheAclCreate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-instance
+      description: 访问控制名称
+    ip_list:
+      type: string
+      example: 192.168.0.1,192.168.0.2
+      description: 访问控制IP列表，逗号分隔
+    elasticache:
+      type: string
+      example: 90802da8-affe-4247-8ce8-610f205019ca
+      description: 实例ID
+
+ElasticCacheAclUpdate:
+  type: object
+  properties:
+    ip_list:
+      type: string
+      example: 192.168.0.1,192.168.0.2
+      description: 访问控制IP列表，逗号分隔
+
+ElasticCacheParameterUpdate:
+  type: object
+  properties:
+    id:
+      type: string
+      example: 10802da8-affe-4247-8ce8-610f205019ca
+      description: 参数ID
+    value:
+      type: string
+      example: 1000
+      description: 参数值
+
+ElasticCacheAllocatePublicConnection:
+  type: object
+  properties:
+    port:
+      type: integer
+      required: false
+      example: 6379
+      description: 公网访问端口号， 1024~65535
+
+ElasticCacheChangeSpec:
+  type: object
+  properties:
+    sku:
+      type: string
+      required: true
+      example: 10802da8-affe-4247-8ce8-610f205019ca
+      description: 规格ID
+
+ElasticCacheSetMaintainTime:
+  type: object
+  properties:
+    maintain_start_time:
+      type: string
+      required: true
+      example: "00:00"
+      description: 维护开始时间, 格式:'HH:mm'
+    maintain_end_time:
+      type: string
+      required: true
+      example: "02:00"
+      description: 维护结束时间, 格式:'HH:mm'
+
+ElasticCacheAuthMode:
+  type: object
+  properties:
+    auth_mode:
+      type: string
+      required: true
+      example: on
+      description: 认证模式, on（开启密码认证）|off(关闭密码认证)
+
+ElasticCacheBackupPolicy:
+  type: object
+  properties:
+    backup_type:
+      type: string
+      required: false
+      example: automated
+      description: 备份类型, automated | manual
+    backup_reserved_days:
+      type: integer
+      required: false
+      example: 7
+      description: 备份保留天数, 1~7
+    preferred_backup_period:
+      type: string
+      required: true
+      example: Monday
+      description: 备份周期, Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday
+    preferred_backup_time:
+      type: string
+      required: true
+      example: 00:00Z-02:00Z
+      description: 备份时间段, 格式： 'HH:mmZ-HH:mmZ'
+
+ElasticCacheResetPassword:
+  type: object
+  properties:
+    password:
+      type: string
+      required: false
+      example: pxxxword
+      description: 新密码
+    reset_password:
+      type: boolean
+      required: false
+      example: true
+      description: 新密码
+
+ElasticCacheLoginInfoResponse:
+  type: object
+  properties:
+    password:
+      type: string
+      example: 1111111
+    username:
+      type: string
+      example: testUser

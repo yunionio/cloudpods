@@ -1,11 +1,11 @@
 post:
   summary: 将转换成宿主机的物理机转回成物理机
-  parameters: 
+  parameters:
     - $ref: "../parameters/host.yaml#/hostId"
   responses:
     200:
       description: 宿主机信息
       schema:
-        $ref: "../schemas/host.yaml#HostResponse"
+        $ref: "../schemas/host.yaml#/HostResponse"
   tags:
     - host

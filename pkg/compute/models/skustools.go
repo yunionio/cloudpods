@@ -18,10 +18,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -33,16 +36,34 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+const (
+	ELASTICCACHE_SKUS_URL = "http://10.168.222.228:8000/ec.json"
+)
+
+type ServerSkus struct {
+	zone    *SkusZone
+	skus    []jsonutils.JSONObject
+	total   int
+	updated int
+	created int
+}
+
+type ElasticCacheSkus struct {
+	zone    *SkusZone
+	skus    []jsonutils.JSONObject
+	total   int
+	updated int
+	created int
+}
+
 type SkusZone struct {
 	Provider         string
 	RegionId         string
 	ZoneId           string
 	ExternalZoneId   string
 	ExternalRegionId string
-	skus             []jsonutils.JSONObject
-	total            int
-	updated          int
-	created          int
+
+	serverSkus ServerSkus
 }
 
 func mergeSkuData(odata, ndata jsonutils.JSONObject) jsonutils.JSONObject {
@@ -112,9 +133,9 @@ func processSkuData(ndata jsonutils.JSONObject) jsonutils.JSONObject {
 	return data
 }
 
-func (self *SkusZone) Init() error {
+func (self *ServerSkus) Init() error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	p, r, z := self.getExternalZone()
+	p, r, z := self.zone.getExternalZone()
 	limit := 1024
 	offset := 0
 	total := 1024
@@ -155,48 +176,10 @@ func (self *SkusZone) Init() error {
 	return nil
 }
 
-func (self *SkusZone) doCreate(data SServerSku) error {
-	data.CloudregionId = self.RegionId
-	data.ZoneId = self.ZoneId
-	data.Provider = self.Provider
-	data.Status = api.SkuStatusReady
-	data.Enabled = true
-	if err := ServerSkuManager.TableSpec().Insert(&data); err != nil {
-		log.Debugf("SkusZone doCreate fail: %s", err.Error())
-		return err
-	}
-
-	self.created += 1
-	return nil
-}
-
-func (self *SkusZone) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) error {
-	_, err := db.Update(odata, func() error {
-		if err := sku.Unmarshal(&odata); err != nil {
-			return err
-		}
-		odata.CloudregionId = self.RegionId
-		odata.ZoneId = self.ZoneId
-		odata.Provider = self.Provider
-		// 公有云默认都是ready并启用
-		odata.Status = api.SkuStatusReady
-		odata.Enabled = true
-		return nil
-	})
-
-	if err != nil {
-		log.Debugf("SkusZone doUpdate fail: %s", err.Error())
-		return err
-	}
-
-	self.updated += 1
-	return nil
-}
-
-func (self *SkusZone) SyncToLocalDB() error {
-	log.Debugf("SkusZone %s start sync.", self.ExternalZoneId)
+func (self *ServerSkus) SyncToLocalDB() error {
+	log.Debugf("SkusZone %s start sync.", self.zone.ExternalZoneId)
 	// 更新已经soldout的sku
-	localIds, err := ServerSkuManager.FetchAllAvailableSkuIdByZoneId(self.ZoneId)
+	localIds, err := ServerSkuManager.FetchAllAvailableSkuIdByZoneId(self.zone.ZoneId)
 	if err != nil {
 		return err
 	}
@@ -206,9 +189,9 @@ func (self *SkusZone) SyncToLocalDB() error {
 	for _, sku := range self.skus {
 		name, _ := sku.GetString("name")
 
-		if obj, err := ServerSkuManager.FetchByZoneId(self.ZoneId, name); err != nil {
+		if obj, err := ServerSkuManager.FetchByZoneId(self.zone.ZoneId, name); err != nil {
 			if err != sql.ErrNoRows {
-				log.Debugf("SyncToLocalDB zone %s name %s : %s", self.ZoneId, name, err.Error())
+				log.Debugf("SyncToLocalDB zone %s name %s : %s", self.zone.ZoneId, name, err.Error())
 				return err
 			}
 			data := SServerSku{}
@@ -241,7 +224,65 @@ func (self *SkusZone) SyncToLocalDB() error {
 		return err
 	}
 
-	defer log.Debugf("SkusZone %s sync to local db.total %d,created %d,updated %d. abandoned %d", self.ExternalZoneId, self.total, self.created, self.updated, len(abandonIds))
+	defer log.Debugf("SkusZone %s sync to local db.total %d,created %d,updated %d. abandoned %d", self.zone.ExternalZoneId, self.total, self.created, self.updated, len(abandonIds))
+	return nil
+}
+
+func (self *ServerSkus) doCreate(data SServerSku) error {
+	data.CloudregionId = self.zone.RegionId
+	data.ZoneId = self.zone.ZoneId
+	data.Provider = self.zone.Provider
+	data.Status = api.SkuStatusReady
+	data.Enabled = true
+	if err := ServerSkuManager.TableSpec().Insert(&data); err != nil {
+		log.Debugf("SkusZone doCreate fail: %s", err.Error())
+		return err
+	}
+
+	self.created += 1
+	return nil
+}
+
+func (self *ServerSkus) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) error {
+	_, err := db.Update(odata, func() error {
+		if err := sku.Unmarshal(&odata); err != nil {
+			return err
+		}
+		odata.CloudregionId = self.zone.RegionId
+		odata.ZoneId = self.zone.ZoneId
+		odata.Provider = self.zone.Provider
+		// 公有云默认都是ready并启用
+		odata.Status = api.SkuStatusReady
+		odata.Enabled = true
+		return nil
+	})
+
+	if err != nil {
+		log.Debugf("SkusZone doUpdate fail: %s", err.Error())
+		return err
+	}
+
+	self.updated += 1
+	return nil
+}
+
+func (self *SkusZone) Init() error {
+	self.serverSkus = ServerSkus{zone: self}
+
+	err := self.serverSkus.Init()
+	if err != nil {
+		return errors.Wrap(err, "SkusZone.Init.serverSkus")
+	}
+
+	return nil
+}
+
+func (self *SkusZone) SyncToLocalDB() error {
+	err := self.serverSkus.SyncToLocalDB()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -414,4 +455,216 @@ func diff(origins, compares []string) []string {
 	}
 
 	return ret
+}
+
+func doCreateElasticCacheSku(data SElasticcacheSku) error {
+	if err := ElasticcacheSkuManager.TableSpec().Insert(&data); err != nil {
+		log.Debugf("SkusZone doCreate fail: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func doUpdateElasticCacheSku(odata *SElasticcacheSku, sku jsonutils.JSONObject) error {
+	_, err := db.Update(odata, func() error {
+		if err := sku.Unmarshal(&odata); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Debugf("SkusZone doUpdate fail: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func processElasticCacheSkuData(ndata jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	// 将external_id 统一替换成 id
+	data, ok := ndata.(*jsonutils.JSONDict)
+	if !ok {
+		log.Debugf("invalid sku dict data: %s", ndata)
+	}
+
+	// 将external_id 统一替换成 id.
+	id, err := ndata.GetString("id")
+	if err != nil {
+		data.Set("external_id", jsonutils.NewString(""))
+	} else {
+		data.Set("external_id", jsonutils.NewString(id))
+		data.Remove("id")
+	}
+
+	provider, _ := ndata.GetString("provider")
+	region, _ := ndata.GetString("region_id")
+	masterZone, _ := ndata.GetString("master_zone_id")
+	slaveZone, _ := ndata.GetString("slave_zone_id")
+
+	if len(masterZone) > 0 {
+		masterZoneId := strings.Join([]string{provider, region, masterZone}, "/")
+		obj, err := db.FetchByExternalId(ZoneManager, masterZoneId)
+		if err == nil {
+			zone := obj.(*SZone)
+			data.Set("cloudregion_id", jsonutils.NewString(zone.CloudregionId))
+			data.Set("zone_id", jsonutils.NewString(zone.Id))
+
+			if len(slaveZone) > 0 {
+				slaveZoneId := strings.Join([]string{provider, region, slaveZone}, "/")
+				obj, err := db.FetchByExternalId(ZoneManager, slaveZoneId)
+				if err == nil {
+					zone := obj.(*SZone)
+					data.Set("slave_zone_id", jsonutils.NewString(zone.Id))
+				} else {
+					return nil, fmt.Errorf("slave zone with external id %s not found", slaveZoneId)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("master zone with external id %s not found", masterZoneId)
+		}
+	} else {
+		regionId := strings.Join([]string{provider, region}, "/")
+		obj, err := db.FetchByExternalId(CloudregionManager, regionId)
+		if err == nil {
+			region := obj.(*SCloudregion)
+			data.Set("cloudregion_id", jsonutils.NewString(region.Id))
+			data.Set("zone_id", jsonutils.NewString(""))
+		} else {
+			return nil, fmt.Errorf("region with external id %s not found", regionId)
+		}
+	}
+
+	return data, nil
+}
+
+// 全量同步elasticcache sku列表.
+func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	skus := fetchExternalElasticCacheSkus()
+	filtedSkus := []jsonutils.JSONObject{}
+	for i := range skus {
+		if data, err := processElasticCacheSkuData(skus[i]); err == nil {
+			filtedSkus = append(filtedSkus, data)
+		} else {
+			log.Debugf("%s", err)
+		}
+	}
+
+	// 更新已经soldout的sku
+	localIds, err := ElasticcacheSkuManager.FetchAllAvailableSkuId()
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus FetchAllAvailableSkuId %s", err)
+		return
+	}
+
+	updateElasticCacheSkus(localIds, filtedSkus)
+}
+
+// 同步Region elasticcache sku列表.
+func syncElasticCacheSkusByRegion(region *SCloudregion) {
+	skus := fetchExternalElasticCacheSkus()
+	filtedSkus := []jsonutils.JSONObject{}
+	for i := range skus {
+		provider, _ := skus[i].GetString("provider")
+		regionId, _ := skus[i].GetString("region_id")
+		if region.GetExternalId() != fmt.Sprintf("%s/%s", provider, regionId) {
+			continue
+		}
+
+		if data, err := processElasticCacheSkuData(skus[i]); err == nil {
+			filtedSkus = append(filtedSkus, data)
+		} else {
+			log.Debugf("%s", err)
+		}
+	}
+
+	// 更新已经soldout的sku
+	localIds, err := ElasticcacheSkuManager.FetchAllAvailableSkuId()
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus FetchAllAvailableSkuId %s", err)
+		return
+	}
+
+	updateElasticCacheSkus(localIds, filtedSkus)
+}
+
+func fetchExternalElasticCacheSkus() []jsonutils.JSONObject {
+	resp, err := http.Get(ELASTICCACHE_SKUS_URL)
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus %s", err)
+		return nil
+	}
+
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus ReadAll %s", err)
+		return nil
+	}
+
+	elasticcache, err := jsonutils.Parse(content)
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus Parse %s", err)
+		return nil
+	}
+
+	skus := []jsonutils.JSONObject{}
+	err = elasticcache.Unmarshal(&skus)
+	if err != nil {
+		log.Errorf("SyncElasticCacheSkus Unmarshal %s", err)
+		return nil
+	}
+
+	return skus
+}
+
+func updateElasticCacheSkus(localSkuIds []string, extSkus []jsonutils.JSONObject) {
+	// 本次已被更新的sku id
+	updatedIds := make([]string, 0)
+	for _, sku := range extSkus {
+		name, _ := sku.GetString("name")
+		extId, _ := sku.GetString("external_id")
+		if obj, err := db.FetchByExternalId(ElasticcacheSkuManager, extId); err != nil {
+			if err != sql.ErrNoRows {
+				log.Debugf("SyncToLocalDB external id %s name %s : %s", extId, name, err.Error())
+				return
+			}
+
+			data := SElasticcacheSku{}
+			if e := sku.Unmarshal(&data); e != nil {
+				log.Debugf("sku Unmarshal failed: %s, %s", sku, e.Error())
+				return
+			}
+
+			if err := doCreateElasticCacheSku(data); err != nil {
+				log.Debugf("sku doCreate failed: %s, %s", sku, err)
+				return
+			}
+		} else {
+			odata, ok := obj.(*SElasticcacheSku)
+			if !ok {
+				log.Debugf("SkusZone model assertion error. %s", obj)
+				return
+			}
+
+			if err := doUpdateElasticCacheSku(odata, sku); err != nil {
+				log.Debugf("SkusZone model doUpdate error. %s", err)
+				return
+			}
+
+			updatedIds = append(updatedIds, odata.Id)
+		}
+	}
+
+	// 处理已经下架的sku： 将本次未更新且处于available状态的sku置为soldout状态
+	abandonIds := diff(localSkuIds, updatedIds)
+	log.Debugf("SyncToLocalDB abandon sku %s", abandonIds)
+	err := ElasticcacheSkuManager.MarkAllAsSoldout(abandonIds)
+	if err != nil {
+		return
+	}
+
+	return
 }

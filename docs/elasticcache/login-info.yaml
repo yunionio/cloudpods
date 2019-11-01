@@ -1,0 +1,9 @@
+get:
+  summary: 获取指定ElasticCache实例管理员密码
+  responses:
+    200:
+      description: ElasticCache实例密码信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheLoginInfoResponse"
+  tags:
+    - elasticcache

@@ -17,6 +17,8 @@ package huawei
 import (
 	"time"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -55,7 +57,20 @@ func (self *SElasticcacheBackup) GetGlobalId() string {
 }
 
 func (self *SElasticcacheBackup) GetStatus() string {
-	return self.Status
+	switch self.Status {
+	case "waiting", "backuping":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_CREATING
+	case "succeed":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_SUCCESS
+	case "failed":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_FAILED
+	case "expired":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_CREATE_EXPIRED
+	case "deleted":
+		return api.ELASTIC_CACHE_BACKUP_STATUS_CREATE_DELETED
+	default:
+		return self.Status
+	}
 }
 
 func (self *SElasticcacheBackup) GetBackupSizeMb() int {
@@ -63,7 +78,15 @@ func (self *SElasticcacheBackup) GetBackupSizeMb() int {
 }
 
 func (self *SElasticcacheBackup) GetBackupType() string {
-	return self.BackupType
+	switch self.BackupType {
+	case "manual":
+		return api.ELASTIC_CACHE_BACKUP_MODE_MANUAL
+	case "auto":
+		return api.ELASTIC_CACHE_BACKUP_MODE_AUTOMATED
+	default:
+		return self.BackupType
+	}
+
 }
 
 func (self *SElasticcacheBackup) GetBackupMode() string {
@@ -80,4 +103,18 @@ func (self *SElasticcacheBackup) GetStartTime() time.Time {
 
 func (self *SElasticcacheBackup) GetEndTime() time.Time {
 	return self.UpdatedAt
+}
+
+func (self *SElasticcacheBackup) Delete() error {
+	return cloudprovider.ErrNotSupported
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423034.html
+func (self *SElasticcacheBackup) RestoreInstance(instanceId string) error {
+	_, err := self.cacheDB.region.ecsClient.Elasticcache.RestoreInstance(instanceId, self.GetId())
+	if err != nil {
+		return nil
+	}
+
+	return nil
 }

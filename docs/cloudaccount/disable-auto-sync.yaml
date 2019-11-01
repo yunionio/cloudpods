@@ -1,12 +1,12 @@
 post:
   summary: 关闭云账号自动同步
-  parameters: 
+  parameters:
     - $ref: "../parameters/cloudaccount.yaml#/cloudaccountId"
   responses:
     200:
       description: 云账号信息
       schema:
-        $ref: "../schemas/cloudaccount.yaml#CloudaccountResponse"
+        $ref: "../schemas/cloudaccount.yaml#/CloudaccountResponse"
 
   tags:
     - cloudaccount
