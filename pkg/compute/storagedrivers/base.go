@@ -66,7 +66,7 @@ func (self *SBaseStorageDriver) ValidateSnapshotDelete(ctx context.Context, snap
 	return nil
 }
 
-func (self *SBaseStorageDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+func (self *SBaseStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SSnapshotCreateInput) error {
 	guests := disk.GetGuests()
 	if len(guests) != 1 {
 		return httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)

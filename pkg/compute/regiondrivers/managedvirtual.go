@@ -1189,7 +1189,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshot(ctx contex
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
 	return nil
 }
 
