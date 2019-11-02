@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type BaremetalCreateTask struct {
@@ -32,6 +33,16 @@ type BaremetalCreateTask struct {
 
 func init() {
 	taskman.RegisterTask(BaremetalCreateTask{})
+}
+
+func (self *BaremetalCreateTask) taskComplete(ctx context.Context, baremetal *models.SHost) {
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_ALLOCATE, baremetal.GetShortDesc(ctx), self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *BaremetalCreateTask) taskFailed(ctx context.Context, baremetal *models.SHost, err string) {
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_ALLOCATE, err, self.UserCred, false)
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *BaremetalCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -44,21 +55,21 @@ func (self *BaremetalCreateTask) OnIpmiProbeComplete(ctx context.Context, obj db
 	baremetal := obj.(*models.SHost)
 	ipmiInfo, _ := baremetal.GetIpmiInfo()
 	if !ipmiInfo.Verified {
-		self.SetStageComplete(ctx, nil)
+		self.taskComplete(ctx, baremetal)
 		return
 	}
 	if jsonutils.QueryBoolean(self.Params, "no_prepare", false) {
-		self.SetStageComplete(ctx, nil)
+		self.taskComplete(ctx, baremetal)
 		return
 	}
 	if (baremetal.EnablePxeBoot.IsFalse() || !ipmiInfo.PxeBoot) && !ipmiInfo.CdromBoot {
-		self.SetStageComplete(ctx, nil)
+		self.taskComplete(ctx, baremetal)
 		return
 	}
 	if baremetal.AccessMac == "" && baremetal.Uuid == "" && !ipmiInfo.CdromBoot {
 		msg := "Fail to find access_mac or uuid, host-prepare aborted. Please supply either access_mac or uuid and try host-prepare"
 		log.Errorf(msg)
-		self.SetStageFailed(ctx, msg)
+		self.taskFailed(ctx, baremetal, msg)
 		baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, msg)
 		return
 	}
@@ -67,13 +78,16 @@ func (self *BaremetalCreateTask) OnIpmiProbeComplete(ctx context.Context, obj db
 }
 
 func (self *BaremetalCreateTask) OnIpmiProbeCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, body.String())
+	baremetal := obj.(*models.SHost)
+	self.taskFailed(ctx, baremetal, body.String())
 }
 
 func (self *BaremetalCreateTask) OnPrepareComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
+	baremetal := obj.(*models.SHost)
+	self.taskComplete(ctx, baremetal)
 }
 
 func (self *BaremetalCreateTask) OnPrepareCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, body.String())
+	baremetal := obj.(*models.SHost)
+	self.taskFailed(ctx, baremetal, body.String())
 }

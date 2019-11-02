@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SBaremetalServerStartTask struct {
@@ -29,12 +30,13 @@ type SBaremetalServerStartTask struct {
 }
 
 func NewBaremetalServerStartTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) ITask {
 	task := &SBaremetalServerStartTask{
-		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
+		SBaremetalTaskBase: newBaremetalTaskBase(userCred, baremetal, taskId, data),
 	}
 	task.SetVirtualObject(task)
 	task.SetStage(task.DoBoot)

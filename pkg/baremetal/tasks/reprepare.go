@@ -17,6 +17,7 @@ package tasks
 import (
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -25,12 +26,13 @@ type SBaremetalReprepareTask struct {
 }
 
 func NewBaremetalReprepareTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) ITask {
 	task := &SBaremetalReprepareTask{
-		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(baremetal, taskId, data),
+		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(userCred, baremetal, taskId, data),
 	}
 	task.SetVirtualObject(task)
 	task.SetStage(task.InitPXEBootTask)
@@ -42,7 +44,7 @@ func (self *SBaremetalReprepareTask) GetName() string {
 }
 
 func (self *SBaremetalReprepareTask) DoDeploys(term *ssh.Client) (jsonutils.JSONObject, error) {
-	task := newBaremetalPrepareTask(self.Baremetal)
+	task := newBaremetalPrepareTask(self.Baremetal, self.userCred)
 	err := task.DoPrepare(term)
 	return nil, err
 }

@@ -35,17 +35,22 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type sBaremetalPrepareTask struct {
 	baremetal IBaremetal
+	startTime time.Time
+	userCred  mcclient.TokenCredential
 }
 
-func newBaremetalPrepareTask(baremetal IBaremetal) *sBaremetalPrepareTask {
+func newBaremetalPrepareTask(baremetal IBaremetal, userCred mcclient.TokenCredential) *sBaremetalPrepareTask {
 	return &sBaremetalPrepareTask{
 		baremetal: baremetal,
+		userCred:  userCred,
+		startTime: time.Now().UTC(),
 	}
 }
 
@@ -58,6 +63,10 @@ type baremetalPrepareInfo struct {
 	diskInfo      []*baremetal.BaremetalStorage
 	storageDriver string
 	ipmiInfo      *types.SIPMIInfo
+}
+
+func (task *sBaremetalPrepareTask) GetStartTime() time.Time {
+	return task.startTime
 }
 
 func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*baremetalPrepareInfo, error) {
@@ -286,15 +295,18 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	infos, err := task.prepareBaremetalInfo(cli)
 	if err != nil {
+		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
 		return err
 	}
 
 	// set ipmi nic address and user password
 	if err = task.configIPMISetting(cli, infos); err != nil {
+		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
 		return err
 	}
 
 	if err = task.updateBmInfo(cli, infos); err != nil {
+		logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, err, task.userCred, false)
 		return err
 	}
 
@@ -303,6 +315,8 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		// ignore error
 		log.Errorf("SetNTP fail: %s", err)
 	}
+
+	logclient.AddActionLogWithStartable(task, task.baremetal, logclient.ACT_PREPARE, infos.sysInfo, task.userCred, true)
 
 	log.Infof("Prepare complete")
 	return nil

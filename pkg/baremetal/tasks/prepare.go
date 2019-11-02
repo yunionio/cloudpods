@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/baremetal/status"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -31,7 +32,7 @@ func NewBaremetalServerPrepareTask(
 	baremetal IBaremetal,
 ) *SBaremetalServerPrepareTask {
 	task := &SBaremetalServerPrepareTask{
-		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, "", nil),
+		SBaremetalTaskBase: newBaremetalTaskBase(auth.AdminCredential(), baremetal, "", nil),
 	}
 	task.SetVirtualObject(task)
 	task.SetSSHStage(task.OnPXEBootRequest)
@@ -48,7 +49,7 @@ func (self *SBaremetalServerPrepareTask) GetName() string {
 
 // OnPXEBootRequest called by notify api handler
 func (self *SBaremetalServerPrepareTask) OnPXEBootRequest(ctx context.Context, cli *ssh.Client, args interface{}) error {
-	err := newBaremetalPrepareTask(self.Baremetal).DoPrepare(cli)
+	err := newBaremetalPrepareTask(self.Baremetal, self.userCred).DoPrepare(cli)
 	if err != nil {
 		log.Errorf("Prepare failed: %v", err)
 		self.Baremetal.SyncStatus(status.PREPARE_FAIL, err.Error())
