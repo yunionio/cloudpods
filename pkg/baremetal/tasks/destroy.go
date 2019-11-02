@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -26,12 +27,13 @@ type SBaremetalServerDestroyTask struct {
 }
 
 func NewBaremetalServerDestroyTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) ITask {
 	task := &SBaremetalServerDestroyTask{
-		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(baremetal, taskId, data),
+		SBaremetalServerBaseDeployTask: newBaremetalServerBaseDeployTask(userCred, baremetal, taskId, data),
 	}
 	task.SetVirtualObject(task)
 	task.SetStage(task.InitPXEBootTask)

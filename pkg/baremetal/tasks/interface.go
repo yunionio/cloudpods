@@ -26,6 +26,8 @@ import (
 )
 
 type IBaremetal interface {
+	Keyword() string
+
 	GetId() string
 	GetZoneId() string
 	GetStorageCacheId() string
