@@ -538,22 +538,24 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		return nil, errors.Wrap(err, `resp.Unmarshal(&instance, "instance")`)
 	}
 	if jobId, _ := resp.GetString("job_id"); len(jobId) > 0 {
-		err = cloudprovider.WaitCreated(10*time.Second, 20*time.Minute, func() bool {
+		err = cloudprovider.Wait(10*time.Second, 20*time.Minute, func() (bool, error) {
 			job, err := region.ecsClient.DBInstanceJob.Get(jobId, map[string]string{"id": jobId})
 			if err != nil {
-				log.Errorf("failed to get job %s info error: %v", jobId, err)
-				return false
+				return false, nil
 			}
 			status, _ := job.GetString("status")
 			process, _ := job.GetString("process")
-			if status == "Completed" {
-				return true
-			}
 			log.Debugf("create dbinstance job %s status: %s process: %s", jobId, status, process)
-			return false
+			if status == "Completed" {
+				return true, nil
+			}
+			if status == "Failed" {
+				return false, fmt.Errorf("create failed")
+			}
+			return false, nil
 		})
 	}
-	return instance, nil
+	return instance, err
 }
 
 func (rds *SDBInstance) Reboot() error {
