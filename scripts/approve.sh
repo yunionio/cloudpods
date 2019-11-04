@@ -10,7 +10,21 @@ fi
 
 function mergeable() {
     local PRN=$1
-    hub api repos/{owner}/{repo}/pulls/$PRN | python -m json.tool | grep '"mergeable": true'
+    while true; do
+        local STATE=$(hub api repos/{owner}/{repo}/pulls/$PRN | python -m json.tool | grep '"mergeable":' | cut -d ":" -f 2 | cut -d "," -f 1)
+        STATE=$(eval "echo $STATE")
+        echo "merge state is $STATE"
+        case "$STATE" in
+            true)
+                return 0
+                ;;
+            null)
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    done
 }
 
 function pr_state() {
@@ -59,14 +73,14 @@ function label() {
     return 1
 }
 
-if ! mergeable $PR > /dev/null; then
-    echo "Pull request $PR is not mergeable (DIRTY), exit..."
-    exit 1
-fi
-
 STATE=$(pr_state $PR)
 if [ "$STATE" != "open" ]; then
-    echo "Pull request $PR state != open, exit..."
+    echo "Pull request $PR state $STATE != open, exit..."
+    exit 0
+fi
+
+if ! mergeable $PR; then
+    echo "Pull request $PR is not mergeable (DIRTY), exit..."
     exit 1
 fi
 
