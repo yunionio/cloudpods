@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -203,10 +204,16 @@ func (self *SEipAddress) GetInternetChargeType() string {
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.AllocationId, instanceId)
-	if err != nil {
-		return err
-	}
+	err := cloudprovider.Wait(20*time.Second, 60*time.Second, func() (bool, error) {
+		err := self.region.AssociateEip(self.AllocationId, instanceId)
+		if err != nil {
+			if isError(err, "IncorrectInstanceStatus") {
+				return false, nil
+			}
+			return false, errors.Wrap(err, "region.AssociateEip")
+		}
+		return true, nil
+	})
 	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
