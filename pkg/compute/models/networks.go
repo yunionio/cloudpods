@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -2236,4 +2237,160 @@ func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclie
 	}
 	network.ClearSchedDescCache()
 	return ret, nil
+}
+
+func (network *SNetwork) AllowGetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return network.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, network, "addresses")
+}
+
+func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
+	guestnetworks := GuestnetworkManager.Query().SubQuery()
+	guests := GuestManager.Query().SubQuery()
+	guestNetQ := guestnetworks.Query(
+		guestnetworks.Field("ip_addr"),
+		guestnetworks.Field("mac_addr"),
+		sqlchemy.NewStringField("guests").Label("owner_type"),
+		guestnetworks.Field("guest_id").Label("owner_id"),
+		guests.Field("name").Label("owner"),
+		sqlchemy.NewStringField("").Label("associate_id"),
+		sqlchemy.NewStringField("").Label("associate_type"),
+	).Join(
+		guests,
+		sqlchemy.Equals(
+			guests.Field("id"),
+			guestnetworks.Field("guest_id"),
+		),
+	).Equals("network_id", network.Id)
+
+	groupnetworks := GroupnetworkManager.Query().SubQuery()
+	groups := GroupManager.Query().SubQuery()
+	groupNetQ := groupnetworks.Query(
+		groupnetworks.Field("ip_addr"),
+		sqlchemy.NewStringField("").Label("mac_addr"),
+		sqlchemy.NewStringField("groups").Label("owner_type"),
+		groupnetworks.Field("group_id").Label("owner_id"),
+		groups.Field("name").Label("owner"),
+		sqlchemy.NewStringField("").Label("associate_id"),
+		sqlchemy.NewStringField("").Label("associate_type"),
+	).Join(
+		groups,
+		sqlchemy.Equals(
+			groups.Field("id"),
+			groupnetworks.Field("group_id"),
+		),
+	).Equals("network_id", network.Id)
+
+	hostnetworks := HostnetworkManager.Query().SubQuery()
+	hosts := HostManager.Query().SubQuery()
+	hostNetQ := hostnetworks.Query(
+		hostnetworks.Field("ip_addr"),
+		hostnetworks.Field("mac_addr"),
+		sqlchemy.NewStringField("hosts").Label("owner_type"),
+		hostnetworks.Field("baremetal_id").Label("owner_id"),
+		hosts.Field("name").Label("owner"),
+		sqlchemy.NewStringField("").Label("associate_id"),
+		sqlchemy.NewStringField("").Label("associate_type"),
+	).Join(
+		hosts,
+		sqlchemy.Equals(
+			hosts.Field("id"),
+			hostnetworks.Field("baremetal_id"),
+		),
+	).Equals("network_id", network.Id)
+
+	reserved := ReservedipManager.Query().GT("expired_at", time.Now()).SubQuery()
+	reservedQ := reserved.Query(
+		reserved.Field("ip_addr"),
+		sqlchemy.NewStringField("").Label("mac_addr"),
+		sqlchemy.NewStringField("reserves").Label("owner_type"),
+		sqlchemy.NewStringField("").Label("owner_id"),
+		reserved.Field("notes").Label("owner"),
+		sqlchemy.NewStringField("").Label("associate_id"),
+		sqlchemy.NewStringField("").Label("associate_type"),
+	).Equals("network_id", network.Id)
+
+	lbnetworks := LoadbalancernetworkManager.Query().SubQuery()
+	loadbalancers := LoadbalancerManager.Query().SubQuery()
+	lbNetQ := lbnetworks.Query(
+		lbnetworks.Field("ip_addr"),
+		sqlchemy.NewStringField("").Label("mac_addr"),
+		sqlchemy.NewStringField("loadbalancers").Label("owner_type"),
+		lbnetworks.Field("loadbalancer_id").Label("owner_id"),
+		loadbalancers.Field("name").Label("owner"),
+		sqlchemy.NewStringField("").Label("associate_id"),
+		sqlchemy.NewStringField("").Label("associate_type"),
+	).Join(
+		loadbalancers,
+		sqlchemy.Equals(
+			loadbalancers.Field("id"),
+			lbnetworks.Field("loadbalancer_id"),
+		),
+	).Equals("network_id", network.Id)
+
+	elasticips := ElasticipManager.Query().SubQuery()
+	eipQ := elasticips.Query(
+		elasticips.Field("ip_addr"),
+		sqlchemy.NewStringField("").Label("mac_addr"),
+		sqlchemy.NewStringField("elasticips").Label("owner_type"),
+		elasticips.Field("id").Label("owner_id"),
+		elasticips.Field("name").Label("owner"),
+		elasticips.Field("associate_id"),
+		elasticips.Field("associate_type"),
+	).Equals("network_id", network.Id)
+
+	netifnetworks := NetworkinterfacenetworkManager.Query().SubQuery()
+	netifs := NetworkInterfaceManager.Query().SubQuery()
+	netifsQ := netifnetworks.Query(
+		netifnetworks.Field("ip_addr"),
+		netifs.Field("mac").Label("mac_addr"),
+		sqlchemy.NewStringField("networkinterfaces").Label("owner_type"),
+		netifnetworks.Field("networkinterface_id").Label("owner_id"),
+		netifs.Field("name").Label("owner"),
+		netifs.Field("associate_id"),
+		netifs.Field("associate_type"),
+	).Join(
+		netifs,
+		sqlchemy.Equals(
+			netifnetworks.Field("networkinterface_id"),
+			netifs.Field("id"),
+		),
+	).Equals("network_id", network.Id)
+
+	return sqlchemy.Union(guestNetQ, groupNetQ, hostNetQ, reservedQ, lbNetQ, eipQ, netifsQ).Query()
+}
+
+type SNetworkAddress struct {
+	IpAddr        string
+	MacAddr       string
+	Owner         string
+	OwnerId       string
+	OwnerType     string
+	AssociateId   string
+	AssociateType string
+}
+
+type SNetworkAddressList []SNetworkAddress
+
+func (a SNetworkAddressList) Len() int      { return len(a) }
+func (a SNetworkAddressList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a SNetworkAddressList) Less(i, j int) bool {
+	ipI, _ := netutils.NewIPV4Addr(a[i].IpAddr)
+	ipJ, _ := netutils.NewIPV4Addr(a[j].IpAddr)
+	return ipI < ipJ
+}
+
+func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	netAddrs := make([]SNetworkAddress, 0)
+	q := network.queryUsedAddressQuery()
+	err := q.All(&netAddrs)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	sort.Sort(SNetworkAddressList(netAddrs))
+
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.Marshal(netAddrs), "addresses")
+	return result, nil
 }
