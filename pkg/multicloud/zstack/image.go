@@ -167,7 +167,7 @@ func (image *SImage) GetOsDist() string {
 }
 
 func (image *SImage) GetOsVersion() string {
-	return ""
+	return imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsVersion
 }
 
 func (image *SImage) GetOsArch() string {
