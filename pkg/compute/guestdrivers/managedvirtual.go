@@ -657,24 +657,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		return nil, err
 	}
 
-	status := ivm.GetStatus()
-	switch status {
-	case api.VM_RUNNING:
-		status = cloudprovider.CloudVMStatusRunning
-	case api.VM_READY:
-		status = cloudprovider.CloudVMStatusStopped
-	case api.VM_STARTING:
-		status = cloudprovider.CloudVMStatusStopped
-	case api.VM_STOPPING:
-		status = cloudprovider.CloudVMStatusStopping
-	case api.VM_CHANGE_FLAVOR:
-		status = cloudprovider.CloudVMStatusChangeFlavor
-	case api.VM_DEPLOYING:
-		status = cloudprovider.CloudVMStatusDeploying
-	default:
-		status = cloudprovider.CloudVMStatusOther
-	}
-
+	status := GetCloudVMStatus(ivm)
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewString(status), "status")
 	return body, nil
@@ -985,4 +968,26 @@ func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
 
 func (self *SManagedVirtualizedGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
+}
+
+func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
+	status := vm.GetStatus()
+	switch status {
+	case api.VM_RUNNING:
+		status = cloudprovider.CloudVMStatusRunning
+	case api.VM_READY:
+		status = cloudprovider.CloudVMStatusStopped
+	case api.VM_STARTING:
+		status = cloudprovider.CloudVMStatusStopped
+	case api.VM_STOPPING:
+		status = cloudprovider.CloudVMStatusStopping
+	case api.VM_CHANGE_FLAVOR:
+		status = cloudprovider.CloudVMStatusChangeFlavor
+	case api.VM_DEPLOYING:
+		status = cloudprovider.CloudVMStatusDeploying
+	default:
+		status = cloudprovider.CloudVMStatusOther
+	}
+
+	return status
 }

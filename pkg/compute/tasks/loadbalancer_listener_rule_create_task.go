@@ -67,7 +67,7 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 
 	params := jsonutils.NewDict()
 	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
-	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
+	group, _ := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lbr.GetId())
 	if group != nil {
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
 		if err != nil {
@@ -124,7 +124,7 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 		return
 	}
 
-	group, _ := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lblis.LoadbalancerId, lblis.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)
+	group, _ := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lblis.LoadbalancerId, lbr.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)
 	if group != nil {
 		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
 		if err != nil {

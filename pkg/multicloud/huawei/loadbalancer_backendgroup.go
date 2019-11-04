@@ -17,8 +17,10 @@ package huawei
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -44,6 +46,10 @@ type SElbBackendGroup struct {
 
 func (self *SElbBackendGroup) GetLoadbalancerId() string {
 	return self.lb.GetId()
+}
+
+func (self *SElbBackendGroup) GetILoadbalancer() cloudprovider.ICloudLoadbalancer {
+	return self.lb
 }
 
 type StickySession struct {
@@ -289,18 +295,37 @@ func (self *SElbBackendGroup) AddBackendServer(serverId string, weight int, port
 }
 
 func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, port int) error {
-	return self.region.RemoveLoadBalancerBackend(self.GetId(), backendId)
+	ibackend, err := self.GetILoadbalancerBackendById(backendId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+
+		return errors.Wrap(err, "ElbBackendGroup.GetILoadbalancerBackendById")
+	}
+
+	err = self.region.RemoveLoadBalancerBackend(self.GetId(), backendId)
+	if err != nil {
+		return errors.Wrap(err, "ElbBackendGroup.RemoveBackendServer")
+	}
+
+	return cloudprovider.WaitDeleted(ibackend, 2*time.Second, 30*time.Second)
 }
 
 func (self *SElbBackendGroup) Delete() error {
 	if len(self.HealthMonitorID) > 0 {
 		err := self.region.DeleteLoadbalancerHealthCheck(self.HealthMonitorID)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ElbBackendGroup.Delete.DeleteLoadbalancerHealthCheck")
 		}
 	}
 
-	return self.region.DeleteLoadBalancerBackendGroup(self.GetId())
+	err := self.region.DeleteLoadBalancerBackendGroup(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "ElbBackendGroup.Delete.DeleteLoadBalancerBackendGroup")
+	}
+
+	return cloudprovider.WaitDeleted(self, 2*time.Second, 30*time.Second)
 }
 
 func (self *SElbBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
