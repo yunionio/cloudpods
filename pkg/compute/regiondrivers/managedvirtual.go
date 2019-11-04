@@ -1529,11 +1529,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 		log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
 
 		idbinstance, err := iregion.CreateIDBInstance(&desc)
+		if idbinstance != nil { //避免创建失败后,删除本地的未能同步删除云上失败的RDS
+			db.SetExternalId(dbinstance, userCred, idbinstance.GetGlobalId())
+		}
 		if err != nil {
 			return nil, err
 		}
-
-		db.SetExternalId(dbinstance, userCred, idbinstance.GetGlobalId())
 
 		err = cloudprovider.WaitStatus(idbinstance, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
 		if err != nil {

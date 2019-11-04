@@ -434,11 +434,50 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 	return iregion.GetIDBInstanceById(self.ExternalId)
 }
 
+func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dataCopy := jsonutils.DeepCopy(data)
+	accounts, err := self.GetDBInstanceAccounts()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get accounts: %v", err))
+	}
+	backups, err := self.GetDBInstanceBackups()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get backups: %v", err))
+	}
+	databases, err := self.GetDBInstanceDatabases()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get databases: %v", err))
+	}
+	for i := range accounts {
+		_, err := accounts[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := range backups {
+		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := range databases {
+		_, err := databases[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+}
+
 func (self *SDBInstance) AllowPerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "recovery")
 }
 
 func (self *SDBInstance) PerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do recovery dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
+	}
+
 	params := data.(*jsonutils.JSONDict)
 	backupV := validators.NewModelIdOrNameValidator("dbinstancebackup", "dbinstancebackup", userCred)
 	err := backupV.Validate(params)
@@ -512,10 +551,10 @@ func (self *SDBInstance) AllowPerformReboot(ctx context.Context, userCred mcclie
 }
 
 func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING, api.DBINSTANCE_REBOOT_FAILED}) {
-		return nil, self.StartDBInstanceRebootTask(ctx, userCred, jsonutils.NewDict(), "")
+	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING, api.DBINSTANCE_REBOOT_FAILED}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do reboot dbinstance in status %s", self.Status)
 	}
-	return nil, httperrors.NewInvalidStatusError("Cannot do reboot dbinstance in status %s", self.Status)
+	return nil, self.StartDBInstanceRebootTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
 func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -531,6 +570,10 @@ func (self *SDBInstance) AllowPerformRenew(ctx context.Context, userCred mcclien
 }
 
 func (self *SDBInstance) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.DBINSTANCE_RUNNING}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do renew dbinstance in status %s required status %s", self.Status, api.DBINSTANCE_RUNNING)
+	}
+
 	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
 	if len(durationStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missong duration")
@@ -872,6 +915,7 @@ func (self *SDBInstance) GetDBInstancePrivilege(account, database string) (*SDBI
 		return nil, sql.ErrNoRows
 	}
 	privilege := &SDBInstancePrivilege{}
+	privilege.SetModelManager(DBInstancePrivilegeManager, privilege)
 	err = q.First(privilege)
 	if err != nil {
 		return nil, errors.Wrap(err, "q.First()")
