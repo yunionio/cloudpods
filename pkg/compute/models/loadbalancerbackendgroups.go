@@ -283,7 +283,7 @@ func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 func (lbbg *SLoadbalancerBackendGroup) refCount(man db.IModelManager) (int, error) {
 	t := man.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
-	return t.Query().
+	return t.Query().IsFalse("deleted").
 		Equals("backend_group_id", lbbg.Id).
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 		CountWithError()

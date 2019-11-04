@@ -57,6 +57,10 @@ func (self *SElbBackendGroup) GetLoadbalancerId() string {
 	return ""
 }
 
+func (self *SElbBackendGroup) GetILoadbalancer() cloudprovider.ICloudLoadbalancer {
+	return self.lb
+}
+
 type Matcher struct {
 	HTTPCode string `json:"HttpCode"`
 }
@@ -246,7 +250,7 @@ func (self *SRegion) GetELbBackends(backendgroupId string) ([]SElbBackend, error
 
 	ret := []SElbBackend{}
 	for i := range backends {
-		if !utils.IsInStringArray(backends[i].TargetHealth.Reason, []string{"Target.InvalidState", "Target.DeregistrationInProgress"}) {
+		if !utils.IsInStringArray(backends[i].TargetHealth.Reason, []string{"Target.InvalidState", "Target.NotInUse", "Target.DeregistrationInProgress"}) {
 			backends[i].region = self
 			backends[i].group = group
 			ret = append(ret, backends[i])

@@ -418,6 +418,18 @@ func (self *SManagedVirtualizationRegionDriver) createLoadbalancerCertificate(ct
 	if err := db.SetExternalId(lbcert, userCred, iLoadbalancerCert.GetGlobalId()); err != nil {
 		return nil, errors.Wrap(err, "db.SetExternalId")
 	}
+
+	err = cloudprovider.WaitCreated(3*time.Second, 30*time.Second, func() bool {
+		err := iLoadbalancerCert.Refresh()
+		if err == nil {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "iRegion.createLoadbalancerCertificate.WaitCreated")
+	}
+
 	return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert, lbcert.GetOwnerId())
 }
 
@@ -527,18 +539,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		err = iLoadbalancerBackendGroup.Delete()
 		if err != nil {
 			return nil, err
-		}
-
-		cachedLbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
-		if err != nil {
-			return nil, err
-		}
-
-		for i := range cachedLbbgs {
-			err = cachedLbbgs[i].Delete(ctx, userCred)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		return nil, nil

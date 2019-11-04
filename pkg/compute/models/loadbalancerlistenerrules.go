@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -647,6 +648,39 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	}
 }
 
+func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssociate(ctx context.Context, extRule cloudprovider.ICloudLoadbalancerListenerRule) error {
+	exteralLbbgId := extRule.GetBackendGroupId()
+	if len(exteralLbbgId) == 0 {
+		return nil
+	}
+
+	switch lbr.GetProviderName() {
+	case api.CLOUD_PROVIDER_HUAWEI:
+		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
+		if err != nil {
+			return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+		}
+
+		if _group != nil {
+			group := _group.(*SHuaweiCachedLbbg)
+			if group.AssociatedId != lbr.Id {
+				_, err := db.UpdateWithLock(ctx, group, func() error {
+					group.AssociatedId = lbr.Id
+					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+					return nil
+				})
+				if err != nil {
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate")
+				}
+			}
+		}
+	default:
+		return nil
+	}
+
+	return nil
+}
+
 func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerListenerRule, error) {
 	lbr := &SLoadbalancerListenerRule{}
 	lbr.SetModelManager(man, lbr)
@@ -670,22 +704,9 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 		return nil, err
 	}
 
-	groupId := extRule.GetBackendGroupId()
-	if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && len(groupId) > 0 {
-		group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
-		if err != nil {
-			log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
-		}
-
-		cachedGroup := group.(*SHuaweiCachedLbbg)
-		_, err = db.UpdateWithLock(context.Background(), cachedGroup, func() error {
-			cachedGroup.AssociatedId = lbr.GetId()
-			cachedGroup.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-			return nil
-		})
-		if err != nil {
-			log.Errorf("Update huawei loadbalancer backendgroup cache %s failed: %s", groupId, err)
-		}
+	err = lbr.updateCachedLoadbalancerBackendGroupAssociate(ctx, extRule)
+	if err != nil {
+		return nil, errors.Wrap(err, "LoadbalancerListenerRuleManager.newFromCloudLoadbalancerListenerRule")
 	}
 
 	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
@@ -719,6 +740,12 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 	if err != nil {
 		return err
 	}
+
+	err = lbr.updateCachedLoadbalancerBackendGroupAssociate(ctx, extRule)
+	if err != nil {
+		return errors.Wrap(err, "LoadbalancerListenerRule.SyncWithCloudLoadbalancerListenerRule")
+	}
+
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)
 
 	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
