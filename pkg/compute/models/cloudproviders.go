@@ -712,7 +712,7 @@ func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFa
 
 func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
-		return nil, fmt.Errorf("Cloud provider is not enabled")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Cloud provider is not enabled")
 	}
 
 	accessUrl := self.getAccessUrl()
