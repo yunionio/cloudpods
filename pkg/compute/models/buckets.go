@@ -602,7 +602,11 @@ func (bucket *SBucket) GetDetailsObjects(
 	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 	prefix, _ := query.GetString("prefix")
 	isRecursive := jsonutils.QueryBoolean(query, "recursive", false)
@@ -653,7 +657,11 @@ func (bucket *SBucket) PerformTempUrl(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 	tmpUrl, err := iBucket.GetTempUrl(method, key, time.Duration(expire)*time.Second)
 	if err != nil {
@@ -695,7 +703,11 @@ func (bucket *SBucket) PerformMakedir(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 
 	_, err = cloudprovider.GetIObject(iBucket, key+"/")
@@ -764,7 +776,11 @@ func (bucket *SBucket) PerformDelete(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 	ok := jsonutils.NewDict()
 	results := modulebase.BatchDo(keyStrs, func(key string) (jsonutils.JSONObject, error) {
@@ -821,7 +837,11 @@ func (bucket *SBucket) PerformUpload(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 
 	contType := appParams.Request.Header.Get("Content-Type")
@@ -924,7 +944,11 @@ func (bucket *SBucket) PerformAcl(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 
 	objKey, _ := data.Get("key")
@@ -1000,7 +1024,11 @@ func (bucket *SBucket) PerformSync(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 
 	err = bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, statsOnly)
@@ -1040,7 +1068,11 @@ func (bucket *SBucket) GetDetailsAcl(
 	}
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 	objKey, _ := query.GetString("key")
 	var acl cloudprovider.TBucketACLType
@@ -1159,7 +1191,11 @@ func (bucket *SBucket) PerformLimit(
 
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		if errors.Cause(err) == httperrors.ErrInvalidStatus {
+			return nil, httperrors.NewInvalidStatusError("%s", err)
+		} else {
+			return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+		}
 	}
 
 	err = iBucket.SetLimit(limit)
