@@ -136,6 +136,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.ElasticcacheParameterManager,
 		models.ElasticcacheBackupManager,
 		models.ElasticcacheSkuManager,
+		models.GlobalNetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -160,6 +161,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.NetworkinterfacenetworkManager,
 		models.SnapshotPolicyDiskManager,
 		models.InstanceSnapshotJointManager,
+		models.GlobalnetworkVpcManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)

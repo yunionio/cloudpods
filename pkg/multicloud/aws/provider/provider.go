@@ -114,6 +114,14 @@ func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
+func (self *SAwsProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
+	return []cloudprovider.ICloudGlobalnetwork{}, nil
+}
+
+func (self *SAwsProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SAwsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	regions := self.client.GetIRegions()
 	info := jsonutils.NewDict()

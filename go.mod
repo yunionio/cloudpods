@@ -115,6 +115,7 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/net v0.0.0-20191007182048-72f939374954
+	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20191008105621-543471e840be
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
@@ -133,9 +134,9 @@ require (
 	k8s.io/kubernetes v1.12.3
 	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191112153320-4346cc308eed
+	yunion.io/x/pkg v0.0.0-20191121110824-e03b47b93fe0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20191119025555-5948646b39e6
+	yunion.io/x/sqlchemy v0.0.0-20191122085525-2d3bfdb3f51c
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 

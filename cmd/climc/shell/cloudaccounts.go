@@ -16,6 +16,7 @@ package shell
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"yunion.io/x/jsonutils"
 
@@ -109,6 +110,29 @@ func init() {
 	R(&options.SQcloudCloudAccountCreateOptions{}, "cloud-account-create-qcloud", "Create a Qcloud cloud account", func(s *mcclient.ClientSession, args *options.SQcloudCloudAccountCreateOptions) error {
 		params := jsonutils.Marshal(args)
 		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Qcloud"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SGoogleCloudAccountCreateOptions{}, "cloud-account-create-google", "Create a Google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Google"), "provider")
+		data, err := ioutil.ReadFile(args.GoogleJsonFile)
+		if err != nil {
+			return err
+		}
+		authParams, err := jsonutils.Parse(data)
+		if err != nil {
+			return err
+		}
+		err = jsonutils.Update(params, authParams)
+		if err != nil {
+			return err
+		}
 		result, err := modules.Cloudaccounts.Create(s, params)
 		if err != nil {
 			return err

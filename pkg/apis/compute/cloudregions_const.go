@@ -31,6 +31,7 @@ const (
 	CITY_HONG_KONG     = "Hongkong"    //香港
 	CITY_NING_XIA      = "Ningxia"     //宁夏
 	CITY_GUANG_ZHOU    = "Guangzhou"   //广州
+	CITY_TAI_WAN       = "Taiwan"      //台湾
 	CITY_GUI_YANG      = "Guiyang"     //贵阳
 	CITY_TAIPEI        = "Taipei"      //台北市
 	CITY_KAOHSIUNG     = "Kaohsiung"   //高雄市
@@ -49,6 +50,15 @@ const (
 	CITY_YARRALUMLA = "Yarralumla" //亚拉伦拉
 	CITY_MELBOURNE  = "Melbourne"  //墨尔本
 
+	//芬兰
+	CITY_FINLAND = "Finland"
+
+	//比利时
+	CITY_BELGIUM = "Belgium" //比利时
+
+	//瑞士
+	CITY_ZURICH = "Zurich" //苏黎世
+
 	// 马来西亚
 	CITY_KUALA_LUMPUR = "Kuala Lumpur" //吉隆坡
 
@@ -61,20 +71,21 @@ const (
 	CITY_MAHARASHTRA = "Maharashtra" //马哈拉施特拉邦
 
 	// 美国
-	CITY_VIRGINIA      = "Virginia"      //弗吉尼亚
-	CITY_SILICONVALLEY = "Siliconvalley" //硅谷
-	CITY_OHIO          = "Ohio"          //俄亥俄州
-	CITY_N_VIRGINIA    = "N. Virginia"   //北弗吉尼亚
-	CITY_N_CALIFORNIA  = "N. California" //北加州
-	CITY_OREGON        = "Oregon"        //俄勒冈州
-	CITY_LOS_ANGELES   = "Los Angeles"   //洛杉矶
-	CITY_SAN_FRANCISCO = "San Francisco" //旧金山
-	CITY_UTAH          = "Utah"          //犹他州
-	CITY_WASHINGTON    = "Washington"    //华盛顿
-	CITY_TEXAS         = "Texas"         //德克萨斯
-	CITY_CHICAGO       = "Chicago"       //芝加哥
-	CITY_IOWA          = "Iowa"          //爱荷华
-	CITY_US_GOV_WEST   = "us-gov-west"   //???
+	CITY_VIRGINIA       = "Virginia"       //弗吉尼亚
+	CITY_SILICONVALLEY  = "Siliconvalley"  //硅谷
+	CITY_OHIO           = "Ohio"           //俄亥俄州
+	CITY_N_VIRGINIA     = "N. Virginia"    //北弗吉尼亚
+	CITY_N_CALIFORNIA   = "N. California"  //北加州
+	CITY_OREGON         = "Oregon"         //俄勒冈州
+	CITY_LOS_ANGELES    = "Los Angeles"    //洛杉矶
+	CITY_SAN_FRANCISCO  = "San Francisco"  //旧金山
+	CITY_UTAH           = "Utah"           //犹他州
+	CITY_WASHINGTON     = "Washington"     //华盛顿
+	CITY_TEXAS          = "Texas"          //德克萨斯
+	CITY_CHICAGO        = "Chicago"        //芝加哥
+	CITY_IOWA           = "Iowa"           //爱荷华
+	CITY_US_GOV_WEST    = "us-gov-west"    //???
+	CITY_SOUTH_CAROLINA = "South Carolina" //南卡罗来纳州
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
@@ -95,6 +106,7 @@ const (
 	CITY_CANADA_CENTRAL = "Canada Central" //加拿大中部
 	CITY_QUEBEC         = "Quebec"         //魁北克市
 	CITY_TORONTO        = "Toronto"        //多伦多
+	CITY_MONTREAL       = "Montreal"       //蒙特利尔
 
 	// 爱尔兰
 	CITY_IRELAND = "Ireland" //爱尔兰
@@ -154,4 +166,5 @@ const (
 	COUNTRY_CODE_RU = "RU" //俄罗斯
 	COUNTRY_CODE_NG = "NG" //尼日利亚
 	COUNTRY_CODE_VN = "VN" //越南
+	COUNTRY_CODE_CH = "CH" //瑞士
 )

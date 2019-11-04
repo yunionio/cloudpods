@@ -223,10 +223,21 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	}
 
 	vpcId := ""
-	if region.GetDriver().IsSecurityGroupBelongVpc() {
+	if region.GetDriver().IsSecurityGroupBelongGlobalNetwork() { //globalnetwork没有region属性
+		vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+		if err != nil {
+			syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
+			return localSecgroups, remoteSecgroups, syncResult
+		}
+		region = nil
+	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
 		vpcId = vpc.ExternalId
 	} else if region.GetDriver().IsSupportClassicSecurityGroup() && len(secgroups) > 0 {
-		vpcId = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, secgroups[0].GetVpcId() == "classic")
+		vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, secgroups[0].GetVpcId() == "classic")
+		if err != nil {
+			syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))
+			return localSecgroups, remoteSecgroups, syncResult
+		}
 	} else {
 		vpcId = region.GetDriver().GetDefaultSecurityGroupVpcId()
 	}

@@ -77,7 +77,7 @@ type SCloudprovider struct {
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret    string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	Secret    string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`  // Google需要秘钥认证,需要此字段比较长
 
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
@@ -1085,6 +1085,25 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 	return provider.ClearSchedDescCache()
 }
 
+func (provider *SCloudprovider) syncCloudproviderGlobalnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
+	driver, err := provider.GetProvider()
+	if err != nil {
+		return err
+	}
+	if !driver.GetFactory().IsOnPremise() {
+		globalnetworks, err := driver.GetIGlobalnetworks()
+		if err != nil {
+			return errors.Wrap(err, "GetIGlobalnetworks")
+		}
+		result := GlobalNetworkManager.SyncGlobalnetworks(ctx, userCred, provider, globalnetworks)
+		if result.IsError() {
+			log.Errorf("syncGlobalnetworks fail %s", result.Result())
+		}
+		return nil
+	}
+	return nil
+}
+
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
 	driver, err := provider.GetProvider()
 	if err != nil {
@@ -1181,6 +1200,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		DBInstanceBackupManager,
 		ElasticcacheManager,
 		VpcManager,
+		GlobalNetworkManager,
 		ElasticipManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
