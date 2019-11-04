@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -81,9 +80,14 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, userCred)
 	// 同步未关联负载均衡的后端服务器组
-	if provider.Provider == compute.CLOUD_PROVIDER_AWS {
-		syncAwsLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	regionDriver, err := localRegion.GetRegionDriver()
+	if err != nil {
+		msg := fmt.Sprintf("GetRegionDriver %s failed %s", localRegion.GetName(), err)
+		log.Errorln(msg)
+		return
 	}
+
+	regionDriver.RequestPullRegionLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	for i := 0; i < len(localLbs); i++ {
 		func() {
@@ -91,16 +95,7 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 			defer lockman.ReleaseObject(ctx, &localLbs[i])
 
 			syncLoadbalancerEip(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
-
-			switch provider.Provider {
-			case compute.CLOUD_PROVIDER_AWS:
-				break
-			case compute.CLOUD_PROVIDER_HUAWEI:
-				syncHuaweiLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
-			default:
-				syncLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
-			}
-
+			regionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
 			syncLoadbalancerListeners(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
 		}()
 	}
@@ -166,7 +161,7 @@ func syncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func syncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
+func SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
 	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
@@ -211,7 +206,7 @@ func syncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 /*huawei elb sync*/
-func syncHuaweiLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
+func SyncHuaweiLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localLoadbalancer *SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) {
 	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
@@ -256,7 +251,7 @@ func syncHuaweiLoadbalancerBackends(ctx context.Context, userCred mcclient.Token
 }
 
 /*aws elb sync*/
-func syncAwsLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+func SyncAwsLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	remoteBackendgroups, err := remoteRegion.GetILoadBalancerBackendGroups()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for region %s failed %s", localRegion.Name, err)

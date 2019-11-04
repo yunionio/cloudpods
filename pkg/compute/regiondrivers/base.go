@@ -85,6 +85,14 @@ func (self *SBaseRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.C
 	return fmt.Errorf("Not Implement RequestSyncLoadbalancerBackendGroup")
 }
 
+func (self *SBaseRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) error {
+	return fmt.Errorf("Not Implement RequestPullRegionLoadbalancerBackendGroup")
+}
+
+func (self *SBaseRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
+	return fmt.Errorf("Not Implement RequestPullLoadbalancerBackendGroup")
+}
+
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerBackend")
 }
