@@ -66,39 +66,35 @@ func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx contex
 	return nil
 }
 
-func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	projectName, _ := data.GetString("project_name")
-	if len(projectName) == 0 {
+func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	if len(input.ProjectName) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
 		if len(accountInfo) < 2 {
 			return nil, httperrors.NewMissingParameterError("project_name")
 		}
-		projectName = accountInfo[0]
+		input.ProjectName = accountInfo[0]
 	}
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
+	if len(input.Username) == 0 {
 		return nil, httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
+	if len(input.Password) == 0 {
 		return nil, httperrors.NewMissingParameterError("password")
 	}
 
-	_account := fmt.Sprintf("%s/%s", projectName, username)
-	domainName, _ := data.GetString("domain_name")
-	if len(domainName) == 0 {
+	_account := fmt.Sprintf("%s/%s", input.ProjectName, input.Username)
+	if len(input.DomainName) == 0 {
 		if accountInfo := strings.Split(cloudaccount, "/"); len(accountInfo) == 3 {
-			domainName = accountInfo[2]
+			input.DomainName = accountInfo[2]
 		}
 	}
 
-	if len(domainName) > 0 {
-		_account = fmt.Sprintf("%s/%s", _account, domainName)
+	if len(input.DomainName) > 0 {
+		_account = fmt.Sprintf("%s/%s", _account, input.DomainName)
 	}
 
 	account := &cloudprovider.SCloudaccount{
 		Account: _account,
-		Secret:  password,
+		Secret:  input.Password,
 	}
 	return account, nil
 }

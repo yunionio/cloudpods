@@ -57,18 +57,16 @@ func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	return nil
 }
 
-func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	accessKeyID, _ := data.GetString("access_key_id")
-	if len(accessKeyID) == 0 {
+func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	if len(input.AccessKeyId) == 0 {
 		return nil, httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("access_key_secret")
-	if len(accessKeySecret) == 0 {
+	if len(input.AccessKeySecret) == 0 {
 		return nil, httperrors.NewMissingParameterError("access_key_secret")
 	}
 	account := &cloudprovider.SCloudaccount{
-		Account: accessKeyID,
-		Secret:  accessKeySecret,
+		Account: input.AccessKeyId,
+		Secret:  input.AccessKeySecret,
 	}
 	return account, nil
 }

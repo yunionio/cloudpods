@@ -66,18 +66,16 @@ func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Con
 	return nil
 }
 
-func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
+func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	if len(input.Username) == 0 {
 		return nil, httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
+	if len(input.Password) == 0 {
 		return nil, httperrors.NewMissingParameterError("password")
 	}
 	account := &cloudprovider.SCloudaccount{
-		Account: username,
-		Secret:  password,
+		Account: input.Username,
+		Secret:  input.Password,
 	}
 	return account, nil
 }
