@@ -278,18 +278,14 @@ func (h *SHostInfo) detectHostInfo() error {
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	for _, srv := range []string{"ntpd", "telegraf"} {
+	for _, srv := range []string{"ntpd"} {
 		srvinst := system_service.GetService(srv)
-		if srvinst == nil {
-			return fmt.Errorf("service %s not found", srv)
-		} else {
-			if !srvinst.IsInstalled() {
-				return fmt.Errorf("Service %s not installed", srv)
-			}
+		if !srvinst.IsInstalled() {
+			return fmt.Errorf("Service %s not installed", srv)
 		}
 	}
 
-	for _, srv := range []string{"host_sdnagent", "host-deployer"} {
+	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf"} {
 		srvinst := system_service.GetService(srv)
 		if !srvinst.IsInstalled() {
 			log.Warningf("Service %s not installed", srv)
@@ -583,7 +579,8 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 	masterIp, mask := h.GetMasterNicIpAndMask()
 	log.Debugf("Get master ip %s and mask %d", masterIp, mask)
 	if len(masterIp) == 0 || mask == 0 {
-		return
+		log.Errorf("master ip %s mask %d", masterIp, mask)
+		h.onFail()
 	}
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
@@ -765,7 +762,10 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 	content.Set("cpu_desc", jsonutils.NewString(h.Cpu.cpuInfoProc.Model))
 	content.Set("cpu_microcode", jsonutils.NewString(h.Cpu.cpuInfoProc.Microcode))
-	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
+	content.Set("cpu_architecture", jsonutils.NewString(h.Cpu.CpuArchitecture))
+	if h.Cpu.cpuInfoProc.Freq > 0 {
+		content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
+	}
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
 	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
@@ -1379,6 +1379,10 @@ func (h *SHostInfo) getHostname() string {
 	return h.fetchHostname()
 }
 
+func (h *SHostInfo) GetCpuArchitecture() string {
+	return h.Cpu.CpuArchitecture
+}
+
 func NewHostInfo() (*SHostInfo, error) {
 	var res = new(SHostInfo)
 	res.sysinfo = &SSysInfo{}
@@ -1387,6 +1391,12 @@ func NewHostInfo() (*SHostInfo, error) {
 		return nil, err
 	} else {
 		res.Cpu = cpu
+	}
+
+	if cpu.CpuArchitecture == "aarch64" {
+		qemutils.UseAarch64()
+	} else if cpu.CpuArchitecture != "x86_64" {
+		return nil, fmt.Errorf("unsupport cpu architecture %s", cpu.CpuArchitecture)
 	}
 
 	log.Infof("CPU Model %s Microcode %s", cpu.cpuInfoProc.Model, cpu.cpuInfoProc.Microcode)

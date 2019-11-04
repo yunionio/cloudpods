@@ -104,13 +104,13 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 		}
 	}
 	if len(model) == 0 {
-		return nil, fmt.Errorf("Not found model name")
+		log.Errorf("Failed to get cpu model")
 	}
 	if len(freq) == 0 {
-		return nil, fmt.Errorf("Not found cpu MHz")
+		log.Errorf("Failed to get cpu MHz")
 	}
 	if len(cache) == 0 {
-		return nil, fmt.Errorf("Not found cache size")
+		log.Errorf("Failed to get cpu cache size")
 	}
 	model = strings.TrimSpace(model)
 	info := &types.SCPUInfo{
@@ -118,9 +118,13 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 		Model:     model,
 		Microcode: microcode,
 	}
-	info.Cache, _ = strconv.Atoi(cache)
-	freqF, _ := strconv.ParseFloat(freq, 32)
-	info.Freq = int(freqF)
+	if len(cache) > 0 {
+		info.Cache, _ = strconv.Atoi(cache)
+	}
+	if len(freq) > 0 {
+		freqF, _ := strconv.ParseFloat(freq, 32)
+		info.Freq = int(freqF)
+	}
 	return info, nil
 }
 

@@ -31,8 +31,14 @@ const (
 	USER_BIN       = "/usr/bin"
 )
 
+var qemuSystemCmd = "qemu-system-x86_64"
+
+func UseAarch64() {
+	qemuSystemCmd = "qemu-system-aarch64"
+}
+
 func GetQemu(version string) string {
-	return getQemuCmd("qemu-system-x86_64", version)
+	return getQemuCmd(qemuSystemCmd, version)
 }
 
 func GetQemuNbd() string {

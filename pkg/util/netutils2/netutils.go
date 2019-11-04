@@ -238,6 +238,13 @@ func NewNetInterface(name string) *SNetInterface {
 	return n
 }
 
+func NewNetInterfaceWithExpectIp(name string, expectIp string) *SNetInterface {
+	n := new(SNetInterface)
+	n.name = name
+	n.fetchConfig(expectIp)
+	return n
+}
+
 func (n *SNetInterface) String() string {
 	return n.name
 }
@@ -250,13 +257,17 @@ func (n *SNetInterface) Exist() bool {
 func (n *SNetInterface) FetchInter() *net.Interface {
 	inter, err := net.InterfaceByName(n.name)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("fetch interface %s error %s", n.name, err)
 		return nil
 	}
 	return inter
 }
 
 func (n *SNetInterface) FetchConfig() {
+	n.fetchConfig("")
+}
+
+func (n *SNetInterface) fetchConfig(expectIp string) {
 	n.Addr = ""
 	n.Mask = nil
 	n.Mac = ""
@@ -274,7 +285,11 @@ func (n *SNetInterface) FetchConfig() {
 				if ipnet.IP.To4() != nil {
 					n.Addr = ipnet.IP.String()
 					n.Mask = ipnet.Mask
-					break
+					if len(expectIp) > 0 && n.Addr != expectIp {
+						continue
+					} else {
+						break
+					}
 				}
 			}
 		}
