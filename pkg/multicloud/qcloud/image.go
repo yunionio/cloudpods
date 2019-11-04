@@ -27,6 +27,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type ImageStatusType string
@@ -195,7 +196,7 @@ func (self *SImage) GetOsDist() string {
 }
 
 func (self *SImage) GetOsVersion() string {
-	return ""
+	return imagetools.NormalizeImageInfo(self.OsName, "", "", "", "").OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
