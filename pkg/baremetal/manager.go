@@ -508,6 +508,10 @@ func (b *SBaremetalInstance) GetClientSession() *mcclient.ClientSession {
 	return b.manager.GetClientSession()
 }
 
+func (b *SBaremetalInstance) Keyword() string {
+	return "host"
+}
+
 func (b *SBaremetalInstance) GetId() string {
 	id, err := b.desc.GetString("id")
 	if err != nil {
@@ -1463,9 +1467,9 @@ func (b *SBaremetalInstance) remove() {
 	b.desc = nil
 }
 
-func (b *SBaremetalInstance) StartNewTask(factory tasks.TaskFactory, taskId string, data jsonutils.JSONObject) {
+func (b *SBaremetalInstance) StartNewTask(factory tasks.TaskFactory, userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
 	go func() {
-		task := factory(b, taskId, data)
+		task := factory(userCred, b, taskId, data)
 		b.SetTask(task)
 	}()
 }
@@ -1477,29 +1481,29 @@ func (b *SBaremetalInstance) StartBaremetalMaintenanceTask(userCred mcclient.Tok
 	if jsonutils.QueryBoolean(data, "guest_running", false) {
 		data.(*jsonutils.JSONDict).Set("soft_reboot", jsonutils.JSONTrue)
 	}
-	b.StartNewTask(tasks.NewBaremetalMaintenanceTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalMaintenanceTask, userCred, taskId, data)
 }
 
 func (b *SBaremetalInstance) StartBaremetalUnmaintenanceTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	b.StartNewTask(tasks.NewBaremetalUnmaintenanceTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalUnmaintenanceTask, userCred, taskId, data)
 }
 
 func (b *SBaremetalInstance) StartBaremetalReprepareTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	b.StartNewTask(tasks.NewBaremetalReprepareTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalReprepareTask, userCred, taskId, data)
 }
 
 func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	b.StartNewTask(tasks.NewBaremetalResetBMCTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalResetBMCTask, userCred, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartBaremetalIpmiProbeTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalIpmiProbeTask, userCred, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartBaremetalCdromTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	b.StartNewTask(tasks.NewBaremetalCdromTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalCdromTask, userCred, taskId, data)
 	return nil
 }
 
@@ -1527,7 +1531,7 @@ func (b *SBaremetalInstance) StartServerCreateTask(userCred mcclient.TokenCreden
 	if err := b.AutoSaveDesc(); err != nil {
 		return err
 	}
-	b.StartNewTask(tasks.NewBaremetalServerCreateTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerCreateTask, userCred, taskId, data)
 	return nil
 }
 
@@ -1539,7 +1543,7 @@ func (b *SBaremetalInstance) StartServerDeployTask(userCred mcclient.TokenCreden
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	b.StartNewTask(tasks.NewBaremetalServerDeployTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerDeployTask, userCred, taskId, data)
 	return nil
 }
 
@@ -1551,22 +1555,22 @@ func (b *SBaremetalInstance) StartServerRebuildTask(userCred mcclient.TokenCrede
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	b.StartNewTask(tasks.NewBaremetalServerRebuildTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerRebuildTask, userCred, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerStartTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	b.StartNewTask(tasks.NewBaremetalServerStartTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerStartTask, userCred, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerStopTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	b.StartNewTask(tasks.NewBaremetalServerStopTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerStopTask, userCred, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerDestroyTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	b.StartNewTask(tasks.NewBaremetalServerDestroyTask, taskId, data)
+	b.StartNewTask(tasks.NewBaremetalServerDestroyTask, userCred, taskId, data)
 }
 
 func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

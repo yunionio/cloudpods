@@ -171,4 +171,6 @@ const (
 	ACT_LOADBALANCER_DISSOCIATE = "解绑负载均衡"
 
 	ACT_SUBIMAGE_UPDATE = "更新子镜像"
+
+	ACT_PREPARE = "同步硬件配置"
 )

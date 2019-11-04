@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/redfish"
 )
@@ -36,12 +37,13 @@ type SBaremetalIpmiProbeTask struct {
 }
 
 func NewBaremetalIpmiProbeTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) ITask {
 	task := &SBaremetalIpmiProbeTask{
-		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
+		SBaremetalTaskBase: newBaremetalTaskBase(userCred, baremetal, taskId, data),
 	}
 	task.SetVirtualObject(task)
 	task.SetStage(task.DoIpmiProbe)
