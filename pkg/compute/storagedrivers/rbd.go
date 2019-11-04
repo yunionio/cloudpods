@@ -179,7 +179,7 @@ func (self *SRbdStorageDriver) ValidateSnapshotDelete(ctx context.Context, snaps
 	return nil
 }
 
-func (self *SRbdStorageDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+func (self *SRbdStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SSnapshotCreateInput) error {
 	return nil
 }
 
