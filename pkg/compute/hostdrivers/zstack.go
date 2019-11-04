@@ -15,8 +15,14 @@
 package hostdrivers
 
 import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SZStackHostDriver struct {
@@ -38,4 +44,13 @@ func (self *SZStackHostDriver) GetHypervisor() string {
 
 func (self *SZStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
+}
+
+func (self *SZStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	for _, guest := range guests {
+		if guest.Status != api.VM_READY {
+			return nil, httperrors.NewBadRequestError("ZStack reset disk operation requried guest status is ready")
+		}
+	}
+	return data, nil
 }
