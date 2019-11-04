@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
-	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -75,47 +75,54 @@ func (user *SLocalUser) GetName() string {
 	return user.Name
 }
 
-func (manager *SLocalUserManager) FetchLocalUser(usrExt *api.SUserExtended) (*SLocalUser, error) {
+func (manager *SLocalUserManager) FetchLocalUserById(localId int) (*SLocalUser, error) {
+	return manager.fetchLocalUser("", "", localId)
+}
+
+func (manager *SLocalUserManager) fetchLocalUser(userId string, domainId string, localId int) (*SLocalUser, error) {
 	localUser := SLocalUser{}
 	localUser.SetModelManager(manager, &localUser)
-	q := manager.Query().Equals("id", usrExt.LocalId)
+	var q *sqlchemy.SQuery
+	if len(userId) > 0 && len(domainId) > 0 {
+		q = manager.Query().Equals("user_id", userId).Equals("domain_id", domainId)
+	} else {
+		q = manager.Query().Equals("id", localId)
+	}
 	err := q.First(&localUser)
 	if err != nil {
-		return nil, errors.Wrap(err, "Query")
+		if err == sql.ErrNoRows {
+			return nil, err
+		} else {
+			return nil, errors.Wrap(err, "Query")
+		}
 	}
 	return &localUser, nil
 }
 
 func (manager *SLocalUserManager) register(userId string, domainId string, name string) (*SLocalUser, error) {
-	localUser := SLocalUser{}
-	localUser.SetModelManager(manager, &localUser)
-
-	q := manager.Query().Equals("user_id", userId).Equals("domain_id", domainId)
-	err := q.First(&localUser)
+	localUser, err := manager.fetchLocalUser(userId, domainId, 0)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "Query")
 	}
 	if err == nil {
-		return &localUser, nil
+		return localUser, nil
 	}
+
+	localUser = &SLocalUser{}
 	localUser.UserId = userId
 	localUser.DomainId = domainId
 	localUser.Name = name
 
-	err = manager.TableSpec().Insert(&localUser)
+	err = manager.TableSpec().Insert(localUser)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
 	}
 
-	return &localUser, nil
+	return localUser, nil
 }
 
 func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLocalUser, error) {
-	localUser := SLocalUser{}
-	localUser.SetModelManager(manager, &localUser)
-
-	q := manager.Query().Equals("user_id", userId).Equals("domain_id", domainId)
-	err := q.First(&localUser)
+	localUser, err := manager.fetchLocalUser(userId, domainId, 0)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "Query")
 	}
@@ -123,7 +130,7 @@ func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLoca
 		return nil, nil
 	}
 
-	_, err = db.Update(&localUser, func() error {
+	_, err = db.Update(localUser, func() error {
 		return localUser.MarkDelete()
 	})
 
@@ -131,7 +138,7 @@ func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLoca
 		return nil, errors.Wrap(err, "MarkDelete")
 	}
 
-	return &localUser, nil
+	return localUser, nil
 }
 
 func (usr *SLocalUser) SaveFailedAuth() error {
