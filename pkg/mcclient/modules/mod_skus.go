@@ -30,9 +30,14 @@ type ServerSkusManager struct {
 	modulebase.ResourceManager
 }
 
+type ElasticcacheSkusManager struct {
+	modulebase.ResourceManager
+}
+
 var (
-	CloudmetaSkus SkusManager
-	ServerSkus    ServerSkusManager
+	CloudmetaSkus    SkusManager
+	ServerSkus       ServerSkusManager
+	ElasticcacheSkus ElasticcacheSkusManager
 )
 
 func init() {
@@ -49,8 +54,13 @@ func init() {
 			"Provider", "Postpaid_status", "Prepaid_status", "Region", "Region_ext_id", "Zone", "Zone_ext_id"},
 		[]string{"Total_guest_count"})}
 
+	ElasticcacheSkus = ElasticcacheSkusManager{NewComputeManager("elasticcachesku", "elasticcacheskus",
+		[]string{},
+		[]string{})}
+
 	register(&CloudmetaSkus)
 	registerCompute(&ServerSkus)
+	registerCompute(&ElasticcacheSkus)
 }
 
 func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*modulebase.ListResult, error) {

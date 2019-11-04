@@ -1,0 +1,13 @@
+post:
+  summary: 更改弹性IP带宽大小
+  parameters:
+    - $ref: "../parameters/elasticip.yaml#/elasticipId"
+    - $ref: "../parameters/elasticip.yaml#/bandwidth"
+  responses:
+    200:
+      description: 弹性IP信息
+      schema:
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
+
+  tags:
+    - elasticips

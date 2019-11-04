@@ -126,6 +126,8 @@ func syncRegionSkus(ctx context.Context, localRegion *SCloudregion) {
 	if err != nil {
 		log.Errorf("SchedManager SyncSku %s", err)
 	}
+
+	syncElasticCacheSkusByRegion(localRegion)
 }
 
 func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider) {

@@ -1,0 +1,14 @@
+post:
+  summary: 绑定资源
+  parameters:
+    - $ref: "../parameters/elasticip.yaml#/elasticipId"
+    - $ref: "../parameters/elasticip.yaml#/instance_id"
+    - $ref: "../parameters/elasticip.yaml#/instance_type"
+  responses:
+    200:
+      description: 弹性IP信息
+      schema:
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
+
+  tags:
+    - elasticips

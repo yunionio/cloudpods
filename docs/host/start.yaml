@@ -1,0 +1,11 @@
+post:
+  summary: 启动物理机
+  parameters:
+    - $ref: "../parameters/host.yaml#/hostId"
+  responses:
+    200:
+      description: 宿主机信息
+      schema:
+        $ref: "../schemas/host.yaml#/HostResponse"
+  tags:
+    - host

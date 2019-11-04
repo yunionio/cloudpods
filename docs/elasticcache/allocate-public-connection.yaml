@@ -1,0 +1,15 @@
+post:
+  summary: 获取ElasticCache实例公网访问地址
+  parameters:
+    - in: body
+      name: elasticcache
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAllocatePublicConnection"
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

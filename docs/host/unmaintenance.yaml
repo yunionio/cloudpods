@@ -1,0 +1,11 @@
+post:
+  summary: 重启物理机，进入磁盘安装的操作系统
+  parameters:
+    - $ref: "../parameters/host.yaml#/hostId"
+  responses:
+    200:
+      description: 宿主机信息
+      schema:
+        $ref: "../schemas/host.yaml#/HostResponse"
+  tags:
+    - host

@@ -1,0 +1,11 @@
+get:
+  summary: 获取宿主机缩略信息
+  parameters:
+    - $ref: "../parameters/host.yaml#/hostId"
+  responses:
+    200:
+      description: 宿主机缩略信息
+      schema:
+        $ref: "../schemas/host.yaml#/HostSpec"
+  tags:
+    - host

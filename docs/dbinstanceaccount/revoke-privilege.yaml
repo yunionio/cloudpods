@@ -1,17 +1,17 @@
 post:
   summary: 解除RDS实例的数据库权限
   description: 要求RDS实例状态正常
-  parameters: 
-    - $ref: '../parameters/dbinstance.yaml#/accountId'
-    - in: body 
+  parameters:
+    - $ref: "../parameters/dbinstance.yaml#/accountId"
+    - in: body
       name: dbinstanceaccount
-      required: true 
+      required: true
       schema:
-        $ref: '../schemas/dbinstance_account.yaml#DBInstanceAccountRevokePrivilege'
+        $ref: "../schemas/dbinstance_account.yaml#/DBInstanceAccountRevokePrivilege"
   responses:
     200:
       description: RDS实例账户信息
       schema:
-        $ref: '../schemas/dbinstance_account.yaml#/DBInstanceAccountResponse'
+        $ref: "../schemas/dbinstance_account.yaml#/DBInstanceAccountResponse"
   tags:
     - dbinstanceaccount

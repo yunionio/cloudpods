@@ -85,3 +85,11 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
 	return nil, fmt.Errorf("Not Implemented CreateIDBInstance")
 }
+
+func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheInput) (cloudprovider.ICloudElasticcache, error) {
+	return nil, fmt.Errorf("Not Implemented CreateIElasticcaches")
+}
+
+func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
+	return nil, fmt.Errorf("Not Implemented GetIElasticcacheById")
+}
