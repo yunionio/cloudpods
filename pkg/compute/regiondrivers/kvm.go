@@ -737,9 +737,12 @@ func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsho
 	return models.GetStorageDriver(storage.StorageType).RequestDeleteSnapshot(ctx, snapshot, task)
 }
 
-func (self *SKVMRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
-	storage := disk.GetStorage()
-	return models.GetStorageDriver(storage.StorageType).ValidateSnapshotCreate(ctx, userCred, disk, data)
+func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+	host := storage.GetMasterHost()
+	if host == nil {
+		return fmt.Errorf("failed to get master host, maybe the host is offline")
+	}
+	return models.GetStorageDriver(storage.StorageType).ValidateCreateSnapshotData(ctx, userCred, disk, input)
 }
 
 func (self *SKVMRegionDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {

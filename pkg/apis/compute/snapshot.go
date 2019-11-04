@@ -19,9 +19,8 @@ import "yunion.io/x/onecloud/pkg/apis"
 type SSnapshotCreateInput struct {
 	apis.Meta
 
-	Name      string `json:"name"`
-	ProjectId string `json:"project_id"`
-	DomainId  string `json:"domain_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 
 	DiskId        string `json:"disk_id"`
 	StorageId     string `json:"storage_id"`
