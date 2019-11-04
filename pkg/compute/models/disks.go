@@ -995,6 +995,14 @@ func (self *SDisk) GetStorage() *SStorage {
 	return nil
 }
 
+func (self *SDisk) GetRegionDriver() (IRegionDriver, error) {
+	storage := self.GetStorage()
+	if storage == nil {
+		return nil, fmt.Errorf("failed to found storage for disk %s(%s)", self.Name, self.Id)
+	}
+	return storage.GetRegionDriver()
+}
+
 func (self *SDisk) GetBackupStorage() *SStorage {
 	if len(self.BackupStorageId) == 0 {
 		return nil
