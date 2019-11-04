@@ -16,9 +16,12 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -65,7 +68,7 @@ func (lbb *SHuaweiCachedLb) GetCustomizeColumns(context.Context, mcclient.TokenC
 
 func (man *SHuaweiCachedLbManager) GetBackendsByLocalBackendId(backendId string) ([]SHuaweiCachedLb, error) {
 	loadbalancerBackends := []SHuaweiCachedLb{}
-	q := man.Query().Equals("backend_id", backendId)
+	q := man.Query().IsFalse("pending_deleted").Equals("backend_id", backendId)
 	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
@@ -92,7 +95,7 @@ func (man *SHuaweiCachedLbManager) CreateHuaweiCachedLb(ctx context.Context, use
 		return nil, err
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(cachedlbb)
 
 	if err != nil {
 		return nil, err
@@ -209,7 +212,26 @@ func (lbb *SHuaweiCachedLb) constructFieldsFromCloudLoadbalancerBackend(extLoadb
 
 func (lbb *SHuaweiCachedLb) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) error {
 	lbb.SetModelManager(HuaweiCachedLbManager, lbb)
+	cacheLbbg, err := lbb.GetCachedBackendGroup()
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLb.SyncWithCloudLoadbalancerBackend.GetCachedBackendGroup")
+	}
+
+	localLbbg, err := cacheLbbg.GetLocalBackendGroup(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLb.SyncWithCloudLoadbalancerBackend.GetLocalBackendGroup")
+	}
+
+	locallbb, err := newLocalBackendFromCloudLoadbalancerBackend(ctx, userCred, localLbbg, extLoadbalancerBackend, syncOwnerId)
+	if err != nil {
+		return errors.Wrap(err, "HuaweiCachedLb.SyncWithCloudLoadbalancerBackend.newLocalBackendFromCloudLoadbalancerBackend")
+	}
+
 	diff, err := db.UpdateWithLock(ctx, lbb, func() error {
+		if locallbb != nil {
+			lbb.BackendId = locallbb.GetId()
+		}
+
 		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
 	})
 	if err != nil {
@@ -267,35 +289,69 @@ func (man *SHuaweiCachedLbManager) newFromCloudLoadbalancerBackend(ctx context.C
 }
 
 func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
+	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
+	if err != nil {
+		return nil, err
+	}
+
+	guest := instance.(*SGuest)
+	//address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
+	//if err != nil {
+	//	return nil, err
+	//}
+
 	man := LoadbalancerBackendManager
-	lbb := &SLoadbalancerBackend{}
-	lbb.SetModelManager(man, lbb)
-
-	lbb.BackendGroupId = loadbalancerBackendgroup.Id
-	lbb.ExternalId = ""
-
-	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
-	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
-
-	newName, err := db.GenerateName(man, syncOwnerId, extLoadbalancerBackend.GetName())
+	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", loadbalancerBackendgroup.Id).Equals("cloudregion_id", loadbalancerBackendgroup.CloudregionId)
+	q = q.Equals("manager_id", loadbalancerBackendgroup.ManagerId).Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
+	q = q.Equals("backend_id", guest.Id)
+	//q = q.Equals("address", address)
+	lbbs := []SLoadbalancerBackend{}
+	err = db.FetchModelObjects(man, q, &lbbs)
 	if err != nil {
-		return nil, err
-	}
-	lbb.Name = newName
-
-	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
-		return nil, err
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
 	}
 
-	err = man.TableSpec().Insert(lbb)
+	if err == sql.ErrNoRows || len(lbbs) == 0 {
+		lbb := &SLoadbalancerBackend{}
+		lbb.SetModelManager(man, lbb)
 
-	if err != nil {
-		return nil, err
+		lbb.BackendGroupId = loadbalancerBackendgroup.Id
+		lbb.ExternalId = ""
+
+		lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
+		lbb.ManagerId = loadbalancerBackendgroup.ManagerId
+
+		baseName := extLoadbalancerBackend.GetName()
+		if len(baseName) == 0 {
+			baseName = "backend"
+		}
+
+		newName, err := db.GenerateName(man, syncOwnerId, extLoadbalancerBackend.GetName())
+		if err != nil {
+			return nil, err
+		}
+		lbb.Name = newName
+
+		if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
+			return nil, err
+		}
+
+		err = man.TableSpec().Insert(lbb)
+
+		if err != nil {
+			return nil, err
+		}
+
+		SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
+
+		db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
+		return lbb, nil
+	} else if len(lbbs) == 1 {
+		return &lbbs[0], nil
+	} else {
+		log.Errorf("duplicate lbb found %#v", lbbs)
+		return nil, errors.Wrap(fmt.Errorf("duplicate lbb found"), "newLocalBackendFromCloudLoadbalancerBackend")
 	}
-
-	SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
-
-	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
-
-	return lbb, nil
 }

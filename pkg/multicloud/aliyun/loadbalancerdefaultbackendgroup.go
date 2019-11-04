@@ -27,6 +27,10 @@ type SLoadbalancerDefaultBackendGroup struct {
 	lb *SLoadbalancer
 }
 
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancer() cloudprovider.ICloudLoadbalancer {
+	return backendgroup.lb
+}
+
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetLoadbalancerId() string {
 	return backendgroup.lb.GetId()
 }
