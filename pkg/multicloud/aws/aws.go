@@ -217,6 +217,11 @@ func (client *SAwsClient) fetchBuckets() error {
 
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for _, bInfo := range output.Buckets {
+		if err := FillZero(bInfo); err != nil {
+			log.Errorf("s3cli.Binfo.FillZero error %s", err)
+			continue
+		}
+
 		input := &s3.GetBucketLocationInput{}
 		input.Bucket = bInfo.Name
 		output, err := s3cli.GetBucketLocation(input)
@@ -225,8 +230,8 @@ func (client *SAwsClient) fetchBuckets() error {
 			continue
 		}
 
-		if output == nil {
-			log.Errorf("s3cli.GetBucketLocation nil output")
+		if err := FillZero(output); err != nil {
+			log.Errorf("s3cli.GetBucketLocation.FillZero error %s", err)
 			continue
 		}
 
