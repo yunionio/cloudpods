@@ -215,12 +215,16 @@ func (self *SBaseRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return false
 }
 
+func (self *SBaseRegionDriver) IsSecurityGroupBelongGlobalNetwork() bool {
+	return false
+}
+
 func (self *SBaseRegionDriver) GetDefaultSecurityGroupVpcId() string {
 	return api.NORMAL_VPC_ID
 }
 
-func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) string {
-	return ""
+func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {

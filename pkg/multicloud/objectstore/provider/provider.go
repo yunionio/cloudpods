@@ -114,6 +114,14 @@ func (self *SObjectStoreProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return nil
 }
 
+func (self *SObjectStoreProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
+	return []cloudprovider.ICloudGlobalnetwork{}, nil
+}
+
+func (self *SObjectStoreProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SObjectStoreProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

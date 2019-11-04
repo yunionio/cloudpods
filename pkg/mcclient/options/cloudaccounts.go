@@ -105,6 +105,11 @@ type SQcloudCloudAccountCreateOptions struct {
 	SQcloudCredential
 }
 
+type SGoogleCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	GoogleJsonFile string `help:"Google auth json file" positional:"true"`
+}
+
 type SAWSCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredentialWithEnvironment

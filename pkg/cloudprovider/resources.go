@@ -427,6 +427,7 @@ type ICloudVpc interface {
 
 	GetIWireById(wireId string) (ICloudWire, error)
 	GetINatGateways() ([]ICloudNatGateway, error)
+	GetIGlobalNetworkId() string
 }
 
 type ICloudWire interface {
@@ -929,4 +930,8 @@ type ICloudEvent interface {
 	IsSuccess() bool
 
 	GetCreatedAt() time.Time
+}
+
+type ICloudGlobalnetwork interface {
+	ICloudResource
 }
