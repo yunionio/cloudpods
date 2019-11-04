@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -114,6 +115,11 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 }
 
 func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
+	output, err := procutils.NewCommand("ifconfig").Run()
+	if err != nil {
+		return false, errors.Wrapf(err, "exec ifconfig %s", output)
+	}
+
 	exist, err := d.drv.Exists()
 	if err != nil {
 		return false, err

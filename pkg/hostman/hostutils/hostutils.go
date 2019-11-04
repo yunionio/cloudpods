@@ -40,6 +40,7 @@ type IHost interface {
 	GetHostId() string
 	GetMediumType() string
 	GetMasterIp() string
+	GetCpuArchitecture() string
 
 	IsKvmSupport() bool
 	IsNestedVirtualization() bool

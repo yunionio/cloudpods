@@ -31,7 +31,9 @@ import (
 const (
 	KVM_MODULE_INTEL     = "kvm-intel"
 	KVM_MODULE_AMD       = "kvm-amd"
+	KVM_MODULE           = "kvm"
 	KVM_MODULE_UNSUPPORT = "unsupport"
+	KVM_MODULE_BUILDIN   = "buildin"
 
 	HOST_NEST_UNSUPPORT = "0"
 	HOST_NEST_SUPPORT   = "1"
@@ -80,6 +82,13 @@ func detectiveKVMModuleSupport() string {
 		km = KVM_MODULE_INTEL
 	} else if ModprobeKvmModule(KVM_MODULE_AMD, false, false) {
 		km = KVM_MODULE_AMD
+	} else if ModprobeKvmModule(KVM_MODULE, false, false) {
+		km = KVM_MODULE
+	}
+	if km == KVM_MODULE_UNSUPPORT {
+		if fileutils2.Exists("/dev/kvm") {
+			km = KVM_MODULE_BUILDIN
+		}
 	}
 	return km
 }
