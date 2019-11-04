@@ -80,18 +80,16 @@ func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Co
 	return nil
 }
 
-func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	clientID, _ := data.GetString("client_id")
-	if len(clientID) == 0 {
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	if len(input.ClientId) == 0 {
 		return nil, httperrors.NewMissingParameterError("client_id")
 	}
-	clientSecret, _ := data.GetString("client_secret")
-	if len(clientSecret) == 0 {
+	if len(input.ClientSecret) == 0 {
 		return nil, httperrors.NewMissingParameterError("client_secret")
 	}
 	account := &cloudprovider.SCloudaccount{
 		Account: cloudaccount,
-		Secret:  fmt.Sprintf("%s/%s", clientID, clientSecret),
+		Secret:  fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret),
 	}
 	return account, nil
 }

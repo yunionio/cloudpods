@@ -22,25 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-type CloudaccountCreateInput struct {
-	apis.Meta
-
-	Provider            string
-	Brand               string
-	IsPublicCloud       bool
-	IsOnPremise         bool
-	Account             string
-	Secret              string
-	AccessUrl           string
-	TenantId            string
-	Name                string
-	Description         string
-	Enabled             bool
-	EnableAutoSync      bool
-	SyncIntervalSeconds int
-	AutoCreateProject   bool
-	Options             *jsonutils.JSONObject
-
+type CloudaccountCredentialInput struct {
 	ProjectName string //OpenStack
 	DomainName  string //OpenStack
 	Username    string //OpenStack Esxi ZStack
@@ -63,6 +45,28 @@ type CloudaccountCreateInput struct {
 	AppId     string //Qcloud
 	SecretId  string //Qcloud
 	SecretKey string //Qcloud
+}
+
+type CloudaccountCreateInput struct {
+	apis.Meta
+
+	Provider            string
+	Brand               string
+	IsPublicCloud       bool
+	IsOnPremise         bool
+	Account             string
+	Secret              string
+	AccessUrl           string
+	TenantId            string
+	Name                string
+	Description         string
+	Enabled             bool
+	EnableAutoSync      bool
+	SyncIntervalSeconds int
+	AutoCreateProject   bool
+	Options             *jsonutils.JSONObject
+
+	CloudaccountCredentialInput
 }
 
 type CloudaccountShareModeInput struct {

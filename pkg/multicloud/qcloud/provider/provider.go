@@ -74,26 +74,23 @@ func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	return nil
 }
 
-func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	appID, _ := data.GetString("app_id")
-	if len(appID) == 0 {
+func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	if len(input.AppId) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
 		if len(accountInfo) < 2 {
 			return nil, httperrors.NewMissingParameterError("app_id")
 		}
-		appID = accountInfo[1]
+		input.AppId = accountInfo[1]
 	}
-	secretID, _ := data.GetString("secret_id")
-	if len(secretID) == 0 {
+	if len(input.SecretId) == 0 {
 		return nil, httperrors.NewMissingParameterError("secret_id")
 	}
-	secretKey, _ := data.GetString("secret_key")
-	if len(secretKey) == 0 {
+	if len(input.SecretKey) == 0 {
 		return nil, httperrors.NewMissingParameterError("secret_key")
 	}
 	account := &cloudprovider.SCloudaccount{
-		Account: fmt.Sprintf("%s/%s", secretID, appID),
-		Secret:  secretKey,
+		Account: fmt.Sprintf("%s/%s", input.SecretId, input.AppId),
+		Secret:  input.SecretKey,
 	}
 	return account, nil
 }
