@@ -1,12 +1,12 @@
 post:
   summary: 清除磁盘数据库记录
-  parameters: 
+  parameters:
     - $ref: "../parameters/disk.yaml#/diskId"
   responses:
     200:
       description: 磁盘信息
       schema:
-        $ref: "../schemas/disk.yaml#DiskResponse"
+        $ref: "../schemas/disk.yaml#/DiskResponse"
 
   tags:
     - disk

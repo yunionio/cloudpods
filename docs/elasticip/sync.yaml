@@ -6,7 +6,7 @@ post:
     200:
       description: 弹性IP信息
       schema:
-        $ref: "../schemas/elasticip.yaml#ElasticIpResponse"
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
 
   tags:
     - elasticips

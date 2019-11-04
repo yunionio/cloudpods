@@ -16,13 +16,21 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -46,7 +54,7 @@ func init() {
 }
 
 type SElasticcacheAcl struct {
-	db.SStandaloneResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
@@ -120,7 +128,7 @@ func (self *SElasticcacheAcl) syncRemoveCloudElasticcacheAcl(ctx context.Context
 func (self *SElasticcacheAcl) SyncWithCloudElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudElasticcacheAcl) error {
 	_, err := db.UpdateWithLock(ctx, self, func() error {
 		self.IpList = extAcl.GetIpList()
-
+		self.Status = extAcl.GetStatus()
 		return nil
 	})
 	if err != nil {
@@ -138,6 +146,7 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	acl.SetModelManager(manager, &acl)
 
 	acl.ElasticcacheId = elasticcache.GetId()
+	acl.Status = extAcl.GetStatus()
 	acl.Name = extAcl.GetName()
 	acl.ExternalId = extAcl.GetGlobalId()
 	acl.IpList = extAcl.GetIpList()
@@ -148,4 +157,140 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	}
 
 	return &acl, nil
+}
+
+func (manager *SElasticcacheAclManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, manager)
+}
+
+func (manager *SElasticcacheAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	var region *SCloudregion
+	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
+		ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, id)
+		if err != nil {
+			return nil, fmt.Errorf("getting elastic cache instance failed")
+		}
+		region = ec.(*SElasticcache).GetRegion()
+
+		if region == nil {
+			return nil, fmt.Errorf("getting elastic cache region failed")
+		}
+	} else {
+		return nil, httperrors.NewMissingParameterError("elasticcache")
+	}
+
+	data, err := manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return region.GetDriver().ValidateCreateElasticcacheAclData(ctx, userCred, ownerId, data)
+}
+
+func (self *SElasticcacheAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_CREATING, "")
+	if err := self.StartElasticcacheAclCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
+		log.Errorf("Failed to create elastic cache acl error: %v", err)
+	}
+}
+
+func (self *SElasticcacheAcl) StartElasticcacheAclCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAclCreateTask", self, userCred, jsonutils.NewDict(), parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcacheAcl) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	_ec, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
+	if err != nil {
+		return nil, err
+	}
+
+	ec := _ec.(*SElasticcache)
+	provider, err := ec.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", ec.Name, err)
+	}
+	region := ec.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (self *SElasticcacheAcl) GetRegion() *SCloudregion {
+	ieb, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
+	if err != nil {
+		return nil
+	}
+
+	return ieb.(*SElasticcache).GetRegion()
+}
+
+func (self *SElasticcacheAcl) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	// todo: fix me self.IsOwner(userCred) ||
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SElasticcacheAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	ips, err := data.GetString("ip_list")
+	if err != nil || ips == "" {
+		return nil, httperrors.NewMissingParameterError("ip_list")
+	}
+
+	ipV := validators.NewIPv4AddrValidator("ip")
+	_ips := strings.Split(ips, ",")
+	for _, ip := range _ips {
+		params := jsonutils.NewDict()
+		params.Set("ip", jsonutils.NewString(ip))
+		if err := ipV.Validate(params); err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
+}
+
+func (self *SElasticcacheAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_UPDATING, "")
+	if err := self.StartUpdateElasticcacheAclTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
+		log.Errorf("ElasticcacheAcl %s", err.Error())
+	}
+
+	return
+}
+
+func (self *SElasticcacheAcl) StartUpdateElasticcacheAclTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAclUpdateTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcacheAcl) ValidateDeleteCondition(ctx context.Context) error {
+	return nil
+}
+
+func (self *SElasticcacheAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_DELETING, "")
+	return self.StartDeleteElasticcacheAclTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (self *SElasticcacheAcl) StartDeleteElasticcacheAclTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAclDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcacheAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
 }

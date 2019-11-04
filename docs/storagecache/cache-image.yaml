@@ -1,6 +1,6 @@
 post:
   summary: 缓存镜像到此存储缓存上
-  parameters: 
+  parameters:
     - $ref: "../parameters/storagecache.yaml#/storagecacheId"
     - $ref: "../parameters/storagecache.yaml#/image"
     - $ref: "../parameters/storagecache.yaml#/is_force"
@@ -9,6 +9,6 @@ post:
     200:
       description: 存储缓存信息
       schema:
-        $ref: "../schemas/storagecache.yaml#StorageCacheResponse"
+        $ref: "../schemas/storagecache.yaml#/StorageCacheResponse"
   tags:
     - storagecaches
