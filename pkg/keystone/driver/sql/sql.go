@@ -50,7 +50,7 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
-	localUser, err := models.LocalUserManager.FetchLocalUser(usrExt)
+	localUser, err := models.LocalUserManager.FetchLocalUserById(usrExt.LocalId)
 	if err != nil {
 		return nil, errors.Wrap(err, "LocalUserManager.FetchLocalUser")
 	}
