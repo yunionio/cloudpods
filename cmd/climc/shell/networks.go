@@ -415,4 +415,20 @@ func init() {
 		return nil
 	})
 
+	type NetworkAddressOptions struct {
+		NETWORK string `help:"if of network to query"`
+	}
+	R(&NetworkAddressOptions{}, "network-addresses", "Query used addresses of network", func(s *mcclient.ClientSession, args *NetworkAddressOptions) error {
+		result, err := modules.Networks.GetSpecific(s, args.NETWORK, "addresses", nil)
+		if err != nil {
+			return err
+		}
+		addrList, err := result.GetArray("addresses")
+		if err != nil {
+			return err
+		}
+		listResult := modulebase.ListResult{Data: addrList}
+		printList(&listResult, nil)
+		return nil
+	})
 }
