@@ -25,6 +25,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
@@ -35,12 +36,13 @@ type SBaremetalCdromTask struct {
 }
 
 func NewBaremetalCdromTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) ITask {
 	task := &SBaremetalCdromTask{
-		SBaremetalTaskBase: newBaremetalTaskBase(baremetal, taskId, data),
+		SBaremetalTaskBase: newBaremetalTaskBase(userCred, baremetal, taskId, data),
 	}
 	task.SetVirtualObject(task)
 

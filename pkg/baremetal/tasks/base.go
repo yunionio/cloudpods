@@ -150,6 +150,8 @@ type ITask interface {
 	SetSSHStageParams(remoteIP string, passwd string)
 	SSHExecute(remoteIP string, passwd string, args interface{})
 	NeedPXEBoot() bool
+
+	GetStartTime() time.Time
 }
 
 func NewTaskQueue() *TaskQueue {
@@ -178,7 +180,7 @@ func (q *TaskQueue) AppendTask(task ITask) *TaskQueue {
 	return q
 }
 
-type TaskFactory func(bm IBaremetal, taskId string, data jsonutils.JSONObject) ITask
+type TaskFactory func(userCred mcclient.TokenCredential, bm IBaremetal, taskId string, data jsonutils.JSONObject) ITask
 
 type SBaremetalTaskBase struct {
 	object.SObject
@@ -190,23 +192,33 @@ type SBaremetalTaskBase struct {
 	sshStageFunc SSHTaskStageFunc
 	taskId       string
 	data         jsonutils.JSONObject
+
+	startTime time.Time
 }
 
 func newBaremetalTaskBase(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) SBaremetalTaskBase {
 	task := SBaremetalTaskBase{
 		Baremetal: baremetal,
+		userCred:  userCred,
 		taskId:    taskId,
 		data:      data,
+
+		startTime: time.Now().UTC(),
 	}
 	return task
 }
 
 func (task *SBaremetalTaskBase) ITask() ITask {
 	return task.GetVirtualObject().(ITask)
+}
+
+func (task *SBaremetalTaskBase) GetStartTime() time.Time {
+	return task.startTime
 }
 
 func (task *SBaremetalTaskBase) GetTaskQueue() *TaskQueue {
@@ -339,11 +351,12 @@ type SBaremetalPXEBootTaskBase struct {
 }
 
 func newBaremetalPXEBootTaskBase(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) SBaremetalPXEBootTaskBase {
-	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
+	baseTask := newBaremetalTaskBase(userCred, baremetal, taskId, data)
 	task := SBaremetalPXEBootTaskBase{
 		SBaremetalTaskBase: baseTask,
 	}

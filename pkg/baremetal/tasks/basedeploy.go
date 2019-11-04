@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -37,12 +38,13 @@ type SBaremetalServerBaseDeployTask struct {
 }
 
 func newBaremetalServerBaseDeployTask(
+	userCred mcclient.TokenCredential,
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
 ) SBaremetalServerBaseDeployTask {
 	task := SBaremetalServerBaseDeployTask{
-		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(baremetal, taskId, data),
+		SBaremetalPXEBootTaskBase: newBaremetalPXEBootTaskBase(userCred, baremetal, taskId, data),
 	}
 	// any inheritance must call:
 	// task.SetStage(task.InitPXEBootTask)
