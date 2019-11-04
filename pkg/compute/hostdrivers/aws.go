@@ -15,12 +15,16 @@
 package hostdrivers
 
 import (
+	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SAwsHostDriver struct {
@@ -61,4 +65,8 @@ func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb in
 		return fmt.Errorf("Not support create %s disk", storage.StorageType)
 	}
 	return nil
+}
+
+func (self *SAwsHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.NewBadRequestError("Aws not support reset disk, you can create new disk with snapshot")
 }

@@ -15,8 +15,14 @@
 package hostdrivers
 
 import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SOpenStackHostDriver struct {
@@ -42,4 +48,8 @@ func (self *SOpenStackHostDriver) ValidateDiskSize(storage *models.SStorage, siz
 
 func (driver *SOpenStackHostDriver) GetStoragecacheQuota(host *models.SHost) int {
 	return 100
+}
+
+func (self *SOpenStackHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.NewBadRequestError("OpenStack not support reset disk, you can create new disk with snapshot")
 }
