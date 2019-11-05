@@ -166,3 +166,7 @@ func (self *SAzureProvider) GetBalance() (float64, string, error) {
 func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }
+
+func (self *SAzureProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}

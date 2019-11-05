@@ -138,3 +138,7 @@ func (self *SAwsProvider) GetBalance() (float64, string, error) {
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }
+
+func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}
