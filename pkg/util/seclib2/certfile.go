@@ -24,6 +24,10 @@ const (
 	certBeginString = "BEGIN CERTIFICATE"
 )
 
+// MergeCaCertFiles concatenates cert and ca file to form a chain, write it to
+// a tmpfile then return the path
+//
+// Callers are responsible for removing the returned tmpfile
 func MergeCaCertFiles(cafile string, certfile string) (string, error) {
 	tmpfile, err := ioutil.TempFile("", "cerfile.*.crt")
 	if err != nil {
