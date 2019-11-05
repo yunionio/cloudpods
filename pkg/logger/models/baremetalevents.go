@@ -15,12 +15,15 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -81,24 +84,14 @@ func (manager *SBaremetalEventManager) GetPagingConfig() *db.SPagingConfig {
 	}
 }
 
-/*func (manager *SBaremetalEventManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	hostId, _ := data.GetString("host_id")
-	eventId, _ := data.GetString("event_id")
-	q := manager.Query().Equals("host_id", hostId).Equals("event_id", eventId)
-	cnt, err := q.CountWithError()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+func (manager *SBaremetalEventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	since, _ := query.GetTime("since")
+	if !since.IsZero() {
+		q = q.GT("created", since)
 	}
-	if cnt > 0 {
-		return nil, httperrors.NewConflictError("duplicate log")
+	until, _ := query.GetTime("until")
+	if !until.IsZero() {
+		q = q.LE("created", until)
 	}
-	return manager.SModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
-}*/
-
-/*func (event *SBaremetalEvent) ValidateDeleteCondition(ctx context.Context) error {
-	return httperrors.NewForbiddenError("read only event")
-}*/
-
-/*func (event *SBaremetalEvent) ValidateUpdateCondition(ctx context.Context) error {
-	return httperrors.NewForbiddenError("read only event")
-}*/
+	return q, nil
+}
