@@ -174,3 +174,7 @@ func (self *SAzureProvider) GetStorageClasses(regionId string) []string {
 	}
 	return sc
 }
+
+func (self *SAzureProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}
