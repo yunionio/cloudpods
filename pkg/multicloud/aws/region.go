@@ -405,7 +405,7 @@ func (self *SRegion) GetName() string {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_AWS, self.RegionId)
+	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.RegionId)
 }
 
 func (self *SRegion) GetStatus() string {

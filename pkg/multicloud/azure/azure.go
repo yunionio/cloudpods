@@ -929,3 +929,19 @@ func (self *SAzureClient) GetStorageClasses(regionExtId string) ([]string, error
 	}
 	return ret, nil
 }
+
+func (self *SAzureClient) GetAccessEnv() string {
+	env, _ := azureenv.EnvironmentFromName(self.envName)
+	switch env.Name {
+	case azureenv.PublicCloud.Name:
+		return api.CLOUD_ACCESS_ENV_AZURE_GLOBAL
+	case azureenv.ChinaCloud.Name:
+		return api.CLOUD_ACCESS_ENV_AZURE_CHINA
+	case azureenv.GermanCloud.Name:
+		return api.CLOUD_ACCESS_ENV_AZURE_GERMAN
+	case azureenv.USGovernmentCloud.Name:
+		return api.CLOUD_ACCESS_ENV_AZURE_US_GOVERNMENT
+	default:
+		return api.CLOUD_ACCESS_ENV_AZURE_CHINA
+	}
+}
