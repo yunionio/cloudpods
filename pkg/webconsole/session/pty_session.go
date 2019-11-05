@@ -23,6 +23,7 @@ import (
 	"github.com/kr/pty"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/errors"
 )
 
 type Pty struct {
@@ -84,25 +85,43 @@ func (p *Pty) Resize(size *pty.Winsize) {
 	p.sizeCh <- syscall.SIGWINCH
 }
 
-func (p *Pty) Stop() error {
-	if p.Pty != nil {
-		err := p.Pty.Close()
-		if err != nil {
-			log.Errorf("Close PTY error: %v", err)
-			return err
+func (p *Pty) Stop() (err error) {
+	var errs []error
+
+	defer func() {
+		err = errors.NewAggregate(errs)
+	}()
+	// LOCK required
+	defer func() {
+		if err := p.Session.Close(); err != nil {
+			errs = append(errs, err)
 		}
-	}
-	if p.Cmd != nil && p.Cmd.Process != nil {
-		err := p.Cmd.Process.Signal(os.Kill)
-		if err != nil {
-			log.Errorf("Kill command process error: %v", err)
-			return err
+	}()
+	defer func() {
+		if p.Cmd != nil && p.Cmd.Process != nil {
+			err := p.Cmd.Process.Signal(os.Kill)
+			if err != nil {
+				errs = append(errs, err)
+				log.Errorf("Kill command process error: %v", err)
+				return
+			}
+			err = p.Cmd.Wait()
+			if err != nil {
+				errs = append(errs, err)
+				log.Errorf("Wait command error: %v", err)
+			}
 		}
-		err = p.Cmd.Wait()
-		if err != nil {
-			log.Errorf("Wait command error: %v", err)
-			return err
+	}()
+	defer func() {
+		if p.Pty != nil {
+			err := p.Pty.Close()
+			if err != nil {
+				log.Errorf("Close PTY error: %v", err)
+				errs = append(errs, err)
+				return
+			}
+			p.Pty = nil
 		}
-	}
-	return p.Session.Close()
+	}()
+	return
 }
