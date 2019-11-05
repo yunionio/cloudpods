@@ -3950,12 +3950,14 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 
 	disks := self.GetDisks()
 	for i := 0; i < len(disks); i++ {
-		count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError(err.Error())
-		}
-		if count >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+		if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+			count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+			if err != nil {
+				return nil, httperrors.NewInternalServerError(err.Error())
+			}
+			if count >= options.Options.DefaultMaxManualSnapshotCount {
+				return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+			}
 		}
 	}
 	quotaPlatform := self.GetQuotaPlatformID()
@@ -4065,10 +4067,6 @@ func (self *SGuest) PerformSnapshotAndClone(
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	err = db.NewNameValidator(GuestManager, self.GetOwnerId(), newlyGuestName, "")
-	if err != nil {
-		return nil, err
-	}
 
 	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
 	if err != nil {
@@ -4085,7 +4083,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 			self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
 		return nil, httperrors.NewInternalServerError("Generate snapshot name failed %s", err)
 	}
-	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, self.GetOwnerId(), self, instanceSnapshotName)
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstancSnapshot(ctx, self.GetOwnerId(), self, instanceSnapshotName)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(
 			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
@@ -4145,6 +4143,11 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 		return nil, nil, err
 	}
 	guest := iGuest.(*SGuest)
+	if isp.ServerMetadata != nil {
+		metadata := make(map[string]interface{}, 0)
+		isp.ServerMetadata.Unmarshal(metadata)
+		guest.SetAllMetadata(ctx, metadata, userCred)
+	}
 	return guest, guestParams, nil
 }
 
