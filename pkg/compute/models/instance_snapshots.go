@@ -34,8 +34,9 @@ func init() {
 type SInstanceSnapshot struct {
 	db.SVirtualResourceBase
 
-	GuestId      string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	ServerConfig jsonutils.JSONObject `nullable:"true" list:"user"`
+	GuestId        string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	ServerConfig   jsonutils.JSONObject `nullable:"true" list:"user"`
+	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -149,7 +150,24 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 		guestSchedInput.Networks[i].Address6 = ""
 	}
 	instanceSnapshot.ServerConfig = jsonutils.Marshal(guestSchedInput.ServerConfig)
-
+	serverMetadata := jsonutils.NewDict()
+	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
+		serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
+		serverMetadata.Set("login_key", jsonutils.NewString(guest.GetMetadata("login_key", nil)))
+	}
+	if osArch := guest.GetMetadata("os_arch", nil); len(osArch) > 0 {
+		serverMetadata.Set("os_arch", jsonutils.NewString(osArch))
+	}
+	if osDist := guest.GetMetadata("os_distribution", nil); len(osDist) > 0 {
+		serverMetadata.Set("os_distribution", jsonutils.NewString(osDist))
+	}
+	if osName := guest.GetMetadata("os_name", nil); len(osName) > 0 {
+		serverMetadata.Set("os_name", jsonutils.NewString(osName))
+	}
+	if osVersion := guest.GetMetadata("os_version", nil); len(osVersion) > 0 {
+		serverMetadata.Set("os_version", jsonutils.NewString(osVersion))
+	}
+	instanceSnapshot.ServerMetadata = serverMetadata
 	err := manager.TableSpec().Insert(instanceSnapshot)
 	if err != nil {
 		return nil, err

@@ -606,7 +606,7 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	content.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
 	if len(snapshot) > 0 {
 		content.Add(jsonutils.NewString(snapshot), "snapshot")
-		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_GPFS, api.STORAGE_NFS}) {
+		if utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 			SnapshotManager.AddRefCount(self.SnapshotId, 1)
 			self.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONTrue, userCred)
 		}
@@ -1959,8 +1959,7 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 	if len(guests) == 0 {
 		return fmt.Errorf("Disks %s not attach guest, can't create snapshot", disk.GetName())
 	}
-	if len(guests) == 1 && utils.IsInStringArray(disk.GetStorage().StorageType,
-		[]string{api.STORAGE_LOCAL, api.STORAGE_GPFS, api.STORAGE_NFS}) {
+	if len(guests) == 1 && utils.IsInStringArray(disk.GetStorage().StorageType, api.FIEL_STORAGE) {
 		if !utils.IsInStringArray(guests[0].Status, []string{api.VM_RUNNING, api.VM_READY}) {
 			return fmt.Errorf("Guest(%s) in status(%s) cannot do disk snapshot", guests[0].Id, guests[0].Status)
 		}

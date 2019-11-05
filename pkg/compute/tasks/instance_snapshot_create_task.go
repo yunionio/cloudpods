@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -93,9 +93,19 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 		return
 	}
 
+	lockman.LockClass(ctx, models.SnapshotManager, self.UserCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, models.SnapshotManager, self.UserCred.GetProjectId())
+
+	snapshotName, err := db.GenerateName(models.SnapshotManager, self.UserCred,
+		fmt.Sprintf("%s-%s", isp.Name, rand.String(8)))
+	if err != nil {
+		self.taskFail(ctx, isp, guest, fmt.Sprintf("Generate snapshot name %s", err))
+		return
+	}
+
 	snapshot, err := models.SnapshotManager.CreateSnapshot(
-		ctx, self.UserCred, compute.SNAPSHOT_MANUAL, disks[diskIndex].DiskId, guest.Id,
-		"", fmt.Sprintf("%s-snapshot-%s", guest.Name, timeutils.CompactTime(time.Now())), -1)
+		ctx, self.UserCred, compute.SNAPSHOT_MANUAL, disks[diskIndex].DiskId,
+		guest.Id, "", snapshotName, -1)
 	if err != nil {
 		self.taskFail(ctx, isp, guest, err.Error())
 		return
