@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -254,40 +255,29 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		defer tmpImageFile.Close()
 		defer os.Remove(tmpImageFile.Name())
 		{
-			readed, writed, skiped := 0, 0, 0
+			sf := fileutils2.NewSparseFileWriter(tmpImageFile)
 			data := make([]byte, DefaultReadBlockSize)
-			for i := 0; i < int(resp.ContentLength/DefaultReadBlockSize); i++ {
-				if _, err := resp.Body.Read(data); err != nil {
-					return nil, err
-				} else if isEmpty := func(array []byte) bool {
-					for i := 0; i < len(array); i++ {
-						if array[i] != 0 {
-							return false
-						}
-					}
-					return true
-				}(data); !isEmpty {
-					if _, err := tmpImageFile.Write(data); err != nil {
+			written := int64(0)
+			for {
+				n, err := resp.Body.Read(data)
+				if n > 0 {
+					if n, err := sf.Write(data); err != nil {
 						return nil, err
+					} else {
+						written += int64(n)
 					}
-					writed += int(DefaultReadBlockSize)
-				} else if _, err := tmpImageFile.Seek(DefaultReadBlockSize, os.SEEK_CUR); err != nil {
-					return nil, err
+				} else if err == io.EOF {
+					if written <= resp.ContentLength {
+						return nil, fmt.Errorf("got eof: expecting %d bytes, got %d", resp.ContentLength, written)
+					}
+					break
 				} else {
-					skiped += int(DefaultReadBlockSize)
-				}
-				readed = readed + int(DefaultReadBlockSize)
-				log.Debugf("has write %dMb skip %dMb total %dMb", writed>>20, skiped>>20, resp.ContentLength>>20)
-			}
-			rest := make([]byte, resp.ContentLength%DefaultReadBlockSize)
-			if len(rest) > 0 {
-				if _, err := resp.Body.Read(rest); err != nil {
-					return nil, err
-				} else if _, err := tmpImageFile.Write(rest); err != nil {
 					return nil, err
 				}
 			}
-			log.Debugf("download complate")
+			if err := sf.PreClose(); err != nil {
+				return nil, err
+			}
 		}
 
 		if _, err := tmpImageFile.Seek(0, os.SEEK_SET); err != nil {
