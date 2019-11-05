@@ -23,10 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -252,10 +251,9 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		if err != nil {
 			return nil, err
 		}
+		defer tmpImageFile.Close()
 		defer os.Remove(tmpImageFile.Name())
-		if f, err := os.Open(tmpImageFile.Name()); err != nil {
-			return nil, err
-		} else {
+		{
 			readed, writed, skiped := 0, 0, 0
 			data := make([]byte, DefaultReadBlockSize)
 			for i := 0; i < int(resp.ContentLength/DefaultReadBlockSize); i++ {
@@ -269,11 +267,11 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 					}
 					return true
 				}(data); !isEmpty {
-					if _, err := f.Write(data); err != nil {
+					if _, err := tmpImageFile.Write(data); err != nil {
 						return nil, err
 					}
 					writed += int(DefaultReadBlockSize)
-				} else if _, err := f.Seek(DefaultReadBlockSize, os.SEEK_CUR); err != nil {
+				} else if _, err := tmpImageFile.Seek(DefaultReadBlockSize, os.SEEK_CUR); err != nil {
 					return nil, err
 				} else {
 					skiped += int(DefaultReadBlockSize)
@@ -285,18 +283,19 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 			if len(rest) > 0 {
 				if _, err := resp.Body.Read(rest); err != nil {
 					return nil, err
-				} else if _, err := f.Write(rest); err != nil {
+				} else if _, err := tmpImageFile.Write(rest); err != nil {
 					return nil, err
 				}
 			}
 			log.Debugf("download complate")
 		}
 
+		if _, err := tmpImageFile.Seek(0, os.SEEK_SET); err != nil {
+			return nil, errors.Wrap(err, "seek")
+		}
 		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile.Name()); err != nil {
-			return nil, err
-		} else if result, err := modules.Images.Upload(s, params, file, resp.ContentLength); err != nil {
+		if result, err := modules.Images.Upload(s, params, tmpImageFile, resp.ContentLength); err != nil {
 			return nil, err
 		} else {
 			return result, nil
