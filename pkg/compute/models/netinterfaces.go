@@ -154,10 +154,6 @@ func (self *SNetInterface) networkToJson(ipAddr string, network *SNetwork, desc 
 		desc.Add(jsonutils.NewString(network.Id), "net_id")
 	}
 
-	wire := self.GetWire()
-	if wire != nil {
-		desc.Add(jsonutils.NewString(wire.Name), "wire")
-	}
 	return desc
 }
 
@@ -201,6 +197,10 @@ func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
 
 func (self *SNetInterface) getBaremetalJsonDesc() *jsonutils.JSONDict {
 	desc := jsonutils.Marshal(self).(*jsonutils.JSONDict)
+	wire := self.GetWire()
+	if wire != nil {
+		desc.Add(jsonutils.NewString(wire.Name), "wire")
+	}
 	bn := self.GetBaremetalNetwork()
 	if bn != nil {
 		return self.networkToJson(bn.IpAddr, bn.GetNetwork(), desc)

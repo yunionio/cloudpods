@@ -323,6 +323,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 }
 
 func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*types.SNicDevInfo) (int, *types.SNicDevInfo, error) {
+	accessIp := cli.GetConfig().Host
 	for idx := range nicsInfo {
 		nic := nicsInfo[idx]
 		output, err := cli.Run("/sbin/ifconfig " + nic.Dev)
@@ -332,7 +333,7 @@ func (task *sBaremetalPrepareTask) findAdminNic(cli *ssh.Client, nicsInfo []*typ
 		}
 		isAdmin := false
 		for _, l := range output {
-			if strings.Contains(l, task.baremetal.GetAccessIp()) {
+			if strings.Contains(l, accessIp) {
 				isAdmin = true
 				break
 			}
@@ -351,7 +352,8 @@ func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPre
 		if err != nil {
 			return errors.Wrap(err, "task.findAdminNic")
 		}
-		err = task.sendNicInfo(adminNicDev, adminIdx, api.NIC_TYPE_ADMIN, false, task.baremetal.GetAccessIp(), true)
+		accessIp := cli.GetConfig().Host
+		err = task.sendNicInfo(adminNicDev, adminIdx, api.NIC_TYPE_ADMIN, false, accessIp, true)
 		if err != nil {
 			return errors.Wrap(err, "send Admin Nic Info")
 		}
