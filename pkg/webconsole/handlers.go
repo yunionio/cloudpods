@@ -88,8 +88,8 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	if err != nil {
 		return nil, fmt.Errorf("Save kubeconfig error: %v", err)
 	}
-	f.WriteString(conf)
 	defer f.Close()
+	f.WriteString(conf)
 
 	return &command.K8sEnv{
 		Cluster:    cluster,
