@@ -38,6 +38,8 @@ func init() {
 		City       string   `help:"search networks belongs to a city"`
 		Usable     *bool    `help:"search usable networks"`
 		ServerType string   `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
+
+		Status string `help:"filter by network status"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
 		params, err := options.ListStructToParams(opts)

@@ -66,3 +66,13 @@ const (
 	IPAllocationNone     IPAllocationDirection = "none"
 	IPAllocationDefault                        = ""
 )
+
+type SNetworkAddress struct {
+	IpAddr        string
+	MacAddr       string
+	Owner         string
+	OwnerId       string
+	OwnerType     string
+	AssociateId   string
+	AssociateType string
+}

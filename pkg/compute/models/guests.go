@@ -2573,8 +2573,9 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			Index:  -1,
 			Ifname: "",
 		}
+		// always try allocate from reserved pool
 		_, err = self.Attach2Network(ctx, userCred, add.net, nil, ipStr,
-			add.nic.GetDriver(), 0, false, add.reserve, api.IPAllocationDefault, true, []SNicConfig{nicConf})
+			add.nic.GetDriver(), 0, false, true, api.IPAllocationDefault, true, []SNicConfig{nicConf})
 		if err != nil {
 			result.AddError(err)
 		} else {
