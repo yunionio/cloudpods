@@ -148,7 +148,10 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 	retVms := make([]cloudprovider.ICloudVM, 0)
 	for i := 0; i < len(vms); i += 1 {
 		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
-			retVms = append(retVms, NewVirtualMachine(dc.manager, &vms[i], dc))
+			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
+			if vmObj != nil {
+				retVms = append(retVms, vmObj)
+			}
 		}
 	}
 	return retVms, nil
