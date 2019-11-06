@@ -4086,7 +4086,7 @@ func (self *SGuest) GetEip() (*SElasticip, error) {
 }
 
 func (self *SGuest) GetPublicIp() (*SElasticip, error) {
-	return ElasticipManager.getPublicIpForInstance("server", self.Id)
+	return ElasticipManager.getEip("server", self.Id, api.EIP_MODE_INSTANCE_PUBLICIP)
 }
 
 func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {

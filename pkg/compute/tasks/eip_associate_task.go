@@ -58,32 +58,16 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	if server.Status != api.VM_ASSOCIATE_EIP {
-		server.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP, "associate eip")
-	}
-
-	extEip, err := eip.GetIEip()
-	if err != nil {
-		msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-		self.TaskFail(ctx, eip, msg, server)
+	driver := server.GetDriver()
+	if driver == nil {
+		msg := fmt.Sprintf("fail to find guest driver for instanceId %s", instanceId)
+		self.TaskFail(ctx, eip, msg, nil)
 		return
 	}
 
-	err = extEip.Associate(server.ExternalId)
-	if err != nil {
-		msg := fmt.Sprintf("fail to remote associate EIP %s", err)
-		self.TaskFail(ctx, eip, msg, server)
-		return
+	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
+		self.TaskFail(ctx, eip, err.Error(), server)
 	}
-
-	err = eip.AssociateVM(ctx, self.UserCred, server)
-	if err != nil {
-		msg := fmt.Sprintf("fail to local associate EIP %s", err)
-		self.TaskFail(ctx, eip, msg, server)
-		return
-	}
-
-	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "associate")
 
 	server.StartSyncstatus(ctx, self.UserCred, "")
 	logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)

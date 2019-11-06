@@ -434,35 +434,18 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 }
 
 func (manager *SElasticipManager) getEipForInstance(instanceType string, instanceId string) (*SElasticip, error) {
-	eip := SElasticip{}
-
-	q := manager.Query()
-	q = q.Equals("associate_type", instanceType)
-	q = q.Equals("associate_id", instanceId)
-
-	err := q.First(&eip)
-
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Errorf("getEipForInstance query fail %s", err)
-			return nil, err
-		} else {
-			return nil, nil
-		}
-	}
-
-	eip.SetModelManager(manager, &eip)
-
-	return &eip, nil
+	return manager.getEip(instanceType, instanceId, "")
 }
 
-func (manager *SElasticipManager) getPublicIpForInstance(instanceType string, instanceId string) (*SElasticip, error) {
+func (manager *SElasticipManager) getEip(instanceType string, instanceId string, eipMode string) (*SElasticip, error) {
 	eip := SElasticip{}
 
 	q := manager.Query()
 	q = q.Equals("associate_type", instanceType)
 	q = q.Equals("associate_id", instanceId)
-	q = q.Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
+	if len(eipMode) > 0 {
+		q = q.Equals("mode", eipMode)
+	}
 
 	err := q.First(&eip)
 
