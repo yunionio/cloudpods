@@ -30,6 +30,8 @@ func init() {
 		PagingMarker string `help:"marker for pagination"`
 		Limit        int    `help:"page limit, default 20" default:"20"`
 		Severity     string `help:"filter by severity"`
+		Since        string `help:"Show logs since specific date" metavar:"DATETIME"`
+		Until        string `help:"Show logs until specific date" metavar:"DATETIME"`
 	}
 	R(&BaremetalEventListOptions{}, "baremetal-event-list", "List baremetal events", func(s *mcclient.ClientSession, args *BaremetalEventListOptions) error {
 		params := jsonutils.Marshal(args)
