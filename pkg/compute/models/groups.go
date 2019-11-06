@@ -18,7 +18,9 @@ import (
 	"context"
 	"database/sql"
 
+	"golang.org/x/sync/errgroup"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
@@ -72,7 +74,7 @@ type SGroup struct {
 func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
-	guestFilter := jsonutils.GetAnyString(query, []string{"guest", "guest_id"})
+	guestFilter := jsonutils.GetAnyString(query, []string{"server", "guest"})
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
 		if err != nil {
@@ -84,37 +86,36 @@ func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	return q, nil
 }
 
-func (sp *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
+func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := sp.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, _ := sp.getMoreDetails(ctx, userCred, extra)
+	extra := group.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	ret, _ := group.getMoreDetails(ctx, userCred, extra)
 	return ret
 }
 
-func (sp *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
+func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, err := group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	return sp.getMoreDetails(ctx, userCred, extra)
+	return group.getMoreDetails(ctx, userCred, extra)
 }
 
-func (sp *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+func (group *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	ret := query.(*jsonutils.JSONDict)
-	ret.Add(jsonutils.JSONTrue, "enabled")
-	q := GroupguestManager.Query().Equals("group_id", sp.Id)
+	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, _ := q.CountWithError()
 	ret.Add(jsonutils.NewInt(int64(count)), "guest_count")
 	return ret, nil
 }
 
-func (s *SGroup) ValidateDeleteCondition(ctx context.Context) error {
-	q := GroupguestManager.Query().Equals("group_id", s.Id)
+func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
+	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, err := q.CountWithError()
 	if err != nil {
-		return errors.Wrapf(err, "fail to check that if there are any guest in this group %s", s.Name)
+		return errors.Wrapf(err, "fail to check that if there are any guest in this group %s", group.Name)
 	}
 	if count > 0 {
 		return httperrors.NewUnsupportOperationError("请在解绑所有主机后重试")
@@ -140,7 +141,7 @@ func (group *SGroup) AllowPerformBindGuests(ctx context.Context, userCred mcclie
 func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	guestIdSet, err := group.checkGuests(ctx, userCred, query, data)
+	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +166,10 @@ func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.To
 		}
 	}
 
+	err = group.clearSchedDescCache(hostIds)
+	if err != nil {
+		log.Errorf("fail to clear scheduler desc cache after binding guests successfully: %s", err.Error())
+	}
 	logclient.AddActionLogWithContext(ctx, group, logclient.ACT_VM_ASSOCIATE, nil, userCred, true)
 	return nil, nil
 }
@@ -177,7 +182,7 @@ func (group *SGroup) AllowPerformUnbindGuests(ctx context.Context, userCred mccl
 
 func (group *SGroup) PerformUnbindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	guestIdSet, err := group.checkGuests(ctx, userCred, query, data)
+	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
 	}
@@ -200,30 +205,117 @@ func (group *SGroup) PerformUnbindGuests(ctx context.Context, userCred mcclient.
 		}
 	}
 
+	err = group.clearSchedDescCache(hostIds)
+	if err != nil {
+		log.Errorf("fail to clear scheduler desc cache after unbinding guests successfully: %s", err.Error())
+	}
 	logclient.AddActionLogWithContext(ctx, group, logclient.ACT_VM_DISSOCIATE, nil, userCred, true)
 	return nil, nil
 }
 
 func (group *SGroup) checkGuests(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (sets.String, error) {
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (guestIdSet sets.String, hostIds []string, err error) {
 
 	guestIdArr := jsonutils.GetArrayOfPrefix(data, "guest")
 	if len(guestIdArr) == 0 {
-		return nil, httperrors.NewMissingParameterError("guest.0 guest.1 ... ")
+		return nil, nil, httperrors.NewMissingParameterError("guest.0 guest.1 ... ")
 	}
 
-	guestIdSet := sets.NewString()
+	guestIdSet = sets.NewString()
+	hostIdSet := sets.NewString()
 	for i := range guestIdArr {
 		guestIdStr, _ := guestIdArr[i].GetString()
-		guest, err := GuestManager.FetchByIdOrName(userCred, guestIdStr)
+		model, err := GuestManager.FetchByIdOrName(userCred, guestIdStr)
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewInputParameterError("no such guest %s", guestIdStr)
+			return nil, nil, httperrors.NewInputParameterError("no such model %s", guestIdStr)
 		}
 		if err != nil {
-			return nil, errors.Wrapf(err, "fail to fetch guest by id or name %s", guestIdStr)
+			return nil, nil, errors.Wrapf(err, "fail to fetch model by id or name %s", guestIdStr)
 		}
-		guestIdSet.Insert(guest.GetId())
+		guestIdSet.Insert(model.GetId())
+		guest := model.(*SGuest)
+		hostIdSet.Insert(guest.HostId)
+	}
+	hostIds = hostIdSet.List()
+	return
+}
+
+func (group *SGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "enable")
+}
+
+func (group *SGroup) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !group.Enabled.IsTrue() {
+		_, err := db.Update(group, func() error {
+			group.Enabled = tristate.True
+			return nil
+		})
+		if err != nil {
+			logclient.AddSimpleActionLog(group, logclient.ACT_ENABLE, nil, userCred, false)
+			return nil, err
+		}
+		err = group.ClearAllScheDescCache()
+		if err != nil {
+			log.Errorf("fail to clean all sche desc cache: %s", err.Error())
+		}
+		db.OpsLog.LogEvent(group, db.ACT_ENABLE, "", userCred)
+		logclient.AddSimpleActionLog(group, logclient.ACT_ENABLE, nil, userCred, true)
+	}
+	return nil, nil
+}
+
+func (group *SGroup) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "disable")
+}
+
+func (group *SGroup) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if group.Enabled.IsTrue() {
+		_, err := db.Update(group, func() error {
+			group.Enabled = tristate.False
+			return nil
+		})
+		if err != nil {
+			logclient.AddSimpleActionLog(group, logclient.ACT_DISABLE, nil, userCred, false)
+			return nil, err
+		}
+		db.OpsLog.LogEvent(group, db.ACT_DISABLE, "", userCred)
+		logclient.AddSimpleActionLog(group, logclient.ACT_DISABLE, nil, userCred, true)
+	}
+	return nil, nil
+}
+
+func (group *SGroup) ClearAllScheDescCache() error {
+	guests, err := group.fetchAllGuests()
+	if err != nil {
+		return errors.Wrapf(err, "fail to fetch all guest of group %s", group.Id)
 	}
 
-	return guestIdSet, nil
+	hostIdSet := sets.NewString()
+	for i := range guests {
+		hostIdSet.Insert(guests[i].HostId)
+	}
+
+	return group.clearSchedDescCache(hostIdSet.List())
+}
+
+func (group *SGroup) clearSchedDescCache(hostIds []string) error {
+	var g errgroup.Group
+	for _, hostId := range hostIds {
+		g.Go(func() error {
+			return HostManager.ClearSchedDescCache(hostId)
+		})
+	}
+	return g.Wait()
+}
+
+func (group *SGroup) fetchAllGuests() ([]SGuest, error) {
+	ggSub := GroupguestManager.Query("guest_id").Equals("group_id", group.GetId()).SubQuery()
+	guestSub := GuestManager.Query().SubQuery()
+	q := guestSub.Query().Join(ggSub, sqlchemy.Equals(ggSub.Field("guest_id"), guestSub.Field("id")))
+	guests := make([]SGuest, 0, 2)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, err
+	}
+	return guests, nil
 }
