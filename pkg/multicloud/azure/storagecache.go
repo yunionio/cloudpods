@@ -23,16 +23,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -252,51 +252,40 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		if err != nil {
 			return nil, err
 		}
+		defer tmpImageFile.Close()
 		defer os.Remove(tmpImageFile.Name())
-		if f, err := os.Open(tmpImageFile.Name()); err != nil {
-			return nil, err
-		} else {
-			readed, writed, skiped := 0, 0, 0
+		{
+			sf := fileutils2.NewSparseFileWriter(tmpImageFile)
 			data := make([]byte, DefaultReadBlockSize)
-			for i := 0; i < int(resp.ContentLength/DefaultReadBlockSize); i++ {
-				if _, err := resp.Body.Read(data); err != nil {
-					return nil, err
-				} else if isEmpty := func(array []byte) bool {
-					for i := 0; i < len(array); i++ {
-						if array[i] != 0 {
-							return false
-						}
-					}
-					return true
-				}(data); !isEmpty {
-					if _, err := f.Write(data); err != nil {
+			written := int64(0)
+			for {
+				n, err := resp.Body.Read(data)
+				if n > 0 {
+					if n, err := sf.Write(data); err != nil {
 						return nil, err
+					} else {
+						written += int64(n)
 					}
-					writed += int(DefaultReadBlockSize)
-				} else if _, err := f.Seek(DefaultReadBlockSize, os.SEEK_CUR); err != nil {
-					return nil, err
+				} else if err == io.EOF {
+					if written <= resp.ContentLength {
+						return nil, fmt.Errorf("got eof: expecting %d bytes, got %d", resp.ContentLength, written)
+					}
+					break
 				} else {
-					skiped += int(DefaultReadBlockSize)
-				}
-				readed = readed + int(DefaultReadBlockSize)
-				log.Debugf("has write %dMb skip %dMb total %dMb", writed>>20, skiped>>20, resp.ContentLength>>20)
-			}
-			rest := make([]byte, resp.ContentLength%DefaultReadBlockSize)
-			if len(rest) > 0 {
-				if _, err := resp.Body.Read(rest); err != nil {
-					return nil, err
-				} else if _, err := f.Write(rest); err != nil {
 					return nil, err
 				}
 			}
-			log.Debugf("download complate")
+			if err := sf.PreClose(); err != nil {
+				return nil, err
+			}
 		}
 
+		if _, err := tmpImageFile.Seek(0, os.SEEK_SET); err != nil {
+			return nil, errors.Wrap(err, "seek")
+		}
 		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile.Name()); err != nil {
-			return nil, err
-		} else if result, err := modules.Images.Upload(s, params, file, resp.ContentLength); err != nil {
+		if result, err := modules.Images.Upload(s, params, tmpImageFile, resp.ContentLength); err != nil {
 			return nil, err
 		} else {
 			return result, nil
