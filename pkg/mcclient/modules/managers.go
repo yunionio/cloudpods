@@ -152,12 +152,6 @@ func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
-func NewYunionmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
-	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("yunionmeta", "", "", columns, adminColumns),
-		Keyword:     keyword, KeywordPlural: keywordPlural}
-}
-
 func NewOfflineCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
 		BaseManager: *modulebase.NewBaseManager("offlinecloudmeta", "", "", columns, adminColumns),

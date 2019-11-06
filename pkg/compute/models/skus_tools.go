@@ -25,63 +25,93 @@ server: 虚拟机
 elasticcache: 弹性缓存(redis&memcached)
 */
 type SSkuResourcesMeta struct {
-	region       *SCloudregion
-	caches       map[string][]jsonutils.JSONObject
-	zoneCaches   map[string]*SZone
-	regionCaches map[string]*SCloudregion
+	region            *SCloudregion
+	caches            map[string][]jsonutils.JSONObject
+	regionalSkuCaches map[string]map[string][]jsonutils.JSONObject
+	zoneCaches        map[string]*SZone
+	regionCaches      map[string]*SCloudregion
 
 	Server       string
 	ElasticCache string
+	DBInstance   string `json:"dbinstance"`
 }
 
 // todo: 待测试
 func (self *SSkuResourcesMeta) GetServerSkus() ([]SServerSku, error) {
 	result := []SServerSku{}
-	err := self.getSkus(self.Server, &result)
+	objs, err := self.get(self.Server)
 	if err != nil {
-		return nil, errors.Wrap(err, "SkuResourcesMeta.GetServerSkus")
+		return nil, errors.Wrap(err, "self.get")
 	}
+	for _, obj := range objs {
+		sku := SServerSku{}
+		err = obj.Unmarshal(&sku)
+		if err != nil {
+			return nil, errors.Wrap(err, "obj.Unmarshal")
+		}
+		result = append(result, sku)
+	}
+	return result, nil
+}
 
-	// todo: process data here
+func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegion(regionId string) ([]SDBInstanceSku, error) {
+	result := []SDBInstanceSku{}
+	objs, err := self.getSkusByRegion(self.DBInstance, regionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getSkusByRegion")
+	}
+	for _, obj := range objs {
+		sku := SDBInstanceSku{}
+		err = obj.Unmarshal(&sku)
+		if err != nil {
+			return nil, errors.Wrapf(err, "obj.Unmarshal")
+		}
+		result = append(result, sku)
+	}
 	return result, nil
 }
 
 func (self *SSkuResourcesMeta) GetElasticCacheSkus() ([]SElasticcacheSku, error) {
 	result := []SElasticcacheSku{}
-	err := self.getSkus(self.ElasticCache, &result)
+	objs, err := self.get(self.ElasticCache)
 	if err != nil {
-		return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus")
+		return nil, errors.Wrap(err, "self.get(self.ElasticCache)")
 	}
+	for _, obj := range objs {
+		sku := SElasticcacheSku{}
+		err = obj.Unmarshal(&sku)
+		if err != nil {
+			return nil, errors.Wrap(err, "obj.Unmarshal")
+		}
+		// 处理数据
+		provider := sku.Provider
+		region := sku.CloudregionId
 
-	// 处理数据
-	for i := range result {
-		provider := result[i].Provider
-		region := result[i].CloudregionId
-
-		result[i].Id = ""
+		sku.Id = ""
 		r, err := self.fetchRegion(provider, region)
 		if err != nil {
 			return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.fetchRegion")
 		}
-		result[i].CloudregionId = r.GetId()
+		sku.CloudregionId = r.GetId()
 
-		if len(result[i].ZoneId) > 0 {
-			zone, err := self.fetchZone(provider, region, result[i].ZoneId)
+		if len(sku.ZoneId) > 0 {
+			zone, err := self.fetchZone(provider, region, sku.ZoneId)
 			if err != nil {
 				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.MasterZone")
 			}
 
-			result[i].ZoneId = zone.GetId()
+			sku.ZoneId = zone.GetId()
 		}
 
-		if len(result[i].SlaveZoneId) > 0 {
-			zone, err := self.fetchZone(provider, region, result[i].SlaveZoneId)
+		if len(sku.SlaveZoneId) > 0 {
+			zone, err := self.fetchZone(provider, region, sku.SlaveZoneId)
 			if err != nil {
 				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.SlaveZone")
 			}
 
-			result[i].SlaveZoneId = zone.GetId()
+			sku.SlaveZoneId = zone.GetId()
 		}
+		result = append(result, sku)
 	}
 
 	return result, nil
@@ -127,21 +157,6 @@ func (self *SSkuResourcesMeta) fetchRegion(provider, region string) (*SCloudregi
 	return r, nil
 }
 
-func (self *SSkuResourcesMeta) getSkus(url string, result interface{}) error {
-	objs, err := self.get(self.ElasticCache)
-	if err != nil {
-		return errors.Wrap(err, "SkuResourcesMeta.getSkus")
-	}
-
-	objArray := jsonutils.Marshal(objs)
-	err = objArray.Unmarshal(result)
-	if err != nil {
-		return errors.Wrap(err, "SkuResourcesMeta.Unmarshal")
-	}
-
-	return nil
-}
-
 func (self *SSkuResourcesMeta) SetRegionFilter(region *SCloudregion) {
 	self.region = region
 }
@@ -184,6 +199,32 @@ func (self *SSkuResourcesMeta) get(url string) ([]jsonutils.JSONObject, error) {
 	return self.filterByRegion(items), nil
 }
 
+func (self *SSkuResourcesMeta) getSkusByRegion(url string, region string) ([]jsonutils.JSONObject, error) {
+	items, err := self.get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if self.regionalSkuCaches == nil {
+		self.regionalSkuCaches = map[string]map[string][]jsonutils.JSONObject{}
+		self.regionalSkuCaches[url] = map[string][]jsonutils.JSONObject{}
+		for i := range items {
+			cloudregion, _ := items[i].GetString("cloudregion_id")
+			if _, ok := self.regionalSkuCaches[url][cloudregion]; !ok && len(cloudregion) > 0 {
+				self.regionalSkuCaches[url][cloudregion] = []jsonutils.JSONObject{}
+			}
+			self.regionalSkuCaches[url][cloudregion] = append(self.regionalSkuCaches[url][cloudregion], items[i])
+		}
+	}
+
+	for regionId, skus := range self.regionalSkuCaches[url] {
+		if strings.HasSuffix(region, regionId) {
+			return skus, nil
+		}
+	}
+	return []jsonutils.JSONObject{}, nil
+}
+
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
 	if !strings.HasPrefix(url, "http") {
 		return nil, fmt.Errorf("SkuResourcesMeta.get invalid url %s.expected has prefix 'http'", url)
@@ -208,7 +249,7 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	ret := []jsonutils.JSONObject{}
 	err = contentJson.Unmarshal(&ret)
 	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal %s", err)
+		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal(%s) %s", contentJson.String(), err)
 	}
 
 	return ret, nil
