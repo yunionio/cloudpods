@@ -93,7 +93,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	return localZones, remoteZones, nil
 }
 
-func syncRegionSkus(ctx context.Context, localRegion *SCloudregion) {
+func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, localRegion *SCloudregion) {
 	if localRegion == nil {
 		log.Debugf("local region is nil, skipp...")
 		return
@@ -127,7 +127,7 @@ func syncRegionSkus(ctx context.Context, localRegion *SCloudregion) {
 		log.Errorf("SchedManager SyncSku %s", err)
 	}
 
-	syncElasticCacheSkusByRegion(localRegion)
+	syncElasticCacheSkusByRegion(ctx, userCred, localRegion)
 }
 
 func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider) {
@@ -990,7 +990,7 @@ func syncPublicCloudProviderInfo(
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
-		syncRegionSkus(ctx, localRegion)
+		syncRegionSkus(ctx, userCred, localRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
