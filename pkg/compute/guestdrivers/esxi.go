@@ -226,6 +226,10 @@ func (self *SESXiGuestDriver) IsSupportEip() bool {
 	return false
 }
 
+func (self *SESXiGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
+	return fmt.Errorf("ESXiGuestDriver not support associate eip")
+}
+
 func (self *SESXiGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return guest.CancelExpireTime(ctx, userCred)

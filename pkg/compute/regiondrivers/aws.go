@@ -1298,6 +1298,15 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Co
 	return nil
 }
 
+func (self *SAwsRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) error {
+	models.SyncAwsLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	return nil
+}
+
+func (self *SAwsRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
+	return nil
+}
+
 func (self *SAwsRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
