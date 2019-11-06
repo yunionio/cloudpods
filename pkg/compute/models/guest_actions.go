@@ -4190,7 +4190,11 @@ func (self *SGuest) PerformBindGroups(ctx context.Context, userCred mcclient.Tok
 			return nil, errors.Wrapf(err, "fail to attch group %s to guest %s", groupId, self.Id)
 		}
 	}
-
+	// ignore error
+	err = self.ClearSchedDescCache()
+	if err != nil {
+		log.Errorf("fail to clear scheduler desc cache after unbinding groups successfully")
+	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_BIND, nil, userCred, true)
 	return nil, nil
 }
@@ -4224,7 +4228,11 @@ func (self *SGuest) PerformUnbindGroups(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrapf(err, "fail to detach group %s to guest %s", joint.GroupId, self.Id)
 		}
 	}
-
+	// ignore error
+	err = self.ClearSchedDescCache()
+	if err != nil {
+		log.Errorf("fail to clear scheduler desc cache after binding groups successfully")
+	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_UNBIND, nil, userCred, true)
 	return nil, nil
 }
