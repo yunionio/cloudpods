@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -30,11 +29,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SDBInstanceSkuManager struct {
@@ -337,50 +333,16 @@ func (manager *SDBInstanceSkuManager) GetDBInstanceSkus(provider, cloudregionId,
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) compare.SyncResult {
+func (manager *SDBInstanceSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, meta *SSkuResourcesMeta) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
 
-	regionInfo := strings.Split(region.ExternalId, "/")
-	if len(regionInfo) == 0 {
-		syncResult.Error(fmt.Errorf("region %s is not belong public cloud???", region.Name))
-		return syncResult
-	}
-	regionId := regionInfo[len(regionInfo)-1]
-
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	uri, err := s.GetServiceURL("yunionmeta", "")
+	iskus, err := meta.GetDBInstanceSkusByRegion(region.ExternalId)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
-	}
-	iskus := []SDBInstanceSku{}
-	params := url.Values{}
-	params.Add("region_id", regionId)
-	params.Add("provider", region.Provider)
-	params.Set("limit", "2048")
-	for {
-		params.Set("offset", fmt.Sprintf("%d", len(iskus)))
-		_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, httputils.THttpMethod("GET"), fmt.Sprintf("%s/dbinstance_skus?%s", uri, params.Encode()), nil, nil, false)
-		if err != nil {
-			syncResult.Error(errors.Wrap(err, "request yunionmeta dbinstance_skus"))
-			return syncResult
-		}
-
-		parts := []SDBInstanceSku{}
-		err = resp.Unmarshal(&parts, "dbinstance_skus")
-		if err != nil {
-			syncResult.Error(errors.Wrapf(err, "skus.Unmarshal"))
-			return syncResult
-		}
-		iskus = append(iskus, parts...)
-
-		total, _ := resp.Int("total")
-		if len(iskus) >= int(total) {
-			break
-		}
 	}
 
 	dbSkus, err := manager.fetchDBInstanceSkus(region.Provider, region)
@@ -501,8 +463,14 @@ func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, 
 		return
 	}
 
+	meta, err := fetchSkuResourcesMeta()
+	if err != nil {
+		log.Errorf("failed to fetch sku resource meta: %v", err)
+		return
+	}
+
 	for _, region := range cloudregions {
-		result := DBInstanceSkuManager.syncDBInstanceSkus(ctx, userCred, &region)
+		result := DBInstanceSkuManager.syncDBInstanceSkus(ctx, userCred, &region, meta)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
 		log.Infof(notes)
