@@ -242,6 +242,10 @@ paths:
     $ref: "./instance/vnc.yaml"
   /servers/{instanceId}/io-throttle:
     $ref: "./instance/io-throttle.yaml"
+  /servers/{instanceId}/bind-groups:
+    $ref: "./instance/bind-groups.yaml"
+  /servers/{instanceId}/unbind-groups:
+    $ref: "./instance/unbind-groups.yaml"
 
   /images:
     $ref: "./image/images.yaml"
@@ -255,6 +259,14 @@ paths:
   /guestimages/{imageId}:
     $ref: "./image/guest-image.yaml"
 
+  /instancegroups:
+    $ref: "./instancegroup/instancegroups.yaml"
+  /instancegroups/{instancegroupId}:
+    $ref: "./instancegroup/instancegroup.yaml"
+  /instancegroups/{instancegroupId}/bind-guests:
+    $ref: "./instancegroup/bind-guest.yaml"
+  /instancegroups/{instancegroupId}/unbind-guests:
+    $ref: "./instancegroup/unbind-guest.yaml"
 
   /natgateways:
     $ref: "./natgateway/natgateways.yaml"

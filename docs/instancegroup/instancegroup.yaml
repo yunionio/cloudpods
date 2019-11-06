@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定实例组的信息
+  parameters:
+    - $ref: "../parameters/instancegroup.yaml#/instancegroupId"
+  responses:
+    200:
+      description: 实例组的信息
+      schema:
+        $ref: "../schemas/instancegroup.yaml#/InstanceGroupResponse"
+  tags:
+    - instancegroup
+
+delete:
+  summary: 删除指定的实例组
+  parameters:
+    - $ref: '../parameters/instancegroup.yaml#/instancegroupId'
+  responses:
+      200:
+        schema:
+          $ref: '../schemas/instancegroup.yaml#/InstanceGroupResponse'
+  tags:
+    - instancegroup
