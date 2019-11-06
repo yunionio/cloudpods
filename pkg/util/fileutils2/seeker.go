@@ -39,7 +39,6 @@ func NewReadSeeker(reader io.Reader, size int64) (*SReadSeeker, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "TempFile")
 	}
-	log.Debugf("use tmpfile %s", tmpfile.Name())
 	return &SReadSeeker{
 		reader:       reader,
 		readerOffset: 0,
@@ -91,5 +90,6 @@ func (s *SReadSeeker) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (s *SReadSeeker) Close() error {
-	return os.Remove(s.tmpFile.Name())
+	defer os.Remove(s.tmpFile.Name())
+	return s.tmpFile.Close()
 }
