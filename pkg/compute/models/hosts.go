@@ -2614,10 +2614,14 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		if net == nil {
 			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 		}
-		// reserve this IP temporarily
-		err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
-		if err != nil {
-			return nil, err
+		// check ip has been reserved
+		rip := ReservedipManager.GetReservedIP(net, ipmiIpAddr)
+		if rip == nil {
+			// if not, reserve this IP temporarily
+			err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
+			if err != nil {
+				return nil, err
+			}
 		}
 		zoneObj := net.getZone()
 		if zoneObj == nil {
@@ -2694,10 +2698,14 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 				return nil, httperrors.NewInputParameterError("Access address located in different zone than specified")
 			}
 
-			// reserve this IP temporarily
-			err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
-			if err != nil {
-				return nil, err
+			// check ip has been reserved
+			rip := ReservedipManager.GetReservedIP(accessNet, accessIp)
+			if rip == nil {
+				// if not reserved, reserve this IP temporarily
+				err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
+				if err != nil {
+					return nil, err
+				}
 			}
 			data.Set("access_ip", jsonutils.NewString(accessIp))
 			data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
@@ -4078,7 +4086,8 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 
 	for i := 0; i < len(enables); i += 1 {
 		netif := host.GetNetInterface(enables[i].GetMac())
-		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", false, true)
+		// always true reserved address pool
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", true, true)
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -4087,9 +4096,10 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	}
 
 	for i := 0; i < len(adds); i += 1 {
+		// always try reserved pool
 		extNic := adds[i].netif
 		err = host.addNetif(ctx, userCred, extNic.GetMac(), "", extNic.GetIpAddr(), 0, extNic.GetNicType(), extNic.GetIndex(),
-			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, "", "", false, true)
+			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, "", "", true, true)
 		if err != nil {
 			result.AddError(err)
 		} else {

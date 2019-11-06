@@ -92,7 +92,7 @@ func (this *ReservedIPManager) DoBatchReleaseReservedIPs(s *mcclient.ClientSessi
 func init() {
 	ReservedIPs = ReservedIPManager{NewComputeManager("reservedip", "reservedips",
 		[]string{},
-		[]string{"Network_ID", "Network", "IP_addr", "Notes", "Expired_At", "Expired"})}
+		[]string{"Id", "Network_ID", "Network", "IP_addr", "Notes", "Expired_At", "Expired", "Status"})}
 
 	registerCompute(&ReservedIPs)
 }

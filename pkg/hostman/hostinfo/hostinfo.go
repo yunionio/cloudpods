@@ -928,6 +928,8 @@ func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 		if nic.Ip == h.GetMasterIp() {
 			content.Set("nic_type", jsonutils.NewString(api.NIC_TYPE_ADMIN))
 		}
+		// always try to allocate from reserved pool
+		content.Set("reserve", jsonutils.JSONTrue)
 	}
 	_, err := modules.Hosts.PerformAction(h.GetSession(),
 		h.HostId, "add-netif", content)

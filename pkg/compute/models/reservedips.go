@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,9 +41,9 @@ func init() {
 	ReservedipManager = &SReservedipManager{
 		SResourceBaseManager: db.NewResourceBaseManager(
 			SReservedip{},
-			"reservedips_tbl",
-			"reservedip",
-			"reservedips",
+			api.RESERVEDIP_TABLE,
+			api.RESERVEDIP_RESOURCE_TYPE,
+			api.RESERVEDIP_RESOURCE_TYPES,
 		),
 	}
 	ReservedipManager.SetVirtualObject(ReservedipManager)
@@ -58,6 +59,8 @@ type SReservedip struct {
 	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"` // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
 
 	ExpiredAt time.Time `nullable:"true" list:"admin"`
+
+	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"admin" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -85,11 +88,15 @@ func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, 
 }
 
 func (manager *SReservedipManager) ReserveIPWithDuration(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration) error {
+	return manager.ReserveIPWithDurationAndStatus(userCred, network, ip, notes, duration, "")
+}
+
+func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mcclient.TokenCredential, network *SNetwork, ip string, notes string, duration time.Duration, status string) error {
 	expiredAt := time.Time{}
 	if duration > 0 {
 		expiredAt = time.Now().UTC().Add(duration)
 	}
-	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt}
+	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
 	err := manager.TableSpec().Insert(&rip)
 	if err != nil {
 		log.Errorf("ReserveIP fail: %s", err)
@@ -201,6 +208,14 @@ func (rip *SReservedip) GetId() string {
 
 func (rip *SReservedip) GetName() string {
 	return rip.GetId()
+}
+
+func (manager *SReservedipManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
+	return q.Equals("id", idStr)
+}
+
+func (manager *SReservedipManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
+	return q.Equals("id", name)
 }
 
 func (rip *SReservedip) IsExpired() bool {

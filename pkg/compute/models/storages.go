@@ -455,7 +455,9 @@ func (self *SStorage) GetMasterHost() *SHost {
 	host.SetModelManager(HostManager, &host)
 	err := q.First(&host)
 	if err != nil {
-		log.Errorf("GetMasterHost fail %s", err)
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Errorf("GetMasterHost fail %s", err)
+		}
 		return nil
 	}
 	return &host
