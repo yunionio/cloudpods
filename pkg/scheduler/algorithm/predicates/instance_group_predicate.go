@@ -64,7 +64,7 @@ func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 	schedDate := u.SchedData()
 
 	instanceGroups := c.Getter().InstanceGroups()
-	minFree := math.MaxInt16
+	minFree := math.MaxInt32
 	for _, id := range schedDate.InstanceGroupIds {
 		detail := schedDate.InstanceGroupsDetail[id]
 		// SForcedGroupPredicate only deal with group whose ForceDispersion is ture
@@ -76,7 +76,8 @@ func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 			free, _ = c.Getter().GetFreeGroupCount(id)
 			if free < 1 {
 				h.AppendPredicateFailMsg(fmt.Sprintf(
-					"the number of guests with same group %s in this host has reached the upper limit", id))
+					"the number of guests with same instance group '%s' in this host has reached the upper limit",
+					instanceGroups[id].GetName()))
 				break
 			}
 		} else {
@@ -85,6 +86,10 @@ func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 		if free < minFree {
 			minFree = free
 		}
+	}
+	// show that minFree shoule be zero
+	if minFree == math.MaxInt32 {
+		minFree = 0
 	}
 	// chose the min capacity of groups
 	h.SetCapacity(int64(minFree))

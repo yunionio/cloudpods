@@ -65,3 +65,8 @@ usable_server_for_eip:
   in: query
   type: string
   description: 过滤此EIP可绑定的server列表(实例和弹性IP属于同一个账号同一个区域,若是私有云则弹性IP和实例需要在同一个可用区)
+group:
+  name: group
+  in: query
+  type: string
+  description: 主机组的ID或者Name

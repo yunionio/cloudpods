@@ -1,0 +1,31 @@
+get:
+  summary:  按指定条件列出主机组
+  parameters:
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/instancegroup.yaml#/granularity"
+    - $ref: "../parameters/instancegroup.yaml#/guest"
+
+  responses:
+    200:
+      description: 实例组列表信息
+      schema:
+        $ref: "../schemas/instancegroup.yaml#/InstanceGroupListResponse"
+  tags:
+    - instancegroup
+
+post:
+  summary: 创建主机组
+  parameters:
+    - in: body
+      name: instancegroup
+      required: true
+      schema:
+        $ref: '../schemas/instancegroup.yaml#/InstanceGroupCreate'
+  responses:
+    200:
+      description: 新建主机组的信息
+      schema:
+        $ref: '../schemas/instancegroup.yaml#/InstanceGroupResponse'
+  tags:
+    - instancegroup

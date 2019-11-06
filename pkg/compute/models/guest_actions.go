@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -4154,4 +4155,100 @@ func (guest *SGuest) StartDeleteGuestSnapshots(ctx context.Context, userCred mcc
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SGuest) AllowPerformBindGroups(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "bind-groups")
+}
+
+func (self *SGuest) PerformBindGroups(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	groupIdSet, err := self.checkGroups(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	groupGuests, err := GroupguestManager.FetchByGuestId(self.Id)
+	if err != nil {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_BIND, nil, userCred, false)
+		return nil, err
+	}
+
+	for i := range groupGuests {
+		groupId := groupGuests[i].GroupId
+		if groupIdSet.Has(groupId) {
+			groupIdSet.Delete(groupId)
+		}
+	}
+
+	for _, groupId := range groupIdSet.UnsortedList() {
+		_, err := GroupguestManager.Attach(ctx, groupId, self.Id)
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_BIND, nil, userCred, false)
+			return nil, errors.Wrapf(err, "fail to attch group %s to guest %s", groupId, self.Id)
+		}
+	}
+
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_BIND, nil, userCred, true)
+	return nil, nil
+}
+
+func (self *SGuest) AllowPerformUnbindGroups(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "unbind-groups")
+}
+
+func (self *SGuest) PerformUnbindGroups(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	groupIdSet, err := self.checkGroups(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	groupGuests, err := GroupguestManager.FetchByGuestId(self.Id)
+	if err != nil {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_UNBIND, nil, userCred, false)
+		return nil, err
+	}
+
+	for i := range groupGuests {
+		joint := groupGuests[i]
+		if !groupIdSet.Has(joint.GroupId) {
+			continue
+		}
+		err := joint.Detach(ctx, userCred)
+		if err != nil {
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_UNBIND, nil, userCred, false)
+			return nil, errors.Wrapf(err, "fail to detach group %s to guest %s", joint.GroupId, self.Id)
+		}
+	}
+
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_INSTANCE_GROUP_UNBIND, nil, userCred, true)
+	return nil, nil
+}
+
+func (self *SGuest) checkGroups(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (sets.String, error) {
+
+	groupIdArr := jsonutils.GetArrayOfPrefix(data, "group")
+	if len(groupIdArr) == 0 {
+		return nil, httperrors.NewMissingParameterError("group.0 group.1 ... ")
+	}
+
+	groupIdSet := sets.NewString()
+	for i := range groupIdArr {
+		groupIdStr, _ := groupIdArr[i].GetString()
+		group, err := GroupManager.FetchByIdOrName(userCred, groupIdStr)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewInputParameterError("no such group %s", groupIdStr)
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to fetch group by id or name %s", groupIdStr)
+		}
+		groupIdSet.Insert(group.GetId())
+	}
+
+	return groupIdSet, nil
 }

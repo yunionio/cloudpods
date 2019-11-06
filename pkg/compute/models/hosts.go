@@ -4375,7 +4375,7 @@ func (host *SHost) IsMaintaining() bool {
 	return utils.IsInStringArray(host.Status, []string{api.HOST_START_MAINTAIN, api.HOST_MAINTAINING, api.HOST_MAINTAIN_FAILE})
 }
 
-// InstanceGroups returns the group of guest in host and their frequency of occurrence
+// InstanceGroups returns the enabled group of guest in host and their frequency of occurrence
 func (host *SHost) InstanceGroups() ([]SGroup, map[string]int, error) {
 	q := GuestManager.Query("id")
 	guestQ := q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), host.Id),
@@ -4401,12 +4401,16 @@ func (host *SHost) InstanceGroups() ([]SGroup, map[string]int, error) {
 		return []SGroup{}, make(map[string]int), nil
 	}
 	groups := make([]SGroup, 0, len(groupIds))
-	q = GroupManager.Query().In("id", groupIds)
+	q = GroupManager.Query().In("id", groupIds).IsTrue("enabled")
 	err = db.FetchModelObjects(GroupManager, q, &groups)
 	if err != nil {
 		return nil, nil, err
 	}
-	return groups, groupSet, nil
+	retSet := make(map[string]int)
+	for i := range groups {
+		retSet[groups[i].GetId()] = groupSet[groups[i].GetId()]
+	}
+	return groups, retSet, nil
 }
 
 func (host *SHost) setIpmiIp(userCred mcclient.TokenCredential, ipAddr string) error {
