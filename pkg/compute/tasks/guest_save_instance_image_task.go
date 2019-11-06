@@ -70,6 +70,7 @@ func (self *GuestSaveGuestImageTask) OnSaveRootImageComplete(ctx context.Context
 		self.SetStage("on_start_server_complete", nil)
 		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
 	} else {
+		guest.SetStatus(self.UserCred, api.VM_READY, "")
 		self.taskSuc(ctx, guest)
 	}
 }

@@ -1512,7 +1512,11 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		// support for create vm from guest image
-		self.DiskType = diskConfig.DiskType
+		if len(diskConfig.DiskType) == 0 {
+			self.DiskType = api.DISK_TYPE_SYS
+		} else {
+			self.DiskType = diskConfig.DiskType
+		}
 	} else if len(diskConfig.SnapshotId) > 0 {
 		self.SnapshotId = diskConfig.SnapshotId
 		self.DiskType = diskConfig.DiskType
