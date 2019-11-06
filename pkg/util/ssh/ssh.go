@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 type ClientConfig struct {
@@ -143,8 +143,8 @@ func (s *Client) run(parseOutput bool, cmds []string, input io.Reader) ([]string
 			if len(stdOut.String()) != 0 {
 				errMsg = fmt.Sprintf("%s %s", errMsg, stdOut.String())
 			}
-			outputErr = errors.New(errMsg)
-			err = errors.Errorf("%q error: %v, cmd error: %v", cmd, err, outputErr)
+			outputErr = errors.Error(errMsg)
+			err = errors.Wrapf(outputErr, "%q error: %v, cmd error", cmd, err)
 			return nil, err
 		}
 		if parseOutput {
