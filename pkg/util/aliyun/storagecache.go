@@ -345,6 +345,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	if err != nil {
 		return nil, err
 	}
+	defer tmpImageFile.Close()
 	defer os.Remove(tmpImageFile.Name())
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
 	if bucket, err := self.region.checkBucket(bucketName); err != nil {
@@ -364,9 +365,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else {
 		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile.Name()); err != nil {
-			return nil, err
-		} else if result, err := modules.Images.Upload(s, params, file, imageList.Objects[0].Size); err != nil {
+		if result, err := modules.Images.Upload(s, params, tmpImageFile, imageList.Objects[0].Size); err != nil {
 			return nil, err
 		} else {
 			return result, nil
