@@ -73,6 +73,10 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 
 func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	if body == nil {
+		httperrors.InvalidInputError(w, "fail to decode request body")
+		return
+	}
 	input := mcclient.SAuthenticationInputV3{}
 	err := body.Unmarshal(&input)
 	if err != nil {
