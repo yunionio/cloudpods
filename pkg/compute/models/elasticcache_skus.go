@@ -16,15 +16,16 @@ package models
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -85,6 +86,10 @@ type SElasticcacheSku struct {
 	QPS              int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // QPS参考值
 
 	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"` // 公有云厂商	Aliyun/Azure/AWS/Qcloud/...
+}
+
+func (self SElasticcacheSku) GetGlobalId() string {
+	return self.ExternalId
 }
 
 func (self *SElasticcacheSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -170,106 +175,96 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 	return q, err
 }
 
-// 获取所有Available状态的sku id
-func (manager *SElasticcacheSkuManager) FetchAllAvailableSkuId() ([]string, error) {
-	q := manager.Query()
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable),
-		sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable)))
-
-	skus := make([]SElasticcacheSku, 0)
-	err := db.FetchModelObjects(manager, q, &skus)
-	if err != nil {
-		return nil, err
-	}
-
-	ids := make([]string, len(skus))
-	for i := range skus {
-		ids[i] = skus[i].GetId()
-	}
-
-	return ids, nil
-}
-
 // 获取region下所有Available状态的sku id
-func (manager *SElasticcacheSkuManager) FetchAllAvailableSkuIdByRegion(regionID string) ([]string, error) {
+func (manager *SElasticcacheSkuManager) FetchSkusByRegion(regionID string) ([]SElasticcacheSku, error) {
 	q := manager.Query()
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable),
-		sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable)))
 	q = q.Equals("cloudregion_id", regionID)
 
 	skus := make([]SElasticcacheSku, 0)
 	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ElasticcacheSkuManager.FetchSkusByRegion")
 	}
 
-	ids := make([]string, len(skus))
-	for i := range skus {
-		ids[i] = skus[i].GetId()
-	}
-
-	return ids, nil
+	return skus, nil
 }
 
-func (manager *SElasticcacheSkuManager) InitializeData() error {
-	count, err := manager.Query().Limit(1).CountWithError()
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
+func (manager *SElasticcacheSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	if count > 0 {
-		return nil
-	}
+	syncResult := compare.SyncResult{}
 
-	count, err = CloudaccountManager.Query().IsTrue("is_public_cloud").CountWithError()
-	if count > 0 {
-		SyncElasticCacheSkus(nil, nil, true)
-	}
-
-	return nil
-}
-
-// sku标记为soldout状态。
-func (manager *SElasticcacheSkuManager) MarkAsSoldout(id string) error {
-	if len(id) == 0 {
-		log.Debugf("MarkAsSoldout sku id should not be emtpy")
-		return nil
-	}
-
-	isku, err := manager.FetchById(id)
+	extSkuMeta.SetRegionFilter(region)
+	extSkus, err := extSkuMeta.GetElasticCacheSkus()
 	if err != nil {
-		return err
+		syncResult.Error(err)
+		return syncResult
 	}
 
-	sku, ok := isku.(*SServerSku)
-	if !ok {
-		return fmt.Errorf("%s is not a sku object", id)
+	dbSkus, err := manager.FetchSkusByRegion(region.GetId())
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
 	}
 
-	_, err = manager.TableSpec().Update(sku, func() error {
-		sku.PrepaidStatus = api.SkuStatusSoldout
-		sku.PostpaidStatus = api.SkuStatusSoldout
+	removed := make([]SElasticcacheSku, 0)
+	commondb := make([]SElasticcacheSku, 0)
+	commonext := make([]SElasticcacheSku, 0)
+	added := make([]SElasticcacheSku, 0)
+
+	err = compare.CompareSets(dbSkus, extSkus, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].MarkAsSoldout(ctx)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = manager.newFromCloudSku(ctx, userCred, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (self *SElasticcacheSku) MarkAsSoldout(ctx context.Context) error {
+	_, err := db.UpdateWithLock(ctx, self, func() error {
+		self.PrepaidStatus = api.SkuStatusSoldout
+		self.PostpaidStatus = api.SkuStatusSoldout
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return errors.Wrap(err, "ElasticcacheSku.MarkAsSoldout")
 }
 
-// sku标记为soldout状态。
-func (manager *SElasticcacheSkuManager) MarkAllAsSoldout(ids []string) error {
-	var err error
-	for _, id := range ids {
-		err = manager.MarkAsSoldout(id)
-		if err != nil {
-			return err
-		}
-	}
+func (self *SElasticcacheSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SElasticcacheSku) error {
+	_, err := db.Update(self, func() error {
+		self.PrepaidStatus = extSku.PrepaidStatus
+		self.PostpaidStatus = extSku.PostpaidStatus
+		return nil
+	})
+	return err
+}
 
-	return nil
+func (manager *SElasticcacheSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SElasticcacheSku) error {
+	return manager.TableSpec().Insert(&extSku)
 }
