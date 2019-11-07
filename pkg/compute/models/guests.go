@@ -2090,8 +2090,20 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return err
 	}
-	_, err = iregion.GetIVMById(self.ExternalId)
-	if err != nil && err != cloudprovider.ErrNotFound {
+	iVM, err := iregion.GetIVMById(self.ExternalId)
+	if err == nil { //漂移归位
+		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
+			host, err := db.FetchByExternalId(HostManager, hostId)
+			if err == nil {
+				_, err = db.Update(self, func() error {
+					self.HostId = host.GetId()
+					self.Status = iVM.GetStatus()
+					return nil
+				})
+				return err
+			}
+		}
+	} else if err != cloudprovider.ErrNotFound {
 		return err
 	}
 
