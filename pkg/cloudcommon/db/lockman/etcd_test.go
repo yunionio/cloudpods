@@ -16,9 +16,18 @@ package lockman
 
 import (
 	"testing"
+
+	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
-func TestInMemoryLockManager(t *testing.T) {
-	Init(NewInMemoryLockManager())
+func TestEctdLockManager(t *testing.T) {
+	lockman, err := NewEtcdLockManager(&SEtcdLockManagerConfig{
+		Endpoints: []string{"localhost:2379"},
+	})
+	if err != nil {
+		t.Skipf("new etcd lockman: %v", err)
+	}
+	Init(lockman)
+	defer atexit.Handle()
 	testLockManager(t)
 }
