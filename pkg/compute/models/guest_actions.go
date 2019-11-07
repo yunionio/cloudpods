@@ -1582,14 +1582,34 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
-	device, err := data.GetString("device")
-	if err != nil {
-		msg := "Missing isolated device"
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
-		return nil, httperrors.NewBadRequestError(msg)
+	var detachAllDevice = jsonutils.QueryBoolean(data, "detach_all", false)
+	if !detachAllDevice {
+		device, err := data.GetString("device")
+		if err != nil {
+			msg := "Missing isolated device"
+			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+			return nil, httperrors.NewBadRequestError(msg)
+		}
+		err = self.startDetachIsolateDevice(ctx, userCred, device)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		devs := self.GetIsolatedDevices()
+		host := self.GetHost()
+		lockman.LockObject(ctx, host)
+		defer lockman.ReleaseObject(ctx, host)
+		for i := 0; i < len(devs); i++ {
+			err := self.detachIsolateDevice(ctx, userCred, &devs[i])
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	err = self.startDetachIsolateDevice(ctx, userCred, device)
-	return nil, err
+	if jsonutils.QueryBoolean(data, "auto_start", false) {
+		return self.PerformStart(ctx, userCred, query, data)
+	}
+	return nil, nil
 }
 
 func (self *SGuest) startDetachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, device string) error {
@@ -1637,10 +1657,10 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewInvalidStatusError(msg)
 	}
+	var err error
 	if data.Contains("device") {
 		device, _ := data.GetString("device")
-		err := self.startAttachIsolatedDevice(ctx, userCred, device)
-		return nil, err
+		err = self.startAttachIsolatedDevice(ctx, userCred, device)
 	} else if data.Contains("model") {
 		vmodel, _ := data.GetString("model")
 		var count int64 = 1
@@ -1650,10 +1670,18 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		if count < 1 {
 			return nil, httperrors.NewBadRequestError("guest attach gpu count must > 0")
 		}
-		err := self.startAttachIsolatedDevices(ctx, userCred, vmodel, int(count))
+		err = self.startAttachIsolatedDevices(ctx, userCred, vmodel, int(count))
+	} else {
+		return nil, httperrors.NewMissingParameterError("device||model")
+	}
+
+	if err != nil {
 		return nil, err
 	}
-	return nil, httperrors.NewMissingParameterError("device||model")
+	if jsonutils.QueryBoolean(data, "auto_start", false) {
+		return self.PerformStart(ctx, userCred, query, data)
+	}
+	return nil, nil
 }
 
 func (self *SGuest) startAttachIsolatedDevices(ctx context.Context, userCred mcclient.TokenCredential, gpuModel string, count int) error {
@@ -1766,6 +1794,9 @@ func (self *SGuest) PerformSetIsolatedDevice(ctx context.Context, userCred mccli
 		if err != nil {
 			return nil, err
 		}
+	}
+	if jsonutils.QueryBoolean(data, "auto_start", false) {
+		return self.PerformStart(ctx, userCred, query, data)
 	}
 	return nil, nil
 }
@@ -3922,12 +3953,20 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, httperrors.NewInvalidStatusError("guest can't do snapshot in status %s", self.Status)
 	}
 
+	var name string
 	ownerId := self.GetOwnerId()
 	dataDict := data.(*jsonutils.JSONDict)
-	name, err := dataDict.GetString("name")
-	if err != nil || len(name) == 0 {
+	nameHint, err := dataDict.GetString("generate_name")
+	if err == nil {
+		name, err = db.GenerateName(InstanceSnapshotManager, ownerId, nameHint)
+		if err != nil {
+			return nil, err
+		}
+		dataDict.Set("name", jsonutils.NewString(name))
+	} else if name, err = dataDict.GetString("name"); err != nil {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
+
 	err = db.NewNameValidator(InstanceSnapshotManager, ownerId, name, "")
 	if err != nil {
 		return nil, err
@@ -3935,12 +3974,14 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 
 	disks := self.GetDisks()
 	for i := 0; i < len(disks); i++ {
-		count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError(err.Error())
-		}
-		if count >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+		if storage := disks[i].GetDisk().GetStorage(); utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
+			count, err := SnapshotManager.GetDiskManualSnapshotCount(disks[i].DiskId)
+			if err != nil {
+				return nil, httperrors.NewInternalServerError(err.Error())
+			}
+			if count >= options.Options.DefaultMaxManualSnapshotCount {
+				return nil, httperrors.NewBadRequestError("guests disk %d snapshot full, can't take anymore", i)
+			}
 		}
 	}
 	quotaPlatform := self.GetQuotaPlatformID()
@@ -3958,12 +3999,14 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 func (self *SGuest) PerformInstanceSnapshot(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	ownerId := self.GetOwnerId()
+	lockman.LockClass(ctx, InstanceSnapshotManager, ownerId.GetProjectId())
+	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, ownerId.GetProjectId())
 	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
 	}
 	name, _ := data.GetString("name")
-	ownerId := self.GetOwnerId()
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(
@@ -4050,10 +4093,6 @@ func (self *SGuest) PerformSnapshotAndClone(
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	err = db.NewNameValidator(GuestManager, self.GetOwnerId(), newlyGuestName, "")
-	if err != nil {
-		return nil, err
-	}
 
 	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
 	if err != nil {
@@ -4130,6 +4169,11 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 		return nil, nil, err
 	}
 	guest := iGuest.(*SGuest)
+	if isp.ServerMetadata != nil {
+		metadata := make(map[string]interface{}, 0)
+		isp.ServerMetadata.Unmarshal(metadata)
+		guest.SetAllMetadata(ctx, metadata, userCred)
+	}
 	return guest, guestParams, nil
 }
 
