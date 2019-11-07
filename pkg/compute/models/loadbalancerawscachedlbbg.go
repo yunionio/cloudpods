@@ -178,7 +178,8 @@ func (man *SAwsCachedLbbgManager) GetUsableCachedBackendGroup(loadbalancerId, ba
 
 func (man *SAwsCachedLbbgManager) GetCachedBackendGroups(backendGroupId string) ([]SAwsCachedLbbg, error) {
 	ret := []SAwsCachedLbbg{}
-	err := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", backendGroupId).All(&ret)
+	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", backendGroupId)
+	err := db.FetchModelObjects(man, q, &ret)
 	if err != nil {
 		return nil, err
 	}

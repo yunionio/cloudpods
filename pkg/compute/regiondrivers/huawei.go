@@ -1121,16 +1121,21 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 		// continue here
 		cachedLbbg, err := models.HuaweiCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.GetCachedBackendGroupByAssociateId")
 		}
 
 		ilbbg, err := ilb.GetILoadBalancerBackendGroupById(cachedLbbg.GetExternalId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.GetILoadBalancerBackendGroupById")
+		}
+
+		err = ilbbg.Sync(groupInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.LoadbalancerBackendGroup")
 		}
 
 		if err := cachedLbbg.SyncWithCloudLoadbalancerBackendgroup(ctx, task.GetUserCred(), lb, ilbbg, lb.GetOwnerId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.SyncWithCloudLoadbalancerBackendgroup")
 		}
 
 		return nil, nil
