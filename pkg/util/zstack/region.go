@@ -79,11 +79,19 @@ func (region *SRegion) Refresh() error {
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	return self.GetInstance(id)
+	vm, err := self.GetInstance(id)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
 }
 
 func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return self.GetDisk(id)
+	disk, err := self.GetDisk(id)
+	if err != nil {
+		return nil, err
+	}
+	return disk, nil
 }
 
 func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
