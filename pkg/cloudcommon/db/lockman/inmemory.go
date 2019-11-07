@@ -174,7 +174,7 @@ func (lockman *SInMemoryLockManager) UnlockKey(ctx context.Context, key string) 
 
 	record := lockman.getRecord(ctx, key, false)
 	if record == nil {
-		log.Warningf("unlock an none exist lock????")
+		log.Errorf("BUG: unlock an non-existent lock\n%s", debug.Stack())
 		return
 	}
 
