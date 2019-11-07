@@ -15,10 +15,13 @@
 package lockman
 
 import (
-	"testing"
+	"yunion.io/x/log"
 )
 
-func TestInMemoryLockManager(t *testing.T) {
-	Init(NewInMemoryLockManager())
-	testLockManager(t)
+type bugFunc func(fmtStr string, fmtArgs ...interface{})
+
+var defaultBugFunc bugFunc = func(fmtStr string, fmtArgs ...interface{}) {
+	log.Errorf("BUG: "+fmtStr, fmtArgs...)
 }
+
+var bug bugFunc = defaultBugFunc
