@@ -451,7 +451,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 		return nil, err
 	}
 
-	secgrp := SSecurityGroup{SecurityGroupId: secGroupId}
+	secgrp := SSecurityGroup{SecurityGroupId: secGroupId, region: self}
 	err = body.Unmarshal(&secgrp.SecurityGroupPolicySet, "SecurityGroupPolicySet")
 	if err != nil {
 		log.Errorf("Unmarshal security group details fail %s", err)
