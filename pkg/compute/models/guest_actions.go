@@ -252,6 +252,9 @@ func (self *SGuest) PerformSaveGuestImage(ctx context.Context, userCred mcclient
 		return nil, fmt.Errorf("create subimage of guest image error")
 	}
 	taskParams := jsonutils.NewDict()
+	if restart, _ := kwargs.Bool("auto_start"); restart {
+		taskParams.Add(jsonutils.JSONTrue, "auto_start")
+	}
 	taskParams.Add(imageIds, "image_ids")
 	return nil, self.StartGuestSaveGuestImage(ctx, userCred, taskParams, "")
 }
