@@ -1570,8 +1570,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 			dbinstance.MaintainTime = idbinstance.GetMaintainTime()
 			dbinstance.Port = idbinstance.GetPort()
 
-			dbinstance.CreatedAt = idbinstance.GetCreatedAt()
-			dbinstance.ExpiredAt = idbinstance.GetExpiredAt()
+			if createdAt := idbinstance.GetCreatedAt(); !createdAt.IsZero() {
+				dbinstance.CreatedAt = idbinstance.GetCreatedAt()
+			}
+			if expiredAt := idbinstance.GetExpiredAt(); !expiredAt.IsZero() {
+				dbinstance.ExpiredAt = expiredAt
+			}
 			return nil
 		})
 		if err != nil {
