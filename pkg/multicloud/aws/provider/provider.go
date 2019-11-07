@@ -150,3 +150,7 @@ func (self *SAwsProvider) GetStorageClasses(regionId string) []string {
 		"INTELLIGENT_TIERING",
 	}
 }
+
+func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetAccessEnv() + "/"
+}

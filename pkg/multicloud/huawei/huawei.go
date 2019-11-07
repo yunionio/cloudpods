@@ -41,6 +41,9 @@ const (
 	CLOUD_PROVIDER_HUAWEI    = api.CLOUD_PROVIDER_HUAWEI
 	CLOUD_PROVIDER_HUAWEI_CN = "华为云"
 
+	HUAWEI_INTERNATIONAL_CLOUDENV = "InternationalCloud"
+	HUAWEI_CHINA_CLOUDENV         = "ChinaCloud"
+
 	HUAWEI_DEFAULT_REGION = "cn-north-1"
 	HUAWEI_API_VERSION    = "2018-12-25"
 )
@@ -75,6 +78,7 @@ func NewHuaweiClient(providerId, providerName, accessurl, accessKey, secret, pro
 		providerId:   providerId,
 		providerName: providerName,
 		projectId:    projectId,
+		accessUrl:    accessurl,
 		accessKey:    accessKey,
 		secret:       secret,
 		debug:        debug,
@@ -398,4 +402,15 @@ func (self *SHuaweiClient) queryDomainBalance(domainId string) (float64, error) 
 
 func (self *SHuaweiClient) GetVersion() string {
 	return HUAWEI_API_VERSION
+}
+
+func (self *SHuaweiClient) GetAccessEnv() string {
+	switch self.accessUrl {
+	case HUAWEI_INTERNATIONAL_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
+	case HUAWEI_CHINA_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_HUAWEI_CHINA
+	default:
+		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
+	}
 }
