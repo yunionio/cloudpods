@@ -14,6 +14,7 @@ delete:
   summary: 删除指定RDS实例
   parameters:
     - $ref: '../parameters/dbinstance.yaml#/dbinstanceId'
+    - $ref: '../parameters/dbinstance.yaml#/keep_backup'
   responses:
     200:
       description: 被删除RDS实例的信息
