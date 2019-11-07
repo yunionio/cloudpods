@@ -48,4 +48,8 @@ const (
 	INSTANCE_SNAPSHOT_FAILED        = "instance_snapshot_create_failed"
 	INSTANCE_SNAPSHOT_START_DELETE  = "instance_snapshot_start_delete"
 	INSTANCE_SNAPSHOT_DELETE_FAILED = "instance_snapshot_delete_failed"
+
+	SNAPSHOT_POLICY_CACHE_STATUS_READY         = "ready"
+	SNAPSHOT_POLICY_CACHE_STATUS_DELETING      = "deleting"
+	SNAPSHOT_POLICY_CACHE_STATUS_DELETE_FAILED = "delete_failed"
 )
