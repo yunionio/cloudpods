@@ -195,7 +195,7 @@ func (self *SRegion) GetName() string {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_HUAWEI, self.ID)
+	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.ID)
 }
 
 func (self *SRegion) GetStatus() string {

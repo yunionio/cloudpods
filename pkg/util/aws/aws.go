@@ -228,3 +228,14 @@ func (self *SAwsClient) QueryAccountBalance() (*SAccountBalance, error) {
 func (self *SAwsClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SAwsClient) GetAccessEnv() string {
+	switch self.accessUrl {
+	case AWS_INTERNATIONAL_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_AWS_GLOBAL
+	case AWS_CHINA_CLOUDENV:
+		return api.CLOUD_ACCESS_ENV_AWS_CHINA
+	default:
+		return api.CLOUD_ACCESS_ENV_AWS_GLOBAL
+	}
+}
