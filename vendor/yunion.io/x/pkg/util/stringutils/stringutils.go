@@ -64,6 +64,8 @@ func Interface2String(val interface{}) string {
 		return fmt.Sprintf("%f", vval)
 	case bool:
 		return fmt.Sprintf("%v", vval)
+	case error:
+		return vval.Error()
 	case time.Time:
 		return timeutils.FullIsoTime(vval)
 	case fmt.Stringer:
