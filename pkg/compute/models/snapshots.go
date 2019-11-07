@@ -177,13 +177,6 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
 		storage := IStorage.(*SStorage)
 		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-		// if provider := storage.GetCloudprovider(); provider != nil {
-		// 	extra.Add(jsonutils.NewString(provider.Name), "provider")
-		// }
-	} else {
-		// if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
-		// 	extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
-		// }
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
