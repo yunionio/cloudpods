@@ -91,7 +91,7 @@ var imageVersions = map[string][]string{
 	"CentOS":   {"5", "6", "7"},
 	"RHEL":     {"5", "6", "7"},
 	"FreeBSD":  {"10"},
-	"Ubuntu":   {"10", "12", "14", "16"},
+	"Ubuntu":   {"10", "12", "14", "16", "18"},
 	"OpenSUSE": {"11", "12"},
 	"SUSE":     {"10", "11", "12", "13"},
 	"Debian":   {"6", "7", "8", "9"},
@@ -102,12 +102,15 @@ var imageVersions = map[string][]string{
 func normalizeOsVersion(imageName string, osDist string, osVersion string) string {
 	if versions, ok := imageVersions[osDist]; ok {
 		for _, version := range versions {
-			if strings.HasPrefix(osVersion, version) {
-				return version
+			if len(osVersion) > 0 {
+				if strings.HasPrefix(osVersion, version) {
+					return version
+				}
+			} else {
+				if strings.Contains(imageName, " "+version) || strings.Contains(imageName, "_"+version) {
+					return version
+				}
 			}
-		}
-		if len(versions) > 0 {
-			return versions[0]
 		}
 	}
 	return "-"

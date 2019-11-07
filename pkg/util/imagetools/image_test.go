@@ -17,12 +17,49 @@ package imagetools
 import "testing"
 
 func TestNormalizeImageInfo(t *testing.T) {
-	info := NormalizeImageInfo("rhel67_20180816.qcow2", "", "", "", "")
-	t.Logf("%#v", info)
+	images := []struct {
+		Name      string
+		OsDistro  string
+		OsType    string
+		OsVersion string
+	}{
+		{
+			Name:      "rhel67_20180816.qcow2",
+			OsDistro:  "RHEL",
+			OsType:    "linux",
+			OsVersion: "-",
+		},
+		{
+			Name:      "Ubuntu_16.04.3_amd64_qingcloud_20180817.qcow2",
+			OsDistro:  "Ubuntu",
+			OsType:    "linux",
+			OsVersion: "16",
+		},
+		{
+			Name:      "windows-server-2008-dc-cn-20180717",
+			OsDistro:  "Windows Server 2008",
+			OsType:    "windows",
+			OsVersion: "-",
+		},
+		{
+			Name:      "Ubuntu  14.04 32位",
+			OsDistro:  "Ubuntu",
+			OsType:    "linux",
+			OsVersion: "14",
+		},
+	}
 
-	info = NormalizeImageInfo("Ubuntu_16.04.3_amd64_qingcloud_20180817.qcow2", "", "", "", "")
-	t.Logf("%#v", info)
+	for _, image := range images {
+		info := NormalizeImageInfo(image.Name, "", "", "", "")
+		if info.OsType != image.OsType {
+			t.Errorf("%s osType should be %s", image.Name, image.OsType)
+		}
+		if info.OsDistro != image.OsDistro {
+			t.Errorf("%s osDistro should be %s, but is %s", image.Name, image.OsDistro, info.OsDistro)
+		}
+		if info.OsVersion != image.OsVersion {
+			t.Errorf("%s osVersion should be %s, but is %s", image.Name, image.OsVersion, info.OsVersion)
+		}
+	}
 
-	info = NormalizeImageInfo("windows-server-2008-dc-cn-20180717", "", "", "", "")
-	t.Logf("%#v", info)
 }
