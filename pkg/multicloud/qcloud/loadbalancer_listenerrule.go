@@ -78,6 +78,10 @@ func (self *SLBListenerRule) Refresh() error {
 	return cloudprovider.ErrNotFound
 }
 
+func (self *SLBListenerRule) IsDefault() bool {
+	return false
+}
+
 func (self *SLBListenerRule) IsEmulated() bool {
 	return false
 }

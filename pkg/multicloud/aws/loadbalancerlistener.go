@@ -552,18 +552,6 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 	action.SetTargetGroupArn(listener.BackendGroupID)
 	params.SetDefaultActions([]*elbv2.Action{action})
 	if listenerType == "HTTPS" {
-		err = cloudprovider.WaitCreated(3*time.Second, 30*time.Second, func() bool {
-			_, err := self.GetILoadBalancerCertificateById(listener.CertificateID)
-			if err == nil {
-				return true
-			}
-
-			return false
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "Region.GetILoadBalancerCertificateById")
-		}
-
 		cert := &elbv2.Certificate{
 			CertificateArn: &listener.CertificateID,
 		}
@@ -574,7 +562,16 @@ func (self *SRegion) CreateElbListener(listener *cloudprovider.SLoadbalancerList
 
 	ret, err := client.CreateListener(params)
 	if err != nil {
-		return nil, err
+		// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
+		time.Sleep(10 * time.Second)
+		if strings.Contains(err.Error(), "CertificateNotFound") {
+			ret, err = client.CreateListener(params)
+			if err != nil {
+				return nil, errors.Wrap(err, "Region.CreateElbListener.Retry")
+			}
+		} else {
+			return nil, errors.Wrap(err, "Region.CreateElbListener")
+		}
 	}
 
 	listeners := []SElbListener{}
@@ -727,7 +724,7 @@ func (self *SRegion) UpdateRulesPriority(rules []cloudprovider.ICloudLoadbalance
 	ps := []*elbv2.RulePriorityPair{}
 	for i := range rules {
 		rule := rules[i].(*SElbListenerRule)
-		if !rule.IsDefault {
+		if !rule.IsDefaultRule {
 			v, _ := strconv.Atoi(rule.Priority)
 			p := &elbv2.RulePriorityPair{}
 			p.SetRuleArn(rules[i].GetId())
