@@ -320,13 +320,14 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 	return region.GetSnapshot(snapshotId)
 }
 
-func (region *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+func (region *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	offerings, err := region.GetInstanceOfferings("", "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	iskus := []cloudprovider.ICloudSku{}
 	for i := 0; i < len(offerings); i++ {
+		offerings[i].region = region
 		iskus = append(iskus, &offerings[i])
 	}
 	return iskus, nil
@@ -344,10 +345,6 @@ func (region *SRegion) DeleteISkuByName(name string) error {
 		}
 	}
 	return nil
-}
-
-func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
-	return region.GetInstanceOffering(skuId)
 }
 
 func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {

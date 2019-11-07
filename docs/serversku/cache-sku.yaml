@@ -1,0 +1,12 @@
+post:
+  summary: 缓存本地套餐到私有云上
+  parameters:
+    - $ref: "../parameters/serversku.yaml#/serverskuId"
+  responses:
+    200:
+      description: 缓存的实例套餐信息
+      schema:
+        $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
+
+  tags:
+    - serverskus

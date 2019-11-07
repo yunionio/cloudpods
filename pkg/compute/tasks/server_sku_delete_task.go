@@ -47,28 +47,40 @@ func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServ
 
 func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	sku := obj.(*models.SServerSku)
-	cloudproviders, err := sku.GetCloudproviders()
-	if err != nil {
-		self.taskFail(ctx, sku, err.Error())
-		return
-	}
 
-	for _, cloudprovider := range cloudproviders {
-		provider, err := cloudprovider.GetProvider()
+	if !jsonutils.QueryBoolean(self.Params, "purge", false) {
+		cloudproviders, err := sku.GetPrivateCloudproviders()
 		if err != nil {
-			log.Warningf("failed to get provider for cloudprovider %s error: %v", cloudprovider.Name, err)
-			continue
+			self.taskFail(ctx, sku, err.Error())
+			return
 		}
-		regions := provider.GetIRegions()
-		for _, region := range regions {
-			err = region.DeleteISkuByName(sku.Name)
+
+		for _, cloudprovider := range cloudproviders {
+			provider, err := cloudprovider.GetProvider()
 			if err != nil {
-				log.Warningf("failed to delete sku %s for cloudprovider %s error: %v", sku.Name, cloudprovider.Name, err)
+				log.Warningf("failed to get provider for cloudprovider %s error: %v", cloudprovider.Name, err)
+				continue
+			}
+			regions := provider.GetIRegions()
+			for _, region := range regions {
+				iskus, err := region.GetISkus()
+				if err != nil {
+					log.Warningf("failed to get region %s skus", region.GetName())
+					continue
+				}
+				for _, isku := range iskus {
+					if isku.GetName() == sku.Name && isku.GetCpuCoreCount() == sku.CpuCoreCount && isku.GetMemorySizeMB() == sku.MemorySizeMB {
+						err = isku.Delete()
+						if err != nil {
+							log.Warningf("failed to delete sku %s %dC%dM", sku.Name, sku.CpuCoreCount, sku.MemorySizeMB)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	err = sku.RealDelete(ctx, self.UserCred)
+	err := sku.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		err = errors.Wrapf(err, "sku.RealDelete")
 		self.taskFail(ctx, sku, err.Error())
