@@ -15,6 +15,9 @@
 package options
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -23,6 +26,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/log/hooks"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
@@ -101,6 +105,71 @@ type DBOptions struct {
 	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
 
 	QueryOffsetOptimization bool `help:"apply query offset optimization"`
+
+	LockmanMethod  string   `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
+	EtcdLockPrefix string   `help:"prefix of etcd lock records" default:"/locks"`
+	EtcdLockTTL    int      `help:"ttl of etcd lock records"`
+	EtcdEndpoints  []string `help:"endpoints of etcd cluster"`
+
+	EtcdUsername string `help:"username of etcd cluster"`
+	EtcdPassword string `help:"password of etcd cluster"`
+
+	EtcdUseTLS        bool   `help:"use tls transport to connect etcd cluster" default:"false"`
+	EtcdSkipTLSVerify bool   `help:"skip tls verification" default:"false"`
+	EtcdCacert        string `help:"path to cacert for connecting to etcd cluster"`
+	EtcdCert          string `help:"path to cert file for connecting to etcd cluster"`
+	EtcdKey           string `help:"path to key file for connecting to etcd cluster"`
+}
+
+func (this *DBOptions) GetEtcdTLSConfig() (*tls.Config, error) {
+	var (
+		cert       tls.Certificate
+		certLoaded bool
+		capool     *x509.CertPool
+	)
+	if this.EtcdCert != "" && this.EtcdKey != "" {
+		var err error
+		cert, err = tls.LoadX509KeyPair(this.EtcdCert, this.EtcdKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "load etcd cert and key")
+		}
+		certLoaded = true
+		this.EtcdUseTLS = true
+	}
+	if this.EtcdCacert != "" {
+		data, err := ioutil.ReadFile(this.EtcdCacert)
+		if err != nil {
+			return nil, errors.Wrap(err, "read cacert file")
+		}
+		capool = x509.NewCertPool()
+		for {
+			var block *pem.Block
+			block, data = pem.Decode(data)
+			if block == nil {
+				break
+			}
+			cacert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse cacert file")
+			}
+			capool.AddCert(cacert)
+		}
+		this.EtcdUseTLS = true
+	}
+	if this.EtcdSkipTLSVerify { // it's false by default, true means user intends to use tls
+		this.EtcdUseTLS = true
+	}
+	if this.EtcdUseTLS {
+		cfg := &tls.Config{
+			RootCAs:            capool,
+			InsecureSkipVerify: this.EtcdSkipTLSVerify,
+		}
+		if certLoaded {
+			cfg.Certificates = []tls.Certificate{cert}
+		}
+		return cfg, nil
+	}
+	return nil, nil
 }
 
 func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
