@@ -327,6 +327,9 @@ func (self *SRegion) GetElbBackendgroup(backendgroupId string) (*SElbBackendGrou
 
 	ret, err := client.DescribeTargetGroups(params)
 	if err != nil {
+		if strings.Contains(err.Error(), "TargetGroupNotFound") {
+			return nil, cloudprovider.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -421,6 +424,9 @@ func (self *SRegion) CreateElbBackendgroup(group *cloudprovider.SLoadbalancerBac
 				matcher.SetHttpCode(codes)
 				params.SetMatcher(matcher)
 			}
+		} else {
+			// tcp & udp 健康检查阈值与不健康阈值需相同
+			params.SetUnhealthyThresholdCount(int64(group.HealthCheck.HealthCheckRise))
 		}
 	}
 
