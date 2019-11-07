@@ -78,6 +78,7 @@ func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 				h.AppendPredicateFailMsg(fmt.Sprintf(
 					"the number of guests with same instance group '%s' in this host has reached the upper limit",
 					instanceGroups[id].GetName()))
+				minFree = 0
 				break
 			}
 		} else {
@@ -86,10 +87,6 @@ func (p *SForcedGroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 		if free < minFree {
 			minFree = free
 		}
-	}
-	// show that minFree shoule be zero
-	if minFree == math.MaxInt32 {
-		minFree = 0
 	}
 	// chose the min capacity of groups
 	h.SetCapacity(int64(minFree))
