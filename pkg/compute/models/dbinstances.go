@@ -773,7 +773,9 @@ func (manager *SDBInstanceManager) getDBInstancesByProviderId(providerId string)
 }
 
 func (self *SDBInstance) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartDBInstanceDeleteTask(ctx, userCred, nil, "")
+	params := jsonutils.NewDict()
+	params.Set("keep_backup", jsonutils.NewBool(jsonutils.QueryBoolean(data, "keep_backup", false)))
+	return self.StartDBInstanceDeleteTask(ctx, userCred, params, "")
 }
 
 func (self *SDBInstance) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -923,14 +925,23 @@ func (self *SDBInstance) GetDBInstancePrivilege(account, database string) (*SDBI
 	return privilege, nil
 }
 
-func (self *SDBInstance) GetDBInstanceBackups() ([]SDBInstanceBackup, error) {
+func (self *SDBInstance) GetDBInstanceBackupByMode(mode string) ([]SDBInstanceBackup, error) {
 	backups := []SDBInstanceBackup{}
 	q := DBInstanceBackupManager.Query().Equals("dbinstance_id", self.Id)
+	switch mode {
+	case api.BACKUP_MODE_MANUAL, api.BACKUP_MODE_AUTOMATED:
+		q = q.Equals("backup_mode", mode)
+	}
 	err := db.FetchModelObjects(DBInstanceBackupManager, q, &backups)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstanceBackups.FetchModelObjects")
 	}
 	return backups, nil
+
+}
+
+func (self *SDBInstance) GetDBInstanceBackups() ([]SDBInstanceBackup, error) {
+	return self.GetDBInstanceBackupByMode("")
 }
 
 func (self *SDBInstance) GetDBDatabases() ([]SDBInstanceDatabase, error) {
