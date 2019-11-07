@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // InitiateMultipartUploadOptions is the option of InitateMultipartUpload
@@ -188,4 +189,49 @@ func (s *ObjectService) AbortMultipartUpload(ctx context.Context, name, uploadID
 	}
 	resp, err := s.client.send(ctx, &sendOpt)
 	return resp, err
+}
+
+// ObjectCopyPartOptions is the options of copy-part
+type ObjectCopyPartOptions struct {
+	XCosCopySource                  string `header:"x-cos-copy-source" url:"-"`
+	XCosCopySourceRange             string `header:"x-cos-copy-source-range" url:"-"`
+	XCosCopySourceIfModifiedSince   string `header:"x-cos-copy-source-If-Modified-Since" url:"-"`
+	XCosCopySourceIfUnmodifiedSince string `header:"x-cos-copy-source-If-Unmodified-Since" url:"-"`
+	XCosCopySourceIfMatch           string `help:"x-cos-copy-source-If-Match" url:"-"`
+	XCosCopySourceIfNoneMatch       string `help:"x-cos-copy-source-If-None-Match" url:"-"`
+}
+
+// CopyPartResult is the result CopyPart
+type CopyPartResult struct {
+	XMLName      xml.Name `xml:"CopyPartResult"`
+	ETag         string
+	LastModified time.Time
+}
+
+// CopyPart 请求实现在初始化以后的分块上传，支持的块的数量为1到10000，块的大小为1 MB 到5 GB。
+// 在每次请求Upload Part时候，需要携带partNumber和uploadID，partNumber为块的编号，支持乱序上传。
+// ObjectCopyPartOptions的XCosCopySource为必填参数，格式为<bucket-name>-<app-id>.cos.<region-id>.myqcloud.com/<object-key>
+// ObjectCopyPartOptions的XCosCopySourceRange指定源的Range，格式为bytes=<start>-<end>
+//
+// 当传入uploadID和partNumber都相同的时候，后传入的块将覆盖之前传入的块。当uploadID不存在时会返回404错误，NoSuchUpload.
+//
+// https://www.qcloud.com/document/product/436/7750
+func (s *ObjectService) CopyPart(ctx context.Context, name, uploadID string, partNumber int, opt *ObjectCopyPartOptions) (*CopyPartResult, *Response, error) {
+	u := fmt.Sprintf("/%s?partNumber=%d&uploadId=%s", encodeURIComponent(name), partNumber, uploadID)
+	var res CopyPartResult
+	sendOpt := sendOptions{
+		baseURL:   s.client.BaseURL.BucketURL,
+		uri:       u,
+		method:    http.MethodPut,
+		optHeader: opt,
+		result:    &res,
+	}
+	resp, err := s.client.send(ctx, &sendOpt)
+	// If the error occurs during the copy operation, the error response is embedded in the 200 OK response. This means that a 200 OK response can contain either a success or an error.
+	if err == nil && resp.StatusCode == 200 {
+		if res.ETag == "" {
+			return &res, resp, errors.New("response 200 OK, but body contains an error")
+		}
+	}
+	return &res, resp, err
 }
