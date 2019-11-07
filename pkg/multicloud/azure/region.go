@@ -130,7 +130,7 @@ func (self *SRegion) GetName() string {
 }
 
 func (self *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_AZURE, self.Name)
+	return fmt.Sprintf("%s/%s", self.client.GetAccessEnv(), self.Name)
 }
 
 func (self *SRegion) IsEmulated() bool {
