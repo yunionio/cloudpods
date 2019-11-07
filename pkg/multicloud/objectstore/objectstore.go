@@ -299,16 +299,12 @@ func (cli *SObjectStoreClient) CreateILoadBalancerCertificate(cert *cloudprovide
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
+func (cli *SObjectStoreClient) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (cli *SObjectStoreClient) CreateISku(sku *cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotSupported
+func (cli *SObjectStoreClient) CreateISku(name string, vCpu int, memoryMb int) error {
+	return cloudprovider.ErrNotSupported
 }
 
 ////////////////////////////////// S3 API ///////////////////////////////////
