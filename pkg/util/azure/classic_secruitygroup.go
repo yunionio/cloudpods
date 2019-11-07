@@ -240,7 +240,7 @@ func (region *SRegion) GetClassicSecurityGroups() ([]SClassicSecurityGroup, erro
 }
 
 func (region *SRegion) GetClassicSecurityGroupDetails(secgroupId string) (*SClassicSecurityGroup, error) {
-	secgroup := SClassicSecurityGroup{}
+	secgroup := SClassicSecurityGroup{region: region}
 	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
 }
 
