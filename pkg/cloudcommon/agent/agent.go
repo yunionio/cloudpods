@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type IAgent interface {
@@ -284,19 +285,30 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	agent.AgentName = agentName
 
 	storageCacheId, _ := cloudObj.GetString("storagecache_id")
+	if len(storageCacheId) > 0 {
+		err = agent.updateStorageCache(session, storageCacheId)
+		if err != nil {
+			if httputils.ErrorCode(errors.Cause(err)) == 404 {
+				storageCacheId = ""
+			} else {
+				return err
+			}
+		}
+	}
 	if len(storageCacheId) == 0 {
 		storageCacheId, err = agent.createStorageCache(session)
 		if err != nil {
 			return err
 		}
-		_, err = agent.updateBaremetalAgent(session, agentId, storageCacheId)
+		cloudObj, err = agent.updateBaremetalAgent(session, agentId, storageCacheId)
 		if err != nil {
 			return err
 		}
-	} else {
-		err = agent.updateStorageCache(session, storageCacheId)
-		if err != nil {
-			return err
+		newStorageCacheId, _ := cloudObj.GetString("storagecache_id")
+		if newStorageCacheId != storageCacheId {
+			// cleanup the newly created storagecache
+			modules.Storagecaches.Delete(session, storageCacheId, nil)
+			return errors.Error("agent not support storagecache_id, region might not be up-to-date")
 		}
 	}
 	agent.CacheManager = storageman.NewLocalImageCacheManager(agent.IAgent(), agent.CachePath, storageCacheId)
