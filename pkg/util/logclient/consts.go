@@ -170,8 +170,6 @@ const (
 	ACT_NATGATEWAY_DISSOCIATE   = "解绑NAT网关"
 	ACT_LOADBALANCER_DISSOCIATE = "解绑负载均衡"
 
-	ACT_SUBIMAGE_UPDATE = "更新子镜像"
-
 	ACT_PREPARE = "同步硬件配置"
 	ACT_PROBE   = "检测配置"
 

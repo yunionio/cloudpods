@@ -20,11 +20,14 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -34,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -264,6 +268,8 @@ type sPair struct {
 	Name       string
 	MinDiskMB  int32
 	DiskFormat string
+	Size       int64
+	Status     string
 }
 
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -288,12 +294,13 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		image := images[i]
 		size += image.Size
 		if !image.IsData.IsTrue() {
-			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat}
+			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat, image.Size, image.Status}
 			extra.Add(jsonutils.NewInt(int64(image.MinRamMB)), "min_ram_mb")
 			extra.Add(jsonutils.NewString(image.DiskFormat), "disk_format")
 			continue
 		}
-		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat})
+		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat, image.Size,
+			image.Status})
 	}
 	// make sure that the sort of dataimage is fixed
 	sort.Slice(dataImages, func(i, j int) bool {
@@ -341,18 +348,86 @@ func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.
 func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) {
 
-	if !data.Contains("name") && !data.Contains("properties") {
-		return
-	}
-	params := data.(*jsonutils.JSONDict)
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestImageUpdateTask", self, userCred, params, "", "",
-		nil); err != nil {
+	lockman.LockClass(ctx, ImageManager, db.GetLockClassKey(ImageManager, userCred))
+	defer lockman.ReleaseClass(ctx, ImageManager, db.GetLockClassKey(ImageManager, userCred))
 
-		log.Errorf("GusetImage %s fail to start GuestImageUpdateTask", self.Id)
-		return
-	} else {
-		task.ScheduleRun(nil)
+	err := self.UpdateSubImage(ctx, userCred, data)
+	if err != nil {
+		logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE, nil, userCred, false)
 	}
+
+}
+
+func (self *SGuestImage) UpdateSubImage(ctx context.Context, userCred mcclient.TokenCredential,
+	data jsonutils.JSONObject) error {
+
+	subImages, err := GuestImageJointManager.GetImagesByFilter(self.GetId(), func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+		return q.Asc("name")
+	})
+	if err != nil {
+		return err
+	}
+	dict := data.(*jsonutils.JSONDict)
+	var g errgroup.Group
+	for i := range subImages {
+		if f, ok := self.genUpdateImage(ctx, userCred, &subImages[i], i, dict); ok {
+			g.Go(f)
+		}
+	}
+	return g.Wait()
+}
+
+func (self *SGuestImage) genUpdateImage(ctx context.Context, userCred mcclient.TokenCredential, image *SImage,
+	index int, dict *jsonutils.JSONDict) (func() error, bool) {
+
+	if !dict.Contains("name") && image.IsData.IsTrue() {
+		return nil, false
+	}
+	if image.IsData.IsTrue() {
+		if !dict.Contains("name") {
+			return nil, false
+		}
+		return func() error {
+			name, _ := dict.GetString("name")
+			name, err := db.GenerateName(ImageManager, userCred, fmt.Sprintf("%s-%s-%d", name, "data", index))
+			if err != nil {
+				return errors.Wrap(err, "fail to generate unique name")
+			}
+			_, err = db.Update(image, func() error {
+				image.Name = name
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "modify subimage's name failed")
+			}
+			return nil
+		}, true
+	}
+
+	return func() error {
+		if dict.Contains("name") {
+			name, _ := dict.GetString("name")
+			name, err := db.GenerateName(ImageManager, userCred, fmt.Sprintf("%s-%s", name, "root"))
+			if err != nil {
+				return errors.Wrap(err, "fail to generate unique name")
+			}
+			_, err = db.Update(image, func() error {
+				image.Name = name
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "modify subimage's name failed")
+			}
+		}
+		if dict.Contains("properties") {
+			props, _ := dict.Get("properties")
+			err := ImagePropertyManager.SaveProperties(ctx, userCred, image.GetId(), props)
+			if err != nil {
+				return errors.Wrap(err, "save properties error")
+			}
+		}
+		return nil
+	}, true
 }
 
 var checkStatus = map[string]int{
