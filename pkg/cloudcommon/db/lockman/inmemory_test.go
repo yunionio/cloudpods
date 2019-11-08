@@ -19,6 +19,13 @@ import (
 )
 
 func TestInMemoryLockManager(t *testing.T) {
-	Init(NewInMemoryLockManager())
-	testLockManager(t)
+	lockman := NewInMemoryLockManager()
+	shared := newSharedObject()
+	cfg := &testLockManagerConfig{
+		players: 3,
+		cycles:  3,
+		lockman: lockman,
+		shared:  shared,
+	}
+	testLockManager(t, cfg)
 }
