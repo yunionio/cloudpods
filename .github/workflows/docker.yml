@@ -28,6 +28,7 @@ jobs:
 
     - name: Build
       run: |
+        sudo apt-get update
         sudo apt-get install librados-dev librbd-dev
         make cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
         make cmd/logger cmd/region cmd/scheduler cmd/webconsole
