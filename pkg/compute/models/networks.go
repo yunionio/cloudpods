@@ -1042,6 +1042,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("ips")
 	}
+	status, _ := data.GetString("status")
 
 	var duration time.Duration
 	durationStr, _ := data.GetString("duration")
@@ -1055,7 +1056,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 
 	for _, ip := range ips {
 		ipstr, _ := ip.GetString()
-		err := self.reserveIpWithDuration(ctx, userCred, ipstr, notes, duration)
+		err := self.reserveIpWithDurationAndStatus(ctx, userCred, ipstr, notes, duration, status)
 		if err != nil {
 			return nil, err
 		}
@@ -1064,6 +1065,10 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SNetwork) reserveIpWithDuration(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration) error {
+	return self.reserveIpWithDurationAndStatus(ctx, userCred, ipstr, notes, duration, "")
+}
+
+func (self *SNetwork) reserveIpWithDurationAndStatus(ctx context.Context, userCred mcclient.TokenCredential, ipstr string, notes string, duration time.Duration, status string) error {
 	ipAddr, err := netutils.NewIPV4Addr(ipstr)
 	if err != nil {
 		return httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
@@ -1078,7 +1083,7 @@ func (self *SNetwork) reserveIpWithDuration(ctx context.Context, userCred mcclie
 	if used {
 		return httperrors.NewConflictError("Address %s has been used", ipstr)
 	}
-	err = ReservedipManager.ReserveIPWithDuration(userCred, self, ipstr, notes, duration)
+	err = ReservedipManager.ReserveIPWithDurationAndStatus(userCred, self, ipstr, notes, duration, status)
 	if err != nil {
 		return err
 	}
@@ -2244,12 +2249,12 @@ func (network *SNetwork) AllowGetDetailsAddresses(ctx context.Context, userCred 
 }
 
 func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
-	guestnetworks := GuestnetworkManager.Query().SubQuery()
+	guestnetworks := GuestnetworkManager.Query().Equals("network_id", network.Id).SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	guestNetQ := guestnetworks.Query(
 		guestnetworks.Field("ip_addr"),
 		guestnetworks.Field("mac_addr"),
-		sqlchemy.NewStringField("guests").Label("owner_type"),
+		sqlchemy.NewStringField(GuestManager.KeywordPlural()).Label("owner_type"),
 		guestnetworks.Field("guest_id").Label("owner_id"),
 		guests.Field("name").Label("owner"),
 		sqlchemy.NewStringField("").Label("associate_id"),
@@ -2260,14 +2265,14 @@ func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
 			guests.Field("id"),
 			guestnetworks.Field("guest_id"),
 		),
-	).Equals("network_id", network.Id)
+	)
 
-	groupnetworks := GroupnetworkManager.Query().SubQuery()
+	groupnetworks := GroupnetworkManager.Query().Equals("network_id", network.Id).SubQuery()
 	groups := GroupManager.Query().SubQuery()
 	groupNetQ := groupnetworks.Query(
 		groupnetworks.Field("ip_addr"),
 		sqlchemy.NewStringField("").Label("mac_addr"),
-		sqlchemy.NewStringField("groups").Label("owner_type"),
+		sqlchemy.NewStringField(GroupManager.KeywordPlural()).Label("owner_type"),
 		groupnetworks.Field("group_id").Label("owner_id"),
 		groups.Field("name").Label("owner"),
 		sqlchemy.NewStringField("").Label("associate_id"),
@@ -2278,14 +2283,14 @@ func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
 			groups.Field("id"),
 			groupnetworks.Field("group_id"),
 		),
-	).Equals("network_id", network.Id)
+	)
 
-	hostnetworks := HostnetworkManager.Query().SubQuery()
+	hostnetworks := HostnetworkManager.Query().Equals("network_id", network.Id).SubQuery()
 	hosts := HostManager.Query().SubQuery()
 	hostNetQ := hostnetworks.Query(
 		hostnetworks.Field("ip_addr"),
 		hostnetworks.Field("mac_addr"),
-		sqlchemy.NewStringField("hosts").Label("owner_type"),
+		sqlchemy.NewStringField(HostManager.KeywordPlural()).Label("owner_type"),
 		hostnetworks.Field("baremetal_id").Label("owner_id"),
 		hosts.Field("name").Label("owner"),
 		sqlchemy.NewStringField("").Label("associate_id"),
@@ -2296,25 +2301,28 @@ func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
 			hosts.Field("id"),
 			hostnetworks.Field("baremetal_id"),
 		),
-	).Equals("network_id", network.Id)
+	)
 
-	reserved := ReservedipManager.Query().GT("expired_at", time.Now()).SubQuery()
+	reserved := ReservedipManager.Query().Equals("network_id", network.Id).SubQuery()
 	reservedQ := reserved.Query(
 		reserved.Field("ip_addr"),
 		sqlchemy.NewStringField("").Label("mac_addr"),
-		sqlchemy.NewStringField("reserves").Label("owner_type"),
-		sqlchemy.NewStringField("").Label("owner_id"),
+		sqlchemy.NewStringField(ReservedipManager.KeywordPlural()).Label("owner_type"),
+		reserved.Field("id").Label("owner_id"),
 		reserved.Field("notes").Label("owner"),
 		sqlchemy.NewStringField("").Label("associate_id"),
 		sqlchemy.NewStringField("").Label("associate_type"),
-	).Equals("network_id", network.Id)
+	).Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(reserved.Field("expired_at")),
+		sqlchemy.GT(reserved.Field("expired_at"), time.Now()),
+	))
 
-	lbnetworks := LoadbalancernetworkManager.Query().SubQuery()
+	lbnetworks := LoadbalancernetworkManager.Query().Equals("network_id", network.Id).SubQuery()
 	loadbalancers := LoadbalancerManager.Query().SubQuery()
 	lbNetQ := lbnetworks.Query(
 		lbnetworks.Field("ip_addr"),
 		sqlchemy.NewStringField("").Label("mac_addr"),
-		sqlchemy.NewStringField("loadbalancers").Label("owner_type"),
+		sqlchemy.NewStringField(LoadbalancerManager.KeywordPlural()).Label("owner_type"),
 		lbnetworks.Field("loadbalancer_id").Label("owner_id"),
 		loadbalancers.Field("name").Label("owner"),
 		sqlchemy.NewStringField("").Label("associate_id"),
@@ -2325,25 +2333,25 @@ func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
 			loadbalancers.Field("id"),
 			lbnetworks.Field("loadbalancer_id"),
 		),
-	).Equals("network_id", network.Id)
+	)
 
-	elasticips := ElasticipManager.Query().SubQuery()
+	elasticips := ElasticipManager.Query().Equals("network_id", network.Id).SubQuery()
 	eipQ := elasticips.Query(
 		elasticips.Field("ip_addr"),
 		sqlchemy.NewStringField("").Label("mac_addr"),
-		sqlchemy.NewStringField("elasticips").Label("owner_type"),
+		sqlchemy.NewStringField(ElasticipManager.KeywordPlural()).Label("owner_type"),
 		elasticips.Field("id").Label("owner_id"),
 		elasticips.Field("name").Label("owner"),
 		elasticips.Field("associate_id"),
 		elasticips.Field("associate_type"),
-	).Equals("network_id", network.Id)
+	)
 
-	netifnetworks := NetworkinterfacenetworkManager.Query().SubQuery()
+	netifnetworks := NetworkinterfacenetworkManager.Query().Equals("network_id", network.Id).SubQuery()
 	netifs := NetworkInterfaceManager.Query().SubQuery()
 	netifsQ := netifnetworks.Query(
 		netifnetworks.Field("ip_addr"),
 		netifs.Field("mac").Label("mac_addr"),
-		sqlchemy.NewStringField("networkinterfaces").Label("owner_type"),
+		sqlchemy.NewStringField(NetworkInterfaceManager.KeywordPlural()).Label("owner_type"),
 		netifnetworks.Field("networkinterface_id").Label("owner_id"),
 		netifs.Field("name").Label("owner"),
 		netifs.Field("associate_id"),
@@ -2354,22 +2362,12 @@ func (network *SNetwork) queryUsedAddressQuery() *sqlchemy.SQuery {
 			netifnetworks.Field("networkinterface_id"),
 			netifs.Field("id"),
 		),
-	).Equals("network_id", network.Id)
+	)
 
 	return sqlchemy.Union(guestNetQ, groupNetQ, hostNetQ, reservedQ, lbNetQ, eipQ, netifsQ).Query()
 }
 
-type SNetworkAddress struct {
-	IpAddr        string
-	MacAddr       string
-	Owner         string
-	OwnerId       string
-	OwnerType     string
-	AssociateId   string
-	AssociateType string
-}
-
-type SNetworkAddressList []SNetworkAddress
+type SNetworkAddressList []api.SNetworkAddress
 
 func (a SNetworkAddressList) Len() int      { return len(a) }
 func (a SNetworkAddressList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -2381,7 +2379,7 @@ func (a SNetworkAddressList) Less(i, j int) bool {
 
 func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	netAddrs := make([]SNetworkAddress, 0)
+	netAddrs := make([]api.SNetworkAddress, 0)
 	q := network.queryUsedAddressQuery()
 	err := q.All(&netAddrs)
 	if err != nil {
