@@ -15,19 +15,38 @@
 package lockman
 
 import (
+	"sync"
 	"testing"
 
 	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
 func TestEctdLockManager(t *testing.T) {
-	lockman, err := NewEtcdLockManager(&SEtcdLockManagerConfig{
-		Endpoints: []string{"localhost:2379"},
-	})
-	if err != nil {
-		t.Skipf("new etcd lockman: %v", err)
+	cfgs := []*testLockManagerConfig{}
+	shared := newSharedObject()
+	for i := 0; i < 4; i++ {
+		lockman, err := NewEtcdLockManager(&SEtcdLockManagerConfig{
+			Endpoints: []string{"localhost:2379"},
+		})
+		if err != nil {
+			t.Skipf("new etcd lockman: %v", err)
+		}
+		cfg := &testLockManagerConfig{
+			players: 3,
+			cycles:  3,
+			lockman: lockman,
+			shared:  shared,
+		}
+		cfgs = append(cfgs, cfg)
 	}
-	Init(lockman)
 	defer atexit.Handle()
-	testLockManager(t)
+	wg := &sync.WaitGroup{}
+	wg.Add(len(cfgs))
+	for _, cfg := range cfgs {
+		go func(cfg *testLockManagerConfig) {
+			testLockManager(t, cfg)
+			wg.Done()
+		}(cfg)
+	}
+	wg.Wait()
 }

@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +26,9 @@ import (
 
 type FakeObject struct {
 	Id string
+
+	playerId      int
+	playerIdCount int
 }
 
 func (o *FakeObject) GetId() string {
@@ -37,41 +39,73 @@ func (o *FakeObject) Keyword() string {
 	return "fake"
 }
 
-func testLockManager(t *testing.T) {
-	objId := stringutils.UUID4()
-	players := 3
-	cycles := 3
-	bits := uint32(0)
+func (o *FakeObject) push(playerId int) {
+	if o.playerId >= 0 {
+		if o.playerId != playerId {
+			panic(fmt.Sprintf("obj locked by %d, locked again by %d", o.playerId, playerId))
+		}
+	} else {
+		if o.playerIdCount != 0 {
+			panic(fmt.Sprintf("obj unlocked but player id count %d", o.playerIdCount))
+		}
+		o.playerId = playerId
+	}
+	o.playerIdCount += 1
+}
+
+func (o *FakeObject) pop(playerId int) {
+	if o.playerId != playerId {
+		panic(fmt.Sprintf("obj previously locked by %d, now unlocked by %d", o.playerId, playerId))
+	}
+	o.playerIdCount -= 1
+	if o.playerIdCount < 0 {
+		panic(fmt.Sprintf("obj overly unlocked"))
+	} else if o.playerIdCount == 0 {
+		o.playerId = -1
+	}
+}
+
+func newSharedObject() *FakeObject {
+	obj := &FakeObject{
+		Id: stringutils.UUID4(),
+
+		playerId:      -1,
+		playerIdCount: 0,
+	}
+	return obj
+}
+
+type testLockManagerConfig struct {
+	players int
+	cycles  int
+	shared  *FakeObject
+	lockman ILockManager
+}
+
+func testLockManager(t *testing.T, cfg *testLockManagerConfig) {
+	players := cfg.players
+	cycles := cfg.cycles
+	shared := cfg.shared
+	lockman := cfg.lockman
 
 	bug = func(fmtStr string, fmtArgs ...interface{}) {
 		t.Fatalf(fmtStr, fmtArgs...)
 	}
-	run := func(ctx context.Context, obj ILockedObject, id int, cycle int, sleep time.Duration) {
-		the_val := uint32(1) << uint(id)
+	run := func(ctx context.Context, id int, cycle int, sleep time.Duration) {
+		key := getObjectKey(shared)
 		indents := []string{"  ", "    "}
+		logpref := fmt.Sprintf("%p: %02d: %p", lockman, id, ctx)
 		func() {
-			fmt.Printf("%02d: %p: %s >acquire\n", id, ctx, indents[0])
-			LockObject(ctx, obj)
-			v := atomic.LoadUint32(&bits)
-			if v != 0 {
-				t.Fatalf("lock already taken: %x", v)
-			}
-			if !atomic.CompareAndSwapUint32(&bits, 0, the_val) {
-				t.Fatalf("lock stolen 0: %x", bits)
-			}
-			fmt.Printf("%02d: %p: %s >>acquired\n", id, ctx, indents[1])
+			fmt.Printf("%s: %s >acquire\n", logpref, indents[0])
+			lockman.LockKey(ctx, key)
+			shared.push(id)
+			fmt.Printf("%s: %s >>acquired\n", logpref, indents[1])
 		}()
 		defer func() {
-			fmt.Printf("%02d: %p: %s <<release\n", id, ctx, indents[1])
-			v := atomic.LoadUint32(&bits)
-			if v != the_val {
-				t.Fatalf("lock stolen 1: %x", v)
-			}
-			if !atomic.CompareAndSwapUint32(&bits, the_val, 0) {
-				t.Fatalf("lock stolen 2: %x", v)
-			}
-			ReleaseObject(ctx, obj)
-			fmt.Printf("%02d: %p: %s <released\n", id, ctx, indents[0])
+			fmt.Printf("%s: %s <<release\n", logpref, indents[1])
+			shared.pop(id)
+			lockman.UnlockKey(ctx, key)
+			fmt.Printf("%s: %s <released\n", logpref, indents[0])
 		}()
 		time.Sleep(sleep)
 	}
@@ -82,8 +116,7 @@ func testLockManager(t *testing.T) {
 		go func(localId int) {
 			ctx := context.WithValue(context.Background(), "ID", localId)
 			for i := 0; i < cycles; i += 1 {
-				obj := &FakeObject{Id: objId}
-				run(ctx, obj, localId, i, time.Duration(localId)*time.Second)
+				run(ctx, localId, i, time.Duration(localId)*time.Second)
 			}
 			wg.Done()
 		}(id)
