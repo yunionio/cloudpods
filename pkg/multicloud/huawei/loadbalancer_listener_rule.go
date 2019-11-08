@@ -94,6 +94,10 @@ func (self *SElbListenerPolicy) Refresh() error {
 	return nil
 }
 
+func (self *SElbListenerPolicy) IsDefault() bool {
+	return false
+}
+
 func (self *SElbListenerPolicy) IsEmulated() bool {
 	return false
 }

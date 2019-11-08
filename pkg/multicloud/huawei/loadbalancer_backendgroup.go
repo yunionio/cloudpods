@@ -468,11 +468,17 @@ func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBacke
 		return nil, err
 	}
 
+	// 过滤掉服务器已经被删除的backend。原因是运管平台查询不到已删除的服务器记录，导致同步出错。产生肮数据。
+	filtedRet := []SElbBackend{}
 	for i := range ret {
-		ret[i].region = self
+		if ret[i].AdminStateUp {
+			backend := ret[i]
+			backend.region = self
+			filtedRet = append(filtedRet, backend)
+		}
 	}
 
-	return ret, nil
+	return filtedRet, nil
 }
 
 func (self *SRegion) GetLoadBalancerHealthCheck(healthCheckId string) (SElbHealthCheck, error) {

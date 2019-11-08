@@ -33,11 +33,11 @@ type SElbListenerRule struct {
 	listener *SElbListener
 	region   *SRegion
 
-	Priority   string      `json:"Priority"`
-	IsDefault  bool        `json:"IsDefault"`
-	Actions    []Action    `json:"Actions"`
-	RuleArn    string      `json:"RuleArn"`
-	Conditions []Condition `json:"Conditions"`
+	Priority      string      `json:"Priority"`
+	IsDefaultRule bool        `json:"IsDefault"`
+	Actions       []Action    `json:"Actions"`
+	RuleArn       string      `json:"RuleArn"`
+	Conditions    []Condition `json:"Conditions"`
 }
 
 type Action struct {
@@ -102,6 +102,10 @@ func (self *SElbListenerRule) Refresh() error {
 	}
 
 	return nil
+}
+
+func (self *SElbListenerRule) IsDefault() bool {
+	return self.IsDefaultRule
 }
 
 func (self *SElbListenerRule) IsEmulated() bool {
