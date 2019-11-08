@@ -520,6 +520,9 @@ func (self *SBaremetalGuestDriver) IsSupportGuestClone() bool {
 
 func (self *SBaremetalGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	host := guest.GetHost()
+	if host == nil {
+		return false, errors.Wrap(httperrors.ErrNotFound, "no host")
+	}
 	ipmiInfo, err := host.GetIpmiInfo()
 	if err != nil {
 		return false, errors.Wrap(err, "host.GetIpmiInfo")
