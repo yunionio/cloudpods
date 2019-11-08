@@ -1244,8 +1244,19 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	_, err = iregion.GetIDiskById(self.ExternalId)
-	if err != cloudprovider.ErrNotFound {
+	iDisk, err := iregion.GetIDiskById(self.ExternalId)
+	if err == nil {
+		if storageId := iDisk.GetIStorageId(); len(storageId) > 0 {
+			storage, err := db.FetchByExternalId(StorageManager, storageId)
+			if err == nil {
+				_, err = db.Update(self, func() error {
+					self.StorageId = storage.GetId()
+					return nil
+				})
+				return err
+			}
+		}
+	} else if err != cloudprovider.ErrNotFound {
 		return err
 	}
 
