@@ -2225,7 +2225,7 @@ func (self *SHuaWeiRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 	if account == "root" {
 		return httperrors.NewInputParameterError("No need to grant or revoke privilege for admin account")
 	}
-	if utils.IsInStringArray(privilege, []string{api.DATABASE_PRIVILEGE_RW, api.DATABASE_PRIVILEGE_R}) {
+	if !utils.IsInStringArray(privilege, []string{api.DATABASE_PRIVILEGE_RW, api.DATABASE_PRIVILEGE_R}) {
 		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
 	}
 	return nil

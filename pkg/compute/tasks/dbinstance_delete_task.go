@@ -45,47 +45,7 @@ func (self *DBInstanceDeleteTask) taskFailed(ctx context.Context, dbinstance *mo
 
 func (self *DBInstanceDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
-
-	keepBackup := false
-	if !dbinstance.GetRegion().GetDriver().IsSupportKeepDBInstanceManualBackup() {
-		keepBackup = jsonutils.QueryBoolean(self.Params, "keep_backup", false)
-	}
-
-	if !keepBackup {
-		self.SetStage("OnBackupDeleteComplete", nil)
-		self.OnBackupDeleteComplete(ctx, dbinstance, nil)
-	} else {
-		self.DeleteDBInstance(ctx, dbinstance)
-	}
-}
-
-func (self *DBInstanceDeleteTask) OnBackupDeleteComplete(ctx context.Context, instance *models.SDBInstance, data jsonutils.JSONObject) {
-	_backups, err := instance.GetDBInstanceBackups()
-	if err != nil {
-		self.taskFailed(ctx, instance, errors.Wrap(err, "instance.GetDBInstanceBackups"))
-		return
-	}
-	backups := []models.SDBInstanceBackup{}
-	for _, backup := range _backups {
-		if backup.BackupMode == api.BACKUP_MODE_MANUAL {
-			backups = append(backups, backup)
-		}
-	}
-	if len(backups) == 0 {
-		self.DeleteDBInstance(ctx, instance)
-		return
-	}
-
-	backups[0].StartDBInstanceBackupDeleteTask(ctx, self.UserCred, self.GetTaskId())
-}
-
-func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, dbinstance *models.SDBInstance) {
-	err := dbinstance.Purge(ctx, self.UserCred)
-	if err != nil {
-		self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.Purge"))
-		return
-	}
-	self.SetStageComplete(ctx, nil)
+	self.DeleteDBInstance(ctx, dbinstance)
 }
 
 func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
@@ -108,4 +68,38 @@ func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, dbinstan
 	}
 
 	self.DeleteDBInstanceComplete(ctx, dbinstance)
+}
+
+func (self *DBInstanceDeleteTask) DeleteDBInstanceComplete(ctx context.Context, dbinstance *models.SDBInstance) {
+	if !dbinstance.GetRegion().GetDriver().IsSupportKeepDBInstanceManualBackup() || jsonutils.QueryBoolean(self.Params, "purge", false) {
+		err := dbinstance.PurgeBackups(ctx, self.UserCred, api.BACKUP_MODE_MANUAL)
+		if err != nil {
+			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.PurgeManualBackups"))
+			return
+		}
+		err = dbinstance.Purge(ctx, self.UserCred)
+		if err != nil {
+			self.taskFailed(ctx, dbinstance, errors.Wrap(err, "dbinstance.Purge"))
+			return
+		}
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	self.DeleteBackups(ctx, dbinstance, nil)
+}
+
+func (self *DBInstanceDeleteTask) DeleteBackups(ctx context.Context, instance *models.SDBInstance, data jsonutils.JSONObject) {
+	if !jsonutils.QueryBoolean(self.Params, "keep_backup", false) {
+		backups, _ := instance.GetDBInstanceBackupByMode(api.BACKUP_MODE_MANUAL)
+		for i := range backups {
+			backups[i].StartDBInstanceBackupDeleteTask(ctx, self.UserCred, "")
+		}
+	}
+	err := instance.Purge(ctx, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, instance, errors.Wrap(err, "instance.Purge"))
+		return
+	}
+	self.SetStageComplete(ctx, nil)
 }
