@@ -124,9 +124,11 @@ func (manager *SReservedipManager) getReservedIP(network *SNetwork, ip string) *
 func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *SReservedip {
 	rip := manager.getReservedIP(network, ip)
 	if rip == nil {
+		log.Errorf("GetReserved IP %s: not found", ip)
 		return nil
 	}
 	if rip.IsExpired() {
+		log.Errorf("GetReserved IP %s: expired", ip)
 		return nil
 	}
 	return rip
@@ -219,7 +221,7 @@ func (manager *SReservedipManager) FilterByName(q *sqlchemy.SQuery, name string)
 }
 
 func (rip *SReservedip) IsExpired() bool {
-	if !rip.ExpiredAt.IsZero() && rip.ExpiredAt.Before(time.Now().UTC()) {
+	if !rip.ExpiredAt.IsZero() && rip.ExpiredAt.Before(time.Now()) {
 		return true
 	}
 	return false
