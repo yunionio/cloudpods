@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -60,6 +61,7 @@ type SLoadbalancerListenerRule struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
+	IsDefault      bool   `default:"false" nullable:"true" list:"user" create:"optional"` // 默认转发策略，目前只有aws用到其它云都是false
 	ListenerId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
@@ -609,6 +611,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 
 func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule) {
 	// lbr.Name = extRule.GetName()
+	lbr.IsDefault = extRule.IsDefault()
 	lbr.Domain = extRule.GetDomain()
 	lbr.Path = extRule.GetPath()
 	lbr.Status = extRule.GetStatus()
@@ -629,6 +632,9 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 		if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 			if err != nil {
+				if err == sql.ErrNoRows {
+					lbr.BackendGroupId = ""
+				}
 				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 			}
 
@@ -658,6 +664,9 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 	case api.CLOUD_PROVIDER_HUAWEI:
 		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				lbr.BackendGroupId = ""
+			}
 			return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
 		}
 
@@ -696,7 +705,6 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	}
 	lbr.Name = newName
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-
 	err = man.TableSpec().Insert(lbr)
 
 	if err != nil {
