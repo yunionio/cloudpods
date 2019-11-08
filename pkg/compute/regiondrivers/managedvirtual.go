@@ -794,7 +794,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetIRegion")
 		}
 
 		if len(loadbalancer.ExternalId) == 0 {
@@ -803,15 +803,20 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetILoadBalancerById")
 		}
+
 		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			return nil, err
+			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetILoadBalancerListenerById")
 		}
+
 		return nil, iListener.Delete()
 	})
 	return nil

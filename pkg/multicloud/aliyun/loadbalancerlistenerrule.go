@@ -54,6 +54,10 @@ func (lbr *SLoadbalancerListenerRule) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
+func (self *SLoadbalancerListenerRule) IsDefault() bool {
+	return false
+}
+
 func (lbr *SLoadbalancerListenerRule) IsEmulated() bool {
 	return false
 }

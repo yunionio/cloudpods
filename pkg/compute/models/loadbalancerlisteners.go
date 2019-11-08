@@ -563,6 +563,25 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerRules() ([]SLoadbalan
 	return rules, nil
 }
 
+func (lblis *SLoadbalancerListener) GetDefaultRule() (*SLoadbalancerListenerRule, error) {
+	q := LoadbalancerListenerRuleManager.Query().Equals("listener_id", lblis.Id).IsFalse("pending_deleted").IsTrue("is_default")
+	rules := []SLoadbalancerListenerRule{}
+	err := db.FetchModelObjects(LoadbalancerListenerRuleManager, q, &rules)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "LoadbalancerListener.GetLoadbalancerDefaultRule")
+	}
+
+	if len(rules) >= 1 {
+		return &rules[0], nil
+	}
+
+	return nil, nil
+}
+
 func (lblis *SLoadbalancerListener) GetHuaweiLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
 	listener, err := lblis.GetLoadbalancerListenerParams()
 	if err != nil {
@@ -855,6 +874,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		if len(groupId) > 0 {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 			if err != nil {
+				if err == sql.ErrNoRows {
+					lblis.BackendGroupId = ""
+				}
 				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 			} else {
 				lblis.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
@@ -867,6 +889,17 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 				log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
 			} else {
 				lblis.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
+				if rule, err := lblis.GetDefaultRule(); err != nil || rule == nil {
+					log.Warningf("LoadbalancerListener %s default rule not found %s", lblis.GetId(), err)
+				} else {
+					_, err = db.Update(rule, func() error {
+						rule.BackendGroupId = lblis.BackendGroupId
+						return nil
+					})
+					if err != nil {
+						log.Errorf("Update default rule %s backendgroup failed %s", rule.GetId(), err)
+					}
+				}
 			}
 		}
 	default:
@@ -888,7 +921,11 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 	case api.CLOUD_PROVIDER_HUAWEI:
 		_group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, exteralLbbgId)
 		if err != nil {
-			return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+			if err == sql.ErrNoRows {
+				lblis.BackendGroupId = ""
+			} else {
+				return fmt.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+			}
 		}
 
 		if _group != nil {

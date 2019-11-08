@@ -237,7 +237,7 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 			}
 
 			count, err := q2.CountWithError()
-			if err != sql.ErrNoRows {
+			if err != nil && err != sql.ErrNoRows {
 				return nil, err
 			}
 

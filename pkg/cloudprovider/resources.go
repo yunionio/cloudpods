@@ -551,6 +551,7 @@ type ICloudLoadbalancerListener interface {
 type ICloudLoadbalancerListenerRule interface {
 	IVirtualResource
 
+	IsDefault() bool
 	GetDomain() string
 	GetPath() string
 	GetCondition() string

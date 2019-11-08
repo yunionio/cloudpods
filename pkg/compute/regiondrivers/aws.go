@@ -733,12 +733,33 @@ func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 }
 
 func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend) (jsonutils.JSONObject, error) {
+	group, err := lbbg.GetAwsBackendGroupParams(lblis, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetAwsBackendGroupParams")
+	}
+
+	iRegion, err := lbbg.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetIRegion")
+	}
+
+	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetILoadBalancerById")
+	}
+
+	iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(group)
+	if err != nil {
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.CreateILoadBalancerBackendGroup")
+	}
+
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SAwsCachedLbbg{}
 	cachedLbbg.ManagerId = lb.ManagerId
 	cachedLbbg.CloudregionId = lb.CloudregionId
 	cachedLbbg.LoadbalancerId = lb.GetId()
 	cachedLbbg.BackendGroupId = lbbg.GetId()
+	cachedLbbg.ExternalId = iLoadbalancerBackendGroup.GetGlobalId()
 	cachedLbbg.ProtocolType = lblis.ListenerType
 	cachedLbbg.Port = lblis.ListenerPort
 	cachedLbbg.TargetType = "instance"
@@ -746,62 +767,32 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 	cachedLbbg.HealthCheckProtocol = lblis.HealthCheckType
 	cachedLbbg.HealthCheckInterval = lblis.HealthCheckInterval
 
-	err := models.AwsCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	err = models.AwsCachedLbbgManager.TableSpec().Insert(cachedLbbg)
 	if err != nil {
-		return nil, err
-	}
-
-	group, err := lbbg.GetAwsBackendGroupParams(lblis, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	iRegion, err := lbbg.GetIRegion()
-	if err != nil {
-		return nil, err
-	}
-
-	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-	if err != nil {
-		return nil, err
-	}
-
-	iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(group)
-	if err != nil {
-		return nil, err
-	}
-
-	cachedLbbg.SetModelManager(models.AwsCachedLbbgManager, cachedLbbg)
-	if err := db.SetExternalId(cachedLbbg, userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.Insert")
 	}
 
 	for _, backend := range backends {
-		cachedlbb := &models.SAwsCachedLb{}
-		cachedlbb.ManagerId = lb.ManagerId
-		cachedlbb.CloudregionId = lb.CloudregionId
-		cachedlbb.CachedBackendGroupId = cachedLbbg.GetId()
-		cachedlbb.BackendId = backend.ID
-		err = models.AwsCachedLbManager.TableSpec().Insert(cachedlbb)
-		if err != nil {
-			return nil, err
-		}
-
 		ibackend, err := iLoadbalancerBackendGroup.AddBackendServer(backend.ExternalID, backend.Weight, backend.Port)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.AddBackendServer")
 		}
 
-		cachedlbb.SetModelManager(models.AwsCachedLbManager, cachedlbb)
-		err = db.SetExternalId(cachedlbb, userCred, ibackend.GetGlobalId())
+		_lbb, err := db.FetchById(models.LoadbalancerBackendManager, backend.ID)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.FetchLbbById")
+		}
+
+		lbb := _lbb.(*models.SLoadbalancerBackend)
+		_, err = models.AwsCachedLbManager.CreateAwsCachedLb(ctx, userCred, lbb, cachedLbbg, ibackend, lb.GetOwnerId())
+		if err != nil {
+			return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.CreateAwsCachedLb")
 		}
 	}
 
 	iBackends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "AwsRegionDriver.createlbBackendgroup.GetILoadbalancerBackends")
 	}
 	if len(iBackends) > 0 {
 		provider := lb.GetCloudprovider()
@@ -810,8 +801,8 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 		}
 		models.AwsCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, cachedLbbg, iBackends, &models.SSyncRange{})
 	}
-	return nil, nil
 
+	return nil, nil
 }
 
 func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
@@ -862,7 +853,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 
 		cachedlbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.GetCachedBackendGroups")
 		}
 
 		guest := lbb.GetGuest()
@@ -874,23 +865,23 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 		for _, cachedLbbg := range cachedlbbgs {
 			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.GetICloudLoadbalancerBackendGroup")
 			}
 
 			ibackend, err = iLoadbalancerBackendGroup.AddBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.AddBackendServer")
 			}
 
 			_, err = models.AwsCachedLbManager.CreateAwsCachedLb(ctx, userCred, lbb, &cachedLbbg, ibackend, cachedLbbg.GetOwnerId())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.CreateAwsCachedLb")
 			}
 		}
 
 		if ibackend != nil {
 			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
 		return nil, nil
@@ -906,7 +897,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Conte
 
 		cachedlbbs, err := models.AwsCachedLbManager.GetBackendsByLocalBackendId(lbb.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.GetBackendsByLocalBackendId")
 		}
 
 		for _, cachedlbb := range cachedlbbs {
@@ -920,25 +911,33 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Conte
 			}
 			iRegion, err := lb.GetIRegion()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.GetIRegion")
 			}
 			iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.GetILoadBalancerById")
 			}
 			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedlbbg.ExternalId)
-			if err != nil {
-				return nil, err
+			if err == nil {
+				_guest, err := db.FetchById(models.GuestManager, lbb.BackendId)
+				if err != nil {
+					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.FetchGuestById")
+				}
+
+				guest := _guest.(*models.SGuest)
+				err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+				if err != nil && err != cloudprovider.ErrNotFound {
+					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.RemoveBackendServer")
+				}
 			}
 
-			err = iLoadbalancerBackendGroup.RemoveBackendServer(cachedlbb.ExternalId, lbb.Weight, lbb.Port)
-			if err != nil {
-				return nil, err
+			if err != cloudprovider.ErrNotFound {
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
 			}
 
 			err = db.DeleteModel(ctx, userCred, &cachedlbb)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackend.DeleteModel")
 			}
 		}
 
@@ -1107,7 +1106,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 
 		iRegion, err := lbbg.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetIRegion")
 		}
 		loadbalancer := lbbg.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -1118,12 +1117,12 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 			if err == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerById")
 		}
 
 		cachedLbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetCachedBackendGroups")
 		}
 
 		for i := range cachedLbbgs {
@@ -1137,17 +1136,17 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 				if err == cloudprovider.ErrNotFound {
 					return nil, nil
 				}
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
 			}
 
 			err = iLoadbalancerBackendGroup.Delete()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
 			}
 
 			err = cachedLbbg.Delete(ctx, userCred)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.Delete")
 			}
 		}
 
@@ -1166,36 +1165,90 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			return nil, nil
 		}
 
-		{
-			lbbgs, err := lb.GetLoadbalancerBackendgroups()
-			if err != nil {
-				return nil, err
-			}
-
-			for i := range lbbgs {
-				lbbg := &lbbgs[i]
-				err := self.RequestDeleteLoadbalancerBackendGroup(ctx, userCred, lbbg, task)
-				if err != nil {
-					lbbg.SetStatus(userCred, api.LB_STATUS_DELETE_FAILED, err.Error())
-					return nil, err
-				} else {
-					lbbg.LBPendingDelete(ctx, userCred)
-				}
-			}
-		}
-
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.GetIRegion")
 		}
+
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
-			return nil, err
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.GetILoadBalancerById")
 		}
-		return nil, iLoadbalancer.Delete()
+
+		lbbgs, err := lb.GetLoadbalancerBackendgroups()
+		if err != nil {
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.GetLoadbalancerBackendgroups")
+		}
+
+		// cachedLbbgs
+		ilbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
+		for i := range lbbgs {
+			lbbg := lbbgs[i]
+			cachedLbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
+			if err != nil {
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetCachedBackendGroups")
+			}
+
+			for i := range cachedLbbgs {
+				cachedLbbg := cachedLbbgs[i]
+				if len(cachedLbbg.ExternalId) == 0 {
+					continue
+				}
+
+				iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedLbbg.ExternalId)
+				if err != nil {
+					if err == cloudprovider.ErrNotFound {
+						return nil, nil
+					}
+					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
+				}
+
+				ilbbgs = append(ilbbgs, iLoadbalancerBackendGroup)
+			}
+		}
+
+		err = iLoadbalancer.Delete()
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.Delete")
+			}
+		}
+
+		// delete backendgroups
+		{
+			// delete remote lbbgs
+			for i := range ilbbgs {
+				ilbbg := ilbbgs[i]
+				err = ilbbg.Delete()
+				if err != nil {
+					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
+				}
+			}
+
+			// delete local lbbgs
+			for i := range lbbgs {
+				lbbg := &lbbgs[i]
+				cachedLbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
+				if err != nil {
+					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetCachedBackendGroups")
+				}
+
+				for j := range cachedLbbgs {
+					cachedLbbg := cachedLbbgs[j]
+					err = cachedLbbg.Delete(ctx, userCred)
+					if err != nil {
+						return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.Delete")
+					}
+				}
+
+				lbbg.LBPendingDelete(ctx, userCred)
+			}
+		}
+
+		return nil, nil
 	})
 	return nil
 }
