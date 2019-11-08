@@ -40,3 +40,10 @@ dbinstance:
   in: query
   type: string
   description: 根据RDS实例名称或ID过滤资源
+
+keep_backup:
+  name: keep_backup
+  in: body
+  type: boolean
+  default: false
+  description: 删除RDS实例时保留手动备份

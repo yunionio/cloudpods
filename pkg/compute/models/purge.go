@@ -1354,17 +1354,15 @@ func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (instance *SDBInstance) purgeBackups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	backups, err := instance.GetDBInstanceBackups()
+func (instance *SDBInstance) PurgeBackups(ctx context.Context, userCred mcclient.TokenCredential, mode string) error {
+	backups, err := instance.GetDBInstanceBackupByMode(mode)
 	if err != nil {
 		return errors.Wrap(err, "instance.GetDBInstanceBackups")
 	}
 	for _, backup := range backups {
-		if backup.BackupMode == api.BACKUP_MODE_AUTOMATED {
-			err = backup.purge(ctx, userCred)
-			if err != nil {
-				return errors.Wrapf(err, "backup.purge %s(%s)", backup.Name, backup.Id)
-			}
+		err = backup.purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "backup.purge %s(%s)", backup.Name, backup.Id)
 		}
 	}
 	return nil
@@ -1394,7 +1392,7 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
-	err = instance.purgeBackups(ctx, userCred)
+	err = instance.PurgeBackups(ctx, userCred, api.BACKUP_MODE_AUTOMATED)
 	if err != nil {
 		return errors.Wrap(err, "instance.purgeBackups")
 	}

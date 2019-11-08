@@ -231,8 +231,17 @@ func init() {
 		return nil
 	})
 
-	R(&DBInstanceIdOptions{}, "dbinstance-delete", "Delete DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
-		result, err := modules.DBInstance.Delete(s, opts.ID, nil)
+	type DBInstanceDeleteOptions struct {
+		ID         string `help:"DBInstance Id or name"`
+		KeepBackup bool   `help:"Keep dbinstance manual backup after delete dbinstance"`
+	}
+
+	R(&DBInstanceDeleteOptions{}, "dbinstance-delete", "Delete DB instance", func(s *mcclient.ClientSession, opts *DBInstanceDeleteOptions) error {
+		params := jsonutils.NewDict()
+		if opts.KeepBackup {
+			params.Add(jsonutils.JSONTrue, "keep_backup")
+		}
+		result, err := modules.DBInstance.Delete(s, opts.ID, params)
 		if err != nil {
 			return err
 		}
