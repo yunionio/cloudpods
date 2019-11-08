@@ -45,7 +45,7 @@ func DumpMapToObject(data map[string]string, obj interface{}) error {
 	return jsonutils.Marshal(data).Unmarshal(obj)
 }
 
-func ParseDMISysinfo(lines []string) (*types.SDMISystemInfo, error) {
+func ParseDMISysinfo(lines []string) (*types.SSystemInfo, error) {
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("Empty input")
 	}
@@ -64,7 +64,7 @@ func ParseDMISysinfo(lines []string) (*types.SDMISystemInfo, error) {
 			}
 		}
 	}
-	info := types.SDMISystemInfo{}
+	info := types.SSystemInfo{}
 	err := DumpMapToObject(ret, &info)
 	if err != nil {
 		return nil, err
@@ -72,6 +72,7 @@ func ParseDMISysinfo(lines []string) (*types.SDMISystemInfo, error) {
 	if strings.ToLower(info.Version) == "none" {
 		info.Version = ""
 	}
+	info.OemName = types.ManufactureOemName(info.Manufacture)
 	return &info, nil
 }
 

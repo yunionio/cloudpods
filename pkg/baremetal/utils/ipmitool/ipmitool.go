@@ -155,7 +155,7 @@ func GetSysGuid(exector IPMIExecutor) string {
 	return ""
 }
 
-func GetSysInfo(exector IPMIExecutor) (*types.SIPMISystemInfo, error) {
+func GetSysInfo(exector IPMIExecutor) (*types.SSystemInfo, error) {
 	// TODO: do cache
 	args := []string{"fru", "print", "0"}
 	lines, err := exector.ExecuteCommand(args...)
@@ -190,20 +190,21 @@ func GetSysInfo(exector IPMIExecutor) (*types.SIPMISystemInfo, error) {
 		// no product serial
 		ret["sn"] = bsn
 	}
-	info := types.SIPMISystemInfo{}
+	info := types.SSystemInfo{}
 	err = sysutils.DumpMapToObject(ret, &info)
+	info.OemName = types.ManufactureOemName(info.Manufacture)
 	return &info, err
 }
 
-func GetLanChannels(sysinfo *types.SIPMISystemInfo) []int {
+func GetLanChannels(sysinfo *types.SSystemInfo) []int {
 	return profiles.GetLanChannel(sysinfo)
 }
 
-func GetDefaultLanChannel(sysinfo *types.SIPMISystemInfo) int {
+func GetDefaultLanChannel(sysinfo *types.SSystemInfo) int {
 	return GetLanChannels(sysinfo)[0]
 }
 
-func GetRootId(sysinfo *types.SIPMISystemInfo) int {
+func GetRootId(sysinfo *types.SSystemInfo) int {
 	return profiles.GetRootId(sysinfo)
 }
 
