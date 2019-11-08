@@ -32,9 +32,9 @@ function pr_state() {
     hub api repos/{owner}/{repo}/pulls/$PRN | python -m json.tool | grep '"state"' | cut -d '"' -f 4
 }
 
-function last_commit() {
+function last_commits() {
     local PRN=$1
-    hub api repos/{owner}/{repo}/pulls/$PRN/commits | python -m json.tool | grep '"comments_url"' | tail -1 | cut -d "/" -f 8
+    hub api repos/{owner}/{repo}/pulls/$PRN/commits | python -m json.tool | grep '"comments_url"' | awk '{ lifo[NR]=$0; lno=NR } END{ for(;lno>0;lno--){ print lifo[lno]; } }' | cut -d "/" -f 8
 }
 
 function last_check() {
@@ -73,26 +73,39 @@ function label() {
     return 1
 }
 
+echo "#1. check status of pull request $PR"
+
 STATE=$(pr_state $PR)
 if [ "$STATE" != "open" ]; then
-    echo "Pull request $PR state $STATE != open, exit..."
+    echo "Pull request $PR state $STATE, exit..."
     exit 0
 fi
+
+echo "Pull request state is open, continue..."
+
+echo "#2. check pull request $PR is mergeable"
 
 if ! mergeable $PR; then
     echo "Pull request $PR is not mergeable (DIRTY), exit..."
     exit 1
 fi
 
+echo "#3. check all checks of pull request $PR have been passed"
+
 CHECKED=
-COMMIT=$(last_commit $PR)
-for RESULT in $(last_check $COMMIT)
+for COMMIT in $(last_commits $PR)
 do
-    CHECKED=yes
-    echo "Last commit $COMMIT check result: $RESULT"
-    if [ "$RESULT" != "success" ]; then
-        echo "Cannot approve before all checks success"
-        exit 1
+    for RESULT in $(last_check $COMMIT)
+    do
+        echo "Commit $COMMIT check result: $RESULT"
+        if [ "$RESULT" != "success" ]; then
+            echo "Cannot approve before all checks success"
+            exit 1
+        fi
+        CHECKED=yes
+    done
+    if [ -n "$CHECKED" ]; then
+        break
     fi
 done
 
