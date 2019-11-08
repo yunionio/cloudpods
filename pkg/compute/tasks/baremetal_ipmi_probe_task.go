@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type BaremetalIpmiProbeTask struct {
@@ -47,12 +48,13 @@ func (self *BaremetalIpmiProbeTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *BaremetalIpmiProbeTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason string) {
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_PROBE, reason, self.UserCred, false)
 	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PROBE_FAIL, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
 func (self *BaremetalIpmiProbeTask) OnSyncConfigComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	// baremetal.ClearSchedDescCache()
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_PROBE, baremetal.GetShortDesc(ctx), self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
