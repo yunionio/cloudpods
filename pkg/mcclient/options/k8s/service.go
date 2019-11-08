@@ -28,10 +28,10 @@ type ServiceSpecOptions struct {
 }
 
 func (o ServiceSpecOptions) Params() (*jsonutils.JSONDict, error) {
-	params := jsonutils.NewDict()
 	if len(o.Port) == 0 {
-		return params, nil
+		return nil, nil
 	}
+	params := jsonutils.NewDict()
 	portMappings, err := parsePortMappings(o.Port)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,10 @@ func (o ServiceSpecOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	params.Add(portMappings, "portMappings")
 	return params, nil
+}
+
+func (o ServiceSpecOptions) Attach(data *jsonutils.JSONDict) error {
+	return attachData(o, data, "service")
 }
 
 type ServiceCreateOptions struct {
