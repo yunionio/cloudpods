@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os/exec"
 
+	"yunion.io/x/log"
+
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
@@ -44,14 +46,23 @@ func NewIpmitoolSolCommand(info *IpmiInfo) (*IpmitoolSol, error) {
 		return nil, fmt.Errorf("Empty password")
 	}
 	name := o.Options.IpmitoolPath
-	cmd := NewBaseCommand(name, "-I", "lanplus")
-	cmd.AppendArgs("-H", info.IpAddr)
-	cmd.AppendArgs("-U", info.Username)
-	cmd.AppendArgs("-P", info.Password)
-	cmd.AppendArgs("sol", "activate")
+	solArgs := []string{
+		"-I", "lanplus",
+		"-H", info.IpAddr,
+		"-U", info.Username,
+		"-P", info.Password,
+		"sol",
+	}
+	cmd := NewBaseCommand(name, solArgs...)
+	cmd.AppendArgs("activate")
 	tool := &IpmitoolSol{
 		BaseCommand: cmd,
 		Info:        info,
+	}
+	deactiveCmd := exec.Command(name, solArgs...)
+	deactiveCmd.Args = append(deactiveCmd.Args, "deactivate")
+	if err := deactiveCmd.Run(); err != nil {
+		log.Errorf("ipmitool sol deactive %q error: %v", info.IpAddr, err)
 	}
 	return tool, nil
 }
