@@ -61,6 +61,7 @@ func (self *ElasticcacheAclDeleteTask) OnInit(ctx context.Context, obj db.IStand
 			self.taskFail(ctx, ea, err.Error())
 			return
 		}
+		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, nil, self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

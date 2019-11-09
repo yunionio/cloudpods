@@ -250,6 +250,11 @@ const (
 	ACT_RESTORE          = "restore"
 	ACT_CHANGE_CONFIG    = "change_config"
 	ACT_RESET_PASSWORD   = "reset_password"
+
+	ACT_SUBIMAGE_UPDATE_FAIL = "guest_image_subimages_update_fail"
+
+	ACT_FLUSH_INSTANCE      = "flush_instance"
+	ACT_FLUSH_INSTANCE_FAIL = "flush_instance_fail"
 )
 
 type SOpsLogManager struct {

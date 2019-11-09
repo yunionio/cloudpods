@@ -60,6 +60,7 @@ func (self *ElasticcacheDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		ec.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RELEASED, "")
 		// delete related resources
 		ec.DeleteSubResources(ctx, self.UserCred)
+		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_DELETE, "", self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

@@ -57,6 +57,7 @@ func (self *ElasticcacheRestartTask) OnInit(ctx context.Context, obj db.IStandal
 		self.taskFail(ctx, ec, err.Error())
 		return
 	} else {
+		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_VM_RESTART, nil, self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

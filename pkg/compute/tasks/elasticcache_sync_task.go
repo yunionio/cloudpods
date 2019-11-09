@@ -57,6 +57,7 @@ func (self *ElasticcacheSyncTask) OnInit(ctx context.Context, obj db.IStandalone
 		self.taskFail(ctx, ec, err.Error())
 		return
 	} else {
+		logclient.AddActionLogWithStartable(self, ec, logclient.ACT_SYNC_CONF, "", self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

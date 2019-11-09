@@ -59,6 +59,7 @@ func (self *ElasticcacheAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 }
 
 func (self *ElasticcacheAclCreateTask) OnElasticcacheAclCreateComplete(ctx context.Context, ea *models.SElasticcacheAcl, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
