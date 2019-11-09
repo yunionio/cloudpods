@@ -175,4 +175,6 @@ const (
 
 	ACT_INSTANCE_GROUP_BIND   = "绑定主机组"
 	ACT_INSTANCE_GROUP_UNBIND = "解绑主机组"
+
+	ACT_FLUSH_INSTANCE = "清空数据"
 )

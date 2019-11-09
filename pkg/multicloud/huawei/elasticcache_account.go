@@ -32,7 +32,7 @@ type SElasticcacheAccount struct {
 }
 
 func (self *SElasticcacheAccount) GetId() string {
-	return fmt.Sprintf("%s/%s", self.cacheDB.InstanceID, self.cacheDB.AccessUser)
+	return fmt.Sprintf("%s/admin", self.cacheDB.InstanceID)
 }
 
 func (self *SElasticcacheAccount) GetName() string {
@@ -56,28 +56,11 @@ func (self *SElasticcacheAccount) GetAccountPrivilege() string {
 }
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423031.html
-// 未找到关闭密码的开放api
+// 未找到关闭密码的开放api， 不支持开启/关闭密码访问
 // https://console.huaweicloud.com/dcs/rest/v2/41f6bfe48d7f4455b7754f7c1b11ae34/instances/26db46e2-c7d8-4b5e-bd36-b5278d2fe17c/password/reset
 // new_password: "26db46e2!"
 // no_password_access: false
 func (self *SElasticcacheAccount) ResetPassword(input cloudprovider.SCloudElasticCacheAccountResetPasswordInput) error {
-	if input.NoPasswordAccess != nil {
-		params := jsonutils.NewDict()
-		if *input.NoPasswordAccess == true {
-			params.Set("no_password_access", jsonutils.JSONTrue)
-		} else {
-			params.Set("no_password_access", jsonutils.JSONFalse)
-		}
-
-		params.Set("new_password", jsonutils.JSONNull)
-		err := DoUpdateWithSpec(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "password/reset", params)
-		if err != nil {
-			return errors.Wrap(err, "elasticcacheAccount.NoPasswordAccess")
-		}
-
-		return nil
-	}
-
 	if input.OldPassword == nil {
 		return fmt.Errorf("elasticcacheAccount.ResetPassword.input OldPassword should not be empty")
 	}

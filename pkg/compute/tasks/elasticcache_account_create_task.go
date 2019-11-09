@@ -60,6 +60,7 @@ func (self *ElasticcacheAccountCreateTask) OnInit(ctx context.Context, obj db.IS
 }
 
 func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateComplete(ctx context.Context, ea *models.SElasticcacheAccount, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -460,7 +460,7 @@ func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (self *SElasticcache) GetCreateAliyunElasticcacheParams() (*cloudprovider.SCloudElasticCacheInput, error) {
+func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
 	iregion, err := self.GetIRegion()
 	if err != nil {
@@ -472,8 +472,10 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams() (*cloudprovider.S
 	input.InstanceType = self.InstanceType
 	input.InstanceName = self.GetName()
 
-	// todo: inject password here
-	// 	input.Password = "xxxx"
+	if password, _ := data.GetString("password"); len(password) > 0 {
+		input.Password = password
+	}
+
 	input.Engine = strings.Title(self.Engine)
 	input.EngineVersion = self.EngineVersion
 	input.PrivateIpAddress = self.PrivateIpAddr
@@ -539,7 +541,7 @@ func (self *SElasticcache) GetCreateAliyunElasticcacheParams() (*cloudprovider.S
 	return input, nil
 }
 
-func (self *SElasticcache) GetCreateHuaweiElasticcacheParams() (*cloudprovider.SCloudElasticCacheInput, error) {
+func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
 	iregion, err := self.GetIRegion()
 	if err != nil {
@@ -552,16 +554,13 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams() (*cloudprovider.S
 		input.CapacityGB = int64(self.CapacityMB / 1024)
 	}
 
-	sku, err := db.FetchById(ElasticcacheSkuManager, self.InstanceType)
-	if err != nil {
-		return nil, err
-	}
-
-	input.InstanceType = sku.(*SElasticcacheSku).InstanceSpec
+	input.InstanceType = self.InstanceType
 	input.InstanceName = self.GetName()
 
-	// todo: inject password here
-	// 	input.Password = "xxxx"
+	if password, _ := data.GetString("password"); len(password) > 0 {
+		input.Password = password
+	}
+
 	switch self.Engine {
 	case "redis":
 		input.Engine = "Redis"
@@ -648,6 +647,7 @@ func (self *SElasticcache) AllowPerformRestart(ctx context.Context, userCred mcc
 
 func (self *SElasticcache) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if utils.IsInStringArray(self.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING, api.ELASTIC_CACHE_STATUS_INACTIVE}) {
+		self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RESTARTING, "")
 		return nil, self.StartRestartTask(ctx, userCred, "", data)
 	} else {
 		return nil, httperrors.NewInvalidStatusError("Cannot do restart elasticcache instance in status %s", self.Status)
@@ -723,11 +723,11 @@ func (self *SElasticcache) PerformChangeSpec(ctx context.Context, userCred mccli
 	params := jsonutils.NewDict()
 	sku, _ := data.GetString("sku_ext_id")
 	params.Set("sku_ext_id", jsonutils.NewString(sku))
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartChangeSpecTask(ctx, userCred, params, "")
 }
 
 func (self *SElasticcache) StartChangeSpecTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheChangeSpecTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -742,6 +742,21 @@ func (self *SElasticcache) AllowPerformUpdateAuthMode(ctx context.Context, userC
 }
 
 func (self *SElasticcache) ValidatorUpdateAuthModeData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("fail to found region for elastic cache")
+	}
+
+	driver := region.GetDriver()
+	if driver == nil {
+		return nil, fmt.Errorf("fail to found driver for elastic cache")
+	}
+
+	err := driver.AllowUpdateElasticcacheAuthMode(ctx, userCred, self.GetOwnerId(), self)
+	if err != nil {
+		return nil, err
+	}
+
 	authModeV := validators.NewStringChoicesValidator("auth_mode", choices.NewChoices("on", "off"))
 	if err := authModeV.Optional(false).Validate(data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
@@ -763,6 +778,7 @@ func (self *SElasticcache) PerformUpdateAuthMode(ctx context.Context, userCred m
 	params := jsonutils.NewDict()
 	authMode, _ := data.GetString("auth_mode")
 	params.Set("auth_mode", jsonutils.NewString(authMode))
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateAuthModeTask(ctx, userCred, params, "")
 }
 
@@ -805,6 +821,7 @@ func (self *SElasticcache) PerformResetPassword(ctx context.Context, userCred mc
 		return nil, err
 	}
 
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartResetPasswordTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -875,6 +892,7 @@ func (self *SElasticcache) PerformSetMaintainTime(ctx context.Context, userCred 
 	endTime, _ := data.GetString("maintain_end_time")
 	params.Set("maintain_start_time", jsonutils.NewString(startTime))
 	params.Set("maintain_end_time", jsonutils.NewString(endTime))
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartSetMaintainTimeTask(ctx, userCred, params, "")
 }
 
@@ -915,6 +933,7 @@ func (self *SElasticcache) PerformAllocatePublicConnection(ctx context.Context, 
 	params := jsonutils.NewDict()
 	port, _ := data.Int("port")
 	params.Set("port", jsonutils.NewInt(port))
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
 	return nil, self.StartAllocatePublicConnectionTask(ctx, userCred, params, "")
 }
 
@@ -946,6 +965,7 @@ func (self *SElasticcache) PerformReleasePublicConnection(ctx context.Context, u
 		return nil, err
 	}
 
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_NETWORKMODIFYING, "")
 	return nil, self.StartReleasePublicConnectionTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -1005,6 +1025,7 @@ func (self *SElasticcache) PerformUpdateInstanceParameters(ctx context.Context, 
 	params := jsonutils.NewDict()
 	parameters, _ := data.Get("parameters")
 	params.Set("parameters", parameters)
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateInstanceParametersTask(ctx, userCred, params, "")
 }
 
@@ -1051,6 +1072,7 @@ func (self *SElasticcache) PerformUpdateBackupPolicy(ctx context.Context, userCr
 		return nil, err
 	}
 
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
 	return nil, self.StartUpdateBackupPolicyTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -1069,6 +1091,7 @@ func (self *SElasticcache) AllowPerformSync(ctx context.Context, userCred mcclie
 }
 
 func (self *SElasticcache) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_SYNCING, "")
 	return nil, self.StartSyncTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 

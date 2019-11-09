@@ -84,18 +84,16 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkus() ([]SElasticcacheSku, error)
 			return nil, errors.Wrap(err, "obj.Unmarshal")
 		}
 		// 处理数据
-		provider := sku.Provider
-		region := sku.CloudregionId
-
 		sku.Id = ""
-		r, err := self.fetchRegion(provider, region)
+
+		r, err := self.fetchRegion(sku.CloudregionId)
 		if err != nil {
 			return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.fetchRegion")
 		}
 		sku.CloudregionId = r.GetId()
 
 		if len(sku.ZoneId) > 0 {
-			zone, err := self.fetchZone(provider, region, sku.ZoneId)
+			zone, err := self.fetchZone(sku.ZoneId)
 			if err != nil {
 				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.MasterZone")
 			}
@@ -104,7 +102,7 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkus() ([]SElasticcacheSku, error)
 		}
 
 		if len(sku.SlaveZoneId) > 0 {
-			zone, err := self.fetchZone(provider, region, sku.SlaveZoneId)
+			zone, err := self.fetchZone(sku.SlaveZoneId)
 			if err != nil {
 				return nil, errors.Wrap(err, "SkuResourcesMeta.GetElasticCacheSkus.SlaveZone")
 			}
@@ -117,12 +115,11 @@ func (self *SSkuResourcesMeta) GetElasticCacheSkus() ([]SElasticcacheSku, error)
 	return result, nil
 }
 
-func (self *SSkuResourcesMeta) fetchZone(provider, region, zone string) (*SZone, error) {
+func (self *SSkuResourcesMeta) fetchZone(zoneExternalId string) (*SZone, error) {
 	if self.zoneCaches == nil {
 		self.zoneCaches = map[string]*SZone{}
 	}
 
-	zoneExternalId := strings.Join([]string{provider, region, zone}, "/")
 	if z, ok := self.zoneCaches[zoneExternalId]; ok {
 		return z, nil
 	}
@@ -137,12 +134,11 @@ func (self *SSkuResourcesMeta) fetchZone(provider, region, zone string) (*SZone,
 	return z, nil
 }
 
-func (self *SSkuResourcesMeta) fetchRegion(provider, region string) (*SCloudregion, error) {
+func (self *SSkuResourcesMeta) fetchRegion(regionExternalId string) (*SCloudregion, error) {
 	if self.regionCaches == nil {
 		self.regionCaches = map[string]*SCloudregion{}
 	}
 
-	regionExternalId := strings.Join([]string{provider, region}, "/")
 	if r, ok := self.regionCaches[regionExternalId]; ok {
 		return r, nil
 	}

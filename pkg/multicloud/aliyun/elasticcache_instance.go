@@ -209,14 +209,14 @@ func (self *SElasticcache) GetCapacityMB() int {
 func (self *SElasticcache) GetArchType() string {
 	switch self.ArchitectureType {
 	case "rwsplit":
-		return "rwsplit"
+		return api.ELASTIC_CACHE_ARCH_TYPE_RWSPLIT
 	case "cluster":
-		return "cluster"
+		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	case "standard":
 		if self.NodeType == "single" {
-			return "single"
+			return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
 		} else if self.NodeType == "double" {
-			return "master"
+			return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
 		}
 	}
 

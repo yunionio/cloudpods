@@ -2418,7 +2418,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 
 		provider := iprovider.(*models.SCloudprovider)
 
-		params, err := ec.GetCreateHuaweiElasticcacheParams()
+		params, err := ec.GetCreateHuaweiElasticcacheParams(task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.CreateElasticcache.GetCreateHuaweiElasticcacheParams")
 		}
@@ -2545,4 +2545,20 @@ func (self *SHuaWeiRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 	}
 
 	return ea.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
+}
+
+func (self *SHuaWeiRegionDriver) RequestUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	return errors.Wrap(fmt.Errorf("not support update huawei elastic cache auth_mode"), "HuaWeiRegionDriver.RequestUpdateElasticcacheAuthMode")
+}
+
+func (self *SHuaWeiRegionDriver) AllowCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
+	if elasticcache.LocalCategory == api.ELASTIC_CACHE_ARCH_TYPE_SINGLE {
+		return httperrors.NewBadRequestError("huawei %s mode elastic not support create backup", elasticcache.LocalCategory)
+	}
+
+	return nil
+}
+
+func (self *SHuaWeiRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
+	return fmt.Errorf("not support update huawei elastic cache auth_mode")
 }

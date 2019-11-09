@@ -946,6 +946,10 @@ func (self *SKVMRegionDriver) ValidateCreateElasticcacheAclData(ctx context.Cont
 	return nil, nil
 }
 
+func (self *SKVMRegionDriver) AllowCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
+	return fmt.Errorf("not support create kvm elastic cache backup")
+}
+
 func (self *SKVMRegionDriver) ValidateCreateElasticcacheBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, nil
 }
@@ -984,4 +988,8 @@ func (self *SKVMRegionDriver) RequestElasticcacheAclUpdate(ctx context.Context, 
 
 func (self *SKVMRegionDriver) RequestElasticcacheBackupRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheBackup, task taskman.ITask) error {
 	return nil
+}
+
+func (self *SKVMRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
+	return fmt.Errorf("not support update kvm elastic cache auth_mode")
 }

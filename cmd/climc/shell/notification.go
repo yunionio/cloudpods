@@ -61,7 +61,6 @@ func init() {
 	 * 发送全局通知
 	 */
 	type NotificationBroadcastOptions struct {
-
 		// CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|/webconsole" choices:"email|mobile|dingtalk|webconsole"`
 		Topic    string `required:"true" help:"Title or topic of the notification"`
 		Priority string `help:"Priority of the notification" choices:"normal|important|fatal" default:"normal"`
