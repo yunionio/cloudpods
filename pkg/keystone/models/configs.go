@@ -15,21 +15,22 @@
 package models
 
 import (
-	"context"
 	"database/sql"
 	"sort"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 )
 
 type SConfigOptionManager struct {
 	db.SResourceBaseManager
+	IsSensitive bool
 }
 
 var (
@@ -45,6 +46,7 @@ func init() {
 			"sensitive_config",
 			"sensitive_configs",
 		),
+		IsSensitive: true,
 	}
 	SensitiveConfigManager.SetVirtualObject(SensitiveConfigManager)
 	WhitelistedConfigManager = &SConfigOptionManager{
@@ -54,6 +56,7 @@ func init() {
 			"whitelisted_config",
 			"whitelisted_configs",
 		),
+		IsSensitive: false,
 	}
 	WhitelistedConfigManager.SetVirtualObject(WhitelistedConfigManager)
 }
@@ -72,20 +75,29 @@ func init() {
 type SConfigOption struct {
 	db.SResourceBase
 
-	IdpId  string `name:"domain_id" width:"64" charset:"ascii" primary:"true"`
-	Group  string `width:"255" charset:"utf8" primary:"true"`
-	Option string `width:"255" charset:"utf8" primary:"true"`
+	ResType string `width:"32" charset:"ascii" nullable:"false" default:"identity_provider" primary:"true"`
+	ResId   string `name:"domain_id" width:"64" charset:"ascii" primary:"true"`
+	Group   string `width:"255" charset:"utf8" primary:"true"`
+	Option  string `width:"255" charset:"utf8" primary:"true"`
 
 	Value jsonutils.JSONObject `nullable:"false"`
 }
 
-func (manager *SConfigOptionManager) fetchConfigs(idpId string, groups []string, options []string) (TConfigOptions, error) {
-	q := manager.Query().Equals("domain_id", idpId)
+func (manager *SConfigOptionManager) fetchConfigs(model db.IModel, groups []string, options []string) (TConfigOptions, error) {
+	q := manager.Query().Equals("res_type", model.Keyword()).Equals("domain_id", model.GetId())
 	if len(groups) > 0 {
-		q = q.In("group", groups)
+		if len(groups) == 1 {
+			q = q.Equals("group", groups[0])
+		} else {
+			q = q.In("group", groups)
+		}
 	}
 	if len(options) > 0 {
-		q = q.In("option", options)
+		if len(options) == 1 {
+			q = q.Equals("option", options[0])
+		} else {
+			q = q.In("option", options)
+		}
 	}
 	opts := make(TConfigOptions, 0)
 	err := db.FetchModelObjects(manager, q, &opts)
@@ -96,8 +108,8 @@ func (manager *SConfigOptionManager) fetchConfigs(idpId string, groups []string,
 	return opts, nil
 }
 
-func config2map(opts []SConfigOption) api.TIdentityProviderConfigs {
-	conf := make(api.TIdentityProviderConfigs)
+func config2map(opts []SConfigOption) api.TConfigs {
+	conf := make(api.TConfigs)
 	for i := range opts {
 		opt := opts[i]
 		if _, ok := conf[opt.Group]; !ok {
@@ -108,12 +120,39 @@ func config2map(opts []SConfigOption) api.TIdentityProviderConfigs {
 	return conf
 }
 
-func (manager *SConfigOptionManager) deleteConfig(ctx context.Context, userCred mcclient.TokenCredential, idpId string) error {
-	return manager.syncConfig(ctx, userCred, idpId, nil)
+func (manager *SConfigOptionManager) deleteConfigs(model db.IModel) error {
+	return manager.syncConfigs(model, nil)
 }
 
-func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mcclient.TokenCredential, idpId string, newOpts TConfigOptions) error {
-	oldOpts, err := manager.fetchConfigs(idpId, nil, nil)
+func (manager *SConfigOptionManager) updateConfigs(newOpts TConfigOptions) error {
+	for i := range newOpts {
+		err := manager.TableSpec().InsertOrUpdate(&newOpts[i])
+		if err != nil {
+			return errors.Wrap(err, "Insert")
+		}
+	}
+	return nil
+}
+
+func (manager *SConfigOptionManager) removeConfigs(model db.IModel, newOpts TConfigOptions) error {
+	oldOpts, err := manager.fetchConfigs(model, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "fetchOldConfigs")
+	}
+	_, updated1, _, _ := compareConfigOptions(oldOpts, newOpts)
+	for i := range updated1 {
+		_, err := db.Update(&updated1[i], func() error {
+			return updated1[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrap(err, "Delete")
+		}
+	}
+	return nil
+}
+
+func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfigOptions) error {
+	oldOpts, err := manager.fetchConfigs(model, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "fetchOldConfigs")
 	}
@@ -144,17 +183,20 @@ func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mc
 	return nil
 }
 
-func getConfigOptions(conf api.TIdentityProviderConfigs, idpId string, sensitiveList map[string]string) (TConfigOptions, TConfigOptions) {
+func getConfigOptions(conf api.TConfigs, model db.IModel, blackList map[string][]string, sensitiveList map[string][]string) (TConfigOptions, TConfigOptions) {
 	options := make(TConfigOptions, 0)
 	sensitive := make(TConfigOptions, 0)
 	for group, groupConf := range conf {
 		for optKey, optVal := range groupConf {
 			opt := SConfigOption{}
-			opt.IdpId = idpId
+			opt.ResType = model.Keyword()
+			opt.ResId = model.GetId()
 			opt.Group = group
 			opt.Option = optKey
 			opt.Value = optVal
-			if v, ok := sensitiveList[group]; ok && v == optKey {
+			if v, ok := blackList[group]; ok && utils.IsInStringArray(optKey, v) {
+				// skip
+			} else if v, ok := sensitiveList[group]; ok && utils.IsInStringArray(optKey, v) {
 				sensitive = append(sensitive, opt)
 			} else {
 				options = append(options, opt)
@@ -227,8 +269,10 @@ func compareConfigOptions(opts1, opts2 TConfigOptions) (deleted, updated1, updat
 	return
 }
 
-func (manager *SConfigOptionManager) getDriver(idStr string) (string, error) {
-	opts, err := manager.fetchConfigs(idStr, []string{"identity"}, []string{"driver"})
+func (manager *SConfigOptionManager) getDriver(idpId string) (string, error) {
+	idp, _ := db.NewModelObject(IdentityProviderManager)
+	idp.(*SIdentityProvider).Id = idpId
+	opts, err := manager.fetchConfigs(idp, []string{"identity"}, []string{"driver"})
 	if err != nil {
 		return "", errors.Wrap(err, "WhitelistedConfigManager.fetchConfigs")
 	}
@@ -236,4 +280,97 @@ func (manager *SConfigOptionManager) getDriver(idStr string) (string, error) {
 		return opts[0].Value.GetString()
 	}
 	return api.IdentityDriverSQL, nil
+}
+
+func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
+	opts, err := WhitelistedConfigManager.fetchConfigs(model, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if all {
+		opts2, err := SensitiveConfigManager.fetchConfigs(model, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, opts2...)
+	}
+	return config2map(opts), nil
+}
+
+func saveConfigs(action string, model db.IModel, opts api.TConfigs, blackList map[string][]string, sensitiveConfs map[string][]string) error {
+	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, blackList, sensitiveConfs)
+	if action == "update" {
+		err := WhitelistedConfigManager.updateConfigs(whiteListedOpts)
+		if err != nil {
+			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
+		}
+		err = SensitiveConfigManager.updateConfigs(sensitiveOpts)
+		if err != nil {
+			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
+		}
+	} else if action == "remove" {
+		err := WhitelistedConfigManager.removeConfigs(model, whiteListedOpts)
+		if err != nil {
+			return errors.Wrap(err, "WhitelistedConfigManager.updateConfig")
+		}
+		err = SensitiveConfigManager.removeConfigs(model, sensitiveOpts)
+		if err != nil {
+			return errors.Wrap(err, "SensitiveConfigManager.updateConfig")
+		}
+	} else {
+		err := WhitelistedConfigManager.syncConfigs(model, whiteListedOpts)
+		if err != nil {
+			return errors.Wrap(err, "WhitelistedConfigManager.syncConfig")
+		}
+		err = SensitiveConfigManager.syncConfigs(model, sensitiveOpts)
+		if err != nil {
+			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
+		}
+	}
+	return nil
+}
+
+func MergeServiceConfig(opts *options.SKeystoneOptions) error {
+	merged := false
+	conf := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	service, _ := ServiceManager.fetchServiceByType(api.SERVICE_TYPE)
+	if service != nil {
+		serviceConf, err := GetConfigs(service, false)
+		if err != nil {
+			return errors.Wrap(err, "GetConfigs service")
+		}
+		serviceConfJson := jsonutils.Marshal(serviceConf["default"])
+		conf.Update(serviceConfJson)
+		merged = true
+	}
+	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
+	if commonService != nil {
+		commonConf, err := GetConfigs(commonService, false)
+		if err != nil {
+			return errors.Wrap(err, "GetConfigs commonService")
+		}
+		commonConfJson := jsonutils.Marshal(commonConf["default"])
+		conf.Update(commonConfJson)
+		merged = true
+	}
+	if merged {
+		err := conf.Unmarshal(opts)
+		if err != nil {
+			return errors.Wrap(err, "conf.Unmarshal")
+		}
+		if service != nil {
+			nconf := jsonutils.NewDict()
+			nconf.Add(conf, "default")
+			tconf := api.TConfigs{}
+			err = nconf.Unmarshal(tconf)
+			if err != nil {
+				return errors.Wrap(err, "conf.Unmarshal(tconf)")
+			}
+			err = saveConfigs("", service, tconf, api.BlacklistOptionMap, nil)
+			if err != nil {
+				return errors.Wrap(err, "saveConfigs")
+			}
+		}
+	}
+	return nil
 }

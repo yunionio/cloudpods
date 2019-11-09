@@ -19,6 +19,8 @@ import (
 )
 
 var (
+	COMMON_SERVICE = "common"
+
 	globalRegion = ""
 
 	globalServiceType = ""

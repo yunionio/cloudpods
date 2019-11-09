@@ -16,10 +16,14 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -135,4 +139,58 @@ func (service *SService) PostUpdate(ctx context.Context, userCred mcclient.Token
 func (service *SService) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	service.SStandaloneResourceBase.PostDelete(ctx, userCred)
 	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_DELETE, nil, userCred, true)
+}
+
+func (service *SService) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, service, "config")
+}
+
+func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	conf, err := GetConfigs(service, false)
+	if err != nil {
+		return nil, err
+	}
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.Marshal(conf), "config")
+	return result, nil
+}
+
+func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+	return db.IsAdminAllowUpdateSpec(userCred, service, "config")
+}
+
+func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	action, _ := data.GetString("action")
+	opts := api.TConfigs{}
+	err := data.Unmarshal(&opts, "config")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid input data")
+	}
+	err = saveConfigs(action, service, opts, api.BlacklistOptionMap, nil)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
+	}
+	return service.GetDetailsConfig(ctx, userCred, query)
+}
+
+func (manager *SServiceManager) fetchServiceByType(typeStr string) (*SService, error) {
+	q := manager.Query().Equals("type", typeStr)
+	cnt, err := q.CountWithError()
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "CountWithError")
+	}
+	if cnt == 0 {
+		return nil, sql.ErrNoRows
+	} else if cnt > 1 {
+		return nil, sqlchemy.ErrDuplicateEntry
+	}
+	srvObj, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.NewModelObject")
+	}
+	err = q.First(srvObj)
+	if err != nil {
+		return nil, errors.Wrap(err, "q.First")
+	}
+	return srvObj.(*SService), nil
 }

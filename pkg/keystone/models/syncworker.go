@@ -44,7 +44,7 @@ func submitIdpSyncTask(ctx context.Context, userCred mcclient.TokenCredential, i
 		idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusSyncing)
 		defer idp.SetSyncStatus(ctx, userCred, api.IdentitySyncStatusIdle)
 
-		conf, err := idp.GetConfig(true)
+		conf, err := GetConfigs(idp, true)
 		if err != nil {
 			log.Errorf("GetConfig for idp %s fail %s", idp.Name, err)
 			idp.MarkDisconnected(ctx, userCred)

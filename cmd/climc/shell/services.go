@@ -15,10 +15,14 @@
 package shell
 
 import (
+	"fmt"
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 func init() {
@@ -144,4 +148,69 @@ func init() {
 		printObject(srv)
 		return nil
 	})
+
+	type ServiceConfigShowOptions struct {
+		SERVICE string `help:"service name or id"`
+	}
+	R(&ServiceConfigShowOptions{}, "service-config-show", "Show configs of a service", func(s *mcclient.ClientSession, args *ServiceConfigShowOptions) error {
+		conf, err := modules.ServicesV3.GetSpecific(s, args.SERVICE, "config", nil)
+		if err != nil {
+			return err
+		}
+		fmt.Println(conf.PrettyString())
+		return nil
+	})
+
+	type ServiceConfigOptions struct {
+		SERVICE string   `help:"service name or id"`
+		Config  []string `help:"config key=value pair"`
+		Remove  bool     `help:"remove config"`
+	}
+	R(&ServiceConfigOptions{}, "service-config", "Add config to service", func(s *mcclient.ClientSession, args *ServiceConfigOptions) error {
+		config := jsonutils.NewDict()
+		if args.Remove {
+			config.Add(jsonutils.NewString("remove"), "action")
+		} else {
+			config.Add(jsonutils.NewString("update"), "action")
+		}
+		for _, c := range args.Config {
+			pos := strings.IndexByte(c, '=')
+			if pos < 0 {
+				return fmt.Errorf("%s is not a key=value pair", c)
+			}
+			key := strings.TrimSpace(c[:pos])
+			value := strings.TrimSpace(c[pos+1:])
+			config.Add(jsonutils.NewString(value), "config", "default", key)
+		}
+		nconf, err := modules.ServicesV3.PerformAction(s, args.SERVICE, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
+	type ServiceConfigYamlOptions struct {
+		SERVICE string `help:"service name or id"`
+		YAML    string `help:"config yaml file"`
+	}
+	R(&ServiceConfigYamlOptions{}, "service-config-yaml", "Config service with a yaml file", func(s *mcclient.ClientSession, args *ServiceConfigYamlOptions) error {
+		content, err := fileutils2.FileGetContents(args.YAML)
+		if err != nil {
+			return err
+		}
+		yamlJson, err := jsonutils.ParseYAML(content)
+		if err != nil {
+			return err
+		}
+		config := jsonutils.NewDict()
+		config.Add(yamlJson, "config", "default")
+		nconf, err := modules.ServicesV3.PerformAction(s, args.SERVICE, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
 }

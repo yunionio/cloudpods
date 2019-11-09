@@ -21,7 +21,7 @@ const (
 	QUeryScopeSub = "sub"
 )
 
-type TIdentityProviderConfigs map[string]map[string]jsonutils.JSONObject
+type TConfigs map[string]map[string]jsonutils.JSONObject
 
 type SLDAPIdpConfigBaseOptions struct {
 	Url      string `json:"url,omitempty" help:"LDAP server URL" required:"true"`
