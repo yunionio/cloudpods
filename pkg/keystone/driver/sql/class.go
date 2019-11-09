@@ -29,7 +29,7 @@ func (self *SSQLDriverClass) SyncMethod() string {
 	return api.IdentityProviderSyncLocal
 }
 
-func (self *SSQLDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+func (self *SSQLDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (driver.IIdentityBackend, error) {
 	return NewSQLDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 }
 

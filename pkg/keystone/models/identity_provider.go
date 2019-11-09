@@ -50,9 +50,9 @@ func init() {
 	IdentityProviderManager = &SIdentityProviderManager{
 		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			SIdentityProvider{},
-			"identity_provider",
-			"identity_provider",
-			"identity_providers",
+			api.IDENTITY_PROVIDER_TABLE,
+			api.IDENTITY_PROVIDER_RESOURCE_TYPE,
+			api.IDENTITY_PROVIDER_RESOURCE_TYPES,
 		),
 	}
 	IdentityProviderManager.SetVirtualObject(IdentityProviderManager)
@@ -201,28 +201,13 @@ func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCr
 }
 
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := self.GetConfig(false)
+	conf, err := GetConfigs(self, false)
 	if err != nil {
 		return nil, err
 	}
 	result := jsonutils.NewDict()
 	result.Add(jsonutils.Marshal(conf), "config")
 	return result, nil
-}
-
-func (self *SIdentityProvider) GetConfig(all bool) (api.TIdentityProviderConfigs, error) {
-	opts, err := WhitelistedConfigManager.fetchConfigs(self.Id, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	if all {
-		opts2, err := SensitiveConfigManager.fetchConfigs(self.Id, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, opts2...)
-	}
-	return config2map(opts), nil
 }
 
 func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
@@ -236,32 +221,19 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	if ident.SyncStatus != api.IdentitySyncStatusIdle {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when not idle")
 	}
-	opts := api.TIdentityProviderConfigs{}
+	opts := api.TConfigs{}
 	err := data.Unmarshal(&opts, "config")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid input data")
 	}
-
-	err = ident.saveConfig(ctx, userCred, opts)
+	action, _ := data.GetString("action")
+	err = saveConfigs(action, ident, opts, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
 	ident.MarkDisconnected(ctx, userCred)
 	submitIdpSyncTask(ctx, userCred, ident)
 	return ident.GetDetailsConfig(ctx, userCred, query)
-}
-
-func (ident *SIdentityProvider) saveConfig(ctx context.Context, userCred mcclient.TokenCredential, opts api.TIdentityProviderConfigs) error {
-	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, ident.Id, api.SensitiveDomainConfigMap)
-	err := WhitelistedConfigManager.syncConfig(ctx, userCred, ident.Id, whiteListedOpts)
-	if err != nil {
-		return errors.Wrap(err, "WhitelistedConfigManager.syncConfig")
-	}
-	err = SensitiveConfigManager.syncConfig(ctx, userCred, ident.Id, sensitiveOpts)
-	if err != nil {
-		return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
-	}
-	return nil
 }
 
 func (manager *SIdentityProviderManager) getDriveInstanceCount(drvName string) (int, error) {
@@ -320,7 +292,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context,
 		data.Set("target_domain_id", jsonutils.NewString(domain.Id))
 	}
 
-	opts := api.TIdentityProviderConfigs{}
+	opts := api.TConfigs{}
 	err := data.Unmarshal(&opts, "config")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("parse config error: %s", err)
@@ -338,13 +310,13 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 
 	logclient.AddActionLogWithContext(ctx, ident, logclient.ACT_CREATE, data, userCred, true)
 
-	opts := api.TIdentityProviderConfigs{}
+	opts := api.TConfigs{}
 	err := data.Unmarshal(&opts, "config")
 	if err != nil {
 		log.Errorf("parse config error %s", err)
 		return
 	}
-	err = ident.saveConfig(ctx, userCred, opts)
+	err = saveConfigs("", ident, opts, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return
@@ -611,12 +583,12 @@ func (self *SIdentityProvider) getDomains() ([]SDomain, error) {
 	return domains, nil
 }
 
-func (ident *SIdentityProvider) deleteConfig(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := WhitelistedConfigManager.deleteConfig(ctx, userCred, ident.Id)
+func (ident *SIdentityProvider) deleteConfigs(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := WhitelistedConfigManager.deleteConfigs(ident)
 	if err != nil {
 		return errors.Wrap(err, "WhitelistedConfigManager.deleteConfig")
 	}
-	err = SensitiveConfigManager.deleteConfig(ctx, userCred, ident.Id)
+	err = SensitiveConfigManager.deleteConfigs(ident)
 	if err != nil {
 		return errors.Wrap(err, "SensitiveConfigManager.deleteConfig")
 	}
@@ -642,7 +614,7 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 			return errors.Wrap(err, "delete domain")
 		}
 	}
-	err = self.deleteConfig(ctx, userCred)
+	err = self.deleteConfigs(ctx, userCred)
 	if err != nil {
 		return errors.Wrap(err, "self.deleteConfig")
 	}

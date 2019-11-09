@@ -39,7 +39,7 @@ type SLDAPDriver struct {
 	ldapConfig *api.SLDAPIdpConfigOptions
 }
 
-func NewLDAPDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+func NewLDAPDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (driver.IIdentityBackend, error) {
 	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBaseIdentityDriver")

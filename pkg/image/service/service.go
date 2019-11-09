@@ -93,6 +93,11 @@ func StartService() {
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 
+	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
+	if err != nil {
+		log.Fatalf("Fail to merge service config %s", err)
+	}
+
 	go models.CheckImages()
 
 	if len(options.Options.DeployServerSocketPath) > 0 {

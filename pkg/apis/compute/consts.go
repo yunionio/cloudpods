@@ -12,24 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package driver
+package compute
 
-import (
-	"context"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/mcclient"
+const (
+	SERVICE_TYPE    = "compute"
+	SERVICE_VERSION = "v2"
 )
-
-type IIdentityBackendClass interface {
-	SingletonInstance() bool
-	SyncMethod() string
-	Name() string
-	NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (IIdentityBackend, error)
-}
-
-type IIdentityBackend interface {
-	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*api.SUserExtended, error)
-	Sync(ctx context.Context) error
-	Probe(ctx context.Context) error
-}

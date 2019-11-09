@@ -150,7 +150,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, errors.Error(fmt.Sprintf("invalid idp status %s", idp.Status))
 	}
 
-	conf, err := idp.GetConfig(true)
+	conf, err := models.GetConfigs(idp, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConfig")
 	}
@@ -184,7 +184,7 @@ func authUserByCASV3(ctx context.Context, input mcclient.SAuthenticationInputV3)
 		return nil, errors.Error("more than 1 cas identity providers?")
 	}
 	idp := &idps[0]
-	conf, err := idp.GetConfig(true)
+	conf, err := models.GetConfigs(idp, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "idp.GetConfig")
 	}
