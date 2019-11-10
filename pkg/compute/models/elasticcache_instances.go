@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -68,6 +69,8 @@ type SElasticcache struct {
 	SCloudregionResourceBase
 	SZoneResourceBase        // 主可用区.
 	SlaveZones        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"` //  备可用区
+
+	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"` // Column(Boolean, nullable=False, default=True)
 
 	InstanceType  string `width:"96" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // redis.master.micro.default
 	CapacityMB    int    `nullable:"false" list:"user" create:"optional"`                            //  1024
@@ -664,6 +667,14 @@ func (self *SElasticcache) StartRestartTask(ctx context.Context, userCred mcclie
 	}
 
 	return nil
+}
+
+func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
+	if self.DisableDelete.IsTrue() {
+		return httperrors.NewInvalidStatusError("Elastic cache is locked, cannot delete")
+	}
+
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SElasticcache) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
