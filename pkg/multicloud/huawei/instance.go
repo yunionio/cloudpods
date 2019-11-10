@@ -625,13 +625,41 @@ func (self *SInstance) NextDeviceName() (string, error) {
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	device, err := self.NextDeviceName()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Instance.AttachDisk.NextDeviceName")
 	}
-	return self.host.zone.region.AttachDisk(self.GetId(), diskId, device)
+
+	err = self.host.zone.region.AttachDisk(self.GetId(), diskId, device)
+	if err != nil {
+		return errors.Wrap(err, "Instance.AttachDisk.AttachDisk")
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "Instance.AttachDisk.WaitStatusWithDelay")
+	}
+
+	return nil
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return self.host.zone.region.DetachDisk(self.GetId(), diskId)
+	err := self.host.zone.region.DetachDisk(self.GetId(), diskId)
+	if err != nil {
+		return errors.Wrap(err, "Instance.DetachDisk")
+	}
+
+	return cloudprovider.Wait(5*time.Second, 60*time.Second, func() (bool, error) {
+		err := self.Refresh()
+		if err != nil {
+			log.Debugln(err)
+			return false, nil
+		}
+
+		if self.Status == "available" {
+			return true, nil
+		}
+
+		return false, nil
+	})
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
