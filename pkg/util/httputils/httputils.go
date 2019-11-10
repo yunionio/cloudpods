@@ -33,6 +33,7 @@ import (
 	"github.com/moul/http2curl"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
 
@@ -79,6 +80,18 @@ type JSONClientErrorMsg struct {
 func (e *JSONClientError) Error() string {
 	errMsg := JSONClientErrorMsg{Error: e}
 	return jsonutils.Marshal(errMsg).String()
+}
+
+func (err *JSONClientError) Cause() error {
+	if len(err.Class) > 0 {
+		return errors.Error(err.Class)
+	} else if err.Code >= 500 {
+		return errors.ErrServer
+	} else if err.Code >= 400 {
+		return errors.ErrClient
+	} else {
+		return errors.ErrUnclassified
+	}
 }
 
 func ErrorCode(err error) int {

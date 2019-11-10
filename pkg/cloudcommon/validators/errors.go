@@ -112,7 +112,7 @@ func newInvalidStructError(key string, err error) error {
 	params := []interface{}{key}
 	jsonClientErr, ok := err.(*httputils.JSONClientError)
 	if ok {
-		errFmt += httperrors.MsgTmplToFmt(jsonClientErr.Data.Id)
+		errFmt += httputils.MsgTmplToFmt(jsonClientErr.Data.Id)
 		for _, f := range jsonClientErr.Data.Fields {
 			params = append(params, f)
 		}
