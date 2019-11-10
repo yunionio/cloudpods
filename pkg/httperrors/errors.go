@@ -15,156 +15,45 @@
 package httperrors
 
 import (
-	"bytes"
-	"fmt"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
-func NewJsonClientError(code int, title string, msg string, error httputils.Error) *httputils.JSONClientError {
-	err := httputils.JSONClientError{Code: code, Class: title, Details: msg, Data: error}
-	return &err
-}
-
-func msgFmtToTmpl(msgFmt string) string {
-	// 将%s %d之类格式化字符串转换成{0}、{1}格式
-	// 注意： 1.不支持复杂类型的转换例如%.2f , %[1]d, % x
-	//       2.原始msgFmt中如果包含{0},{1}形式的字符串同样会引发错误。
-	// 在抛出error msgFmt时应注意避免
-	fmtstr := false
-	lst := []rune(msgFmt)
-	lastIndex := len(lst) - 1
-	temp := bytes.Buffer{}
-	index := 0
-	for i, c := range lst {
-		switch c {
-		case '%':
-			if fmtstr || i == lastIndex {
-				temp.WriteRune(c)
-				fmtstr = false
-			} else {
-				fmtstr = true
-			}
-		case 'v', 'T', 't', 'b', 'c', 'd', 'o', 'q', 'x', 'X', 'U', 'e', 'E', 'f', 'F', 'g', 'G', 's', 'p':
-			if fmtstr {
-				temp.WriteRune('{')
-				temp.WriteString(fmt.Sprintf("%d", index))
-				temp.WriteRune('}')
-				index++
-				fmtstr = false
-			} else {
-				temp.WriteRune(c)
-			}
-
-		default:
-			if fmtstr {
-				temp.WriteRune('%')
-			}
-			temp.WriteRune(c)
-			fmtstr = false
-		}
-	}
-
-	return temp.String()
-}
-
-func MsgTmplToFmt(tmpl string) string {
-	return msgTmplToFmt(tmpl)
-}
-
-func msgTmplToFmt(tmpl string) string {
-	b := &bytes.Buffer{}
-	for i := 0; i < len(tmpl); {
-		r := tmpl[i]
-		if r != '{' {
-			b.WriteByte(r)
-			i++
-			continue
-		}
-
-		j := i + 1
-		for ; j < len(tmpl); j++ {
-			r := tmpl[j]
-			if r < '0' || r > '9' {
-				break
-			}
-		}
-		if j == len(tmpl) {
-			b.WriteString(tmpl[i:])
-			return b.String()
-		}
-		if j > i+1 && tmpl[j] == '}' {
-			b.WriteString("%s")
-			i = j + 1
-		} else {
-			b.WriteString(tmpl[i:j])
-			i = j
-		}
-	}
-	return b.String()
-}
-
-func errorMessage(msgFmt string, params ...interface{}) (string, httputils.Error) {
-	fields := make([]string, len(params))
-	for i, v := range params {
-		fields[i] = fmt.Sprint(v)
-	}
-
-	err := httputils.Error{
-		Id:     msgFmtToTmpl(msgFmt),
-		Fields: fields,
-	}
-
-	msg := msgFmt
-	if len(params) > 0 {
-		msg = fmt.Sprintf(msg, params...)
-	}
-	return msg, err
-}
-
 func NewBadGatewayError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(502, "BadGateway", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrBadGateway], string(ErrBadGateway), msg, params...)
 }
 
 func NewNotImplementedError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(501, "NotImplemented", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotImplemented], string(ErrNotImplemented), msg, params...)
 }
 
 func NewInternalServerError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(500, "InternalServerError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrInternalError], string(ErrInternalError), msg, params...)
 }
 
 func NewResourceNotReadyError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(500, "ResourceNotReadyError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrResourceNotReady], string(ErrResourceNotReady), msg, params...)
 }
 
 func NewOutOfResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(500, "NewOutOfResourceError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrOutOfResource], string(ErrOutOfResource), msg, params...)
 }
 
 func NewServerStatusError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "ServerStatusError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrServerStatus], string(ErrServerStatus), msg, params...)
 }
 
 func NewPaymentError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(402, "PaymentError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrPayment], string(ErrPayment), msg, params...)
 }
 
 func NewImageNotFoundError(imageId string) *httputils.JSONClientError {
-	msg, err := errorMessage("Image %s not found", imageId)
-	return NewJsonClientError(404, "ImageNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrImageNotFound], string(ErrImageNotFound), "Image %s not found", imageId)
 }
 
 func NewResourceNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "ResourceNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrResourceNotFound], string(ErrResourceNotFound), msg, params...)
 }
 
 func NewResourceNotFoundError2(keyword, id string) *httputils.JSONClientError {
@@ -172,145 +61,141 @@ func NewResourceNotFoundError2(keyword, id string) *httputils.JSONClientError {
 }
 
 func NewSpecNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "SpecNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrSpecNotFound], string(ErrSpecNotFound), msg, params...)
 }
 
 func NewActionNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "ActionNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrActionNotFound], string(ErrActionNotFound), msg, params...)
 }
 
 func NewTenantNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "TenantNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrTenantNotFound], string(ErrTenantNotFound), msg, params...)
 }
 
 func NewUserNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "UserNotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrUserNotFound], string(ErrUserNotFound), msg, params...)
 }
 
 func NewInvalidStatusError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "InvalidStatusError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidStatus], string(ErrInvalidStatus), msg, params...)
 }
 
 func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "InputParameterError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrInputParameter], string(ErrInputParameter), msg, params...)
 }
 
 func NewWeakPasswordError() *httputils.JSONClientError {
-	msg, err := errorMessage("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate")
-	return NewJsonClientError(400, "WeakPasswordError", msg, err)
+	msg := ("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate")
+	return httputils.NewJsonClientError(httpErrorCode[ErrWeakPassword], string(ErrWeakPassword), msg)
 }
 
 func NewMissingParameterError(paramName string) *httputils.JSONClientError {
-	msg, err := errorMessage("Missing parameter %s", paramName)
-	return NewJsonClientError(400, "MissingParameterError", msg, err)
+	msg := "Missing parameter %s"
+	return httputils.NewJsonClientError(httpErrorCode[ErrMissingParameter], string(ErrMissingParameter), msg, paramName)
 }
 
 func NewInsufficientResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "InsufficientResourceError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrInsufficientResource], string(ErrInsufficientResource), msg, params...)
 }
 
 func NewOutOfQuotaError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "OutOfQuotaError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrOutOfQuota], string(ErrOutOfQuota), msg, params...)
+}
+
+func NewOutOfRangeError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrOutOfRange], string(ErrOutOfRange), msg, params...)
+}
+
+func NewOutOfLimitError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrOutOfLimit], string(ErrOutOfLimit), msg, params...)
 }
 
 func NewNotSufficientPrivilegeError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(403, "NotSufficientPrivilegeError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotSufficientPrivilege], string(ErrNotSufficientPrivilege), msg, params...)
 }
 
 func NewUnsupportOperationError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(406, "UnsupportOperationError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrUnsupportedOperation], string(ErrUnsupportedOperation), msg, params...)
+}
+
+func NewNotSupportedError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotSupported], string(ErrNotSupported), msg, params...)
 }
 
 func NewNotEmptyError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(406, "NotEmptyError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotEmpty], string(ErrNotEmpty), msg, params...)
 }
 
 func NewBadRequestError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(400, "BadRequestError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrBadRequest], string(ErrBadRequest), msg, params...)
 }
 
 func NewUnauthorizedError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(401, "UnauthorizedError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrUnauthorized], string(ErrUnauthorized), msg, params...)
 }
 
 func NewInvalidCredentialError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(401, "InvalidCredentialError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrInvalidCredential], string(ErrInvalidCredential), msg, params...)
 }
 
 func NewForbiddenError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(403, "ForbiddenError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrForbidden], string(ErrForbidden), msg, params...)
 }
 
 func NewNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(404, "NotFoundError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotFound], string(ErrNotFound), msg, params...)
 }
 
 func NewNotAcceptableError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(406, "NotAcceptableError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNotAcceptable], string(ErrNotAcceptable), msg, params...)
 }
 
 func NewDuplicateNameError(resName string, resId string) *httputils.JSONClientError {
-	msg, err := errorMessage("Duplicate %s %s", resName, resId)
-	return NewJsonClientError(409, "DuplicateNameError", msg, err)
+	msg := "Duplicate name %s %s"
+	return httputils.NewJsonClientError(httpErrorCode[ErrDuplicateName], string(ErrDuplicateName), msg, resName, resId)
+}
+
+func NewDuplicateIdError(resName string, resId string) *httputils.JSONClientError {
+	msg := "Duplicate ID %s %s"
+	return httputils.NewJsonClientError(httpErrorCode[ErrDuplicateId], string(ErrDuplicateId), msg, resName, resId)
 }
 
 func NewDuplicateResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params)
-	return NewJsonClientError(409, "DuplicateResourceError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrDuplicateResource], string(ErrDuplicateResource), msg, params...)
 }
 
 func NewConflictError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(409, "ConflictError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrConflict], string(ErrConflict), msg, params...)
 }
 
 func NewResourceBusyError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(409, "ResourceBusyError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrResourceBusy], string(ErrResourceBusy), msg, params...)
 }
 
 func NewRequireLicenseError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(402, "RequireLicenseError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrRequireLicense], string(ErrRequireLicense), msg, params...)
 }
 
 func NewTimeoutError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(504, "TimeoutError", msg, err)
-}
-
-func NewGeneralError(err error) *httputils.JSONClientError {
-	switch err.(type) {
-	case *httputils.JSONClientError:
-		return err.(*httputils.JSONClientError)
-	default:
-		return NewInternalServerError(err.Error())
-	}
+	return httputils.NewJsonClientError(httpErrorCode[ErrTimeout], string(ErrTimeout), msg, params...)
 }
 
 func NewProtectedResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(403, "ProtectedResourceError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrProtectedResource], string(ErrProtectedResource), msg, params...)
 }
 
 func NewNoProjectError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(403, "NoProjectError", msg, err)
+	return httputils.NewJsonClientError(httpErrorCode[ErrNoProject], string(ErrNoProject), msg, params...)
+}
+
+func NewServerError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[errors.ErrServer], string(errors.ErrServer), msg, params...)
+}
+
+func NewClientError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[errors.ErrClient], string(errors.ErrClient), msg, params...)
+}
+
+func NewUnclassifiedError(msg string, params ...interface{}) *httputils.JSONClientError {
+	return httputils.NewJsonClientError(httpErrorCode[errors.ErrUnclassified], string(errors.ErrUnclassified), msg, params)
 }
