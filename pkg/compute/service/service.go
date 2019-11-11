@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -43,7 +44,7 @@ func StartService() {
 	commonOpts := &options.Options.CommonOptions
 	baseOpts := &options.Options.BaseOptions
 	dbOpts := &options.Options.DBOptions
-	common_options.ParseOptions(opts, os.Args, "region.conf", "compute")
+	common_options.ParseOptions(opts, os.Args, "region.conf", api.SERVICE_TYPE)
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
@@ -62,7 +63,12 @@ func StartService() {
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := setInfluxdbRetentionPolicy()
+	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
+	if err != nil {
+		log.Fatalf("Fail to merge service config %s", err)
+	}
+
+	err = setInfluxdbRetentionPolicy()
 	if err != nil {
 		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
 	}
