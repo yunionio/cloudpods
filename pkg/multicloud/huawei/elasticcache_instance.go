@@ -173,13 +173,13 @@ func (self *SElasticcache) GetArchType() string {
 	   dcs.cluster：表示实例类型为集群
 	*/
 	if strings.Contains(self.ResourceSpecCode, "single") {
-		return "single"
+		return api.ELASTIC_CACHE_ARCH_TYPE_SINGLE
 	} else if strings.Contains(self.ResourceSpecCode, "ha") {
-		return "master"
+		return api.ELASTIC_CACHE_ARCH_TYPE_MASTER
 	} else if strings.Contains(self.ResourceSpecCode, "cluster") {
-		return "cluster"
+		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	} else if strings.Contains(self.ResourceSpecCode, "proxy") {
-		return "cluster"
+		return api.ELASTIC_CACHE_ARCH_TYPE_CLUSTER
 	}
 
 	return ""
@@ -257,11 +257,8 @@ func (self *SElasticcache) GetMaintainEndTime() string {
 
 func (self *SElasticcache) GetICloudElasticcacheAccounts() ([]cloudprovider.ICloudElasticcacheAccount, error) {
 	iaccounts := []cloudprovider.ICloudElasticcacheAccount{}
-	if len(self.AccessUser) > 0 {
-		iaccount := &SElasticcacheAccount{cacheDB: self}
-		iaccounts = append(iaccounts, iaccount)
-	}
-
+	iaccount := &SElasticcacheAccount{cacheDB: self}
+	iaccounts = append(iaccounts, iaccount)
 	return iaccounts, nil
 }
 
@@ -672,7 +669,19 @@ func (self *SElasticcache) GetAuthMode() string {
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAccount(accountId string) (cloudprovider.ICloudElasticcacheAccount, error) {
-	return nil, cloudprovider.ErrNotSupported
+	accounts, err := self.GetICloudElasticcacheAccounts()
+	if err != nil {
+		return nil, errors.Wrap(err, "Elasticcache.GetICloudElasticcacheAccount.Accounts")
+	}
+
+	for i := range accounts {
+		account := accounts[i]
+		if account.GetGlobalId() == accountId {
+			return account, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SElasticcache) GetICloudElasticcacheAcl(aclId string) (cloudprovider.ICloudElasticcacheAcl, error) {

@@ -64,6 +64,7 @@ func (self *ElasticcacheChangeSpecTask) OnInit(ctx context.Context, obj db.IStan
 
 func (self *ElasticcacheChangeSpecTask) OnElasticcacheChangeSpecComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
