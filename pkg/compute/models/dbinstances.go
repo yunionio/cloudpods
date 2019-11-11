@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceManager struct {
@@ -361,6 +362,66 @@ func (self *SDBInstance) GetNetwork() (*SNetwork, error) {
 	}
 	return nil, sql.ErrNoRows
 
+}
+
+type sDBInstanceZone struct {
+	Id   string
+	Name string
+}
+
+func fetchDBInstanceZones(rdsIds []string) map[string]sDBInstanceZone {
+	instances := DBInstanceManager.Query().SubQuery()
+	zones := ZoneManager.Query().SubQuery()
+
+	result := map[string]sDBInstanceZone{}
+
+	for _, zone := range []string{"zone1", "zone2", "zone3"} {
+		zoneInfo := []struct {
+			InstanceId string
+			Id         string
+			Name       string
+		}{}
+
+		q := zones.Query(instances.Field("id").Label("instance_id"), zones.Field("id"), zones.Field("name"))
+		q = q.Join(instances, sqlchemy.Equals(zones.Field("id"), instances.Field(zone)))
+		q = q.Filter(sqlchemy.In(instances.Field("id"), rdsIds))
+		q = q.Filter(sqlchemy.NOT(sqlchemy.IsNullOrEmpty(instances.Field(zone))))
+
+		err := q.All(&zoneInfo)
+		if err != nil {
+			return nil
+		}
+
+		for _, _zone := range zoneInfo {
+			if _, ok := result[_zone.InstanceId]; !ok {
+				result[_zone.InstanceId] = sDBInstanceZone{
+					Id:   fmt.Sprintf("%s_name", zone),
+					Name: _zone.Name,
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+func (manager *SDBInstanceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	rdsIds := make([]string, len(objs))
+	for i := range objs {
+		rdsIds[i] = objs[i].GetId()
+	}
+	if len(fields) == 0 || fields.Contains("zone") {
+		zoneInfo := fetchDBInstanceZones(rdsIds)
+		if zoneInfo != nil {
+			for i := range rows {
+				if zone, ok := zoneInfo[objs[i].GetId()]; ok {
+					rows[i].Add(jsonutils.NewString(zone.Name), zone.Id)
+				}
+			}
+		}
+	}
+	return rows
 }
 
 func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
