@@ -849,3 +849,15 @@ func (manager *SLoadbalancerManager) GetLbDefaultBackendGroupIds() ([]string, er
 
 	return ret, nil
 }
+
+func (man *SLoadbalancerManager) getLoadbalancer(lbId string) (*SLoadbalancer, error) {
+	obj, err := man.FetchById(lbId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get loadbalancer %s", lbId)
+	}
+	lb := obj.(*SLoadbalancer)
+	if lb.PendingDeleted {
+		return nil, errors.Wrap(errors.ErrNotFound, "pending deleted")
+	}
+	return lb, nil
+}
