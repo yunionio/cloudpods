@@ -481,7 +481,6 @@ func (s *SGuestResumeTask) onResumeSucc(res string) {
 }
 
 func (s *SGuestResumeTask) onStartRunning() {
-	// s.removeStatefile() XXX 可能不用了，先注释了
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
 		hostutils.TaskComplete(s.ctx, nil)
 	}
@@ -489,17 +488,19 @@ func (s *SGuestResumeTask) onStartRunning() {
 		s.SetVncPassword()
 	}
 	s.OnResumeSyncMetadataInfo()
-	s.SyncStatus()
 	s.optimizeOom()
 	s.doBlockIoThrottle()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
 	if len(disksIdx) > 0 {
-		timeutils2.AddTimeout(time.Second*5, func() { s.startStreamDisks(disksIdx) })
+		s.startStreamDisks(disksIdx)
 	} else if options.HostOptions.AutoMergeBackingTemplate {
+		s.SyncStatus()
 		timeutils2.AddTimeout(
 			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
 			func() { s.startStreamDisks(nil) })
+	} else {
+		s.SyncStatus()
 	}
 }
 
@@ -524,6 +525,7 @@ func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
 
 func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 	if len(disksIdx) == 0 {
+		// if disks idx length == 0 indicate merge backing template
 		s.SyncStatus()
 	} else {
 		s.streamDisksComplete(s.ctx)
@@ -637,7 +639,7 @@ func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
 }
 
 func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
-	if jobs == 0 {
+	if jobs == 0 && s.c != nil {
 		close(s.c)
 		s.startDoBlockStream()
 	}

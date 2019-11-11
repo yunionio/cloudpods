@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -2495,6 +2496,13 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
 			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
 		}
+	} else if ispId := self.GetMetadata("__base_instance_snapshot_id", userCred); len(ispId) > 0 {
+		ispM, err := InstanceSnapshotManager.FetchById(ispId)
+		if err == nil {
+			isp := ispM.(*SInstanceSnapshot)
+			isp.DecRefCount(ctx, userCred)
+		}
+		self.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
 	}
 
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {
@@ -4007,7 +4015,7 @@ func (self *SGuest) PerformInstanceSnapshot(
 		return nil, err
 	}
 	name, _ := data.GetString("name")
-	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name)
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name, false)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(
 			ctx, userCred, rbacutils.ScopeProject, ownerId, self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
@@ -4093,23 +4101,47 @@ func (self *SGuest) PerformSnapshotAndClone(
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-
-	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
+	count, err := data.Int("count")
 	if err != nil {
-		return nil, err
+		count = 1
+	} else if count <= 0 {
+		return nil, httperrors.NewInputParameterError("count must > 0")
 	}
 
 	lockman.LockClass(ctx, InstanceSnapshotManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, self.ProjectId)
 
-	instanceSnapshotName, err := db.GenerateName(InstanceSnapshotManager, self.GetOwnerId(), "Snapshot-For-"+newlyGuestName)
+	// validate create instance snapshot and set snapshot pending usage
+	snapshotUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(
-			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+		return nil, err
+	}
+	// set guest pending usage
+	pendingUsage, err := self.getGuestUsage(int(count))
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+			self.GetQuotaPlatformID(), snapshotUsage, snapshotUsage)
+		return nil, err
+	}
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred,
+		rbacutils.ScopeProject, self.GetOwnerId(), self.GetQuotaPlatformID(), pendingUsage)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
+			self.GetQuotaPlatformID(), snapshotUsage, snapshotUsage)
+		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+	}
+	pendingUsage.Snapshot = snapshotUsage.Snapshot
+
+	instanceSnapshotName, err := db.GenerateName(InstanceSnapshotManager, self.GetOwnerId(),
+		fmt.Sprintf("%s-%s", newlyGuestName, rand.String(8)))
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
 			self.GetQuotaPlatformID(), pendingUsage, pendingUsage)
 		return nil, httperrors.NewInternalServerError("Generate snapshot name failed %s", err)
 	}
-	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, self.GetOwnerId(), self, instanceSnapshotName)
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(
+		ctx, self.GetOwnerId(), self, instanceSnapshotName,
+		jsonutils.QueryBoolean(data, "auto_delete_instance_snapshot", false))
 	if err != nil {
 		QuotaManager.CancelPendingUsage(
 			ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(),
@@ -4155,11 +4187,8 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	if err != nil {
 		return nil, nil, fmt.Errorf("No new guest name provider")
 	}
-	if err := db.NewNameValidator(manager, isp.GetOwnerId(), guestName, ""); err != nil {
-		guestName, err = db.GenerateName2(manager, isp.GetOwnerId(), guestName, nil, index)
-		if err != nil {
-			return nil, nil, err
-		}
+	if guestName, err = db.GenerateName2(manager, isp.GetOwnerId(), guestName, nil, index); err != nil {
+		return nil, nil, err
 	}
 
 	guestParams.Set("name", jsonutils.NewString(guestName))
@@ -4172,6 +4201,7 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	if isp.ServerMetadata != nil {
 		metadata := make(map[string]interface{}, 0)
 		isp.ServerMetadata.Unmarshal(metadata)
+		metadata["__base_instance_snapshot_id"] = isp.Id
 		guest.SetAllMetadata(ctx, metadata, userCred)
 	}
 	return guest, guestParams, nil

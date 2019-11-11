@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -51,6 +52,8 @@ type SInstanceSnapshot struct {
 	GuestId        string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 	ServerConfig   jsonutils.JSONObject `nullable:"true" list:"user"`
 	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
+	AutoDelete     bool                 `default:"false" update:"user" list:"user"`
+	RefCount       int                  `default:"0" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -141,7 +144,7 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 }
 
 func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
-	ctx context.Context, ownerId mcclient.IIdentityProvider, guest *SGuest, name string,
+	ctx context.Context, ownerId mcclient.IIdentityProvider, guest *SGuest, name string, autoDelete bool,
 ) (*SInstanceSnapshot, error) {
 	instanceSnapshot := &SInstanceSnapshot{}
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
@@ -149,6 +152,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	instanceSnapshot.ProjectId = ownerId.GetProjectId()
 	instanceSnapshot.DomainId = ownerId.GetProjectDomainId()
 	instanceSnapshot.GuestId = guest.Id
+	instanceSnapshot.AutoDelete = autoDelete
 	guestSchedInput := guest.ToSchedDesc()
 
 	for i := 0; i < len(guestSchedInput.Disks); i++ {
@@ -206,9 +210,13 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		serverConfig.Disks[i].SnapshotId = isjs[serverConfig.Disks[i].Index].SnapshotId
 	}
 	sourceInput.Disks = serverConfig.Disks
-	sourceInput.VmemSize = serverConfig.Memory
-	sourceInput.VcpuCount = serverConfig.Ncpu
-	sourceInput.Networks = serverConfig.Networks
+	if sourceInput.VmemSize == 0 {
+		sourceInput.VmemSize = serverConfig.Memory
+	}
+	if sourceInput.VcpuCount == 0 {
+		sourceInput.VcpuCount = serverConfig.Ncpu
+	}
+	// sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
 }
 
@@ -269,4 +277,27 @@ func (self *SInstanceSnapshot) RealDelete(ctx context.Context, userCred mcclient
 
 func (self *SInstanceSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (self *SInstanceSnapshot) AddRefCount(ctx context.Context) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+	_, err := db.Update(self, func() error {
+		self.RefCount += 1
+		return nil
+	})
+	return err
+}
+
+func (self *SInstanceSnapshot) DecRefCount(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+	_, err := db.Update(self, func() error {
+		self.RefCount -= 1
+		return nil
+	})
+	if err == nil && self.RefCount == 0 && self.AutoDelete {
+		self.StartInstanceSnapshotDeleteTask(ctx, userCred, "")
+	}
+	return err
 }

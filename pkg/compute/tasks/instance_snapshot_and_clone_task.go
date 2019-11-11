@@ -114,28 +114,26 @@ func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshot(
 
 func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 	ctx context.Context, isp *models.SInstanceSnapshot, params jsonutils.JSONObject, count int) error {
-	dictParmas := params.(*jsonutils.JSONDict)
-	var errStr string
+
+	var (
+		dictParmas = params.(*jsonutils.JSONDict)
+		errStr     string
+	)
 	for i := 0; i < count; i++ {
 		newGuest, input, err := models.GuestManager.CreateGuestFromInstanceSnapshot(
-			ctx, self.UserCred, dictParmas.DeepCopy().(*jsonutils.JSONDict), isp, i)
+			ctx, self.UserCred, dictParmas.DeepCopy().(*jsonutils.JSONDict), isp, i+1)
 		if err != nil {
 			log.Errorln(err)
 			errStr += err.Error() + "\n"
 			continue
 		}
+		isp.AddRefCount(ctx)
 		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, nil, input)
 	}
 	if len(errStr) > 0 {
 		return fmt.Errorf(errStr)
 	}
 	return nil
-}
-
-func (self *InstanceSnapshotAndCloneTask) OnGuestCreated(
-	ctx context.Context, isp *models.SInstanceSnapshot, data jsonutils.JSONObject) {
-
-	self.taskComplete(ctx, isp, data)
 }
 
 func (self *InstanceSnapshotAndCloneTask) OnCreateInstanceSnapshotFailed(
