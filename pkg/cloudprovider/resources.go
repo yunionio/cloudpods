@@ -70,6 +70,7 @@ type ICloudRegion interface {
 	GetIDiskById(id string) (ICloudDisk, error)
 
 	GetISecurityGroupById(secgroupId string) (ICloudSecurityGroup, error)
+	GetISecurityGroupByName(vpcId string, name string) (ICloudSecurityGroup, error)
 	CreateISecurityGroup(conf *SecurityGroupCreateInput) (ICloudSecurityGroup, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)

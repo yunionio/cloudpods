@@ -86,7 +86,7 @@ func (self *SVpc) Delete() error {
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	secgroups := make([]SSecurityGroup, 0)
 	for {
-		parts, total, err := self.region.GetSecurityGroups(self.VpcId, len(secgroups), 50)
+		parts, total, err := self.region.GetSecurityGroups(self.VpcId, "", len(secgroups), 50)
 		if err != nil {
 			return nil, err
 		}

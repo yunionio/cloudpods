@@ -1017,7 +1017,21 @@ func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoad
 }
 
 func (self *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, total, err := self.GetSecurityGroups("", secgroupId, 0, 1)
+	secgroups, total, err := self.GetSecurityGroups("", "", secgroupId, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &secgroups[0], nil
+}
+
+func (self *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, total, err := self.GetSecurityGroups(vpcId, name, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}

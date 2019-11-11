@@ -294,7 +294,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
-func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
@@ -329,7 +329,14 @@ func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 		}
 	}
 
-	return securitygroups, nil
+	result := []SSecurityGroup{}
+	for _, secgroup := range securitygroups {
+		if len(name) == 0 || secgroup.Name == name {
+			result = append(result, secgroup)
+		}
+	}
+
+	return result, nil
 }
 
 func (self *SSecurityGroup) GetProjectId() string {

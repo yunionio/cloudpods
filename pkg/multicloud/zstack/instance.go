@@ -92,7 +92,7 @@ func (region *SRegion) GetInstances(hostId string, instanceId string, nicId stri
 
 func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	ids := []string{}
-	secgroups, err := instance.host.zone.region.GetSecurityGroups("", instance.UUID)
+	secgroups, err := instance.host.zone.region.GetSecurityGroups("", instance.UUID, "")
 	if err != nil {
 		return nil, err
 	}
