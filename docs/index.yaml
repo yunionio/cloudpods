@@ -354,6 +354,8 @@ paths:
     $ref: "./serversku/enable.yaml"
   /serverskus/{serverskuId}/disable:
     $ref: "./serversku/disable.yaml"
+  /serverskus/{serverskuId}/cache-sku:
+    $ref: "./serversku/cache-sku.yaml"
 
   /secgroupcaches:
     $ref: "./secgroupcache/secgroupcaches.yaml"

@@ -50,12 +50,12 @@ func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId
 	return fmt.Errorf("ApplySnapshotPolicyToDisks not implement")
 }
 
-func (self *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+func (self *SRegion) GetISkus() ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) DeleteISkuByName(name string) error {
-	return fmt.Errorf("Not Support DeleteISkuByName")
+func (self *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
+	return fmt.Errorf("Not Implement CreateISku")
 }
 
 func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {

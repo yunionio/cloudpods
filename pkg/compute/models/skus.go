@@ -115,7 +115,6 @@ type SServerSku struct {
 	GpuMaxCount   int               `nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 
 	Provider string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
-	Brand    string `width:"64" charset:"ascii" nullable:"true" list:"user" default:"OneCloud" create:"admin_optional"`
 }
 
 type SInstanceSpecQueryParams struct {
@@ -407,12 +406,9 @@ func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenC
 	}
 }
 
-func (self *SServerSku) GetCloudproviders() ([]SCloudprovider, error) {
+func (self *SServerSku) GetPrivateCloudproviders() ([]SCloudprovider, error) {
 	providers := []SCloudprovider{}
-	accounts := CloudaccountManager.Query().SubQuery()
-	q := CloudproviderManager.Query()
-	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), q.Field("cloudaccount_id"))).
-		Filter(sqlchemy.Equals(accounts.Field("brand"), self.Brand))
+	q := CloudproviderManager.Query().In("provider", CloudproviderManager.GetPrivateProviderProvidersQuery())
 	err := db.FetchModelObjects(CloudproviderManager, q, &providers)
 	if err != nil {
 		return nil, err
@@ -664,11 +660,13 @@ func (self *SServerSku) RealDelete(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SServerSku) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartServerSkuDeleteTask(ctx, userCred, "")
+	return self.StartServerSkuDeleteTask(ctx, userCred, jsonutils.QueryBoolean(data, "purge", false), "")
 }
 
-func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SServerSku) StartServerSkuDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, purge bool, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(purge), "purge")
+	task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("newTask ServerSkuDeleteTask fail %s", err)
 		return err
@@ -876,23 +874,18 @@ func (manager *SServerSkuManager) GetSkuCountByZone(zoneId string) []SServerSku 
 	return skus
 }
 
-func (manager *SServerSkuManager) GetSkuNamesByBrand(brand string) ([]string, error) {
-	skus := []string{}
-	q := manager.Query("name").Equals("brand", brand).Distinct()
-	rows, err := q.Rows()
+func (manager *SServerSkuManager) GetOneCloudSkus() ([]string, error) {
+	skus := []SServerSku{}
+	q := manager.Query().Equals("provider", api.CLOUD_PROVIDER_ONECLOUD)
+	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var sku string
-		err = rows.Scan(&sku)
-		if err != nil {
-			return nil, errors.Wrap(err, "rows.Scan(&sku)")
-		}
-		skus = append(skus, sku)
+	result := []string{}
+	for _, sku := range skus {
+		result = append(result, fmt.Sprintf("%s/%d/%d", sku.Name, sku.CpuCoreCount, sku.MemorySizeMB))
 	}
-	return skus, nil
+	return result, nil
 }
 
 func (manager *SServerSkuManager) GetSkus(provider string, cpu, memMB int) ([]SServerSku, error) {
@@ -940,27 +933,63 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	return nil
 }
 
-func (manager *SServerSkuManager) SyncCloudSkusByZone(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
+func (self *SServerSku) AllowPerformCacheSku(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "cache-sku")
+}
+
+func (self *SServerSku) PerformCacheSku(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", nil)
+	err := cloudregionV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+	cloudregion := cloudregionV.Model.(*SCloudregion)
+	if len(cloudregion.ManagerId) == 0 {
+		return nil, httperrors.NewInputParameterError("Only support cache sku for private cloud")
+	}
+
+	cloudprovider := cloudregion.GetCloudprovider()
+	if cloudprovider == nil {
+		return nil, httperrors.NewInputParameterError("failed to get cloudprovider for region %s(%s)", cloudregion.Name, cloudregion.Id)
+	}
+
+	if !cloudprovider.Enabled {
+		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) disabled", cloudprovider.Name, cloudprovider.Id)
+	}
+
+	return nil, self.StartServerSkuCacheTask(ctx, userCred, cloudregion.Id, "")
+}
+
+func (self *SServerSku) StartServerSkuCacheTask(ctx context.Context, userCred mcclient.TokenCredential, cloudregionId string, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(cloudregionId), "cloudregion_id")
+	task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuCacheTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, skus []cloudprovider.ICloudSku) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
-	cloudaccount := provider.GetCloudaccount()
-	names, err := manager.GetSkuNamesByBrand(cloudaccount.Brand)
+	names, err := manager.GetOneCloudSkus()
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
 	}
 
 	for _, sku := range skus {
-		if !utils.IsInStringArray(sku.GetName(), names) {
-			err := manager.newFromCloudSku(ctx, userCred, sku, cloudaccount.Provider, cloudaccount.Brand)
+		if !utils.IsInStringArray(fmt.Sprintf("%s/%d/%d", sku.GetName(), sku.GetCpuCoreCount(), sku.GetMemorySizeMB()), names) {
+			err := manager.newFromCloudSku(ctx, userCred, sku)
 			if err != nil {
 				syncResult.AddError(err)
 			} else {
 				syncResult.Add()
 			}
-
 		}
 	}
 
@@ -1016,8 +1045,8 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 	return nil
 }
 
-func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, provider, brand string) error {
-	sku := &SServerSku{Provider: provider, Brand: brand}
+func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku) error {
+	sku := &SServerSku{Provider: api.CLOUD_PROVIDER_ONECLOUD}
 	sku.SetModelManager(manager, sku)
 	// 第一次同步新建的套餐是启用状态
 	sku.Enabled = true
@@ -1035,7 +1064,7 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 		return nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, "Update %s sku %s cloudregion info", sku.Brand, sku.Name)
+		return errors.Wrapf(err, "Update sku %s cloudregion info", sku.Name)
 	}
 
 	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
@@ -1150,16 +1179,16 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 	return ids, nil
 }
 
-func (manager *SServerSkuManager) initializeSkuBrand() error {
+func (manager *SServerSkuManager) initializeSkuProvider() error {
 	skus := []SServerSku{}
-	q := manager.Query().IsNullOrEmpty("brand")
+	q := manager.Query().In("provider", CloudproviderManager.GetPrivateProviderProvidersQuery())
 	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
-		return errors.Wrapf(err, "initializeSkuBrand.FetchModelObjects")
+		return errors.Wrapf(err, "initializeSkuProvider.FetchModelObjects")
 	}
 	for _, sku := range skus {
 		_, err = db.Update(&sku, func() error {
-			sku.Brand = sku.Provider
+			sku.Provider = api.CLOUD_PROVIDER_ONECLOUD
 			return nil
 		})
 		if err != nil {
@@ -1306,9 +1335,9 @@ func (manager *SServerSkuManager) InitializeData() error {
 		return errors.Wrap(err, "initializeSkuEnableField")
 	}
 
-	err = manager.initializeSkuBrand()
+	err = manager.initializeSkuProvider()
 	if err != nil {
-		return errors.Wrap(err, "InitializeBrand")
+		return errors.Wrap(err, "InitializeProvider")
 	}
 
 	return manager.initializeSkuStatus()
