@@ -53,6 +53,7 @@ func NewInfluxdbWithDebug(accessUrl string, debug bool) *SInfluxdb {
 
 type dbResult struct {
 	Name    string
+	Tags    *jsonutils.JSONDict
 	Columns []string
 	Values  [][]jsonutils.JSONObject
 }
