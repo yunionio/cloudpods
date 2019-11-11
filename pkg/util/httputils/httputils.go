@@ -92,6 +92,17 @@ func ErrorCode(err error) int {
 	return -1
 }
 
+func ErrorMsg(err error) string {
+	if err == nil {
+		return ""
+	}
+	switch je := err.(type) {
+	case *JSONClientError:
+		return je.Details
+	}
+	return err.Error()
+}
+
 func GetAddrPort(urlStr string) (string, int, error) {
 	parts, err := url.Parse(urlStr)
 	if err != nil {
