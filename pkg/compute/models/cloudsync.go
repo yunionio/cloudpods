@@ -707,20 +707,20 @@ func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, pro
 	return nil
 }
 
-func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localZone *SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
-	skus, err := remoteRegion.GetISkus(remoteZone.GetId())
+func syncSkusFromPrivateCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, remoteRegion cloudprovider.ICloudRegion) {
+	skus, err := remoteRegion.GetISkus()
 	if err != nil {
-		msg := fmt.Sprintf("GetISkus for zone %s failed %v", localZone.Name, err)
+		msg := fmt.Sprintf("GetISkus for provider %s(%s) failed %v", provider.Name, provider.Id, err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := ServerSkuManager.SyncCloudSkusByZone(ctx, userCred, provider, localZone, skus)
+	result := ServerSkuManager.SyncPrivateCloudSkus(ctx, userCred, provider, skus)
 
 	syncResults.Add(ServerSkuManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncCloudSkusByRegion for zone %s result: %s", localZone.Name, msg)
+	log.Infof("SyncCloudSkusByRegion for provider %s result: %s", provider.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -991,6 +991,8 @@ func syncPublicCloudProviderInfo(
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
 		syncRegionSkus(ctx, userCred, localRegion)
+	} else {
+		syncSkusFromPrivateCloud(ctx, userCred, syncResults, provider, remoteRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
@@ -1018,10 +1020,6 @@ func syncPublicCloudProviderInfo(
 		newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
 		if len(newPairs) > 0 {
 			storageCachePairs = append(storageCachePairs, newPairs...)
-		}
-
-		if driver.GetFactory().NeedSyncSkuFromCloud() {
-			syncZoneSkusFromCloud(ctx, userCred, syncResults, provider, &localZones[j], remoteRegion, remoteZones[j])
 		}
 	}
 

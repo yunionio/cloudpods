@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -31,6 +33,7 @@ func init() {
 		Mem         *int    `help:"Memory size in MB" json:"memory_size_mb"`
 		Name        string  `help:"Name of Sku"`
 	}
+
 	R(&ServerSkusListOptions{}, "server-sku-list", "List all avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
@@ -67,6 +70,22 @@ func init() {
 
 	R(&ServerSkusIdOptions{}, "server-sku-disable", "Disable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusIdOptions) error {
 		result, err := modules.ServerSkus.PerformAction(s, args.ID, "disable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ServerSkusCacheOptions struct {
+		REGION string `help:"Private cloud region"`
+		ID     string `help:"ServerSku Id"`
+	}
+
+	R(&ServerSkusCacheOptions{}, "server-sku-cache", "Cache Server SKU for private cloud", func(s *mcclient.ClientSession, args *ServerSkusCacheOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.REGION), "cloudregion")
+		result, err := modules.ServerSkus.PerformAction(s, args.ID, "cache-sku", params)
 		if err != nil {
 			return err
 		}
@@ -160,10 +179,15 @@ func init() {
 	})
 
 	type ServerSkusDeleteOptions struct {
-		ID string `help:"Id or name of server sku"`
+		ID    string `help:"Id or name of server sku"`
+		Purge bool   `help:"purge sku"`
 	}
 	R(&ServerSkusDeleteOptions{}, "server-sku-delete", "Delete a server sku", func(s *mcclient.ClientSession, args *ServerSkusDeleteOptions) error {
-		result, err := modules.ServerSkus.Delete(s, args.ID, nil)
+		params := jsonutils.NewDict()
+		if args.Purge {
+			params.Add(jsonutils.JSONTrue, "purge")
+		}
+		result, err := modules.ServerSkus.Delete(s, args.ID, params)
 		if err != nil {
 			return err
 		}

@@ -9,3 +9,15 @@ get:
         $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
   tags:
     - serverskus
+
+delete:
+  summary: 删除指定套餐(仅本地套餐可删除)
+  parameters:
+    - $ref: '../parameters/serversku.yaml#/serverskuId'
+    - $ref: '../parameters/serversku.yaml#/purge'
+  responses:
+    200:
+      schema:
+        $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
+  tags:
+    - serverskus

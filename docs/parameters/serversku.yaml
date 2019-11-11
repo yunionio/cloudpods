@@ -19,4 +19,9 @@ usable:
   in: query
   type: boolean
   description: 过滤所在region底下有ip子网的套餐
-
+purge:
+  name: purge 
+  in: body 
+  type: boolean 
+  default: false
+  description: 删除本地套餐时不同步删除私有云上的套餐

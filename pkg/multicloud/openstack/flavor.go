@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -117,12 +116,9 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
 }
 
-func (region *SRegion) CreateISku(sku *cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
-	isku, err := region.CreateFlavor(sku.Name, sku.CpuCoreCount, sku.MemorySizeMB, 30)
-	if err != nil {
-		return nil, errors.Wrapf(err, "region.CreateFlavor")
-	}
-	return isku, nil
+func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
+	_, err := region.CreateFlavor(name, vCpu, memoryMb, 30)
+	return err
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
