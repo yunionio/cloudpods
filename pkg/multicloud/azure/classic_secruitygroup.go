@@ -226,7 +226,7 @@ func (region *SRegion) CreateClassicSecurityGroup(name string) (*SClassicSecurit
 	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
 }
 
-func (region *SRegion) GetClassicSecurityGroups() ([]SClassicSecurityGroup, error) {
+func (region *SRegion) GetClassicSecurityGroups(name string) ([]SClassicSecurityGroup, error) {
 	secgroups := []SClassicSecurityGroup{}
 	err := region.client.ListAll("Microsoft.ClassicNetwork/networkSecurityGroups", &secgroups)
 	if err != nil {
@@ -234,7 +234,7 @@ func (region *SRegion) GetClassicSecurityGroups() ([]SClassicSecurityGroup, erro
 	}
 	result := []SClassicSecurityGroup{}
 	for i := 0; i < len(secgroups); i++ {
-		if secgroups[i].Location == region.Name {
+		if secgroups[i].Location == region.Name && (len(name) == 0 || strings.ToLower(secgroups[i].Name) == strings.ToLower(name)) {
 			result = append(result, secgroups[i])
 		}
 	}

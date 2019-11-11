@@ -21,9 +21,10 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
+		Name string
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security groups", func(cli *openstack.SRegion, args *SecurityGroupListOptions) error {
-		secgroup, err := cli.GetSecurityGroups()
+		secgroup, err := cli.GetSecurityGroups(args.Name)
 		if err != nil {
 			return err
 		}

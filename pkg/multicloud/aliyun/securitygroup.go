@@ -172,7 +172,7 @@ func (self *SSecurityGroup) Refresh() error {
 	}
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId, name string, securityGroupIds []string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -182,6 +182,9 @@ func (self *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, 
 	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
 	if len(vpcId) > 0 {
 		params["VpcId"] = vpcId
+	}
+	if len(name) > 0 {
+		params["SecurityGroupName"] = name
 	}
 
 	if securityGroupIds != nil && len(securityGroupIds) > 0 {

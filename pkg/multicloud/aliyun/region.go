@@ -760,6 +760,20 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return secgroup, nil
 }
 
+func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
+	secgroups, total, err := region.GetSecurityGroups(vpcId, name, []string{}, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if total == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &secgroups[0], nil
+}
+
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	externalId, err := region.CreateSecurityGroup(conf.VpcId, conf.Name, conf.Desc)
 	if err != nil {
@@ -770,7 +784,7 @@ func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCre
 
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	if len(secgroupId) > 0 {
-		_, total, err := region.GetSecurityGroups("", []string{secgroupId}, 0, 1)
+		_, total, err := region.GetSecurityGroups("", "", []string{secgroupId}, 0, 1)
 		if err != nil {
 			return "", err
 		}

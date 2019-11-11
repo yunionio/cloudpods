@@ -79,7 +79,7 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 	return secgroup, region.client.getResource("security-groups", secgroupId, secgroup)
 }
 
-func (region *SRegion) GetSecurityGroups(secgroupId string, instanceId string) ([]SSecurityGroup, error) {
+func (region *SRegion) GetSecurityGroups(secgroupId string, instanceId string, name string) ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
 	params := []string{}
 	if len(secgroupId) > 0 {
@@ -87,6 +87,9 @@ func (region *SRegion) GetSecurityGroups(secgroupId string, instanceId string) (
 	}
 	if len(instanceId) > 0 {
 		params = append(params, "q=vmNic.vmInstanceUuid="+instanceId)
+	}
+	if len(name) > 0 {
+		params = append(params, "q=name="+name)
 	}
 	err := region.client.listAll("security-groups", params, &secgroups)
 	if err != nil {

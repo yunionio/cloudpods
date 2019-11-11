@@ -558,7 +558,7 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 }
 
 func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
-	return self.host.zone.region.GetSecurityGroups("", self.GetId())
+	return self.host.zone.region.GetSecurityGroups("", self.GetId(), "")
 }
 
 // https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_vnc_info
