@@ -100,7 +100,13 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					return nil, cloudprovider.ErrNotFound
 				}
 			}
-			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported", "try later", "BackendServer.configuring"} {
+			for _, code := range []string{
+				"SignatureNonceUsed",
+				"InvalidInstance.NotSupported",
+				"try later",
+				"BackendServer.configuring",
+				"Another operation is being performed", //Another operation is being performed on the DB instance or the DB instance is faulty(赋予RDS账号权限)
+			} {
 				if strings.Contains(err.Error(), code) {
 					retry = true
 					break
