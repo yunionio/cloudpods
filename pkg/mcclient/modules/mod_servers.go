@@ -48,7 +48,7 @@ func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, pa
 		ret.Add(v, "updated")
 	}
 
-	loginKey, _ := data.GetString("metadata", "login_key")
+	loginKey, e := data.GetString("metadata", "login_key")
 	if e != nil {
 		return nil, fmt.Errorf("No login key: %s", e)
 	}

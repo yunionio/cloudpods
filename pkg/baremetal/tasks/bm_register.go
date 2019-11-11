@@ -161,8 +161,8 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
 
 	var conf *types.SIPMILanConfig
 	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
-		conf, err = ipmitool.GetLanConfig(ipmiTool, lanChannel)
-		if err == nil || len(conf.Mac) == 0 {
+		conf, _ = ipmitool.GetLanConfig(ipmiTool, lanChannel)
+		if conf == nil || len(conf.Mac) == 0 {
 			continue
 		}
 	}
