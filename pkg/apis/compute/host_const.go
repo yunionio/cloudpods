@@ -51,6 +51,7 @@ const (
 	BAREMETAL_RUNNING        = "running"
 	BAREMETAL_MAINTAINING    = "maintaining"
 	BAREMETAL_START_MAINTAIN = "start_maintain"
+	BAREMETAL_MAINTAIN_FAIL  = "maintain_fail"
 	BAREMETAL_DELETING       = "deleting"
 	BAREMETAL_DELETE         = "delete"
 	BAREMETAL_DELETE_FAIL    = "delete_fail"
@@ -78,10 +79,6 @@ const (
 	HOST_STATUS_RUNNING = BAREMETAL_RUNNING
 	HOST_STATUS_READY   = BAREMETAL_READY
 	HOST_STATUS_UNKNOWN = BAREMETAL_UNKNOWN
-
-	HOST_START_MAINTAIN = "start_maintain"
-	HOST_MAINTAINING    = "maintaining"
-	HOST_MAINTAIN_FAILE = "maintain_fail"
 )
 
 const (

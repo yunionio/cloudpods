@@ -4289,7 +4289,7 @@ func (host *SHost) AllowPerformHostExitMaintenance(ctx context.Context,
 }
 
 func (host *SHost) PerformHostExitMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(host.Status, []string{api.HOST_MAINTAIN_FAILE, api.HOST_MAINTAINING}) {
+	if !utils.IsInStringArray(host.Status, []string{api.BAREMETAL_MAINTAIN_FAIL, api.BAREMETAL_MAINTAINING}) {
 		return nil, httperrors.NewInvalidStatusError("host status %s can't exit maintenance", host.Status)
 	}
 	err := host.SetStatus(userCred, api.HOST_STATUS_RUNNING, "exit maintenance")
@@ -4310,7 +4310,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	if host.HostType != api.HOST_TYPE_HYPERVISOR {
 		return nil, httperrors.NewBadRequestError("host type %s can't do host maintenance", host.HostType)
 	}
-	if host.HostStatus == api.HOST_START_MAINTAIN {
+	if host.HostStatus == api.BAREMETAL_START_MAINTAIN {
 		return nil, httperrors.NewBadRequestError("unsupport on host status %s", host.HostStatus)
 	}
 
@@ -4371,7 +4371,7 @@ func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, r
 }
 
 func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	host.SetStatus(userCred, api.HOST_START_MAINTAIN, "start maintenance")
+	host.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "start maintenance")
 	if task, err := taskman.TaskManager.NewTask(ctx, "HostMaintainTask", host, userCred, data, "", "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -4382,7 +4382,7 @@ func (host *SHost) StartMaintainTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (host *SHost) IsMaintaining() bool {
-	return utils.IsInStringArray(host.Status, []string{api.HOST_START_MAINTAIN, api.HOST_MAINTAINING, api.HOST_MAINTAIN_FAILE})
+	return utils.IsInStringArray(host.Status, []string{api.BAREMETAL_START_MAINTAIN, api.BAREMETAL_MAINTAINING, api.BAREMETAL_MAINTAIN_FAIL})
 }
 
 // InstanceGroups returns the enabled group of guest in host and their frequency of occurrence
