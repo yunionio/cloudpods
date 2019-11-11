@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httperrors
+package httputils
 
 import (
 	"testing"
@@ -57,7 +57,7 @@ func TestVariadic(t *testing.T) {
 			}
 		})
 		t.Run(c.name+"_New", func(t *testing.T) {
-			err := NewInputParameterError(c.msg, c.params...)
+			err := NewJsonClientError(400, "InputParameterError", c.msg, c.params...)
 			if err.Details != c.out {
 				t.Errorf("want %s, got %s", c.out, err.Details)
 			}
