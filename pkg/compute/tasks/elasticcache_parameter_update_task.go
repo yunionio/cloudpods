@@ -64,10 +64,11 @@ func (self *ElasticcacheParameterUpdateTask) OnInit(ctx context.Context, obj db.
 	}
 }
 
-func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateComplete(ctx context.Context, ea *models.SElasticcacheParameter, data jsonutils.JSONObject) {
+func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateComplete(ctx context.Context, ep *models.SElasticcacheParameter, data jsonutils.JSONObject) {
+	logclient.AddActionLogWithStartable(self, ep, logclient.ACT_UPDATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateCompleteFailed(ctx context.Context, ea *models.SElasticcacheParameter, reason string) {
-	self.taskFail(ctx, ea, reason)
+func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateCompleteFailed(ctx context.Context, ep *models.SElasticcacheParameter, reason string) {
+	self.taskFail(ctx, ep, reason)
 }

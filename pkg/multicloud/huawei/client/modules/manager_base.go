@@ -68,7 +68,8 @@ func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (
 		return nil, err
 	}
 	if body == nil {
-		return nil, fmt.Errorf("empty response")
+		log.Warningf("empty response")
+		return &responses.ListResult{}, nil
 	}
 
 	rets, err := body.GetArray(responseKey)

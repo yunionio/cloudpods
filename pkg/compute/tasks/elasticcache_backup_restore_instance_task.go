@@ -64,6 +64,7 @@ func (self *ElasticcacheBackupRestoreInstanceTask) OnInit(ctx context.Context, o
 
 func (self *ElasticcacheBackupRestoreInstanceTask) OnElasticcacheBackupRestoreInstanceComplete(ctx context.Context, eb *models.SElasticcacheBackup, data jsonutils.JSONObject) {
 	eb.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	logclient.AddActionLogWithStartable(self, eb, logclient.ACT_RESTORE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

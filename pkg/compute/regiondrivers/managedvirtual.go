@@ -1622,6 +1622,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -1661,6 +1662,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx cont
 
 	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
 	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_UNKNOWN, "")
+			return nil
+		}
+
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIElasticcacheById")
 	}
 
@@ -2048,6 +2054,10 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAclDat
 	}
 
 	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) AllowCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -2516,5 +2526,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheBackupRestore
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.WaitStatusWithDelay")
 	}
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	return nil
 }

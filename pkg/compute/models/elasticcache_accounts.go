@@ -289,7 +289,8 @@ func (self *SElasticcacheAccount) GetUpdateHuaweiElasticcacheAccountParams(data 
 		ret.Password = &password
 		oldpasswd, err := self.GetDecodedPassword()
 		if err != nil {
-			return ret, err
+			// can not update password, if old password is emtpy
+			return ret, errors.Wrap(err, "ElasticcacheAccount.GetUpdateHuaweiElasticcacheAccountParams.GetDecodedPassword")
 		}
 
 		ret.OldPassword = &oldpasswd

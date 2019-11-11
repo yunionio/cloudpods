@@ -24,6 +24,7 @@ const (
 	ELASTIC_CACHE_STATUS_CHANGE_FAILED         = "change_failed"         //（修改失败）
 	ELASTIC_CACHE_STATUS_INACTIVE              = "inactive"              //（被禁用）
 	ELASTIC_CACHE_STATUS_FLUSHING              = "flushing"              //（清除中）
+	ELASTIC_CACHE_STATUS_FLUSHING_FAILED       = "flushing_failed"       //（清除失败）
 	ELASTIC_CACHE_STATUS_RELEASED              = "released"              //（已释放）
 	ELASTIC_CACHE_STATUS_RELEASE_FAILED        = "release_failed"        //（释放失败）
 	ELASTIC_CACHE_STATUS_TRANSFORMING          = "transforming"          //（转换中）
@@ -93,4 +94,11 @@ const (
 	ELASTIC_CACHE_PARAMETER_STATUS_AVAILABLE     = "available"     // 正常可用
 	ELASTIC_CACHE_PARAMETER_STATUS_UPDATING      = "updating"      // 更新中
 	ELASTIC_CACHE_PARAMETER_STATUS_UPDATE_FAILED = "update_failed" // 更新失败
+)
+
+const (
+	ELASTIC_CACHE_ARCH_TYPE_SINGLE  = "single"  // 单副本
+	ELASTIC_CACHE_ARCH_TYPE_MASTER  = "master"  // 主备
+	ELASTIC_CACHE_ARCH_TYPE_CLUSTER = "cluster" // 集群
+	ELASTIC_CACHE_ARCH_TYPE_RWSPLIT = "rwsplit" // 读写分离
 )

@@ -38,8 +38,8 @@ func init() {
 
 func (self *ElasticcacheAccountDeleteTask) taskFail(ctx context.Context, ea *models.SElasticcacheAccount, reason string) {
 	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason)
-	db.OpsLog.LogEvent(ea, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_CREATE, reason, self.UserCred, false)
+	db.OpsLog.LogEvent(ea, db.ACT_DELETE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -62,6 +62,8 @@ func (self *ElasticcacheAccountDeleteTask) OnInit(ctx context.Context, obj db.IS
 			self.taskFail(ctx, ea, err.Error())
 			return
 		}
+
+		logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, nil, self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }

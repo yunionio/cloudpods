@@ -1265,7 +1265,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 
 		provider := iprovider.(*models.SCloudprovider)
 
-		params, err := ec.GetCreateAliyunElasticcacheParams()
+		params, err := ec.GetCreateAliyunElasticcacheParams(task.GetParams())
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetCreateAliyunElasticcacheParams")
 		}

@@ -64,6 +64,7 @@ func (self *ElasticcacheAllocatePublicConnectionTask) OnInit(ctx context.Context
 
 func (self *ElasticcacheAllocatePublicConnectionTask) OnElasticcacheAllocatePublicConnectionComplete(ctx context.Context, elasticcache *models.SElasticcache, data jsonutils.JSONObject) {
 	elasticcache.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
+	logclient.AddActionLogWithStartable(self, elasticcache, logclient.ACT_ALLOCATE, "allocate public connection", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
