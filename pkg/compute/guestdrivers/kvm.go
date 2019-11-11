@@ -287,6 +287,14 @@ func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest 
 }
 
 func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
+	if ispId := guest.GetMetadata("__base_instance_snapshot_id", userCred); len(ispId) > 0 {
+		ispM, err := models.InstanceSnapshotManager.FetchById(ispId)
+		if err == nil {
+			isp := ispM.(*models.SInstanceSnapshot)
+			isp.DecRefCount(ctx, userCred)
+		}
+		guest.SetMetadata(ctx, "__base_instance_snapshot_id", "", userCred)
+	}
 	return nil
 }
 

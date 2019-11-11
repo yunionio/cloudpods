@@ -127,6 +127,16 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.In("disk_id", sq)
 	}
 
+	if isInstanceSnapshot, err := query.Bool("is_instance_snapshot"); err == nil {
+		insjsq := InstanceSnapshotJointManager.Query().SubQuery()
+		if !isInstanceSnapshot {
+			q = q.LeftJoin(insjsq, sqlchemy.Equals(q.Field("id"), insjsq.Field("snapshot_id"))).
+				Filter(sqlchemy.IsNull(insjsq.Field("snapshot_id")))
+		} else {
+			q = q.Join(insjsq, sqlchemy.Equals(q.Field("id"), insjsq.Field("snapshot_id")))
+		}
+	}
+
 	/*if provider, err := query.GetString("provider"); err == nil {
 		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
 		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
