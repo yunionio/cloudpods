@@ -83,7 +83,36 @@ var (
 		IdentityDriverLDAP,
 	}
 
-	SensitiveDomainConfigMap = map[string]string{
-		"ldap": "password",
+	SensitiveDomainConfigMap = map[string][]string{
+		"ldap": []string{
+			"password",
+		},
+	}
+
+	BlacklistOptionMap = map[string][]string{
+		"default": []string{
+			"region",
+			"sql_connection",
+			"config",
+			"application_id",
+			"log_level",
+			"temp_path",
+			"auto_sync_table",
+			"address",
+			"port",
+			"admin_port",
+			"notify_admin_users",
+			"session_endpoint_type",
+			"admin_password",
+			"admin_project",
+			"admin_user",
+			"auth_url",
+			"default_aws_instance_type_file",
+			"port_v2",
+			"enable_ssl",
+			"ssl_certfile",
+			"ssl_keyfile",
+			"ssl_ca_certs",
+		},
 	}
 )

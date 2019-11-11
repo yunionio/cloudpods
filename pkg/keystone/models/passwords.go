@@ -140,8 +140,8 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string, 
 	rec.Password = shaPassword(password)
 	now := time.Now()
 	rec.CreatedAtInt = now.UnixNano() / 1000
-	if o.Options.PasswordExpirationDays > 0 && !isSystemAccount {
-		rec.ExpiresAt = now.Add(24 * time.Hour * time.Duration(o.Options.PasswordExpirationDays))
+	if o.Options.PasswordExpirationSeconds > 0 && !isSystemAccount {
+		rec.ExpiresAt = now.Add(time.Second * time.Duration(o.Options.PasswordExpirationSeconds))
 		rec.ExpiresAtInt = rec.ExpiresAt.UnixNano() / 1000
 	}
 	err = manager.TableSpec().Insert(&rec)

@@ -38,8 +38,8 @@ type SKeystoneOptions struct {
 
 	FetchProjectResourceCountIntervalSeconds int `help:"frequency tp fetch project resource counts" default:"900"`
 
-	PasswordExpirationDays     int `help:"password expires after the duration"`
-	PasswordMinimalLength      int `help:"password minimal length"`
+	PasswordExpirationSeconds  int `help:"password expires after the duration in seconds"`
+	PasswordMinimalLength      int `help:"password minimal length" default:"6"`
 	PasswordUniqueHistoryCheck int `help:"password must be unique in last N passwords"`
 
 	PasswordErrorLockCount int `help:"lock user account if given number of failed auth"`

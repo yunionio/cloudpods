@@ -17,7 +17,8 @@ package image
 type TImageType string
 
 const (
-	SERVICE_TYPE = "image"
+	SERVICE_TYPE    = "image"
+	SERVICE_VERSION = ""
 
 	// https://docs.openstack.org/glance/pike/user/statuses.html
 	//
