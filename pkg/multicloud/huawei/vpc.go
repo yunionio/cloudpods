@@ -88,7 +88,7 @@ func (self *SVpc) fetchNetworks() error {
 // 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
 	// todo： vpc 和 安全组的关联关系还需要进一步确认。
-	secgroups, err := self.region.GetSecurityGroups("")
+	secgroups, err := self.region.GetSecurityGroups("", "")
 	if err != nil {
 		return err
 	}

@@ -363,7 +363,7 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
 }
 
-func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
+func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
 	err := region.client.ListAll("Microsoft.Network/networkSecurityGroups", &secgroups)
 	if err != nil {
@@ -371,7 +371,7 @@ func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
 	}
 	result := []SSecurityGroup{}
 	for i := 0; i < len(secgroups); i++ {
-		if secgroups[i].Location == region.Name {
+		if secgroups[i].Location == region.Name && (len(name) == 0 || strings.ToLower(secgroups[i].Name) == strings.ToLower(name)) {
 			secgroups[i].region = region
 			result = append(result, secgroups[i])
 		}

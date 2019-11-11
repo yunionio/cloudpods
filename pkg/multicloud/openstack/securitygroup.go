@@ -92,8 +92,11 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 	return secgroup, resp.Unmarshal(secgroup, "security_group")
 }
 
-func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
+func (region *SRegion) GetSecurityGroups(name string) ([]SSecurityGroup, error) {
 	url := "/v2.0/security-groups"
+	if len(name) > 0 {
+		url = fmt.Sprintf("%s?name=%s", url, name)
+	}
 	secgroups := []SSecurityGroup{}
 	for len(url) > 0 {
 		_, resp, err := region.List("network", url, "", nil)
@@ -258,7 +261,7 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 		}
 	}
 	if len(secgroupId) == 0 {
-		secgroups, err := region.GetSecurityGroups()
+		secgroups, err := region.GetSecurityGroups("")
 		if err != nil {
 			// 若返回 cloudprovider.ErrNotFound, 表明不支持安全组或者未安装安全组相关组件
 			if err == cloudprovider.ErrNotFound {

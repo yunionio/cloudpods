@@ -23,9 +23,10 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
+		Name string
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *ucloud.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, e := cli.GetSecurityGroups("", "")
+		secgrps, e := cli.GetSecurityGroups("", "", args.Name)
 		if e != nil {
 			return e
 		}

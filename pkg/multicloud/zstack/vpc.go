@@ -97,7 +97,7 @@ func (vpc *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	secgroups, err := vpc.region.GetSecurityGroups("", "")
+	secgroups, err := vpc.region.GetSecurityGroups("", "", "")
 	if err != nil {
 		return nil, err
 	}

@@ -321,7 +321,7 @@ func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityG
 		return nil, httperrors.NewInputParameterError("security group id should not be empty")
 	}
 
-	secgroups, total, err := self.GetSecurityGroups(vpcId, secgroupId, 0, 0)
+	secgroups, total, err := self.GetSecurityGroups(vpcId, "", secgroupId, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -437,11 +437,15 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	return rules
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, name string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	params := &ec2.DescribeSecurityGroupsInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(vpcId) > 0 {
 		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
+	}
+
+	if len(name) > 0 {
+		filters = AppendSingleValueFilter(filters, "group-name", name)
 	}
 
 	if len(secgroupId) > 0 {
