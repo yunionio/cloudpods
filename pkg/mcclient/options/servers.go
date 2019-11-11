@@ -245,9 +245,14 @@ type ServerCreateFromInstanceSnapshot struct {
 }
 
 type ServerCreateOptions struct {
+	ServerCreateOptionalOptions
+
+	NAME string `help:"Name of server" json:"-"`
+}
+
+type ServerCreateOptionalOptions struct {
 	ServerConfigs
 
-	NAME    string `help:"Name of server" json:"-"`
 	MemSpec string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
 
 	Keypair          string   `help:"SSH Keypair"`
@@ -340,7 +345,7 @@ func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error)
 	return input, nil
 }
 
-func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
+func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCreateInput, error) {
 	config, err := opts.ServerConfigs.Data()
 	if err != nil {
 		return nil, err
@@ -370,11 +375,6 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		Secgroups:          opts.Secgroups,
 	}
 
-	if opts.GenerateName {
-		params.GenerateName = opts.NAME
-	} else {
-		params.Name = opts.NAME
-	}
 	if regutils.MatchSize(opts.MemSpec) {
 		memSize, err := fileutils.GetSizeMb(opts.MemSpec, 'M', 1024)
 		if err != nil {
@@ -425,6 +425,22 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 
 	// group
 	params.InstanceGroupIds = opts.Group
+
+	return params, nil
+}
+
+func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
+
+	params, err := opts.OptionalParams()
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.GenerateName {
+		params.GenerateName = opts.NAME
+	} else {
+		params.Name = opts.NAME
+	}
 
 	return params, nil
 }

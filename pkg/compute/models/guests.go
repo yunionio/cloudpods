@@ -4877,6 +4877,12 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 		return errors.Wrap(err, "get guest image from glance error")
 	}
 
+	// input.GuestImageID maybe name of guestimage
+	if ret.Contains("id") {
+		id, _ := ret.GetString("id")
+		input.GuestImageID = id
+	}
+
 	images := &api.SImagesInGuest{}
 	err = ret.Unmarshal(images)
 	if err != nil {
