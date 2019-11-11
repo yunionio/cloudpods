@@ -48,6 +48,7 @@ type SImage struct {
 	SizeBytes  int64 `json:"size"`
 	Status     string
 	// UpdatedAt       time.Time
+	PublicScope string
 }
 
 func CloudImage2Image(image ICloudImage) SImage {
