@@ -173,6 +173,7 @@ const (
 	ACT_SUBIMAGE_UPDATE = "更新子镜像"
 
 	ACT_PREPARE = "同步硬件配置"
+	ACT_PROBE   = "检测配置"
 
 	ACT_INSTANCE_GROUP_BIND   = "绑定主机组"
 	ACT_INSTANCE_GROUP_UNBIND = "解绑主机组"

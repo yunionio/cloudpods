@@ -311,7 +311,7 @@ func NewNIC(desc string) (*SNIC, error) {
 }
 
 type SSysInfo struct {
-	*types.SDMISystemInfo
+	*types.SSystemInfo
 
 	Nest           string `json:"nest,omitempty"`
 	OsDistribution string `json:"os_distribution"`

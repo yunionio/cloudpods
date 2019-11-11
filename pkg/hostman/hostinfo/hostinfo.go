@@ -258,7 +258,7 @@ func (h *SHostInfo) detectHostInfo() error {
 	if err != nil {
 		return err
 	}
-	h.sysinfo.SDMISystemInfo = sysinfo
+	h.sysinfo.SSystemInfo = sysinfo
 
 	h.detectKvmModuleSupport()
 	h.detectNestSupport()
@@ -452,7 +452,7 @@ func (h *SHostInfo) detectiveKernelVersion() {
 	if err != nil {
 		log.Errorln(err)
 	}
-	h.sysinfo.KernelVersion = string(out)
+	h.sysinfo.KernelVersion = strings.TrimSpace(string(out))
 }
 
 func (h *SHostInfo) detectiveSyssoftwareInfo() error {

@@ -15,8 +15,6 @@
 package profiles
 
 import (
-	"strings"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
@@ -97,26 +95,26 @@ var (
 	}
 )
 
-func GetProfile(sysinfo *types.SIPMISystemInfo) IPMIProfile {
-	profile, ok := PROFILES[strings.ToLower(sysinfo.Manufacture)]
+func GetProfile(sysinfo *types.SSystemInfo) IPMIProfile {
+	profile, ok := PROFILES[sysinfo.OemName]
 	if ok {
 		return profile
 	}
 	return DefaultProfile()
 }
 
-func GetLanChannel(sysinfo *types.SIPMISystemInfo) []int {
+func GetLanChannel(sysinfo *types.SSystemInfo) []int {
 	return GetProfile(sysinfo).LanChannel
 }
 
-func GetRootId(sysinfo *types.SIPMISystemInfo) int {
+func GetRootId(sysinfo *types.SSystemInfo) int {
 	return GetProfile(sysinfo).RootId
 }
 
-func GetRootName(sysinfo *types.SIPMISystemInfo) string {
+func GetRootName(sysinfo *types.SSystemInfo) string {
 	return GetProfile(sysinfo).RootName
 }
 
-func IsStrongPass(sysinfo *types.SIPMISystemInfo) bool {
+func IsStrongPass(sysinfo *types.SSystemInfo) bool {
 	return GetProfile(sysinfo).StrongPass
 }

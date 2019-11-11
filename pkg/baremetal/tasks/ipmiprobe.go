@@ -104,10 +104,11 @@ func (self *SBaremetalIpmiProbeTask) doRedfishIpmiProbe(ctx context.Context, drv
 	updateInfo["mem_size"] = sysInfo.MemoryGB * 1024
 	updateInfo["sn"] = sysInfo.SerialNumber
 	updateInfo["uuid"] = sysInfo.UUID
-	dmiSysInfo := &types.SDMISystemInfo{
+	dmiSysInfo := &types.SSystemInfo{
 		Manufacture: sysInfo.Manufacturer,
 		Model:       sysInfo.Model,
 		SN:          sysInfo.SerialNumber,
+		OemName:     types.ManufactureOemName(sysInfo.Manufacturer),
 	}
 	updateInfo["sys_info"] = dmiSysInfo
 	updateInfo["is_baremetal"] = true
@@ -200,11 +201,12 @@ func (self *SBaremetalIpmiProbeTask) doRawIpmiProbe(ctx context.Context, cli ipm
 	updateInfo := make(map[string]interface{})
 	if len(sysInfo.SN) > 0 {
 		updateInfo["sn"] = sysInfo.SN
-		dmiSysInfo := &types.SDMISystemInfo{
+		dmiSysInfo := &types.SSystemInfo{
 			Manufacture: sysInfo.Manufacture,
 			Model:       sysInfo.Model,
 			Version:     sysInfo.Version,
 			SN:          sysInfo.SN,
+			OemName:     types.ManufactureOemName(sysInfo.Manufacture),
 		}
 		updateInfo["sys_info"] = dmiSysInfo
 	}
