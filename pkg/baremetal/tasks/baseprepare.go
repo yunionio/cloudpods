@@ -55,7 +55,7 @@ func newBaremetalPrepareTask(baremetal IBaremetal, userCred mcclient.TokenCreden
 }
 
 type baremetalPrepareInfo struct {
-	sysInfo       *types.SDMISystemInfo
+	sysInfo       *types.SSystemInfo
 	cpuInfo       *types.SCPUInfo
 	dmiCpuInfo    *types.SDMICPUInfo
 	memInfo       *types.SDMIMemInfo
@@ -156,15 +156,13 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 		ipmiInfo = i.ipmiInfo
 	)
 	sshIPMI := ipmitool.NewSSHIPMI(cli)
-	// ipmitool.SetSysInfo
-	ipmiSysInfo := sysInfo.ToIPMISystemInfo()
-	setIPMILanPortShared(sshIPMI, ipmiSysInfo)
-	ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(i.ipmiInfo, ipmiSysInfo)
+	setIPMILanPortShared(sshIPMI, sysInfo)
+	ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(i.ipmiInfo, sysInfo)
 	ipmiInfo.Username = ipmiUser
 	ipmiInfo.Password = ipmiPasswd
 
 	var ipmiLanChannel int = -1
-	for _, lanChannel := range ipmitool.GetLanChannels(ipmiSysInfo) {
+	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
 		log.Infof("Try lan channel %d ...", lanChannel)
 		conf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
 		if err != nil {
@@ -186,7 +184,7 @@ func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremet
 			// ignore the error
 			log.Errorf("Send IPMI nic %#v info: %v", ipmiNic, err)
 		}
-		rootId := ipmitool.GetRootId(ipmiSysInfo)
+		rootId := ipmitool.GetRootId(sysInfo)
 		err = ipmitool.CreateOrSetAdminUser(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
 		if err != nil {
 			// ignore the error
@@ -521,7 +519,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, i
 	return false
 }
 
-func (task *sBaremetalPrepareTask) getIPMIUserPasswd(oldIPMIConf *types.SIPMIInfo, sysInfo *types.SIPMISystemInfo) (string, string, string) {
+func (task *sBaremetalPrepareTask) getIPMIUserPasswd(oldIPMIConf *types.SIPMIInfo, sysInfo *types.SSystemInfo) (string, string, string) {
 	var (
 		ipmiUser   string
 		ipmiPasswd string
@@ -580,7 +578,7 @@ func (task *sBaremetalPrepareTask) getClientSession() *mcclient.ClientSession {
 	return task.baremetal.GetClientSession()
 }
 
-func getDMISysinfo(cli *ssh.Client) (*types.SDMISystemInfo, error) {
+func getDMISysinfo(cli *ssh.Client) (*types.SSystemInfo, error) {
 	ret, err := cli.Run("/usr/sbin/dmidecode -t 1")
 	if err != nil {
 		return nil, err
@@ -728,15 +726,16 @@ func (task *sBaremetalPrepareTask) collectDiskInfo(diskInfo []*baremetal.Baremet
 	return size, diskType
 }
 
-func setIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SIPMISystemInfo) {
+func setIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SSystemInfo) {
 	if !o.Options.IpmiLanPortShared {
 		return
 	}
 	oemName := strings.ToLower(sysInfo.Manufacture)
 	var err error
-	if strings.Contains(oemName, "huawei") {
+	switch sysInfo.OemName {
+	case types.OEM_NAME_HUAWEI:
 		err = ipmitool.SetHuaweiIPMILanPortShared(cli)
-	} else if strings.Contains(oemName, "dell") {
+	case types.OEM_NAME_DELL:
 		err = ipmitool.SetDellIPMILanPortShared(cli)
 	}
 	if err != nil {

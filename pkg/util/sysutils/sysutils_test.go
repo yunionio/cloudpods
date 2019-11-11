@@ -73,7 +73,7 @@ func TestParseDMISysinfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *types.SDMISystemInfo
+		want    *types.SSystemInfo
 		wantErr bool
 	}{
 		{
@@ -94,11 +94,12 @@ func TestParseDMISysinfo(t *testing.T) {
 				"        UUID: bca177cc-2bce-11b2-a85c-e98996f19d2f",
 				"        SKU Number: LENOVO_MT_20J6_BU_Think_FM_ThinkPad T470p",
 			}},
-			want: &types.SDMISystemInfo{
+			want: &types.SSystemInfo{
 				Manufacture: "LENOVO",
 				Model:       "20J6CTO1WW",
 				Version:     "ThinkPad T470p",
 				SN:          "PF112JKK",
+				OemName:     "lenovo",
 			},
 			wantErr: false,
 		},
@@ -109,7 +110,7 @@ func TestParseDMISysinfo(t *testing.T) {
 				"        Version: None",
 				"        Serial Number: PF112JKK",
 			}},
-			want: &types.SDMISystemInfo{
+			want: &types.SSystemInfo{
 				Model:   "20J6CTO1WW",
 				Version: "",
 				SN:      "PF112JKK",

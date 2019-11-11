@@ -14,7 +14,10 @@
 
 package types
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type SSHConfig struct {
 	Username string `json:"username,omitempty"`
@@ -22,20 +25,50 @@ type SSHConfig struct {
 	Password string `json:"password"`
 }
 
-type SDMISystemInfo struct {
-	Manufacture string `json:"manufacture"`
-	Model       string `json:"model"`
-	Version     string `json:"version,omitempty"`
-	SN          string `json:"sn"`
+const (
+	OEM_NAME_DELL       = "dell"
+	OEM_NAME_HPE        = "hpe"
+	OEM_NAME_HP         = "hp"
+	OEM_NAME_HUAWEI     = "huawei"
+	OEM_NAME_INSPUR     = "inspur"
+	OEM_NAME_LENOVO     = "lenovo"
+	OEM_NAME_FOXCONN    = "foxconn"
+	OEM_NAME_QEMU       = "qemu"
+	OEM_NAME_SUPERMICRO = "supermicro"
+)
+
+var (
+	OEM_NAMES = []string{
+		OEM_NAME_DELL,
+		OEM_NAME_HPE,
+		OEM_NAME_HP,
+		OEM_NAME_HUAWEI,
+		OEM_NAME_INSPUR,
+		OEM_NAME_LENOVO,
+		OEM_NAME_FOXCONN,
+		OEM_NAME_QEMU,
+		OEM_NAME_SUPERMICRO,
+	}
+)
+
+func ManufactureOemName(manufacture string) string {
+	manufacture = strings.ToLower(strings.TrimSpace(manufacture))
+	for _, oem := range OEM_NAMES {
+		if strings.Contains(manufacture, oem) {
+			return oem
+		}
+	}
+	return manufacture
 }
 
-func (info *SDMISystemInfo) ToIPMISystemInfo() *SIPMISystemInfo {
-	return &SIPMISystemInfo{
-		Manufacture: info.Manufacture,
-		Model:       info.Model,
-		Version:     info.Version,
-		SN:          info.SN,
-	}
+type SSystemInfo struct {
+	Manufacture string `json:"manufacture"`
+	Model       string `json:"model"`
+	SN          string `json:"sn"`
+	Version     string `json:"version,omitempty"`
+	BSN         string `json:"bsn"`
+
+	OemName string `json:"oem_name"`
 }
 
 type SCPUInfo struct {
@@ -77,14 +110,6 @@ type SDiskInfo struct {
 	Kernel     string `json:"kernel"`
 	PCIClass   string `json:"pci_class"`
 	Driver     string `json:"driver"`
-}
-
-type SIPMISystemInfo struct {
-	Manufacture string `json:"manufacture"`
-	Model       string `json:"model"`
-	SN          string `json:"sn"`
-	Version     string `json:"version"`
-	BSN         string `json:"bsn"`
 }
 
 type SIPMILanConfig struct {

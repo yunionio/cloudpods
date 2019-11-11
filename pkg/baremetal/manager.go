@@ -1210,7 +1210,7 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 		return nil
 	}
 	if conf.Username == "" {
-		sysInfo := types.SIPMISystemInfo{}
+		sysInfo := types.SSystemInfo{}
 		err := b.desc.Unmarshal(&sysInfo, "sys_info")
 		if err != nil {
 			log.Errorf("Unmarshal get sys_info error: %v", err)

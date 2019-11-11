@@ -28,7 +28,7 @@ func TestGetSysInfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *types.SIPMISystemInfo
+		want    *types.SSystemInfo
 		wantErr bool
 	}{
 		// TODO: Add test cases.
