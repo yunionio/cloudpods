@@ -2338,7 +2338,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 			extra.Add(jsonutils.JSONTrue, "can_prepare")
 		} else {
 			extra.Add(jsonutils.JSONFalse, "can_prepare")
-			extra.Add(jsonutils.NewString(err.Error()), "prepare_fail_reason")
+			extra.Add(jsonutils.NewString(httputils.ErrorMsg(err)), "prepare_fail_reason")
 		}
 	}
 
