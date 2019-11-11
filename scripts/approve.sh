@@ -1,7 +1,11 @@
 #!/bin/bash
 
+pushd $(dirname "$BASH_SOURCE") > /dev/null
+CUR_DIR=$(pwd)
+popd > /dev/null
+
 PR=$1
-MSG=$2
+REVIEWER_CHECK=$2
 
 if [ -z "$PR" ]; then
     echo "Usage: $0 <pr_number>"
@@ -53,6 +57,10 @@ function label() {
     local MSG=$2
     local LABEL=$3
 
+    if check_label $PRN $LABEL > /dev/null; then
+        echo "Label $LABEL success!"
+        return 0
+    fi
     for try in $(seq 3)
     do
         echo "Send $MSG ..."
@@ -119,6 +127,23 @@ echo "All check passed, going to approve and lgtm the Pull Request #$PR..."
 if ! label "$PR" "/lgtm" "lgtm"; then
     echo "Label lgtm failed"
     exit 1
+fi
+
+if [ -n "$REVIEWER_CHECK" ]; then
+    echo "Check all requested reviwers /lgtm the pull request: "
+    pullfile=$(mktemp)
+    commentfile=$(mktemp)
+    function cleanup {
+        rm -rf "$pullfile" "$commentfile"
+    }
+    trap cleanup EXIT
+    hub api repos/{owner}/{repo}/pulls/$PR > $pullfile
+    hub api repos/{owner}/{repo}/issues/$PR/comments > $commentfile
+    if ! $CUR_DIR/advchecks.py $pullfile $commentfile; then
+        echo "Not all assigned reviwers comment lgtm, give up..."
+        exit 1
+    fi
+    echo "passed!"
 fi
 
 if ! label "$PR" "/approve" "approved"; then
