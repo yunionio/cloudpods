@@ -4762,6 +4762,24 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 	return snapshots, nil
 }
 
+func (self *SGuest) getGuestUsage(guestCount int) (*SQuota, error) {
+	usage := new(SQuota)
+	usage.Cpu = int(self.VcpuCount) * guestCount
+	usage.Memory = int(self.VmemSize * guestCount)
+	diskSize := self.getDiskSize()
+	if diskSize < 0 {
+		return nil, httperrors.NewInternalServerError("fetch disk size failed")
+	}
+	usage.Storage = self.getDiskSize() * guestCount
+	netCount, err := self.NetworkCount()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	usage.Port = netCount
+	usage.Bw = self.getBandwidth(false)
+	return usage, err
+}
+
 func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.ServerCreateInput) error {
 	// There is no need to check the availability of guest imag if input.Disks is empty
 	if len(input.Disks) == 0 {
