@@ -46,6 +46,10 @@ type LoadbalancerListenerRuleDeleteOptions struct {
 	ID string `json:"-"`
 }
 
+type LoadbalancerListenerRuleGetBackendStatusOptions struct {
+	ID string `json:"-"`
+}
+
 type LoadbalancerListenerRuleActionStatusOptions struct {
 	ID     string `json:"-"`
 	Status string `choices:"enabled|disabled"`

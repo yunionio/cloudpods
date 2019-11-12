@@ -89,4 +89,11 @@ func init() {
 		printObject(lblistenerrule)
 		return nil
 	})
+	R(&options.LoadbalancerListenerRuleGetBackendStatusOptions{}, "lblistenerrule-backend-status", "Get lblistenerrule backend status", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleGetBackendStatusOptions) error {
+		backendStatus, err := modules.LoadbalancerListenerRules.GetSpecific(s, opts.ID, "backend-status", nil)
+		if err != nil {
+			return err
+		}
+		return printLbBackendStatus(backendStatus)
+	})
 }
