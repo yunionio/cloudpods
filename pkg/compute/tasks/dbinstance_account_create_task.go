@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -72,13 +73,58 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		return
 	}
 
-	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
-
 	input := api.SDBInstanceAccountCreateInput{}
 	self.GetParams().Unmarshal(&input)
-	for _, _privilege := range input.Privileges {
-		account.StartGrantPrivilegeTask(ctx, self.UserCred, _privilege.Database, _privilege.Privilege, "")
+	if len(input.Privileges) == 0 {
+		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		self.SetStageComplete(ctx, nil)
+		return
 	}
 
+	iAccounts, err := iRds.GetIDBInstanceAccounts()
+	if err != nil {
+		msg := fmt.Sprintf("failed to found accounts from cloud dbinstance error: %v", err)
+		db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
+		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	var iAccount cloudprovider.ICloudDBInstanceAccount = nil
+	for i := range iAccounts {
+		if iAccounts[i].GetName() == account.Name {
+			iAccount = iAccounts[i]
+			break
+		}
+	}
+
+	if iAccount == nil {
+		msg := fmt.Sprintf("failed to found account %s from cloud dbinstance", account.Name)
+		db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
+		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_GRANT_PRIVILEGE, "")
+	for _, privilege := range input.Privileges {
+		err = iAccount.GrantPrivilege(privilege.Database, privilege.Privilege)
+		if err != nil {
+			db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, err, self.GetUserCred())
+			logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, err, self.UserCred, false)
+			continue
+		}
+		_privilege := models.SDBInstancePrivilege{
+			Privilege:            privilege.Privilege,
+			DBInstanceaccountId:  account.Id,
+			DBInstancedatabaseId: privilege.DBInstancedatabaseId,
+		}
+		models.DBInstancePrivilegeManager.TableSpec().Insert(&_privilege)
+		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, privilege, self.UserCred, true)
+	}
+
+	account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 	self.SetStageComplete(ctx, nil)
 }

@@ -18,7 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type SDBInstanceDatabasePrivilege struct {
 	Account             string
-	DBInstancedccountId string
+	DBInstanceaccountId string
 	Privilege           string
 }
 
