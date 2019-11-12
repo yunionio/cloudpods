@@ -45,6 +45,8 @@ func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool { return true }
 
 func (self *SOpenStackGuestDriver) DoScheduleSKUFilter() bool { return false }
 
+func (self *SOpenStackGuestDriver) DoScheduleStorageFilter() bool { return true }
+
 func (self *SOpenStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
 }
