@@ -55,6 +55,8 @@ type ICloudProviderFactory interface {
 	NeedSyncSkuFromCloud() bool
 
 	IsSupportObjectStorage() bool
+	IsSupportComputeEngine() bool
+	IsSupportNetworkManage() bool
 }
 
 type ICloudProvider interface {
@@ -243,6 +245,14 @@ func (factory *SPremiseBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
+func (factory *SPremiseBaseProviderFactory) IsSupportComputeEngine() bool {
+	return true
+}
+
+func (factory *SPremiseBaseProviderFactory) IsSupportNetworkManage() bool {
+	return false
+}
+
 type SPublicCloudBaseProviderFactor struct {
 	baseProviderFactory
 }
@@ -263,6 +273,14 @@ func (factory *SPublicCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
+func (factory *SPublicCloudBaseProviderFactor) IsSupportComputeEngine() bool {
+	return true
+}
+
+func (factory *SPublicCloudBaseProviderFactor) IsSupportNetworkManage() bool {
+	return true
+}
+
 type SPrivateCloudBaseProviderFactor struct {
 	baseProviderFactory
 }
@@ -280,5 +298,13 @@ func (factory *SPrivateCloudBaseProviderFactor) IsSupportObjectStorage() bool {
 }
 
 func (factory *SPrivateCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
+	return true
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) IsSupportComputeEngine() bool {
+	return true
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) IsSupportNetworkManage() bool {
 	return true
 }
