@@ -3247,6 +3247,29 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	return nil, err
 }
 
+func (self *SGuest) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "postpaid-expire")
+}
+
+func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+	if len(durationStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missong duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(durationStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+	}
+
+	if !self.GetDriver().IsSupportPostpaidExpire() {
+		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
+	}
+
+	err = self.SaveRenewInfo(ctx, userCred, &bc, nil)
+	return nil, err
+}
+
 func (self *SGuest) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "renew")
 }
