@@ -19,10 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -96,6 +95,20 @@ func (self *SElasticcache) GetName() string {
 
 func (self *SElasticcache) GetGlobalId() string {
 	return self.GetId()
+}
+
+func (self *SElasticcache) Refresh() error {
+	cache, err := self.region.GetElasticCache(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "Elasticcache.Refresh.GetElasticCache")
+	}
+
+	err = jsonutils.Update(self, cache)
+	if err != nil {
+		return errors.Wrap(err, "Elasticcache.Refresh.Update")
+	}
+
+	return nil
 }
 
 func (self *SElasticcache) GetStatus() string {
