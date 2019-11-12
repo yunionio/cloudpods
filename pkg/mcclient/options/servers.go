@@ -272,6 +272,7 @@ type ServerCreateOptions struct {
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 	InstanceSnapshot string   `help:"instance snapshot" json:"instance_snapshot"`
+	Secgroups        []string `help:"secgroups" json:"secgroups"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 
@@ -366,6 +367,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
 		GuestImageID:       opts.GuestImageID,
+		Secgroups:          opts.Secgroups,
 	}
 
 	if opts.GenerateName {

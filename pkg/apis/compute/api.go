@@ -188,6 +188,7 @@ type ServerCreateInput struct {
 	EipChargeType      string          `json:"eip_charge_type,omitempty"`
 	Eip                string          `json:"eip,omitempty"`
 	InstanceSnapshotId string          `json:"instance_snapshot_id,omitempty"`
+	Secgroups          []string        `json:"secgroups"`
 
 	OsType string `json:"os_type"`
 	// Fill by server
