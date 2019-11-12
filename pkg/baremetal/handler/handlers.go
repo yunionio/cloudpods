@@ -218,7 +218,7 @@ func handleServerStatus(ctx *Context, bm *baremetal.SBaremetalInstance, _ bareme
 
 func handleBaremetalRegister(ctx *Context, input *baremetal.BmRegisterInput) {
 	ctx.DelayProcess(func(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-		baremetal.GetBaremetalManager().RegisterBaremetal(input)
+		baremetal.GetBaremetalManager().RegisterBaremetal(ctx, input)
 		return nil, nil
 	}, nil)
 }

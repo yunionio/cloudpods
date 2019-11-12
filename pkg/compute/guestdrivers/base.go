@@ -199,7 +199,11 @@ func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+func (self *SBaseGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
 
