@@ -175,7 +175,7 @@ func (self *SSecurityGroup) GetVpcId() string {
 }
 
 func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, error) {
-	secgroups, err := self.GetSecurityGroups(secGroupId, "")
+	secgroups, err := self.GetSecurityGroups(secGroupId, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (self *SRegion) CreateSecurityGroup(name, description string, rules []strin
 }
 
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
-func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string) ([]SSecurityGroup, error) {
+func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string, name string) ([]SSecurityGroup, error) {
 	secgroups := make([]SSecurityGroup, 0)
 
 	params := NewUcloudParams()
@@ -252,11 +252,16 @@ func (self *SRegion) GetSecurityGroups(secGroupId string, resourceId string) ([]
 		return nil, err
 	}
 
+	result := []SSecurityGroup{}
+
 	for i := range secgroups {
-		secgroups[i].region = self
+		if len(name) == 0 || secgroups[i].Name == name {
+			secgroups[i].region = self
+			result = append(result, secgroups[i])
+		}
 	}
 
-	return secgroups, nil
+	return result, nil
 }
 
 func (self *SSecurityGroup) SyncRules(rules []secrules.SecurityRule) error {

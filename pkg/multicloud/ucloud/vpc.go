@@ -226,7 +226,7 @@ func (self *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
 
 // UCLOUD 同一个项目共用安全组（防火墙）
 func (self *SVPC) fetchSecurityGroups() error {
-	secgroups, err := self.region.GetSecurityGroups("", "")
+	secgroups, err := self.region.GetSecurityGroups("", "", "")
 	if err != nil {
 		return err
 	}

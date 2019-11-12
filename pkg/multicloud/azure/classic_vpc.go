@@ -121,7 +121,7 @@ func (self *SClassicVpc) fetchNetworks() error {
 }
 
 func (self *SClassicVpc) getClassicSecurityGroups() ([]SClassicSecurityGroup, error) {
-	securityGroups, err := self.region.GetClassicSecurityGroups()
+	securityGroups, err := self.region.GetClassicSecurityGroups("")
 	if err != nil {
 		return nil, err
 	}

@@ -233,7 +233,7 @@ func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) erro
 }
 
 func (self *SVpc) fetchSecurityGroups() error {
-	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId, "", 0, 0)
+	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId, "", "", 0, 0)
 	if err != nil {
 		return err
 	}
