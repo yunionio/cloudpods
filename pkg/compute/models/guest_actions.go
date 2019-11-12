@@ -4325,12 +4325,19 @@ func (self *SGuest) checkGroups(ctx context.Context, userCred mcclient.TokenCred
 	groupIdSet := sets.NewString()
 	for i := range groupIdArr {
 		groupIdStr, _ := groupIdArr[i].GetString()
-		group, err := GroupManager.FetchByIdOrName(userCred, groupIdStr)
+		model, err := GroupManager.FetchByIdOrName(userCred, groupIdStr)
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewInputParameterError("no such group %s", groupIdStr)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to fetch group by id or name %s", groupIdStr)
+		}
+		group := model.(*SGroup)
+		if group.ProjectId != self.ProjectId {
+			return nil, httperrors.NewForbiddenError("group and guest should belong to same project")
+		}
+		if group.Enabled.IsFalse() {
+			return nil, httperrors.NewForbiddenError("can not bind or unbind disabled instance group")
 		}
 		groupIdSet.Insert(group.GetId())
 	}
