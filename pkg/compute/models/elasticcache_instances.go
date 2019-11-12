@@ -121,6 +121,16 @@ func (self *SElasticcache) GetCustomizeColumns(ctx context.Context, userCred mcc
 	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
+
+	vpc, err := VpcManager.FetchById(self.VpcId)
+	if err == nil {
+		extra.Set("vpc", jsonutils.NewString(vpc.GetName()))
+	}
+
+	network, err := NetworkManager.FetchById(self.NetworkId)
+	if err == nil {
+		extra.Set("network", jsonutils.NewString(network.GetName()))
+	}
 	return extra
 }
 

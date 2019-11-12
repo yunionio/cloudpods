@@ -110,24 +110,32 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		log.Errorf("GetSkuCountByRegion fail %s", err)
 		return
 	}
-	if cnt > 0 {
-		return
-	}
-	// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-	if err = syncSkusByRegion(localRegion); err != nil {
-		msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
-		log.Errorln(msg)
-		// 暂时不终止同步
-		// logSyncFailed(provider, task, msg)
-		return
+
+	if cnt == 0 {
+		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
+		if err = syncSkusByRegion(localRegion); err != nil {
+			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
+			log.Errorln(msg)
+			// 暂时不终止同步
+			// logSyncFailed(provider, task, msg)
+			return
+		}
+
+		_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+		if err != nil {
+			log.Errorf("SchedManager SyncSku %s", err)
+		}
 	}
 
-	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	cnt, err = ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
 	if err != nil {
-		log.Errorf("SchedManager SyncSku %s", err)
+		log.Errorf("ElasticcacheSkuManager.GetSkuCountByRegion fail %s", err)
+		return
 	}
 
-	syncElasticCacheSkusByRegion(ctx, userCred, localRegion)
+	if cnt == 0 {
+		syncElasticCacheSkusByRegion(ctx, userCred, localRegion)
+	}
 }
 
 func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider) {
