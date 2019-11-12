@@ -174,7 +174,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 func (self *SVpc) fetchSecurityGroups() error {
 	secgroups := make([]SSecurityGroup, 0)
 	for {
-		parts, total, err := self.region.GetSecurityGroups(self.VpcId, []string{}, len(secgroups), 50)
+		parts, total, err := self.region.GetSecurityGroups(self.VpcId, "", []string{}, len(secgroups), 50)
 		if err != nil {
 			return err
 		}
