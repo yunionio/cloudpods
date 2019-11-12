@@ -204,7 +204,7 @@ DBInstanceChangeConfig:
       example: 6
       description: 更改CPU大小
     vmem_size_mb:
-      type: int
+      type: integer
       example: 1024
       description: 更改内存大小
     storage_type:

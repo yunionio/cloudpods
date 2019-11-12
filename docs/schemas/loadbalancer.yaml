@@ -371,7 +371,7 @@ LoadbalancerCachedCertificateResponse:
           description: 公钥算法
           readOnly: true
         publicKey_bitLen:
-          type: int
+          type: integer
           description: 公钥长度
           readOnly: true
         signature_algorithm:

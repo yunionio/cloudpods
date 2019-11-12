@@ -2,7 +2,7 @@ SecgroupRuleCreate:
   type: object
   properties:
     priority:
-      type: int
+      type: integer
       example: 10
       min: 1
       max: 100
@@ -54,7 +54,7 @@ SecgroupRule:
       example: 37617a8d-0265-4385-8002-2ad685bd2024
       description: 安全组规则ID
     priority:
-      type: int
+      type: integer
       example: 10
       description: 规则优先级
     protocol:
