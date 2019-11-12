@@ -179,9 +179,8 @@ func (self *SSkuResourcesMeta) filterByRegion(items []jsonutils.JSONObject) []js
 	ret := []jsonutils.JSONObject{}
 	for i := range items {
 		item := items[i]
-		provider, _ := item.GetString("provider")
 		regionId, _ := item.GetString("cloudregion_id")
-		if self.region.GetExternalId() != fmt.Sprintf("%s/%s", provider, regionId) {
+		if self.region.GetExternalId() != strings.TrimSpace(regionId) {
 			continue
 		}
 
@@ -305,7 +304,7 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 	for i := range cloudregions {
 		region := &cloudregions[i]
 		meta.SetRegionFilter(region)
-		result := ElasticcacheSkuManager.syncDBInstanceSkus(ctx, userCred, region, meta)
+		result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
 		notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 		log.Infof(notes)
 	}
@@ -320,7 +319,7 @@ func syncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	meta.SetRegionFilter(region)
-	result := ElasticcacheSkuManager.syncDBInstanceSkus(ctx, userCred, region, meta)
+	result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
 	notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 }
