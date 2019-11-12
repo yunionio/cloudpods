@@ -652,6 +652,13 @@ InstanceCreate:
       type: array
       items:
         $ref: '#/InstanceDisk'
+    secgroups:
+      type: array
+      description: 安全组列表
+      items:
+        type: string
+        example: default
+        description: 安全组名称或ID,建议使用ID
 
 
 InstanceDisk:
