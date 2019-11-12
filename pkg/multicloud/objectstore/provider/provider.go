@@ -42,6 +42,10 @@ func (factory *SObjectStoreProviderFactory) IsSupportObjectStorage() bool {
 	return true
 }
 
+func (factory *SObjectStoreProviderFactory) IsSupportComputeEngine() bool {
+	return false
+}
+
 func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
 	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")

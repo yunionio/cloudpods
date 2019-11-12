@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -34,21 +35,24 @@ import (
 )
 
 type SCapabilities struct {
-	Hypervisors        []string `json:",allowempty"`
-	Brands             []string `json:",allowempty"`
-	ResourceTypes      []string `json:",allowempty"`
-	StorageTypes       []string `json:",allowempty"`
-	DataStorageTypes   []string `json:",allowempty"`
-	GPUModels          []string `json:",allowempty"`
-	MinNicCount        int
-	MaxNicCount        int
-	MinDataDiskCount   int
-	MaxDataDiskCount   int
-	SchedPolicySupport bool
-	Usable             bool
-	PublicNetworkCount int
-	DBInstance         map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
-	Specs              jsonutils.JSONObject
+	Hypervisors         []string `json:",allowempty"`
+	Brands              []string `json:",allowempty"`
+	ComputeEngineBrands []string `json:",allowempty"`
+	NetworkManageBrands []string `json:",allowempty"`
+	ObjectStorageBrands []string `json:",allowempty"`
+	ResourceTypes       []string `json:",allowempty"`
+	StorageTypes        []string `json:",allowempty"`
+	DataStorageTypes    []string `json:",allowempty"`
+	GPUModels           []string `json:",allowempty"`
+	MinNicCount         int
+	MaxNicCount         int
+	MinDataDiskCount    int
+	MaxDataDiskCount    int
+	SchedPolicySupport  bool
+	Usable              bool
+	PublicNetworkCount  int
+	DBInstance          map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
+	Specs               jsonutils.JSONObject
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -77,7 +81,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
-	capa.Brands = getBrands(region, zone, domainId, capa.Hypervisors)
+	var a, c, n, o = getBrands(region, zone, domainId, capa.Hypervisors)
+	capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
 	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
 	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
@@ -92,7 +97,6 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
-	var err error
 	if region != nil {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(region.GetId()), "region")
 	}
@@ -102,6 +106,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if len(domainId) > 0 {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(domainId), "domain_id")
 	}
+	var err error
 	serverType := jsonutils.GetAnyString(query, []string{"host_type", "server_type"})
 	publicNetworkCount, _ := getNetworkPublicCount(region, zone, domainId, serverType)
 	capa.PublicNetworkCount = publicNetworkCount
@@ -171,8 +176,10 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 	return result
 }
 
-func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string) []string {
-	q := CloudaccountManager.Query("brand").IsTrue("enabled")
+// return all brands, compute engine brands, network manage brands, object storage brands
+func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string,
+) ([]string, []string, []string, []string) {
+	q := CloudaccountManager.Query().IsTrue("enabled")
 	if zone != nil {
 		region = zone.GetRegion()
 	}
@@ -189,27 +196,61 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors [
 			sqlchemy.Equals(q.Field("domain_id"), domainId),
 		))
 	}
-	q = q.Distinct()
-	rows, err := q.Rows()
+	cloudAccounts := make([]SCloudaccount, 0)
+	err := q.GroupBy("brand").All(&cloudAccounts)
 	if err != nil {
-		return nil
+		log.Errorf("get brands failed %s", err)
+		return nil, nil, nil, nil
 	}
-	defer rows.Close()
-	brands := make([]string, 0)
-	for rows.Next() {
-		var brand string
-		rows.Scan(&brand)
-		if len(brand) > 0 {
-			brands = append(brands, brand)
+
+	var (
+		brands              []string = make([]string, 0)
+		computeEngineBrands []string
+		networkManageBrands []string
+		objectStorageBrands []string
+	)
+	for i := 0; i < len(cloudAccounts); i++ {
+		brands = append(brands, cloudAccounts[i].Brand)
+		factory, err := cloudAccounts[i].GetProviderFactory()
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		if factory.IsSupportComputeEngine() {
+			if computeEngineBrands == nil {
+				computeEngineBrands = make([]string, 0)
+			}
+			computeEngineBrands = append(computeEngineBrands, cloudAccounts[i].Brand)
+		}
+		if factory.IsSupportNetworkManage() {
+			if networkManageBrands == nil {
+				networkManageBrands = make([]string, 0)
+			}
+			networkManageBrands = append(networkManageBrands, cloudAccounts[i].Brand)
+		}
+		if factory.IsSupportObjectStorage() {
+			if objectStorageBrands == nil {
+				objectStorageBrands = make([]string, 0)
+			}
+			objectStorageBrands = append(objectStorageBrands, cloudAccounts[i].Brand)
 		}
 	}
+
 	for _, hyper := range api.ONECLOUD_HYPERVISORS {
 		if utils.IsInStringArray(hyper, hypervisors) {
 			brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
+			if computeEngineBrands == nil {
+				computeEngineBrands = make([]string, 0)
+			}
+			computeEngineBrands = append(computeEngineBrands, api.CLOUD_PROVIDER_ONECLOUD)
+			if networkManageBrands == nil {
+				networkManageBrands = make([]string, 0)
+			}
+			networkManageBrands = append(networkManageBrands, api.CLOUD_PROVIDER_ONECLOUD)
 			break
 		}
 	}
-	return brands
+	return brands, computeEngineBrands, networkManageBrands, objectStorageBrands
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {
