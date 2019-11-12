@@ -370,6 +370,10 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 			return nil, err
 		}
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
+		err = iVM.SetSecurityGroups(desc.ExternalSecgroupIds)
+		if err != nil {
+			log.Errorf("failed to set multi secgroup for instance %s error: %v", guest.Name, err)
+		}
 
 		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
 			host, err := db.FetchByExternalId(models.HostManager, hostId)

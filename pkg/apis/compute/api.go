@@ -174,6 +174,7 @@ type ServerCreateInput struct {
 	EipBw              int             `json:"eip_bw,omitzero"`
 	EipChargeType      string          `json:"eip_charge_type,omitempty"`
 	Eip                string          `json:"eip,omitempty"`
+	Secgroups          []string        `json:"secgroups"`
 
 	OsType string `json:"os_type"`
 	// Fill by server
