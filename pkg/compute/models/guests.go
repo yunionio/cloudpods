@@ -2198,7 +2198,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle &&
+			!extVM.GetExpiredAt().IsZero() {
+
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
