@@ -773,6 +773,27 @@ func (d *SUbuntuRootFs) DisableSerialConcole(rootFs IDiskPartition) error {
 	return nil
 }
 
+type SKylinRootfs struct {
+	*SUbuntuRootFs
+}
+
+func NewKylinRootfs(part IDiskPartition) *SKylinRootfs {
+	return &SKylinRootfs{SUbuntuRootFs: NewUbuntuRootFs(part).(*SUbuntuRootFs)}
+}
+
+func (d *SKylinRootfs) GetName() string {
+	return "Kylin"
+}
+
+func (d *SKylinRootfs) String() string {
+	return "KylinuRootFs"
+}
+
+func (d *SKylinRootfs) RootSignatures() []string {
+	sig := d.sDebianLikeRootFs.RootSignatures()
+	return append([]string{"/etc/lsb-release", "/etc/kylin-build"}, sig...)
+}
+
 type sRedhatLikeRootFs struct {
 	*sLinuxRootFs
 }

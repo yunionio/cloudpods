@@ -165,6 +165,10 @@ func (self *SZStackGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 	return false
 }
 
+func (self *SZStackGuestDriver) IsSupportPostpaidExpire() bool {
+	return true
+}
+
 func (self *SZStackGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return guest.CancelExpireTime(ctx, userCred)
