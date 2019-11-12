@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定loadbalancer转发策略实例信息
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/loadbalancerlistenerruleId"
+  responses:
+    200:
+      description: 实例信息
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerRuleResponse"
+  tags:
+    - loadbalancerlistenerrules
+delete:
+  summary: 删除指定loadbalancer转发策略实例
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/loadbalancerlistenerruleId"
+  responses:
+    200:
+      description: 被删除实例的信息
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerRuleResponse"
+  tags:
+    - loadbalancerlistenerrules

@@ -322,6 +322,11 @@ paths:
   /loadbalancerlisteners/{loadbalancerlistenerId}:
     $ref: "./loadbalancer/loadbalancerlistener.yaml"
 
+  /loadbalancerlistenerrules:
+    $ref: "./loadbalancer/loadbalancerlistenerrules.yaml"
+  /loadbalancerlistenerrules/{loadbalancerlistenerruleId}:
+    $ref: "./loadbalancer/loadbalancerlistenerrule.yaml"
+
   /loadbalancerbackendgroups:
     $ref: "./loadbalancer/loadbalancerbackendgroups.yaml"
   /loadbalancerbackendgroups/{loadbalancerbackendgroupId}:

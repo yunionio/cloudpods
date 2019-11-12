@@ -38,6 +38,28 @@ LoadbalancerListener:
       description: 调度算法
       readOnly: true
 
+LoadbalancerListenerRule:
+  type: object
+  description: Loadbalancer转发规则实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    listener_id:
+      type: string
+      description: 所属的loadbalancer监听uuid
+      readOnly: true
+    domain:
+      type: string
+      description: 转发规则匹配的域名
+    path:
+      type: string
+      description: 转发规则匹配的路径
+    backend_group_id:
+      type: string
+      description: 转发规则对应的后端服务器组
+
 LoadbalancerBackendGroup:
   type: object
   description: Loadbalancer后端服务器组实例
@@ -144,6 +166,41 @@ LoadbalancerListenerResponse:
     loadbalancerlistener:
       type: object
       $ref: "#/LoadbalancerListener"
+
+LoadbalancerListenerRuleCreateRequest:
+  type: object
+  properties:
+    loadbalancerlistenerrule:
+      type: object
+      required:
+        - listener
+        - backend_group
+      properties:
+        listener:
+          type: string
+          description: 所属的loadbalancer监听id
+        backend_group:
+          type: string
+          description: 规则应对的后端服务器组uuid
+        domain:
+          type: string
+          description: 转发规则匹配的域名
+        path:
+          type: string
+          description: 转发规则匹配的路径
+LoadbalancerListenerRuleListResponse:
+  type: object
+  properties:
+    loadbalancerlistenerrules:
+      type: array
+      items:
+        $ref: "#/LoadbalancerListenerRule"
+LoadbalancerListenerRuleResponse:
+  type: object
+  properties:
+    loadbalancer:
+      type: object
+      $ref: "#/LoadbalancerListenerRule"
 
 LoadbalancerBackendGroupListResponse:
   type: object

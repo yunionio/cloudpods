@@ -1,0 +1,29 @@
+get:
+  summary: 按指定条件列出loadbalancer转发规则实例
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/listener"
+    - $ref: "../parameters/loadbalancer.yaml#/backend_group"
+    - $ref: "../parameters/loadbalancer.yaml#/domain"
+    - $ref: "../parameters/loadbalancer.yaml#/path"
+  responses:
+    200:
+      description: 转发规则实例信息列表
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerRuleListResponse"
+  tags:
+    - loadbalancerlistenerrules
+post:
+  summary: 创建loadbalancer转发规则实例
+  parameters:
+    - name: loadbalancerlistenerrule
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerRuleCreateRequest"
+  responses:
+    200:
+      description: 新创建的实例信息
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerRuleResponse"
+  tags:
+    - loadbalancerlistenerrules
