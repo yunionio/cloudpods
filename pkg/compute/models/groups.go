@@ -136,12 +136,15 @@ func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
 
 func (group *SGroup) AllowPerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "bind-guests") && group.Enabled.IsTrue()
+	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "bind-guests")
 }
 
 func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
+	if group.Enabled.IsFalse() {
+		return nil, httperrors.NewForbiddenError("can not bind guest from disabled guest")
+	}
 	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
@@ -178,11 +181,15 @@ func (group *SGroup) PerformBindGuests(ctx context.Context, userCred mcclient.To
 func (group *SGroup) AllowPerformUnbindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) bool {
 
-	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "unbind-guests") && group.Enabled.IsTrue()
+	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "unbind-guests")
 }
 
 func (group *SGroup) PerformUnbindGuests(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	if group.Enabled.IsFalse() {
+		return nil, httperrors.NewForbiddenError("can not unbind guest from disabled guest")
+	}
 	guestIdSet, hostIds, err := group.checkGuests(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
@@ -233,8 +240,11 @@ func (group *SGroup) checkGuests(ctx context.Context, userCred mcclient.TokenCre
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "fail to fetch model by id or name %s", guestIdStr)
 		}
-		guestIdSet.Insert(model.GetId())
 		guest := model.(*SGuest)
+		if guest.ProjectId != group.ProjectId {
+			return nil, nil, httperrors.NewForbiddenError("guest and instance group should belong to same project")
+		}
+		guestIdSet.Insert(guest.GetId())
 		hostIdSet.Insert(guest.HostId)
 	}
 	hostIds = hostIdSet.List()
