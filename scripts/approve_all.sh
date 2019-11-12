@@ -16,7 +16,7 @@ function cleanup {
 }
 trap cleanup EXIT
 
-hub api repos/{owner}/{repo}/pulls > $pulldata
+hub api "repos/{owner}/{repo}/pulls?per_page=1000" > $pulldata
 
 PR_NUMBERS=()
 for l in $(python -m json.tool $pulldata | grep "\"number\":" | cut -d ':' -f 2 | cut -d "," -f 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
