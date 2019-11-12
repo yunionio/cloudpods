@@ -259,6 +259,7 @@ type ServerCreateOptions struct {
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
+	Secgroups        []string `help:"secgroups" json:"secgroups"`
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 
@@ -345,6 +346,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		Eip:                opts.Eip,
 		EnableCloudInit:    opts.EnableCloudInit,
 		OsType:             opts.OsType,
+		Secgroups:          opts.Secgroups,
 	}
 
 	if opts.GenerateName {
