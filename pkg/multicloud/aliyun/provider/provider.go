@@ -38,6 +38,10 @@ func (self *SAliyunProviderFactory) GetName() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN_CN
 }
 
+func (self *SAliyunProviderFactory) IsCloudeventRegional() bool {
+	return true
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
 	if len(input.AccessKeyId) == 0 {
 		return httperrors.NewMissingParameterError("access_key_id")

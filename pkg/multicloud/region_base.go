@@ -16,6 +16,7 @@ package multicloud
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -92,4 +93,8 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 
 func (self *SRegion) GetIElasticcacheById(id string) (cloudprovider.ICloudElasticcache, error) {
 	return nil, fmt.Errorf("Not Implemented GetIElasticcacheById")
+}
+
+func (self *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
+	return nil, fmt.Errorf("Not Implemented GetICloudEvnets")
 }
