@@ -106,7 +106,7 @@ func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
 // 	return nil
 // }
 
-func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -150,7 +150,8 @@ type IGuestDriver interface {
 	DoGuestCreateDisksTask(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error
 
-	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, task taskman.ITask) error
+	NeedRequestGuestHotAddIso(ctx context.Context, guest *SGuest) bool
+	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, boot bool, task taskman.ITask) error
 	RequestGuestHotRemoveIso(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestRebuildRootDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 

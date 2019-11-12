@@ -408,7 +408,11 @@ func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, gue
 	return guest.StartGuestCreateDiskTask(ctx, task.GetUserCred(), input.Disks, task.GetTaskId())
 }
 
-func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+func (self *SKVMGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
+	return guest.Status == api.VM_RUNNING
+}
+
+func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
