@@ -287,7 +287,7 @@ func (i *BmRegisterInput) isTimeout() bool {
 }
 
 // delay task
-func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
+func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegisterInput) {
 	adminWire, err := m.checkNetworkFromIp(input.RemoteIp)
 	if input.isTimeout() {
 		return
@@ -303,7 +303,7 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 		return
 	}
 
-	ipmiMac, err := m.checkIpmiInfo(input.Username, input.Password, input.IpAddr)
+	ipmiLanChannel, ipmiMac, err := m.checkIpmiInfo(input.Username, input.Password, input.IpAddr)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -330,7 +330,7 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 	registerTask := tasks.NewBaremetalRegisterTask(
 		m, sshCli, input.Hostname, input.RemoteIp,
 		input.Username, input.Password, input.IpAddr,
-		ipmiMac, adminWire, ipmiWire,
+		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
 	)
 	err = registerTask.CreateBaremetal()
 	if input.isTimeout() {
@@ -341,7 +341,7 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 	}
 
 	input.responseOk()
-	registerTask.DoPrepare(sshCli)
+	registerTask.DoPrepare(ctx, sshCli)
 }
 
 func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
@@ -407,11 +407,11 @@ func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, e
 	return sshCLi, nil
 }
 
-func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (net.HardwareAddr, error) {
+func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (int, net.HardwareAddr, error) {
 	lanPlusTool := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
 	sysInfo, err := ipmitool.GetSysInfo(lanPlusTool)
 	if err != nil {
-		return nil, err
+		return -1, nil, err
 	}
 
 	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
@@ -423,9 +423,9 @@ func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (ne
 		if len(config.Mac) == 0 {
 			continue
 		}
-		return config.Mac, nil
+		return lanChannel, config.Mac, nil
 	}
-	return nil, fmt.Errorf("Ipmi can't fetch lan config")
+	return -1, nil, fmt.Errorf("Ipmi can't fetch lan config")
 }
 
 func (m *SBaremetalManager) Stop() {
@@ -1861,7 +1861,7 @@ func (b *SBaremetalInstance) doCronJobs(ctx context.Context) {
 	for _, job := range b.cronJobs {
 		now := time.Now().UTC()
 		if job.NeedsToRun(now) {
-			log.Debugf("need to run %s", job.Name())
+			// log.Debugf("need to run %s", job.Name())
 			func() {
 				job.StartRun()
 				defer job.StopRun()

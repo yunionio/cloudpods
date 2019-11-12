@@ -15,6 +15,7 @@
 package tasks
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -44,26 +46,30 @@ type sBaremetalRegisterTask struct {
 	IpmiPassword string
 	IpmiIpAddr   string
 	IpmiMac      net.HardwareAddr
-	AdminWire    string
-	IpmiWire     string
+
+	IpmiLanChannel int
+
+	AdminWire string
+	IpmiWire  string
 
 	accessNic *types.SNicDevInfo
 }
 
 func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client,
 	hostname, remoteIp, ipmiUsername, ipmiPassword, ipmiIpAddr string,
-	ipmiMac net.HardwareAddr, adminWire, ipmiWire string) *sBaremetalRegisterTask {
+	ipmiMac net.HardwareAddr, ipmiLanChannel int, adminWire, ipmiWire string) *sBaremetalRegisterTask {
 	return &sBaremetalRegisterTask{
-		BmManager:    bmManager,
-		SshCli:       sshCli,
-		Hostname:     hostname,
-		RemoteIp:     remoteIp,
-		IpmiUsername: ipmiUsername,
-		IpmiPassword: ipmiPassword,
-		IpmiIpAddr:   ipmiIpAddr,
-		IpmiMac:      ipmiMac,
-		AdminWire:    adminWire,
-		IpmiWire:     ipmiWire,
+		BmManager:      bmManager,
+		SshCli:         sshCli,
+		Hostname:       hostname,
+		RemoteIp:       remoteIp,
+		IpmiUsername:   ipmiUsername,
+		IpmiPassword:   ipmiPassword,
+		IpmiIpAddr:     ipmiIpAddr,
+		IpmiMac:        ipmiMac,
+		IpmiLanChannel: ipmiLanChannel,
+		AdminWire:      adminWire,
+		IpmiWire:       ipmiWire,
 	}
 }
 
@@ -128,15 +134,33 @@ func (s *sBaremetalRegisterTask) update() {
 
 }
 
-func (s *sBaremetalRegisterTask) DoPrepare(cli *ssh.Client) error {
+func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSupport bool, cdromBoot bool) {
+	redfishCli := redfish.NewRedfishDriver(ctx, "https://"+s.IpmiIpAddr, s.IpmiUsername, s.IpmiPassword, false)
+	if redfishCli != nil {
+		_, cdInfo, _ := redfishCli.GetVirtualCdromInfo(ctx)
+		redfishSupport = true
+		cdromBoot = cdInfo.SupportAction
+	}
+	return
+}
+
+func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client) error {
 	infos, err := s.prepareBaremetalInfo(cli)
 	if err != nil {
 		return err
 	}
 
+	redfishSupport, cdromSupport := s.doRedfishProbe(ctx)
+
 	infos.ipmiInfo.IpAddr = s.IpmiIpAddr
 	infos.ipmiInfo.Username = s.IpmiUsername
 	infos.ipmiInfo.Password = s.IpmiPassword
+	infos.ipmiInfo.LanChannel = s.IpmiLanChannel
+	infos.ipmiInfo.Verified = true
+	infos.ipmiInfo.Present = true
+	infos.ipmiInfo.RedfishApi = redfishSupport
+	infos.ipmiInfo.CdromBoot = cdromSupport
+
 	s.updateIpmiInfo(cli)
 
 	return s.updateBmInfo(cli, infos)
