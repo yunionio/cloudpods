@@ -90,13 +90,18 @@ func (v SecurityGroupRuleSet) Less(i, j int) bool {
 	return false
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, name string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
 	params := make(map[string]string)
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
+
+	if len(name) > 0 {
+		params["Filters.0.Name"] = "security-group-name"
+		params["Filters.0.Values.0"] = name
+	}
 
 	body, err := self.vpcRequest("DescribeSecurityGroups", params)
 	if err != nil {

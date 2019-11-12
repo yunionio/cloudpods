@@ -21,11 +21,12 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
+		Name       string
 		SecgroupId string
 		InstanceId string
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List secgroups", func(cli *zstack.SRegion, args *SecurityGroupListOptions) error {
-		secgroups, err := cli.GetSecurityGroups(args.SecgroupId, args.InstanceId)
+		secgroups, err := cli.GetSecurityGroups(args.SecgroupId, args.InstanceId, args.Name)
 		if err != nil {
 			return err
 		}

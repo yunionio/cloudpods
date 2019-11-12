@@ -102,14 +102,14 @@ func (self *SRegion) DeleteVpc(vpcId string) error {
 }
 
 func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
-	if securityGroups, err := self.region.GetSecurityGroups(); err != nil {
+	securityGroups, err := self.region.GetSecurityGroups("")
+	if err != nil {
 		return nil, err
-	} else {
-		for i := 0; i < len(securityGroups); i++ {
-			securityGroups[i].vpc = self
-		}
-		return securityGroups, nil
 	}
+	for i := 0; i < len(securityGroups); i++ {
+		securityGroups[i].vpc = self
+	}
+	return securityGroups, nil
 }
 
 func (self *SVpc) fetchSecurityGroups() error {

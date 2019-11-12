@@ -537,6 +537,33 @@ func (region *SRegion) GetISecurityGroupById(secgroupId string) (cloudprovider.I
 	return region.GetSecurityGroupDetails(secgroupId)
 }
 
+func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudprovider.ICloudSecurityGroup, error) {
+	if strings.Contains(strings.ToLower(vpcId), "microsoft.classicnetwork") {
+		secgroups, err := region.GetClassicSecurityGroups(name)
+		if err != nil {
+			return nil, err
+		}
+		if len(secgroups) == 0 {
+			return nil, cloudprovider.ErrNotFound
+		}
+		if len(secgroups) > 1 {
+			return nil, cloudprovider.ErrDuplicateId
+		}
+		return &secgroups[0], nil
+	}
+	secgroups, err := region.GetSecurityGroups(name)
+	if err != nil {
+		return nil, err
+	}
+	if len(secgroups) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(secgroups) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &secgroups[0], nil
+}
+
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	if conf.VpcId == "classic" {
 		return region.CreateClassicSecurityGroup(conf.Desc)

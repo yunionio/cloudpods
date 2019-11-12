@@ -21,11 +21,12 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Name   string `help:"Secgroup Name"`
+		Limit  int    `help:"page size"`
+		Offset int    `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List SecurityGroup", func(cli *qcloud.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, err := cli.GetSecurityGroups("", args.Limit, args.Offset)
+		secgrps, total, err := cli.GetSecurityGroups("", args.Name, args.Limit, args.Offset)
 		if err != nil {
 			return err
 		}
