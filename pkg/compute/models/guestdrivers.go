@@ -51,6 +51,7 @@ type IGuestDriver interface {
 	GetMinimalSysDiskSizeGb() int
 
 	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
+	IsSupportPostpaidExpire() bool
 
 	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 

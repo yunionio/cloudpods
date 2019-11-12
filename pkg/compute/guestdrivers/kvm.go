@@ -484,3 +484,7 @@ func (self *SKVMGuestDriver) CancelExpireTime(
 func (self *SKVMGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return true, nil
 }
+
+func (self *SKVMGuestDriver) IsSupportPostpaidExpire() bool {
+	return true
+}
