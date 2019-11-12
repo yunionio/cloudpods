@@ -239,6 +239,10 @@ func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 	return true
 }
 
+func (self *SBaseGuestDriver) IsSupportPostpaidExpire() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
 }
