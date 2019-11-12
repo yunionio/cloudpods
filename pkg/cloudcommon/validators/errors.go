@@ -70,6 +70,17 @@ func (ve *ValidateError) Error() string {
 	return ve.Msg
 }
 
+func (ve *ValidateError) Cause() error {
+	switch ve.ErrType {
+	case ERR_GENERAL, ERR_MODEL_MANAGER:
+		return httperrors.ErrInternalError // httperrors.NewInternalServerError(errFmt, params...)
+	case ERR_MODEL_NOT_FOUND:
+		return httperrors.ErrResourceNotFound // httperrors.NewResourceNotFoundError(errFmt, params...)
+	default:
+		return httperrors.ErrInputParameter // httperrors.NewInputParameterError(errFmt, params...)
+	}
+}
+
 // TODO let each validator provide the error
 func newMissingKeyError(key string) error {
 	return newError(ERR_MISSING_KEY, "missing %q", key)
@@ -112,7 +123,7 @@ func newInvalidStructError(key string, err error) error {
 	params := []interface{}{key}
 	jsonClientErr, ok := err.(*httputils.JSONClientError)
 	if ok {
-		errFmt += httperrors.MsgTmplToFmt(jsonClientErr.Data.Id)
+		errFmt += httputils.MsgTmplToFmt(jsonClientErr.Data.Id)
 		for _, f := range jsonClientErr.Data.Fields {
 			params = append(params, f)
 		}
@@ -135,11 +146,12 @@ func newModelNotFoundError(modelKeyword, idOrName string, err error) error {
 }
 
 func newError(typ ErrType, errFmt string, params ...interface{}) error {
+	if typ == ERR_SUCCESS {
+		return nil
+	}
 	errFmt = fmt.Sprintf("%s: %s", typ, errFmt)
 	if returnHttpError {
 		switch typ {
-		case ERR_SUCCESS:
-			return nil
 		case ERR_GENERAL, ERR_MODEL_MANAGER:
 			return httperrors.NewInternalServerError(errFmt, params...)
 		case ERR_MODEL_NOT_FOUND:

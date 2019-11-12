@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type SErrorMsg struct {
@@ -123,5 +124,20 @@ func TestError(t *testing.T) {
 			}
 		}
 
+	}
+}
+
+func TestErrorCause(t *testing.T) {
+	err := errors.Error("TestError")
+	jsonError := &JSONClientError{
+		Code:    400,
+		Class:   string(err),
+		Details: "detailed test error",
+	}
+	wrapError := errors.Wrap(jsonError, "wrap1")
+	if errors.Cause(wrapError) == err {
+		t.Logf("%s", wrapError)
+	} else {
+		t.Errorf("wrapErro.Cause should be err: %#v != %#v", errors.Cause(wrapError), err)
 	}
 }
