@@ -138,7 +138,7 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("failed to found dbinstance %s(%s) account %s: %v", instance.Name, instance.Id, _account.Account, err)
 		}
-		input.Accounts[i].DBInstancedccountId = account.Id
+		input.Accounts[i].DBInstanceaccountId = account.Id
 	}
 
 	input, err = region.GetDriver().ValidateCreateDBInstanceDatabaseData(ctx, userCred, ownerId, instance, input)
@@ -176,6 +176,15 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 		return nil, err
 	}
 	return instance.(*SDBInstance), nil
+}
+
+func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.getMoreDetails(ctx, userCred, extra)
 }
 
 func (self *SDBInstanceDatabase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

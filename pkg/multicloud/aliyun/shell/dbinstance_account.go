@@ -63,7 +63,7 @@ func init() {
 		AccountType string `help:"account type" choices:"Normal|Super" default:"Normal"`
 	}
 
-	shellutils.R(&DBInstanceAccountResetOptions{}, "dbinstance-account-delete", "Delete dbintance account", func(cli *aliyun.SRegion, args *DBInstanceAccountResetOptions) error {
+	shellutils.R(&DBInstanceAccountResetOptions{}, "dbinstance-account-reset-password", "Reset dbintance account password", func(cli *aliyun.SRegion, args *DBInstanceAccountResetOptions) error {
 		return cli.ResetDBInstanceAccountPassword(args.INSTANCE, args.NAME, args.PASSWORD, args.AccountType)
 	})
 
