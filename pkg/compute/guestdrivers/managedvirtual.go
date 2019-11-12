@@ -36,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -488,11 +487,8 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 			return e
 		}
 
-		//解绑秘钥后需要重置密码
-		if deleteKeypair {
-			desc.Password = seclib2.RandomPassword2(12)
-			return iVM.DeployVM(ctx, desc.Name, desc.Account, desc.Password, desc.PublicKey, false, desc.Description)
-		}
+		//可以从秘钥解密旧密码
+		desc.Password = guest.GetOldPassword(ctx, task.GetUserCred())
 		return nil
 	}()
 	if err != nil {

@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -520,11 +521,34 @@ func (self *SGuest) AllowPerformDeploy(ctx context.Context, userCred mcclient.To
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "deploy")
 }
 
+func (self *SGuest) saveOldPassword(ctx context.Context, userCred mcclient.TokenCredential) {
+	loginKey := self.GetMetadata(api.VM_METADATA_LOGIN_KEY, userCred)
+	if len(loginKey) > 0 {
+		password, err := utils.DescryptAESBase64(self.Id, loginKey)
+		if err == nil && len(password) <= 30 {
+			for _, r := range password {
+				if !unicode.IsPrint(r) {
+					return
+				}
+			}
+			self.SetMetadata(ctx, api.VM_METADATA_LAST_LOGIN_KEY, loginKey, userCred)
+		}
+	}
+}
+
+func (self *SGuest) GetOldPassword(ctx context.Context, userCred mcclient.TokenCredential) string {
+	loginSecret := self.GetMetadata(api.VM_METADATA_LAST_LOGIN_KEY, userCred)
+	password, _ := utils.DescryptAESBase64(self.Id, loginSecret)
+	return password
+}
+
 func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	kwargs, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, fmt.Errorf("Parse query body error")
 	}
+
+	self.saveOldPassword(ctx, userCred)
 
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
 		var kpId string
