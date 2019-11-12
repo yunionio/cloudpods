@@ -34,12 +34,15 @@ done
 
 echo "Going to merge the following pull requests ${PRNS[@]}:"
 
+REVIEWER_CHECK=yes
 for PRN in "${PRNS[@]}"
 do
-    $CUR_DIR/approve.sh $PRN
+    $CUR_DIR/approve.sh $PRN $REVIEWER_CHECK
     if [ "$?" -ne "0" ]; then
         echo "Merge failed, exit."
         exit 1
     fi
+    if [ -n "$REVIEWER_CHECK" ]; then
+        REVIEWER_CHECK=
+    fi
 done
-
