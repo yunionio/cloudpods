@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 // Info contains versioning information.
@@ -65,7 +66,24 @@ func GetJsonString() string {
 	return string(bs)
 }
 
+func shortDate(dateStr string) string {
+	var buf strings.Builder
+	for _, c := range dateStr {
+		if c >= '0' && c <= '9' {
+			buf.WriteRune(c)
+		}
+	}
+	dateStr = buf.String()
+	if strings.HasPrefix(dateStr, "20") {
+		dateStr = dateStr[2:]
+	}
+	if len(dateStr) > 8 {
+		dateStr = dateStr[:8]
+	}
+	return dateStr
+}
+
 func GetShortString() string {
 	v := Get()
-	return fmt.Sprintf("%s(%s)", v.GitBranch, v.GitCommit)
+	return fmt.Sprintf("%s(%s%s)", v.GitBranch, v.GitCommit, shortDate(v.BuildDate))
 }
