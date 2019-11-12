@@ -1186,7 +1186,20 @@ func (manager *SGuestManager) validateCreateData(
 		input.KeypairId = keypairObj.GetId()
 	}
 
-	if input.SecgroupId != "" {
+	secGrpIds := []string{}
+	for _, secgroup := range input.Secgroups {
+		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroup)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secgroup)
+		}
+		if !utils.IsInStringArray(secGrpObj.GetId(), secGrpIds) {
+			secGrpIds = append(secGrpIds, secGrpObj.GetId())
+		}
+	}
+	if len(secGrpIds) > 0 {
+		input.SecgroupId = secGrpIds[0]
+		input.Secgroups = secGrpIds[1:]
+	} else if input.SecgroupId != "" {
 		secGrpId := input.SecgroupId
 		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secGrpId)
 		if err != nil {
@@ -1195,6 +1208,13 @@ func (manager *SGuestManager) validateCreateData(
 		input.SecgroupId = secGrpObj.GetId()
 	} else {
 		input.SecgroupId = "default"
+	}
+
+	maxSecgrpCount := GetDriver(hypervisor).GetMaxSecurityGroupCount()
+	if maxSecgrpCount == 0 { //esxi 不支持安全组
+		input.Secgroups = []string{}
+	} else if len(input.Secgroups)+1 > maxSecgrpCount {
+		return nil, httperrors.NewInputParameterError("%s shall bind up to %d security groups", hypervisor, maxSecgrpCount)
 	}
 
 	preferRegionId, _ := data.GetString("prefer_region_id")
@@ -1418,6 +1438,12 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	userData, _ := data.GetString("user_data")
 	if len(userData) > 0 {
 		guest.setUserData(ctx, userCred, userData)
+	}
+	secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
+	for _, secgroup := range secgroups {
+		gs := SGuestsecgroup{SecgroupId: secgroup}
+		gs.GuestId = guest.Id
+		GuestsecgroupManager.TableSpec().Insert(&gs)
 	}
 }
 
@@ -4555,6 +4581,11 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
 	userInput.Project = genInput.Project
+	userInput.Secgroups = []string{}
+	secgroups := self.GetSecgroups()
+	for _, secgroup := range secgroups {
+		userInput.Secgroups = append(userInput.Secgroups, secgroup.Id)
+	}
 	if genInput.ResourceType != "" {
 		userInput.ResourceType = genInput.ResourceType
 	}
