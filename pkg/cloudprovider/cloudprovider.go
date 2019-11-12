@@ -55,6 +55,9 @@ type ICloudProviderFactory interface {
 	NeedSyncSkuFromCloud() bool
 
 	IsSupportObjectStorage() bool
+	IsCloudeventRegional() bool
+	GetMaxCloudEventSyncDays() int
+	GetMaxCloudEventKeepDays() int
 }
 
 type ICloudProvider interface {
@@ -217,6 +220,18 @@ func (factory *baseProviderFactory) GetProvider(providerId, providerName, url, u
 
 func (factory *baseProviderFactory) IsOnPremise() bool {
 	return false
+}
+
+func (factory *baseProviderFactory) IsCloudeventRegional() bool {
+	return false
+}
+
+func (factory *baseProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 7
+}
+
+func (factory *baseProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 7
 }
 
 type SPremiseBaseProviderFactory struct {

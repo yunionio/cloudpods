@@ -41,6 +41,18 @@ func (self *SAzureProviderFactory) GetName() string {
 	return azure.CLOUD_PROVIDER_AZURE_CN
 }
 
+func (self *SAzureProviderFactory) GetMaxCloudEventKeepDays() int {
+	return 90
+}
+
+func (self *SAzureProviderFactory) GetMaxCloudEventSyncDays() int {
+	return 7
+}
+
+func (self *SAzureProviderFactory) IsCloudeventRegional() bool {
+	return false
+}
+
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
