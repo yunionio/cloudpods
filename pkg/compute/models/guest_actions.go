@@ -882,7 +882,7 @@ func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.Toke
 	}
 
 	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		err = self.StartInsertIsoTask(ctx, image.Id, self.HostId, userCred, "")
+		err = self.StartInsertIsoTask(ctx, image.Id, false, self.HostId, userCred, "")
 		return nil, err
 	} else {
 		return nil, httperrors.NewServerStatusError("Insert ISO not allowed in status %s", self.Status)
@@ -918,12 +918,15 @@ func (self *SGuest) StartEjectisoTask(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, boot bool, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
 	self.insertIso(imageId)
 
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
 	data.Add(jsonutils.NewString(hostId), "host_id")
+	if boot {
+		data.Add(jsonutils.JSONTrue, "boot")
+	}
 
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestInsertIsoTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {

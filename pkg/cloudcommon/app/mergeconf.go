@@ -19,6 +19,7 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -65,19 +66,21 @@ func MergeServiceConfig(opts interface{}, serviceType string, serviceVersion str
 	if len(serviceId) > 0 {
 		serviceConf, err := getServiceConfig(s, serviceId)
 		if err != nil {
-			return errors.Wrap(err, "getServiceConfig")
+			log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
+		} else {
+			conf.Update(serviceConf)
+			merged = true
 		}
-		conf.Update(serviceConf)
-		merged = true
 	}
 	commonServiceId, _ := getServiceIdByType(s, consts.COMMON_SERVICE, "")
 	if len(commonServiceId) > 0 {
 		commonConf, err := getServiceConfig(s, commonServiceId)
 		if err != nil {
-			return errors.Wrap(err, "getServiceConfig common service")
+			log.Errorf("getServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
+		} else {
+			conf.Update(commonConf)
+			merged = true
 		}
-		conf.Update(commonConf)
-		merged = true
 	}
 	if merged {
 		err := conf.Unmarshal(opts)
@@ -89,7 +92,8 @@ func MergeServiceConfig(opts interface{}, serviceType string, serviceVersion str
 			nconf.Add(conf, "config", "default")
 			_, err := modules.ServicesV3.PerformAction(s, serviceId, "config", nconf)
 			if err != nil {
-				return errors.Wrap(err, "modules.ServicesV3.PerformAction")
+				// ignore the error
+				log.Errorf("fail to save config: %s", err)
 			}
 		}
 	}

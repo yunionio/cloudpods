@@ -51,8 +51,10 @@ func (m *SMetricData) Line() string {
 	line := strings.Builder{}
 	line.WriteString(m.Name)
 	for i := range m.Tags {
-		line.WriteByte(',')
-		line.WriteString(m.Tags[i].String())
+		if len(m.Tags[i].Key) > 0 && len(m.Tags[i].Value) > 0 {
+			line.WriteByte(',')
+			line.WriteString(m.Tags[i].String())
+		}
 	}
 	line.WriteByte(' ')
 	for i := range m.Metrics {

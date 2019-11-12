@@ -77,7 +77,7 @@ func (self *SContainerDriver) RequestGuestCreateAllDisks(ctx context.Context, gu
 	return nil
 }
 
-func (self *SContainerDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+func (self *SContainerDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
 	// do nothing, call next stage
 	task.ScheduleRun(nil)
 	return nil
