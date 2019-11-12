@@ -2256,6 +2256,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					if err != nil {
 						return nil, httperrors.NewUnsupportOperationError(err.Error())
 					}
+					if !storage.IsEmulated && storage.GetFreeCapacity() < int64(addDisk) {
+						return nil, httperrors.NewInsufficientResourceError("Not enough free space")
+					}
 					diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb - oldSize
 				}
 			}
@@ -2271,7 +2274,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
 			}
 			storage := iStorage.(*SStorage)
-			if storage.GetFreeCapacity() > 0 && storage.GetFreeCapacity() < int64(needSize) {
+			if !storage.IsEmulated && storage.GetFreeCapacity() < int64(needSize) {
 				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
 			}
 		}
