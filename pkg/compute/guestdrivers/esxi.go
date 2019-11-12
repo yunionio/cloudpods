@@ -235,6 +235,10 @@ func (self *SESXiGuestDriver) CancelExpireTime(
 	return guest.CancelExpireTime(ctx, userCred)
 }
 
+func (self *SESXiGuestDriver) IsSupportPostpaidExpire() bool {
+	return true
+}
+
 func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
