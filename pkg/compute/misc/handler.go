@@ -17,6 +17,7 @@ package misc
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 
 	"yunion.io/x/log"
@@ -43,18 +44,17 @@ func addHandler(method, prefix string, f appsrv.FilterHandler, app *appsrv.Appli
 }
 
 func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	_, query, _ := appsrv.FetchEnv(ctx, w, r)
-	ipAddr, err := query.GetString("ip")
+	ipAddr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		httperrors.MissingParameterError(w, "ip")
+		httperrors.NewInternalServerError("Parse remote ip error %s", err)
 		return
 	}
 
 	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(
-		ipAddr, compute.NETWORK_TYPE_IPMI, tristate.None)
+		ipAddr, compute.NETWORK_TYPE_BAREMETAL, tristate.None)
 	if n == nil {
 		n, _ = models.NetworkManager.GetOnPremiseNetworkOfIP(
-			ipAddr, compute.NETWORK_TYPE_BAREMETAL, tristate.None)
+			ipAddr, compute.NETWORK_TYPE_IPMI, tristate.None)
 	}
 	if n == nil {
 		httperrors.NotFoundError(w, "Network not found")
