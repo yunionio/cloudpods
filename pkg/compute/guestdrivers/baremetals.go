@@ -261,9 +261,13 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Contex
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
 }
 
-func (self *SBaremetalGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+func (self *SBaremetalGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
+	return true
+}
+
+func (self *SBaremetalGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, boot bool, task taskman.ITask) error {
 	host := guest.GetHost()
-	return host.StartInsertIsoTask(ctx, task.GetUserCred(), filepath.Base(path), false, task.GetTaskId())
+	return host.StartInsertIsoTask(ctx, task.GetUserCred(), filepath.Base(path), boot, task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -272,8 +276,7 @@ func (self *SBaremetalGuestDriver) RequestGuestHotRemoveIso(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
-	return host.StartInsertIsoTask(ctx, task.GetUserCred(), imageId, true, task.GetTaskId())
+	return guest.StartInsertIsoTask(ctx, imageId, true, guest.HostId, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
