@@ -52,9 +52,31 @@ func InitDB(options *common_options.DBOptions) {
 	}
 	sqlchemy.SetDB(dbConn)
 
-	lm := lockman.NewInMemoryLockManager()
+	switch options.LockmanMethod {
+	case "inmemory", "":
+		log.Infof("using inmemory lockman")
+		lm := lockman.NewInMemoryLockManager()
+		lockman.Init(lm)
+	case "etcd":
+		log.Infof("using etcd lockman")
+		tlsCfg, err := options.GetEtcdTLSConfig()
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+		lm, err := lockman.NewEtcdLockManager(&lockman.SEtcdLockManagerConfig{
+			Endpoints:  options.EtcdEndpoints,
+			Username:   options.EtcdUsername,
+			Password:   options.EtcdPassword,
+			LockTTL:    options.EtcdLockTTL,
+			LockPrefix: options.EtcdLockPrefix,
+			TLS:        tlsCfg,
+		})
+		if err != nil {
+			log.Fatalf("etcd lockman: %v", err)
+		}
+		lockman.Init(lm)
+	}
 	// lm := lockman.NewNoopLockManager()
-	lockman.Init(lm)
 }
 
 func CloseDB() {
