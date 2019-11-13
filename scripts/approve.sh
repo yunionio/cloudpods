@@ -57,10 +57,6 @@ function label() {
     local MSG=$2
     local LABEL=$3
 
-    if check_label $PRN $LABEL > /dev/null; then
-        echo "Label $LABEL success!"
-        return 0
-    fi
     for try in $(seq 3)
     do
         echo "Send $MSG ..."
