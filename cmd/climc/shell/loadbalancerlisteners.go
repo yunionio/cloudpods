@@ -15,12 +15,42 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
+
+func printLbBackendStatus(backendStatus jsonutils.JSONObject) error {
+	arr, ok := backendStatus.(*jsonutils.JSONArray)
+	if !ok {
+		return fmt.Errorf("want json array, got %s", backendStatus.String())
+	}
+	objList, err := arr.GetArray()
+	if err != nil {
+		return err
+	}
+	listResult := &modules.ListResult{
+		Data: objList,
+	}
+	columns := []string{
+		"id",
+		"name",
+		"backend_type",
+		"backend_id",
+		"address",
+		"port",
+		"weight",
+		"check_time",
+		"check_status",
+		"check_code",
+	}
+	printList(listResult, columns)
+	return nil
+}
 
 func init() {
 
@@ -98,5 +128,12 @@ func init() {
 		}
 		printObject(lblistener)
 		return nil
+	})
+	R(&options.LoadbalancerListenerGetBackendStatusOptions{}, "lblistener-backend-status", "Get lblistene backend status", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerGetBackendStatusOptions) error {
+		backendStatus, err := modules.LoadbalancerListeners.GetSpecific(s, opts.ID, "backend-status", nil)
+		if err != nil {
+			return err
+		}
+		return printLbBackendStatus(backendStatus)
 	})
 }
