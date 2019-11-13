@@ -70,6 +70,8 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 		return "Aliyun"
 	} else if strings.Contains(osDist, "freebsd") {
 		return "FreeBSD"
+	} else if strings.Contains(osDist, "euleros") {
+		return "EulerOS"
 	} else if strings.Contains(osDist, "windows") {
 		if strings.Contains(osDist, "2003") {
 			return "Windows Server 2003"
@@ -89,13 +91,14 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 
 var imageVersions = map[string][]string{
 	"CentOS":   {"5", "6", "7"},
-	"RHEL":     {"5", "6", "7"},
-	"FreeBSD":  {"10"},
-	"Ubuntu":   {"10", "12", "14", "16", "18"},
+	"RHEL":     {"5", "6", "7", "8"},
+	"FreeBSD":  {"10", "11", "12"},
+	"Ubuntu":   {"10", "12", "14", "16", "18", "19"},
 	"OpenSUSE": {"11", "12"},
 	"SUSE":     {"10", "11", "12", "13"},
-	"Debian":   {"6", "7", "8", "9"},
+	"Debian":   {"6", "7", "8", "9", "10"},
 	"CoreOS":   {"7"},
+	"EulerOS":  {"2"},
 	"Aliyun":   {},
 }
 
@@ -107,7 +110,8 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 					return version
 				}
 			} else {
-				if strings.Contains(imageName, " "+version) || strings.Contains(imageName, "_"+version) {
+				imageName = strings.Replace(imageName, "64", "", -1)
+				if strings.Contains(imageName, " "+version) || strings.Contains(imageName, "_"+version) || strings.Contains(imageName, "-"+version) {
 					return version
 				}
 			}
