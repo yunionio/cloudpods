@@ -1338,6 +1338,7 @@ func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) 
 	if len(urls) > 0 {
 		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
 	}
+	log.Debugf("telegraf config: %s", conf)
 	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
 		telegraf.SetConf(conf)
 		telegraf.BgReload(conf)
