@@ -32,11 +32,15 @@ type SElasticcacheAccount struct {
 }
 
 func (self *SElasticcacheAccount) GetId() string {
-	return fmt.Sprintf("%s/admin", self.cacheDB.InstanceID)
+	return fmt.Sprintf("%s/root", self.cacheDB.InstanceID)
 }
 
 func (self *SElasticcacheAccount) GetName() string {
-	return self.cacheDB.AccessUser
+	if len(self.cacheDB.AccessUser) > 0 {
+		return self.cacheDB.AccessUser
+	}
+
+	return "root"
 }
 
 func (self *SElasticcacheAccount) GetGlobalId() string {
