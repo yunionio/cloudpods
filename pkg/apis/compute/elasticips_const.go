@@ -21,6 +21,7 @@ const (
 	EIP_ASSOCIATE_TYPE_SERVER       = "server"
 	EIP_ASSOCIATE_TYPE_NAT_GATEWAY  = "natgateway"
 	EIP_ASSOCIATE_TYPE_LOADBALANCER = "loadbalancer"
+	EIP_ASSOCIATE_TYPE_UNKNOWN      = "unknown"
 
 	EIP_STATUS_READY           = "ready"
 	EIP_STATUS_UNKNOWN         = "unknown"

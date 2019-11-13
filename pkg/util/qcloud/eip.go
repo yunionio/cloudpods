@@ -143,12 +143,11 @@ func (self *SEipAddress) GetAssociationType() string {
 			"lb-":  api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
 			"lbl-": api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
 		} {
-			if strings.HasPrefix(prefix, self.InstanceId) {
+			if strings.HasPrefix(self.InstanceId, prefix) {
 				return instanceType
 			}
 		}
-		log.Fatalf("unsupported type: %s", self.InstanceId)
-		return "unsupported"
+		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
 	}
 	return ""
 }
