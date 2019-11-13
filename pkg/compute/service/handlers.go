@@ -59,6 +59,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.QuotaUsageManager,
 
 		models.SnapshotPolicyCacheManager,
+		models.GroupguestManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
