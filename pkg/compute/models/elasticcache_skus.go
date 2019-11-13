@@ -96,6 +96,12 @@ func (self *SElasticcacheSku) GetCustomizeColumns(ctx context.Context, userCred 
 	return self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 }
 
+func (manager *SElasticcacheSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
+	q := manager.Query().Equals("cloudregion_id", regionId)
+
+	return q.CountWithError()
+}
+
 func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	regions := map[string]string{}
 	for i := range objs {
@@ -189,7 +195,7 @@ func (manager *SElasticcacheSkuManager) FetchSkusByRegion(regionID string) ([]SE
 	return skus, nil
 }
 
-func (manager *SElasticcacheSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+func (manager *SElasticcacheSkuManager) syncElasticcacheSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
