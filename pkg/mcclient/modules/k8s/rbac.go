@@ -50,6 +50,7 @@ func init() {
 
 	modules.Register(RbacRoles)
 	modules.Register(RbacRoleBindings)
+	modules.Register(ServiceAccounts)
 }
 
 func (m RbacRoleManager) GetType(obj jsonutils.JSONObject) interface{} {

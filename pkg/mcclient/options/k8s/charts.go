@@ -22,8 +22,9 @@ type ChartListOptions struct {
 	BaseListOptions
 	Repo       string `help:"Repository name"`
 	RepoUrl    string `help:"Repository url"`
-	AllVersion bool   `json:"Get Chart all history versions"`
-	Keyword    string `json:"Chart keyword"`
+	AllVersion bool   `help:"Get Chart all history versions"`
+	Keyword    string `help:"Chart keyword"`
+	Version    string `help:"Chart semver version filter"`
 }
 
 func (o ChartListOptions) Params() *jsonutils.JSONDict {
@@ -39,6 +40,9 @@ func (o ChartListOptions) Params() *jsonutils.JSONDict {
 	}
 	if o.AllVersion {
 		params.Add(jsonutils.JSONTrue, "all_version")
+	}
+	if len(o.Version) != 0 {
+		params.Add(jsonutils.NewString(o.Version), "version")
 	}
 	if len(o.Keyword) != 0 {
 		params.Add(jsonutils.NewString(o.Keyword), "keyword")
