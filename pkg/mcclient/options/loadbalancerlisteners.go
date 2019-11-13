@@ -184,6 +184,10 @@ type LoadbalancerListenerActionStatusOptions struct {
 	Status string `choices:"enabled|disabled"`
 }
 
+type LoadbalancerListenerGetBackendStatusOptions struct {
+	ID string `json:"-"`
+}
+
 type LoadbalancerListenerActionSyncStatusOptions struct {
 	ID string `json:"-"`
 }

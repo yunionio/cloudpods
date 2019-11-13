@@ -548,6 +548,15 @@ func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred
 	return extra, nil
 }
 
+func (man *SLoadbalancerAgentManager) getByClusterId(clusterId string) ([]SLoadbalancerAgent, error) {
+	r := []SLoadbalancerAgent{}
+	q := man.Query().Equals("cluster_id", clusterId)
+	if err := db.FetchModelObjects(man, q, &r); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
 	return db.IsAdminAllowPerform(userCred, lbagent, "hb")
 }

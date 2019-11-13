@@ -19,10 +19,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -367,12 +366,12 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 			theLbbJanitor.Signal()
 			return nil, nil
 		}
-		return nil, errors.WithMessagef(err, "find guest %s", lbb.BackendId)
+		return nil, errors.Wrapf(err, "find guest %s", lbb.BackendId)
 	}
 	guest := guestM.(*SGuest)
 	vpc, err := guest.GetVpc()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "find guest %s(%s) vpc", guest.Name, guest.Id)
+		return nil, errors.Wrapf(err, "find guest %s(%s) vpc", guest.Name, guest.Id)
 	}
 	return vpc, nil
 }

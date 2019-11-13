@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
@@ -910,4 +911,16 @@ func (man *SLoadbalancerManager) InitializeData() error {
 func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
+}
+
+func (man *SLoadbalancerManager) getLoadbalancer(lbId string) (*SLoadbalancer, error) {
+	obj, err := man.FetchById(lbId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get loadbalancer %s", lbId)
+	}
+	lb := obj.(*SLoadbalancer)
+	if lb.PendingDeleted {
+		return nil, errors.Wrap(errors.ErrNotFound, "pending deleted")
+	}
+	return lb, nil
 }

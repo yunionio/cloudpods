@@ -17,12 +17,14 @@ package influxdb
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -32,29 +34,61 @@ type SInfluxdb struct {
 	accessUrl string
 	client    *http.Client
 	dbName    string
+
+	debug bool
 }
 
 func NewInfluxdb(accessUrl string) *SInfluxdb {
+	return NewInfluxdbWithDebug(accessUrl, false)
+}
+
+func NewInfluxdbWithDebug(accessUrl string, debug bool) *SInfluxdb {
 	inst := SInfluxdb{
 		accessUrl: accessUrl,
 		client:    httputils.GetDefaultClient(),
+		debug:     debug,
 	}
 	return &inst
 }
 
 type dbResult struct {
 	Name    string
+	Tags    *jsonutils.JSONDict
 	Columns []string
 	Values  [][]jsonutils.JSONObject
 }
 
-func (db *SInfluxdb) query(sql string) ([][]dbResult, error) {
+func (db *SInfluxdb) Write(data string, precision string) error {
+	if precision == "" {
+		precision = "ns"
+	}
+	nurl := fmt.Sprintf("%s/write?db=%s&precision=%s", db.accessUrl, db.dbName, precision)
+	header := http.Header{}
+	header.Set("Content-Type", "application/octet-stream")
+	resp, err := httputils.Request(db.client, context.Background(), "POST", nurl, header, strings.NewReader(data), db.debug)
+	if err != nil {
+		return errors.Wrap(err, "httputils.Request")
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "ioutil.ReadAll")
+	}
+	if resp.StatusCode >= 300 {
+		return errors.Error(fmt.Sprintf("Status: %d Message: %s", resp.StatusCode, string(b)))
+	}
+	return nil
+}
+
+func (db *SInfluxdb) Query(sql string) ([][]dbResult, error) {
 	nurl := fmt.Sprintf("%s/query?q=%s", db.accessUrl, url.QueryEscape(sql))
-	_, body, err := httputils.JSONRequest(db.client, context.Background(), "POST", nurl, nil, nil, false)
+	_, body, err := httputils.JSONRequest(db.client, context.Background(), "POST", nurl, nil, nil, db.debug)
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("influx query: %s %s", db.accessUrl, body)
+	if db.debug {
+		log.Debugf("influx query: %s %s", db.accessUrl, body)
+	}
 	results, err := body.GetArray("results")
 	if err != nil {
 		return nil, err
@@ -91,7 +125,7 @@ func (db *SInfluxdb) SetDatabase(dbName string) error {
 }
 
 func (db *SInfluxdb) CreateDatabase(dbName string) error {
-	_, err := db.query(fmt.Sprintf("CREATE DATABASE %s", dbName))
+	_, err := db.Query(fmt.Sprintf("CREATE DATABASE %s", dbName))
 	if err != nil {
 		return err
 	}
@@ -99,7 +133,7 @@ func (db *SInfluxdb) CreateDatabase(dbName string) error {
 }
 
 func (db *SInfluxdb) GetDatabases() ([]string, error) {
-	results, err := db.query("SHOW DATABASES")
+	results, err := db.Query("SHOW DATABASES")
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +172,7 @@ func (rp *SRetentionPolicy) String(dbName string) string {
 }
 
 func (db *SInfluxdb) GetRetentionPolicies() ([]SRetentionPolicy, error) {
-	results, err := db.query(fmt.Sprintf("SHOW RETENTION POLICIES ON %s", db.dbName))
+	results, err := db.Query(fmt.Sprintf("SHOW RETENTION POLICIES ON %s", db.dbName))
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +192,12 @@ func (db *SInfluxdb) GetRetentionPolicies() ([]SRetentionPolicy, error) {
 }
 
 func (db *SInfluxdb) CreateRetentionPolicy(rp SRetentionPolicy) error {
-	_, err := db.query(fmt.Sprintf("CREATE %s", rp.String(db.dbName)))
+	_, err := db.Query(fmt.Sprintf("CREATE %s", rp.String(db.dbName)))
 	return err
 }
 
 func (db *SInfluxdb) AlterRetentionPolicy(rp SRetentionPolicy) error {
-	_, err := db.query(fmt.Sprintf("ALTER %s", rp.String(db.dbName)))
+	_, err := db.Query(fmt.Sprintf("ALTER %s", rp.String(db.dbName)))
 	return err
 }
 
