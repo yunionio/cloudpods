@@ -597,6 +597,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString("\n")
 		}
 	}
+	log.Debugf("%s", cmds.String())
 	return rootFs.FilePutContents(fn, cmds.String(), false, false)
 }
 
@@ -1002,6 +1003,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString("BOOTPROTO=dhcp\n")
 		}
 		var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-%s", nicDesc.Name)
+		log.Debugf("%s: %s", fn, cmds.String())
 		if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
 			return err
 		}
