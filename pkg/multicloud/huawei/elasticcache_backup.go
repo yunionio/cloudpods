@@ -17,6 +17,9 @@ package huawei
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -54,6 +57,20 @@ func (self *SElasticcacheBackup) GetName() string {
 
 func (self *SElasticcacheBackup) GetGlobalId() string {
 	return self.GetId()
+}
+
+func (self *SElasticcacheBackup) Refresh() error {
+	cache, err := self.cacheDB.GetICloudElasticcacheBackup(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "ElasticcacheBackup.Refresh.GetICloudElasticcacheBackup")
+	}
+
+	err = jsonutils.Update(self, cache)
+	if err != nil {
+		return errors.Wrap(err, "ElasticcacheBackup.Refresh.Update")
+	}
+
+	return nil
 }
 
 func (self *SElasticcacheBackup) GetStatus() string {
