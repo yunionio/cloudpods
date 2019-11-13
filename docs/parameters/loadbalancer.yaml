@@ -8,6 +8,11 @@ loadbalancerlistenerId:
   type: string
   in: path
   required: true
+loadbalancerlistenerruleId:
+  name: loadbalancerlistenerruleId
+  type: string
+  in: path
+  required: true
 loadbalancerbackendgroupId:
   name: loadbalancerbackendgroupId
   type: string
@@ -89,6 +94,22 @@ certificate_id:
   in: query
   type: string
   description: 指定loadbalaner本地证书id
+
+listener:
+  name: listener
+  in: query
+  type: string
+  description: 指定loadbalancer监听id
+domain:
+  name: domain
+  in: query
+  type: string
+  description: 指定转发规则匹配的域名
+path:
+  name: path
+  in: query
+  type: string
+  description: 指定转发规则匹配的路径
 
 cluster:
   name: cluster

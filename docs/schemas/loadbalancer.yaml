@@ -38,6 +38,28 @@ LoadbalancerListener:
       description: 调度算法
       readOnly: true
 
+LoadbalancerListenerRule:
+  type: object
+  description: Loadbalancer转发规则实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    listener_id:
+      type: string
+      description: 所属的loadbalancer监听uuid
+      readOnly: true
+    domain:
+      type: string
+      description: 转发规则匹配的域名
+    path:
+      type: string
+      description: 转发规则匹配的路径
+    backend_group_id:
+      type: string
+      description: 转发规则对应的后端服务器组
+
 LoadbalancerBackendGroup:
   type: object
   description: Loadbalancer后端服务器组实例
@@ -144,6 +166,41 @@ LoadbalancerListenerResponse:
     loadbalancerlistener:
       type: object
       $ref: "#/LoadbalancerListener"
+
+LoadbalancerListenerRuleCreateRequest:
+  type: object
+  properties:
+    loadbalancerlistenerrule:
+      type: object
+      required:
+        - listener
+        - backend_group
+      properties:
+        listener:
+          type: string
+          description: 所属的loadbalancer监听id
+        backend_group:
+          type: string
+          description: 规则应对的后端服务器组uuid
+        domain:
+          type: string
+          description: 转发规则匹配的域名
+        path:
+          type: string
+          description: 转发规则匹配的路径
+LoadbalancerListenerRuleListResponse:
+  type: object
+  properties:
+    loadbalancerlistenerrules:
+      type: array
+      items:
+        $ref: "#/LoadbalancerListenerRule"
+LoadbalancerListenerRuleResponse:
+  type: object
+  properties:
+    loadbalancer:
+      type: object
+      $ref: "#/LoadbalancerListenerRule"
 
 LoadbalancerBackendGroupListResponse:
   type: object
@@ -314,7 +371,7 @@ LoadbalancerCachedCertificateResponse:
           description: 公钥算法
           readOnly: true
         publicKey_bitLen:
-          type: int
+          type: integer
           description: 公钥长度
           readOnly: true
         signature_algorithm:
@@ -653,3 +710,53 @@ LoadbalancerAgentDeployRequest:
             proj: system
             repo_base_url: https://10.168.222.136/yumrepo
         deploy_method: yum
+
+LoadbalancerBackendStatus:
+  allOf:
+    - $ref: '#/LoadbalancerBackend'
+    - description: 后端及其健康检查状态描述
+      properties:
+        check_time:
+          type: string
+          format: date-time
+          description: 上一次检查时间
+        check_code:
+          type: integer
+          description: HTTP检查时，报端返回时的http状态码
+        check_status:
+          type: string
+          description: |
+            状态描述
+            
+            {
+                "UNK": "未知",
+                "INI": "启动中",
+                "SOCKERR": "socket错误",
+                "L4OK": "L4正常",
+                "L4TOUT": "L4超时",
+                "L4CON": "L4连接错误",
+                "L6OK": "L6正常",
+                "L6TOUT": "L6超时",
+                "L6RSP": "L6协议错误",
+                "L7OK": "L7正常",
+                "L7OKC": "L7正常",
+                "L7TOUT": "L7超时",
+                "L7RSP": "L7协议错误",
+                "L7STS": "L7响应错误"
+            }
+
+LoadbalancerListenerBackendStatusResponse:
+  type: object
+  properties:
+    loadbalancerlistener:
+      type: array
+      items:
+        $ref: "#/LoadbalancerBackendStatus"
+
+LoadbalancerListenerRuleBackendStatusResponse:
+  type: object
+  properties:
+    loadbalancerlistener:
+      type: array
+      items:
+        $ref: "#/LoadbalancerBackendStatus"

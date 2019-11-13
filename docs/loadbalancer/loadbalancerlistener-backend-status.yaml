@@ -1,0 +1,11 @@
+get:
+  summary: 获取指定loadbalancer监听后端服务器的健康检查状态
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/loadbalancerlistenerId"
+  responses:
+    200:
+      description: 后端状态列表
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListenerBackendStatusResponse"
+  tags:
+    - loadbalancerlisteners
