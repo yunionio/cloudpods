@@ -56,11 +56,12 @@ const (
 	BACKUP_MODE_MANUAL    = "manual"    //手动
 
 	//实例数据库状态
-	DBINSTANCE_DATABASE_CREATING      = "creating"      //创建中
-	DBINSTANCE_DATABASE_CREATE_FAILE  = "create_failed" //创建失败
-	DBINSTANCE_DATABASE_RUNNING       = "running"       //正常
-	DBINSTANCE_DATABASE_DELETING      = "deleting"      //删除中
-	DBINSTANCE_DATABASE_DELETE_FAILED = "delete_failed" //删除失败
+	DBINSTANCE_DATABASE_CREATING        = "creating"        //创建中
+	DBINSTANCE_DATABASE_CREATE_FAILE    = "create_failed"   //创建失败
+	DBINSTANCE_DATABASE_RUNNING         = "running"         //正常
+	DBINSTANCE_DATABASE_GRANT_PRIVILEGE = "grant_privilege" //赋予权限中
+	DBINSTANCE_DATABASE_DELETING        = "deleting"        //删除中
+	DBINSTANCE_DATABASE_DELETE_FAILED   = "delete_failed"   //删除失败
 
 	//实例用户状态
 	DBINSTANCE_USER_UNAVAILABLE         = "unavailable"         //不可用

@@ -312,37 +312,6 @@ func init() {
 		return nil
 	})
 
-	type DBInstanceAccountListOptions struct {
-		options.BaseListOptions
-		DBInstance string `help:"ID or Name of DBInstance" json:"dbinstance"`
-	}
-	R(&DBInstanceAccountListOptions{}, "dbinstance-account-list", "List DB instance accounts", func(s *mcclient.ClientSession, opts *DBInstanceAccountListOptions) error {
-		params, err := options.ListStructToParams(opts)
-		if err != nil {
-			return err
-		}
-
-		result, err := modules.DBInstanceAccounts.List(s, params)
-		if err != nil {
-			return err
-		}
-		printList(result, modules.DBInstanceAccounts.GetColumns(s))
-		return nil
-	})
-
-	type DBInstanceAccountIdOptions struct {
-		ID string `help:"ID or Name of DBInstanceaccount"`
-	}
-
-	R(&DBInstanceAccountIdOptions{}, "dbinstance-account-show", "Show DB instance account", func(s *mcclient.ClientSession, opts *DBInstanceAccountIdOptions) error {
-		account, err := modules.DBInstanceAccounts.Get(s, opts.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(account)
-		return nil
-	})
-
 	type DBInstancePrivilegeListOptions struct {
 		options.BaseListOptions
 		DBInstanceaccount  string `help:"ID or Name of DBInstanceaccount" json:"dbinstanceaccount"`
@@ -359,6 +328,23 @@ func init() {
 			return err
 		}
 		printList(result, modules.DBInstancePrivileges.GetColumns(s))
+		return nil
+	})
+
+	type DBInstanceChangeOwnerOptions struct {
+		ID      string `help:"DBInstance to change owner" json:"-"`
+		PROJECT string `help:"Project ID or change" json:"tenant"`
+	}
+	R(&DBInstanceChangeOwnerOptions{}, "dbinstance-change-owner", "Change owner porject of a dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceChangeOwnerOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.DBInstance.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 
