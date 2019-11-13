@@ -47,6 +47,12 @@ func TestNormalizeImageInfo(t *testing.T) {
 			OsType:    "linux",
 			OsVersion: "14",
 		},
+		{
+			Name:      "CentOS  7.2 64位",
+			OsDistro:  "CentOS",
+			OsType:    "linux",
+			OsVersion: "7",
+		},
 	}
 
 	for _, image := range images {
