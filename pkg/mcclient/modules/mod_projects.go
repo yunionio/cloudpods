@@ -317,8 +317,20 @@ func (this *ProjectManagerV3) DoCreateProject(s *mcclient.ClientSession, p jsonu
 	}
 
 	// assgin users to project
-	users := _user.(*jsonutils.JSONArray).GetStringArray()
-	roles := _role.(*jsonutils.JSONArray).GetStringArray()
+	users := []string{}
+	roles := []string{}
+	if _user != nil {
+		if _u, ok := _user.(*jsonutils.JSONArray); ok {
+			users = _u.GetStringArray()
+		}
+	}
+
+	if _role != nil {
+		if _r, ok := _role.(*jsonutils.JSONArray); ok {
+			roles = _r.GetStringArray()
+		}
+	}
+
 	if len(users) > 0 && len(roles) > 0 {
 		var projectG errgroup.Group
 
