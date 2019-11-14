@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -110,9 +111,17 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 	return passes, nil
 }
 
-func (manager *SPasswordManager) validatePassword(localUserId int, password string) error {
+func validatePasswordComplexity(password string) error {
 	if o.Options.PasswordMinimalLength > 0 && len(password) < o.Options.PasswordMinimalLength {
-		return errors.Error("too simple password")
+		return errors.Wrap(httperrors.ErrWeakPassword, "too simple password")
+	}
+	return nil
+}
+
+func (manager *SPasswordManager) validatePassword(localUserId int, password string) error {
+	err := validatePasswordComplexity(password)
+	if err != nil {
+		return errors.Wrap(err, "validatePasswordComplexity")
 	}
 	if o.Options.PasswordUniqueHistoryCheck > 0 {
 		shaPass := shaPassword(password)

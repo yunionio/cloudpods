@@ -31,4 +31,6 @@ const (
 	ErrOutOfRange      = errors.Error("out of range")
 	ErrForbidden       = errors.Error("not allowed")
 	ErrOutOfLimit      = errors.Error("out of limit")
+
+	ErrWeakPassword = errors.Error("WeakPasswordError")
 )
