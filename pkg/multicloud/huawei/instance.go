@@ -22,10 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
@@ -590,10 +589,15 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
 	err := self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Instance.ChangeConfig2.ChangeVMConfig2")
 	}
 
-	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "Instance.ChangeConfig2.WaitStatusWithDelay")
+	}
+
+	return nil
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
