@@ -1045,7 +1045,7 @@ func (self *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloudpr
 }
 
 func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
-	groupId, err := self.createSecurityGroup(conf.VpcId, conf.Name, "", conf.Desc)
+	groupId, err := self.CreateSecurityGroup(conf.VpcId, conf.Name, "", conf.Desc)
 	if err != nil {
 		return nil, err
 	}
