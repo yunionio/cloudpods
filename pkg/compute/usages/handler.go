@@ -106,7 +106,7 @@ func rangeObjHandler(
 			return
 		}
 		isOwner := false
-		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(obj, userCred, policy.PolicyActionGet, "usage") {
+		if scope == rbacutils.ScopeDomain && obj != nil && db.IsObjectRbacAllowed(obj, userCred, policy.PolicyActionGet, "usage") == nil {
 			isOwner = true
 		}
 		log.Debugf("%s %v %s", ownerId, isOwner, scope)
