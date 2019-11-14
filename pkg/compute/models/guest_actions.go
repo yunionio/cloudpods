@@ -2432,7 +2432,14 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		disk := guestdisk.GetDisk()
 		disk.DoCancelPendingDelete(ctx, userCred)
 	}
-	return self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	err := self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
+		return self.CancelExpireTime(ctx, userCred)
+	}
+	return nil
 }
 
 func (self *SGuest) StartUndeployGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, targetHostId string) error {
