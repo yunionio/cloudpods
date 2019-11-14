@@ -227,10 +227,13 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule *s
 	return nil
 }
 
-func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
+func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
+	if len(desc) == 0 {
+		desc = "vpc default group"
+	}
 	params.SetDescription(desc)
 	params.SetGroupName(name)
 
@@ -259,7 +262,7 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 	name := randomString(fmt.Sprintf("%s-", vpcId), 9)
-	secId, err := self.createSecurityGroup(vpcId, name, "default", "vpc default group")
+	secId, err := self.CreateSecurityGroup(vpcId, name, "default", "vpc default group")
 	if err != nil {
 		return "", err
 	}
