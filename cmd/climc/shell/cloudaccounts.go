@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -647,6 +648,21 @@ func init() {
 	})
 	R(&CloudaccountPublicOptions{}, "cloud-account-private", "Mark this cloud account private", func(s *mcclient.ClientSession, args *CloudaccountPublicOptions) error {
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type CloudaccountShareModeOptions struct {
+		ID   string `help:"ID or name of cloud account"`
+		MODE string `help:"cloud account share mode" choices:"account_domain|system|provider_domain"`
+	}
+	R(&CloudaccountShareModeOptions{}, "cloud-account-share-mode", "Set share_mode of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountShareModeOptions) error {
+		input := api.CloudaccountShareModeInput{}
+		input.ShareMode = args.MODE
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "share-mode", jsonutils.Marshal(input))
 		if err != nil {
 			return err
 		}
