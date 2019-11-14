@@ -467,7 +467,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	if len(config.InstanceType) > 0 {
 		return self.ChangeConfig2(ctx, config.InstanceType)
 	}
-	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, config.Cpu, config.MemoryMB, nil)
+	return errors.Wrap(errors.ErrClient, "Instance.ChangeConfig.InstanceTypeIsEmpty")
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
@@ -1000,29 +1000,6 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		log.Debugf("ReplaceSystemDisk delete old disk %s: %s", rootDisk.DiskId, err)
 	}
 	return tempInstance.Disks[0], nil
-}
-
-func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	params := &ec2.ModifyInstanceAttributeInput{}
-	params.SetInstanceId(instanceId)
-	instanceTypes, err := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
-	if err != nil {
-		return err
-	}
-
-	for _, instancetype := range instanceTypes {
-		t := &ec2.AttributeValue{Value: &instancetype.InstanceTypeId}
-		params.SetInstanceType(t)
-
-		_, err := self.ec2Client.ModifyInstanceAttribute(params)
-		if err != nil {
-			log.Errorf("Failed for %s: %s", instancetype.InstanceTypeId, err)
-		} else {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
 func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
