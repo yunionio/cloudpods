@@ -670,14 +670,14 @@ func getModelExtraDetails(item IModel, ctx context.Context, extra *jsonutils.JSO
 	err := item.ValidateDeleteCondition(ctx)
 	if err != nil {
 		extra.Add(jsonutils.JSONFalse, "can_delete")
-		extra.Add(jsonutils.NewString(httputils.ErrorMsg(err)), "delete_fail_reason")
+		extra.Add(jsonutils.NewString(err.Error()), "delete_fail_reason")
 	} else {
 		extra.Add(jsonutils.JSONTrue, "can_delete")
 	}
 	err = item.ValidateUpdateCondition(ctx)
 	if err != nil {
 		extra.Add(jsonutils.JSONFalse, "can_update")
-		extra.Add(jsonutils.NewString(httputils.ErrorMsg(err)), "update_fail_reason")
+		extra.Add(jsonutils.NewString(err.Error()), "update_fail_reason")
 	} else {
 		extra.Add(jsonutils.JSONTrue, "can_update")
 	}
