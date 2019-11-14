@@ -173,7 +173,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData)
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return vm, err
 }
 
-func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, cpu, memMB int, instanceType string,
+func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, instanceType string,
 	networkId, ipAddr, desc, passwd string,
 	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string) (string, error) {
 	// 网络配置及安全组绑定
@@ -268,28 +268,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 		}
 	}
 
-	// 匹配实例类型
-	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.ZoneId)
-	if err != nil {
-		return "", err
-	}
-	if len(instanceTypes) == 0 {
-		return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
-	}
-
-	var vmId string
-	for _, instType := range instanceTypes {
-		instanceTypeId := instType.InstanceTypeId
-		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData)
-		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceTypeId, err)
-		} else {
-			return vmId, nil
-		}
-	}
-
-	return "", fmt.Errorf("Failed to create, %s", err.Error())
+	return "", fmt.Errorf("Failed to create, instance type should not be empty")
 }
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
