@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/multicloud/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -46,4 +48,20 @@ func init() {
 		printObject(secgrp)
 		return nil
 	})
+
+	type SecurityGroupCreateOptions struct {
+		VPC  string `help:"vpcId"`
+		NAME string `help:"group name"`
+		DESC string `help:"group desc"`
+		Tag  string `help:"group tag"`
+	}
+	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create  security group", func(cli *aws.SRegion, args *SecurityGroupCreateOptions) error {
+		id, err := cli.CreateSecurityGroup(args.VPC, args.NAME, args.Tag, args.DESC)
+		if err != nil {
+			return err
+		}
+		fmt.Println(id)
+		return nil
+	})
+
 }
