@@ -15,17 +15,20 @@
 package db
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func IsObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
+func IsObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
 	return isObjectRbacAllowed(model, userCred, action, extra...)
 }
 
-func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
+func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
 	manager := model.GetModelManager()
 	objOwnerId := model.GetOwnerId()
 
@@ -65,17 +68,21 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
 
 	if !requireScope.HigherThan(scope) {
-		return true
+		return nil
 	}
-
-	return false
+	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privillege(require:%s,allow:%s)", requireScope, scope))
 }
 
-func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
-	return isObjectRbacAllowed(item.Master(), userCred, action, extra...) || isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
+func isJointObjectRbacAllowed(item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) error {
+	err1 := isObjectRbacAllowed(item.Master(), userCred, action, extra...)
+	err2 := isObjectRbacAllowed(item.Slave(), userCred, action, extra...)
+	if err1 == nil || err2 == nil {
+		return nil
+	}
+	return err1
 }
 
-func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential, objOwnerId mcclient.IIdentityProvider, action string, extra ...string) bool {
+func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential, objOwnerId mcclient.IIdentityProvider, action string, extra ...string) error {
 	var ownerId mcclient.IIdentityProvider
 	if userCred != nil {
 		ownerId = userCred
@@ -113,10 +120,9 @@ func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential
 	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
 
 	if !requireScope.HigherThan(allowScope) {
-		return true
+		return nil
 	}
-
-	return false
+	return httperrors.NewForbiddenError(fmt.Sprintf("not enough privilege(require:%s,allow:%s)", requireScope, allowScope))
 }
 
 type IResource interface {

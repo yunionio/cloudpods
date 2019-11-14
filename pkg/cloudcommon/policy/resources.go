@@ -43,6 +43,7 @@ var (
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
+		"cloudproviders",
 		"recyclebins",
 	}
 	computeUserResources = []string{

@@ -554,8 +554,15 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
+	account := self.GetCloudaccount()
 	if self.DomainId != tenant.DomainId {
-		return nil, httperrors.NewForbiddenError("not allow change project across domain")
+		if !db.IsAdminAllowPerform(userCred, self, "change-project") {
+			return nil, httperrors.NewForbiddenError("not allow to change project across domain")
+		}
+		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN {
+			return nil, httperrors.NewInvalidStatusError("not a public cloud account")
+		}
+		// otherwise, allow change project across domain
 	}
 
 	notes := struct {
@@ -582,7 +589,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 
 	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 
-	if self.GetCloudaccount().EnableAutoSync { // no need to sync rightnow, will do it in auto sync
+	if account.EnableAutoSync { // no need to sync rightnow, will do it in auto sync
 		return nil, nil
 	}
 
@@ -1295,32 +1302,20 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context,
 
 func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		// log.Debugf("SCloudproviderManager.FilterByOwner scope:%s project:%s domain:%s", scope, owner.GetProjectId(), owner.GetProjectDomainId())
 		switch scope {
-		case rbacutils.ScopeProject:
-			if len(owner.GetProjectId()) > 0 {
-				subq := CloudaccountManager.Query("id")
-				subq = CloudaccountManager.FilterByOwner(subq, owner, scope)
-				q = q.Filter(sqlchemy.OR(
-					sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
-					sqlchemy.In(q.Field("cloudaccount_id"), subq.SubQuery()),
-				))
-			}
-		case rbacutils.ScopeDomain:
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
-				subq := CloudaccountManager.Query("id")
-				subq = CloudaccountManager.FilterByOwner(subq, owner, scope)
+				cloudaccounts := CloudaccountManager.Query().SubQuery()
+				q = q.Join(cloudaccounts, sqlchemy.Equals(
+					q.Field("cloudaccount_id"),
+					cloudaccounts.Field("id"),
+				))
 				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-					sqlchemy.In(q.Field("cloudaccount_id"), subq.SubQuery()),
+					sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 				))
 			}
 		}
-		/*if len(owner.GetProjectId()) > 0 {
-		      q = q.Equals("tenant_id", owner.GetProjectId())
-		  } else if len(owner.GetProjectDomainId()) > 0 {
-		      q = q.Equals("domain_id", owner.GetProjectDomainId())
-		  }*/
 	}
 	return q
 }

@@ -104,18 +104,6 @@ var (
 				},
 				{
 					Service:  "compute",
-					Resource: "cloudproviders",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "cloudproviders",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "compute",
 					Resource: "cachedimages",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
@@ -353,6 +341,18 @@ var (
 				{
 					Service:  "log",
 					Resource: "actions",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudproviders",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudproviders",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
