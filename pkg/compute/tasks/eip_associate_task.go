@@ -65,14 +65,28 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
+	self.SetStage("OnAssociateEipComplete", nil)
 	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
 		self.TaskFail(ctx, eip, err.Error(), server)
 		return
 	}
+}
 
+func (self *EipAssociateTask) OnAssociateEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	eip := obj.(*models.SElasticip)
+	instanceId, _ := self.Params.GetString("instance_id")
+	server := models.GuestManager.FetchGuestById(instanceId)
 	server.StartSyncstatus(ctx, self.UserCred, "")
 	logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
 	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_VM_ASSOCIATE, nil, self.UserCred, true)
 
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *EipAssociateTask) OnAssociateEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	eip := obj.(*models.SElasticip)
+	instanceId, _ := self.Params.GetString("instance_id")
+	server := models.GuestManager.FetchGuestById(instanceId)
+	self.TaskFail(ctx, eip, data.String(), server)
+	return
 }
