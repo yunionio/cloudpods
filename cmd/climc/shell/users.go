@@ -149,15 +149,15 @@ func init() {
 	})
 
 	type UserCreateOptions struct {
-		NAME        string `help:"Name of the new user"`
-		Domain      string `help:"Domain"`
-		Desc        string `help:"Description"`
-		Password    string `help:"Password"`
-		Displayname string `help:"Displayname"`
-		Email       string `help:"Email"`
-		Mobile      string `help:"Mobile"`
-		Enabled     bool   `help:"Enabled"`
-		Disabled    bool   `help:"Disabled"`
+		NAME        string  `help:"Name of the new user"`
+		Domain      string  `help:"Domain"`
+		Desc        string  `help:"Description"`
+		Password    *string `help:"Password"`
+		Displayname string  `help:"Displayname"`
+		Email       string  `help:"Email"`
+		Mobile      string  `help:"Mobile"`
+		Enabled     bool    `help:"Enabled"`
+		Disabled    bool    `help:"Disabled"`
 
 		// DefaultProject string `help:"Default project"`
 		SystemAccount bool `help:"is a system account?"`
@@ -174,8 +174,8 @@ func init() {
 			}
 			params.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		if len(args.Password) > 0 {
-			params.Add(jsonutils.NewString(args.Password), "password")
+		if args.Password != nil {
+			params.Add(jsonutils.NewString(*args.Password), "password")
 		}
 		if len(args.Displayname) > 0 {
 			params.Add(jsonutils.NewString(args.Displayname), "displayname")
@@ -222,16 +222,16 @@ func init() {
 	})
 
 	type UserUpdateOptions struct {
-		ID          string `help:"ID or name of the user"`
-		Domain      string `help:"Domain"`
-		Name        string `help:"New name of the user"`
-		Password    string `help:"New password"`
-		Desc        string `help:"Description"`
-		Displayname string `help:"Displayname"`
-		Email       string `help:"Email"`
-		Mobile      string `help:"Mobile"`
-		Enabled     bool   `help:"Enabled"`
-		Disabled    bool   `help:"Disabled"`
+		ID          string  `help:"ID or name of the user"`
+		Domain      string  `help:"Domain"`
+		Name        string  `help:"New name of the user"`
+		Password    *string `help:"New password"`
+		Desc        string  `help:"Description"`
+		Displayname string  `help:"Displayname"`
+		Email       string  `help:"Email"`
+		Mobile      string  `help:"Mobile"`
+		Enabled     bool    `help:"Enabled"`
+		Disabled    bool    `help:"Disabled"`
 
 		SystemAccount    bool `help:"Turn on is_system_account"`
 		NotSystemAccount bool `help:"Turn off is_system_account"`
@@ -262,8 +262,8 @@ func init() {
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
-		if len(args.Password) > 0 {
-			params.Add(jsonutils.NewString(args.Password), "password")
+		if args.Password != nil {
+			params.Add(jsonutils.NewString(*args.Password), "password")
 		}
 		if len(args.Displayname) > 0 {
 			params.Add(jsonutils.NewString(args.Displayname), "displayname")
