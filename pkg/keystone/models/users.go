@@ -376,10 +376,11 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 }
 
 func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	passwd, _ := data.GetString("password")
-	if len(passwd) > 0 {
-		if o.Options.PasswordMinimalLength > 0 && len(passwd) < o.Options.PasswordMinimalLength {
-			return nil, errors.Error("too simple password")
+	if data.Contains("password") {
+		passwd, _ := data.GetString("password")
+		err := validatePasswordComplexity(passwd)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
 	}
 	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
@@ -405,8 +406,8 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	}
-	passwd, _ := data.GetString("password")
-	if len(passwd) > 0 {
+	if data.Contains("password") {
+		passwd, _ := data.GetString("password")
 		usrExt, err := UserManager.FetchUserExtended(user.Id, "", "", "")
 		if err != nil {
 			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
