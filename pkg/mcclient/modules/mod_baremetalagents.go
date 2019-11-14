@@ -24,7 +24,8 @@ func init() {
 	Baremetalagents = NewComputeManager(
 		"baremetalagent",
 		"baremetalagents",
-		[]string{"ID", "Name", "Access_ip", "Manager_URI", "Status", "agent_type", "version"},
+		[]string{"ID", "Name", "Access_ip", "Manager_URI", "Status", "agent_type", "version",
+			"zone", "zone_id"},
 		[]string{},
 	)
 	registerCompute(&Baremetalagents)

@@ -188,16 +188,25 @@ func (self *SBaremetalagent) GetZone() *SZone {
 	return nil
 }
 
+func (self *SBaremetalagent) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	zone := self.GetZone()
+	if zone != nil {
+		extra.Set("zone", jsonutils.NewString(zone.GetName()))
+	}
+	return extra
+}
+
+func (self *SBaremetalagent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(ctx, extra)
+}
+
 func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	zone := self.GetZone()
-	if zone != nil {
-		extra.Set("zone", jsonutils.NewString(zone.GetName()))
-	}
-	return extra, nil
+	return self.getMoreDetails(ctx, extra), nil
 }
 
 func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {
