@@ -112,7 +112,9 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 	if !guest.IsSystem {
 		self.notifyServerCreated(ctx, guest)
 	}
-	guest.GetDriver().OnGuestCreateTaskComplete(ctx, guest, self)
+
+	self.SetStage("OnDeployEipComplete", nil)
+	self.StartEipSubTask(ctx, guest)
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
@@ -132,6 +134,20 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	self.SetStageFailed(ctx, data.String())
 }
 
+func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	guest.GetDriver().OnGuestCreateTaskComplete(ctx, guest, self)
+}
+
+func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, "deploy_failed")
+	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
+}
+
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.TaskComplete(ctx, guest)
@@ -146,7 +162,7 @@ func (self *GuestCreateTask) TaskComplete(ctx context.Context, guest *models.SGu
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, "", self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ALLOCATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
-	self.StartEipSubTask(ctx, guest)
+
 }
 
 func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.SGuest) {
@@ -170,4 +186,6 @@ func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.
 		}
 		return
 	}
+
+	self.OnDeployEipComplete(ctx, guest, nil)
 }
