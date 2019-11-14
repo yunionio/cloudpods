@@ -176,13 +176,8 @@ func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
 			newCtx.ResponseError(httperrors.NewMissingParameterError("password"))
 			return
 		}
-		ipAddr, err := newCtx.Data().GetString("ip_addr")
-		if err != nil {
-			newCtx.ResponseError(httperrors.NewMissingParameterError("ip_addr"))
-			return
-		}
 
-		ctx, cancel := context.WithTimeout(ctx, time.Second*175)
+		ctx, cancel := context.WithTimeout(ctx, time.Second*298)
 		defer cancel()
 
 		data := &baremetal.BmRegisterInput{
@@ -196,7 +191,6 @@ func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
 			RemoteIp:  remoteIp,
 			Username:  username,
 			Password:  password,
-			IpAddr:    ipAddr,
 		}
 
 		h(newCtx, data)

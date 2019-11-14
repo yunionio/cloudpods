@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appsrv"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
@@ -265,10 +264,8 @@ type BmRegisterInput struct {
 	IpAddr   string
 }
 
-func (i *BmRegisterInput) responseOk() {
-	obj := jsonutils.NewDict()
-	obj.Add(jsonutils.NewString("ok"), "result")
-	appsrv.SendJSON(i.W, obj)
+func (i *BmRegisterInput) responseSucc(bmId string) {
+	fmt.Fprintf(i.W, bmId)
 	close(i.C)
 }
 
@@ -295,6 +292,25 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		input.responseErr(httperrors.NewBadRequestError("Verify network failed: %s", err))
 		return
 	}
+
+	sshCli, err := m.checkSshInfo(input)
+	if input.isTimeout() {
+		return
+	} else if err != nil {
+		input.responseErr(httperrors.NewBadRequestError("SSH verify failed: %s", err))
+		return
+	}
+
+	input.IpAddr, err = m.fetchIpmiIp(sshCli)
+
+	if input.isTimeout() {
+		return
+	} else if err != nil {
+		input.responseErr(httperrors.NewBadRequestError("Fetch ipmi address failed: %s", err))
+		return
+	}
+	log.Infof("Find ipmi address %s", input.IpAddr)
+
 	ipmiWire, err := m.checkNetworkFromIp(input.IpAddr)
 	if input.isTimeout() {
 		return
@@ -311,14 +327,6 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		return
 	}
 
-	sshCli, err := m.checkSshInfo(input)
-	if input.isTimeout() {
-		return
-	} else if err != nil {
-		input.responseErr(httperrors.NewBadRequestError("SSH verify failed: %s", err))
-		return
-	}
-
 	err = m.verifyMacAddr(sshCli)
 	if input.isTimeout() {
 		return
@@ -332,7 +340,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		input.Username, input.Password, input.IpAddr,
 		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
 	)
-	err = registerTask.CreateBaremetal()
+	bmId, err := registerTask.CreateBaremetal()
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -340,8 +348,22 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		return
 	}
 
-	input.responseOk()
+	input.responseSucc(bmId)
 	registerTask.DoPrepare(ctx, sshCli)
+}
+
+func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
+	res, err := sshCli.RawRun(`/usr/bin/ipmitool lan print | grep "IP Address  "`)
+	if err != nil {
+		return "", err
+	}
+	if len(res) == 1 {
+		segs := strings.Fields(res[0])
+		if len(segs) == 4 {
+			return strings.TrimSpace(segs[3]), nil
+		}
+	}
+	return "", fmt.Errorf("Failed to find ipmi ip address")
 }
 
 func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
