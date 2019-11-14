@@ -67,6 +67,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	if err := driver.RequestAssociateEip(ctx, self.UserCred, server, eip, self); err != nil {
 		self.TaskFail(ctx, eip, err.Error(), server)
+		return
 	}
 
 	server.StartSyncstatus(ctx, self.UserCred, "")
