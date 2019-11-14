@@ -258,7 +258,7 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateAllDisks(ctx context.Contex
 	if storageCache == nil {
 		return fmt.Errorf("no valid storage cache")
 	}
-	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
+	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, "qcow2", false, task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) NeedRequestGuestHotAddIso(ctx context.Context, guest *models.SGuest) bool {
@@ -399,6 +399,15 @@ func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred
 	zone := host.GetZone()
 	data.Add(jsonutils.NewString(zone.Name), "zone")
 	return data, nil
+}
+
+func (self *SBaremetalGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestRebuildRootTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
