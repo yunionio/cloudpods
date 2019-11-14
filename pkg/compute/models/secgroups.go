@@ -71,11 +71,12 @@ type SSecurityGroup struct {
 }
 
 func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	equalSecgroup, _ := query.GetString("equals")
-	if len(equalSecgroup) > 0 {
-		_secgroup, err := manager.FetchByIdOrName(userCred, equalSecgroup)
+	input := api.SSecgroupListFilterInput{}
+	query.Unmarshal(&input)
+	if len(input.Equals) > 0 {
+		_secgroup, err := manager.FetchByIdOrName(userCred, input.Equals)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("Failed fetching secgroup %s", equalSecgroup)
+			return nil, httperrors.NewInputParameterError("Failed fetching secgroup %s", input.Equals)
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
 		sq := manager.Query().NotEquals("id", secgroup.Id)
@@ -92,6 +93,22 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 			}
 		}
 		q = q.In("id", secgroupIds)
+	}
+	if len(input.Server) > 0 {
+		guest, err := GuestManager.FetchByIdOrName(userCred, input.Server)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("failed to found server %s", input.Server)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		serverId := guest.GetId()
+		sq1 := GuestManager.Query("secgrp_id").Equals("id", serverId).SubQuery()
+		sq2 := GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), sq1),
+			sqlchemy.In(q.Field("id"), sq2),
+		))
 	}
 
 	return q, nil

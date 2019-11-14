@@ -1,0 +1,30 @@
+secgroupId:
+  name: secgroupId
+  required: true
+  in: path
+  type: string
+  description: 安全组名称或者ID
+
+scope:
+  name: scope
+  in: body
+  type: string
+  enum: [project, domain, system]
+  default: system
+  description: specify scope, either project, domain or system
+
+shared_projects:
+  name: shared_projects
+  in: body
+  type: array
+  items: 
+    type: string
+    example: test-project
+    description: 项目名称或ID
+  description: 共享到的项目列表, 仅scope=project有效
+
+server:
+  name: server
+  in: query
+  type: string
+  description: Filter secgroups bound to specified server
