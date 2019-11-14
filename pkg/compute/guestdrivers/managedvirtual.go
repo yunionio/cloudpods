@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	errors2 "yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -353,6 +354,20 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	switch action {
 	case "create":
+		region := host.GetRegion()
+		if len(desc.InstanceType) == 0 && region != nil {
+			sku, err := models.ServerSkuManager.GetMatchedSku(region.GetId(), int64(desc.Cpu), int64(desc.MemoryMB))
+			if err != nil {
+				return errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestDeployGuestOnHost.GetMatchedSku")
+			}
+
+			if sku == nil {
+				return errors.Wrap(errors2.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestDeployGuestOnHost.GetMatchedSku")
+			}
+
+			desc.InstanceType = sku.Name
+		}
+
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			return guest.GetDriver().RemoteDeployGuestForCreate(ctx, task.GetUserCred(), guest, host, desc)
 		})
@@ -708,7 +723,8 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
-	ihost, err := guest.GetHost().GetIHost()
+	host := guest.GetHost()
+	ihost, err := host.GetIHost()
 	if err != nil {
 		return err
 	}
@@ -716,6 +732,19 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	iVM, err := ihost.GetIVMById(guest.GetExternalId())
 	if err != nil {
 		return err
+	}
+
+	if len(instanceType) == 0 {
+		sku, err := models.ServerSkuManager.GetMatchedSku(host.GetRegion().GetId(), vcpuCount, vmemSize)
+		if err != nil {
+			return errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
+		}
+
+		if sku == nil {
+			return errors.Wrap(errors2.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
+		}
+
+		instanceType = sku.Name
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
