@@ -89,8 +89,7 @@ type SRegion struct {
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
 
-	storageCache  *SStoragecache
-	instanceTypes []SInstanceType
+	storageCache *SStoragecache
 
 	RegionEndpoint string
 	RegionId       string // 这里为保持一致沿用阿里云RegionId的叫法, 与AWS RegionName字段对应
