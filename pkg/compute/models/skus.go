@@ -806,6 +806,19 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, err
 }
 
+func (manager *SServerSkuManager) GetMatchedSku(regionId string, cpu int64, memMB int64) (*SServerSku, error) {
+	ret := &SServerSku{}
+
+	q := manager.Query()
+	q = q.Equals("cpu_core_count", cpu).Equals("memory_size_mb", memMB).Equals("cloudregion_id", regionId).Equals("postpaid_status", api.SkuStatusAvailable)
+	err := q.First(ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "ServerSkuManager.GetMatchedSku")
+	}
+
+	return ret, nil
+}
+
 func (manager *SServerSkuManager) FetchSkuByNameAndProvider(name string, provider string, checkConsistency bool) (*SServerSku, error) {
 	q := manager.Query()
 	q = q.Equals("name", name)
