@@ -236,14 +236,8 @@ type ManagedGuestRebuildRootTask struct {
 func (self *ManagedGuestRebuildRootTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
-	diskCat := guest.CategorizeDisks()
-	imageId := diskCat.Root.GetTemplateId()
-	format := diskCat.Root.DiskFormat
-	storage := diskCat.Root.GetStorage()
-	cache := storage.GetStoragecache()
-
 	self.SetStage("OnHostCacheImageComplete", nil)
-	cache.StartImageCacheTask(ctx, self.UserCred, imageId, format, false, self.GetTaskId())
+	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
 }
 
 func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
