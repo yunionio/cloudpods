@@ -394,3 +394,7 @@ func (self *SElasticcacheAccount) StartResetPasswordTask(ctx context.Context, us
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SElasticcacheAccount) ValidatePurgeCondition(ctx context.Context) error {
+	return nil
+}
