@@ -323,5 +323,9 @@ func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context) er
 		return httperrors.NewUnsupportOperationError("unsupport delete %s backups", api.CLOUD_PROVIDER_ALIYUN)
 	}
 
+	return self.ValidatePurgeCondition(ctx)
+}
+
+func (self *SElasticcacheBackup) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
