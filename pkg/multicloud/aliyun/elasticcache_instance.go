@@ -439,10 +439,6 @@ func (self *SElasticcache) GetAttribute() (*SElasticcacheAttribute, error) {
 }
 
 func (self *SElasticcache) GetNetInfo() ([]SNetInfo, error) {
-	if self.netinfo != nil && len(self.netinfo) > 0 {
-		return self.netinfo, nil
-	}
-
 	params := make(map[string]string)
 	params["RegionId"] = self.region.RegionId
 	params["InstanceId"] = self.GetId()
@@ -457,6 +453,7 @@ func (self *SElasticcache) GetNetInfo() ([]SNetInfo, error) {
 	return self.netinfo, nil
 }
 
+// https://help.aliyun.com/document_detail/66742.html?spm=a2c4g.11186623.6.731.54c123d2P02qhk
 func (self *SElasticcache) GetPublicNetInfo() (*SNetInfo, error) {
 	nets, err := self.GetNetInfo()
 	if err != nil {
@@ -464,7 +461,7 @@ func (self *SElasticcache) GetPublicNetInfo() (*SNetInfo, error) {
 	}
 
 	for i := range nets {
-		if nets[i].DBInstanceNetType == "2" && nets[i].IPType == "Public" {
+		if nets[i].IPType == "Public" {
 			return &nets[i], nil
 		}
 	}

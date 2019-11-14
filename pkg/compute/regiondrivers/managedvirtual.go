@@ -1964,8 +1964,17 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheReleasePublic
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.AllocatePublicConnection")
 	}
 
-	// todo: sync instance spec
-	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(errors.ErrTimeout, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.WaitStatusWithDelay")
+	}
+
+	err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), nil, iec)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.SyncWithCloudElasticcache")
+	}
+
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
