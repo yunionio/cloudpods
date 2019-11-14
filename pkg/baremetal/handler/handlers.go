@@ -54,7 +54,7 @@ func AddHandler2(app *appsrv.Application, method string, prefix string,
 
 func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	if info.GetName(nil) == "baremetal-register" {
-		info.SetProcessTimeout(time.Second * 180).SetWorkerManager(registerWorkMan)
+		info.SetProcessTimeout(time.Second * 300).SetWorkerManager(registerWorkMan)
 	}
 }
 
