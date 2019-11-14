@@ -77,8 +77,6 @@ type IGuestDriver interface {
 
 	RequestGuestCreateAllDisks(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
-	OnGuestCreateTaskComplete(ctx context.Context, guest *SGuest, task taskman.ITask) error
-
 	RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *SGuest, task taskman.ITask) error
 
 	StartGuestStopTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error
