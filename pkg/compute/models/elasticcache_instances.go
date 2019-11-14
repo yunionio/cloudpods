@@ -684,6 +684,10 @@ func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInvalidStatusError("Elastic cache is locked, cannot delete")
 	}
 
+	return self.ValidatePurgeCondition(ctx)
+}
+
+func (self *SElasticcache) ValidatePurgeCondition(ctx context.Context) error {
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 

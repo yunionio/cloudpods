@@ -1463,7 +1463,7 @@ func (instance *SElasticcacheAccount) purge(ctx context.Context, userCred mcclie
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
-	err := instance.ValidateDeleteCondition(ctx)
+	err := instance.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
@@ -1489,7 +1489,7 @@ func (instance *SElasticcacheAcl) purge(ctx context.Context, userCred mcclient.T
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
-	err := instance.ValidateDeleteCondition(ctx)
+	err := instance.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
@@ -1515,7 +1515,7 @@ func (instance *SElasticcacheBackup) purge(ctx context.Context, userCred mcclien
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
-	err := instance.ValidateDeleteCondition(ctx)
+	err := instance.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
@@ -1541,7 +1541,7 @@ func (instance *SElasticcacheParameter) purge(ctx context.Context, userCred mccl
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
-	err := instance.ValidateDeleteCondition(ctx)
+	err := instance.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
@@ -1572,7 +1572,7 @@ func (instance *SElasticcache) purge(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
-	err = instance.ValidateDeleteCondition(ctx)
+	err = instance.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
