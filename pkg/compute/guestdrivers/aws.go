@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -171,45 +170,41 @@ func (self *SAwsGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) b
 }
 
 func (self *SAwsGuestDriver) RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, server *models.SGuest, eip *models.SElasticip, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if server.Status != api.VM_ASSOCIATE_EIP {
-			server.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "associate eip")
-		}
+	if server.Status != api.VM_ASSOCIATE_EIP {
+		server.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "associate eip")
+	}
 
-		extEip, err := eip.GetIEip()
+	extEip, err := eip.GetIEip()
+	if err != nil {
+		return fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
+	}
+
+	err = extEip.Associate(server.ExternalId)
+	if err != nil {
+		return fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
+	}
+
+	err = eip.AssociateVM(ctx, userCred, server)
+	if err != nil {
+		return fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
+	}
+
+	eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
+
+	// 如果aws已经绑定了EIP，则要把多余的公有IP删除
+	if extEip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
+		publicIP, err := server.GetPublicIp()
 		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
+			return errors.Wrap(err, "AwsGuestDriver.GetPublicIp")
 		}
 
-		err = extEip.Associate(server.ExternalId)
-		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
-		}
-
-		err = eip.AssociateVM(ctx, userCred, server)
-		if err != nil {
-			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
-		}
-
-		eip.SetStatus(userCred, api.EIP_STATUS_READY, "associate")
-
-		// 如果aws已经绑定了EIP，则要把多余的公有IP删除
-		if extEip.GetMode() == api.EIP_MODE_STANDALONE_EIP {
-			publicIP, err := server.GetPublicIp()
+		if publicIP != nil {
+			err = db.DeleteModel(ctx, userCred, publicIP)
 			if err != nil {
-				return nil, errors.Wrap(err, "AwsGuestDriver.GetPublicIp")
-			}
-
-			if publicIP != nil {
-				err = db.DeleteModel(ctx, userCred, publicIP)
-				if err != nil {
-					return nil, errors.Wrap(err, "AwsGuestDriver.DeletePublicIp")
-				}
+				return errors.Wrap(err, "AwsGuestDriver.DeletePublicIp")
 			}
 		}
-
-		return nil, nil
-	})
+	}
 
 	return nil
 }

@@ -108,11 +108,6 @@ func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models
 
 func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, nil, self.UserCred)
-	if !guest.IsSystem {
-		self.notifyServerCreated(ctx, guest)
-	}
-
 	self.SetStage("OnDeployEipComplete", nil)
 	self.StartEipSubTask(ctx, guest)
 }
@@ -136,6 +131,11 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 
 func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, nil, self.UserCred)
+	if !guest.IsSystem {
+		self.notifyServerCreated(ctx, guest)
+	}
+
 	guest.GetDriver().OnGuestCreateTaskComplete(ctx, guest, self)
 }
 
