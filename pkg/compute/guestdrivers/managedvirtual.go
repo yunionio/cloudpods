@@ -20,11 +20,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	errors2 "yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -362,7 +360,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 			}
 
 			if sku == nil {
-				return errors.Wrap(errors2.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestDeployGuestOnHost.GetMatchedSku")
+				return errors.Wrap(errors.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestDeployGuestOnHost.GetMatchedSku")
 			}
 
 			desc.InstanceType = sku.Name
@@ -741,7 +739,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 		}
 
 		if sku == nil {
-			return errors.Wrap(errors2.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
+			return errors.Wrap(errors.ErrNotFound, "ManagedVirtualizedGuestDriver.RequestChangeVmConfig.GetMatchedSku")
 		}
 
 		instanceType = sku.Name
@@ -755,7 +753,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 		}
 		err := iVM.ChangeConfig(ctx, config)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.ChangeConfig")
 		}
 
 		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
@@ -778,7 +776,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			return false
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.WaitCreated")
 		}
 
 		instanceType = iVM.GetInstanceType()
@@ -788,7 +786,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 				return nil
 			})
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "GuestDriver.RequestChangeVmConfig.Update")
 			}
 		}
 
