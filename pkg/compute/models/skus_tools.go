@@ -219,17 +219,17 @@ func (self *SSkuResourcesMeta) getSkusByRegion(url string, region string) ([]jso
 		self.regionalSkuCaches[url] = map[string][]jsonutils.JSONObject{}
 		for i := range items {
 			cloudregion, _ := items[i].GetString("cloudregion_id")
-			if _, ok := self.regionalSkuCaches[url][cloudregion]; !ok && len(cloudregion) > 0 {
-				self.regionalSkuCaches[url][cloudregion] = []jsonutils.JSONObject{}
+			if len(cloudregion) > 0 {
+				if _, ok := self.regionalSkuCaches[url][cloudregion]; !ok {
+					self.regionalSkuCaches[url][cloudregion] = []jsonutils.JSONObject{}
+				}
+				self.regionalSkuCaches[url][cloudregion] = append(self.regionalSkuCaches[url][cloudregion], items[i])
 			}
-			self.regionalSkuCaches[url][cloudregion] = append(self.regionalSkuCaches[url][cloudregion], items[i])
 		}
 	}
 
-	for regionId, skus := range self.regionalSkuCaches[url] {
-		if strings.HasSuffix(region, regionId) {
-			return skus, nil
-		}
+	if skus, ok := self.regionalSkuCaches[url][region]; ok {
+		return skus, nil
 	}
 	return []jsonutils.JSONObject{}, nil
 }
