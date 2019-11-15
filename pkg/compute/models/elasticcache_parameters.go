@@ -213,3 +213,7 @@ func (self *SElasticcacheParameter) StartUpdateElasticcacheParameterTask(ctx con
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SElasticcacheParameter) ValidatePurgeCondition(ctx context.Context) error {
+	return nil
+}
