@@ -36,6 +36,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -1279,12 +1280,25 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 }
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	imageId, _ := data.GetString("image_id")
+	input := api.ServerRebuildRootInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid input: %s", err)
+	}
+
+	imageId := input.GetImageName()
 
 	if len(imageId) > 0 {
 		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
+		}
+		diskCat := self.CategorizeDisks()
+		if img.MinDiskMB == 0 || img.Status != imageapi.IMAGE_STATUS_ACTIVE {
+			return nil, httperrors.NewInputParameterError("invlid image")
+		}
+		if img.MinDiskMB > diskCat.Root.DiskSize {
+			return nil, httperrors.NewInputParameterError("image size exceeds root disk size")
 		}
 		osType, _ := img.Properties["os_type"]
 		osName := self.GetMetadata("os_name", userCred)
@@ -1313,20 +1327,26 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
 
-	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	autoStart := false
+	if input.AutoStart != nil {
+		autoStart = *input.AutoStart
+	}
 	var needStop = false
 	if self.Status == api.VM_RUNNING {
 		needStop = true
 	}
-	resetPasswd := jsonutils.QueryBoolean(data, "reset_password", true)
-	passwd, _ := data.GetString("password")
+	resetPasswd := true
+	if input.ResetPassword != nil {
+		resetPasswd = *input.ResetPassword
+	}
+	passwd := input.Password
 	if len(passwd) > 0 {
 		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
 	}
 
-	keypairStr := jsonutils.GetAnyString(data, []string{"keypair", "keypair_id"})
+	keypairStr := input.GetKeypairName()
 	if len(keypairStr) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairStr)
 		if err != nil {
@@ -1350,7 +1370,10 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	allDisks := jsonutils.QueryBoolean(data, "all_disks", false)
+	allDisks := false
+	if input.AllDisks != nil {
+		allDisks = *input.AllDisks
+	}
 
 	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
@@ -1393,19 +1416,11 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 		data.Set("all_disks", jsonutils.JSONFalse)
 	}
 	self.SetStatus(userCred, api.VM_REBUILD_ROOT, "request start rebuild root")
-	if self.GetHypervisor() == api.HYPERVISOR_BAREMETAL {
-		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
-		if err != nil {
-			return err
-		}
-		task.ScheduleRun(nil)
-	} else {
-		task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)
-		if err != nil {
-			return err
-		}
-		task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)
+	if err != nil {
+		return err
 	}
+	task.ScheduleRun(nil)
 	return nil
 }
 
