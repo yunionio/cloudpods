@@ -186,7 +186,20 @@ func (self *SVSwitch) Delete() error {
 		log.Errorf("fail to dissociateWithSNAT")
 		return err
 	}
-	return self.wire.zone.region.DeleteVSwitch(self.VSwitchId)
+	err = cloudprovider.Wait(10*time.Second, 60*time.Second, func() (bool, error) {
+		err := self.wire.zone.region.DeleteVSwitch(self.VSwitchId)
+		if err != nil {
+			// delete network immediately after deleting vm on it
+			// \"Code\":\"DependencyViolation\",\"Message\":\"Specified object has dependent resources.\"}
+			if isError(err, "DependencyViolation") {
+				return false, nil
+			}
+			return false, err
+		} else {
+			return true, nil
+		}
+	})
+	return err
 }
 
 func (self *SVSwitch) GetAllocTimeoutSeconds() int {
