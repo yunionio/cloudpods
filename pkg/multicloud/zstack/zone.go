@@ -15,7 +15,11 @@
 package zstack
 
 import (
+	"strconv"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/fileutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -25,8 +29,11 @@ type SZone struct {
 	region *SRegion
 
 	ZStackBasic
-	Type  string
-	State string
+	Type              string
+	State             string
+	cpuCmtbound       float32
+	memCmtbound       float32
+	reservedMemeoryMb int
 
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
@@ -68,6 +75,32 @@ func (zone *SZone) Refresh() error {
 
 func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return zone.region
+}
+
+func (zone *SZone) fetchHostCmtbound() {
+	if zone.cpuCmtbound > 0 || zone.memCmtbound > 0 || zone.reservedMemeoryMb > 0 {
+		return
+	}
+	configurations, err := zone.region.GetConfigrations()
+	if err != nil {
+		log.Errorf("failed to get global configurations error: %v", err)
+		return
+	}
+	for _, config := range configurations {
+		if config.Name == "cpu.overProvisioning.ratio" && config.Category == "host" {
+			if cpuCmtbound, err := strconv.ParseFloat(config.Value, 32); err == nil {
+				zone.cpuCmtbound = float32(cpuCmtbound)
+			}
+		}
+		if config.Name == "reservedMemory" && config.Category == "kvm" {
+			zone.reservedMemeoryMb, _ = fileutils.GetSizeMb(config.Value, 'M', 1024)
+		}
+		if config.Name == "overProvisioning.memory" && config.Category == "mevoco" {
+			if memCmtbound, err := strconv.ParseFloat(config.Value, 32); err == nil {
+				zone.memCmtbound = float32(memCmtbound)
+			}
+		}
+	}
 }
 
 func (zone *SZone) fetchStorages(clusterId string) error {
