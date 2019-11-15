@@ -3957,6 +3957,7 @@ func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenC
 		info["os_language"] = lang
 	}
 	self.SetAllMetadata(ctx, info, userCred)
+	self.saveOldPassword(ctx, userCred)
 }
 
 func (self *SGuest) isAllDisksReady() bool {
