@@ -763,3 +763,27 @@ func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCr
 	}
 	return nil
 }
+
+func (vpc *SVpc) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, vpc, "sync")
+}
+
+func (vpc *SVpc) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if vpc.IsManaged() {
+		err := vpc.StartVpcSyncstatusTask(ctx, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewUnsupportOperationError("on-premise vpc cannot sync status")
+	}
+}
+
+func (vpc *SVpc) StartVpcSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "VpcSyncstatusTask", vpc, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("create NetworkSyncstatusTask fail %s", err)
+		return err
+	}
+	vpc.SetStatus(userCred, api.VPC_STATUS_START_SYNC, "synchronize")
+	task.ScheduleRun(nil)
+	return nil
+}
