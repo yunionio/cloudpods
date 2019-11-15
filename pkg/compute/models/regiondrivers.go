@@ -157,7 +157,6 @@ type IElasticcacheDriver interface {
 	RequestDeleteElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *SElasticcacheAccount, task taskman.ITask) error
 	RequestDeleteElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, ea *SElasticcacheAcl, task taskman.ITask) error
 	RequestDeleteElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *SElasticcacheBackup, task taskman.ITask) error
-	RequestChangeElasticcacheSpec(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error // 变更实例规格
 	RequestSetElasticcacheMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 	RequestElasticcacheChangeSpec(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 	RequestUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
