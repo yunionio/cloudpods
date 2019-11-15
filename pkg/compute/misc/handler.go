@@ -50,12 +50,7 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(
-		ipAddr, compute.NETWORK_TYPE_BAREMETAL, tristate.None)
-	if n == nil {
-		n, _ = models.NetworkManager.GetOnPremiseNetworkOfIP(
-			ipAddr, compute.NETWORK_TYPE_IPMI, tristate.None)
-	}
+	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "", tristate.None)
 	if n == nil {
 		httperrors.NotFoundError(w, "Network not found")
 		return
