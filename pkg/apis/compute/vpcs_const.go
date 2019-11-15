@@ -24,6 +24,8 @@ const (
 	VPC_STATUS_DELETE_FAILED = "delete_failed"
 	VPC_STATUS_DELETED       = "deleted"
 	VPC_STATUS_UNKNOWN       = "unknown"
+	VPC_STATUS_START_SYNC    = "start_sync"
+	VPC_STATUS_SYNCING       = "sync"
 
 	MAX_VPC_PER_REGION = 3
 

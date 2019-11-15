@@ -418,7 +418,7 @@ func init() {
 	})
 
 	type NetworkAddressOptions struct {
-		NETWORK string `help:"if of network to query"`
+		NETWORK string `help:"id or name of network to query"`
 	}
 	R(&NetworkAddressOptions{}, "network-addresses", "Query used addresses of network", func(s *mcclient.ClientSession, args *NetworkAddressOptions) error {
 		result, err := modules.Networks.GetSpecific(s, args.NETWORK, "addresses", nil)
@@ -431,6 +431,18 @@ func init() {
 		}
 		listResult := modulebase.ListResult{Data: addrList}
 		printList(&listResult, nil)
+		return nil
+	})
+
+	type NetworkSyncOptions struct {
+		NETWORK string `help:"id or name of network to sync"`
+	}
+	R(&NetworkSyncOptions{}, "network-sync", "Sync network status", func(s *mcclient.ClientSession, args *NetworkSyncOptions) error {
+		result, err := modules.Networks.PerformAction(s, args.NETWORK, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }
