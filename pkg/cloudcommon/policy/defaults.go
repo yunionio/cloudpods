@@ -152,6 +152,18 @@ var (
 				},
 				{
 					Service:  "compute",
+					Resource: "elasticcacheskus",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "elasticcacheskus",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
 					Resource: "secgrouprules",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
