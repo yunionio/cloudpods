@@ -277,6 +277,10 @@ func (self *SElasticcacheAcl) ValidateDeleteCondition(ctx context.Context) error
 	return nil
 }
 
+func (self *SElasticcacheAcl) ValidatePurgeCondition(ctx context.Context) error {
+	return nil
+}
+
 func (self *SElasticcacheAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_DELETING, "")
 	return self.StartDeleteElasticcacheAclTask(ctx, userCred, jsonutils.NewDict(), "")
