@@ -235,6 +235,9 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, secgroupIdTa
 		desc = "vpc default group"
 	}
 	params.SetDescription(desc)
+	if strings.ToLower(name) == "default" {
+		name = randomString(fmt.Sprintf("%s-", vpcId), 9)
+	}
 	params.SetGroupName(name)
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
