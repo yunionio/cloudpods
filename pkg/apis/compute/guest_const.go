@@ -218,6 +218,7 @@ const (
 	VM_METADATA_CREATE_PARAMS       = "create_params"
 	VM_METADATA_LOGIN_ACCOUNT       = "login_account"
 	VM_METADATA_LOGIN_KEY           = "login_key"
+	VM_METADATA_LAST_LOGIN_KEY      = "last_login_key"
 	VM_METADATA_LOGIN_KEY_TIMESTAMP = "login_key_timestamp"
 	VM_METADATA_OS_ARCH             = "os_arch"
 	VM_METADATA_OS_DISTRO           = "os_distribution"
