@@ -24,3 +24,7 @@ func (self *SHostBase) GetCpuCmtbound() float32 {
 func (self *SHostBase) GetMemCmtbound() float32 {
 	return 0.0
 }
+
+func (self *SHostBase) GetReservedMemoryMb() int {
+	return 0
+}

@@ -200,7 +200,26 @@ func (host *SHost) GetSN() string {
 	return ""
 }
 
+func (host *SHost) GetReservedMemoryMb() int {
+	host.zone.fetchHostCmtbound()
+	return host.zone.reservedMemeoryMb
+}
+
+func (host *SHost) GetCpuCmtbound() float32 {
+	host.zone.fetchHostCmtbound()
+	return host.zone.cpuCmtbound
+}
+
+func (host *SHost) GetMemCmtbound() float32 {
+	host.zone.fetchHostCmtbound()
+	return host.zone.memCmtbound
+}
+
 func (host *SHost) GetCpuCount() int {
+	cpuCmtBound := host.GetCpuCmtbound()
+	if cpuCmtBound > 0 {
+		return int(float32(host.TotalCPUCapacity) / cpuCmtBound)
+	}
 	return host.TotalCPUCapacity
 }
 
