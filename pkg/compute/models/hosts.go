@@ -1409,6 +1409,10 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 			self.MemCmtbound = memCmt
 		}
 
+		if reservedMem := extHost.GetReservedMemoryMb(); reservedMem > 0 {
+			self.MemReserved = reservedMem
+		}
+
 		self.IsEmulated = extHost.IsEmulated()
 		self.Enabled = extHost.GetEnabled()
 
@@ -1508,6 +1512,10 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.MemCmtbound = 1.0
 	if memCmt := extHost.GetMemCmtbound(); memCmt > 0 {
 		host.MemCmtbound = memCmt
+	}
+
+	if reservedMem := extHost.GetReservedMemoryMb(); reservedMem > 0 {
+		host.MemReserved = reservedMem
 	}
 
 	host.ManagerId = provider.Id
