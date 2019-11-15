@@ -40,6 +40,8 @@ const (
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
 	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
+	NETWORK_STATUS_START_SYNC    = "start_sync"
+	NETWORK_STATUS_SYNCING       = "sync"
 )
 
 var (

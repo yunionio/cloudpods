@@ -2418,3 +2418,28 @@ func (network *SNetwork) GetDetailsAddresses(ctx context.Context, userCred mccli
 	result.Add(jsonutils.Marshal(netAddrs), "addresses")
 	return result, nil
 }
+
+func (net *SNetwork) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "sync")
+}
+
+func (net *SNetwork) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	vpc := net.GetVpc()
+	if vpc != nil && vpc.IsManaged() {
+		err := net.StartNetworkSyncstatusTask(ctx, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewUnsupportOperationError("on-premise network cannot sync status")
+	}
+}
+
+func (net *SNetwork) StartNetworkSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NetworkSyncstatusTask", net, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("create NetworkSyncstatusTask fail %s", err)
+		return err
+	}
+	net.SetStatus(userCred, api.NETWORK_STATUS_START_SYNC, "synchronize")
+	task.ScheduleRun(nil)
+	return nil
+}
