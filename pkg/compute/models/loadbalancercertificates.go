@@ -104,6 +104,10 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 		updateData.Set("name", jsonutils.NewString(name))
 	}
 
+	if desc, err := data.GetString("description"); err == nil {
+		updateData.Set("description", jsonutils.NewString(desc))
+	}
+
 	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, updateData); err != nil {
 		return nil, err
 	}
