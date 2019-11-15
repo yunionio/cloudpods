@@ -170,7 +170,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
-			} else if (err.Code == 404 || strings.Index(err.Details, "could not be found") > 0) && request.GetMethod() != "POST" {
+			} else if (err.Code == 404 || strings.Contains(err.Details, "could not be found") || strings.Contains(err.Details, "does not exist")) && request.GetMethod() != "POST" {
 				return h, b, cloudprovider.ErrNotFound
 			} else {
 				return h, b, e
