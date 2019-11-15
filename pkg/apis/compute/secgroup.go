@@ -77,3 +77,8 @@ type SSecgroupCreateInput struct {
 	Description string
 	Rules       []SSecgroupRuleCreateInput
 }
+
+type SSecgroupListFilterInput struct {
+	Equals string
+	Server string
+}

@@ -27,6 +27,7 @@ import (
 func init() {
 	type SecGroupsListOptions struct {
 		Equals string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
+		Server string `help:"Filter secgroups bound to specified server"`
 		options.BaseListOptions
 	}
 
@@ -42,6 +43,9 @@ func init() {
 		}
 		if len(args.Equals) > 0 {
 			params.Add(jsonutils.NewString(args.Equals), "equals")
+		}
+		if len(args.Server) > 0 {
+			params.Add(jsonutils.NewString(args.Server), "server")
 		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {
