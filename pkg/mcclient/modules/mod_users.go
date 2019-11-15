@@ -186,8 +186,20 @@ func (this *UserManagerV3) DoCreateUser(s *mcclient.ClientSession, p jsonutils.J
 	}
 
 	// assgin project & role
-	projects := _project.(*jsonutils.JSONArray).GetStringArray()
-	roles := _role.(*jsonutils.JSONArray).GetStringArray()
+	projects := []string{}
+	roles := []string{}
+	if _project != nil {
+		if _p, ok := _project.(*jsonutils.JSONArray); ok {
+			projects = _p.GetStringArray()
+		}
+	}
+
+	if _role != nil {
+		if _r, ok := _role.(*jsonutils.JSONArray); ok {
+			roles = _r.GetStringArray()
+		}
+	}
+
 	if len(projects) > 0 && len(roles) > 0 {
 		var projectG errgroup.Group
 
