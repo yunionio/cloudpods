@@ -95,9 +95,10 @@ func (self *SElasticcacheManager) RestoreInstance(instanceId string, backupId st
 }
 
 // https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423024.html
-func (self *SElasticcacheManager) ChangeInstanceSpec(instanceId string, newCapacity string) (jsonutils.JSONObject, error) {
+func (self *SElasticcacheManager) ChangeInstanceSpec(instanceId string, specCode string, newCapacity int64) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
-	params.Set("new_capacity", jsonutils.NewString(newCapacity))
+	params.Set("new_capacity", jsonutils.NewInt(newCapacity))
+	params.Set("spec_code", jsonutils.NewString(specCode))
 
 	return self.CreateInContextWithSpec(nil, fmt.Sprintf("%s/extend", instanceId), params, "")
 }
