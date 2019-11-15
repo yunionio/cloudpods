@@ -23,3 +23,8 @@ shared_projects:
     description: 项目名称或ID
   description: 共享到的项目列表, 仅scope=project有效
 
+server:
+  name: server
+  in: query
+  type: string
+  description: Filter secgroups bound to specified server
