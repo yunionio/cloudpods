@@ -158,4 +158,13 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&VpcUpdateStatusOptions{}, "vpc-sync", "Synchronize the status of a vpc", func(s *mcclient.ClientSession, args *VpcUpdateStatusOptions) error {
+		result, err := modules.Vpcs.PerformAction(s, args.ID, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
