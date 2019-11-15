@@ -1424,6 +1424,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 	}
 
 	if len(cache.ExternalId) == 0 {
+		if strings.ToLower(secgroup.Name) == "default" { //避免有些云不支持default关键字
+			secgroup.Name = "DefaultGroup"
+		}
 		// 避免有的云不支持重名安全组
 		groupName := secgroup.Name
 		for i := 0; i < 30; i++ {
