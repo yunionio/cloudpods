@@ -53,7 +53,7 @@ func (self *ElasticcacheCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 	}
 
 	// sync security group here
-	self.SetStage("OnSyncSecurityGroupComplete", nil)
+	self.SetStage("OnSyncSecurityGroupComplete", data.(*jsonutils.JSONDict))
 	self.OnSyncSecurityGroupComplete(ctx, elasticcache, data)
 }
 

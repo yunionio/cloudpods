@@ -446,14 +446,17 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 func (self *SElasticcache) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	self.SetStatus(userCred, api.LB_CREATING, "")
-	if err := self.StartElasticcacheCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
+	params := jsonutils.NewDict()
+	password, _ := data.GetString("password")
+	params.Set("password", jsonutils.NewString(password))
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
+	if err := self.StartElasticcacheCreateTask(ctx, userCred, params, ""); err != nil {
 		log.Errorf("Failed to create elastic cache error: %v", err)
 	}
 }
 
-func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheCreateTask", self, userCred, jsonutils.NewDict(), parentTaskId, "", nil)
+func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
