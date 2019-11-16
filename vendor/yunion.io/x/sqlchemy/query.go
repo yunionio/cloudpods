@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/errors"
 )
 
 type IQuery interface {
@@ -628,7 +629,7 @@ func (q *SQuery) First(dest interface{}) error {
 	}
 	destPtrValue := reflect.ValueOf(dest)
 	if destPtrValue.Kind() != reflect.Ptr {
-		return fmt.Errorf("input must be a pointer")
+		return errors.Wrap(ErrNeedsPointer, "input must be a pointer")
 	}
 	destValue := destPtrValue.Elem()
 	err = mapString2Struct(mapResult, destValue)
@@ -643,7 +644,7 @@ func (q *SQuery) All(dest interface{}) error {
 	arrayType := reflect.TypeOf(dest).Elem()
 
 	if arrayType.Kind() != reflect.Array && arrayType.Kind() != reflect.Slice {
-		return fmt.Errorf("dest is not an array or slice")
+		return errors.Wrap(ErrNeedsArray, "dest is not an array or slice")
 	}
 	elemType := arrayType.Elem()
 
@@ -674,7 +675,7 @@ func (q *SQuery) Row2Map(row IRowScanner) (map[string]string, error) {
 func (q *SQuery) RowMap2Struct(result map[string]string, dest interface{}) error {
 	destPtrValue := reflect.ValueOf(dest)
 	if destPtrValue.Kind() != reflect.Ptr {
-		return fmt.Errorf("input must be a pointer")
+		return errors.Wrap(ErrNeedsPointer, "input must be a pointer")
 	}
 
 	destValue := destPtrValue.Elem()
