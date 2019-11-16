@@ -15,7 +15,6 @@
 package errors
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -76,6 +75,16 @@ func (agg aggregate) Error() string {
 // Errors is part of the Aggregate interface.
 func (agg aggregate) Errors() []error {
 	return []error(agg)
+}
+
+func (agg aggregate) Cause() error {
+	if len(agg) == 0 {
+		return nil
+	}
+	if len(agg) == 1 {
+		return Cause(agg[0])
+	}
+	return ErrAggregate
 }
 
 // Matcher is used to match errors.  Returns true if the error matches.
@@ -196,4 +205,4 @@ func AggregateGoroutines(funcs ...func() error) Aggregate {
 }
 
 // ErrPreconditionViolated is returned when the precondition is violated
-var ErrPreconditionViolated = errors.New("precondition is violated")
+// var ErrPreconditionViolated = errors.New("precondition is violated")
