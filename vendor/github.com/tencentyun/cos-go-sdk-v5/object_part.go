@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 )
 
 // InitiateMultipartUploadOptions is the option of InitateMultipartUpload
@@ -45,6 +44,10 @@ type ObjectUploadPartOptions struct {
 	Expect          string `header:"Expect,omitempty" url:"-"`
 	XCosContentSHA1 string `header:"x-cos-content-sha1" url:"-"`
 	ContentLength   int    `header:"Content-Length,omitempty" url:"-"`
+
+	XCosSSECustomerAglo   string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey    string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5 string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
 }
 
 // UploadPart 请求实现在初始化以后的分块上传，支持的块的数量为1到10000，块的大小为1 MB 到5 GB。
@@ -194,18 +197,18 @@ func (s *ObjectService) AbortMultipartUpload(ctx context.Context, name, uploadID
 // ObjectCopyPartOptions is the options of copy-part
 type ObjectCopyPartOptions struct {
 	XCosCopySource                  string `header:"x-cos-copy-source" url:"-"`
-	XCosCopySourceRange             string `header:"x-cos-copy-source-range" url:"-"`
-	XCosCopySourceIfModifiedSince   string `header:"x-cos-copy-source-If-Modified-Since" url:"-"`
-	XCosCopySourceIfUnmodifiedSince string `header:"x-cos-copy-source-If-Unmodified-Since" url:"-"`
-	XCosCopySourceIfMatch           string `help:"x-cos-copy-source-If-Match" url:"-"`
-	XCosCopySourceIfNoneMatch       string `help:"x-cos-copy-source-If-None-Match" url:"-"`
+	XCosCopySourceRange             string `header:"x-cos-copy-source-range,omitempty" url:"-"`
+	XCosCopySourceIfModifiedSince   string `header:"x-cos-copy-source-If-Modified-Since,omitempty" url:"-"`
+	XCosCopySourceIfUnmodifiedSince string `header:"x-cos-copy-source-If-Unmodified-Since,omitempty" url:"-"`
+	XCosCopySourceIfMatch           string `header:"x-cos-copy-source-If-Match,omitempty" url:"-"`
+	XCosCopySourceIfNoneMatch       string `header:"x-cos-copy-source-If-None-Match,omitempty" url:"-"`
 }
 
 // CopyPartResult is the result CopyPart
 type CopyPartResult struct {
 	XMLName      xml.Name `xml:"CopyPartResult"`
 	ETag         string
-	LastModified time.Time
+	LastModified string
 }
 
 // CopyPart 请求实现在初始化以后的分块上传，支持的块的数量为1到10000，块的大小为1 MB 到5 GB。
@@ -216,7 +219,11 @@ type CopyPartResult struct {
 // 当传入uploadID和partNumber都相同的时候，后传入的块将覆盖之前传入的块。当uploadID不存在时会返回404错误，NoSuchUpload.
 //
 // https://www.qcloud.com/document/product/436/7750
-func (s *ObjectService) CopyPart(ctx context.Context, name, uploadID string, partNumber int, opt *ObjectCopyPartOptions) (*CopyPartResult, *Response, error) {
+func (s *ObjectService) CopyPart(ctx context.Context, name, uploadID string, partNumber int, sourceURL string, opt *ObjectCopyPartOptions) (*CopyPartResult, *Response, error) {
+	if opt == nil {
+		opt = &ObjectCopyPartOptions{}
+	}
+	opt.XCosCopySource = sourceURL
 	u := fmt.Sprintf("/%s?partNumber=%d&uploadId=%s", encodeURIComponent(name), partNumber, uploadID)
 	var res CopyPartResult
 	sendOpt := sendOptions{
@@ -228,7 +235,7 @@ func (s *ObjectService) CopyPart(ctx context.Context, name, uploadID string, par
 	}
 	resp, err := s.client.send(ctx, &sendOpt)
 	// If the error occurs during the copy operation, the error response is embedded in the 200 OK response. This means that a 200 OK response can contain either a success or an error.
-	if err == nil && resp.StatusCode == 200 {
+	if err == nil && resp != nil && resp.StatusCode == 200 {
 		if res.ETag == "" {
 			return &res, resp, errors.New("response 200 OK, but body contains an error")
 		}
