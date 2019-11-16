@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"sort"
 	"time"
 )
 
@@ -26,6 +26,10 @@ type ObjectGetOptions struct {
 	ResponseContentEncoding    string `url:"response-content-encoding,omitempty" header:"-"`
 	Range                      string `url:"-" header:"Range,omitempty"`
 	IfModifiedSince            string `url:"-" header:"If-Modified-Since,omitempty"`
+	// SSE-C
+	XCosSSECustomerAglo   string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey    string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5 string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
 }
 
 // presignedURLTestingOptions is the opt of presigned url
@@ -133,6 +137,14 @@ type ObjectPutHeaderOptions struct {
 	XCosStorageClass string       `header:"x-cos-storage-class,omitempty" url:"-"`
 	// 可选值: Normal, Appendable
 	//XCosObjectType string `header:"x-cos-object-type,omitempty" url:"-"`
+	// Enable Server Side Encryption, Only supported: AES256
+	XCosServerSideEncryption string `header:"x-cos-server-side-encryption,omitempty" url:"-" xml:"-"`
+	// SSE-C
+	XCosSSECustomerAglo   string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey    string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5 string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
+	//兼容其他自定义头部
+	XOptionHeader *http.Header `header:"-,omitempty" url:"-" xml:"-"`
 }
 
 // ObjectPutOptions the options of put object
@@ -189,6 +201,13 @@ type ObjectCopyHeaderOptions struct {
 	XCosMetaXXX              *http.Header `header:"x-cos-meta-*,omitempty" url:"-"`
 	XCosCopySource           string       `header:"x-cos-copy-source" url:"-" xml:"-"`
 	XCosServerSideEncryption string       `header:"x-cos-server-side-encryption,omitempty" url:"-" xml:"-"`
+	// SSE-C
+	XCosSSECustomerAglo             string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey              string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5           string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
+	XCosCopySourceSSECustomerAglo   string `header:"x-cos-copy-source-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosCopySourceSSECustomerKey    string `header:"x-cos-copy-source-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosCopySourceSSECustomerKeyMD5 string `header:"x-cos-copy-source-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
 }
 
 // ObjectCopyOptions is the option of Copy, choose header or body
@@ -212,7 +231,16 @@ type ObjectCopyResult struct {
 // 注意：在跨帐号复制的时候，需要先设置被复制文件的权限为公有读，或者对目标帐号赋权，同帐号则不需要。
 //
 // https://cloud.tencent.com/document/product/436/10881
-func (s *ObjectService) Copy(ctx context.Context, name, sourceURL string, opt *ObjectCopyOptions) (*ObjectCopyResult, *Response, error) {
+func (s *ObjectService) Copy(ctx context.Context, name, sourceURL string, opt *ObjectCopyOptions, id ...string) (*ObjectCopyResult, *Response, error) {
+	var u string
+	if len(id) == 1 {
+		u = fmt.Sprintf("%s?versionId=%s", encodeURIComponent(sourceURL), id[0])
+	} else if len(id) == 0 {
+		u = encodeURIComponent(sourceURL)
+	} else {
+		return nil, nil, errors.New("wrong params")
+	}
+
 	var res ObjectCopyResult
 	if opt == nil {
 		opt = new(ObjectCopyOptions)
@@ -220,7 +248,7 @@ func (s *ObjectService) Copy(ctx context.Context, name, sourceURL string, opt *O
 	if opt.ObjectCopyHeaderOptions == nil {
 		opt.ObjectCopyHeaderOptions = new(ObjectCopyHeaderOptions)
 	}
-	opt.XCosCopySource = encodeURIComponent(sourceURL)
+	opt.XCosCopySource = u
 
 	sendOpt := sendOptions{
 		baseURL:   s.client.BaseURL.BucketURL,
@@ -261,6 +289,10 @@ func (s *ObjectService) Delete(ctx context.Context, name string) (*Response, err
 // ObjectHeadOptions is the option of HeadObject
 type ObjectHeadOptions struct {
 	IfModifiedSince string `url:"-" header:"If-Modified-Since,omitempty"`
+	// SSE-C
+	XCosSSECustomerAglo   string `header:"x-cos-server-side-encryption-customer-algorithm,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKey    string `header:"x-cos-server-side-encryption-customer-key,omitempty" url:"-" xml:"-"`
+	XCosSSECustomerKeyMD5 string `header:"x-cos-server-side-encryption-customer-key-MD5,omitempty" url:"-" xml:"-"`
 }
 
 // Head Object请求可以取回对应Object的元数据，Head的权限与Get的权限一致
@@ -419,63 +451,202 @@ type Object struct {
 	Owner        *Owner `xml:",omitempty"`
 }
 
+// MultiUploadOptions is the option of the multiupload,
+// ThreadPoolSize default is one
 type MultiUploadOptions struct {
-	OptIni   *InitiateMultipartUploadOptions
-	PartSize int
+	OptIni         *InitiateMultipartUploadOptions
+	PartSize       int64
+	ThreadPoolSize int
+}
+
+type Chunk struct {
+	Number int
+	OffSet int64
+	Size   int64
+}
+
+// jobs
+type Jobs struct {
+	Name       string
+	UploadId   string
+	FilePath   string
+	RetryTimes int
+	Chunk      Chunk
+	Data       io.Reader
+	Opt        *ObjectUploadPartOptions
+}
+
+type Results struct {
+	PartNumber int
+	Resp       *Response
+}
+
+func worker(s *ObjectService, jobs <-chan *Jobs, results chan<- *Results) {
+	for j := range jobs {
+		fd, err := os.Open(j.FilePath)
+		var res Results
+		if err != nil {
+			res.PartNumber = j.Chunk.Number
+			res.Resp = nil
+			results <- &res
+		}
+
+		fd.Seek(j.Chunk.OffSet, os.SEEK_SET)
+		// UploadPart do not support the chunk trsf, so need to add the content-length
+		j.Opt.ContentLength = int(j.Chunk.Size)
+
+		rt := j.RetryTimes
+		for {
+			resp, err := s.UploadPart(context.Background(), j.Name, j.UploadId, j.Chunk.Number,
+				&io.LimitedReader{R: fd, N: j.Chunk.Size}, j.Opt)
+			res.PartNumber = j.Chunk.Number
+			res.Resp = resp
+			if err != nil {
+				rt--
+				if rt == 0 {
+					fd.Close()
+					results <- &res
+					break
+				}
+				continue
+			}
+			fd.Close()
+			results <- &res
+			break
+		}
+	}
+}
+
+func DividePart(fileSize int64) (int64, int64) {
+	partSize := int64(1 * 1024 * 1024)
+	partNum := fileSize / partSize
+	for partNum >= 10000 {
+		partSize = partSize * 2
+		partNum = fileSize / partSize
+	}
+	return partNum, partSize
+}
+
+func SplitFileIntoChunks(filePath string, partSize int64) ([]Chunk, int, error) {
+	if filePath == "" {
+		return nil, 0, errors.New("filePath invalid")
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+	var partNum int64
+	if partSize > 0 {
+		partSize = partSize * 1024 * 1024
+		partNum = stat.Size() / partSize
+		if partNum >= 10000 {
+			return nil, 0, errors.New("Too many parts, out of 10000")
+		}
+	} else {
+		partNum, partSize = DividePart(stat.Size())
+	}
+
+	var chunks []Chunk
+	var chunk = Chunk{}
+	for i := int64(0); i < partNum; i++ {
+		chunk.Number = int(i + 1)
+		chunk.OffSet = i * partSize
+		chunk.Size = partSize
+		chunks = append(chunks, chunk)
+	}
+
+	if stat.Size()%partSize > 0 {
+		chunk.Number = len(chunks) + 1
+		chunk.OffSet = int64(len(chunks)) * partSize
+		chunk.Size = stat.Size() % partSize
+		chunks = append(chunks, chunk)
+		partNum++
+	}
+
+	return chunks, int(partNum), nil
+
 }
 
 // MultiUpload 为高级upload接口，并发分块上传
+// 注意该接口目前只供参考
 //
-// 需要指定分块大小 partSize >= 1 ,单位为MB
-// 同时请确认分块数量不超过10000
+// 当 partSize > 0 时，由调用者指定分块大小，否则由 SDK 自动切分，单位为MB
+// 由调用者指定分块大小时，请确认分块数量不超过10000
 //
 
-func (s *ObjectService) MultiUpload(ctx context.Context, name string, r io.Reader, opt *MultiUploadOptions) (*CompleteMultipartUploadResult, *Response, error) {
+func (s *ObjectService) MultiUpload(ctx context.Context, name string, filepath string, opt *MultiUploadOptions) (*CompleteMultipartUploadResult, *Response, error) {
+	// 1.Get the file chunk
+	chunks, partNum, err := SplitFileIntoChunks(filepath, opt.PartSize)
+	if err != nil {
+		return nil, nil, err
+	}
 
+	// 2.Init
 	optini := opt.OptIni
 	res, _, err := s.InitiateMultipartUpload(ctx, name, optini)
 	if err != nil {
 		return nil, nil, err
 	}
 	uploadID := res.UploadID
-	bufSize := opt.PartSize * 1024 * 1024
-	buffer := make([]byte, bufSize)
+	var poolSize int
+	if opt.ThreadPoolSize > 0 {
+		poolSize = opt.ThreadPoolSize
+	} else {
+		// Default is one
+		poolSize = 1
+	}
+
+	chjobs := make(chan *Jobs, 100)
+	chresults := make(chan *Results, 10000)
 	optcom := &CompleteMultipartUploadOptions{}
 
-	PartUpload := func(ch chan *Response, ctx context.Context, name string, uploadId string, partNumber int, data io.Reader, opt *ObjectUploadPartOptions) {
-
-		defer func() {
-			if err := recover(); err != nil {
-				fmt.Println(err)
-			}
-		}()
-		resp, _ := s.UploadPart(context.Background(), name, uploadId, partNumber, data, nil)
-		ch <- resp
+	// 3.Start worker
+	for w := 1; w <= poolSize; w++ {
+		go worker(s, chjobs, chresults)
 	}
 
-	chs := make([]chan *Response, 10000)
-	PartNumber := 0
-	for i := 1; true; i++ {
-		bytesread, err := r.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				return nil, nil, err
-			}
-			PartNumber = i
-			break
+	// 4.Push jobs
+	for _, chunk := range chunks {
+		partOpt := &ObjectUploadPartOptions{}
+		if optini != nil && optini.ObjectPutHeaderOptions != nil {
+			partOpt.XCosSSECustomerAglo = optini.XCosSSECustomerAglo
+			partOpt.XCosSSECustomerKey = optini.XCosSSECustomerKey
+			partOpt.XCosSSECustomerKeyMD5 = optini.XCosSSECustomerKeyMD5
 		}
-		chs[i] = make(chan *Response)
-		go PartUpload(chs[i], context.Background(), name, uploadID, i, strings.NewReader(string(buffer[:bytesread])), nil)
+		job := &Jobs{
+			Name:       name,
+			RetryTimes: 3,
+			FilePath:   filepath,
+			UploadId:   uploadID,
+			Chunk:      chunk,
+			Opt:        partOpt,
+		}
+		chjobs <- job
 	}
+	close(chjobs)
 
-	for i := 1; i < PartNumber; i++ {
-		resp := <-chs[i]
+	// 5.Recv the resp etag to complete
+	for i := 1; i <= partNum; i++ {
+		res := <-chresults
 		// Notice one part fail can not get the etag according.
-		etag := resp.Header.Get("ETag")
+		if res.Resp == nil {
+			// Some part already fail, can not to get the header inside.
+			return nil, nil, fmt.Errorf("UploadID %s, part %d failed to get resp content.", uploadID, res.PartNumber)
+		}
+		// Notice one part fail can not get the etag according.
+		etag := res.Resp.Header.Get("ETag")
 		optcom.Parts = append(optcom.Parts, Object{
-			PartNumber: i, ETag: etag},
+			PartNumber: res.PartNumber, ETag: etag},
 		)
 	}
+	sort.Sort(ObjectList(optcom.Parts))
 
 	v, resp, err := s.CompleteMultipartUpload(context.Background(), name, uploadID, optcom)
 

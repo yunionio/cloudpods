@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
-	github.com/Azure/azure-sdk-for-go v19.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
 	github.com/DataDog/dd-trace-go v0.6.1 // indirect
 	github.com/DataDog/zstd v1.3.4 // indirect
@@ -54,7 +54,6 @@ require (
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
-	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
@@ -75,7 +74,6 @@ require (
 	github.com/kr/pty v1.1.3
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
-	github.com/marstr/guid v1.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
@@ -87,7 +85,6 @@ require (
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
-	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/mozillazg/go-pinyin v0.15.0
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
@@ -106,7 +103,7 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tencentcloud/tencentcloud-sdk-go v0.0.0-20181108132626-805d01dd0e2e
-	github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20190717101923-c5c1f9751e7f
+	github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20191108095731-8ca4b370cde4
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
@@ -133,9 +130,9 @@ require (
 	k8s.io/kubernetes v1.12.3
 	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191111031517-2206ee61d93e
+	yunion.io/x/pkg v0.0.0-20191112153320-4346cc308eed
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20191008135637-33eb2e4f6cc7
+	yunion.io/x/sqlchemy v0.0.0-20191113060818-8f58e19ea417
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 

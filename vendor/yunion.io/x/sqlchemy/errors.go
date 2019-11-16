@@ -15,17 +15,19 @@
 package sqlchemy
 
 import (
-	"errors"
+	"yunion.io/x/pkg/errors"
 )
 
-var ErrNoDataToUpdate error
-var ErrDuplicateEntry error
-var ErrEmptyQuery error
-var ErrEmptyPrimaryKey error
+const (
+	ErrNoDataToUpdate   = errors.Error("No data to update")
+	ErrDuplicateEntry   = errors.Error("duplicate entry")
+	ErrEmptyQuery       = errors.Error("empty query")
+	ErrEmptyPrimaryKey  = errors.Error("empty primary keys")
+	ErrUnexpectRowCount = errors.Error("unexpected row count")
 
-func init() {
-	ErrNoDataToUpdate = errors.New("No data to update")
-	ErrDuplicateEntry = errors.New("duplicate entry")
-	ErrEmptyQuery = errors.New("empty query")
-	ErrEmptyPrimaryKey = errors.New("empty primary keys")
-}
+	ErrNeedsPointer = errors.Error("input needs pointer input")
+	ErrNeedsArray   = errors.Error("input needs slice or array")
+	ErrReadOnly     = errors.Error("read only input")
+
+	ErrNotSupported = errors.ErrNotSupported
+)
