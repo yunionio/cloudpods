@@ -127,7 +127,7 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(accounts.Field("domain_id"), domainId),
-		sqlchemy.IsTrue(accounts.Field("is_public")),
+		sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 	))
 	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
 	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
@@ -180,20 +180,27 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string,
 ) ([]string, []string, []string, []string) {
 	q := CloudaccountManager.Query().IsTrue("enabled")
+	providers := CloudproviderManager.Query().SubQuery()
+	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
 	if zone != nil {
 		region = zone.GetRegion()
 	}
 	if region != nil {
-		providers := CloudproviderManager.Query().SubQuery()
 		providerregions := CloudproviderRegionManager.Query().SubQuery()
-		q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
 		q = q.Join(providerregions, sqlchemy.Equals(providers.Field("id"), providerregions.Field("cloudprovider_id")))
 		q = q.Filter(sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id))
 	}
 	if len(domainId) > 0 {
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsTrue(q.Field("is_public")),
-			sqlchemy.Equals(q.Field("domain_id"), domainId),
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
+				sqlchemy.Equals(q.Field("domain_id"), domainId),
+			),
+			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
+				sqlchemy.Equals(providers.Field("domain_id"), domainId),
+			),
 		))
 	}
 	cloudAccounts := make([]SCloudaccount, 0)

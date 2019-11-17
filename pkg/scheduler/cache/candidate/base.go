@@ -83,7 +83,7 @@ func (b baseHostGetter) IsPublic() bool {
 	if account == nil {
 		return false
 	}
-	return account.GetIsPublic()
+	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM
 }
 
 func (b baseHostGetter) DomainId() string {

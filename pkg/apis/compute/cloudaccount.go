@@ -16,8 +16,10 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type CloudaccountCredentialInput struct {
@@ -65,4 +67,20 @@ type CloudaccountCreateInput struct {
 	Options             *jsonutils.JSONObject
 
 	CloudaccountCredentialInput
+}
+
+type CloudaccountShareModeInput struct {
+	apis.Meta
+
+	ShareMode string
+}
+
+func (i CloudaccountShareModeInput) Validate() error {
+	if len(i.ShareMode) == 0 {
+		return httperrors.NewMissingParameterError("share_mode")
+	}
+	if !utils.IsInStringArray(i.ShareMode, CLOUD_ACCOUNT_SHARE_MODES) {
+		return httperrors.NewInputParameterError("invalid share_mode %s", i.ShareMode)
+	}
+	return nil
 }
