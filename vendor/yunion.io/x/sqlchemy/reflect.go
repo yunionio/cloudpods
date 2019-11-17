@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"time"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
@@ -79,7 +80,7 @@ func getStringValue(dat interface{}) string {
 
 func setValueBySQLString(value reflect.Value, val string) error {
 	if !value.CanSet() {
-		return fmt.Errorf("value is not settable")
+		return errors.Wrap(ErrReadOnly, "value is not settable")
 	}
 	switch value.Type() {
 	case gotypes.BoolType:
@@ -152,7 +153,7 @@ func setValueBySQLString(value reflect.Value, val string) error {
 			}
 			return setValueBySQLString(value.Elem(), val)
 		}
-		return fmt.Errorf("not supported type: %s", valueType)
+		return errors.Wrapf(ErrNotSupported, "not supported type: %s", valueType)
 	}
 	return nil
 }

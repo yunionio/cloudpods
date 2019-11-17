@@ -413,9 +413,9 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 		Name:   srcBucketName,
 	}
 	opts := cos.ObjectCopyPartOptions{}
-	opts.XCosCopySource = fmt.Sprintf("%s/%s", srcBucket.getBucketUrlHost(), srcKey)
+	srcUrl := fmt.Sprintf("%s/%s", srcBucket.getBucketUrlHost(), srcKey)
 	opts.XCosCopySourceRange = fmt.Sprintf("bytes=%d-%d", srcOffset, srcOffset+srcLength-1)
-	result, _, err := coscli.Object.CopyPart(ctx, key, uploadId, partIndex, &opts)
+	result, _, err := coscli.Object.CopyPart(ctx, key, uploadId, partIndex, srcUrl, &opts)
 	if err != nil {
 		return "", errors.Wrap(err, "coscli.Object.CopyPart")
 	}
