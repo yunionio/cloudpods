@@ -16,13 +16,12 @@ package sqlchemy
 
 import (
 	"bytes"
-	// "errors"
 	"fmt"
 	"reflect"
 
 	"yunion.io/x/log"
-	// "yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/errors"
 )
 
 /*
@@ -123,7 +122,7 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	buf.WriteString(" WHERE ")
 	first = true
 	if len(primaryCols) == 0 {
-		return fmt.Errorf("primary key empty???")
+		return ErrEmptyPrimaryKey
 	}
 
 	for k, v := range primaryCols {
@@ -148,7 +147,7 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 		return err
 	}
 	if aCnt != 1 {
-		return fmt.Errorf("affected rows %d != 1", aCnt)
+		return errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
 	}
 	return nil
 }
