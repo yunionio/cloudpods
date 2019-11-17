@@ -794,16 +794,16 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	} else if err != nil {
 		return nil, err
 	}
-	// log.Debugf("Get found %s", model)
-	var isAllow bool
+
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionGet)
-	} else {
-		isAllow = model.AllowGetDetails(ctx, userCred, query)
-	}
-	if !isAllow {
+		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionGet)
+		if err != nil {
+			return nil, err
+		}
+	} else if !model.AllowGetDetails(ctx, userCred, query) {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
+
 	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.GetSkipLog(ctx, userCred, query) {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
@@ -831,9 +831,11 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	specCamel := utils.Kebab2Camel(spec, "-")
 	modelValue := reflect.ValueOf(model)
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionGet, spec)
+		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionGet, spec)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
 
@@ -846,11 +848,9 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		if len(outs) != 1 {
 			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 		}
-		isAllow = outs[0].Bool()
-	}
-
-	if !isAllow {
-		return nil, httperrors.NewForbiddenError("%s not allow to get spec %s", dispatcher.Keyword(), spec)
+		if !outs[0].Bool() {
+			return nil, httperrors.NewForbiddenError("%s not allow to get spec %s", dispatcher.Keyword(), spec)
+		}
 	}
 
 	funcName := fmt.Sprintf("GetDetails%s", specCamel)
@@ -1082,13 +1082,12 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 	}
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
-	} else {
-		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
-	}
-	if !isAllow {
+		err := isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
+		if err != nil {
+			return nil, err
+		}
+	} else if !dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data) {
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
@@ -1152,13 +1151,12 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 	}
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionCreate)
-	} else {
-		isAllow = manager.AllowCreateItem(ctx, userCred, query, data)
-	}
-	if !isAllow {
+		err := isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionCreate)
+		if err != nil {
+			return nil, err
+		}
+	} else if !manager.AllowCreateItem(ctx, userCred, query, data) {
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
@@ -1258,13 +1256,12 @@ func managerPerformCheckCreateData(
 	}
 	bodyDict := body.(*jsonutils.JSONDict)
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionPerform, action)
-	} else {
-		isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
-	}
-	if !isAllow {
+		err := isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionPerform, action)
+		if err != nil {
+			return nil, err
+		}
+	} else if !manager.AllowPerformCheckCreateData(ctx, userCred, query, data) {
 		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
 	}
 
@@ -1380,16 +1377,21 @@ func reflectDispatcherInternal(
 		}
 	}
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
 		if model == nil {
 			ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
-			isAllow = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, operator, spec)
+			err = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, operator, spec)
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			isAllow = isObjectRbacAllowed(model, userCred, operator, spec)
+			err := isObjectRbacAllowed(model, userCred, operator, spec)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		allowFuncName := "Allow" + funcName
@@ -1405,10 +1407,9 @@ func reflectDispatcherInternal(
 			return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
 		}
 
-		isAllow = outs[0].Bool()
-	}
-	if !isAllow {
-		return nil, httperrors.NewForbiddenError("%s not allow to %s %s", dispatcher.Keyword(), operator, spec)
+		if !outs[0].Bool() {
+			return nil, httperrors.NewForbiddenError("%s not allow to %s %s", dispatcher.Keyword(), operator, spec)
+		}
 	}
 
 	outs := funcValue.Call(params)
@@ -1495,13 +1496,12 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionUpdate)
-	} else {
-		isAllow = model.AllowUpdateItem(ctx, userCred)
-	}
-	if !isAllow {
+		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionUpdate)
+		if err != nil {
+			return nil, err
+		}
+	} else if !model.AllowUpdateItem(ctx, userCred) {
 		return nil, httperrors.NewForbiddenError("Not allow to update item")
 	}
 
@@ -1599,14 +1599,12 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	}
 	// log.Debugf("Delete %s", model.GetShortDesc(ctx))
 
-	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionDelete)
-	} else {
-		isAllow = model.AllowDeleteItem(ctx, userCred, query, data)
-	}
-	if !isAllow {
-		log.Errorf("not allow to delete")
+		err := isObjectRbacAllowed(model, userCred, policy.PolicyActionDelete)
+		if err != nil {
+			return nil, err
+		}
+	} else if !model.AllowDeleteItem(ctx, userCred, query, data) {
 		return nil, httperrors.NewForbiddenError("%s(%s) not allow to delete", dispatcher.modelManager.KeywordPlural(), model.GetId())
 	}
 

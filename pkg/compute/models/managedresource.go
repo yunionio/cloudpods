@@ -160,7 +160,10 @@ func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObjec
 		providers := CloudproviderManager.Query().SubQuery()
 		subq := providers.Query(providers.Field("id"))
 		subq = subq.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(accounts.Field("domain_id"), domain.GetId()))
+		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.Equals(providers.Field("domain_id"), domain.GetId()),
+			sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+		))
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
