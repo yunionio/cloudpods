@@ -35,7 +35,7 @@ type SUpdateSession struct {
 
 func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	if reflect.ValueOf(dt).Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("Update input must be a Pointer")
+		return nil, errors.Wrap(ErrNeedsPointer, "Update input must be a Pointer")
 	}
 	dataValue := reflect.ValueOf(dt).Elem()
 	fields := reflectutils.FetchStructFieldValueSet(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
@@ -53,7 +53,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	}
 
 	if len(zeroPrimary) > 0 {
-		return nil, fmt.Errorf("not a valid data, primary key %s empty",
+		return nil, errors.Wrapf(ErrEmptyPrimaryKey, "not a valid data, primary key %s empty",
 			strings.Join(zeroPrimary, ","))
 	}
 
@@ -195,7 +195,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		if aCnt == 0 {
 			return nil, sql.ErrNoRows
 		} else {
-			return nil, fmt.Errorf("affected rows %d != 1", aCnt)
+			return nil, errors.Wrapf(ErrUnexpectRowCount, "affected rows %d != 1", aCnt)
 		}
 	}
 	q := us.tableSpec.Query()

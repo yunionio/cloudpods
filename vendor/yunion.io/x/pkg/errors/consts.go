@@ -11,4 +11,6 @@ const (
 	ErrTimeout        = Error("TimeoutError")
 	ErrNotImplemented = Error("NotImplementedError")
 	ErrNotSupported   = Error("NotSupportedError")
+
+	ErrAggregate = Error("AggregateError")
 )

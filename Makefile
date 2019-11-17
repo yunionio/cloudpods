@@ -182,7 +182,6 @@ dep:
 
 mod:
 	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
-	go get github.com/Azure/azure-sdk-for-go@latest
 	go mod tidy
 	go mod vendor -v
 
