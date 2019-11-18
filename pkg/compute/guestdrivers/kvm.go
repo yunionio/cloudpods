@@ -293,8 +293,9 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 	return nil
 }
 
-func (self *SKVMGuestDriver) NeedStopForChangeSpec(guest *models.SGuest) bool {
-	return guest.GetMetadata("hotplug_cpu_mem", nil) != "enable"
+func (self *SKVMGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
+	return guest.GetMetadata("hotplug_cpu_mem", nil) != "enable" ||
+		(memChanged && guest.GetMetadata("__hugepage", nil) == "native")
 }
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
