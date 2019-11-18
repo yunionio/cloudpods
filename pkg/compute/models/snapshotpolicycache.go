@@ -76,7 +76,7 @@ func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(ctx context.Context, q *
 	if err != nil {
 		return nil, err
 	}
-	if snapshotpolicyIden, _ := query.GetString("snapshotpolicyIden"); len(snapshotpolicyIden) > 0 {
+	if snapshotpolicyIden, _ := query.GetString("snapshotpolicy"); len(snapshotpolicyIden) > 0 {
 		snapshotpolicy, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyIden)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -116,6 +116,10 @@ func (spc *SSnapshotPolicyCache) GetCustomizeColumns(ctx context.Context, userCr
 	regionInfo := spc.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	if regionInfo != nil {
 		extra.Update(regionInfo)
+	}
+	accountInfo := spc.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if accountInfo != nil {
+		extra.Update(accountInfo)
 	}
 	return extra
 }
