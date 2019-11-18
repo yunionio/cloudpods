@@ -546,7 +546,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
 			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
-			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+			sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
@@ -556,7 +556,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		subq = subq.Filter(sqlchemy.OR(
 			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
 			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
-			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+			sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
