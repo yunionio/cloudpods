@@ -379,8 +379,10 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 
 	// start sync
 	// add forsnapshotpolicy and cache
-	// delete forsnapshotpolicy cache
+	// delete for snapshotpolicy cache
 	added := make([]cloudprovider.ICloudSnapshotPolicy, 0, 1)
+	commonext := make([]cloudprovider.ICloudSnapshotPolicy, 0, 1)
+	commondb := make([]*SSnapshotPolicyCache, 0, 1)
 	removed := make([]*SSnapshotPolicyCache, 0, 1)
 	for _, cloudSP := range cloudSPs {
 		spCache, ok := spCacheSet[cloudSP.GetGlobalId()]
@@ -392,7 +394,15 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		if !snapshotPolicy.Equals(cloudSP) {
 			removed = append(removed, spCache)
 			added = append(added, cloudSP)
+		} else {
+			commondb = append(commondb, spCache)
+			commonext = append(commonext, cloudSP)
 		}
+		delete(spCacheSet, cloudSP.GetGlobalId())
+	}
+
+	for _, v := range spCacheSet {
+		removed = append(removed, v)
 	}
 
 	for i := range removed {
@@ -410,6 +420,23 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		} else {
 			syncMetadata(ctx, userCred, locol, added[i])
 			syncResult.Add()
+		}
+	}
+
+	for i := range commondb {
+		_, err = db.Update(commondb[i], func() error {
+			commondb[i].Status = api.SNAPSHOT_POLICY_CACHE_STATUS_READY
+			if len(commonext[i].GetName()) == 0 {
+				commondb[i].Name = commonext[i].GetId()
+			} else {
+				commondb[i].Name = commonext[i].GetName()
+			}
+			return nil
+		})
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
 		}
 	}
 	return syncResult
@@ -452,7 +479,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 
 	// add cache
 	_, err = SnapshotPolicyCacheManager.NewCacheWithExternalId(ctx, userCred, snapshotPolicy.GetId(),
-		ext.GetGlobalId(), region.GetId(), provider.GetId())
+		ext.GetGlobalId(), region.GetId(), provider.GetId(), ext.GetName())
 	if err != nil {
 		//snapshotpolicy has been exist so that created is successful although cache created is fail.
 		// disk will be sync aftersnapshotpolicy sync, cache must be right so that this sync is fail
@@ -494,19 +521,6 @@ func (manager *SSnapshotPolicyManager) getProviderSnapshotPolicies(region *SClou
 		return nil, err
 	}
 	return snapshotPolicies, nil
-}
-
-func (sp *SSnapshotPolicy) syncRemoveCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, sp)
-	defer lockman.ReleaseObject(ctx, sp)
-
-	err := sp.ValidateDeleteCondition(ctx)
-	if err != nil {
-		err = sp.SetStatus(userCred, api.SNAPSHOT_POLICY_UNKNOWN, "sync to delete")
-	} else {
-		err = sp.RealDelete(ctx, userCred)
-	}
-	return err
 }
 
 func (sp *SSnapshotPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
