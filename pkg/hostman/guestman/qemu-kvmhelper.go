@@ -294,6 +294,14 @@ func (s *SKVMGuestInstance) getQgaDesc() string {
 }
 
 func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (string, error) {
+	if s.manager.host.GetCpuArchitecture() == "aarch64" {
+		return s.generateArmStartScript(data)
+	} else {
+		return s._generateStartScript(data)
+	}
+}
+
+func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
 		uuid, _  = s.Desc.GetString("uuid")
 		mem, _   = s.Desc.Int("mem")
