@@ -232,6 +232,7 @@ func (s *SDeployService) PrepareEnv() error {
 	}
 	nbd.Init()
 
+	// https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-bdi
 	for i := 0; i < 16; i++ {
 		nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
 		sysutils.SetSysConfig(nbdBdi+"max_ratio", "0")
