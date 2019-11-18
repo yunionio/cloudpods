@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -108,11 +109,34 @@ func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models
 
 func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, nil, self.UserCred)
-	if !guest.IsSystem {
-		self.notifyServerCreated(ctx, guest)
+
+	// bind eip
+	{
+		eipId, _ := self.Params.GetString("eip")
+		if len(eipId) > 0 {
+			self.SetStage("OnDeployEipComplete", nil)
+			eipObj, err := models.ElasticipManager.FetchById(eipId)
+			if err != nil {
+				log.Errorf("fail to get eip %s %s", eipId, err)
+				return
+			}
+
+			eip := eipObj.(*models.SElasticip)
+
+			eipBw, _ := self.Params.Int("eip_bw")
+			if eipBw > 0 {
+				// newly allocated eip, need allocation and associate
+				eip.AllocateAndAssociateVM(ctx, self.UserCred, guest)
+			} else {
+				// existing eip, association only
+				eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
+			}
+
+			return
+		}
 	}
-	guest.GetDriver().OnGuestCreateTaskComplete(ctx, guest, self)
+
+	self.OnDeployEipComplete(ctx, guest, nil)
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
@@ -132,6 +156,47 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	self.SetStageFailed(ctx, data.String())
 }
 
+func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, nil, self.UserCred)
+	if !guest.IsSystem {
+		self.notifyServerCreated(ctx, guest)
+	}
+
+	// Guest Create Complete
+	duration, _ := self.GetParams().GetString("duration")
+	if len(duration) > 0 {
+		bc, err := billing.ParseBillingCycle(duration)
+		if err == nil && guest.ExpiredAt.IsZero() {
+			guest.SaveRenewInfo(ctx, self.GetUserCred(), &bc, nil)
+		}
+		if jsonutils.QueryBoolean(self.GetParams(), "auto_prepaid_recycle", false) {
+			err := guest.CanPerformPrepaidRecycle()
+			if err == nil {
+				self.SetStageComplete(ctx, nil)
+				guest.DoPerformPrepaidRecycle(ctx, self.GetUserCred(), true)
+			}
+		}
+	}
+
+	if jsonutils.QueryBoolean(self.GetParams(), "auto_start", false) {
+		self.SetStage("on_auto_start_guest", nil)
+		guest.StartGueststartTask(ctx, self.GetUserCred(), nil, self.GetTaskId())
+	} else {
+		self.SetStage("on_sync_status_complete", nil)
+		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+	}
+}
+
+func (self *GuestCreateTask) OnDeployEipCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, "deploy_failed")
+	db.OpsLog.LogEvent(guest, db.ACT_EIP_ATTACH, data, self.UserCred)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_EIP_ASSOCIATE, data, self.UserCred, false)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_ASSOCIATE_EIP_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
+}
+
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.TaskComplete(ctx, guest)
@@ -146,28 +211,4 @@ func (self *GuestCreateTask) TaskComplete(ctx context.Context, guest *models.SGu
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, "", self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ALLOCATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
-	self.StartEipSubTask(ctx, guest)
-}
-
-func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.SGuest) {
-	eipId, _ := self.Params.GetString("eip")
-	if len(eipId) > 0 {
-		eipObj, err := models.ElasticipManager.FetchById(eipId)
-		if err != nil {
-			log.Errorf("fail to get eip %s %s", eipId, err)
-			return
-		}
-
-		eip := eipObj.(*models.SElasticip)
-
-		eipBw, _ := self.Params.Int("eip_bw")
-		if eipBw > 0 {
-			// newly allocated eip, need allocation and associate
-			eip.AllocateAndAssociateVM(ctx, self.UserCred, guest)
-		} else {
-			// existing eip, association only
-			eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
-		}
-		return
-	}
 }
