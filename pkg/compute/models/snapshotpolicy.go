@@ -412,7 +412,7 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 			syncResult.Add()
 		}
 	}
-	return compare.SyncResult{}
+	return syncResult
 }
 
 func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
