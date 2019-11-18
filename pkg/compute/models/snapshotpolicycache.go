@@ -163,12 +163,13 @@ func (spcm *SSnapshotPolicyCacheManager) NewCache(ctx context.Context, userCred 
 }
 
 func (spcm *SSnapshotPolicyCacheManager) NewCacheWithExternalId(ctx context.Context, userCred mcclient.TokenCredential,
-	snapshotPolicyId, externalId, regionId, providerId string) (*SSnapshotPolicyCache, error) {
+	snapshotPolicyId, externalId, regionId, providerId string, name string) (*SSnapshotPolicyCache, error) {
 
 	snapshotPolicyCache := NewSSnapshotPolicyCache(snapshotPolicyId, regionId, externalId)
 	snapshotPolicyCache.ManagerId = providerId
 
 	snapshotPolicyCache.Status = api.SNAPSHOT_POLICY_CACHE_STATUS_READY
+	snapshotPolicyCache.Name = name
 	// should have lock
 	if err := spcm.TableSpec().Insert(&snapshotPolicyCache); err != nil {
 		return nil, errors.Wrapf(err, "insert snapshotpolicycache failed")
@@ -195,23 +196,6 @@ func (spcm *SSnapshotPolicyCacheManager) Register(ctx context.Context, userCred 
 	}
 
 	return spcm.NewCache(ctx, userCred, snapshotPolicyId, regionId, providerId)
-}
-
-func (spcm *SSnapshotPolicyCacheManager) RegisterWithExternalID(ctx context.Context, userCred mcclient.TokenCredential,
-	snapshotPolicyId, externalId, regionId, providerId string) (*SSnapshotPolicyCache, error) {
-
-	snapshotPolicyCache, err := spcm.FetchSnapshotPolicyCache(snapshotPolicyId, regionId, providerId)
-	// error
-	if err != nil {
-		return nil, err
-	}
-
-	// no cache
-	if snapshotPolicyCache != nil {
-		return snapshotPolicyCache, nil
-	}
-
-	return spcm.NewCacheWithExternalId(ctx, userCred, snapshotPolicyId, externalId, regionId, providerId)
 }
 
 // ==================================================== fetch =========================================================
@@ -366,6 +350,7 @@ func (spc *SSnapshotPolicyCache) CreateCloudSnapshotPolicy() error {
 		return errors.Wrap(err, "createsnapshotpolicy failed")
 	}
 	spc.ExternalId = externalId
+	spc.Name = snapshotPolicy.Name
 
 	iPolicy, err := iregion.GetISnapshotPolicyById(externalId)
 	if err != nil {
