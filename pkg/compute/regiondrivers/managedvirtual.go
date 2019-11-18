@@ -1764,30 +1764,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx co
 	return cloudprovider.WaitDeleted(iec, 10*time.Second, 300*time.Second)
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestChangeElasticcacheSpec(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
-	sku, err := task.GetParams().GetString("sku")
-	if err != nil {
-		return errors.Wrap(fmt.Errorf("missing parameter sku"), "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec")
-	}
-
-	iregion, err := ec.GetIRegion()
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.GetIRegion")
-	}
-
-	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.GetIElasticcacheById")
-	}
-
-	err = iec.ChangeInstanceSpec(sku)
-	if err != nil {
-		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.ChangeInstanceSpec")
-	}
-
-	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
-}
-
 func (self *SManagedVirtualizationRegionDriver) RequestSetElasticcacheMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
 	mStart, err := task.GetParams().GetString("maintain_start_time")
 	if err != nil {

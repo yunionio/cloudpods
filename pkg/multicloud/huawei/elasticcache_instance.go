@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -538,7 +539,12 @@ func (self *SElasticcache) ChangeInstanceSpec(spec string) error {
 	}
 
 	newCapacity := segs[1][1 : len(segs[1])-1]
-	_, err := self.region.ecsClient.Elasticcache.ChangeInstanceSpec(self.GetId(), newCapacity)
+	capacity, err := strconv.Atoi(newCapacity)
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("invalid sku capacity %s", spec), "Elasticcache.ChangeInstanceSpec")
+	}
+
+	_, err = self.region.ecsClient.Elasticcache.ChangeInstanceSpec(self.GetId(), segs[0], int64(capacity))
 	if err != nil {
 		return errors.Wrap(err, "elasticcache.ChangeInstanceSpec")
 	}
