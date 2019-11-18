@@ -636,14 +636,8 @@ func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.IsStandard.IsTrue() {
-		return httperrors.NewForbiddenError("image is standard image")
-	}
 	if self.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
-	}
-	if self.IsPublic {
-		return httperrors.NewInvalidStatusError("image is shared")
 	}
 	if self.IsGuestImage.IsTrue() {
 		return httperrors.NewForbiddenError("image is the part of guest image")
