@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
@@ -170,8 +171,12 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	instanceSnapshot.ServerConfig = jsonutils.Marshal(guestSchedInput.ServerConfig)
 	serverMetadata := jsonutils.NewDict()
 	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
-		serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
-		serverMetadata.Set("login_key", jsonutils.NewString(guest.GetMetadata("login_key", nil)))
+		loginKey := guest.GetMetadata("login_key", nil)
+		passwd, e := utils.DescryptAESBase64(guest.Id, loginKey)
+		if e == nil {
+			serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
+			serverMetadata.Set("passwd", jsonutils.NewString(passwd))
+		}
 	}
 	if osArch := guest.GetMetadata("os_arch", nil); len(osArch) > 0 {
 		serverMetadata.Set("os_arch", jsonutils.NewString(osArch))

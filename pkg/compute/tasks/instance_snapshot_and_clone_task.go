@@ -121,7 +121,7 @@ func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 	)
 	for i := 0; i < count; i++ {
 		newGuest, input, err := models.GuestManager.CreateGuestFromInstanceSnapshot(
-			ctx, self.UserCred, dictParmas.DeepCopy().(*jsonutils.JSONDict), isp, i+1)
+			ctx, self.UserCred, dictParmas.DeepCopy().(*jsonutils.JSONDict), isp)
 		if err != nil {
 			log.Errorln(err)
 			errStr += err.Error() + "\n"
