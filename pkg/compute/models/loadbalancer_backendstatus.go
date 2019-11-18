@@ -163,7 +163,6 @@ func lbGetBackendGroupCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		if !ok {
 			continue
 		}
-		fmt.Printf("idx: %d\n", i)
 		backendJson := backendJsons[i].(*jsonutils.JSONDict)
 		for j, colName := range resSeries.Columns {
 			colVal := resColumns[j]
