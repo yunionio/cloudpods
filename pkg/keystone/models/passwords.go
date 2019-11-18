@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -97,11 +96,6 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 	passwords := manager.Query().SubQuery()
 
 	q := passwords.Query().Equals("local_user_id", localUserId)
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.IsNullOrEmpty(passwords.Field("expires_at_int")),
-		sqlchemy.Equals(passwords.Field("expires_at_int"), 0),
-		sqlchemy.GE(passwords.Field("expires_at_int"), time.Now().UnixNano()/1000),
-	))
 	q = q.Desc(passwords.Field("created_at_int"))
 	err := db.FetchModelObjects(manager, q, &passes)
 	if err != nil && err != sql.ErrNoRows {
@@ -174,4 +168,11 @@ func (manager *SPasswordManager) delete(localUserId int) error {
 		}
 	}
 	return nil
+}
+
+func (passwd *SPassword) IsExpired() bool {
+	if !passwd.ExpiresAt.IsZero() && passwd.ExpiresAt.Before(time.Now()) {
+		return true
+	}
+	return false
 }
