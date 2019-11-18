@@ -283,7 +283,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 
 	instance := SDBInstance{}
 	jsonutils.Update(&instance, input)
-	skus, err := instance.GetDBInstanceSkus()
+	skus, err := instance.GetAvailableDBInstanceSkus()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -732,9 +732,9 @@ func (self *SDBInstance) PerformChangeConfig(ctx context.Context, userCred mccli
 	}
 
 	if changed {
-		skus, err := tmp.GetDBInstanceSkus()
+		skus, err := tmp.GetAvailableDBInstanceSkus()
 		if err != nil {
-			return nil, httperrors.NewGeneralError(errors.Wrap(err, "self.GetDBInstanceSkus"))
+			return nil, httperrors.NewGeneralError(errors.Wrap(err, "self.GetAvailableDBInstanceSkus"))
 		}
 		if len(skus) == 0 {
 			return nil, httperrors.NewInputParameterError("failed to match any skus for change config")
@@ -1167,6 +1167,17 @@ func (self *SDBInstance) GetDBInstanceSkuQuery() *sqlchemy.SQuery {
 	return q
 }
 
+func (self *SDBInstance) GetAvailableDBInstanceSkus() ([]SDBInstanceSku, error) {
+	skus := []SDBInstanceSku{}
+	q := self.GetDBInstanceSkuQuery().Equals("status", api.DBINSTANCE_SKU_AVAILABLE)
+	err := db.FetchModelObjects(DBInstanceSkuManager, q, &skus)
+	if err != nil {
+		return nil, err
+	}
+	return skus, nil
+
+}
+
 func (self *SDBInstance) GetDBInstanceSkus() ([]SDBInstanceSku, error) {
 	skus := []SDBInstanceSku{}
 	q := self.GetDBInstanceSkuQuery()
@@ -1193,9 +1204,9 @@ func (self *SDBInstance) GetAvailableZoneIds() ([]string, error) {
 
 func (self *SDBInstance) GetAvailableInstanceTypes() ([]cloudprovider.SInstanceType, error) {
 	instanceTypes := map[string]cloudprovider.SInstanceType{}
-	skus, err := self.GetDBInstanceSkus()
+	skus, err := self.GetAvailableDBInstanceSkus()
 	if err != nil {
-		return nil, errors.Wrap(err, "self.GetDBInstanceSkus")
+		return nil, errors.Wrap(err, "self.GetAvailableDBInstanceSkus")
 	}
 
 	for _, sku := range skus {
