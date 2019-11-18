@@ -57,7 +57,7 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	err = models.VerifyPassword(usrExt, ident.Password.User.Password)
 	if err != nil {
 		localUser.SaveFailedAuth()
-		if localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
+		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
 			models.UserManager.LockUser(usrExt.Id)
 		}
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
