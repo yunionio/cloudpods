@@ -701,7 +701,7 @@ func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential)
 }
 
 func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if len(self.ExternalId) > 0 {
+	if self.Id != api.DEFAULT_VPC_ID {
 		return self.StartDeleteVpcTask(ctx, userCred)
 	} else {
 		return self.RealDelete(ctx, userCred)
