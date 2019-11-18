@@ -289,7 +289,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 		return nil
 	}
 	// password expiration check skip system account
-	if !passes[0].ExpiresAt.IsZero() && passes[0].ExpiresAt.Before(time.Now()) && !user.IsSystemAccount {
+	if !passes[0].IsExpired() && !user.IsSystemAccount {
 		return errors.Error("password expires")
 	}
 	err = seclib2.BcryptVerifyPassword(passwd, passes[0].PasswordHash)
