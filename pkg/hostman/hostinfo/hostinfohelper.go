@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
@@ -45,9 +46,10 @@ import (
 )
 
 type SCPUInfo struct {
-	CpuCount    int
-	cpuFreq     int64 // MHZ
-	cpuFeatures []string
+	CpuCount        int
+	cpuFreq         int64 // MHZ
+	cpuFeatures     []string
+	CpuArchitecture string
 
 	cpuInfoProc *types.SCPUInfo
 	cpuInfoDmi  *types.SDMICPUInfo
@@ -61,12 +63,16 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	strCpuFreq := spec["cpu_freq"]
-	freq, err := strconv.ParseFloat(strCpuFreq, 64)
-	if err != nil {
-		log.Errorln(err)
-		return nil, err
+	var freq float64
+	strCpuFreq, ok := spec["cpu_freq"]
+	if ok {
+		freq, err = strconv.ParseFloat(strCpuFreq, 64)
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
 	}
+
 	cpuinfo.cpuFreq = int64(freq)
 	log.Infof("cpuinfo freq %d", cpuinfo.cpuFreq)
 
@@ -75,24 +81,25 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	// cpu.Percent(interval, false)
 	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrap(err, "get cpuinfo")
 	}
 	cpuinfo.cpuInfoProc, err = sysutils.ParseCPUInfo(strings.Split(ret, "\n"))
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrap(err, "parse cpu info")
 	}
 	bret, err := procutils.NewCommand("dmidecode", "-t", "4").Run()
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrap(err, "get dmidecode info -t 4")
 	}
 	cpuinfo.cpuInfoDmi = sysutils.ParseDMICPUInfo(strings.Split(string(bret), "\n"))
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, errors.Wrap(err, "parse dmi cpuinfo")
 	}
+	cpuArch, err := procutils.NewCommand("uname", "-p").Run()
+	if err != nil {
+		return nil, errors.Wrap(err, "get cpu architecture")
+	}
+	cpuinfo.CpuArchitecture = strings.TrimSpace(string(cpuArch))
 	return cpuinfo, nil
 }
 
@@ -253,7 +260,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	if len(nic.Ip) > 0 {
 		var max, wait = 30, 0
 		for wait < max {
-			inf := netutils2.NewNetInterface(nic.Inter)
+			inf := netutils2.NewNetInterfaceWithExpectIp(nic.Inter, nic.Ip)
 			if inf.Addr == nic.Ip {
 				mask, _ := inf.Mask.Size()
 				if mask > 0 {
@@ -263,6 +270,10 @@ func NewNIC(desc string) (*SNIC, error) {
 			}
 			br := netutils2.NewNetInterface(nic.Bridge)
 			if br.Addr == nic.Ip {
+				mask, _ := br.Mask.Size()
+				if nic.Mask == 0 && mask > 0 {
+					nic.Mask = mask
+				}
 				break
 			}
 			time.Sleep(time.Second * 2)
