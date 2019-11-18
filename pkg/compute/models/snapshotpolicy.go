@@ -365,6 +365,27 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		return syncResult
 	}
 
+	// fetch all snapshotpolicy
+	q := SnapshotPolicyManager.Query()
+	allSnapshotPolicies := make([]SSnapshotPolicy, 0, 10)
+	err = q.All(&allSnapshotPolicies)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	// cluster snapshotpolicy
+	snapshotpolicyCluster := make(map[uint64][]*SSnapshotPolicy)
+	for i := range allSnapshotPolicies {
+		key := allSnapshotPolicies[i].Key()
+		list, ok := snapshotpolicyCluster[key]
+		if !ok {
+			list = make([]*SSnapshotPolicy, 0, 1)
+		}
+		list = append(list, &allSnapshotPolicies[i])
+		// sliceHeader change
+		snapshotpolicyCluster[key] = list
+	}
+
 	// structure two sets (externalID, snapshotpolicyCache), (snapshotPolicyID, snapshotPolicy)
 	spSet, spCacheSet := make(map[string]*SSnapshotPolicy), make(map[string]*SSnapshotPolicyCache)
 	for i := range snapshotPolicies {
@@ -414,7 +435,8 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 	}
 
 	for i := range added {
-		locol, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, added[i], region, syncOwnerId, provider)
+		locol, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, snapshotpolicyCluster, added[i], region,
+			syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -443,38 +465,64 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 }
 
 func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	ext cloudprovider.ICloudSnapshotPolicy, region *SCloudregion,
-	syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider,
+	ctx context.Context, userCred mcclient.TokenCredential, snapshotpolicyCluster map[uint64][]*SSnapshotPolicy,
+	ext cloudprovider.ICloudSnapshotPolicy, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider,
 ) (*SSnapshotPolicy, error) {
 
-	snapshotPolicy := SSnapshotPolicy{}
-	snapshotPolicy.SetModelManager(manager, &snapshotPolicy)
-
-	newName, err := db.GenerateName(manager, syncOwnerId, ext.GetName())
-	if err != nil {
-		return nil, err
-	}
-	snapshotPolicy.Name = newName
-	snapshotPolicy.Status = ext.GetStatus()
-	snapshotPolicy.RetentionDays = ext.GetRetentionDays()
+	snapshotPolicyTmp := SSnapshotPolicy{}
+	snapshotPolicyTmp.RetentionDays = ext.GetRetentionDays()
 	arw, err := ext.GetRepeatWeekdays()
 	if err != nil {
 		return nil, err
 	}
-	snapshotPolicy.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysParseIntArray(arw)
+	snapshotPolicyTmp.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysParseIntArray(arw)
 	atp, err := ext.GetTimePoints()
 	if err != nil {
 		return nil, err
 	}
-	snapshotPolicy.TimePoints = SnapshotPolicyManager.TimePointsParseIntArray(atp)
+	snapshotPolicyTmp.TimePoints = SnapshotPolicyManager.TimePointsParseIntArray(atp)
+	snapshotPolicyTmp.IsActivated = tristate.NewFromBool(ext.IsActivated())
 
-	snapshotPolicy.IsActivated = tristate.NewFromBool(ext.IsActivated())
+	extkey := snapshotPolicyTmp.Key()
+	extProjectId := SnapshotPolicyManager.FetchProjectId(ctx, userCred, syncOwnerId, ext, provider.GetId())
+	var snapshotPolicy *SSnapshotPolicy
 
-	err = manager.TableSpec().Insert(&snapshotPolicy)
-	if err != nil {
-		log.Errorf("newFromCloudEip fail %s", err)
-		return nil, err
+	if list, ok := snapshotpolicyCluster[extkey]; ok {
+		// find first snapshotpolicy enough to rebase
+		for _, sp := range list {
+			if sp.ProjectId == extProjectId {
+				snapshotPolicy = sp
+				break
+			}
+		}
+	}
+
+	// no such suitable snapshotpolicy in list
+	if snapshotPolicy == nil {
+		snapshotPolicyTmp.SetModelManager(manager, &snapshotPolicyTmp)
+		newName, err := db.GenerateName(manager, syncOwnerId, ext.GetName())
+		if err != nil {
+			return nil, err
+		}
+		snapshotPolicyTmp.Name = newName
+		snapshotPolicyTmp.Status = ext.GetStatus()
+
+		err = manager.TableSpec().Insert(&snapshotPolicyTmp)
+		if err != nil {
+			log.Errorf("newFromCloudEip fail %s", err)
+			return nil, err
+		}
+		// sync project
+		SyncCloudProject(userCred, &snapshotPolicyTmp, syncOwnerId, ext, provider.GetId())
+		// update snapshotpolicyCluster
+		key := snapshotPolicyTmp.Key()
+		list, ok := snapshotpolicyCluster[key]
+		if !ok {
+			list = make([]*SSnapshotPolicy, 0)
+		}
+		list = append(list, &snapshotPolicyTmp)
+		snapshotpolicyCluster[key] = list
+		snapshotPolicy = &snapshotPolicyTmp
 	}
 
 	// add cache
@@ -488,10 +536,40 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 			snapshotPolicy.GetId())
 	}
 
-	SyncCloudProject(userCred, &snapshotPolicy, syncOwnerId, ext, provider.GetId())
+	db.OpsLog.LogEvent(snapshotPolicy, db.ACT_CREATE, snapshotPolicy.GetShortDesc(ctx), userCred)
+	return snapshotPolicy, nil
+}
 
-	db.OpsLog.LogEvent(&snapshotPolicy, db.ACT_CREATE, snapshotPolicy.GetShortDesc(ctx), userCred)
-	return &snapshotPolicy, nil
+func (spm *SSnapshotPolicyManager) FetchProjectId(ctx context.Context, userCred mcclient.TokenCredential,
+	syncOwnerId mcclient.IIdentityProvider, cloudSP cloudprovider.ICloudSnapshotPolicy, managerId string) string {
+	var newOwnerId mcclient.IIdentityProvider
+	if extProjectId := cloudSP.GetProjectId(); len(extProjectId) > 0 {
+		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
+		if err != nil {
+			log.Errorln(err)
+		} else {
+			newOwnerId = extProject.GetOwnerId()
+		}
+	}
+	if newOwnerId == nil && syncOwnerId != nil && len(syncOwnerId.GetProjectId()) > 0 {
+		newOwnerId = syncOwnerId
+	}
+	if newOwnerId == nil {
+		newOwnerId = userCred
+	}
+	return newOwnerId.GetProjectId()
+}
+
+func (sp *SSnapshotPolicy) Key() uint64 {
+	var key uint64
+	key |= (uint64(sp.RepeatWeekdays) << 56) | (uint64(sp.TimePoints) << 24)
+	// that sp.RetentionDays is -1 means permanent retention, sp.RetentionDays+1 must be less than 2^23
+	r := sp.RetentionDays + 1&(1<<24-1)
+	key |= uint64(r) << 1
+	if sp.IsActivated.IsTrue() {
+		key |= 1
+	}
+	return key
 }
 
 func (sp *SSnapshotPolicy) Equals(cloudSP cloudprovider.ICloudSnapshotPolicy) bool {
