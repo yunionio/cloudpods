@@ -4252,8 +4252,7 @@ func (self *SGuest) StartInstanceSnapshotAndCloneTask(
 }
 
 func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
-	ctx context.Context, userCred mcclient.TokenCredential, guestParams *jsonutils.JSONDict,
-	isp *SInstanceSnapshot, index int,
+	ctx context.Context, userCred mcclient.TokenCredential, guestParams *jsonutils.JSONDict, isp *SInstanceSnapshot,
 ) (*SGuest, *jsonutils.JSONDict, error) {
 	lockman.LockClass(ctx, manager, isp.ProjectId)
 	defer lockman.ReleaseClass(ctx, manager, isp.ProjectId)
@@ -4262,7 +4261,7 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	if err != nil {
 		return nil, nil, fmt.Errorf("No new guest name provider")
 	}
-	if guestName, err = db.GenerateName2(manager, isp.GetOwnerId(), guestName, nil, index); err != nil {
+	if guestName, err = db.GenerateName(manager, isp.GetOwnerId(), guestName); err != nil {
 		return nil, nil, err
 	}
 
@@ -4276,6 +4275,10 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 	if isp.ServerMetadata != nil {
 		metadata := make(map[string]interface{}, 0)
 		isp.ServerMetadata.Unmarshal(metadata)
+		if passwd, ok := metadata["passwd"]; ok {
+			delete(metadata, "passwd")
+			metadata["login_key"], _ = utils.EncryptAESBase64(guest.Id, passwd.(string))
+		}
 		metadata["__base_instance_snapshot_id"] = isp.Id
 		guest.SetAllMetadata(ctx, metadata, userCred)
 	}
