@@ -259,7 +259,7 @@ func (self *SBaseGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 	return fmt.Errorf("SBaseGuestDriver: Not Implement RequestAssociateEip")
 }
 
-func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest) bool {
+func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
 	return true
 }
 
