@@ -60,7 +60,7 @@ type SCloudregion struct {
 
 	cloudprovider.SGeographicInfo
 
-	Provider string `width:"64" charset:"ascii" list:"user"`
+	Provider string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud"`
 }
 
 func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -500,7 +500,7 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 
 func (manager *SCloudregionManager) InitializeData() error {
 	// check if default region exists
-	_, err := manager.FetchById(api.DEFAULT_REGION_ID)
+	obj, err := manager.FetchById(api.DEFAULT_REGION_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defRegion := SCloudregion{}
@@ -509,14 +509,18 @@ func (manager *SCloudregionManager) InitializeData() error {
 			defRegion.Enabled = true
 			defRegion.Description = "Default Region"
 			defRegion.Status = api.CLOUD_REGION_STATUS_INSERVER
-			err = manager.TableSpec().Insert(&defRegion)
-			if err != nil {
-				log.Errorf("Insert default region fails: %s", err)
-			}
-			return err
-		} else {
+			defRegion.Provider = api.CLOUD_PROVIDER_ONECLOUD
+			err := manager.TableSpec().Insert(&defRegion)
 			return err
 		}
+		return err
+	}
+	if region := obj.(*SCloudregion); region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
+		_, err := db.Update(region, func() error {
+			region.Provider = api.CLOUD_PROVIDER_ONECLOUD
+			return nil
+		})
+		return err
 	}
 	return nil
 }
@@ -527,7 +531,7 @@ func getCloudRegionIdByDomainId(domainId string) *sqlchemy.SSubQuery {
 	providers := CloudproviderManager.Query().SubQuery()
 
 	// not managed region
-	q1 := CloudregionManager.Query("id").IsNullOrEmpty("provider")
+	q1 := CloudregionManager.Query("id").Equals("provider", api.CLOUD_PROVIDER_ONECLOUD)
 
 	// managed region
 	q2 := cloudproviderregions.Query(cloudproviderregions.Field("cloudregion_id", "id"))
@@ -555,7 +559,7 @@ func queryCloudregionIdsByProviders(providerField string, providerStrs []string)
 		conds = append(conds, sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
 	if oneCloud {
-		conds = append(conds, sqlchemy.IsNullOrEmpty(q.Field("provider")))
+		conds = append(conds, sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD))
 	}
 	if len(conds) == 1 {
 		q = q.Filter(conds[0])
@@ -597,7 +601,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 		))
 	}
 
@@ -605,7 +609,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 		))
 	}
 
