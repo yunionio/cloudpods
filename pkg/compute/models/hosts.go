@@ -352,6 +352,36 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
+func (manager *SHostManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
+	if query.Contains("cdrom_boot") {
+		cdromBoot := jsonutils.QueryBoolean(query, "cdrom_boot", false)
+		cdromBootF := func(obj jsonutils.JSONObject) (bool, error) {
+			id, err := obj.GetString("id")
+			if err != nil {
+				return false, err
+			}
+			host := manager.FetchHostById(id)
+			ipmiInfo, err := host.GetIpmiInfo()
+			if err != nil {
+				return false, err
+			}
+			if cdromBoot && ipmiInfo.CdromBoot {
+				return true, nil
+			}
+			if !cdromBoot && !ipmiInfo.CdromBoot {
+				return true, nil
+			}
+			return false, nil
+		}
+
+		filters.Append(cdromBootF)
+	}
+
+	return filters, nil
+}
+
 func (self *SHost) GetZone() *SZone {
 	if len(self.ZoneId) == 0 {
 		return nil
