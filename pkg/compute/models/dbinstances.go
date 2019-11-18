@@ -369,11 +369,11 @@ type sDBInstanceZone struct {
 	Name string
 }
 
-func fetchDBInstanceZones(rdsIds []string) map[string]sDBInstanceZone {
+func fetchDBInstanceZones(rdsIds []string) map[string][]sDBInstanceZone {
 	instances := DBInstanceManager.Query().SubQuery()
 	zones := ZoneManager.Query().SubQuery()
 
-	result := map[string]sDBInstanceZone{}
+	result := map[string][]sDBInstanceZone{}
 
 	for _, zone := range []string{"zone1", "zone2", "zone3"} {
 		zoneInfo := []struct {
@@ -394,11 +394,12 @@ func fetchDBInstanceZones(rdsIds []string) map[string]sDBInstanceZone {
 
 		for _, _zone := range zoneInfo {
 			if _, ok := result[_zone.InstanceId]; !ok {
-				result[_zone.InstanceId] = sDBInstanceZone{
-					Id:   fmt.Sprintf("%s_name", zone),
-					Name: _zone.Name,
-				}
+				result[_zone.InstanceId] = []sDBInstanceZone{}
 			}
+			result[_zone.InstanceId] = append(result[_zone.InstanceId], sDBInstanceZone{
+				Id:   fmt.Sprintf("%s_name", zone),
+				Name: _zone.Name,
+			})
 		}
 	}
 
@@ -415,8 +416,10 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(ctx context.Context, us
 		zoneInfo := fetchDBInstanceZones(rdsIds)
 		if zoneInfo != nil {
 			for i := range rows {
-				if zone, ok := zoneInfo[objs[i].GetId()]; ok {
-					rows[i].Add(jsonutils.NewString(zone.Name), zone.Id)
+				if zones, ok := zoneInfo[objs[i].GetId()]; ok {
+					for _, zone := range zones {
+						rows[i].Add(jsonutils.NewString(zone.Name), zone.Id)
+					}
 				}
 			}
 		}
