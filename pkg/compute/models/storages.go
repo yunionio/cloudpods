@@ -116,7 +116,7 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	if data.Contains("cmtbound") {
+	if data.Contains("cmtbound") || data.Contains("capacity") {
 		hosts := self.GetAttachedHosts()
 		for _, host := range hosts {
 			if err := host.ClearSchedDescCache(); err != nil {
