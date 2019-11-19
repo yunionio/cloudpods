@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	aggrerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
 
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
@@ -92,20 +92,20 @@ func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
 }
 
 func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
-	files := map[string]string{
-		"gobetween": h.gobetweenPidFile(),
-		"haproxy":   h.haproxyPidFile(),
-		"telegraf":  h.telegrafPidFile(),
+	pidFiles := []*agentutils.PidFile{
+		h.gobetweenPidFile(),
+		h.haproxyPidFile(),
+		h.telegrafPidFile(),
 	}
 	wg := &sync.WaitGroup{}
-	wg.Add(len(files))
+	wg.Add(len(pidFiles))
 
-	for name, f := range files {
-		go func(name, f string) {
+	for _, pf := range pidFiles {
+		go func(pf *agentutils.PidFile) {
 			defer wg.Done()
-			proc := agentutils.ReadPidFile(f)
-			if proc != nil {
-				log.Infof("stopping %s(%d)", name, proc.Pid)
+			proc, confirmed, err := pf.ConfirmOrUnlink()
+			if confirmed {
+				log.Infof("stopping %s(%d)", pf.Comm, proc.Pid)
 				proc.Signal(syscall.SIGTERM)
 				for etime := time.Now().Add(5 * time.Second); etime.Before(time.Now()); {
 					if err := proc.Signal(syscall.Signal(0)); err == nil {
@@ -117,7 +117,10 @@ func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
 				// TODO check whether proc.Ppid == os.Getpid()
 				proc.Wait()
 			}
-		}(name, f)
+			if err != nil {
+				log.Warningln(err.Error())
+			}
+		}(pf)
 	}
 	wg.Wait()
 }
@@ -263,7 +266,7 @@ func (h *HaproxyHelper) useConfigs(ctx context.Context, d string) error {
 		if len(errs) == 0 {
 			return nil
 		}
-		return aggrerrors.NewAggregate(errs)
+		return errors.NewAggregate(errs)
 	}
 }
 
@@ -271,8 +274,12 @@ func (h *HaproxyHelper) haproxyConfD() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "haproxy.conf.d")
 }
 
-func (h *HaproxyHelper) haproxyPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "haproxy.pid")
+func (h *HaproxyHelper) haproxyPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "haproxy.pid"),
+		"haproxy",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) haproxyStatsSocketFile() string {
@@ -285,14 +292,17 @@ func (h *HaproxyHelper) reloadHaproxy(ctx context.Context) error {
 	args := []string{
 		h.opts.HaproxyBin,
 		"-D", // goes daemon
-		"-p", pidFile,
+		"-p", pidFile.Path,
 		"-C", h.haproxyConfD(),
 		"-f", h.haproxyConfD(),
 	}
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc == nil {
+	proc, confirmed, err := pidFile.ConfirmOrUnlink()
+	if !confirmed {
 		log.Infof("starting haproxy")
 		return h.runCmd(args)
+	}
+	if err != nil {
+		log.Warningln(err.Error())
 	}
 
 	{
@@ -349,17 +359,26 @@ func (h *HaproxyHelper) gobetweenConf() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
 }
 
-func (h *HaproxyHelper) gobetweenPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "gobetween.pid")
+func (h *HaproxyHelper) gobetweenPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "gobetween.pid"),
+		"gobetween",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	pidFile := h.gobetweenPidFile()
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		log.Infof("stopping gobetween(%d)", proc.Pid)
-		proc.Kill()
-		proc.Wait()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			log.Infof("stopping gobetween(%d)", proc.Pid)
+			proc.Kill()
+			proc.Wait()
+		}
+		if err != nil {
+			log.Warningln(err.Error())
+		}
 	}
 
 	args := []string{
@@ -372,7 +391,7 @@ func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = agentutils.WritePidFile(cmd.Process.Pid, h.gobetweenPidFile())
+	err = agentutils.WritePidFile(cmd.Process.Pid, pidFile.Path)
 	if err != nil {
 		return fmt.Errorf("writing gobetween pid file: %s", err)
 	}
@@ -383,28 +402,37 @@ func (h *HaproxyHelper) telegrafConf() string {
 	return filepath.Join(h.haproxyConfD(), "telegraf.conf")
 }
 
-func (h *HaproxyHelper) telegrafPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "telegraf.pid")
+func (h *HaproxyHelper) telegrafPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "telegraf.pid"),
+		"telegraf",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadTelegraf(ctx context.Context) error {
 	pidFile := h.telegrafPidFile()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			log.Infof("stopping telegraf(%d)", proc.Pid)
+			proc.Kill()
+			proc.Wait()
+		}
+		if err != nil {
+			log.Warningln(err.Error())
+		}
+	}
+	log.Infof("starting telegraf")
 	args := []string{
 		h.opts.TelegrafBin,
 		"--config", h.telegrafConf(),
 	}
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		log.Infof("stopping telegraf(%d)", proc.Pid)
-		proc.Kill()
-		proc.Wait()
-	}
-	log.Infof("starting telegraf")
 	cmd, err := h.startCmd(args)
 	if err != nil {
 		return err
 	}
-	err = agentutils.WritePidFile(cmd.Process.Pid, h.telegrafPidFile())
+	err = agentutils.WritePidFile(cmd.Process.Pid, pidFile.Path)
 	if err != nil {
 		return fmt.Errorf("writing telegraf pid file: %s", err)
 	}
@@ -415,34 +443,64 @@ func (h *HaproxyHelper) keepalivedConf() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
 }
 
-func (h *HaproxyHelper) keepalivedPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived.pid")
+func (h *HaproxyHelper) keepalivedPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
-func (h *HaproxyHelper) keepalivedVrrpPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived_vrrp.pid")
+func (h *HaproxyHelper) keepalivedVrrpPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived_vrrp.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
-func (h *HaproxyHelper) keepalivedCheckersPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived_checkers.pid")
+func (h *HaproxyHelper) keepalivedCheckersPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived_checkers.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
-	pidFile := h.keepalivedPidFile()
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		// send SIGHUP to reload
-		err := proc.Signal(syscall.SIGHUP)
-		if err != nil {
-			return fmt.Errorf("keepalived: send HUP failed: %s", err)
+	var (
+		pidFile         *agentutils.PidFile
+		vrrpPidFile     *agentutils.PidFile
+		checkersPidFile *agentutils.PidFile
+	)
+	pidFile = h.keepalivedPidFile()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			// send SIGHUP to reload
+			err := proc.Signal(syscall.SIGHUP)
+			if err != nil {
+				return fmt.Errorf("keepalived: send HUP failed: %s", err)
+			}
+			return nil
 		}
-		return nil
+		if err != nil {
+			log.Warningln(err.Error())
+		}
+	}
+	vrrpPidFile = h.keepalivedVrrpPidFile()
+	if _, _, err := vrrpPidFile.ConfirmOrUnlink(); err != nil {
+		log.Warningln(err.Error())
+	}
+	checkersPidFile = h.keepalivedCheckersPidFile()
+	if _, _, err := checkersPidFile.ConfirmOrUnlink(); err != nil {
+		log.Warningln(err.Error())
 	}
 	args := []string{
 		h.opts.KeepalivedBin,
-		"--pid", pidFile,
-		"--vrrp_pid", h.keepalivedVrrpPidFile(),
-		"--checkers_pid", h.keepalivedCheckersPidFile(),
+		"--pid", pidFile.Path,
+		"--vrrp_pid", vrrpPidFile.Path,
+		"--checkers_pid", checkersPidFile.Path,
 		"--use-file", h.keepalivedConf(),
 	}
 	return h.runCmd(args)
