@@ -1656,6 +1656,7 @@ func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcc
 					q.Field("id"),
 					cloudproviders.Field("cloudaccount_id"),
 				))
+				q = q.Distinct()
 				q = q.Filter(sqlchemy.OR(
 					sqlchemy.AND(
 						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
