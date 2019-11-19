@@ -95,7 +95,7 @@ func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
 	files := map[string]string{
 		"gobetween": h.gobetweenPidFile(),
 		"haproxy":   h.haproxyPidFile(),
-		"telegraf":  h.telegrafPidFile(),
+		"telegraf":  h.telegrafPidFile().Path,
 	}
 	wg := &sync.WaitGroup{}
 	wg.Add(len(files))
@@ -383,28 +383,37 @@ func (h *HaproxyHelper) telegrafConf() string {
 	return filepath.Join(h.haproxyConfD(), "telegraf.conf")
 }
 
-func (h *HaproxyHelper) telegrafPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "telegraf.pid")
+func (h *HaproxyHelper) telegrafPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "telegraf.pid"),
+		"telegraf",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadTelegraf(ctx context.Context) error {
 	pidFile := h.telegrafPidFile()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			log.Infof("stopping telegraf(%d)", proc.Pid)
+			proc.Kill()
+			proc.Wait()
+		}
+		if err != nil {
+			log.Warningln(err.Error())
+		}
+	}
+	log.Infof("starting telegraf")
 	args := []string{
 		h.opts.TelegrafBin,
 		"--config", h.telegrafConf(),
 	}
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		log.Infof("stopping telegraf(%d)", proc.Pid)
-		proc.Kill()
-		proc.Wait()
-	}
-	log.Infof("starting telegraf")
 	cmd, err := h.startCmd(args)
 	if err != nil {
 		return err
 	}
-	err = agentutils.WritePidFile(cmd.Process.Pid, h.telegrafPidFile())
+	err = agentutils.WritePidFile(cmd.Process.Pid, pidFile.Path)
 	if err != nil {
 		return fmt.Errorf("writing telegraf pid file: %s", err)
 	}
