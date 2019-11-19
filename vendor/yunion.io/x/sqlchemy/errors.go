@@ -15,6 +15,8 @@
 package sqlchemy
 
 import (
+	"github.com/go-sql-driver/mysql"
+
 	"yunion.io/x/pkg/errors"
 )
 
@@ -30,4 +32,17 @@ const (
 	ErrReadOnly     = errors.Error("read only input")
 
 	ErrNotSupported = errors.ErrNotSupported
+
+	ErrTableNotExists = errors.Error("TableNotExists")
 )
+
+const (
+	mysqlErrorTableNotExist = 0x47a
+)
+
+func isMysqlError(err error, code uint16) bool {
+	if myErr, ok := err.(*mysql.MySQLError); ok {
+		return myErr.Number == code
+	}
+	return false
+}
