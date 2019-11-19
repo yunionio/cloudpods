@@ -414,6 +414,15 @@ func (manager *SElasticcacheManager) AllowCreateItem(ctx context.Context, userCr
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
+func (manager *SElasticcacheManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	input, err := manager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return input, nil
+}
+
 func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
 	if id, _ := data.GetString("network"); len(id) > 0 {
@@ -433,21 +442,18 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 		return nil, err
 	}
 
-	if reset, _ := data.Bool("reset_password"); reset {
-		if _, err := data.GetString("password"); err != nil {
-			randomPasswd := seclib2.RandomPassword2(12)
-			data.Set("password", jsonutils.NewString(randomPasswd))
-		}
-	}
-
 	return region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, data)
 }
 
 func (self *SElasticcache) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	params := jsonutils.NewDict()
 	password, _ := data.GetString("password")
+	if reset, _ := data.Bool("reset_password"); reset && len(password) == 0 {
+		password = seclib2.RandomPassword2(12)
+	}
+
+	params := jsonutils.NewDict()
 	params.Set("password", jsonutils.NewString(password))
 	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_DEPLOYING, "")
 	if err := self.StartElasticcacheCreateTask(ctx, userCred, params, ""); err != nil {
