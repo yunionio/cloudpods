@@ -70,7 +70,7 @@ func StartService() {
 	*/
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
-	initHandlers(app)
+	InitHandlers(app)
 
 	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
 

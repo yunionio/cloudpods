@@ -1269,6 +1269,7 @@ func (manager *SGuestManager) BatchCreateValidateCreateData(ctx context.Context,
 	return input.JSON(input), nil
 }
 
+// 创建虚拟机实例
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
 	if err != nil {

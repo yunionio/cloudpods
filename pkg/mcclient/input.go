@@ -43,14 +43,22 @@ type SAuthenticationInputV2 struct {
 }
 
 type SAuthenticationIdentity struct {
-	Methods  []string `json:"methods,omitempty"`
+	// 认证方式列表
+	Methods []string `json:"methods,omitempty"`
+	// 密码认证信息
 	Password struct {
 		User struct {
-			Id       string `json:"id,omitempty"`
-			Name     string `json:"name,omitempty"`
+			// 用户ID
+			Id string `json:"id,omitempty"`
+			// 用户名称
+			Name string `json:"name,omitempty"`
+			// 密码
 			Password string `json:"password,omitempty"`
-			Domain   struct {
-				Id   string `json:"id,omitempty"`
+			// 域的信息
+			Domain struct {
+				// 域ID
+				Id string `json:"id,omitempty"`
+				// 域名称
 				Name string `json:"name,omitempty"`
 			}
 		} `json:"user,omitempty"`

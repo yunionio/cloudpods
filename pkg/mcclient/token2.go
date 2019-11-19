@@ -27,61 +27,61 @@ import (
 )
 
 type KeystoneEndpointV2 struct {
-	Id          string
-	InternalURL string
-	PublicURL   string
-	AdminURL    string
-	Region      string
+	Id          string `json:"id"`
+	InternalURL string `json:"internal_url"`
+	PublicURL   string `json:"public_url"`
+	AdminURL    string `json:"admin_url"`
+	Region      string `json:"region"`
 }
 
 type KeystoneServiceV2 struct {
-	Name      string
-	Type      string
-	Endpoints []KeystoneEndpointV2
+	Name      string               `json:"name"`
+	Type      string               `json:"type"`
+	Endpoints []KeystoneEndpointV2 `json:"endpoints"`
 }
 
 type KeystoneRoleV2 struct {
-	Name string
+	Name string `json:"name"`
 }
 
 type KeystoneUserV2 struct {
-	Id       string
-	Name     string
-	Username string
-	Roles    []KeystoneRoleV2
+	Id       string           `json:"id"`
+	Name     string           `json:"name"`
+	Username string           `json:"username"`
+	Roles    []KeystoneRoleV2 `json:"roles"`
 }
 
 type KeystoneTenantV2 struct {
-	Id          string
-	Name        string
-	Enabled     bool
-	Description string
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
 	Domain      struct {
-		Id   string
-		Name string
-	}
+		Id   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"domain"`
 }
 
 type KeystoneTokenV2 struct {
-	Id      string
-	Expires time.Time
-	Tenant  KeystoneTenantV2
+	Id      string           `json:"id"`
+	Expires time.Time        `json:"expires"`
+	Tenant  KeystoneTenantV2 `json:"tenant"`
 }
 
 type KeystoneMetadataV2 struct {
-	IsAdmin int
-	Roles   []string
+	IsAdmin int      `json:"is_admin"`
+	Roles   []string `json:"roles"`
 }
 
 type KeystoneServiceCatalogV2 []KeystoneServiceV2
 
 type TokenCredentialV2 struct {
-	Token          KeystoneTokenV2
-	ServiceCatalog KeystoneServiceCatalogV2
-	User           KeystoneUserV2
-	Tenants        []KeystoneTenantV2
-	Metadata       KeystoneMetadataV2
-	Context        SAuthContext
+	Token          KeystoneTokenV2          `json:"token"`
+	ServiceCatalog KeystoneServiceCatalogV2 `json:"service_catalog"`
+	User           KeystoneUserV2           `json:"user"`
+	Tenants        []KeystoneTenantV2       `json:"tenants"`
+	Metadata       KeystoneMetadataV2       `json:"metadata"`
+	Context        SAuthContext             `json:"context"`
 }
 
 func (token *TokenCredentialV2) GetTokenString() string {

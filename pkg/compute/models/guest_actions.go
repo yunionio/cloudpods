@@ -1303,13 +1303,8 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "rebuild-root")
 }
 
-func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	input := api.ServerRebuildRootInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input: %s", err)
-	}
-
+// 重装系统(更换系统镜像)
+func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.ServerRebuildRootInput) (*api.SGuest, error) {
 	imageId := input.GetImageName()
 
 	if len(imageId) > 0 {

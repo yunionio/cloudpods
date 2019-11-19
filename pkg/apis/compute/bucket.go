@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	BUCKET_OPS_STATS_CHANGE = "stats_change"
 
@@ -30,3 +34,17 @@ const (
 	BUCKET_UPLOAD_OBJECT_ACL_HEADER          = "X-Yunion-Bucket-Upload-Acl"
 	BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER = "X-Yunion-Bucket-Upload-Storageclass"
 )
+
+type BucketCreateInput struct {
+	apis.Meta
+
+	Name         string `json:"name"`
+	Cloudregion  string `json:"cloudregion"`
+	Manager      string `json:"manager"`
+	StorageClass string `json:"storage_class"`
+	Description  string `json:"description"`
+}
+
+type BucketDetail struct {
+	SBucket
+}
