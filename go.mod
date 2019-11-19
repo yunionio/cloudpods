@@ -133,7 +133,7 @@ require (
 	yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20191111031517-2206ee61d93e
-	yunion.io/x/sqlchemy v0.0.0-20190817082003-905772542cba
+	yunion.io/x/sqlchemy v0.0.0-20191119025555-5948646b39e6
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 

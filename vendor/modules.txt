@@ -783,7 +783,7 @@ yunion.io/x/pkg/util/version
 yunion.io/x/pkg/util/wait
 yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
-# yunion.io/x/sqlchemy v0.0.0-20190817082003-905772542cba
+# yunion.io/x/sqlchemy v0.0.0-20191119025555-5948646b39e6
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg

@@ -77,7 +77,7 @@ func CheckSync(autoSync bool) bool {
 				}
 			} else {
 				for _, sql := range dropFKSqls {
-					fmt.Println(sql)
+					log.Infof("%s;", sql)
 				}
 				inSync = false
 			}
@@ -96,7 +96,7 @@ func CheckSync(autoSync bool) bool {
 				}
 			} else {
 				for _, sql := range sqls {
-					fmt.Println(sql)
+					log.Infof("%s;", sql)
 				}
 				inSync = false
 			}

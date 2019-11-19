@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -99,7 +100,7 @@ type SDynamicschedtag struct {
 	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
-	Enabled bool `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
 
 func (self *SDynamicschedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

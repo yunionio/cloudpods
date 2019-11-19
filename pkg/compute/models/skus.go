@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -81,10 +82,10 @@ type SServerSku struct {
 
 	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
-	SysDiskResizable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskMinSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
-	SysDiskMaxSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
+	SysDiskResizable tristate.TriState `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskType      string            `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskMinSizeGB int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
+	SysDiskMaxSizeGB int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
 
 	AttachedDiskType   string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	AttachedDiskSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
@@ -96,10 +97,10 @@ type SServerSku struct {
 	NicType     string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	NicMaxCount int    `default:"1" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
-	GpuAttachable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuSpec       string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuCount      int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	GpuMaxCount   int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuAttachable tristate.TriState `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuSpec       string            `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuCount      int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuMaxCount   int               `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
 	CloudregionId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
@@ -1027,7 +1028,7 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 
 	self.OsName = extSku.GetOsName()
 
-	self.SysDiskResizable = extSku.GetSysDiskResizable()
+	self.SysDiskResizable = tristate.NewFromBool(extSku.GetSysDiskResizable())
 	self.SysDiskType = extSku.GetSysDiskType()
 	self.SysDiskMinSizeGB = extSku.GetSysDiskMinSizeGB()
 	self.SysDiskMaxSizeGB = extSku.GetSysDiskMaxSizeGB()
@@ -1042,7 +1043,7 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 	self.NicType = extSku.GetNicType()
 	self.NicMaxCount = extSku.GetNicMaxCount()
 
-	self.GpuAttachable = extSku.GetGpuAttachable()
+	self.GpuAttachable = tristate.NewFromBool(extSku.GetGpuAttachable())
 	self.GpuSpec = extSku.GetGpuSpec()
 	self.GpuCount = extSku.GetGpuCount()
 	self.GpuMaxCount = extSku.GetGpuMaxCount()

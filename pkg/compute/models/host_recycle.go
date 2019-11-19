@@ -238,7 +238,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeStorage.Cmtbound = 1.0
 	fakeStorage.ZoneId = fakeHost.ZoneId
 	fakeStorage.StoragecacheId = sysStorage.StoragecacheId
-	fakeStorage.Enabled = true
+	fakeStorage.Enabled = tristate.True
 	fakeStorage.Status = api.STORAGE_ONLINE
 	fakeStorage.Description = "fake storage for prepaid vm recycling"
 	fakeStorage.IsEmulated = true

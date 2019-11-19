@@ -44,14 +44,14 @@ func (ts *STableSpec) Fetch(dt interface{}) error {
 func (ts *STableSpec) FetchAll(dest interface{}) error {
 	arrayType := reflect.TypeOf(dest).Elem()
 	if arrayType.Kind() != reflect.Array && arrayType.Kind() != reflect.Slice {
-		return errors.Error("dest is not an array or slice")
+		return errors.Wrap(ErrNeedsArray, "dest is not an array or slice")
 	}
 
 	arrayValue := reflect.ValueOf(dest).Elem()
 
 	primaryCols := ts.PrimaryColumns()
 	if len(primaryCols) != 1 {
-		return errors.Error("support 1 primary key only")
+		return errors.Wrap(ErrNotSupported, "support 1 primary key only")
 	}
 	primaryCol := primaryCols[0]
 

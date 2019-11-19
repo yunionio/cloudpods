@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
@@ -53,8 +54,8 @@ const DNS_RECORDS_SEPARATOR = ","
 
 type SDnsRecord struct {
 	db.SAdminSharableVirtualResourceBase
-	Ttl     int  `nullable:"true" default:"1" create:"optional" list:"user" update:"user"`
-	Enabled bool `nullable:"false" default:"true" create:"optional" list:"user"`
+	Ttl     int               `nullable:"true" default:"1" create:"optional" list:"user" update:"user"`
+	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user"`
 }
 
 // GetRecordsSeparator implements IAdminSharableVirtualModelManager
@@ -431,9 +432,9 @@ func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient
 }
 
 func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !rec.Enabled {
+	if rec.Enabled.IsFalse() {
 		diff, err := db.Update(rec, func() error {
-			rec.Enabled = true
+			rec.Enabled = tristate.True
 			return nil
 		})
 		if err != nil {
@@ -451,9 +452,9 @@ func (rec *SDnsRecord) AllowPerformDisable(ctx context.Context, userCred mcclien
 }
 
 func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if rec.Enabled {
+	if rec.Enabled.IsTrue() {
 		diff, err := db.Update(rec, func() error {
-			rec.Enabled = false
+			rec.Enabled = tristate.False
 			return nil
 		})
 		if err != nil {

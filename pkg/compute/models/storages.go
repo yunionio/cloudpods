@@ -75,11 +75,11 @@ type SStorage struct {
 
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
-	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
-	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
+	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
+	Status  string            `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
 
 	// indicating whether system disk can be allocated in this storage
-	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
+	IsSysDiskStore tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManagers() [][]db.IModelManager {
@@ -269,9 +269,9 @@ func (self *SStorage) AllowPerformEnable(ctx context.Context, userCred mcclient.
 }
 
 func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if self.Enabled.IsFalse() {
 		_, err := db.Update(self, func() error {
-			self.Enabled = true
+			self.Enabled = tristate.True
 			return nil
 		})
 		if err != nil {
@@ -289,9 +289,9 @@ func (self *SStorage) AllowPerformDisable(ctx context.Context, userCred mcclient
 }
 
 func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Enabled {
+	if self.Enabled.IsTrue() {
 		_, err := db.Update(self, func() error {
-			self.Enabled = false
+			self.Enabled = tristate.False
 			return nil
 		})
 		if err != nil {
@@ -688,11 +688,11 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		}
 		self.StorageConf = extStorage.GetStorageConf()
 
-		self.Enabled = extStorage.GetEnabled()
+		self.Enabled = tristate.NewFromBool(extStorage.GetEnabled())
 
 		self.IsEmulated = extStorage.IsEmulated()
 
-		self.IsSysDiskStore = extStorage.IsSysDiskStore()
+		self.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
 		return nil
 	})
@@ -721,12 +721,12 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage.Capacity = extStorage.GetCapacityMB()
 	storage.Cmtbound = 1.0
 
-	storage.Enabled = extStorage.GetEnabled()
+	storage.Enabled = tristate.NewFromBool(extStorage.GetEnabled())
 
 	storage.IsEmulated = extStorage.IsEmulated()
 	storage.ManagerId = provider.Id
 
-	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
+	storage.IsSysDiskStore = tristate.NewFromBool(extStorage.IsSysDiskStore())
 
 	err = manager.TableSpec().Insert(&storage)
 	if err != nil {

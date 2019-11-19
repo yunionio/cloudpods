@@ -446,7 +446,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 }
 
 func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, storage *SStorage) error {
-	if !storage.Enabled {
+	if storage.Enabled.IsFalse() {
 		return httperrors.NewInputParameterError("Cannot create disk with disabled storage[%s]", storage.Name)
 	}
 	if !utils.IsInStringArray(storage.Status, []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}) {

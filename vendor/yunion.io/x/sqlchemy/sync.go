@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -159,7 +160,9 @@ func (ts *STableSpec) fetchIndexesAndConstraints() ([]STableIndex, []STableConst
 	var name, defStr string
 	err := row.Scan(&name, &defStr)
 	if err != nil {
-		log.Errorf("fetch create table info fail %s", err)
+		if isMysqlError(err, mysqlErrorTableNotExist) {
+			err = ErrTableNotExists
+		}
 		return nil, nil, err
 	}
 	indexes := parseIndexes(defStr)
@@ -235,7 +238,9 @@ func diffIndexes(exists []STableIndex, defs []STableIndex) (added []STableIndex,
 func (ts *STableSpec) DropForeignKeySQL() []string {
 	_, constraints, err := ts.fetchIndexesAndConstraints()
 	if err != nil {
-		log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		if errors.Cause(err) != ErrTableNotExists {
+			log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		}
 		return nil
 	}
 
@@ -243,7 +248,7 @@ func (ts *STableSpec) DropForeignKeySQL() []string {
 	for _, constraint := range constraints {
 		sql := fmt.Sprintf("ALTER TABLE `%s` DROP FOREIGN KEY `%s`", ts.name, constraint.name)
 		ret = append(ret, sql)
-		log.Infof(sql)
+		log.Infof("%s;", sql)
 	}
 
 	return ret
@@ -260,7 +265,9 @@ func (ts *STableSpec) SyncSQL() []string {
 
 	indexes, _, err := ts.fetchIndexesAndConstraints()
 	if err != nil {
-		log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		if errors.Cause(err) != ErrTableNotExists {
+			log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		}
 		return nil
 	}
 
@@ -276,7 +283,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	for _, idx := range removeIndexes {
 		sql := fmt.Sprintf("DROP INDEX `%s` ON `%s`", idx.name, ts.name)
 		ret = append(ret, sql)
-		log.Infof(sql)
+		log.Infof("%s;", sql)
 	}
 
 	alters := make([]string, 0)
@@ -306,7 +313,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	for _, col := range remove {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
 		// alters = append(alters, sql)
-		log.Infof("ALTER TABLE %s %s", ts.name, sql)
+		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
 	}
 	for _, col := range update {
 		sql := fmt.Sprintf("MODIFY %s", col.DefinitionString())
@@ -335,7 +342,7 @@ func (ts *STableSpec) SyncSQL() []string {
 	for _, idx := range addIndexes {
 		sql := fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.name, ts.name, strings.Join(idx.QuotedColumns(), ","))
 		ret = append(ret, sql)
-		log.Infof(sql)
+		log.Infof("%s;", sql)
 	}
 
 	return ret

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -56,7 +57,7 @@ type SSchedpolicy struct {
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	Strategy   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
-	Enabled bool `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
 
 func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
