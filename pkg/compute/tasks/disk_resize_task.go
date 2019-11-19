@@ -47,8 +47,14 @@ func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk
 func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 
+	var host *models.SHost
 	storage := disk.GetStorage()
-	host := storage.GetMasterHost()
+	guest := disk.GetGuest()
+	if guest != nil {
+		host = guest.GetHost()
+	} else {
+		host = storage.GetMasterHost()
+	}
 
 	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != api.HOST_ONLINE {
