@@ -94,7 +94,7 @@ func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
 func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
 	files := map[string]string{
 		"gobetween": h.gobetweenPidFile().Path,
-		"haproxy":   h.haproxyPidFile(),
+		"haproxy":   h.haproxyPidFile().Path,
 		"telegraf":  h.telegrafPidFile().Path,
 	}
 	wg := &sync.WaitGroup{}
@@ -271,8 +271,12 @@ func (h *HaproxyHelper) haproxyConfD() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "haproxy.conf.d")
 }
 
-func (h *HaproxyHelper) haproxyPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "haproxy.pid")
+func (h *HaproxyHelper) haproxyPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "haproxy.pid"),
+		"haproxy",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) haproxyStatsSocketFile() string {
@@ -285,14 +289,17 @@ func (h *HaproxyHelper) reloadHaproxy(ctx context.Context) error {
 	args := []string{
 		h.opts.HaproxyBin,
 		"-D", // goes daemon
-		"-p", pidFile,
+		"-p", pidFile.Path,
 		"-C", h.haproxyConfD(),
 		"-f", h.haproxyConfD(),
 	}
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc == nil {
+	proc, confirmed, err := pidFile.ConfirmOrUnlink()
+	if !confirmed {
 		log.Infof("starting haproxy")
 		return h.runCmd(args)
+	}
+	if err != nil {
+		log.Warningln(err.Error())
 	}
 
 	{
