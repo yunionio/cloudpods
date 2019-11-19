@@ -60,7 +60,6 @@ func (self *ElasticcacheBackupCreateTask) OnInit(ctx context.Context, obj db.ISt
 }
 
 func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateComplete(ctx context.Context, eb *models.SElasticcacheBackup, data jsonutils.JSONObject) {
-	eb.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_STATUS_RUNNING, "")
 	logclient.AddActionLogWithStartable(self, eb, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
