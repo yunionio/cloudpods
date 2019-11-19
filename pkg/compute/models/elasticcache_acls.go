@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -157,6 +158,18 @@ func (manager *SElasticcacheAclManager) newFromCloudElasticcacheAcl(ctx context.
 	}
 
 	return &acl, nil
+}
+
+func (manager *SElasticcacheAclManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("elasticcache_id")
+	return parentId
+}
+
+func (manager *SElasticcacheAclManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("elasticcache_id", parentId)
+	}
+	return q
 }
 
 func (manager *SElasticcacheAclManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

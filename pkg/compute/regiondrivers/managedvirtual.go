@@ -2041,12 +2041,19 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAclDat
 	}
 
 	ipV := validators.NewIPv4AddrValidator("ip")
+	cidrV := validators.NewIPv4PrefixValidator("ip")
 	_ips := strings.Split(ips, ",")
 	for _, ip := range _ips {
 		params := jsonutils.NewDict()
 		params.Set("ip", jsonutils.NewString(ip))
-		if err := ipV.Validate(params); err != nil {
-			return nil, err
+		if strings.Contains(ip, "/") {
+			if err := cidrV.Validate(params); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := ipV.Validate(params); err != nil {
+				return nil, err
+			}
 		}
 	}
 
