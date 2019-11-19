@@ -1403,7 +1403,12 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcacheAccount(ctx context.Co
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.SetExternalId")
 		}
 
-		if err := ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea); err != nil {
+		err = cloudprovider.WaitStatusWithDelay(iea, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, 3*time.Second, 3*time.Second, 180*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.WaitStatusWithDelay")
+		}
+
+		if err = ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea); err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.SyncWithCloudElasticcache")
 		}
 
