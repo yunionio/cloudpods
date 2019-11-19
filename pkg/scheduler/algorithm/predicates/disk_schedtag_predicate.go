@@ -86,7 +86,7 @@ func (p *DiskSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, re
 
 func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	storage := res.(*api.CandidateStorage)
-	if storage.Status == computeapi.STORAGE_OFFLINE || !storage.Enabled {
+	if storage.Status == computeapi.STORAGE_OFFLINE || !storage.Enabled.Bool() {
 		return &FailReason{
 			fmt.Sprintf("Storage status is %s, enable is %v", storage.Status, storage.Enabled),
 			StorageEnable,
