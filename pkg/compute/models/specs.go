@@ -119,12 +119,17 @@ func ListItems(manager db.IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, err
 	}
+	customizeFilters, err := manager.CustomizeFilterList(ctx, q, userCred, queryDict)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := q.Rows()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := make([]ISpecModel, 0)
+	records := make(map[string]ISpecModel, 0)
+	tmpLists := make([]jsonutils.JSONObject, 0)
 	for rows.Next() {
 		item, err := db.NewModelObject(manager)
 		if err != nil {
@@ -141,7 +146,20 @@ func ListItems(manager db.IModelManager, ctx context.Context, userCred mcclient.
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, item.(ISpecModel))
+		records[item.GetId()] = item.(ISpecModel)
+		tmpLists = append(tmpLists, jsonutils.Marshal(item).(*jsonutils.JSONDict))
 	}
-	return items, err
+	if !customizeFilters.IsEmpty() {
+		tmpLists, err = customizeFilters.DoApply(tmpLists)
+		if err != nil {
+			return nil, err
+		}
+	}
+	items := make([]ISpecModel, 0)
+	for _, obj := range tmpLists {
+		id, _ := obj.GetString("id")
+		items = append(items, records[id])
+	}
+
+	return items, nil
 }
