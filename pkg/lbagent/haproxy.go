@@ -93,7 +93,7 @@ func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
 
 func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
 	files := map[string]string{
-		"gobetween": h.gobetweenPidFile(),
+		"gobetween": h.gobetweenPidFile().Path,
 		"haproxy":   h.haproxyPidFile(),
 		"telegraf":  h.telegrafPidFile().Path,
 	}
@@ -349,17 +349,26 @@ func (h *HaproxyHelper) gobetweenConf() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
 }
 
-func (h *HaproxyHelper) gobetweenPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "gobetween.pid")
+func (h *HaproxyHelper) gobetweenPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "gobetween.pid"),
+		"gobetween",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	pidFile := h.gobetweenPidFile()
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		log.Infof("stopping gobetween(%d)", proc.Pid)
-		proc.Kill()
-		proc.Wait()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			log.Infof("stopping gobetween(%d)", proc.Pid)
+			proc.Kill()
+			proc.Wait()
+		}
+		if err != nil {
+			log.Warningln(err.Error())
+		}
 	}
 
 	args := []string{
@@ -372,7 +381,7 @@ func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = agentutils.WritePidFile(cmd.Process.Pid, h.gobetweenPidFile())
+	err = agentutils.WritePidFile(cmd.Process.Pid, pidFile.Path)
 	if err != nil {
 		return fmt.Errorf("writing gobetween pid file: %s", err)
 	}
