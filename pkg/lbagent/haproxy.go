@@ -92,20 +92,20 @@ func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
 }
 
 func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
-	files := map[string]string{
-		"gobetween": h.gobetweenPidFile().Path,
-		"haproxy":   h.haproxyPidFile().Path,
-		"telegraf":  h.telegrafPidFile().Path,
+	pidFiles := []*agentutils.PidFile{
+		h.gobetweenPidFile(),
+		h.haproxyPidFile(),
+		h.telegrafPidFile(),
 	}
 	wg := &sync.WaitGroup{}
-	wg.Add(len(files))
+	wg.Add(len(pidFiles))
 
-	for name, f := range files {
-		go func(name, f string) {
+	for _, pf := range pidFiles {
+		go func(pf *agentutils.PidFile) {
 			defer wg.Done()
-			proc := agentutils.ReadPidFile(f)
-			if proc != nil {
-				log.Infof("stopping %s(%d)", name, proc.Pid)
+			proc, confirmed, err := pf.ConfirmOrUnlink()
+			if confirmed {
+				log.Infof("stopping %s(%d)", pf.Comm, proc.Pid)
 				proc.Signal(syscall.SIGTERM)
 				for etime := time.Now().Add(5 * time.Second); etime.Before(time.Now()); {
 					if err := proc.Signal(syscall.Signal(0)); err == nil {
@@ -117,7 +117,10 @@ func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
 				// TODO check whether proc.Ppid == os.Getpid()
 				proc.Wait()
 			}
-		}(name, f)
+			if err != nil {
+				log.Warningln(err.Error())
+			}
+		}(pf)
 	}
 	wg.Wait()
 }
