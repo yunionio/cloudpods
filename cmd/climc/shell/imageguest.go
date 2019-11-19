@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -165,8 +166,8 @@ func init() {
 		}
 		printObject(result)
 		return nil
-	},
-	)
+	})
+
 	R(&GuestImageOptions{}, "guest-image-mark-unprotected", "Mark image protected", func(s *mcclient.ClientSession,
 		args *GuestImageOptions) error {
 
@@ -178,7 +179,55 @@ func init() {
 		}
 		printObject(result)
 		return nil
-	},
+	})
+
+	type GuestImageOperationOptions struct {
+		ID []string `help:"Guest Image ID or Name"`
+	}
+
+	type GuestImagePublicOptions struct {
+		GuestImageOperationOptions
+		Scope          string   `help:"sharing scope" choices:"system|domain"`
+		ShareToProject []string `help:"Share to prject"`
+	}
+
+	R(&GuestImageOperationOptions{}, "guest-image-private", "Make a guest image private",
+		func(s *mcclient.ClientSession, args *GuestImageOperationOptions) error {
+			if len(args.ID) == 0 {
+				return errors.Error("No guest image ID provided")
+			} else if len(args.ID) == 1 {
+				result, err := modules.GuestImages.PerformAction(s, args.ID[0], "private", nil)
+				if err != nil {
+					return err
+				}
+				printObject(result)
+			} else {
+				results := modules.GuestImages.BatchPerformAction(s, args.ID, "private", nil)
+				printBatchResults(results, modules.GuestImages.GetColumns(s))
+			}
+			return nil
+		},
 	)
 
+	R(&GuestImagePublicOptions{}, "guest-image-public", "Make a guest image public",
+		func(s *mcclient.ClientSession, args *GuestImagePublicOptions) error {
+			params, err := options.StructToParams(args)
+			if err != nil {
+				return err
+			}
+			if len(args.ID) == 0 {
+				return errors.Error("No guest image ID provided")
+			} else if len(args.ID) == 1 {
+				result, err := modules.GuestImages.PerformAction(s, args.ID[0], "public", params)
+				if err != nil {
+					return err
+				}
+				printObject(result)
+			} else {
+				results := modules.GuestImages.BatchPerformAction(s, args.ID, "public", params)
+				printBatchResults(results, modules.GuestImages.GetColumns(s))
+			}
+			return nil
+		},
+	)
 }
