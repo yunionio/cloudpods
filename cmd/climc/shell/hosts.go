@@ -53,6 +53,8 @@ func init() {
 
 		Uuid string `help:"find host with given system uuid"`
 
+		CdromBoot *bool `help:"filter hosts list by cdrom_boot=true|false"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
