@@ -134,7 +134,11 @@ fi
 
 rpmbuild --define "_topdir $BUILDROOT" -bb $SPEC_FILE
 
-mkdir -p $OUTPUT_DIR
-cp -fr $RPM_DIR/* $OUTPUT_DIR/
+find $RPM_DIR -type f | while read f; do
+	d="$(dirname "$f")"
+	d="$OUTPUT_DIR/${d#$RPM_DIR}"
+	mkdir -p "$d"
+	cp $f $d
+done
 
 rm -fr $BUILDROOT
