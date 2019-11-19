@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -60,10 +61,10 @@ func (self *SElasticcacheAccount) GetGlobalId() string {
 }
 
 func (self *SElasticcacheAccount) GetStatus() string {
-	switch self.AccountStatus {
-	case "Unavailable":
+	switch strings.ToLower(self.AccountStatus) {
+	case "unavailable":
 		return api.ELASTIC_CACHE_ACCOUNT_STATUS_UNAVAILABLE
-	case "Available":
+	case "available":
 		return api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE
 	default:
 		return self.AccountStatus
