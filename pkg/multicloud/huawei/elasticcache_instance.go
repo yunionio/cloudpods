@@ -681,9 +681,9 @@ func (self *SElasticcache) UpdateAuthMode(noPwdAccess bool) error {
 func (self *SElasticcache) GetAuthMode() string {
 	switch self.NoPasswordAccess {
 	case "true":
-		return "on"
-	default:
 		return "off"
+	default:
+		return "on"
 	}
 }
 
