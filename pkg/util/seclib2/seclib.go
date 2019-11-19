@@ -25,7 +25,7 @@ const (
 	DIGITS  = "23456789"
 	LETTERS = "abcdefghjkmnpqrstuvwxyz"
 	UPPERS  = "ABCDEFGHJKMNPRSTUVWXYZ"
-	PUNC    = "@%^-+="
+	PUNC    = "@^-+="
 
 	ALL_DIGITS  = "0123456789"
 	ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"

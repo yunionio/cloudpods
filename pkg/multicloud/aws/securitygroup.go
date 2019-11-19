@@ -401,6 +401,10 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 
 	for _, r := range DeleteRules {
 		if err := self.delSecurityGroupRule(secgroupId, &r); err != nil {
+			if strings.Contains(err.Error(), "InvalidPermission.NotFound") {
+				continue
+			}
+
 			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
 			return err
 		}
