@@ -255,7 +255,7 @@ func listItemQueryFilters(manager IModelManager,
 	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 	q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 
-	q, err = manager.ListItemFilter(ctx, q, userCred, query)
+	q, err = ListItemFilter(manager, ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -709,7 +709,7 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 }
 
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	extraDict, err := item.GetExtraDetails(ctx, userCred, query)
+	extraDict, err := GetExtraDetails(item, ctx, userCred, query)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -822,11 +822,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		return nil, err
 	}
 
-	params := []reflect.Value{
-		reflect.ValueOf(ctx),
-		reflect.ValueOf(userCred),
-		reflect.ValueOf(query),
-	}
+	params := []interface{}{ctx, userCred, query}
 
 	specCamel := utils.Kebab2Camel(spec, "-")
 	modelValue := reflect.ValueOf(model)
@@ -844,7 +840,10 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 			return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 		}
 
-		outs := funcValue.Call(params)
+		outs, err := callFunc(funcValue, params...)
+		if err != nil {
+			return nil, err
+		}
 		if len(outs) != 1 {
 			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 		}
@@ -859,20 +858,23 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 	}
 
-	outs := funcValue.Call(params)
+	outs, err := callFunc(funcValue, params...)
+	if err != nil {
+		return nil, err
+	}
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
 
-	resVal := outs[0].Interface()
+	resVal := outs[0]
 	errVal := outs[1].Interface()
 	if !gotypes.IsNil(errVal) {
 		return nil, errVal.(error)
 	} else {
-		if gotypes.IsNil(resVal) {
+		if gotypes.IsNil(resVal.Interface()) {
 			return nil, nil
 		} else {
-			return resVal.(jsonutils.JSONObject), nil
+			return ValueToJSONObject(resVal), nil
 		}
 	}
 }
@@ -1013,7 +1015,7 @@ func _doCreateItem(
 	if batchCreate {
 		dataDict, err = manager.BatchCreateValidateCreateData(ctx, userCred, ownerId, query, dataDict)
 	} else {
-		dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerId, query, dataDict)
+		dataDict, err = ValidateCreateData(manager, ctx, userCred, ownerId, query, dataDict)
 	}
 
 	if err != nil {
@@ -1265,7 +1267,7 @@ func managerPerformCheckCreateData(
 		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
 	}
 
-	return manager.ValidateCreateData(ctx, userCred, ownerId, query, bodyDict)
+	return ValidateCreateData(manager, ctx, userCred, ownerId, query, bodyDict)
 }
 
 func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1358,23 +1360,12 @@ func reflectDispatcherInternal(
 		}
 	}
 
-	var params []reflect.Value
+	var params []interface{}
 
 	if isGeneral {
-		params = []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf(userCred),
-			reflect.ValueOf(spec),
-			reflect.ValueOf(query),
-			reflect.ValueOf(data),
-		}
+		params = []interface{}{ctx, userCred, spec, query, data}
 	} else {
-		params = []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf(userCred),
-			reflect.ValueOf(query),
-			reflect.ValueOf(data),
-		}
+		params = []interface{}{ctx, userCred, query, data}
 	}
 
 	if consts.IsRbacEnabled() {
@@ -1402,7 +1393,10 @@ func reflectDispatcherInternal(
 			return nil, httperrors.NewActionNotFoundError(msg)
 		}
 
-		outs := allowFuncValue.Call(params)
+		outs, err := callFunc(allowFuncValue, params...)
+		if err != nil {
+			return nil, err
+		}
 		if len(outs) != 1 {
 			return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
 		}
@@ -1412,19 +1406,22 @@ func reflectDispatcherInternal(
 		}
 	}
 
-	outs := funcValue.Call(params)
+	outs, err := callFunc(funcValue, params...)
+	if err != nil {
+		return nil, err
+	}
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
-	resVal := outs[0].Interface()
+	resVal := outs[0]
 	errVal := outs[1].Interface()
 	if !gotypes.IsNil(errVal) {
 		return nil, errVal.(error)
 	} else {
-		if gotypes.IsNil(resVal) {
+		if gotypes.IsNil(resVal.Interface()) {
 			return nil, nil
 		} else {
-			return resVal.(jsonutils.JSONObject), nil
+			return ValueToJSONObject(resVal), nil
 		}
 	}
 }
@@ -1452,7 +1449,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		}
 	}
 
-	dataDict, err = item.ValidateUpdateData(ctx, userCred, query, dataDict)
+	dataDict, err = ValidateUpdateData(item, ctx, userCred, query, dataDict)
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)
 		log.Errorf(errMsg)
@@ -1563,7 +1560,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 		return nil, err
 	}
 
-	err = model.CustomizeDelete(ctx, userCred, query, data)
+	err = CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
 		return nil, httperrors.NewNotAcceptableError(err.Error())

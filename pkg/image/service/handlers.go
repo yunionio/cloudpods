@@ -28,7 +28,7 @@ const (
 	API_VERSION = "v1"
 )
 
-func initHandlers(app *appsrv.Application) {
+func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
 	// add version handler with API_VERSION prefix
