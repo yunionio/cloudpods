@@ -72,7 +72,7 @@ func (self *SElasticcacheAccount) ResetPassword(input cloudprovider.SCloudElasti
 	params := jsonutils.NewDict()
 	params.Set("old_password", jsonutils.NewString(*input.OldPassword))
 	params.Set("new_password", jsonutils.NewString(input.NewPassword))
-	err := DoUpdateWithSpec(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.GetId(), "password", params)
+	err := DoUpdateWithSpec(self.cacheDB.region.ecsClient.Elasticcache.UpdateInContextWithSpec, self.cacheDB.GetId(), "password", params)
 	if err != nil {
 		return errors.Wrap(err, "elasticcacheAccount.ResetPassword")
 	}
