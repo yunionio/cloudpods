@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	aggrerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
 
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
@@ -263,7 +263,7 @@ func (h *HaproxyHelper) useConfigs(ctx context.Context, d string) error {
 		if len(errs) == 0 {
 			return nil
 		}
-		return aggrerrors.NewAggregate(errs)
+		return errors.NewAggregate(errs)
 	}
 }
 
@@ -415,34 +415,64 @@ func (h *HaproxyHelper) keepalivedConf() string {
 	return filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
 }
 
-func (h *HaproxyHelper) keepalivedPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived.pid")
+func (h *HaproxyHelper) keepalivedPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
-func (h *HaproxyHelper) keepalivedVrrpPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived_vrrp.pid")
+func (h *HaproxyHelper) keepalivedVrrpPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived_vrrp.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
-func (h *HaproxyHelper) keepalivedCheckersPidFile() string {
-	return filepath.Join(h.opts.haproxyRunDir, "keepalived_checkers.pid")
+func (h *HaproxyHelper) keepalivedCheckersPidFile() *agentutils.PidFile {
+	pf := agentutils.NewPidFile(
+		filepath.Join(h.opts.haproxyRunDir, "keepalived_checkers.pid"),
+		"keepalived",
+	)
+	return pf
 }
 
 func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
-	pidFile := h.keepalivedPidFile()
-	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		// send SIGHUP to reload
-		err := proc.Signal(syscall.SIGHUP)
-		if err != nil {
-			return fmt.Errorf("keepalived: send HUP failed: %s", err)
+	var (
+		pidFile         *agentutils.PidFile
+		vrrpPidFile     *agentutils.PidFile
+		checkersPidFile *agentutils.PidFile
+	)
+	pidFile = h.keepalivedPidFile()
+	{
+		proc, confirmed, err := pidFile.ConfirmOrUnlink()
+		if confirmed {
+			// send SIGHUP to reload
+			err := proc.Signal(syscall.SIGHUP)
+			if err != nil {
+				return fmt.Errorf("keepalived: send HUP failed: %s", err)
+			}
+			return nil
 		}
-		return nil
+		if err != nil {
+			log.Warningln(err.Error())
+		}
+	}
+	vrrpPidFile = h.keepalivedVrrpPidFile()
+	if _, _, err := vrrpPidFile.ConfirmOrUnlink(); err != nil {
+		log.Warningln(err.Error())
+	}
+	checkersPidFile = h.keepalivedCheckersPidFile()
+	if _, _, err := checkersPidFile.ConfirmOrUnlink(); err != nil {
+		log.Warningln(err.Error())
 	}
 	args := []string{
 		h.opts.KeepalivedBin,
-		"--pid", pidFile,
-		"--vrrp_pid", h.keepalivedVrrpPidFile(),
-		"--checkers_pid", h.keepalivedCheckersPidFile(),
+		"--pid", pidFile.Path,
+		"--vrrp_pid", vrrpPidFile.Path,
+		"--checkers_pid", checkersPidFile.Path,
 		"--use-file", h.keepalivedConf(),
 	}
 	return h.runCmd(args)
