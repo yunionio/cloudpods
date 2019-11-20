@@ -55,6 +55,8 @@ type SInstanceSnapshot struct {
 	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
 	AutoDelete     bool                 `default:"false" update:"user" list:"user"`
 	RefCount       int                  `default:"0" list:"user"`
+	SecGroups      jsonutils.JSONObject `nullable:"true" list:"user"`
+	KeypairId      string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -169,13 +171,21 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 		guestSchedInput.Networks[i].Address6 = ""
 	}
 	instanceSnapshot.ServerConfig = jsonutils.Marshal(guestSchedInput.ServerConfig)
+	if len(guest.KeypairId) > 0 {
+		instanceSnapshot.KeypairId = guest.KeypairId
+	}
 	serverMetadata := jsonutils.NewDict()
 	if loginAccount := guest.GetMetadata("login_account", nil); len(loginAccount) > 0 {
 		loginKey := guest.GetMetadata("login_key", nil)
-		passwd, e := utils.DescryptAESBase64(guest.Id, loginKey)
-		if e == nil {
+		if len(guest.KeypairId) == 0 && len(loginKey) > 0 {
+			passwd, e := utils.DescryptAESBase64(guest.Id, loginKey)
+			if e == nil {
+				serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
+				serverMetadata.Set("passwd", jsonutils.NewString(passwd))
+			}
+		} else {
+			serverMetadata.Set("login_key", jsonutils.NewString(loginKey))
 			serverMetadata.Set("login_account", jsonutils.NewString(loginAccount))
-			serverMetadata.Set("passwd", jsonutils.NewString(passwd))
 		}
 	}
 	if osArch := guest.GetMetadata("os_arch", nil); len(osArch) > 0 {
@@ -190,6 +200,15 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	if osVersion := guest.GetMetadata("os_version", nil); len(osVersion) > 0 {
 		serverMetadata.Set("os_version", jsonutils.NewString(osVersion))
 	}
+	secs := guest.GetSecgroups()
+	if len(secs) > 0 {
+		secIds := make([]string, len(secs))
+		for i := 0; i < len(secs); i++ {
+			secIds[i] = secs[i].Id
+		}
+		instanceSnapshot.SecGroups = jsonutils.Marshal(secIds)
+	}
+
 	instanceSnapshot.ServerMetadata = serverMetadata
 	err := manager.TableSpec().Insert(instanceSnapshot)
 	if err != nil {
@@ -220,6 +239,20 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	}
 	if sourceInput.VcpuCount == 0 {
 		sourceInput.VcpuCount = serverConfig.Ncpu
+	}
+	if len(self.KeypairId) > 0 {
+		sourceInput.KeypairId = self.KeypairId
+	}
+	if self.SecGroups != nil {
+		secGroups := make([]string, 0)
+		inputSecgs := make([]string, 0)
+		self.SecGroups.Unmarshal(&secGroups)
+		for i := 0; i < len(secGroups); i++ {
+			if secGrp := SecurityGroupManager.FetchSecgroupById(secGroups[i]); secGrp != nil {
+				inputSecgs = append(inputSecgs, secGroups[i])
+			}
+		}
+		sourceInput.Secgroups = inputSecgs
 	}
 	// sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
