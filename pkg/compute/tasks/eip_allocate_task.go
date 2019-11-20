@@ -133,7 +133,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 	if self.Params != nil && self.Params.Contains("instance_id") {
 		self.SetStage("on_eip_associate_complete", nil)
-		err = eip.StartEipAssociateTask(ctx, self.UserCred, self.Params, "")
+		err = eip.StartEipAssociateTask(ctx, self.UserCred, self.Params, self.GetId())
 		if err != nil {
 			msg := fmt.Sprintf("start associate task fail %s", err)
 			self.SetStageFailed(ctx, msg)

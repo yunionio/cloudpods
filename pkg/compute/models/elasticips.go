@@ -733,11 +733,11 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		log.Errorf("SElasticip CancelPendingUsage error: %s", err)
 	}
 
-	self.startEipAllocateTask(ctx, userCred, data.(*jsonutils.JSONDict))
+	self.startEipAllocateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
-func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, "", "", nil)
+func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("newtask EipAllocateTask fail %s", err)
 		return err
@@ -1068,7 +1068,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	return &eip, nil
 }
 
-func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest) error {
+func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(vm.Id), "instance_id")
@@ -1076,7 +1076,7 @@ func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mccl
 
 	vm.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "allocate and associate EIP")
 
-	return eip.startEipAllocateTask(ctx, userCred, params)
+	return eip.startEipAllocateTask(ctx, userCred, params, parentTaskId)
 }
 
 func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

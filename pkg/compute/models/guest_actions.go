@@ -2833,7 +2833,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	err = eip.AllocateAndAssociateVM(ctx, userCred, self)
+	err = eip.AllocateAndAssociateVM(ctx, userCred, self, "")
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
