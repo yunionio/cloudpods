@@ -211,7 +211,7 @@ func (self *SImage) GetImageFormat() string {
 	return "qcow2"
 }
 
-func (self *SImage) GetCreateTime() time.Time {
+func (self *SImage) GetCreatedAt() time.Time {
 	return self.CreatedTime
 }
 

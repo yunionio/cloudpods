@@ -196,16 +196,6 @@ func (self *SVirtualMachine) getUuid() string {
 	return self.getVirtualMachine().Summary.Config.Uuid
 }
 
-func (self *SVirtualMachine) GetCreateTime() time.Time {
-	moVM := self.getVirtualMachine()
-	ctm := moVM.Config.CreateDate
-	if ctm != nil {
-		return *ctm
-	} else {
-		return time.Time{}
-	}
-}
-
 func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
 	if self.ihost == nil {
 		self.ihost = self.getIHost()
@@ -644,7 +634,13 @@ func (self *SVirtualMachine) GetBillingType() string {
 }
 
 func (self *SVirtualMachine) GetCreatedAt() time.Time {
-	return time.Time{}
+	moVM := self.getVirtualMachine()
+	ctm := moVM.Config.CreateDate
+	if ctm != nil {
+		return *ctm
+	} else {
+		return time.Time{}
+	}
 }
 
 func (self *SVirtualMachine) GetExpiredAt() time.Time {

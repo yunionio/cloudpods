@@ -52,7 +52,7 @@ type SImage struct {
 
 func CloudImage2Image(image ICloudImage) SImage {
 	return SImage{
-		CreatedAt:  image.GetCreateTime(),
+		CreatedAt:  image.GetCreatedAt(),
 		Deleted:    false,
 		DiskFormat: image.GetImageFormat(),
 		Id:         image.GetId(),
