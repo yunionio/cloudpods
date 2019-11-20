@@ -1266,16 +1266,12 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				}
 
 				if err != nil {
-					if err == sql.ErrNoRows {
-						return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)
-					} else {
-						return nil, httperrors.NewInternalServerError("query wire for zone %s and vpc %s error %s", zoneStr, vpcStr, err)
-					}
+					return nil, httperrors.NewInternalServerError("query wire for zone %s and vpc %s: %v", zoneStr, vpcStr, err)
 				}
 				if len(wires) == 0 {
 					return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)
 				} else if len(wires) > 1 {
-					return nil, httperrors.NewConflictError("more than 1 wire found for zone %s and vpc %s", zoneStr, vpcStr)
+					return nil, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), zoneStr, vpcStr)
 				} else {
 					data.Add(jsonutils.NewString(wires[0].Id), "wire_id")
 				}

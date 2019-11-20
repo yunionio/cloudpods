@@ -177,18 +177,6 @@ func inWhiteList(provider string) bool {
 	return provider == api.CLOUD_PROVIDER_ONECLOUD || utils.IsInStringArray(provider, api.PRIVATE_CLOUD_PROVIDERS)
 }
 
-func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-	// 排除掉华为云对镜像有特殊要求的sku
-	return q.Filter(
-		sqlchemy.OR(
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
-			sqlchemy.NotEquals(q.Field("provider"), api.CLOUD_PROVIDER_HUAWEI),
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_HUAWEI),
-				sqlchemy.NotIn(q.Field("instance_type_family"), []string{"e1", "e2", "e3", "d1", "d2", "i3", "h2", "g1", "g3", "p2v", "p1", "pi1", "fp1", "fp1c"}),
-			)))
-}
-
 func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	if cpu <= 0 {
 		return "", fmt.Errorf("cpu_core_count should great than zero")
@@ -773,7 +761,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion for zone %s(%s)", zone.Name, zone.Id)
 		}
 		//OneCloud忽略zone参数
-		if region.Provider == api.CLOUD_PROVIDER_ONECLOUD || region.Provider == "" {
+		if region.Provider == api.CLOUD_PROVIDER_ONECLOUD {
 			q = q.Equals("cloudregion_id", region.Id)
 		} else {
 			q = q.Equals("zone_id", zone.Id)
@@ -823,13 +811,11 @@ func (manager *SServerSkuManager) FetchSkuByNameAndProvider(name string, provide
 	q := manager.Query()
 	q = q.Equals("name", name)
 	if utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE}) {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+		q = q.Filter(
 			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
-		))
+		)
 	} else if utils.IsInStringArray(provider, api.PRIVATE_CLOUD_PROVIDERS) {
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
 			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 			sqlchemy.Equals(q.Field("provider"), provider),
 		))
