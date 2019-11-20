@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -184,6 +185,11 @@ func (self *SAwsGuestDriver) RequestAssociateEip(ctx context.Context, userCred m
 		err = extEip.Associate(server.ExternalId)
 		if err != nil {
 			return nil, fmt.Errorf("SAwsGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
+		}
+
+		err = cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "SAwsGuestDriver.RequestAssociateEip.WaitStatus")
 		}
 
 		err = eip.AssociateVM(ctx, userCred, server)
