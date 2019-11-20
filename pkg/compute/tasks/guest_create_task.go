@@ -126,10 +126,10 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 			eipBw, _ := self.Params.Int("eip_bw")
 			if eipBw > 0 {
 				// newly allocated eip, need allocation and associate
-				eip.AllocateAndAssociateVM(ctx, self.UserCred, guest)
+				eip.AllocateAndAssociateVM(ctx, self.UserCred, guest, self.GetId())
 			} else {
 				// existing eip, association only
-				eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
+				eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, self.GetId())
 			}
 
 			return
