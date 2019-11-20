@@ -1124,7 +1124,9 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 			}
 
-			if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
+			if input.BillingType == billing_api.BILLING_TYPE_POSTPAID && !GetDriver(hypervisor).IsSupportPostpaidExpire() {
+				return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", hypervisor)
+			} else if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
 				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 
@@ -1473,9 +1475,34 @@ func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.Se
 	return input, err
 }
 
+func (manager *SGuestManager) SetPropertiesWithInstanceSnapshot(
+	ctx context.Context, userCred mcclient.TokenCredential, ispId string, items []db.IModel,
+) {
+	misp, err := InstanceSnapshotManager.FetchById(ispId)
+	if err == nil {
+		isp := misp.(*SInstanceSnapshot)
+		for i := 0; i < len(items); i++ {
+			guest := items[i].(*SGuest)
+			if isp.ServerMetadata != nil {
+				metadata := make(map[string]interface{}, 0)
+				isp.ServerMetadata.Unmarshal(metadata)
+				if passwd, ok := metadata["passwd"]; ok {
+					delete(metadata, "passwd")
+					metadata["login_key"], _ = utils.EncryptAESBase64(guest.Id, passwd.(string))
+				}
+				metadata["__base_instance_snapshot_id"] = isp.Id
+				guest.SetAllMetadata(ctx, metadata, userCred)
+			}
+		}
+	}
+}
+
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	input := new(api.ServerCreateInput)
 	data.Unmarshal(input)
+	if len(input.InstanceSnapshotId) > 0 {
+		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
+	}
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, input, len(items), input.Backup)
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask", input.ParentTaskId)
 }
