@@ -4723,3 +4723,12 @@ func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient
 	// ret.Set("vnics", jsonutils.Marshal(nics))
 	return jsonutils.Marshal(nics), nil
 }
+
+func (self *SGuest) GetDiskIndex(diskId string) int8 {
+	for _, gd := range self.GetDisks() {
+		if gd.DiskId == diskId {
+			return gd.Index
+		}
+	}
+	return -1
+}
