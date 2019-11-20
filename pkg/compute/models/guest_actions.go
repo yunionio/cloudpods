@@ -2471,12 +2471,14 @@ func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		disk := guestdisk.GetDisk()
 		disk.DoCancelPendingDelete(ctx, userCred)
 	}
+	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
+		if err := self.CancelExpireTime(ctx, userCred); err != nil {
+			return err
+		}
+	}
 	err := self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
-	}
-	if self.BillingType == billing_api.BILLING_TYPE_POSTPAID && !self.ExpiredAt.IsZero() {
-		return self.CancelExpireTime(ctx, userCred)
 	}
 	return nil
 }
@@ -3048,6 +3050,7 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 	}
 	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
+		logclient.AddSimpleActionLog(self, logclient.ACT_VM_BLOCK_STREAM, reason, userCred, false)
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
 	}
 	return nil, nil
@@ -4272,16 +4275,13 @@ func (manager *SGuestManager) CreateGuestFromInstanceSnapshot(
 		return nil, nil, err
 	}
 	guest := iGuest.(*SGuest)
-	if isp.ServerMetadata != nil {
-		metadata := make(map[string]interface{}, 0)
-		isp.ServerMetadata.Unmarshal(metadata)
-		if passwd, ok := metadata["passwd"]; ok {
-			delete(metadata, "passwd")
-			metadata["login_key"], _ = utils.EncryptAESBase64(guest.Id, passwd.(string))
-		}
-		metadata["__base_instance_snapshot_id"] = isp.Id
-		guest.SetAllMetadata(ctx, metadata, userCred)
-	}
+	func() {
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+
+		guest.PostCreate(ctx, userCred, guest.GetOwnerId(), nil, guestParams)
+	}()
+
 	return guest, guestParams, nil
 }
 
