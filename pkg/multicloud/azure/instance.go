@@ -1042,10 +1042,6 @@ func (self *SInstance) GetVmemSizeMB() int {
 	return int(self.vmSize.MemoryInMB)
 }
 
-func (self *SInstance) GetCreateTime() time.Time {
-	return time.Now()
-}
-
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	return ret, nil

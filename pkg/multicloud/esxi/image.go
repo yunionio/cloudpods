@@ -133,6 +133,6 @@ func (self *SImage) GetImageFormat() string {
 	return "vmdk"
 }
 
-func (self *SImage) GetCreateTime() time.Time {
+func (self *SImage) GetCreatedAt() time.Time {
 	return self.createAt
 }

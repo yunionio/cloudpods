@@ -436,10 +436,6 @@ func (self *SClassicInstance) GetVmemSizeMB() int {
 	return 0
 }
 
-func (self *SClassicInstance) GetCreateTime() time.Time {
-	return time.Now()
-}
-
 func (self *SClassicInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	return ret, nil

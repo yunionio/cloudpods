@@ -219,10 +219,6 @@ func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Time{}
 }
 
-func (self *SInstance) GetCreateTime() time.Time {
-	return time.Unix(self.CreateTime, 0)
-}
-
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
