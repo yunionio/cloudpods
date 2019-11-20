@@ -163,7 +163,7 @@ type IGuestDriver interface {
 	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
 	RequestAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, eip *SElasticip, task taskman.ITask) error
 
-	NeedStopForChangeSpec(guest *SGuest) bool
+	NeedStopForChangeSpec(guest *SGuest, cpuChanged, memChanged bool) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool

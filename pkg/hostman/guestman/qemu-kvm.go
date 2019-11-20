@@ -1254,6 +1254,9 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	if len(s.VncPassword) > 0 {
 		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
 	}
+	if options.HostOptions.HugepagesOption == "native" {
+		meta.Set("__hugepage", jsonutils.NewString("native"))
+	}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
 	}
