@@ -984,6 +984,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestAssociateEip(ctx context.Cont
 			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
 		}
 
+		err = cloudprovider.WaitStatus(extEip, api.EIP_STATUS_READY, 3*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "ManagedVirtualizedGuestDriver.RequestAssociateEip.WaitStatus")
+		}
+
 		err = eip.AssociateVM(ctx, userCred, server)
 		if err != nil {
 			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to local associate EIP %s", err)
