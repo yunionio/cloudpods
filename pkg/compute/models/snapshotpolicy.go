@@ -365,27 +365,6 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		return syncResult
 	}
 
-	// fetch all snapshotpolicy
-	q := SnapshotPolicyManager.Query()
-	allSnapshotPolicies := make([]SSnapshotPolicy, 0, 10)
-	err = q.All(&allSnapshotPolicies)
-	if err != nil {
-		syncResult.Error(err)
-		return syncResult
-	}
-	// cluster snapshotpolicy
-	snapshotpolicyCluster := make(map[uint64][]*SSnapshotPolicy)
-	for i := range allSnapshotPolicies {
-		key := allSnapshotPolicies[i].Key()
-		list, ok := snapshotpolicyCluster[key]
-		if !ok {
-			list = make([]*SSnapshotPolicy, 0, 1)
-		}
-		list = append(list, &allSnapshotPolicies[i])
-		// sliceHeader change
-		snapshotpolicyCluster[key] = list
-	}
-
 	// structure two sets (externalID, snapshotpolicyCache), (snapshotPolicyID, snapshotPolicy)
 	spSet, spCacheSet := make(map[string]*SSnapshotPolicy), make(map[string]*SSnapshotPolicyCache)
 	for i := range snapshotPolicies {
@@ -434,16 +413,7 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		}
 	}
 
-	for i := range added {
-		locol, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, snapshotpolicyCluster, added[i], region,
-			syncOwnerId, provider)
-		if err != nil {
-			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, locol, added[i])
-			syncResult.Add()
-		}
-	}
+	syncResult = manager.allNewFromCloudSnapshotPolicy(ctx, userCred, added, region, syncOwnerId, provider, syncResult)
 
 	for i := range commondb {
 		_, err = db.Update(commondb[i], func() error {
@@ -459,6 +429,50 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 			syncResult.UpdateError(err)
 		} else {
 			syncResult.Update()
+		}
+	}
+	return syncResult
+}
+
+func (manager *SSnapshotPolicyManager) allNewFromCloudSnapshotPolicy(
+	ctx context.Context, userCred mcclient.TokenCredential, added []cloudprovider.ICloudSnapshotPolicy,
+	region *SCloudregion, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider,
+	syncResult compare.SyncResult) compare.SyncResult {
+
+	var snapshotpolicyCluster map[uint64][]*SSnapshotPolicy
+
+	if len(added) > 5 {
+		// the number of added is large
+		// fetch all snapshotpolicy
+		q := SnapshotPolicyManager.Query()
+		allSnapshotPolicies := make([]SSnapshotPolicy, 0, 10)
+		err := q.All(&allSnapshotPolicies)
+		if err != nil {
+			syncResult.Error(err)
+			return syncResult
+		}
+		// cluster snapshotpolicy
+		snapshotpolicyCluster := make(map[uint64][]*SSnapshotPolicy)
+		for i := range allSnapshotPolicies {
+			key := allSnapshotPolicies[i].Key()
+			list, ok := snapshotpolicyCluster[key]
+			if !ok {
+				list = make([]*SSnapshotPolicy, 0, 1)
+			}
+			list = append(list, &allSnapshotPolicies[i])
+			// sliceHeader change
+			snapshotpolicyCluster[key] = list
+		}
+	}
+
+	for i := range added {
+		local, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, snapshotpolicyCluster, added[i], region,
+			syncOwnerId, provider)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncMetadata(ctx, userCred, local, added[i])
+			syncResult.Add()
 		}
 	}
 	return syncResult
@@ -483,21 +497,41 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	snapshotPolicyTmp.TimePoints = SnapshotPolicyManager.TimePointsParseIntArray(atp)
 	snapshotPolicyTmp.IsActivated = tristate.NewFromBool(ext.IsActivated())
 
-	extkey := snapshotPolicyTmp.Key()
 	extProjectId := SnapshotPolicyManager.FetchProjectId(ctx, userCred, syncOwnerId, ext, provider.GetId())
+
 	var snapshotPolicy *SSnapshotPolicy
 
-	if list, ok := snapshotpolicyCluster[extkey]; ok {
-		// find first snapshotpolicy enough to rebase
-		for _, sp := range list {
-			if sp.ProjectId == extProjectId {
-				snapshotPolicy = sp
-				break
+	// find suitable snapshotpolicy
+	if snapshotpolicyCluster == nil {
+		q := manager.Query().Equals("repeat_weekdays", snapshotPolicyTmp.RepeatWeekdays).Equals("time_points",
+			snapshotPolicyTmp.TimePoints).Equals("retention_days", snapshotPolicyTmp.RetentionDays).Equals(
+			"is_activated", snapshotPolicyTmp.IsActivated.Bool()).Equals("tenant_id", extProjectId)
+		count, err := q.CountWithError()
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			snapshotPolicy = &SSnapshotPolicy{}
+			err = q.First(snapshotPolicy)
+			if err != nil {
+				return nil, err
+			}
+			snapshotPolicy.SetModelManager(manager, snapshotPolicy)
+		}
+	} else {
+		extkey := snapshotPolicyTmp.Key()
+		if list, ok := snapshotpolicyCluster[extkey]; ok {
+			// find first snapshotpolicy enough to rebase
+			for _, sp := range list {
+				if sp.ProjectId == extProjectId {
+					snapshotPolicy = sp
+					break
+				}
 			}
 		}
 	}
 
-	// no such suitable snapshotpolicy in list
+	// no such suitable snapshotpolicy
 	if snapshotPolicy == nil {
 		snapshotPolicyTmp.SetModelManager(manager, &snapshotPolicyTmp)
 		newName, err := db.GenerateName(manager, syncOwnerId, ext.GetName())
