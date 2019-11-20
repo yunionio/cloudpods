@@ -44,16 +44,13 @@ func init() {
 		return nil
 	})
 
-	R(&TaskListOptions{}, "region-task-list", "List tasks on region server", func(s *mcclient.ClientSession, suboptions *TaskListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = suboptions.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
+	type RegionTaskListOptions struct {
+		ObjName  string `help:"object name"`
+		ObjId    string `help:"object id"`
+		TaskName string `help:"task name"`
+	}
+	R(&RegionTaskListOptions{}, "region-task-list", "List tasks on region server", func(s *mcclient.ClientSession, args *RegionTaskListOptions) error {
+		params := jsonutils.Marshal(args)
 		result, err := modules.ComputeTasks.List(s, params)
 		if err != nil {
 			return err

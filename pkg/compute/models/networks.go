@@ -2443,3 +2443,22 @@ func (net *SNetwork) StartNetworkSyncstatusTask(ctx context.Context, userCred mc
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (net *SNetwork) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "status")
+}
+
+func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	status, _ := data.GetString("status")
+	if len(status) == 0 {
+		return nil, httperrors.NewMissingParameterError("status")
+	}
+	vpc := net.GetVpc()
+	if vpc != nil && vpc.IsManaged() {
+		return nil, httperrors.NewUnsupportOperationError("managed network cannot change status")
+	}
+	if !utils.IsInStringArray(status, []string{api.NETWORK_STATUS_AVAILABLE, api.NETWORK_STATUS_UNAVAILABLE}) {
+		return nil, httperrors.NewInputParameterError("invalid status %s", status)
+	}
+	return net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, data)
+}
