@@ -106,6 +106,7 @@ func (self *SBaremetalCdromTask) DoInsertISO(ctx context.Context, args interface
 	if err != nil {
 		return errors.Wrap(err, "MountVirtualCdrom")
 	}
+	self.Baremetal.AutoSyncStatus()
 	SetTaskComplete(self, nil)
 	return nil
 }
@@ -119,6 +120,7 @@ func (self *SBaremetalCdromTask) DoEjectISO(ctx context.Context, args interface{
 	if err != nil {
 		return errors.Wrap(err, "UmountVirtualCdrom")
 	}
+	self.Baremetal.AutoSyncStatus()
 	SetTaskComplete(self, nil)
 	return nil
 }
