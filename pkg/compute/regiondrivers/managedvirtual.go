@@ -2535,6 +2535,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheBackupRestore
 	if err != nil {
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.WaitStatusWithDelay")
 	}
+
+	_, err = db.Update(ec, func() error {
+		ec.Status = api.ELASTIC_CACHE_STATUS_RUNNING
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.UpdateStatus")
+	}
+
 	return nil
 }
 
