@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -66,12 +67,12 @@ func (model *SStatusStandaloneResourceBase) AllowPerformStatus(ctx context.Conte
 }
 
 func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	status, err := data.GetString("status")
-	if err != nil {
-		return nil, err
+	status, _ := data.GetString("status")
+	if len(status) == 0 {
+		return nil, httperrors.NewMissingParameterError("status")
 	}
 	reason, _ := data.GetString("reason")
-	err = model.SetStatus(userCred, status, reason)
+	err := model.SetStatus(userCred, status, reason)
 	return nil, err
 }
 
