@@ -662,7 +662,7 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "fi\n"
 
 	if options.HostOptions.HugepagesOption == "native" {
-		cmd += fmt.Sprintf("if [ -f /dev/hugepages/%s ]; then\n", uuid)
+		cmd += fmt.Sprintf("if [ -d /dev/hugepages/%s ]; then\n", uuid)
 		cmd += fmt.Sprintf("  umount /dev/hugepages/%s\n", uuid)
 		cmd += fmt.Sprintf("  rm -rf /dev/hugepages/%s\n", uuid)
 		cmd += "fi\n"
