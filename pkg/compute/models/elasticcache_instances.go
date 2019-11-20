@@ -106,19 +106,7 @@ func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-	return extra, nil
-}
-
-func (self *SElasticcache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SElasticcache) updateExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
 
@@ -131,7 +119,23 @@ func (self *SElasticcache) GetCustomizeColumns(ctx context.Context, userCred mcc
 	if err == nil {
 		extra.Set("network", jsonutils.NewString(network.GetName()))
 	}
+
 	return extra
+}
+
+func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.updateExtraDetails(ctx, userCred, extra), nil
+}
+
+func (self *SElasticcache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+
+	return self.updateExtraDetails(ctx, userCred, extra)
 }
 
 func (self *SElasticcache) GetElasticcacheParameters() ([]SElasticcacheParameter, error) {
