@@ -203,7 +203,6 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 	}
 	err := db.FetchModelObjects(manager, q, &wires)
 	if err != nil {
-		log.Errorf("getWiresByVpcAndZone error %s", err)
 		return nil, err
 	}
 	return wires, nil
