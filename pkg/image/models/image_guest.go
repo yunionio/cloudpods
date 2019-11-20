@@ -500,3 +500,35 @@ func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, us
 		images[i].startDeleteTask(ctx, userCred, "", false, true)
 	}
 }
+
+func (self *SGuestImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
+	}
+	for i := range images {
+		_, err := images[i].PerformPublic(ctx, userCred, query, data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to public subimage %s", images[i].GetId())
+		}
+	}
+	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, data)
+}
+
+func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
+	}
+	for i := range images {
+		_, err := images[i].PerformPrivate(ctx, userCred, query, data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "fail to private subimage %s", images[i].GetId())
+		}
+	}
+	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, data)
+}
