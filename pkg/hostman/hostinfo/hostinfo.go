@@ -16,6 +16,7 @@ package hostinfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -136,7 +137,9 @@ func (h *SHostInfo) Init() error {
 }
 
 func (h *SHostInfo) parseConfig() error {
-	if h.GetMemory() < 64 { // MB
+	if mem, err := h.GetMemory(); err != nil {
+		return err
+	} else if mem < 64 { // MB
 		return fmt.Errorf("Not enough memory!")
 	}
 	for _, n := range options.HostOptions.Networks {
@@ -234,8 +237,12 @@ func (h *SHostInfo) prepareEnv() error {
 	case "disable":
 		h.DisableHugepages()
 	case "native":
-		if err := h.EnableNativeHugepages(); err != nil {
+		size, err := h.Mem.GetHugepageTotal()
+		if err != nil {
 			return err
+		}
+		if size <= 0 {
+			return errors.New("invalid hugepages total size")
 		}
 	case "transparent":
 		h.EnableTransparentHugepages()
@@ -342,8 +349,11 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 	}
 }
 
-func (h *SHostInfo) GetMemory() int {
-	return h.Mem.Total // - options.reserved_memory
+func (h *SHostInfo) GetMemory() (int, error) {
+	if options.HostOptions.HugepagesOption == "native" {
+		return h.Mem.GetHugepageTotal()
+	}
+	return h.Mem.Total, nil // - options.reserved_memory
 }
 
 func (h *SHostInfo) EnableNativeHugepages() error {
@@ -359,8 +369,12 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 		for k, v := range kv {
 			sysutils.SetSysConfig(k, v)
 		}
-		preAllocPagesNum := h.GetMemory()/h.Mem.GetHugepagesizeMb() + 1
-		err := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
+		mem, err := h.GetMemory()
+		if err != nil {
+			return err
+		}
+		preAllocPagesNum := mem/h.Mem.GetHugepagesizeMb() + 1
+		err = timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
 		if err != nil {
 			log.Errorln(err)
 			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
@@ -767,7 +781,12 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("cpu_microcode", jsonutils.NewString(h.Cpu.cpuInfoProc.Microcode))
 	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
-	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
+	memTotal, err := h.GetMemory()
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	}
+	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
 	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
@@ -787,7 +806,6 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 
 	var (
 		res jsonutils.JSONObject
-		err error
 	)
 	if !isInit {
 		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
