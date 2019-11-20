@@ -224,10 +224,20 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	// todo:// 等待镜像导入完成
-	err = cloudprovider.WaitStatusWithDelay(task, ImageImportStatusCompleted, 2*time.Minute, 2*time.Minute, 4*time.Hour)
+	err = cloudprovider.Wait(2*time.Minute, 4*time.Hour, func() (bool, error) {
+		status := task.GetStatus()
+		if status == ImageImportStatusDeleted {
+			return false, errors.Wrap(errors.ErrInvalidStatus, "SStoragecache.ImageImportStatusDeleted")
+		}
+
+		if status == ImageImportStatusCompleted {
+			return true, nil
+		}
+
+		return false, nil
+	})
 	if err != nil {
-		return "", errors.Wrap(err, "SStoragecache.WaitStatusWithDelay")
+		return "", errors.Wrap(err, "SStoragecache.Wait")
 	}
 
 	// add name tag
