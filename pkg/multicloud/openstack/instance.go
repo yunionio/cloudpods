@@ -225,10 +225,6 @@ func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (instance *SInstance) GetCreateTime() time.Time {
-	return instance.Created
-}
-
 func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return instance.host
 }

@@ -182,7 +182,7 @@ func (image *SImage) GetImageFormat() string {
 	return image.Format
 }
 
-func (image *SImage) GetCreateTime() time.Time {
+func (image *SImage) GetCreatedAt() time.Time {
 	return image.CreateDate
 }
 

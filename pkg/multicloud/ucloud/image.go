@@ -172,7 +172,7 @@ func (self *SImage) GetImageFormat() string {
 	return ""
 }
 
-func (self *SImage) GetCreateTime() time.Time {
+func (self *SImage) GetCreatedAt() time.Time {
 	return time.Unix(self.CreateTime, 0)
 }
 
