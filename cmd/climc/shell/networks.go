@@ -445,4 +445,19 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type NetworkStatusOptions struct {
+		NETWORK string `help:"id or name of network to sync" json:"-"`
+		STATUS  string `help:"status of network" choices:"available|unavailable" json:"status"`
+		Reason  string `help:"reason to change status" json:"reason"`
+	}
+	R(&NetworkStatusOptions{}, "network-status", "Set on-premise network status", func(s *mcclient.ClientSession, args *NetworkStatusOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Networks.PerformAction(s, args.NETWORK, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
