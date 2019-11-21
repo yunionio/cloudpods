@@ -1679,11 +1679,11 @@ func (b *SBaremetalInstance) SendNicInfo(nic *types.SNicDevInfo, idx int, nicTyp
 }
 
 func bindMount(src, dst string) error {
-	_, err := procutils.NewCommand("touch", dst).Run()
+	err := procutils.NewCommand("touch", dst).Run()
 	if err != nil {
 		return errors.Wrapf(err, "touch %s", dst)
 	}
-	_, err = procutils.NewCommand("mount", "-o", "ro,bind", src, dst).Run()
+	err = procutils.NewCommand("mount", "-o", "ro,bind", src, dst).Run()
 	if err != nil {
 		return errors.Wrapf(err, "mount %s %s", src, dst)
 	}
@@ -1691,7 +1691,7 @@ func bindMount(src, dst string) error {
 }
 
 func unbindMount(dst string) error {
-	_, err := procutils.NewCommand("umount", dst).Run()
+	err := procutils.NewCommand("umount", dst).Run()
 	if err != nil {
 		return errors.Wrapf(err, "umount %s", dst)
 	}
@@ -1760,7 +1760,7 @@ func (b *SBaremetalInstance) GenerateBootISO() error {
 	for _, f := range []string{
 		"isolinux.bin",
 	} {
-		_, err = procutils.NewCommand("cp", filepath.Join(o.Options.TftpRoot, f), filepath.Join(isoLinDir, f)).Run()
+		err = procutils.NewCommand("cp", filepath.Join(o.Options.TftpRoot, f), filepath.Join(isoLinDir, f)).Run()
 		if err != nil {
 			return errors.Wrapf(err, "cp %s", f)
 		}
@@ -1782,7 +1782,7 @@ func (b *SBaremetalInstance) GenerateBootISO() error {
 		"-o", b.getBootIsoImagePath(),
 		isoDir,
 	}
-	_, err = procutils.NewCommand("mkisofs", args...).Run()
+	err = procutils.NewCommand("mkisofs", args...).Run()
 	if err != nil {
 		return errors.Wrap(err, "procutils.NewCommand mkisofs")
 	}

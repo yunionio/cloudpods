@@ -108,6 +108,7 @@ type SHostOptions struct {
 	DeployServerSocketPath    string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 	DefaultRequestWorkerCount int    `default:"8" help:"default request worker count"`
 	ExecutorSocketPath        string `help:"Executor socket path" default:"/var/run/exec.sock"`
+	CommonConfigFile          string `help:"common config file for container"`
 }
 
 var HostOptions SHostOptions

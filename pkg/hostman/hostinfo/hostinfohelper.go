@@ -95,7 +95,7 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parse dmi cpuinfo")
 	}
-	cpuArch, err := procutils.NewCommand("uname", "-p").Run()
+	cpuArch, err := procutils.NewCommand("uname", "-p").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "get cpu architecture")
 	}

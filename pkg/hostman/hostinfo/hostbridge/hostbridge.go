@@ -115,7 +115,7 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 }
 
 func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
-	output, err := procutils.NewCommand("ifconfig").Run()
+	output, err := procutils.NewCommand("ifconfig").Output()
 	if err != nil {
 		return false, errors.Wrapf(err, "exec ifconfig %s", output)
 	}

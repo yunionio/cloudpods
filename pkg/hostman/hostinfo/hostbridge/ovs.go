@@ -100,7 +100,7 @@ func (d *SOVSBridgeDriver) PersistentMac() error {
 		"ovs-vsctl", "set", "Bridge", d.bridge.String(),
 		"other-config:hwaddr=" + d.inter.Mac,
 	}
-	output, err := procutils.NewCommand(args[0], args[1:]...).Run()
+	output, err := procutils.NewCommand(args[0], args[1:]...).Output()
 	if err != nil {
 		return fmt.Errorf("Ovs bridge set mac address failed %s %s", output, err)
 	}

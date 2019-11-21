@@ -256,7 +256,7 @@ func (s *SDeployService) PrepareEnv() error {
 
 func (s *SDeployService) InitService() {
 	common_options.ParseOptions(&DeployOption, os.Args, "host.conf", "deploy-server")
-	log.Errorln(DeployOption.ExecSocketPath)
+	log.Infof("exec socket path: %s", DeployOption.ExecSocketPath)
 	execlient.Init(DeployOption.ExecSocketPath)
 	procutils.SetSocketExecutor()
 	if err := s.PrepareEnv(); err != nil {
