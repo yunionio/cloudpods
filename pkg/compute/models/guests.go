@@ -4892,3 +4892,12 @@ func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.Serve
 	}
 	return nil
 }
+
+func (self *SGuest) GetDiskIndex(diskId string) int8 {
+	for _, gd := range self.GetDisks() {
+		if gd.DiskId == diskId {
+			return gd.Index
+		}
+	}
+	return -1
+}
