@@ -468,7 +468,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 		params.Set("maintain_end", jsonutils.NewString(ec.MaintainEnd))
 	}
 
-	if ec.ChargeType == billing_api.BILLING_TYPE_PREPAID && ec.BC != nil {
+	if strings.ToLower(ec.ChargeType) == billing_api.BILLING_TYPE_PREPAID && ec.BC != nil {
 		bssParam := jsonutils.NewDict()
 		bssParam.Set("charging_mode", jsonutils.NewString("prePaid"))
 		bssParam.Set("is_auto_pay", jsonutils.NewString("true"))
