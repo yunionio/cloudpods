@@ -286,7 +286,6 @@ func NewNIC(desc string) (*SNIC, error) {
 	nic.Bandwidth = 1000
 
 	log.Infof("IP %s/%s/%s", nic.Ip, nic.Bridge, nic.Inter)
-	// 这是干啥呢 ？？？
 	if len(nic.Ip) > 0 {
 		var max, wait = 30, 0
 		for wait < max {
@@ -300,6 +299,10 @@ func NewNIC(desc string) (*SNIC, error) {
 			}
 			br := netutils2.NewNetInterface(nic.Bridge)
 			if br.Addr == nic.Ip {
+				mask, _ := br.Mask.Size()
+				if nic.Mask == 0 && mask > 0 {
+					nic.Mask = mask
+				}
 				break
 			}
 			time.Sleep(time.Second * 2)

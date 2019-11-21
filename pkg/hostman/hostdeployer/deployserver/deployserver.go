@@ -228,9 +228,12 @@ func (s *SDeployService) PrepareEnv() error {
 	}
 	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
 	if err != nil {
-		log.Errorf("Failed to activate nbd device: %s", output)
+		return fmt.Errorf("Failed to activate nbd device: %s", output)
 	}
-	nbd.Init()
+	err = nbd.Init()
+	if err != nil {
+		return err
+	}
 
 	for i := 0; i < 16; i++ {
 		nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
