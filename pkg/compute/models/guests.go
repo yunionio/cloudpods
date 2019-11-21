@@ -1124,10 +1124,14 @@ func (manager *SGuestManager) validateCreateData(
 				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 			}
 
-			if input.BillingType == billing_api.BILLING_TYPE_POSTPAID && !GetDriver(hypervisor).IsSupportPostpaidExpire() {
-				return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", hypervisor)
-			} else if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
-				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+			if input.BillingType == billing_api.BILLING_TYPE_POSTPAID {
+				if !GetDriver(hypervisor).IsSupportPostpaidExpire() {
+					return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", hypervisor)
+				}
+			} else {
+				if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
+					return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
+				}
 			}
 
 			if len(input.BillingType) == 0 {
