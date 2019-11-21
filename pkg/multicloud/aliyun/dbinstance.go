@@ -604,10 +604,6 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 			params["Period"] = "Year"
 			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetYears())
 		}
-		err := billingCycle2Params(desc.BillingCycle, params)
-		if err != nil {
-			return nil, err
-		}
 		params["AutoRenew"] = "False"
 	}
 
