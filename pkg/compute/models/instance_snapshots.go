@@ -57,6 +57,7 @@ type SInstanceSnapshot struct {
 	RefCount       int                  `default:"0" list:"user"`
 	SecGroups      jsonutils.JSONObject `nullable:"true" list:"user"`
 	KeypairId      string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	OsType         string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -208,7 +209,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 		}
 		instanceSnapshot.SecGroups = jsonutils.Marshal(secIds)
 	}
-
+	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.ServerMetadata = serverMetadata
 	err := manager.TableSpec().Insert(instanceSnapshot)
 	if err != nil {
@@ -254,6 +255,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		}
 		sourceInput.Secgroups = inputSecgs
 	}
+	sourceInput.OsType = self.OsType
 	// sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
 }
