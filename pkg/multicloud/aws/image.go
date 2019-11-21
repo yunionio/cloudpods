@@ -39,6 +39,7 @@ const (
 	ImageImportStatusCompleted   = "completed"
 	ImageImportStatusUncompleted = "uncompleted"
 	ImageImportStatusError       = "error"
+	ImageImportStatusDeleted     = "deleted"
 )
 
 type TImageOwnerType string
@@ -143,6 +144,8 @@ func (self *ImageImportTask) GetStatus() string {
 	for _, item := range ret.ImportImageTasks {
 		if *item.Status == "completed" {
 			return ImageImportStatusCompleted
+		} else if *item.Status == "deleted" {
+			return ImageImportStatusDeleted
 		} else {
 			return ImageImportStatusUncompleted
 		}
