@@ -50,7 +50,7 @@ func (self *SHuaweiGuestDriver) GetQuotaPlatformID() []string {
 }
 
 func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
-	return api.STORAGE_HUAWEI_SATA
+	return api.STORAGE_HUAWEI_SAS
 }
 
 func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
