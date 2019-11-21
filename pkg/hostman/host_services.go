@@ -81,7 +81,6 @@ func (host *SHostService) RunService() {
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
 	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
-		// ??? Why wait 5 seconds
 
 		hostInstance.StartRegister(2, func() {
 			guestman.GetGuestManager().Bootstrap()
@@ -91,10 +90,8 @@ func (host *SHostService) RunService() {
 		})
 	})
 
-	go func() {
-		<-hostinfo.Instance().IsRegistered // wait host and guest init
-		host.initHandlers(app)
-	}()
+	<-hostinfo.Instance().IsRegistered // wait host and guest init
+	host.initHandlers(app)
 
 	// Init Metadata handler
 	go metadata.StartService(
