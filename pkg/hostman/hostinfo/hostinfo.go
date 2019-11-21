@@ -775,8 +775,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
 	memTotal, err := h.GetMemory()
 	if err != nil {
-		log.Errorln(err)
-		h.onFail()
+		h.onFail(err)
 	}
 	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
