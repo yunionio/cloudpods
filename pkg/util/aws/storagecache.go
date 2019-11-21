@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -243,30 +244,23 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	// todo:// 等待镜像导入完成
-	for i := 1; i < 120; i++ {
-		time.Sleep(2 * time.Minute)
-		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&task.TaskId}})
-		if err != nil {
-			return "", err
+	err = cloudprovider.Wait(2*time.Minute, 4*time.Hour, func() (bool, error) {
+		status := task.GetStatus()
+		if status == ImageImportStatusDeleted {
+			return false, errors.Wrap(errors.ErrInvalidStatus, "SStoragecache.ImageImportStatusDeleted")
 		}
 
-		err = FillZero(ret)
-		if err != nil {
-			return "", err
+		if status == ImageImportStatusCompleted {
+			return true, nil
 		}
 
-		log.Debugf("DescribeImportImage Task %s", ret.String())
-		for _, item := range ret.ImportImageTasks {
-			if *item.Status == "completed" {
-				// add name tag
-				self.region.addTags(*item.ImageId, "Name", image.ImageId)
-				return *item.ImageId, nil
-			}
-		}
+		return false, nil
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "SStoragecache.Wait")
 	}
 
-	return task.ImageId, fmt.Errorf("uploadImage uncompleted: %s", task)
+	return task.ImageId, nil
 
 }
 
