@@ -286,7 +286,6 @@ func NewNIC(desc string) (*SNIC, error) {
 	nic.Bandwidth = 1000
 
 	log.Infof("IP %s/%s/%s", nic.Ip, nic.Bridge, nic.Inter)
-	// 这是干啥呢 ？？？
 	if len(nic.Ip) > 0 {
 		var max, wait = 30, 0
 		for wait < max {

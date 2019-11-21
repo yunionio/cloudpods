@@ -30,23 +30,27 @@ type SNBDManager struct {
 
 var nbdManager *SNBDManager
 
-func Init() {
-	nbdManager = NewNBDManager()
+func Init() error {
+	var err error
+	nbdManager, err = NewNBDManager()
+	return err
 }
 
 func GetNBDManager() *SNBDManager {
 	return nbdManager
 }
 
-func NewNBDManager() *SNBDManager {
+func NewNBDManager() (*SNBDManager, error) {
 	var ret = new(SNBDManager)
 	ret.nbdDevs = make(map[string]bool, 0)
 	ret.nbdLock = new(sync.Mutex)
-	ret.findNbdDevices()
-	return ret
+	if err := ret.findNbdDevices(); err != nil {
+		return ret, err
+	}
+	return ret, nil
 }
 
-func (m *SNBDManager) findNbdDevices() {
+func (m *SNBDManager) findNbdDevices() error {
 	var i = 0
 	for {
 		if fileutils2.Exists(fmt.Sprintf("/dev/nbd%d", i)) {
@@ -57,6 +61,10 @@ func (m *SNBDManager) findNbdDevices() {
 		}
 	}
 	log.Infof("NBD_DEVS: %#v", m.nbdDevs)
+	if len(m.nbdDevs) == 0 {
+		return fmt.Errorf("No nbd devices found")
+	}
+	return nil
 }
 
 func (m *SNBDManager) AcquireNbddev() string {
