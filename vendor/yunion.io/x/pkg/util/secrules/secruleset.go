@@ -16,7 +16,10 @@ package secrules
 
 import (
 	"bytes"
+	"net"
 	"sort"
+
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SecurityRuleSet []SecurityRule
@@ -53,6 +56,12 @@ func (srs SecurityRuleSet) String() string {
 		buf.WriteString(";")
 	}
 	return buf.String()
+}
+
+func (srs SecurityRuleSet) Equals(srs1 SecurityRuleSet) bool {
+	sort.Sort(srs)
+	sort.Sort(srs1)
+	return srs.equals(srs1)
 }
 
 func (srs SecurityRuleSet) equals(srs1 SecurityRuleSet) bool {
@@ -191,5 +200,82 @@ func (srs SecurityRuleSet) collapse() SecurityRuleSet {
 			// save that contains, intersects
 		}
 	}
-	return srs1
+	for i := range srs1 {
+		sr := &srs1[i]
+		if sr.PortStart <= 1 && sr.PortEnd >= 65535 {
+			sr.PortStart = -1
+			sr.PortEnd = -1
+		}
+	}
+
+	//merge cidr
+	sort.Slice(srs1, func(i, j int) bool {
+		sr0 := &srs1[i]
+		sr1 := &srs1[j]
+		if sr0.Protocol != sr1.Protocol {
+			return sr0.Protocol < sr1.Protocol
+		}
+
+		if sr0.GetPortsString() != sr1.GetPortsString() {
+			return sr0.GetPortsString() < sr1.GetPortsString()
+		}
+		range0 := netutils.NewIPV4AddrRangeFromIPNet(sr0.IPNet)
+		range1 := netutils.NewIPV4AddrRangeFromIPNet(sr1.IPNet)
+		if range0.StartIp() != range1.StartIp() {
+			return range0.StartIp() < range1.StartIp()
+		}
+		if range0.EndIp() != range1.EndIp() {
+			return range0.EndIp() < range1.EndIp()
+		}
+		return sr0.Priority < sr1.Priority
+	})
+
+	// 将端口和协议相同的规则归类
+	needMerged := []SecurityRuleSet{}
+	for i, j := 0, 0; i < len(srs1); i++ {
+		if i == 0 {
+			needMerged = append(needMerged, SecurityRuleSet{srs1[i]})
+			continue
+		}
+		last := needMerged[j][len(needMerged[j])-1]
+		if last.Protocol == srs1[i].Protocol && last.GetPortsString() == srs1[i].GetPortsString() {
+			needMerged[j] = append(needMerged[j], srs1[i])
+			continue
+		}
+		needMerged = append(needMerged, SecurityRuleSet{srs1[i]})
+		j++
+	}
+
+	result := SecurityRuleSet{}
+	for _, srs := range needMerged {
+		result = append(result, srs.mergeNet()...)
+	}
+	return result
+}
+
+func (srs SecurityRuleSet) mergeNet() SecurityRuleSet {
+	result := SecurityRuleSet{}
+	ranges := []netutils.IPV4AddrRange{}
+	for i := 0; i < len(srs); i++ {
+		if i == 0 {
+			ranges = append(ranges, netutils.NewIPV4AddrRangeFromIPNet(srs[i].IPNet))
+			continue
+		}
+		preNet := ranges[len(ranges)-1]
+		nextNet := netutils.NewIPV4AddrRangeFromIPNet(srs[i].IPNet)
+		if net, ok := preNet.Merge(nextNet); ok {
+			ranges[len(ranges)-1] = *net
+			continue
+		}
+		ranges = append(ranges, nextNet)
+	}
+	nets := []*net.IPNet{}
+	for _, addr := range ranges {
+		nets = append(nets, addr.ToIPNets()...)
+	}
+	for _, net := range nets {
+		srs[0].IPNet = net
+		result = append(result, srs[0])
+	}
+	return result
 }
