@@ -287,6 +287,8 @@ func NewNIC(desc string) (*SNIC, error) {
 
 	log.Infof("IP %s/%s/%s", nic.Ip, nic.Bridge, nic.Inter)
 	if len(nic.Ip) > 0 {
+		// waiting for interface assign ip
+		// in case nic bonding is too slow
 		var max, wait = 30, 0
 		for wait < max {
 			inf := netutils2.NewNetInterface(nic.Inter)

@@ -666,6 +666,22 @@ func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 	}
 }
 
+func (s *SKVMGuestInstance) BlockJobsCount() int {
+	res := make(chan *jsonutils.JSONArray)
+	s.Monitor.GetBlockJobs(func(jobs *jsonutils.JSONArray) {
+		res <- jobs
+	})
+	select {
+	case <-time.After(time.Second * 3):
+		return -1
+	case v := <-res:
+		if v != nil && v.Length() > 0 {
+			return v.Length()
+		}
+	}
+	return 0
+}
+
 func (s *SKVMGuestInstance) CleanStartupTask() {
 	log.Infof("Clean startup task ...")
 	if s.startupTask != nil {
