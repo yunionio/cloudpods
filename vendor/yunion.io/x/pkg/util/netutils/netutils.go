@@ -206,6 +206,19 @@ func (ar IPV4AddrRange) EndIp() IPV4Addr {
 	return ar.end
 }
 
+func (ar IPV4AddrRange) Merge(ar2 IPV4AddrRange) (*IPV4AddrRange, bool) {
+	if ar.IsOverlap(ar2) || ar.end+1 == ar2.start || ar2.end+1 == ar.start {
+		if ar2.start < ar.start {
+			ar.start = ar2.start
+		}
+		if ar2.end > ar.end {
+			ar.end = ar2.end
+		}
+		return &ar, true
+	}
+	return nil, false
+}
+
 func (ar IPV4AddrRange) IsOverlap(ar2 IPV4AddrRange) bool {
 	if ar.start > ar2.end || ar.end < ar2.start {
 		return false
