@@ -17,10 +17,11 @@ package modules
 import (
 	"fmt"
 
-	"golang.org/x/sync/errgroup"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -102,8 +103,7 @@ func (this *UserManagerV3) GetIsLdapUser(s *mcclient.ClientSession, uid string, 
 	return ret, nil
 }*/
 
-func (this *UserManagerV3) _groupAction(s *mcclient.ClientSession, gid, uid, action string, ch chan int) error {
-
+func (this *UserManagerV3) _groupAction(s *mcclient.ClientSession, gid, uid, action string) error {
 	if action == "join" {
 		_, err := this.PutInContext(s, uid, nil, &Groups, gid)
 		if err != nil {
@@ -115,11 +115,6 @@ func (this *UserManagerV3) _groupAction(s *mcclient.ClientSession, gid, uid, act
 			return err
 		}
 	}
-
-	defer func() {
-		ch <- 1
-	}()
-
 	return nil
 }
 
@@ -131,35 +126,37 @@ func (this *UserManagerV3) DoJoinGroups(s *mcclient.ClientSession, uid string, p
 	//     "gids": ["L6ssbAJUG3rC", "pu8lkunxP4z8"]
 	// }
 
-	ret := jsonutils.NewDict()
-	gids, e := params.GetArray("gids")
-	if e != nil {
-		return ret, e
+	gids, err := params.GetArray("gids")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("gids")
 	}
-	action, e := params.GetString("action")
-	if e != nil {
-		return ret, e
+	action, err := params.GetString("action")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("action")
 	}
 
 	if action != "join" && action != "leave" {
-		return ret, nil
+		return nil, httperrors.NewInputParameterError("unsupported action %s", action)
 	}
 
-	chs := make([]chan int, len(gids))
-
-	for i, gid := range gids {
-		_gid, e := gid.GetString()
-		if e != nil {
-			return ret, e
+	errs := make([]error, 0)
+	for _, gid := range gids {
+		_gid, _ := gid.GetString()
+		if len(_gid) > 0 {
+			err := this._groupAction(s, _gid, uid, action)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
-		chs[i] = make(chan int)
-		go this._groupAction(s, _gid, uid, action, chs[i])
 	}
 
-	for _, ch := range chs {
-		<-ch
+	if len(errs) > 0 {
+		if len(errs) == len(gids) {
+			return nil, httperrors.NewGeneralError(errors.NewAggregate(errs))
+		}
+		log.Errorf("join group error %s", errors.NewAggregate(errs))
 	}
-	return ret, nil
+	return jsonutils.NewDict(), nil
 }
 
 // create user && assgin user with project_domain、project、role
@@ -200,25 +197,23 @@ func (this *UserManagerV3) DoCreateUser(s *mcclient.ClientSession, p jsonutils.J
 		}
 	}
 
+	errs := make([]error, 0)
 	if len(projects) > 0 && len(roles) > 0 {
-		var projectG errgroup.Group
-
 		for i := range projects {
 			pid := projects[i]
 			for j := range roles {
 				rid := roles[j]
-
-				projectG.Go(func() error {
-					return Projects.JoinProject(s, rid, pid, uid)
-				})
+				err := Projects.JoinProject(s, rid, pid, uid)
+				if err != nil {
+					errs = append(errs, err)
+				}
 			}
-		}
-
-		if err := projectG.Wait(); err != nil {
-			return nil, err
 		}
 	}
 
+	if len(errs) > 0 {
+		log.Errorf("join project errors: %s", errors.NewAggregate(errs))
+	}
 	return response, nil
 }
 
