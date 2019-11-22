@@ -464,8 +464,10 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 			return e
 		}
 
-		//可以从秘钥解密旧密码
-		desc.Password = guest.GetOldPassword(ctx, task.GetUserCred())
+		if len(desc.Password) == 0 {
+			//可以从秘钥解密旧密码
+			desc.Password = guest.GetOldPassword(ctx, task.GetUserCred())
+		}
 		return nil
 	}()
 	if err != nil {
