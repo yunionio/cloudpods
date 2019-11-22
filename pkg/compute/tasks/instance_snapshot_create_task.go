@@ -125,6 +125,12 @@ func (self *InstanceSnapshotCreateTask) GuestDiskCreateSnapshot(
 		return
 	}
 
+	err = models.InstanceSnapshotJointManager.CreateJoint(isp.Id, snapshot.Id, int8(diskIndex))
+	if err != nil {
+		self.taskFail(ctx, isp, guest, err.Error())
+		return
+	}
+
 	params := jsonutils.NewDict()
 	params.Set("disk_index", jsonutils.NewInt(int64(diskIndex)))
 	params.Set(strconv.Itoa(diskIndex), jsonutils.NewString(snapshot.Id))
@@ -142,18 +148,6 @@ func (self *InstanceSnapshotCreateTask) OnDiskSnapshot(
 	guest := models.GuestManager.FetchGuestById(isp.GuestId)
 
 	diskIndex, err := self.Params.Int("disk_index")
-	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
-		return
-	}
-
-	snapshotId, err := self.Params.GetString(strconv.Itoa(int(diskIndex)))
-	if err != nil {
-		self.taskFail(ctx, isp, guest, err.Error())
-		return
-	}
-
-	err = models.InstanceSnapshotJointManager.CreateJoint(isp.Id, snapshotId, int8(diskIndex))
 	if err != nil {
 		self.taskFail(ctx, isp, guest, err.Error())
 		return
