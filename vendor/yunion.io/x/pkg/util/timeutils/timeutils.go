@@ -16,8 +16,8 @@ package timeutils
 
 import (
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	"yunion.io/x/pkg/util/regutils"
 )
@@ -108,10 +108,17 @@ func ParseIsoNoSecondTime(str string) (time.Time, error) {
 
 func toFullIsoNanoTimeFormat(str string) string {
 	// 2019-09-17T20:50:17.66667134+08:00
+	// 2019-11-19T18:54:48.084-08:00
 	subsecStr := str[20:]
-	pos := strings.IndexByte(subsecStr, 'Z')
-	if pos < 0 {
-		pos = strings.IndexByte(subsecStr, '+')
+	pos := -1
+	for _, s := range []byte{'Z', '+', '-'} {
+		pos = strings.IndexByte(subsecStr, s)
+		if pos >= 0 {
+			break
+		}
+	}
+	if pos < 0 { //避免-1越界
+		return str
 	}
 	leftOver := subsecStr[pos:]
 	subsecStr = subsecStr[:pos]
