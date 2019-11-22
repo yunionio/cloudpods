@@ -1311,8 +1311,15 @@ func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mc
 					cloudaccounts.Field("id"),
 				))
 				q = q.Filter(sqlchemy.OR(
-					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+					sqlchemy.AND(
+						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+						sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
+					),
 					sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+					sqlchemy.AND(
+						sqlchemy.Equals(cloudaccounts.Field("domain_id"), owner.GetProjectDomainId()),
+						sqlchemy.Equals(cloudaccounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
+					),
 				))
 			}
 		}
