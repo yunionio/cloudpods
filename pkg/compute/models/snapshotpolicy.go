@@ -549,13 +549,15 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 		// sync project
 		SyncCloudProject(userCred, &snapshotPolicyTmp, syncOwnerId, ext, provider.GetId())
 		// update snapshotpolicyCluster
-		key := snapshotPolicyTmp.Key()
-		list, ok := snapshotpolicyCluster[key]
-		if !ok {
-			list = make([]*SSnapshotPolicy, 0)
+		if snapshotpolicyCluster != nil {
+			key := snapshotPolicyTmp.Key()
+			list, ok := snapshotpolicyCluster[key]
+			if !ok {
+				list = make([]*SSnapshotPolicy, 0)
+			}
+			list = append(list, &snapshotPolicyTmp)
+			snapshotpolicyCluster[key] = list
 		}
-		list = append(list, &snapshotPolicyTmp)
-		snapshotpolicyCluster[key] = list
 		snapshotPolicy = &snapshotPolicyTmp
 	}
 
