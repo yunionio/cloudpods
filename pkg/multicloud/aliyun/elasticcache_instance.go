@@ -626,7 +626,7 @@ func (self *SRegion) CreateIElasticcaches(ec *cloudprovider.SCloudElasticCacheIn
 	params["VpcId"] = ec.VpcId
 	params["VSwitchId"] = ec.NetworkId
 	params["ChargeType"] = ec.ChargeType
-	if ec.ChargeType == billing.BILLING_TYPE_PREPAID && ec.BC != nil {
+	if strings.ToLower(ec.ChargeType) == billing.BILLING_TYPE_PREPAID && ec.BC != nil {
 		if ec.BC.GetMonths() >= 1 && ec.BC.GetMonths() <= 9 {
 			params["Period"] = strconv.Itoa(ec.BC.GetMonths())
 		} else if ec.BC.GetMonths() == 12 || ec.BC.GetMonths() == 24 || ec.BC.GetMonths() == 36 {
