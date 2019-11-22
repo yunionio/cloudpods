@@ -46,6 +46,20 @@ func (jfc *SJointFilterClause) GetJointModelName() string {
 	return jfc.JointModel[:len(jfc.JointModel)-1]
 }
 
+func condFunc(field sqlchemy.IQueryField, params []string, cond func(field sqlchemy.IQueryField, val string) sqlchemy.ICondition) sqlchemy.ICondition {
+	if len(params) == 1 {
+		return cond(field, params[0])
+	} else if len(params) > 1 {
+		conds := make([]sqlchemy.ICondition, len(params))
+		for i := range params {
+			conds[i] = cond(field, params[i])
+		}
+		return sqlchemy.OR(conds...)
+	} else {
+		return nil
+	}
+}
+
 func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition {
 	field := q.Field(fc.field)
 	if field == nil {
@@ -78,25 +92,17 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 			return sqlchemy.LT(field, fc.params[0])
 		}
 	case "like":
-		if len(fc.params) == 1 {
-			return sqlchemy.Like(field, fc.params[0])
-		}
+		return condFunc(field, fc.params, sqlchemy.Like)
 	case "contains":
-		if len(fc.params) == 1 {
-			return sqlchemy.Contains(field, fc.params[0])
-		}
+		return condFunc(field, fc.params, sqlchemy.Contains)
 	case "startswith":
-		if len(fc.params) == 1 {
-			return sqlchemy.Startswith(field, fc.params[0])
-		}
+		return condFunc(field, fc.params, sqlchemy.Startswith)
 	case "endswith":
-		if len(fc.params) == 1 {
-			return sqlchemy.Endswith(field, fc.params[0])
-		}
+		return condFunc(field, fc.params, sqlchemy.Endswith)
 	case "equals":
-		if len(fc.params) == 1 {
-			return sqlchemy.Equals(field, fc.params[0])
-		}
+		return condFunc(field, fc.params, func(f sqlchemy.IQueryField, p string) sqlchemy.ICondition {
+			return sqlchemy.Equals(f, p)
+		})
 	case "notequals":
 		if len(fc.params) == 1 {
 			return sqlchemy.NOT(sqlchemy.Equals(field, fc.params[0]))

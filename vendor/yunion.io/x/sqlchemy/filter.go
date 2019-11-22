@@ -31,7 +31,7 @@ func (tq *SQuery) Filter(cond ICondition) *SQuery {
 	return tq
 }
 
-func (q *SQuery) Like(f string, v interface{}) *SQuery {
+func (q *SQuery) Like(f string, v string) *SQuery {
 	cond := Like(q.Field(f), v)
 	return q.Filter(cond)
 }
@@ -51,7 +51,7 @@ func (q *SQuery) Endswith(f string, v string) *SQuery {
 	return q.Filter(cond)
 }
 
-func (q *SQuery) NotLike(f string, v interface{}) *SQuery {
+func (q *SQuery) NotLike(f string, v string) *SQuery {
 	cond := Like(q.Field(f), v)
 	return q.Filter(NOT(cond))
 }
