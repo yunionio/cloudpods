@@ -121,8 +121,15 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	q := providers.Query(providers.Field("id"))
 	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(accounts.Field("domain_id"), domainId),
+		sqlchemy.AND(
+			sqlchemy.Equals(providers.Field("domain_id"), domainId),
+			sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
+		),
 		sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+		sqlchemy.AND(
+			sqlchemy.Equals(accounts.Field("domain_id"), domainId),
+			sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
+		),
 	))
 	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
 	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
