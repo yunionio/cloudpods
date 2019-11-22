@@ -17,8 +17,10 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -95,6 +97,15 @@ func (d *SLocalDisk) UmountFuseImage() {
 	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
 	procutils.NewCommand("umount", mntPath).Run()
 	procutils.NewCommand("rm", "-rf", mntPath).Run()
+	tmpPath := d.Storage.GetFuseTmpPath()
+	tmpFiles, err := ioutil.ReadDir(tmpPath)
+	if err != nil {
+		for _, f := range tmpFiles {
+			if strings.HasPrefix(f.Name(), d.Id) {
+				procutils.NewCommand("rm", "-f", path.Join(tmpPath, f.Name()))
+			}
+		}
+	}
 }
 
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -316,6 +327,15 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 	}
 	if _, err := procutils.NewCommand("rm", "-rf", mntPath).Run(); err != nil {
 		log.Errorln(err)
+	}
+	tmpPath := d.Storage.GetFuseTmpPath()
+	tmpFiles, err := ioutil.ReadDir(tmpPath)
+	if err != nil {
+		for _, f := range tmpFiles {
+			if strings.HasPrefix(f.Name(), d.Id) {
+				procutils.NewCommand("rm", "-f", path.Join(tmpPath, f.Name()))
+			}
+		}
 	}
 }
 
