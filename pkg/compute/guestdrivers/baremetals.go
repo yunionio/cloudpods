@@ -467,6 +467,8 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	}
 	if val == "rebuild" && jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
 		config.Set("on_finish", jsonutils.NewString("restart"))
+	} else if val == "deploy" && jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		config.Set("on_finish", jsonutils.NewString("shutdown"))
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
 	headers := task.GetTaskRequestHeader()
