@@ -52,9 +52,7 @@ func getAllProjectResourceCounts() (map[string][]SProjectResourceCount, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "getProjectResourceCount")
 			}
-			if len(resCnt) > 0 {
-				ret[virtman.KeywordPlural()] = resCnt
-			}
+			ret[virtman.KeywordPlural()] = resCnt
 		}
 	}
 	return ret, nil
