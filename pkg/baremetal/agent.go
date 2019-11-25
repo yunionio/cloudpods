@@ -128,9 +128,12 @@ func (agent *SBaremetalAgent) StartService() error {
 		return fmt.Errorf("New baremetal manager error: %v", err)
 	}
 
-	err = manager.loadConfigs()
+	files, err := manager.loadConfigs()
 	if err != nil {
 		return fmt.Errorf("Baremetal manager load config error: %v", err)
+	}
+	if err := manager.initBaremetals(files); err != nil {
+		log.Warningf("init baremetals by files err: %v", err)
 	}
 
 	agent.Manager = manager
