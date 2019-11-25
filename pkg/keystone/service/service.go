@@ -78,7 +78,7 @@ func StartService() {
 
 	err := models.MergeServiceConfig(opts)
 	if err != nil {
-		log.Fatalf("Fail to merge service config: %s", err)
+		log.Fatalf("[MERGE CONFIG] Fail to merge service config: %s", err)
 	}
 
 	if !opts.IsSlaveNode {
