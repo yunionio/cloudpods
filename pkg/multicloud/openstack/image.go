@@ -209,7 +209,10 @@ func (image *SImage) GetOsArch() string {
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {
-	return image.MinDisk
+	if image.MinDisk > 0 {
+		return image.MinDisk
+	}
+	return 30
 }
 
 func (image *SImage) GetImageFormat() string {
