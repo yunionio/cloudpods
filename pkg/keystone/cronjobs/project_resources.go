@@ -139,15 +139,18 @@ func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[
 		}
 
 		q := models.ProjectResourceManager.Query()
-		q = q.NotIn("project_id", projList)
+		if len(projList) > 0 {
+			q = q.NotIn("project_id", projList)
+		}
 		q = q.Equals("region_id", regionId)
 		q = q.Equals("service_id", serviceId)
 		q = q.Equals("resource", res)
+		q = q.NotEquals("count", 0)
 
 		emptySets := make([]models.SProjectResource, 0)
 		err := db.FetchModelObjects(models.ProjectResourceManager, q, &emptySets)
 		if err != nil {
-			log.Errorf("db.FetchModelObjects")
+			log.Errorf("db.FetchModelObjects %s", err)
 		}
 
 		for i := range emptySets {
@@ -156,7 +159,7 @@ func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[
 				return nil
 			})
 			if err != nil {
-				log.Errorf("db.Update")
+				log.Errorf("db.Update %s", err)
 			}
 		}
 	}
