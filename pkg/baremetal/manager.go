@@ -97,12 +97,20 @@ func (m *SBaremetalManager) GetZoneId() string {
 	return m.Agent.Zone.Id
 }
 
-func (m *SBaremetalManager) loadConfigs() error {
+func (m *SBaremetalManager) GetZoneName() string {
+	return m.Agent.Zone.Name
+}
+
+func (m *SBaremetalManager) loadConfigs() ([]os.FileInfo, error) {
 	m.killAllIPMITool()
 	files, err := ioutil.ReadDir(m.configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return files, nil
+}
+
+func (m *SBaremetalManager) initBaremetals(files []os.FileInfo) error {
 	bmIds := make([]string, 0)
 	for _, file := range files {
 		if file.IsDir() && regutils.MatchUUID(file.Name()) {
