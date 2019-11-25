@@ -1087,6 +1087,11 @@ func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		fmtArray := jsonutils.JSONArray2StringArray(fmtJsonArray)
 		q = q.In("disk_format", fmtArray)
 	}
+	if jsonutils.QueryBoolean(query, "uefi", false) {
+		imagePropertyQ := ImagePropertyManager.Query().
+			Equals("name", api.IMAGE_UEFI_SUPPORT).Equals("value", "true").SubQuery()
+		q = q.Join(imagePropertyQ, sqlchemy.Equals(q.Field("id"), imagePropertyQ.Field("image_id")))
+	}
 	return q, nil
 }
 

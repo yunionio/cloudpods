@@ -306,6 +306,10 @@ func NewNIC(desc string) (*SNIC, error) {
 			time.Sleep(time.Second * 2)
 			wait += 1
 		}
+		if wait >= max {
+			// if ip not found in inter or bridge
+			return nil, fmt.Errorf("Ip %s is not configure on %s/%s ?", nic.Ip, nic.Bridge, nic.Inter)
+		}
 	}
 
 	var err error
