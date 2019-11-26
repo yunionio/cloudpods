@@ -157,6 +157,10 @@ func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context,
 
 func (self *SDBInstanceBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	instance, _ := self.GetDBInstance()
+	if instance != nil {
+		self.SetProjectInfo(ctx, userCred, instance.ProjectId, instance.DomainId)
+	}
 	self.StartDBInstanceBackupCreateTask(ctx, userCred, nil, "")
 }
 
