@@ -95,7 +95,7 @@ func StartService() {
 
 	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
 	if err != nil {
-		log.Fatalf("Fail to merge service config %s", err)
+		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
 	}
 
 	go models.CheckImages()
