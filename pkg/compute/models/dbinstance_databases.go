@@ -150,14 +150,22 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 }
 
 func (self *SDBInstanceDatabase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	instance, _ := self.GetDBInstance()
+	if instance != nil {
+		self.SetProjectInfo(ctx, userCred, instance.ProjectId, instance.DomainId)
+	}
+	self.StartDBInstanceDatabaseCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
+}
+
+func (self *SDBInstanceDatabase) StartDBInstanceDatabaseCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	self.SetStatus(userCred, api.DBINSTANCE_DATABASE_CREATING, "")
-	params := data.(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDatabaseCreateTask", self, userCred, params, "", "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceDatabaseCreateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf("DBInstanceDatabaseCreateTask newTask error %s", err)
-		return
+		return errors.Wrap(err, "NewTask")
 	}
 	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SDBInstanceDatabase) GetDBInstancePrivileges() ([]SDBInstancePrivilege, error) {
