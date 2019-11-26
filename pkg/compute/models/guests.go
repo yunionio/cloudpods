@@ -1577,7 +1577,7 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 		}
 	}
 
-	if len(fields) == 0 || fields.Contains("host") || fields.ContainsAny(providerInfoFields...) {
+	if len(fields) == 0 || fields.Contains("host") || fields.ContainsAny(providerInfoFields...) || fields.Contains("host_sn") {
 		host := self.GetHost()
 		if host != nil {
 			if len(fields) == 0 || fields.Contains("host") {
@@ -1590,6 +1590,9 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 				} else {
 					extra.Update(jsonutils.Marshal(&info).(*jsonutils.JSONDict).CopyIncludes([]string(fields)...))
 				}
+			}
+			if len(fields) == 0 || fields.Contains("host_sn") {
+				extra.Add(jsonutils.NewString(host.SN), "host_sn")
 			}
 		}
 	}
@@ -4097,7 +4100,8 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
 
 	q := manager.Query()
-	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
+		IsFalse("pending_deleted").Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
@@ -4111,7 +4115,7 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 
 func (manager *SGuestManager) getExpiredPostpaidGuests() []SGuest {
 	deadline := time.Now()
-	q := manager.Query().Equals("billing_type", billing_api.BILLING_TYPE_POSTPAID).
+	q := manager.Query().Equals("billing_type", billing_api.BILLING_TYPE_POSTPAID).IsFalse("pending_deleted").
 		LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
