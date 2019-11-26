@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/app"
 	"yunion.io/x/onecloud/pkg/apigateway/clientman"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
+	api "yunion.io/x/onecloud/pkg/apis/apigateway"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -35,10 +36,15 @@ func StartService() {
 	opts := &options.Options
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
-	common_options.ParseOptions(opts, os.Args, "apigateway.conf", "apigateway")
+	common_options.ParseOptions(opts, os.Args, "apigateway.conf", api.SERVICE_TYPE)
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete.")
 	})
+
+	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
+	if err != nil {
+		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
+	}
 
 	if opts.DisableModuleApiVersion {
 		mcclient.DisableApiVersionByModule()
