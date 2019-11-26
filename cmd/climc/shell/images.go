@@ -138,6 +138,7 @@ func init() {
 		IsPublic   string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
 		IsStandard string   `help:"filter images standard or non-standard" choices:"true|false"`
 		Protected  string   `help:"filter images by protected" choices:"true|false"`
+		IsUefi     bool     `help:"list uefi image"`
 		Format     []string `help:"Disk formats"`
 		Name       string   `help:"Name filter"`
 	}
@@ -154,6 +155,9 @@ func init() {
 		}
 		if len(args.Protected) > 0 {
 			params.Add(jsonutils.NewString(args.Protected), "protected")
+		}
+		if args.IsUefi {
+			params.Add(jsonutils.JSONTrue, "uefi")
 		}
 		if len(args.Tenant) > 0 {
 			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
