@@ -633,12 +633,19 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 		return errors.Wrap(err, "Instance.AttachDisk.AttachDisk")
 	}
 
-	err = cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
-	if err != nil {
-		return errors.Wrap(err, "Instance.AttachDisk.WaitStatusWithDelay")
-	}
+	return cloudprovider.Wait(5*time.Second, 60*time.Second, func() (bool, error) {
+		disk, err := self.host.zone.region.GetDisk(diskId)
+		if err != nil {
+			log.Debugf("Instance.AttachDisk.GetDisk %s", err)
+			return false, nil
+		}
 
-	return nil
+		if disk.Status == "in-use" {
+			return true, nil
+		}
+
+		return false, nil
+	})
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
@@ -648,13 +655,13 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	}
 
 	return cloudprovider.Wait(5*time.Second, 60*time.Second, func() (bool, error) {
-		err := self.Refresh()
+		disk, err := self.host.zone.region.GetDisk(diskId)
 		if err != nil {
-			log.Debugln(err)
+			log.Debugf("Instance.DetachDisk.GetDisk %s", err)
 			return false, nil
 		}
 
-		if self.Status == "available" {
+		if disk.Status == "available" {
 			return true, nil
 		}
 
