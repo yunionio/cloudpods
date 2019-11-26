@@ -403,7 +403,7 @@ func (self *SDBInstanceAccount) PerformResetPassword(ctx context.Context, userCr
 	if err != nil {
 		return nil, err
 	}
-	passwdStr, _ := query.GetString("password")
+	passwdStr, _ := data.GetString("password")
 	if len(passwdStr) > 0 {
 		if !seclib2.MeetComplxity(passwdStr) {
 			return nil, httperrors.NewWeakPasswordError()
