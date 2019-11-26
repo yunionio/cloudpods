@@ -24,7 +24,7 @@ import (
 )
 
 type SCloudregionResourceBase struct {
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional"`
 }
 
 func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
