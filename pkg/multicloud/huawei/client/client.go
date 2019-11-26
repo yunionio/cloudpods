@@ -78,6 +78,7 @@ type Client struct {
 	DBInstanceFlavor   *modules.SDBInstanceFlavorManager
 	DBInstanceJob      *modules.SDBInstanceJobManager
 	Traces             *modules.STraceManager
+	CloudEye           *modules.SCloudEyeManager
 }
 
 func (self *Client) Init() error {
@@ -160,6 +161,7 @@ func (self *Client) initManagers() {
 		self.DBInstanceFlavor = modules.NewDBInstanceFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Traces = modules.NewTraceManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.CloudEye = modules.NewCloudEyeManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true
