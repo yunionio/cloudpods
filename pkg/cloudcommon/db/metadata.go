@@ -73,10 +73,11 @@ func init() {
 	Metadata.SetVirtualObject(Metadata)
 
 	ResourceMap = map[string]*SVirtualResourceBaseManager{
-		"disk":     {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "disks_tbl", "disk", "disks")},
-		"server":   {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "guests_tbl", "server", "servers")},
-		"eip":      {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "elasticips_tbl", "eip", "eips")},
-		"snapshot": {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "snapshots_tbl", "snpashot", "snpashots")},
+		"disk":       {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "disks_tbl", "disk", "disks")},
+		"server":     {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "guests_tbl", "server", "servers")},
+		"eip":        {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "elasticips_tbl", "eip", "eips")},
+		"snapshot":   {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "snapshots_tbl", "snpashot", "snpashots")},
+		"dbinstance": {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "dbinstances_tbl", "dbinstance", "dbinstances")},
 	}
 }
 
@@ -118,29 +119,68 @@ func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Conte
 }
 
 func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q := manager.Query("key", "value").Distinct()
+	q := manager.Query("id", "key", "value")
+	if key, _ := query.GetString("key"); len(key) > 0 {
+		q = q.Equals("key", key)
+	}
+	if value, _ := query.GetString("value"); len(value) > 0 {
+		q = q.Equals("value", value)
+	}
 	sql, err := manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	result := &struct {
-		Total int
-		Data  []struct {
-			Key   string
-			Value string
-		} `json:"data,allowempty"`
-	}{
-		Total: 0,
-		Data: []struct {
-			Key   string
-			Value string
-		}{},
-	}
-	err = sql.All(&result.Data)
+	metadatas := []struct {
+		Id    string
+		Key   string
+		Value string
+	}{}
+	err = sql.All(&metadatas)
 	if err != nil {
 		return nil, err
 	}
-	result.Total = len(result.Data)
+
+	result := &struct {
+		Total int
+		Data  []*jsonutils.JSONDict `json:"data,allowempty"`
+	}{
+		Total: 0,
+		Data:  []*jsonutils.JSONDict{},
+	}
+
+	statistics := map[string]map[string]map[string][]string{} //map[key][value][resourcetype][]string{ids}
+	for _, metadata := range metadatas {
+		if _, ok := statistics[metadata.Key]; !ok {
+			statistics[metadata.Key] = map[string]map[string][]string{}
+		}
+		if _, ok := statistics[metadata.Key][metadata.Value]; !ok {
+			statistics[metadata.Key][metadata.Value] = map[string][]string{}
+		}
+		if resourceInfo := strings.Split(metadata.Id, "::"); len(resourceInfo) == 2 {
+			resourceType, resourceId := resourceInfo[0], resourceInfo[1]
+			if _, ok := statistics[metadata.Key][metadata.Value][resourceType]; !ok {
+				statistics[metadata.Key][metadata.Value][resourceType] = []string{}
+			}
+			statistics[metadata.Key][metadata.Value][resourceType] = append(statistics[metadata.Key][metadata.Value][resourceType], resourceId)
+		}
+	}
+
+	for key, v := range statistics {
+		for value, info := range v {
+			data := jsonutils.NewDict()
+			data.Add(jsonutils.NewString(key), "key")
+			data.Add(jsonutils.NewString(value), "value")
+			count := 0
+			for resourceType, ids := range info {
+				count += len(ids)
+				data.Add(jsonutils.NewInt(int64(len(ids))), fmt.Sprintf("%s_count", resourceType))
+			}
+			if count > 0 {
+				data.Add(jsonutils.NewInt(int64(count)), "count")
+				result.Data = append(result.Data, data)
+			}
+		}
+	}
 	return jsonutils.Marshal(result), nil
 }
 
