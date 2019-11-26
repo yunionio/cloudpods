@@ -163,8 +163,16 @@ func init() {
 
 	type ServiceConfigOptions struct {
 		SERVICE string   `help:"service name or id"`
-		Config  []string `help:"config key=value pair"`
-		Remove  bool     `help:"remove config"`
+		Config  []string `help:"config options, can be a JSON, a YAML or a key=value pair, e.g:
+    * JSON
+      '{\"default\":{\"password_expiration_seconds\":300}}'
+    * YAML
+      default:
+        password_expiration_seconds: 300
+    * A key=value pair (under default section)
+      password_expiration_seconds=300
+"`
+		Remove bool `help:"remove config"`
 	}
 	R(&ServiceConfigOptions{}, "service-config", "Add config to service", func(s *mcclient.ClientSession, args *ServiceConfigOptions) error {
 		config := jsonutils.NewDict()
@@ -174,6 +182,20 @@ func init() {
 			config.Add(jsonutils.NewString("update"), "action")
 		}
 		for _, c := range args.Config {
+			json, _ := jsonutils.ParseString(c)
+			if json != nil {
+				subconf := jsonutils.NewDict()
+				subconf.Add(json, "config")
+				config.Update(subconf)
+				continue
+			}
+			yaml, _ := jsonutils.ParseYAML(c)
+			if yaml != nil {
+				subconf := jsonutils.NewDict()
+				subconf.Add(yaml, "config")
+				config.Update(subconf)
+				continue
+			}
 			pos := strings.IndexByte(c, '=')
 			if pos < 0 {
 				return fmt.Errorf("%s is not a key=value pair", c)
