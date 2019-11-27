@@ -24,12 +24,6 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 		"region_id",
 		"zone_id",
 	}
-	re, err := modules.Servers.List(s, nil)
-	if err != nil {
-		log.Errorf("Error List server: %s", err)
-		return nil, err
-	}
-
 	params := make(map[string]string)
 	result, err := modules.Servers.Get(s, ID, nil)
 	if err != nil {
