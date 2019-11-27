@@ -52,7 +52,7 @@ func (c *Caller) Call() ([]reflect.Value, error) {
 }
 
 func call(obj interface{}, fName string, inputs ...interface{}) ([]reflect.Value, error) {
-	return call(reflect.ValueOf(obj), fName, inputs...)
+	return callObject(reflect.ValueOf(obj), fName, inputs...)
 }
 
 func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
