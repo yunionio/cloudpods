@@ -23,6 +23,46 @@ import (
 
 type SRegion struct{}
 
+func (r *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return nil, fmt.Errorf("Not Implement GetIDiskById")
+}
+
+func (r *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	return nil, fmt.Errorf("Not Implement GetIHostById")
+}
+
+func (r *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, fmt.Errorf("Not Implement GetIHosts")
+}
+
+func (r *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	return nil, fmt.Errorf("Not Implement GetISnapshotById")
+}
+
+func (r *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	return nil, fmt.Errorf("Not Implement GetISnapshots")
+}
+
+func (r *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	return nil, fmt.Errorf("Not Implement GetIStorageById")
+}
+
+func (r *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	return nil, fmt.Errorf("Not Implement GetIStoragecacheById")
+}
+
+func (r *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	return nil, fmt.Errorf("Not Implement GetIStoragecaches")
+}
+
+func (r *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	return nil, fmt.Errorf("Not Implement GetIStorages")
+}
+
+func (r *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return nil, fmt.Errorf("Not Implement GetIVMById")
+}
+
 func (r *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput) (string, error) {
 	return "", fmt.Errorf("CreateSnapshotPolicy not implement")
 }

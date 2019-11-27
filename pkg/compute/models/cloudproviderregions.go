@@ -356,9 +356,10 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 
 	if localRegion.isManaged() {
 		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)
-		if err == nil {
-			err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, &syncRange)
+		if err != nil {
+			return errors.Wrap(err, "GetIRegionById")
 		}
+		err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, &syncRange)
 	} else {
 		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, &syncRange)
 	}
@@ -384,7 +385,10 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(self.getSyncTaskKey(), func() {
-		self.DoSync(context.Background(), userCred, syncRange)
+		err := self.DoSync(context.Background(), userCred, syncRange)
+		if err != nil {
+			log.Errorf("DoSync faild %v", err)
+		}
 		if waitChan != nil {
 			waitChan <- true
 		}

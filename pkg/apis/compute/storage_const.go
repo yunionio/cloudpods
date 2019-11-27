@@ -70,6 +70,11 @@ const (
 	// Zstack storage type
 	STORAGE_ZSTACK_LOCAL_STORAGE = "localstorage"
 	STORAGE_ZSTACK_CEPH          = "ceph"
+
+	// Google storage type
+	STORAGE_GOOGLE_LOCAL_STORAGE = "local-storage" //本地SSD暂存盘 (最多8个)
+	STORAGE_GOOGLE_PD_STANDARD   = "pd-standard"   //标准永久性磁盘
+	STORAGE_GOOGLE_PD_SSD        = "pd-ssd"        //SSD永久性磁盘
 )
 
 const (

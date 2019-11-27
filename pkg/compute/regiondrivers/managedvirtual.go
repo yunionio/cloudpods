@@ -1384,13 +1384,19 @@ func (self *SManagedVirtualizationRegionDriver) BindIPToNatgatewayRollback(ctx c
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) string {
-	if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
-		return "classic"
+func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
+	if region.GetDriver().IsSecurityGroupBelongGlobalNetwork() {
+		globalnetwork, err := vpc.GetGlobalNetwork()
+		if err != nil {
+			return "", errors.Wrap(err, "vpc.GetGlobalNetwork")
+		}
+		return globalnetwork.ExternalId, nil
+	} else if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
+		return "classic", nil
 	} else if region.GetDriver().IsSecurityGroupBelongVpc() {
-		return vpc.ExternalId
+		return vpc.ExternalId, nil
 	}
-	return region.GetDriver().GetDefaultSecurityGroupVpcId()
+	return region.GetDriver().GetDefaultSecurityGroupVpcId(), nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
@@ -1473,7 +1479,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 
 func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, task taskman.ITask) error {
 
-	vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, classic)
+	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, classic)
+	if err != nil {
+		return errors.Wrap(err, "GetSecurityGroupVpcId")
+	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
 		return nil, err
@@ -1533,7 +1542,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 
 		secgroup, _ := dbinstance.GetSecgroup()
 		if secgroup != nil {
-			vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			if err != nil {
+				return nil, errors.Wrap(err, "GetSecurityGroupVpcId")
+			}
 			desc.SecgroupId, err = region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
 			if err != nil {
 				return nil, errors.Wrap(err, "SyncSecurityGroup")
