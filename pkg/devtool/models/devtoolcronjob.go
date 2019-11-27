@@ -24,7 +24,6 @@ type SVSCronjob struct {
 	Enabled  bool  `nullable:"true" create:"optional" list:"user" update:"user" default:"false"`
 }
 
-// TODO: 为 AnsiblePlaybookID, TemplateID, ServerID 加索引
 type SCronjob struct {
 	SVSCronjob
 	AnsiblePlaybookID string `width:"36" nullable:"false" create:"required" index:"true" list:"user" update:"user"`
@@ -40,7 +39,6 @@ type SCronjobManager struct {
 var (
 	CronjobManager     *SCronjobManager
 	DevToolCronManager *cronman.SCronJobManager
-	Session            *mcclient.ClientSession
 )
 
 func init() {
@@ -101,10 +99,9 @@ func AddOneCronjob(item *SCronjob, s *mcclient.ClientSession) error {
 	return nil
 }
 
-func (man *SCronjobManager) InitializeData() error {
-	if Session == nil {
-		Session = auth.GetAdminSession(nil, "", "")
-	}
+func InitializeCronjobs() error {
+
+	Session := auth.GetAdminSession(nil, "", "")
 
 	go func() {
 		items := make([]SCronjob, 0)
@@ -122,6 +119,7 @@ func (man *SCronjobManager) InitializeData() error {
 }
 
 func (job *SCronjob) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerID mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	Session := auth.GetAdminSession(nil, "", "")
 	job.SStandaloneResourceBase.PostCreate(ctx, userCred, nil, query, data)
 	AddOneCronjob(job, Session)
 }
@@ -131,6 +129,7 @@ func (job *SCronjob) PostDelete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (job *SCronjob) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	Session := auth.GetAdminSession(nil, "", "")
 	job.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 	DevToolCronManager.Remove(job.Id)
 	AddOneCronjob(job, Session)
