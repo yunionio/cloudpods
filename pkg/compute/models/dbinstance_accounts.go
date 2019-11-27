@@ -206,6 +206,10 @@ func (self *SDBInstanceAccount) GetPassword() (string, error) {
 
 func (self *SDBInstanceAccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	instance, _ := self.GetDBInstance()
+	if instance != nil {
+		self.SetProjectInfo(ctx, userCred, instance.ProjectId, instance.DomainId)
+	}
 	input := &api.SDBInstanceAccountCreateInput{}
 	data.Unmarshal(input)
 	self.savePassword(input.Password)
