@@ -2768,16 +2768,30 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
 
-	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
+	if eip.Mode != api.EIP_MODE_STANDALONE_EIP {
+		return nil, httperrors.NewUnsupportOperationError("%s not support dissociate", eip.Mode)
+	}
 
 	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
-
-	err = eip.StartEipDissociateTask(ctx, userCred, autoDelete, "")
+	err = self.StartGuestDissociateEipTask(ctx, userCred, eip, autoDelete, "")
 	if err != nil {
-		log.Errorf("fail to start dissociate task %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, errors.Wrap(err, "StartGuestDissociateEipTask")
 	}
 	return nil, nil
+}
+
+func (self *SGuest) StartGuestDissociateEipTask(ctx context.Context, userCred mcclient.TokenCredential, eip *SElasticip, autoDelete bool, parentTaskId string) error {
+	self.SetStatus(userCred, api.VM_DISSOCIATE_EIP, "associate eip")
+	eip.SetStatus(userCred, api.EIP_STATUS_DISSOCIATE, "start to dissociate")
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(autoDelete), "auto_delete")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDissociateEipTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		eip.SetStatus(userCred, api.EIP_STATUS_READY, "")
+		return errors.Wrap(err, "NewTask")
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
