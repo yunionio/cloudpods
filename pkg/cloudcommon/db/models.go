@@ -29,6 +29,10 @@ import (
 
 var globalTables map[string]IModelManager
 
+func GlobalModelManagerTables() map[string]IModelManager {
+	return globalTables
+}
+
 func RegisterModelManager(modelMan IModelManager) {
 	if globalTables == nil {
 		globalTables = make(map[string]IModelManager)
