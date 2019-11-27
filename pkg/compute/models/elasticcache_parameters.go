@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // SElasticcache.Parameter
@@ -166,6 +168,22 @@ func (manager *SElasticcacheParameterManager) newFromCloudElasticcacheParameter(
 	}
 
 	return &parameter, nil
+}
+
+func (manager *SElasticcacheParameterManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SElasticcacheParameterManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return elasticcacheSubResourceFetchOwnerId(ctx, data)
+}
+
+func (manager *SElasticcacheParameterManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(q, userCred, scope)
+}
+
+func (self *SElasticcacheParameter) GetOwnerId() mcclient.IIdentityProvider {
+	return ElasticcacheManager.GetOwnerIdByElasticcacheId(self.ElasticcacheId)
 }
 
 func (self *SElasticcacheParameter) GetRegion() *SCloudregion {

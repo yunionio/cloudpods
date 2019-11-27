@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
@@ -68,7 +67,7 @@ type SDBInstance struct {
 	SBillingResourceBase
 
 	SCloudregionResourceBase
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
+	SDeletePreventableResourceBase
 
 	MasterInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	VcpuCount        int    `nullable:"false" default:"1" list:"user" create:"optional"`
@@ -500,32 +499,12 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 
 func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	dataCopy := jsonutils.DeepCopy(data)
-	accounts, err := self.GetDBInstanceAccounts()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get accounts: %v", err))
-	}
 	backups, err := self.GetDBInstanceBackups()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get backups: %v", err))
 	}
-	databases, err := self.GetDBInstanceDatabases()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get databases: %v", err))
-	}
-	for i := range accounts {
-		_, err := accounts[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
-		if err != nil {
-			return nil, err
-		}
-	}
 	for i := range backups {
 		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
-		if err != nil {
-			return nil, err
-		}
-	}
-	for i := range databases {
-		_, err := databases[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
 		if err != nil {
 			return nil, err
 		}

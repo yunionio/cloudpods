@@ -2562,3 +2562,7 @@ func (self *SHuaWeiRegionDriver) AllowCreateElasticcacheBackup(ctx context.Conte
 func (self *SHuaWeiRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	return fmt.Errorf("not support update huawei elastic cache auth_mode")
 }
+
+func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
+	return true
+}

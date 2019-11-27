@@ -127,14 +127,16 @@ func syncRegionSkus(ctx context.Context, userCred mcclient.TokenCredential, loca
 		}
 	}
 
-	cnt, err = ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
-	if err != nil {
-		log.Errorf("ElasticcacheSkuManager.GetSkuCountByRegion fail %s", err)
-		return
-	}
+	if localRegion.GetDriver().IsSupportedElasticcache() {
+		cnt, err = ElasticcacheSkuManager.GetSkuCountByRegion(regionId)
+		if err != nil {
+			log.Errorf("ElasticcacheSkuManager.GetSkuCountByRegion fail %s", err)
+			return
+		}
 
-	if cnt == 0 {
-		syncElasticCacheSkusByRegion(ctx, userCred, localRegion)
+		if cnt == 0 {
+			syncElasticCacheSkusByRegion(ctx, userCred, localRegion)
+		}
 	}
 }
 
