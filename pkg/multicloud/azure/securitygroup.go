@@ -414,6 +414,7 @@ func convertSecurityGroupRule(rule secrules.SecurityRule, priority int32) *Secur
 	name = strings.Replace(name, " ", "_", -1)
 	name = strings.Replace(name, "-", "_", -1)
 	name = strings.Replace(name, "/", "_", -1)
+	name = strings.Replace(name, ",", "_", -1)
 	name = fmt.Sprintf("%s_%d", name, rule.Priority)
 	destRule := SecurityRules{
 		Name: name,
