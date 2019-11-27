@@ -184,17 +184,21 @@ func init() {
 		for _, c := range args.Config {
 			json, _ := jsonutils.ParseString(c)
 			if json != nil {
-				subconf := jsonutils.NewDict()
-				subconf.Add(json, "config")
-				config.Update(subconf)
-				continue
+				if _, ok := json.(*jsonutils.JSONDict); ok {
+					subconf := jsonutils.NewDict()
+					subconf.Add(json, "config")
+					config.Update(subconf)
+					continue
+				}
 			}
 			yaml, _ := jsonutils.ParseYAML(c)
 			if yaml != nil {
-				subconf := jsonutils.NewDict()
-				subconf.Add(yaml, "config")
-				config.Update(subconf)
-				continue
+				if _, ok := yaml.(*jsonutils.JSONDict); ok {
+					subconf := jsonutils.NewDict()
+					subconf.Add(yaml, "config")
+					config.Update(subconf)
+					continue
+				}
 			}
 			pos := strings.IndexByte(c, '=')
 			if pos < 0 {
