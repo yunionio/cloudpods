@@ -182,10 +182,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (self *SInstance) GetCreateTime() time.Time {
-	return self.CreatedTime
-}
-
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }

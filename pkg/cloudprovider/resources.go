@@ -165,7 +165,7 @@ type ICloudImage interface {
 	GetMinOsDiskSizeGb() int
 	GetMinRamSizeMb() int
 	GetImageFormat() string
-	GetCreateTime() time.Time
+	GetCreatedAt() time.Time
 }
 
 type ICloudStoragecache interface {
@@ -246,7 +246,6 @@ type ICloudVM interface {
 	IBillingResource
 	IVirtualResource
 
-	GetCreateTime() time.Time
 	GetIHost() ICloudHost
 	GetIHostId() string
 

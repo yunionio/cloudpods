@@ -219,7 +219,7 @@ func (image *SImage) GetImageFormat() string {
 	return image.DiskFormat
 }
 
-func (image *SImage) GetCreateTime() time.Time {
+func (image *SImage) GetCreatedAt() time.Time {
 	return image.CreatedAt
 }
 
