@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
@@ -68,7 +67,7 @@ type SDBInstance struct {
 	SBillingResourceBase
 
 	SCloudregionResourceBase
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
+	SDeletePreventableResourceBase
 
 	MasterInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
 	VcpuCount        int    `nullable:"false" default:"1" list:"user" create:"optional"`

@@ -180,6 +180,8 @@ type IModel interface {
 	IsSharable(reqCred mcclient.IIdentityProvider) bool
 
 	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	MarkDeletePreventionOn()
+	MarkDeletePreventionOff()
 }
 
 type IResourceModelManager interface {
