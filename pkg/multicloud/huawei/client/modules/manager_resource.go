@@ -34,7 +34,7 @@ const (
 	ServiceNameECS  ServiceNameType = "ecs"  // 弹性云服务
 	ServiceNameCCE  ServiceNameType = "cce"  // 云容器服务
 	ServiceNameAS   ServiceNameType = "as"   // 弹性伸缩服务
-	ServiceNameIAM  ServiceNameType = "iam"  //  统一身份认证服务
+	ServiceNameIAM  ServiceNameType = "iam"  // 统一身份认证服务
 	ServiceNameIMS  ServiceNameType = "ims"  // 镜像服务
 	ServiceNameCSBS ServiceNameType = "csbs" // 云服务器备份服务
 	ServiceNameCCI  ServiceNameType = "cci"  // 云容器实例 CCI
@@ -48,7 +48,8 @@ const (
 	ServiceNameNAT  ServiceNameType = "nat"  // Nat网关 NAT
 	ServiceNameDCS  ServiceNameType = "dcs"  // 分布式缓存服务
 	ServiceNameRDS  ServiceNameType = "rds"  // 关系型数据库 RDS
-	ServiceNameCTS  ServiceNameType = "cts"  //云审计服务
+	ServiceNameCTS  ServiceNameType = "cts"  // 云审计服务
+	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
 )
 
 type SManagerContext struct {

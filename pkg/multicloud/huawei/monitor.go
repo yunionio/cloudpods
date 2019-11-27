@@ -12,4 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models // import "yunion.io/x/onecloud/pkg/cloudevent/models"
+package huawei
+
+import (
+	"time"
+
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
+)
+
+func (r *SRegion) GetMetrics() ([]modules.SMetricMeta, error) {
+	return r.ecsClient.CloudEye.ListMetrics()
+}
+
+func (r *SRegion) GetMetricsData(metrics []modules.SMetricMeta, since time.Time, until time.Time) ([]modules.SMetricData, error) {
+	return r.ecsClient.CloudEye.GetMetricsData(metrics, since, until)
+}
