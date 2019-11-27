@@ -499,32 +499,12 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 
 func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	dataCopy := jsonutils.DeepCopy(data)
-	accounts, err := self.GetDBInstanceAccounts()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get accounts: %v", err))
-	}
 	backups, err := self.GetDBInstanceBackups()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get backups: %v", err))
 	}
-	databases, err := self.GetDBInstanceDatabases()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get databases: %v", err))
-	}
-	for i := range accounts {
-		_, err := accounts[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
-		if err != nil {
-			return nil, err
-		}
-	}
 	for i := range backups {
 		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
-		if err != nil {
-			return nil, err
-		}
-	}
-	for i := range databases {
-		_, err := databases[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
 		if err != nil {
 			return nil, err
 		}
