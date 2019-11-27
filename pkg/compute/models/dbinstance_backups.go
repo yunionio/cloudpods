@@ -296,9 +296,14 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 
 		if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
 			//有可能云上删除了实例，未删除备份
-			_, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+			_instance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
 			if err == sql.ErrNoRows {
 				self.DBInstanceId = ""
+			}
+			if _instance != nil {
+				instance := _instance.(*SDBInstance)
+				self.ProjectId = instance.ProjectId
+				self.DomainId = instance.DomainId
 			}
 		}
 
@@ -308,8 +313,10 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 		return errors.Wrapf(err, "SyncWithCloudDBInstancebackup.UpdateWithLock")
 	}
 
-	provider := self.GetCloudprovider()
-	SyncCloudProject(userCred, self, provider.GetOwnerId(), extBackup, self.ManagerId)
+	if len(self.ProjectId) == 0 {
+		provider := self.GetCloudprovider()
+		SyncCloudProject(userCred, self, provider.GetOwnerId(), extBackup, self.ManagerId)
+	}
 
 	return nil
 }
@@ -340,11 +347,14 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx contex
 	backup.ExternalId = extBackup.GetGlobalId()
 
 	if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
-		dbinstance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+		_dbinstance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
 		if err != nil {
 			log.Warningf("failed to found dbinstance for backup %s by externalId: %s error: %v", backup.Name, dbinstanceId, err)
 		} else {
-			backup.DBInstanceId = dbinstance.GetId()
+			instance := _dbinstance.(*SDBInstance)
+			backup.DBInstanceId = instance.Id
+			backup.ProjectId = instance.ProjectId
+			backup.DomainId = instance.DomainId
 		}
 	}
 
@@ -353,7 +363,9 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx contex
 		return errors.Wrapf(err, "newFromCloudDBInstanceBackup.Insert")
 	}
 
-	SyncCloudProject(userCred, &backup, provider.GetOwnerId(), extBackup, backup.ManagerId)
+	if len(backup.ProjectId) == 0 {
+		SyncCloudProject(userCred, &backup, provider.GetOwnerId(), extBackup, backup.ManagerId)
+	}
 
 	return nil
 }

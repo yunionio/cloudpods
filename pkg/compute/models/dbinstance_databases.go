@@ -31,17 +31,18 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SDBInstanceDatabaseManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 }
 
 var DBInstanceDatabaseManager *SDBInstanceDatabaseManager
 
 func init() {
 	DBInstanceDatabaseManager = &SDBInstanceDatabaseManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SDBInstanceDatabase{},
 			"dbinstancedatabases_tbl",
 			"dbinstancedatabase",
@@ -52,7 +53,7 @@ func init() {
 }
 
 type SDBInstanceDatabase struct {
-	db.SVirtualResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -65,8 +66,42 @@ func (manager *SDBInstanceDatabaseManager) GetContextManagers() [][]db.IModelMan
 	}
 }
 
-func (self *SDBInstanceDatabaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
+func (manager *SDBInstanceDatabaseManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SDBInstanceDatabaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeProject, userCred, manager) {
+		return false
+	}
+	return true
+}
+
+func (manager *SDBInstanceDatabaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	parentId := manager.FetchParentId(ctx, data)
+	if len(parentId) > 0 {
+		instance, err := db.FetchById(DBInstanceManager, parentId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchById(DBInstanceManager, %s)", parentId)
+		}
+		return instance.(*SDBInstance).GetOwnerId(), nil
+	}
+	return nil, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := DBInstanceManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			sq = sq.Equals("tenant_id", userCred.GetProjectId())
+			return q.In("dbinstance_id", sq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("dbinstance_id", sq.SubQuery())
+		}
+	}
+	return q
 }
 
 func (self *SDBInstanceDatabaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -82,12 +117,21 @@ func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred m
 	return false
 }
 
+func (self *SDBInstanceDatabase) GetOwnerId() mcclient.IIdentityProvider {
+	instance, err := self.GetDBInstance()
+	if err != nil {
+		log.Errorf("failed to get dbinstance for database %s(%s)", self.Id, self.Name)
+		return nil
+	}
+	return instance.GetOwnerId()
+}
+
 func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SDBInstanceDatabaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +194,7 @@ func (manager *SDBInstanceDatabaseManager) ValidateCreateData(ctx context.Contex
 }
 
 func (self *SDBInstanceDatabase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	instance, _ := self.GetDBInstance()
-	if instance != nil {
-		self.SetProjectInfo(ctx, userCred, instance.ProjectId, instance.DomainId)
-	}
+	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.StartDBInstanceDatabaseCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
 }
 
@@ -187,7 +227,7 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 }
 
 func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +236,7 @@ func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred m
 }
 
 func (self *SDBInstanceDatabase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra, _ = self.getMoreDetails(ctx, userCred, extra)
 	return extra
 }
@@ -280,8 +320,6 @@ func (self *SDBInstanceDatabase) SyncWithCloudDBInstanceDatabase(ctx context.Con
 		self.Status = extDatabase.GetStatus()
 		self.Name = extDatabase.GetName()
 		self.CharacterSet = extDatabase.GetCharacterSet()
-		self.ProjectId = instance.ProjectId
-		self.DomainId = instance.DomainId
 
 		return nil
 	})
@@ -303,8 +341,6 @@ func (manager *SDBInstanceDatabaseManager) newFromCloudDBInstanceDatabase(ctx co
 	database.Status = extDatabase.GetStatus()
 	database.CharacterSet = extDatabase.GetCharacterSet()
 	database.ExternalId = extDatabase.GetGlobalId()
-	database.ProjectId = instance.ProjectId
-	database.DomainId = instance.DomainId
 
 	err := manager.TableSpec().Insert(&database)
 	if err != nil {
@@ -319,7 +355,7 @@ func (self *SDBInstanceDatabase) Delete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SDBInstanceDatabase) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SDBInstanceDatabase) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
