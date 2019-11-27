@@ -1535,3 +1535,7 @@ func (self *SAliyunRegionDriver) RequestElasticcacheAccountResetPassword(ctx con
 
 	return ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea)
 }
+
+func (self *SAliyunRegionDriver) IsSupportedElasticcache() bool {
+	return true
+}
