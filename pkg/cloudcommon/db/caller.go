@@ -133,7 +133,7 @@ func ValueToError(out reflect.Value) error {
 }
 
 func ValidateCreateData(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ret, err := call(manager, "ValidateCreateData", userCred, ownerId, query, data)
+	ret, err := call(manager, "ValidateCreateData", ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -176,7 +176,7 @@ func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenC
 }
 
 func ValidateUpdateData(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ret, err := call(model, "ValidateUpdateData", userCred, query, data)
+	ret, err := call(model, "ValidateUpdateData", ctx, userCred, query, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -191,7 +191,7 @@ func ValidateUpdateData(model IModel, ctx context.Context, userCred mcclient.Tok
 }
 
 func CustomizeDelete(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	ret, err := call(model, "CustomizeDelete", userCred, query, data)
+	ret, err := call(model, "CustomizeDelete", ctx, userCred, query, data)
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}
