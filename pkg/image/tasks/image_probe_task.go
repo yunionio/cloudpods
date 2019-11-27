@@ -42,12 +42,20 @@ func init() {
 
 func (self *ImageProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
-	if err, ok := image.IsIso(); err != nil {
-		self.OnProbeFailed(ctx, image, err.Error())
-	} else if !ok {
+	err, ok := image.IsIso()
+	if err == nil && !ok {
+		// not a iso
 		self.StartImageProbe(ctx, image)
+		return
+	}
+	if e := self.updateImageMetadata(ctx, image); e != nil {
+		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED, fmt.Sprintf("Image update failed %s", e))
+		self.SetStageFailed(ctx, e.Error())
+		return
+	}
+	if err != nil {
+		self.OnProbeFailed(ctx, image, err.Error())
 	} else {
-		// iso do not probe
 		self.OnProbeSuccess(ctx, image)
 	}
 }
