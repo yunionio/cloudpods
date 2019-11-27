@@ -76,6 +76,8 @@ const (
 
 	ErrInvalidProvider     = errors.Error("InvalidProvider")
 	ErrNoBalancePermission = errors.Error("NoBalancePermission")
+
+	ErrTooLarge = errors.Error("TooLargeEntity")
 )
 
 var (
@@ -141,6 +143,8 @@ var (
 		ErrTimeout:           504,
 		ErrProtectedResource: 403,
 		ErrNoProject:         403,
+
+		ErrTooLarge: 413,
 	}
 )
 
