@@ -88,17 +88,18 @@ func convertParams(params []*param) []reflect.Value {
 
 type param struct {
 	pType reflect.Type
-	input reflect.Value
+	input interface{}
 }
 
 func newParam(pType reflect.Type, input interface{}) *param {
 	return &param{
 		pType: pType,
-		input: reflect.ValueOf(input),
+		input: input,
 	}
 }
 
-func isJSONObject(val reflect.Value) (jsonutils.JSONObject, bool) {
+func isJSONObject(input interface{}) (jsonutils.JSONObject, bool) {
+	val := reflect.ValueOf(input)
 	obj, ok := val.Interface().(jsonutils.JSONObject)
 	if !ok {
 		return nil, false
@@ -107,9 +108,12 @@ func isJSONObject(val reflect.Value) (jsonutils.JSONObject, bool) {
 }
 
 func (p *param) convert() reflect.Value {
+	if p.input == nil {
+		return reflect.New(p.pType).Elem()
+	}
 	obj, ok := isJSONObject(p.input)
 	if !ok {
-		return p.input
+		return reflect.ValueOf(p.input)
 	}
 	// generate object by type
 	val := reflect.New(p.pType)
