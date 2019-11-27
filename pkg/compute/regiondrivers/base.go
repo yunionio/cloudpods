@@ -294,3 +294,7 @@ func (self *SBaseRegionDriver) ValidateResetDBInstancePassword(ctx context.Conte
 func (self *SBaseRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
 	return false
 }
+
+func (self *SBaseRegionDriver) IsSupportedElasticcache() bool {
+	return false
+}
