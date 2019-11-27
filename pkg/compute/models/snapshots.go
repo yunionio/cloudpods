@@ -417,6 +417,11 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, owner mcclient
 	if len(disk.ExternalId) == 0 {
 		snapshot.StorageId = disk.StorageId
 	}
+	driver, err := storage.GetRegionDriver()
+	if err != nil {
+		return nil, err
+	}
+	snapshot.OutOfChain = driver.SnapshotIsOutOfChain(disk)
 	snapshot.Size = disk.DiskSize
 	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location

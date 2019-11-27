@@ -98,20 +98,22 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 		extra.Set("guest_status", jsonutils.NewString(guest.Status))
 		extra.Set("guest", jsonutils.NewString(guest.Name))
 	}
-	var osType, storageType string
+	var osType string
 	snapshots, _ := self.GetSnapshots()
 	snapshotsDesc := jsonutils.NewArray()
 	for i := 0; i < len(snapshots); i++ {
 		if snapshots[i].DiskType == compute.DISK_TYPE_SYS {
 			osType = snapshots[i].OsType
 		}
-		if len(snapshots[i].StorageId) > 0 && len(storageType) == 0 {
-			storage := snapshots[i].GetStorage()
-			storageType = storage.StorageType
-		}
 		jsonDict := jsonutils.Marshal(&snapshots[i]).(*jsonutils.JSONDict)
 		metaFields := db.GetDetailFields(SnapshotManager, userCred)
 		jsonDict = jsonDict.CopyIncludes(metaFields...)
+		if len(snapshots[i].StorageId) > 0 {
+			storage := snapshots[i].GetStorage()
+			if storage != nil {
+				jsonDict.Set("storage_type", jsonutils.NewString(storage.StorageType))
+			}
+		}
 		snapshotsDesc.Add(jsonDict)
 	}
 	extra.Set("snapshots", snapshotsDesc)
@@ -119,9 +121,6 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 		properties := jsonutils.NewDict()
 		properties.Set("os_type", jsonutils.NewString(osType))
 		extra.Set("properties", properties)
-	}
-	if len(storageType) > 0 {
-		extra.Set("storage_type", jsonutils.NewString(storageType))
 	}
 	return extra
 }
