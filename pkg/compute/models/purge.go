@@ -1372,6 +1372,8 @@ func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenC
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
+	instance.DeletePreventionOff(instance, userCred)
+
 	err := instance.purgeAccounts(ctx, userCred)
 	if err != nil {
 		return err
@@ -1551,6 +1553,8 @@ func (instance *SElasticcacheParameter) purge(ctx context.Context, userCred mccl
 func (instance *SElasticcache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
+
+	instance.DeletePreventionOff(instance, userCred)
 
 	err := instance.purgeAccounts(ctx, userCred)
 	if err != nil {

@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -68,12 +67,11 @@ type SElasticcache struct {
 	db.SExternalizedResourceBase
 	SBillingResourceBase
 	SManagedResourceBase
+	SDeletePreventableResourceBase
 
 	SCloudregionResourceBase
 	SZoneResourceBase        // 主可用区.
 	SlaveZones        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"` //  备可用区
-
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"` // Column(Boolean, nullable=False, default=True)
 
 	InstanceType  string `width:"96" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // redis.master.micro.default
 	CapacityMB    int    `nullable:"false" list:"user" create:"optional"`                            //  1024

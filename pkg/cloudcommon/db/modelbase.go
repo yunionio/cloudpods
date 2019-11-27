@@ -100,6 +100,14 @@ func (manager *SModelBaseManager) ValidateName(name string) error {
 	return nil
 }
 
+func (model *SModelBase) MarkDeletePreventionOn() {
+	return
+}
+
+func (model *SModelBase) MarkDeletePreventionOff() {
+	return
+}
+
 // list hooks
 func (manager *SModelBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
