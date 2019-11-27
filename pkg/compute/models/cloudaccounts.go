@@ -1652,7 +1652,7 @@ func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcc
 		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
 				cloudproviders := CloudproviderManager.Query().SubQuery()
-				q = q.Join(cloudproviders, sqlchemy.Equals(
+				q = q.LeftJoin(cloudproviders, sqlchemy.Equals(
 					q.Field("id"),
 					cloudproviders.Field("cloudaccount_id"),
 				))
