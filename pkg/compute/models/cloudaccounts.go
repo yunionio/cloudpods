@@ -435,8 +435,18 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
-	providerDriver, _ := self.GetProviderFactory()
-	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, data, self.Account)
+	providerDriver, err := self.GetProviderFactory()
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("failed to found provider factory error: %v", err)
+	}
+
+	input := &api.CloudaccountCredentialInput{}
+	err = data.Unmarshal(input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
+	}
+
+	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, input, self.Account)
 	if err != nil {
 		return nil, err
 	}

@@ -43,32 +43,33 @@ func (self *SZStackProviderFactory) GetSupportedBrands() []string {
 }
 
 func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
-	if len(input.Username) == 0 {
-		return httperrors.NewMissingParameterError("username")
-	}
-	if len(input.Password) == 0 {
-		return httperrors.NewMissingParameterError("password")
-	}
 	if len(input.AuthUrl) == 0 {
 		return httperrors.NewMissingParameterError("auth_url")
 	}
-	input.Account = input.Username
-	input.Secret = input.Password
 	input.AccessUrl = input.AuthUrl
+	//为了兼容以前用username的参数，2.12之后尽可能的使用access_key_id参数
+	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
+		input.Account = input.AccessKeyId
+		input.Secret = input.AccessKeySecret
+	} else if len(input.Username) > 0 && len(input.Password) > 0 {
+		input.Account = input.Username
+		input.Secret = input.Password
+	} else {
+		return httperrors.NewMissingParameterError("access_key_id or access_key_secret")
+	}
 	return nil
 }
 
-func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	if username, _ := data.GetString("username"); len(username) > 0 {
-		cloudaccount = username
-	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
-		return nil, httperrors.NewMissingParameterError("password")
-	}
-	account := &cloudprovider.SCloudaccount{
-		Account: cloudaccount,
-		Secret:  password,
+func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	account := &cloudprovider.SCloudaccount{}
+	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
+		account.Account = input.AccessKeyId
+		account.Secret = input.AccessKeySecret
+	} else if len(input.Username) > 0 && len(input.Password) > 0 {
+		account.Account = input.Username
+		account.Secret = input.Password
+	} else {
+		return nil, httperrors.NewMissingParameterError("access_key_id or access_key_secret")
 	}
 	return account, nil
 }
