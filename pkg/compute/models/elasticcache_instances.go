@@ -34,12 +34,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	bc "yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -98,6 +100,44 @@ type SElasticcache struct {
 	AuthMode string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 访问密码？ on （开启密码）|off （免密码访问）
 	// AutoRenew // 自动续费
 	// AutoRenewPeriod // 自动续费周期
+}
+
+// elastic cache 子资源获取owner id
+func elasticcacheSubResourceFetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	parentId := jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
+	if len(parentId) > 0 {
+		userCred := policy.FetchUserCredential(ctx)
+		ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, parentId)
+		if err != nil {
+			log.Errorf("elasticcache sub resource FetchOwnerId %s", err)
+			return nil, nil
+		}
+
+		return ec.(*SElasticcache).GetOwnerId(), nil
+	}
+
+	return nil, nil
+}
+
+// elastic cache 子资源获取owner query
+func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		var subq *sqlchemy.SSubQuery
+
+		q1 := ElasticcacheManager.Query()
+		switch scope {
+		case rbacutils.ScopeProject:
+			subq = q1.Equals("tenant_id", userCred.GetProjectId()).SubQuery()
+		case rbacutils.ScopeDomain:
+			subq = q1.Equals("domain_id", userCred.GetProjectDomainId()).SubQuery()
+		}
+
+		if subq != nil {
+			q = q.Join(subq, sqlchemy.Equals(q.Field("elasticcache_id"), subq.Field("id")))
+		}
+	}
+
+	return q
 }
 
 func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
@@ -198,6 +238,16 @@ func (self *SElasticcache) GetDetailsLoginInfo(ctx context.Context, userCred mcc
 	ret.Add(jsonutils.NewString(account.Name), "username")
 	ret.Add(jsonutils.NewString(password), "password")
 	return ret, nil
+}
+
+func (manager *SElasticcacheManager) GetOwnerIdByElasticcacheId(elasticcacheId string) mcclient.IIdentityProvider {
+	ec, err := db.FetchById(ElasticcacheManager, elasticcacheId)
+	if err != nil {
+		log.Errorf("SElasticcacheManager.GetOwnerIdByElasticcacheId %s", err)
+		return nil
+	}
+
+	return ec.(*SElasticcache).GetOwnerId()
 }
 
 func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
