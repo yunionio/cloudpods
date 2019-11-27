@@ -166,7 +166,15 @@ func (self *NotifyModelDispatcher) getIds(data jsonutils.JSONObject, key string)
 	} else {
 		ids = noutils.JsonArrayToStringArray(tmpIds)
 	}
-	return ids
+	// remove entry in which empty content
+	ret := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if len(id) == 0 {
+			continue
+		}
+		ret = append(ret, id)
+	}
+	return ret[:len(ret):len(ret)]
 }
 
 // Verify process:
