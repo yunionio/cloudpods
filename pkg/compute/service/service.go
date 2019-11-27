@@ -51,8 +51,6 @@ func StartService() {
 		commonOpts.Port = opts.PortV2
 	}
 
-	options.InitNameSyncResources()
-
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
@@ -67,6 +65,8 @@ func StartService() {
 	if err != nil {
 		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
 	}
+
+	options.InitNameSyncResources()
 
 	err = setInfluxdbRetentionPolicy()
 	if err != nil {
