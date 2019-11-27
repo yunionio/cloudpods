@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 // SElasticcache.Backup
@@ -201,8 +202,19 @@ func (manager *SElasticcacheBackupManager) newFromCloudElasticcacheBackup(ctx co
 }
 
 func (manager *SElasticcacheBackupManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("elasticcache_id")
-	return parentId
+	return jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
+}
+
+func (manager *SElasticcacheBackupManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SElasticcacheBackupManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return elasticcacheSubResourceFetchOwnerId(ctx, data)
+}
+
+func (manager *SElasticcacheBackupManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(q, userCred, scope)
 }
 
 func (manager *SElasticcacheBackupManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
@@ -242,6 +254,10 @@ func (manager *SElasticcacheBackupManager) ValidateCreateData(ctx context.Contex
 	}
 
 	return driver.ValidateCreateElasticcacheBackupData(ctx, userCred, ownerId, data)
+}
+
+func (self *SElasticcacheBackup) GetOwnerId() mcclient.IIdentityProvider {
+	return ElasticcacheManager.GetOwnerIdByElasticcacheId(self.ElasticcacheId)
 }
 
 func (self *SElasticcacheBackup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

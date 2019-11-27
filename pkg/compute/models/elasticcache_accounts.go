@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -154,6 +155,10 @@ func (self *SElasticcacheAccount) GetRegion() *SCloudregion {
 	return iec.(*SElasticcache).GetRegion()
 }
 
+func (self *SElasticcacheAccount) GetOwnerId() mcclient.IIdentityProvider {
+	return ElasticcacheManager.GetOwnerIdByElasticcacheId(self.ElasticcacheId)
+}
+
 func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, extAccount cloudprovider.ICloudElasticcacheAccount) (*SElasticcacheAccount, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -177,8 +182,19 @@ func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx 
 }
 
 func (manager *SElasticcacheAccountManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
-	parentId, _ := data.GetString("elasticcache_id")
-	return parentId
+	return jsonutils.GetAnyString(data, []string{"elasticcache_id", "elasticcache"})
+}
+
+func (manager *SElasticcacheAccountManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SElasticcacheAccountManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return elasticcacheSubResourceFetchOwnerId(ctx, data)
+}
+
+func (manager *SElasticcacheAccountManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return elasticcacheSubResourceFetchOwner(q, userCred, scope)
 }
 
 func (manager *SElasticcacheAccountManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
