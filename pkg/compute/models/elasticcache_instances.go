@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -695,6 +696,10 @@ func (self *SElasticcache) StartRestartTask(ctx context.Context, userCred mcclie
 func (self *SElasticcache) ValidateDeleteCondition(ctx context.Context) error {
 	if self.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Elastic cache is locked, cannot delete")
+	}
+
+	if self.GetChargeType() == billing.BILLING_TYPE_PREPAID && self.ExpiredAt.Sub(time.Now()).Seconds() > 0 {
+		return httperrors.NewInvalidStatusError("Elastic cache is not expired, cannot delete")
 	}
 
 	return self.ValidatePurgeCondition(ctx)
