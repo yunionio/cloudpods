@@ -391,8 +391,9 @@ func (manager *SBucketManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	data *jsonutils.JSONDict,
+	input *api.BucketCreateInput,
 ) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	cloudRegionV := validators.NewModelIdOrNameValidator("cloudregion", CloudregionManager.Keyword(), ownerId)
 	managerV := validators.NewModelIdOrNameValidator("manager", CloudproviderManager.Keyword(), ownerId)
 	for _, v := range []validators.IValidator{
@@ -492,12 +493,15 @@ func (bucket *SBucket) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	return bucket.getMoreDetails(extra)
 }
 
-func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.BucketDetail, error) {
 	extra, err := bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	return bucket.getMoreDetails(extra), nil
+	ret := bucket.getMoreDetails(extra)
+	out := new(api.BucketDetail)
+	err = ret.Unmarshal(out)
+	return out, err
 }
 
 func joinPath(ep, path string) string {

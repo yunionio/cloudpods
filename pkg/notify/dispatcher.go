@@ -450,7 +450,7 @@ func DeleteItem(model db.IModel, ctx context.Context, userCred mcclient.TokenCre
 		log.Errorf("validate delete condition error: %s", err)
 		return err
 	}
-	err = model.CustomizeDelete(ctx, userCred, query, data)
+	err = db.CustomizeDelete(model, ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
 		return httperrors.NewNotAcceptableError(err.Error())
@@ -482,7 +482,7 @@ func UpdateItem(manager db.IModelManager, item db.IModel, ctx context.Context, u
 		return httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
-	dataDict, err = item.ValidateUpdateData(ctx, userCred, query, dataDict)
+	dataDict, err = db.ValidateUpdateData(item, ctx, userCred, query, dataDict)
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)
 		log.Errorf(errMsg)

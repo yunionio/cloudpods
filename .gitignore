@@ -33,3 +33,4 @@ _output
 GPATH
 GRTAGS
 GTAGS
+pkg/generated

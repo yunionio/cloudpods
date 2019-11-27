@@ -7,7 +7,10 @@ import (
 type ServerRebuildRootInput struct {
 	apis.Meta
 
-	Image         string `json:"image"`
+	// 镜像名称
+	Image string `json:"image"`
+	// 镜像 id
+	// required: true
 	ImageId       string `json:"image_id"`
 	Keypair       string `json:"keypair"`
 	KeypairId     string `json:"keypair_id"`

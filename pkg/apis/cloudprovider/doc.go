@@ -12,13 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudprovider
-
-// +onecloud:model-api-gen
-type SGeographicInfo struct {
-	Latitude  float32 `list:"user" update:"admin" create:"admin_optional"`
-	Longitude float32 `list:"user" update:"admin" create:"admin_optional"`
-
-	City        string `list:"user" width:"32" update:"admin" create:"admin_optional"`
-	CountryCode string `list:"user" width:"4" update:"admin" create:"admin_optional"`
-}
+package cloudprovider // import "yunion.io/x/onecloud/pkg/apis/cloudprovider"

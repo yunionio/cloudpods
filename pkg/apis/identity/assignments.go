@@ -15,35 +15,35 @@
 package identity
 
 type SIdentityObject struct {
-	Id   string
-	Name string
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type SDomainObject struct {
 	SIdentityObject
-	Domain SIdentityObject
+	Domain SIdentityObject `json:"domain"`
 }
 
 type SFetchDomainObject struct {
 	SIdentityObject
-	Domain   string
-	DomainId string
+	Domain   string `json:"domain"`
+	DomainId string `json:"domain_id"`
 }
 
 type SRoleAssignment struct {
 	Scope struct {
-		Domain  SIdentityObject
-		Project SDomainObject
-	}
-	User  SDomainObject
-	Group SDomainObject
-	Role  SDomainObject
+		Domain  SIdentityObject `json:"domain"`
+		Project SDomainObject   `json:"project"`
+	} `json:"scope"`
+	User  SDomainObject `json:"user"`
+	Group SDomainObject `json:"group"`
+	Role  SDomainObject `json:"role"`
 
 	Policies struct {
-		Project []string
-		Domain  []string
-		System  []string
-	}
+		Project []string `json:"project"`
+		Domain  []string `json:"domain"`
+		System  []string `json:"system"`
+	} `json:"policies"`
 }
 
 // rbacutils.IRbacIdentity interfaces

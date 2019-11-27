@@ -248,6 +248,13 @@ func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationIn
 	return usrExt, credential.ProjectId, aksk, nil
 }
 
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/v3/auth/tokens
+// +onecloud:swagger-gen-route-tag=authentication
+// +onecloud:swagger-gen-param-body-index=1
+// +onecloud:swagger-gen-resp-index=0
+
+// keystone keystone v3认证API
 func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*mcclient.TokenCredentialV3, error) {
 	var akskInfo api.SAccessKeySecretInfo
 	var user *api.SUserExtended
@@ -346,6 +353,13 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	return tokenV3, nil
 }
 
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/v2.0/tokens
+// +onecloud:swagger-gen-route-tag=authentication
+// +onecloud:swagger-gen-param-body-index=1
+// +onecloud:swagger-gen-resp-index=0
+
+// keystone v2 认证接口，通过用户名/密码或者 token 认证
 func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
 	var user *api.SUserExtended
 	var err error
