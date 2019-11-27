@@ -301,7 +301,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 			return errors.Wrap(err, "vpc.GetRegion")
 		}
 
-		vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+		vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+		if err != nil {
+			return errors.Wrap(err, "GetSecurityGroupVpcId")
+		}
 
 		secgroups := guest.GetSecgroups()
 		for i, secgroup := range secgroups {
@@ -912,7 +915,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 
 	region := host.GetRegion()
 
-	vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+	vpcId, err := region.GetDriver().GetSecurityGroupVpcId(ctx, task.GetUserCred(), region, host, vpc, false)
+	if err != nil {
+		return errors.Wrap(err, "GetSecurityGroupVpcId")
+	}
 
 	secgroups := guest.GetSecgroups()
 	externalIds := []string{}

@@ -45,6 +45,11 @@ type CloudaccountCredentialInput struct {
 	AppId     string //Qcloud
 	SecretId  string //Qcloud
 	SecretKey string //Qcloud
+
+	ClientEmail  string //Google
+	ProjectId    string //Google
+	PrivateKeyId string //Google
+	PrivateKey   string //Google
 }
 
 type CloudaccountCreateInput struct {

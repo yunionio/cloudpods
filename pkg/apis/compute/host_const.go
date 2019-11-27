@@ -31,6 +31,7 @@ const (
 	HOST_TYPE_OPENSTACK = "openstack"
 	HOST_TYPE_UCLOUD    = "ucloud"
 	HOST_TYPE_ZSTACK    = "zstack"
+	HOST_TYPE_GOOGLE    = "google"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 

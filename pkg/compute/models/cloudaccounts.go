@@ -81,7 +81,7 @@ type SCloudaccount struct {
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	Secret  string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`  // Google需要秘钥认证,需要此字段比较长
 
 	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
@@ -1439,6 +1439,10 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 			if err != nil {
 				log.Errorf("syncCloudproviderRegion fail %s", err)
 				return err
+			}
+			err = providers[i].syncCloudproviderGlobalnetworks(ctx, userCred)
+			if err != nil {
+				log.Errorf("failed to sync cloudprovider globalnetwork for %s %s error: %v", providers[i].Provider, providers[i].Name, err)
 			}
 		}
 	}

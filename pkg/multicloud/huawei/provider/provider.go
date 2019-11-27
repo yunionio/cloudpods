@@ -145,6 +145,14 @@ func (self *SHuaweiProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
+func (cli *SHuaweiProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
+	return []cloudprovider.ICloudGlobalnetwork{}, nil
+}
+
+func (cli *SHuaweiProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(extId)
 }
