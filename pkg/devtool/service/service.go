@@ -52,6 +52,9 @@ func StartService() {
 	app := app_common.InitApp(&opts.BaseOptions, false)
 	InitHandlers(app)
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+
+	models.InitializeCronjobs()
+
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
 	})
