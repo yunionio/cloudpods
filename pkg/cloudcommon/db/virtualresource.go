@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -311,6 +312,10 @@ func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred 
 func (model *SVirtualResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := model.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return model.getMoreDetails(ctx, userCred, query, extra)
+}
+
+func (model *SVirtualResourceBase) GetExtraDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out *apis.VirtualResourceDetails) error {
+	return model.SStandaloneResourceBase.GetExtraDetailsV2(ctx, userCred, query, &out.ModelBaseDetails)
 }
 
 func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {

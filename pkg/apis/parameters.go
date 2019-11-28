@@ -50,28 +50,6 @@ type BaseListInput struct {
 	// Export field keys
 	ExportKeys string `json:"export_keys"`
 
-	// TODO: support this tags
-	// Tags      []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
-	// UserTags  []string `help:"UserTags info, eg: group=rd" json:"-"`
-	// CloudTags []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
-	// List objects belonging to the cloud provider
-	Manager string `json:"manager,omitempty"`
-	// List objects belonging to the cloud account
-	Account string `json:"account,omitempty"`
-	// List objects from the provider, choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack"
-	Provider []string `json:"provider,omitempty"`
-	// List objects belonging to a special brand
-	Brand []string `json:"brand"`
-	// Cloud environment, choices:"public|private|onpremise|private_or_onpremise"
-	CloudEnv string `json:"cloud_env,omitempty"`
-	// List objects belonging to public cloud
-	PublicCloud *bool `json:"public_cloud"`
-	// List objects belonging to private cloud
-	PrivateCloud *bool `json:"private_cloud"`
-	// List objects belonging to on premise infrastructures
-	IsOnPremise *bool `json:"is_on_premise"`
-	// List objects managed by external providers
-	IsManaged *bool `json:"is_managed"`
 	// Marker for pagination
 	PagingMarker string `json:"paging_marker"`
 }

@@ -344,6 +344,13 @@ func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
+func (self *SSchedtag) GetShortDescV2(ctx context.Context) *api.SchedtagShortDescDetails {
+	desc := &api.SchedtagShortDescDetails{}
+	desc.StandaloneResourceShortDescDetail = self.SStandaloneResourceBase.GetShortDescV2(ctx)
+	desc.Default = self.DefaultStrategy
+	return desc
+}
+
 func GetResourceJointSchedtags(obj IModelWithSchedtag) ([]ISchedtagJointModel, error) {
 	jointMan := obj.GetSchedtagJointManager()
 	q := jointMan.Query().Equals(jointMan.GetMasterIdKey(jointMan), obj.GetId())
@@ -468,6 +475,18 @@ func GetSchedtagsDetailsToResource(obj IModelWithSchedtag, ctx context.Context, 
 		extra.Add(jsonutils.NewArray(info...), "schedtags")
 	}
 	return extra
+}
+
+func GetSchedtagsDetailsToResourceV2(obj IModelWithSchedtag, ctx context.Context) []api.SchedtagShortDescDetails {
+	info := []api.SchedtagShortDescDetails{}
+	schedtags := GetSchedtags(obj.GetSchedtagJointManager(), obj.GetId())
+	if schedtags != nil && len(schedtags) > 0 {
+		for i := 0; i < len(schedtags); i += 1 {
+			desc := schedtags[i].GetShortDescV2(ctx)
+			info = append(info, *desc)
+		}
+	}
+	return info
 }
 
 func (s *SSchedtag) AllowPerformSetScope(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
