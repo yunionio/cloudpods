@@ -3992,11 +3992,13 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	defer rows.Close()
 
 	for rows.Next() {
-		var host = SHost{}
-		q.Row2Struct(rows, &host)
-		host.SetModelManager(manager, &host)
+		var host = new(SHost)
+		q.Row2Struct(rows, host)
+		host.SetModelManager(manager, host)
+		lockman.LockObject(ctx, host)
 		host.PerformOffline(ctx, userCred, nil, nil)
 		host.MarkGuestUnknown(userCred)
+		lockman.ReleaseObject(ctx, host)
 	}
 }
 
