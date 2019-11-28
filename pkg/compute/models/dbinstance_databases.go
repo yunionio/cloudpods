@@ -70,6 +70,15 @@ func (manager *SDBInstanceDatabaseManager) ResourceScope() rbacutils.TRbacScope 
 	return rbacutils.ScopeProject
 }
 
+func (self *SDBInstanceDatabase) GetOwnerId() mcclient.IIdentityProvider {
+	instance, err := self.GetDBInstance()
+	if err != nil {
+		log.Errorf("failed to get instance for database %s(%s)", self.Name, self.Id)
+		return nil
+	}
+	return instance.GetOwnerId()
+}
+
 func (manager *SDBInstanceDatabaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeProject, userCred, manager) {
 		return false
@@ -115,15 +124,6 @@ func (self *SDBInstanceDatabase) AllowGetDetails(ctx context.Context, userCred m
 func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	//只能创建或删除，避免update name后造成登录数据库名称异常
 	return false
-}
-
-func (self *SDBInstanceDatabase) GetOwnerId() mcclient.IIdentityProvider {
-	instance, err := self.GetDBInstance()
-	if err != nil {
-		log.Errorf("failed to get dbinstance for database %s(%s)", self.Id, self.Name)
-		return nil
-	}
-	return instance.GetOwnerId()
 }
 
 func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
