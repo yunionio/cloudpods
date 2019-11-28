@@ -1,7 +1,22 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -97,6 +112,7 @@ func (obj *SDevtoolTemplate) Binding(ctx context.Context, userCred mcclient.Toke
 	// * get playbook struct and create obj
 	// * get cronjob struct and create obj
 	// * create playbook
+
 	template := obj
 	s := auth.GetSession(ctx, userCred, "", "")
 	ServerID, err := data.GetString("server_id")
@@ -225,4 +241,28 @@ func (obj *SDevtoolTemplate) TaskUpdate(ctx context.Context, userCred mcclient.T
 		template.Binding(ctx, userCred, nil, params)
 	}
 	return nil, nil
+}
+
+func (obj *SDevtoolTemplate) DeleteCronjobAndPlaybook(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// list all cronjobs
+
+	s := auth.GetAdminSession(nil, "", "")
+	template := obj
+	items := make([]SCronjob, 0)
+
+	q := CronjobManager.Query().Equals("template_id", template.Id)
+	err := q.All(&items)
+	if err != nil {
+		return fmt.Errorf("query cronjobs for %s error: %s", template.Id, err)
+	}
+
+	for _, item := range items {
+		deleteAnsiblePlaybook(item.AnsiblePlaybookID, s)
+		// TODO: 这里应该有更好的删除方法，而不是调用 http 接口
+		_, err = modules.DevToolCronjobs.Delete(s, item.Id, nil)
+		if err != nil {
+			return fmt.Errorf("Delete Cronjob %s error: %s", item.Id, err)
+		}
+	}
+	return nil
 }
