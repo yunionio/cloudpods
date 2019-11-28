@@ -84,7 +84,7 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return network.wire.vpc.region.Delete(network.SelfLink)
 }
 
 func (network *SNetwork) GetAllocTimeoutSeconds() int {
@@ -128,4 +128,20 @@ func (network *SNetwork) GetIsPublic() bool {
 
 func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
+}
+
+func (region *SRegion) CreateNetwork(name string, vpc string, cidr string, desc string) (*SNetwork, error) {
+	body := map[string]interface{}{
+		"name":        name,
+		"description": desc,
+		"network":     vpc,
+		"ipCidrRange": cidr,
+	}
+	resource := fmt.Sprintf("regions/%s/subnetworks", region.Name)
+	network := &SNetwork{}
+	err := region.Insert(resource, jsonutils.Marshal(body), network)
+	if err != nil {
+		return nil, err
+	}
+	return network, nil
 }

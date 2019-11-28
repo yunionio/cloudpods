@@ -120,11 +120,21 @@ func (storage *SStorage) GetEnabled() bool {
 }
 
 func (storage *SStorage) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotFound
+	disk, err := storage.zone.region.GetDisk(id)
+	if err != nil {
+		return nil, err
+	}
+	disk.storage = storage
+	return disk, nil
 }
 
 func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	disk, err := storage.zone.region.CreateDisk(name, sizeGb, storage.zone.Name, storage.Name, "", desc)
+	if err != nil {
+		return nil, err
+	}
+	disk.storage = storage
+	return disk, nil
 }
 
 func (storage *SStorage) GetMountPoint() string {

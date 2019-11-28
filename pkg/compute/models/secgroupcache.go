@@ -132,8 +132,20 @@ func (self *SSecurityGroupCache) GetCustomizeColumns(ctx context.Context, userCr
 func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) (*SSecurityGroupCache, error) {
 	secgroupCache := SSecurityGroupCache{}
 	query := manager.Query()
-	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("secgroup_id"), secgroupId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
-	query = query.Filter(cond)
+	conds := []sqlchemy.ICondition{
+		sqlchemy.Equals(query.Field("secgroup_id"), secgroupId),
+		sqlchemy.Equals(query.Field("vpc_id"), vpcId),
+		sqlchemy.Equals(query.Field("manager_id"), providerId),
+	}
+	_region, err := CloudregionManager.FetchById(regionId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CloudregionManager.FetchById(%s)", regionId)
+	}
+	region := _region.(*SCloudregion)
+	if !region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
+		conds = append(conds, sqlchemy.Equals(query.Field("cloudregion_id"), regionId))
+	}
+	query = query.Filter(sqlchemy.AND(conds...))
 
 	count, err := query.CountWithError()
 	if err != nil {

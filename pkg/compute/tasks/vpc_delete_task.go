@@ -16,15 +16,15 @@ package tasks
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -47,40 +47,32 @@ func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
-
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
+	region, err := vpc.GetRegion()
+	if err != nil {
+		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.GetRegion"))
+		return
+	}
+
+	self.SetStage("OnDeleteVpcComplete", nil)
+	err = region.GetDriver().RequestDeleteVpc(ctx, self.UserCred, region, vpc, self)
+	if err != nil {
+		self.taskFailed(ctx, vpc, errors.Wrap(err, "RequestDeleteVpc"))
+		return
+	}
+}
+
+func (self *VpcDeleteTask) OnDeleteVpcComplete(ctx context.Context, vpc *models.SVpc, body jsonutils.JSONObject) {
+	err := vpc.Purge(ctx, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, vpc, errors.Wrap(err, "vpc.Purge"))
+		return
+	}
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
-
-	region, err := vpc.GetIRegion()
-	if err != nil {
-		self.taskFailed(ctx, vpc, err)
-		return
-	}
-	ivpc, err := region.GetIVpcById(vpc.GetExternalId())
-	if ivpc != nil {
-		err = ivpc.Delete()
-		if err != nil {
-			self.taskFailed(ctx, vpc, err)
-			return
-		}
-		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
-		if err != nil {
-			self.taskFailed(ctx, vpc, err)
-			return
-		}
-	} else if err == cloudprovider.ErrNotFound {
-		// already deleted, do nothing
-	} else {
-		self.taskFailed(ctx, vpc, err)
-		return
-	}
-
-	err = vpc.Purge(ctx, self.UserCred)
-	if err != nil {
-		self.taskFailed(ctx, vpc, err)
-		return
-	}
-
 	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *VpcDeleteTask) OnDeleteVpcCompleteFailed(ctx context.Context, vpc *models.SVpc, reason jsonutils.JSONObject) {
+	self.taskFailed(ctx, vpc, fmt.Errorf("%s", reason))
 }

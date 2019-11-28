@@ -72,7 +72,7 @@ func (self *SAliyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 func (self *SAliyunHostDriver) ValidateResetDisk(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, guests []models.SGuest, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	for _, guest := range guests {
 		if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-			return nil, httperrors.NewBadGatewayError("Aliyun reset disk required guest status is running or read")
+			return nil, httperrors.NewBadGatewayError("Aliyun reset disk required guest status is running or ready")
 		}
 	}
 	return data, nil

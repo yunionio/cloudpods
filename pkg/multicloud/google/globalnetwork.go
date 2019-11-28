@@ -17,6 +17,7 @@ package google
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -59,4 +60,17 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 		}
 	}
 	return networks, nil
+}
+
+func (region *SRegion) CreateGlobalNetwork(name string, desc string) (*SGlobalNetwork, error) {
+	body := map[string]string{
+		"name":        name,
+		"description": desc,
+	}
+	globalnetwork := &SGlobalNetwork{}
+	err := region.Insert("global/networks", jsonutils.Marshal(body), globalnetwork)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.Insert")
+	}
+	return globalnetwork, nil
 }

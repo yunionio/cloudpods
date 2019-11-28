@@ -167,11 +167,17 @@ func (host *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	if instance.Zone != host.zone.SelfLink {
 		return nil, cloudprovider.ErrNotFound
 	}
+	instance.host = host
 	return instance, nil
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instance, err := host.zone.region._createVM(host.zone.Name, desc)
+	if err != nil {
+		return nil, err
+	}
+	instance.host = host
+	return instance, nil
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {

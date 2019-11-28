@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -153,7 +155,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		iVM, err := guest.GetIVM()
 		if err != nil {
 			//若guest被删除,忽略错误，否则会无限删除guest失败(有挂载的云盘)
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, errors.Wrapf(err, "guest.GetIVM")
@@ -338,8 +340,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		switch guest.GetDriver().GetUserDataType() {
 		case cloudprovider.CLOUD_SHELL:
 			desc.UserData = oUserData.UserDataScriptBase64()
+		case cloudprovider.CLOUD_SHELL_WITHOUT_ENCRYPT:
+			desc.UserData = oUserData.UserDataScript()
 		default:
 			desc.UserData = oUserData.UserDataBase64()
+		}
+		if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+			desc.UserData = oUserData.UserDataPowerShell()
 		}
 	}
 
@@ -396,7 +403,11 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() s
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	return "root"
+	userName := "root"
+	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		userName = "Administrator"
+	}
+	return userName
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
@@ -466,6 +477,8 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 	if err != nil {
 		return nil, err
 	}
+
+	guest.GetDriver().RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
 
 	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 	return data, nil
@@ -541,7 +554,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		return iVM.RebuildRoot(ctx, desc.ExternalImageId, desc.Password, desc.PublicKey, desc.SysDisk.SizeGB)
+		conf := cloudprovider.SManagedVMRebuildRootConfig{
+			Account:   desc.Account,
+			ImageId:   desc.ExternalImageId,
+			Password:  desc.Password,
+			PublicKey: desc.PublicKey,
+			SysSizeGB: desc.SysDisk.SizeGB,
+			OsType:    desc.OsType,
+		}
+		return iVM.RebuildRoot(ctx, &conf)
 	}()
 	if err != nil {
 		return nil, err
@@ -610,7 +631,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 
 		ivm, err := ihost.GetIVMById(guest.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			log.Errorf("ihost.GetIVMById fail %s", err)
@@ -626,7 +647,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			if disk := guestdisk.GetDisk(); disk != nil && disk.AutoDelete {
 				idisk, err := disk.GetIDisk()
 				if err != nil {
-					if err == cloudprovider.ErrNotFound {
+					if errors.Cause(err) == cloudprovider.ErrNotFound {
 						continue
 					}
 					log.Errorf("disk.GetIDisk fail %s", err)
