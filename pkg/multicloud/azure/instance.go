@@ -775,11 +775,11 @@ func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password,
 	return nil
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	cpu := self.GetVcpuCount()
 	memoryMb := self.GetVmemSizeMB()
 	self.StopVM(ctx, true)
-	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, imageId, passwd, publicKey, sysSizeGB)
+	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
 }
 
 func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb int, imageId, passwd, publicKey string, sysSizeGB int) (string, error) {

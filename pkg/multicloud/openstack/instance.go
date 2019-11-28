@@ -442,8 +442,8 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, username s
 	return instance.host.zone.region.DeployVM(instance.ID, name, password, publicKey, deleteKeypair, description)
 }
 
-func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return instance.ID, instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
+func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	return instance.ID, instance.host.zone.region.ReplaceSystemDisk(instance.ID, desc.ImageId, desc.Password, desc.PublicKey, desc.SysSizeGB)
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {

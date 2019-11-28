@@ -198,7 +198,15 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 		}
 		storage := sysDisk.GetStorage()
 		if storage.StorageType == api.STORAGE_OPENSTACK_NOVA { //不通过镜像创建磁盘的机器
-			return iVM.RebuildRoot(ctx, desc.ExternalImageId, desc.Password, desc.PublicKey, desc.SysDisk.SizeGB)
+			conf := cloudprovider.SManagedVMRebuildRootConfig{
+				Account:   desc.Account,
+				ImageId:   desc.ExternalImageId,
+				Password:  desc.Password,
+				PublicKey: desc.PublicKey,
+				SysSizeGB: desc.SysDisk.SizeGB,
+				OsType:    desc.OsType,
+			}
+			return iVM.RebuildRoot(ctx, &conf)
 		}
 
 		iDisks, err := iVM.GetIDisks()

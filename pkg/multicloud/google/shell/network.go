@@ -34,11 +34,32 @@ func init() {
 		return nil
 	})
 
-	type NetworkShowOptions struct {
+	type NetworkIdOptions struct {
 		ID string
 	}
-	shellutils.R(&NetworkShowOptions{}, "network-show", "Show network", func(cli *google.SRegion, args *NetworkShowOptions) error {
+
+	shellutils.R(&NetworkIdOptions{}, "network-show", "Show network", func(cli *google.SRegion, args *NetworkIdOptions) error {
 		network, err := cli.GetNetwork(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(network)
+		return nil
+	})
+
+	shellutils.R(&NetworkIdOptions{}, "network-delete", "Delete network", func(cli *google.SRegion, args *NetworkIdOptions) error {
+		return cli.Delete(args.ID)
+	})
+
+	type NetworkCreateOptions struct {
+		NAME string
+		VPC  string
+		CIDR string
+		Desc string
+	}
+
+	shellutils.R(&NetworkCreateOptions{}, "network-create", "Create network", func(cli *google.SRegion, args *NetworkCreateOptions) error {
+		network, err := cli.CreateNetwork(args.NAME, args.VPC, args.CIDR, args.Desc)
 		if err != nil {
 			return err
 		}

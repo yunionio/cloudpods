@@ -285,7 +285,7 @@ func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx co
 
 	iDisk, err := iCloudStorage.GetIDiskById(disk.GetExternalId())
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			task.ScheduleRun(data)
 			return nil
 		}

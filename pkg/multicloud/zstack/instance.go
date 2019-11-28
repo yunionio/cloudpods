@@ -28,6 +28,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -35,6 +36,7 @@ type SInstanceCdrome struct {
 }
 
 type SInstance struct {
+	multicloud.SInstanceBase
 	host *SHost
 
 	ZStackBasic
@@ -378,8 +380,8 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, username s
 	return nil
 }
 
-func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return instance.host.zone.region.RebuildRoot(instance.UUID, imageId, sysSizeGB)
+func (instance *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
+	return instance.host.zone.region.RebuildRoot(instance.UUID, desc.ImageId, desc.SysSizeGB)
 }
 
 func (region *SRegion) RebuildRoot(instanceId, imageId string, sysSizeGB int) (string, error) {

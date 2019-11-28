@@ -1097,6 +1097,64 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx contex
 	return data, nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iregion, err := vpc.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.GetIRegion")
+		}
+		ivpc, err := iregion.CreateIVpc(vpc.Name, vpc.Description, vpc.CidrBlock)
+		if err != nil {
+			return nil, errors.Wrap(err, "iregion.CreateIVpc")
+		}
+		db.SetExternalId(vpc, userCred, ivpc.GetGlobalId())
+
+		err = cloudprovider.WaitStatus(ivpc, api.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitStatus")
+		}
+
+		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.SyncWithCloudVpc")
+		}
+
+		err = vpc.SyncRemoteWires(ctx, userCred)
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.SyncRemoteWires")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		region, err := vpc.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "vpc.GetIRegion")
+		}
+		ivpc, err := region.GetIVpcById(vpc.GetExternalId())
+		if err != nil {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
+				// already deleted, do nothing
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "region.GetIVpcById")
+		}
+		err = ivpc.Delete()
+		if err != nil {
+			return nil, errors.Wrap(err, "ivpc.Delete(")
+		}
+		err = cloudprovider.WaitDeleted(ivpc, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.WaitDeleted")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return data, nil
 }

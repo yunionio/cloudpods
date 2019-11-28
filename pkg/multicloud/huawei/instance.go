@@ -519,25 +519,25 @@ func (self *SInstance) UpdateUserData(userData string) error {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html 更换系统盘操作系统
 // 不支持调整系统盘大小
 // todo: 支持注入user_data
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	var err error
 	var jobId string
 
 	publicKeyName := ""
-	if len(publicKey) > 0 {
-		publicKeyName, err = self.host.zone.region.syncKeypair(publicKey)
+	if len(desc.PublicKey) > 0 {
+		publicKeyName, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	if self.Metadata.MeteringImageID == imageId {
-		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), passwd, publicKeyName, publicKey, self.OSEXTSRVATTRUserData)
+	if self.Metadata.MeteringImageID == desc.ImageId {
+		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), desc.Password, publicKeyName, desc.PublicKey, self.OSEXTSRVATTRUserData)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), imageId, passwd, publicKeyName, publicKey, self.OSEXTSRVATTRUserData)
+		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), desc.ImageId, desc.Password, publicKeyName, desc.PublicKey, self.OSEXTSRVATTRUserData)
 		if err != nil {
 			return "", err
 		}

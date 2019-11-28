@@ -404,7 +404,7 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	udata, err := self.GetUserData()
 	if err != nil {
 		return "", err
@@ -424,30 +424,30 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	keypairName := self.KeyPairName
 	loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
 	loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
-	if len(publicKey) > 0 {
-		loginUser.SshKey(publicKey)
+	if len(desc.PublicKey) > 0 {
+		loginUser.SshKey(desc.PublicKey)
 		cloudconfig.MergeUser(loginUser)
-		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
+		keypairName, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
 			return "", fmt.Errorf("RebuildRoot.syncKeypair %s", err)
 		}
-	} else if len(passwd) > 0 {
-		loginUser.Password(passwd)
+	} else if len(desc.Password) > 0 {
+		loginUser.Password(desc.Password)
 		cloudconfig.MergeUser(loginUser)
 	}
 
 	// compare sysSizeGB
-	image, err := self.host.zone.region.GetImage(imageId)
+	image, err := self.host.zone.region.GetImage(desc.ImageId)
 	if err != nil {
 		return "", err
 	} else {
 		minSizeGB := image.GetMinOsDiskSizeGb()
-		if minSizeGB > sysSizeGB {
-			sysSizeGB = minSizeGB
+		if minSizeGB > desc.SysSizeGB {
+			desc.SysSizeGB = minSizeGB
 		}
 	}
 
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB, keypairName, cloudconfig.UserDataBase64())
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, desc.ImageId, desc.SysSizeGB, keypairName, cloudconfig.UserDataBase64())
 	if err != nil {
 		return "", err
 	}

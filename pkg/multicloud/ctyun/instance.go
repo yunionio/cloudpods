@@ -429,7 +429,7 @@ func (self *SInstance) UpdateUserData(userData string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
