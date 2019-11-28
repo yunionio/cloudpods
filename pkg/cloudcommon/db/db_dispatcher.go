@@ -724,15 +724,15 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 
 	jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
 	jsonDict = jsonDict.CopyIncludes(getFields...)
-	jsonDict.Update(extraDict)
+	extraDict.Update(jsonDict)
 	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
 	extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, []IModel{item}, stringutils2.NewSortedStrings(fieldFilter))
 	if len(extraRows) == 1 {
-		jsonDict.Update(extraRows[0])
+		extraDict.Update(extraRows[0])
 	}
 
-	return jsonDict, nil
+	return extraDict, nil
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

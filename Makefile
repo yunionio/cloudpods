@@ -240,7 +240,7 @@ gen-model-api-check:
 	which swagger-gen || (GO111MODULE=off go get -u github.com/yunionio/code-generator/cmd/model-api-gen)
 
 gen-model-api:
-	./scripts/codegen.sh model_api
+	./scripts/codegen.py model-api
 
 gen-swagger-check:
 	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
@@ -248,8 +248,8 @@ gen-swagger-check:
 	which swagger-serve || (GO111MODULE=off go get -u github.com/yunionio/code-generator/cmd/swagger-serve)
 
 gen-swagger: gen-swagger-check
-	./scripts/codegen.sh swagger_spec
-	./scripts/codegen.sh swagger_yaml
+	./scripts/codegen.py swagger-code
+	./scripts/codegen.py swagger-yaml
 
 swagger-serve: gen-swagger
-	./scripts/codegen.sh swagger_serve
+	./scripts/codegen.py swagger-serve
