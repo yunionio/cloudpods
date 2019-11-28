@@ -661,6 +661,23 @@ func init() {
 		return nil
 	})
 
+	R(&options.SGoogleCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-google", "Update credential of a Google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountUpdateCredentialOptions) error {
+		data, err := ioutil.ReadFile(args.GoogleJsonFile)
+		if err != nil {
+			return err
+		}
+		params, err := jsonutils.Parse(data)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.SS3CloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-s3", "Update credential of a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateCredentialOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)

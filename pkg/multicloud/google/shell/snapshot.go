@@ -34,11 +34,30 @@ func init() {
 		return nil
 	})
 
-	type SnapshotShowOptions struct {
+	type SnapshotIdOptions struct {
 		ID string
 	}
-	shellutils.R(&SnapshotShowOptions{}, "snapshot-show", "Show snapshot", func(cli *google.SRegion, args *SnapshotShowOptions) error {
+	shellutils.R(&SnapshotIdOptions{}, "snapshot-show", "Show snapshot", func(cli *google.SRegion, args *SnapshotIdOptions) error {
 		snapshot, err := cli.GetSnapshot(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(snapshot)
+		return nil
+	})
+
+	shellutils.R(&SnapshotIdOptions{}, "snapshot-delete", "Delete snapshot", func(cli *google.SRegion, args *SnapshotIdOptions) error {
+		return cli.Delete(args.ID)
+	})
+
+	type SnapshotCreateOptions struct {
+		NAME string
+		Desc string
+		DISK string
+	}
+
+	shellutils.R(&SnapshotCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *google.SRegion, args *SnapshotCreateOptions) error {
+		snapshot, err := cli.CreateSnapshot(args.DISK, args.NAME, args.Desc)
 		if err != nil {
 			return err
 		}

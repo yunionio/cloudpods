@@ -67,7 +67,7 @@ func (self *SecurityGroupCacheDeleteTask) OnInit(ctx context.Context, obj db.ISt
 
 	iRegion, err := cache.GetIRegion()
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.taskComplete(ctx, cache)
 			return
 		}

@@ -435,16 +435,16 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, username strin
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	keypair := ""
-	if len(publicKey) > 0 {
+	if len(desc.PublicKey) > 0 {
 		var err error
-		keypair, err = self.host.zone.region.syncKeypair(publicKey)
+		keypair, err = self.host.zone.region.syncKeypair(desc.PublicKey)
 		if err != nil {
 			return "", err
 		}
 	}
-	err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, desc.ImageId, desc.Password, keypair, desc.SysSizeGB)
 	if err != nil {
 		return "", err
 	}

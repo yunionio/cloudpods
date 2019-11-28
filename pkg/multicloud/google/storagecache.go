@@ -16,13 +16,22 @@ package google
 
 import (
 	"context"
-
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"fmt"
+	"strings"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -85,19 +94,109 @@ func (cache *SStoragecache) GetPath() string {
 }
 
 func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	if len(image.ExternalId) > 0 {
+		_image, err := cache.region.GetImage(image.ExternalId)
+		if err != nil {
+			log.Errorf("GetImage error: %v", err)
+		} else {
+			status := _image.GetStatus()
+			log.Debugf("UploadImage: Image external ID %s exists, status %s", image.ExternalId, status)
+			if status == api.CACHED_IMAGE_STATUS_READY {
+				return image.ExternalId, nil
+			}
+			err = cache.region.Delete(image.ExternalId)
+			if err != nil {
+				log.Errorf("failed to delete %s image %s", status, image.ExternalId)
+			}
+		}
+	} else {
+		log.Debugf("UploadImage: no external ID")
+	}
+
+	return cache.uploadImage(ctx, userCred, image, isForce)
+}
+
+func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error) {
+	bucket, err := region.GetBucket(bucketName)
+	if err != nil {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
+			bucket, err = region.CreateBucket(bucketName, "")
+			if err != nil {
+				return nil, errors.Wrapf(err, "region.CreateBucket(%s)", bucketName)
+			}
+		} else {
+			return nil, errors.Wrapf(err, "region.StorageGet(%s)", bucketName)
+		}
+	}
+	return bucket, nil
+}
+
+func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+
+	meta, reader, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("meta data %s", meta)
+
+	info := struct {
+		Id          string
+		Name        string
+		Size        int64
+		Description string
+	}{}
+	meta.Unmarshal(&info)
+
+	bucketName := fmt.Sprintf("imagecache-%s", info.Id)
+	bucket, err := cache.region.checkAndCreateBucket(bucketName)
+	if err != nil {
+		return "", errors.Wrapf(err, "checkAndCreateBucket(%s)", bucketName)
+	}
+
+	defer cache.region.DeleteBucket(bucket.Name)
+
+	err = cache.region.PutObject(bucketName, info.Name, reader, "", info.Size, cloudprovider.ACLPublicRead)
+	if err != nil {
+		return "", errors.Wrap(err, "region.PutObject")
+	}
+
+	images, err := cache.region.GetImages(cache.region.GetProjectId(), 0, "")
+	if err != nil {
+		return "", errors.Wrap(err, "region.GetImages")
+	}
+	imageNames := []string{}
+	for _, image := range images {
+		imageNames = append(imageNames, image.Name)
+	}
+
+	imageName := "img-"
+	for _, s := range strings.ToLower(info.Name) {
+		if unicode.IsDigit(s) || unicode.IsLetter(s) || s == '-' {
+			imageName = fmt.Sprintf("%s%c", imageName, s)
+		} else {
+			imageName = fmt.Sprintf("%s-", imageName)
+		}
+	}
+
+	baseName := imageName
+	for i := 0; i < 30; i++ {
+		if !utils.IsInStringArray(imageName, imageNames) {
+			break
+		}
+		imageName = fmt.Sprintf("%s-%d", baseName, i)
+	}
+
+	_image, err := cache.region.CreateImage(imageName, info.Description, bucketName, info.Name)
+	if err != nil {
+		return "", errors.Wrap(err, "region.CreateImage")
+	}
+
+	return _image.GetGlobalId(), nil
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (cache *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (cache *SRegion) CreateImage(snapshoutId, imageName, imageDesc string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
 }
 
 func (cache *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {

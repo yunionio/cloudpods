@@ -156,7 +156,7 @@ func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, username
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SVirtualMachine) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
@@ -905,4 +905,8 @@ func (self *SVirtualMachine) CheckFileInfo(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (self *SVirtualMachine) GetSerialOutput(port int) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }

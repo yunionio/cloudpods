@@ -45,4 +45,18 @@ func init() {
 		return nil
 	})
 
+	type GlobalNetworkCreateOptions struct {
+		NAME string
+		Desc string
+	}
+
+	shellutils.R(&GlobalNetworkCreateOptions{}, "global-network-create", "Create globalnetwork", func(cli *google.SRegion, args *GlobalNetworkCreateOptions) error {
+		globalnetwork, err := cli.CreateGlobalNetwork(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(globalnetwork)
+		return nil
+	})
+
 }

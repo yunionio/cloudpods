@@ -161,7 +161,7 @@ func (u *SUser) Password(passwd string) *SUser {
 		if err != nil {
 			log.Errorf("GeneratePassword error %s", err)
 		} else {
-			u.Passwd = hash
+			u.Passwd = passwd
 			u.HashedPasswd = hash
 		}
 		u.LockPasswd = false
@@ -169,12 +169,24 @@ func (u *SUser) Password(passwd string) *SUser {
 	return u
 }
 
+func (u *SUser) PowerShellScripts() []string {
+	shells := []string{}
+	shells = append(shells, fmt.Sprintf(`New-LocalUser -Name "%s" -Description "A New Local Account Created By PowerShell" -NoPassword`, u.Name))
+	shells = append(shells, fmt.Sprintf(`Add-LocalGroupMember -Group "Administrators" -Member "%s"`, u.Name))
+	if len(u.Passwd) > 0 {
+		shells = append(shells, fmt.Sprintf(`net user "%s" "%s"`, u.Name, u.Passwd))
+	}
+	// enable需要再设置密码之后，否则会出现Enable-LocalUser : Unable to update the password. The value provided for the new password does not meet the length, complexity, or history requirements of the domain
+	shells = append(shells, fmt.Sprintf(`Enable-LocalUser "%s"`, u.Name))
+	return shells
+}
+
 func (u *SUser) ShellScripts() []string {
 	shells := []string{}
 
 	shells = append(shells, fmt.Sprintf("useradd -m %s || true", u.Name))
-	if len(u.Passwd) > 0 {
-		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.Passwd, u.Name))
+	if len(u.HashedPasswd) > 0 {
+		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.HashedPasswd, u.Name))
 	}
 
 	home := "/" + u.Name
@@ -216,6 +228,11 @@ func (conf *SCloudConfig) UserDataScript() string {
 	}
 	shells = append(shells, conf.Runcmd...)
 
+	// 允许密码及root登录(谷歌云镜像默认会禁止root及密码登录)
+	shells = append(shells, `sed -i "s/.*PermitRootLogin.*/PermitRootLogin yes/g" /etc/ssh/sshd_config`)
+	shells = append(shells, `sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config`)
+	shells = append(shells, `systemctl restart sshd`)
+
 	for _, pkg := range conf.Packages {
 		shells = append(shells, "which yum &>/dev/null && yum install -y "+pkg)
 		shells = append(shells, "which apt-get &>/dev/null && apt-get install -y "+pkg)
@@ -224,6 +241,16 @@ func (conf *SCloudConfig) UserDataScript() string {
 		shells = append(shells, wf.ShellScripts()...)
 	}
 	return CLOUD_SHELL_HEADER + strings.Join(shells, "\n")
+}
+
+func (conf *SCloudConfig) UserDataPowerShell() string {
+	shells := []string{}
+	for _, u := range conf.Users {
+		shells = append(shells, u.PowerShellScripts()...)
+	}
+	shells = append(shells, conf.Runcmd...)
+
+	return strings.Join(shells, "\n")
 }
 
 func (conf *SCloudConfig) UserDataBase64() string {
