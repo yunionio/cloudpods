@@ -73,6 +73,15 @@ func (manager *SDBInstanceAccountManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
 }
 
+func (self *SDBInstanceAccount) GetOwnerId() mcclient.IIdentityProvider {
+	instance, err := self.GetDBInstance()
+	if err != nil {
+		log.Errorf("failed to get instance for account %s(%s)", self.Name, self.Id)
+		return nil
+	}
+	return instance.GetOwnerId()
+}
+
 func (manager *SDBInstanceAccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	if jsonutils.QueryBoolean(query, "admin", false) && !db.IsAllowList(rbacutils.ScopeProject, userCred, manager) {
 		return false
