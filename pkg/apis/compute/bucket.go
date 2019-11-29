@@ -46,5 +46,6 @@ type BucketCreateInput struct {
 }
 
 type BucketDetail struct {
+	apis.Meta
 	SBucket
 }

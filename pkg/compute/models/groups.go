@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -73,9 +74,8 @@ type SGroup struct {
 }
 
 func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-
-	guestFilter := jsonutils.GetAnyString(query, []string{"server", "guest"})
+	input *api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
+	guestFilter := input.Guest
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
 		if err != nil {
@@ -91,11 +91,11 @@ func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := group.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	ret, _ := group.getMoreDetails(ctx, userCred, extra)
-	return ret
+	return ret.JSON(ret)
 }
 
 func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	query jsonutils.JSONObject) (*api.InstanceGroupDetail, error) {
 	extra, err := group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
@@ -104,12 +104,15 @@ func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.Toke
 }
 
 func (group *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	ret := query.(*jsonutils.JSONDict)
+	data jsonutils.JSONObject) (*api.InstanceGroupDetail, error) {
+	ret := data.(*jsonutils.JSONDict)
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, _ := q.CountWithError()
 	ret.Add(jsonutils.NewInt(int64(count)), "guest_count")
-	return ret, nil
+	output := new(api.InstanceGroupDetail)
+	data.Unmarshal(ret)
+	log.Errorf("output is %#v", output)
+	return output, nil
 }
 
 func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {

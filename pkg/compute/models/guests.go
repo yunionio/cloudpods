@@ -127,6 +127,7 @@ func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mccli
 	return manager.SVirtualResourceBaseManager.AllowListItems(ctx, userCred, query)
 }
 
+// 按指定条件列出云主机实例
 func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
