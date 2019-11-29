@@ -103,7 +103,7 @@ func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mccli
 			router.Name+"-"+iface.Name+"-"+rand.String(4)),
 		)
 	}
-	return nil, nil
+	return data, nil
 }
 
 func (man *SRouteManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
