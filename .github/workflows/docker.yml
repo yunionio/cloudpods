@@ -33,7 +33,7 @@ jobs:
         make cmd/apigateway cmd/baremetal-agent cmd/climc cmd/keystone
         make cmd/logger cmd/region cmd/scheduler cmd/webconsole
         make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway
-        make cmd/ansibleserver cmd/notify
+        make cmd/ansibleserver cmd/cloudnet cmd/notify
 
     - name: Image baremetal-agent
       uses: elgohr/Publish-Docker-Github-Action@master
@@ -114,6 +114,26 @@ jobs:
         registry: registry.cn-beijing.aliyuncs.com
         snapshot: true
         dockerfile: build/docker/Dockerfile.s3gateway
+
+    - name: Image ansibleserver
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/ansibleserver
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.ansibleserver
+
+    - name: Image cloudnet
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/cloudnet
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.cloudnet
 
     - name: Image glance
       uses: elgohr/Publish-Docker-Github-Action@master
