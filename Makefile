@@ -234,15 +234,15 @@ help:
 	@echo "$$helpText"
 
 gen-model-api-check:
-	which swagger-gen || (GO111MODULE=off go get -u github.com/yunionio/code-generator/cmd/model-api-gen)
+	which model-api-gen || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/model-api-gen)
 
-gen-model-api:
+gen-model-api: gen-model-api-check
 	./scripts/codegen.py model-api
 
 gen-swagger-check:
 	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
-	which swagger-gen || (GO111MODULE=off go get -u github.com/yunionio/code-generator/cmd/swagger-gen)
-	which swagger-serve || (GO111MODULE=off go get -u github.com/yunionio/code-generator/cmd/swagger-serve)
+	which swagger-gen || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/swagger-gen)
+	which swagger-serve || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/swagger-serve)
 
 gen-swagger: gen-swagger-check
 	./scripts/codegen.py swagger-code
