@@ -200,7 +200,7 @@ func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	if err := man.validateData(ctx, userCred, ownerId, query, data, nil); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return data, nil
 }
 
 func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
