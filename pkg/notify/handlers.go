@@ -154,6 +154,7 @@ func configGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	ret, err := manager.GetConfig(ctx, params, query)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
+		return
 	}
 	appsrv.SendJSON(w, ret)
 }
@@ -176,6 +177,11 @@ func notificationHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	data, err := body.Get(manager.Keyword())
 	if err != nil {
 		httperrors.BadRequestError(w, "request body should contain %s", manager.Keyword())
+		return
+	}
+	if !data.Contains("gid") && !data.Contains("uid") {
+		httperrors.MissingParameterError(w, "gid | uid")
+		return
 	}
 	ret, err := manager.CreateNotification(ctx, data)
 	if err != nil {
@@ -238,6 +244,7 @@ func deleteContactHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 		data, err = body.GetArray(manager.KeywordPlural())
 		if err != nil {
 			httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
+			return
 		}
 	}
 	err = manager.DeleteContacts(ctx, data)
@@ -254,25 +261,15 @@ func verifyTriggerHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	data, err := body.Get(models.ContactManager.Keyword())
 	if err != nil {
 		httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
+		return
 	}
 	ret, err := manager.VerifyTrigger(ctx, params, data)
 	if err != nil {
 		log.Errorf("verifyTrigger failed beacause %s", err)
 		httperrors.GeneralServerError(w, err)
-	}
-	appsrv.SendJSON(w, ret)
-}
-
-//speciallist hander for contact records
-func listManyHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, params, query, _ := fetchEnv(ctx, w, r)
-	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
 		return
 	}
-	listResult = arrangeList(ctx, listResult)
-	appsrv.SendJSON(w, modulebase.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
+	appsrv.SendJSON(w, ret)
 }
 
 // list handler for all resource in notify module
@@ -302,57 +299,10 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	appsrv.SendJSON(w, wrap(data, manager.Keyword()))
 }
 
-func listOneHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, params, query, _ := fetchEnv(ctx, w, r)
-	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
-		return
-	}
-	appsrv.SendJSON(w, wrap(arrangeOne(ctx, listResult), manager.Keyword()))
-}
-
 func wrap(data jsonutils.JSONObject, key string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
 	ret.Add(data, key)
 	return ret
-}
-
-// For limit option, there is a bug but don't fix it for now.
-// This limit point to contact record, but these contact records whose uid are same
-// are considered as one record.
-func arrangeList(ctx context.Context, listResult *modulebase.ListResult) *modulebase.ListResult {
-	ret := make(map[string]*jsonutils.JSONArray)
-	for _, data := range listResult.Data {
-		uid, _ := data.GetString("uid")
-		_, ok := ret[uid]
-		if !ok {
-			ret[uid] = jsonutils.NewArray()
-		}
-		ret[uid].Add(data)
-	}
-	data := make([]jsonutils.JSONObject, len(ret))
-	index := 0
-	for uid, value := range ret {
-		cr := models.NewSContactResponse(ctx, uid, value.String())
-		data[index] = jsonutils.Marshal(cr)
-		index++
-	}
-	listResult.Data = data
-	listResult.Total = len(ret)
-	return listResult
-}
-
-func arrangeOne(ctx context.Context, listResult *modulebase.ListResult) jsonutils.JSONObject {
-	if len(listResult.Data) == 0 {
-		return jsonutils.NewDict()
-	}
-	uid, _ := listResult.Data[0].GetString("uid")
-	details := jsonutils.NewArray()
-	for _, data := range listResult.Data {
-		details.Add(data)
-	}
-	return jsonutils.Marshal(models.NewSContactResponse(ctx, uid, details.String()))
 }
 
 // offset ang limit is not useable for here
