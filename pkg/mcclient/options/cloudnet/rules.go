@@ -26,8 +26,8 @@ type RuleCreateOptions struct {
 	MatchSrcNet    string
 	MatchDestNet   string
 	MatchProto     string
-	MatchSrcPort   int
-	MatchDestPort  int
+	MatchSrcPort   int `json:",omitzero"`
+	MatchDestPort  int `json:",omitzero"`
 	MatchInIfname  string
 	MatchOutIfname string
 
