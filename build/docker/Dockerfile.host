@@ -1,0 +1,11 @@
+FROM frolvlad/alpine-glibc:glibc-2.28
+
+MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
+
+ENV TZ Asia/Shanghai
+
+RUN mkdir -p /opt/yunion/bin
+
+ADD ./_output/bin/host /opt/yunion/bin/host
+ADD ./_output/bin/.host.bin /opt/yunion/bin/.host.bin
+ADD ./_output/bin/bundles/host /opt/yunion/bin/bundles/host

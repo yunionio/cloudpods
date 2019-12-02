@@ -37,6 +37,15 @@ build_bin() {
     make cmd/$1
 }
 
+build_bundle_libraries() {
+    for component in 'host' 'host-deployer'; do
+        if [ $1 == $component ]; then
+            $CUR_DIR/bundle-libraries.sh _output/bin/bundles/$1 _output/bin/$1
+            break
+        fi
+    done
+}
+
 build_image() {
     local tag=$1
     local file=$2
@@ -52,9 +61,10 @@ push_image() {
 COMPONENTS=$@
 
 cd $SRC_DIR
-for compent in $COMPONENTS; do
-    build_bin $compent
-    img_name="$REGISTRY/$compent:$TAG"
-    build_image $img_name $DOCKER_DIR/Dockerfile.$compent $SRC_DIR
+for component in $COMPONENTS; do
+    build_bin $component
+    build_bundle_libraries $component
+    img_name="$REGISTRY/$component:$TAG"
+    build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
     push_image "$img_name"
 done
