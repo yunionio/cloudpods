@@ -19,18 +19,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os/exec"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -61,11 +58,7 @@ func NewWinRegTool(spath string) *SWinRegTool {
 }
 
 func CheckTool(spath string) bool {
-	if fileutils2.Exists(spath) && exec.Command(spath, "-h").Run() == nil {
-		return true
-	} else {
-		return false
-	}
+	return procutils.NewCommand(spath, "-h").Run() == nil
 }
 
 type SWinRegTool struct {
@@ -126,7 +119,7 @@ func (w *SWinRegTool) GetUsers() map[string]bool {
 }
 
 func (w *SWinRegTool) samChange(user string, seq ...string) error {
-	proc := exec.Command(GetChntpwPath(), "-u", user, w.SamPath, w.SystemPath, w.SecurityPath)
+	proc := procutils.NewCommand(GetChntpwPath(), "-u", user, w.SamPath, w.SystemPath, w.SecurityPath)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
 		return err
@@ -170,13 +163,12 @@ func (w *SWinRegTool) samChange(user string, seq ...string) error {
 	}()
 	select {
 	case <-time.After(time.Millisecond * 100):
-		proc.Process.Kill()
+		proc.Kill()
 		return fmt.Errorf("Failed to change SAM password, not exit cleanly")
 	case err := <-done:
 		if err != nil {
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				ws := exiterr.Sys().(syscall.WaitStatus)
-				if ws.ExitStatus() == 2 {
+			if exitStatus, ok := procutils.GetExitStatus(err); ok {
+				if exitStatus == 2 {
 					return nil
 				}
 			}
@@ -225,7 +217,7 @@ func (w *SWinRegTool) GetRegFile(regPath string) (string, []string) {
 }
 
 func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) ([]string, error) {
-	proc := exec.Command(GetChntpwPath(), spath)
+	proc := procutils.NewCommand(GetChntpwPath(), spath)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -262,7 +254,7 @@ func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) (
 	}()
 	select {
 	case <-time.After(time.Millisecond * 100):
-		proc.Process.Kill()
+		proc.Kill()
 	case err := <-done:
 		if err != nil {
 			return nil, err
@@ -319,7 +311,7 @@ func (w *SWinRegTool) listRegistry(spath string, keySeg []string) ([]string, []s
 }
 
 func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool {
-	proc := exec.Command(GetChntpwPath(), "-e", spath)
+	proc := procutils.NewCommand(GetChntpwPath(), "-e", spath)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
 		log.Errorln(err)
@@ -369,12 +361,11 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 	}()
 	select {
 	case <-time.After(time.Millisecond * 100):
-		proc.Process.Kill()
+		proc.Kill()
 	case err := <-done:
 		if err != nil {
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				ws := exiterr.Sys().(syscall.WaitStatus)
-				if ws.ExitStatus() == retcode {
+			if exitStatus, ok := procutils.GetExitStatus(err); ok {
+				if exitStatus == retcode {
 					return true
 				}
 			}

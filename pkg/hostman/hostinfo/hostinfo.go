@@ -16,16 +16,18 @@ package hostinfo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -136,11 +138,72 @@ func (h *SHostInfo) Init() error {
 	return nil
 }
 
+func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
+	output, err := procutils.NewCommand("ip", "route", "get", "1").Output()
+	if err != nil {
+		return "", errors.Wrap(err, "ip route get")
+	}
+	lines := strings.Split(string(output), "\n")
+	if len(lines) == 0 {
+		return "", fmt.Errorf("can't find local ip address")
+	}
+	fields := strings.Fields(lines[0])
+	if len(fields) != 7 {
+		return "", fmt.Errorf("failed to parse output %v", lines)
+	}
+	ip := fields[len(fields)-1]
+	log.Infof("found ip address %s", ip)
+	netIp := net.ParseIP(strings.TrimSpace(ip))
+	if netIp == nil {
+		return "", fmt.Errorf("failed to parse found ip address %s", ip)
+	}
+	if netIp.To4() == nil {
+		return "", fmt.Errorf("not support ipv6 address %s", ip)
+	}
+	dev := fields[len(fields)-3]
+	log.Infof("found net dev %s", dev)
+	_, err = net.InterfaceByName(dev)
+	if err != nil {
+		return "", errors.Wrap(err, "interface by name")
+	}
+	// not a physical device
+	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) {
+		return "", errors.Errorf("found dev %s not a physical device", dev)
+	}
+	bridgeName := "br"
+	index := 0
+	for {
+		if _, err := net.InterfaceByName(bridgeName + strconv.Itoa(index)); err != nil {
+			bridgeName = bridgeName + strconv.Itoa(index)
+			break
+		}
+		index += 1
+	}
+	log.Infof("new bridge name %s", bridgeName)
+	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, ip), nil
+}
+
 func (h *SHostInfo) parseConfig() error {
 	if mem, err := h.GetMemory(); err != nil {
 		return err
 	} else if mem < 64 { // MB
 		return fmt.Errorf("Not enough memory!")
+	}
+	if len(options.HostOptions.Networks) == 0 {
+		netConf, err := h.generateLocalNetworkConfig()
+		if err != nil {
+			return err
+		}
+		options.HostOptions.Networks = []string{netConf}
+		if len(options.HostOptions.Config) > 0 {
+			if err = fileutils2.FilePutContents(
+				options.HostOptions.Config,
+				jsonutils.Marshal(options.HostOptions).YAMLString(),
+				false,
+			); err != nil {
+				log.Errorf("write config file failed %s", err)
+			}
+		}
 	}
 	for _, n := range options.HostOptions.Networks {
 		nic, err := NewNIC(n)
@@ -194,7 +257,8 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
 
-	if !fileutils2.Exists("/sbin/ethtool") {
+	_, err = procutils.NewCommand("/sbin/ethtool", "-h").Output()
+	if err != nil {
 		return fmt.Errorf("Ethtool not installed")
 	}
 

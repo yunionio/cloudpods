@@ -27,6 +27,7 @@ type Cmd interface {
 	Start() error
 	Wait() error
 	Run() error
+	Kill() error
 }
 
 type Executor interface {
@@ -36,6 +37,14 @@ type Executor interface {
 	GetExitStatus(err error) (int, bool)
 }
 
+type defaultCmd struct {
+	*exec.Cmd
+}
+
+func (c *defaultCmd) Kill() error {
+	return c.Process.Kill()
+}
+
 type defaultExecutor struct{}
 
 func (e *defaultExecutor) Command(name string, args ...string) Cmd {
@@ -43,7 +52,7 @@ func (e *defaultExecutor) Command(name string, args ...string) Cmd {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}
-	return cmd
+	return &defaultCmd{cmd}
 }
 
 func (e *defaultExecutor) CommandContext(ctx context.Context, name string, args ...string) Cmd {
@@ -51,7 +60,7 @@ func (e *defaultExecutor) CommandContext(ctx context.Context, name string, args 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}
-	return cmd
+	return &defaultCmd{cmd}
 }
 
 func (e *defaultExecutor) GetExitStatus(err error) (int, bool) {

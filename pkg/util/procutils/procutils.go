@@ -94,6 +94,10 @@ func (c *Command) String() string {
 	return strings.Join(ss, " ")
 }
 
+func (c *Command) Kill() error {
+	return c.cmd.Kill()
+}
+
 func GetExitStatus(err error) (int, bool) {
 	return execInstance.GetExitStatus(err)
 }

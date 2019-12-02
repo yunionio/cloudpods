@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -49,10 +50,16 @@ type SHostService struct {
 func (host *SHostService) InitService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 	if len(options.HostOptions.CommonConfigFile) > 0 {
+		baseOpt := options.HostOptions.BaseOptions.BaseOptions
 		commonCfg := new(common_options.CommonOptions)
+		commonCfg.Config = options.HostOptions.CommonConfigFile
 		common_options.ParseOptions(commonCfg, []string{"host"}, "common.conf", "host")
+		log.Errorf("COmmon conf %s", commonCfg)
 		options.HostOptions.CommonOptions = *commonCfg
+		// keep base options
+		options.HostOptions.BaseOptions.BaseOptions = baseOpt
 	}
+	log.Errorf("!!!!!!!!!!!Config %s", options.HostOptions.AuthURL)
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("host service must running with root permissions")
@@ -69,6 +76,7 @@ func (host *SHostService) InitService() {
 	// execserver.Init(options.HostOptions.ExecutorSocketPath)
 	execlient.Init(options.HostOptions.ExecutorSocketPath)
 	procutils.SetSocketExecutor()
+	system_service.Init()
 }
 
 func (host *SHostService) OnExitService() {}
