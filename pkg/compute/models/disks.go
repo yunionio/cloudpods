@@ -737,7 +737,11 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	}
 
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
-	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, autoStart, &guests[0], "")
+	var guest *SGuest = nil
+	if len(guests) > 0 {
+		guest = &guests[0]
+	}
+	return nil, self.StartResetDisk(ctx, userCred, snapshot.Id, autoStart, guest, "")
 }
 
 func (self *SDisk) StartResetDisk(
