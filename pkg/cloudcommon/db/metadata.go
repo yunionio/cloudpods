@@ -130,6 +130,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
+	sql = sql.Asc("key").Asc("value")
 	metadatas := []struct {
 		Id    string
 		Key   string
@@ -199,7 +200,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	admin := jsonutils.QueryBoolean(query, "admin", false)
 	for _, resource := range resources {
 		if man, ok := ResourceMap[resource]; ok {
-			resourceView := man.Query().SubQuery()
+			resourceView := man.Query().IsFalse("pending_deleted").SubQuery()
 			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
 			field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
 			sq := resourceView.Query(field)
