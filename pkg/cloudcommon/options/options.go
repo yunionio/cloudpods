@@ -36,6 +36,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
+const (
+	DefaultQuotaUnlimit = "unlimit"
+	DefaultQuotaZero    = "zero"
+	DefaultQuotaDefault = "default"
+)
+
 type BaseOptions struct {
 	Region string `help:"Region name or ID" alias:"auth-region"`
 
@@ -69,6 +75,8 @@ type BaseOptions struct {
 
 	IsSlaveNode        bool `help:"Region service slave node"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
+
+	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default"`
 
 	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
 

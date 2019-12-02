@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -92,7 +93,18 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	if resourceType != schedtag.ResourceType {
 		return nil, httperrors.NewInputParameterError("Schedtag %s resource_type mismatch: %s != %s", schedtag.GetName(), schedtag.ResourceType, resourceType)
 	}
-	return man.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.JoinResourceBaseCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal JointResourceCreateInput fail %s", err)
+	}
+	input, err = man.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (man *SSchedtagJointsManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {

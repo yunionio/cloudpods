@@ -451,6 +451,10 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_UCLOUD
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return ""
+}
+
 func (self *SRegion) DoListAll(action string, params SParams, result interface{}) error {
 	params.Set("Region", self.GetId())
 	return self.client.DoListAll(action, params, result)

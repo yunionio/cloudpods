@@ -705,6 +705,10 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_HUAWEI
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return self.client.cloudEnv
+}
+
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 // 目前desc字段并没有用到
 func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (*SSecurityGroup, error) {

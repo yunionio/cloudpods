@@ -89,6 +89,7 @@ func convertParams(params []*param) []reflect.Value {
 type param struct {
 	pType reflect.Type
 	input interface{}
+	isPtr bool
 }
 
 func newParam(pType reflect.Type, input interface{}) *param {

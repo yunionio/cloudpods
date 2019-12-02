@@ -216,23 +216,29 @@ func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return res
 }
 
-func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SSnapshotManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.SSnapshotCreateInput,
+) (api.SSnapshotCreateInput, error) {
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
+
 	diskV := validators.NewModelIdOrNameValidator("disk", "disk", ownerId)
 	err := diskV.Validate(data)
 	if err != nil {
-		return nil, err
-	}
-	disk := diskV.Model.(*SDisk)
-
-	input := &api.SSnapshotCreateInput{
-		DiskType: disk.DiskType,
-		Size:     disk.DiskSize,
+		return input, err
 	}
 
 	err = data.Unmarshal(input)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
+		return input, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
 	}
+
+	disk := diskV.Model.(*SDisk)
+	input.DiskType = disk.DiskType
+	input.Size = disk.DiskSize
 
 	storage := disk.GetStorage()
 	if len(disk.ExternalId) == 0 {
@@ -241,36 +247,40 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	input.ManagerId = storage.ManagerId
 	region := storage.GetRegion()
 	if region == nil {
-		return nil, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
+		return input, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
 	}
 	input.CloudregionId = region.Id
 
 	driver, err := storage.GetRegionDriver()
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 	input.OutOfChain = driver.SnapshotIsOutOfChain(disk)
 
-	err = driver.ValidateCreateSnapshotData(ctx, userCred, disk, storage, input)
+	err = driver.ValidateCreateSnapshotData(ctx, userCred, disk, storage, &input)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
-	quotaPlatform := disk.GetQuotaPlatformID()
-	pendingUsage := &SQuota{Snapshot: 1}
-	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, pendingUsage)
+	pendingUsage := &SRegionQuota{Snapshot: 1}
+	keys, err := disk.GetQuotaKeys()
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+		return input, err
+	}
+	pendingUsage.SetKeys(keys.(SComputeResourceKeys).SRegionalCloudResourceKeys)
+	err = QuotaManager.CheckQuota(ctx, pendingUsage)
+	if err != nil {
+		return input, err
 	}
 
-	return input.JSON(input), nil
+	return input, nil
 }
 
 func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	snapshot := items[0].(*SSnapshot)
 	snapshot.StartSnapshotCreateTask(ctx, userCred, nil, "")
 }
@@ -640,7 +650,7 @@ func (self *SSnapshotManager) DeleteDiskSnapshots(ctx context.Context, userCred 
 	return nil
 }
 
-func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
+func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
 	q := SnapshotManager.Query()
 
 	switch scope {
@@ -651,19 +661,7 @@ func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
 
-	if rangeObj != nil {
-		switch rangeObj.Keyword() {
-		case "cloudprovider":
-			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
-		case "cloudaccount":
-			cloudproviders := CloudproviderManager.Query().SubQuery()
-			subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-		case "cloudregion":
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
-		}
-	}
-
+	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = q.Equals("created_by", api.SNAPSHOT_MANUAL)
 	q = q.Equals("fake_deleted", false)

@@ -53,7 +53,7 @@ type CloudaccountCredentialInput struct {
 }
 
 type CloudaccountCreateInput struct {
-	apis.Meta
+	apis.EnabledStatusStandaloneResourceCreateInput
 
 	Provider            string
 	Brand               string
@@ -63,7 +63,6 @@ type CloudaccountCreateInput struct {
 	Secret              string
 	AccessUrl           string
 	TenantId            string
-	Name                string
 	Description         string
 	Enabled             bool
 	EnableAutoSync      bool

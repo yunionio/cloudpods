@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type GuestChangeConfigTask struct {
@@ -93,7 +92,7 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 		disk := iDisk.(*models.SDisk)
 		if disk.DiskSize < int(size) {
 			var pendingUsage models.SQuota
-			err = self.GetPendingUsage(&pendingUsage)
+			err = self.GetPendingUsage(&pendingUsage, 0)
 			if err != nil {
 				self.markStageFailed(ctx, guest, fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err))
 				return
@@ -212,7 +211,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR, changeConfigSpec.String(), self.UserCred)
 
 	var pendingUsage models.SQuota
-	err = self.GetPendingUsage(&pendingUsage)
+	err = self.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("GetPendingUsage %s", err))
 		return
@@ -225,15 +224,22 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		cancelUsage.Memory = addMem
 	}
 
+	keys, err := guest.GetQuotaKeys()
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetQuotaKeys %s", err))
+		return
+	}
+	cancelUsage.SetKeys(keys)
+
 	lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), guest.GetQuotaPlatformID(), &pendingUsage, &cancelUsage)
+	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
 		return
 	}
-	err = self.SetPendingUsage(&pendingUsage)
+	err = self.SetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
 		return

@@ -54,6 +54,7 @@ const (
 	CITY_BAO_DING      = "Baoding"     //保定
 	CITY_NAN_JING      = "Nanjing"     //南京
 	CITY_FO_SHAN       = "Foshan"      //佛山
+	CITY_QUAN_ZHOU     = "Quanzhou"    //泉州
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京

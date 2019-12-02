@@ -470,6 +470,15 @@ func (model *SStandaloneResourceBase) AppendDescription(userCred mcclient.TokenC
 	return nil
 }
 
+func (manager *SStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StandaloneResourceCreateInput) (apis.StandaloneResourceCreateInput, error) {
+	var err error
+	input.ResourceBaseCreateInput, err = manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.ResourceBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
+}
+
 /*
 func (model SStandaloneResourceBase) GetExternalId() string {
 	return model.ExternalId

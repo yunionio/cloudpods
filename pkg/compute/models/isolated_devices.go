@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -117,7 +118,18 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, u
 		name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
 		data.Set("name", jsonutils.NewString(name))
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneRes  ourceCreateInput fail %s", err)
+	}
+	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -437,8 +449,9 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
 	devType []string, hostTypes []string,
-	resourceTypes []string, providers []string, brands []string, cloudEnv string,
-	rangeObj db.IStandaloneModel,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	rangeObjs []db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
 	devs := manager.Query().SubQuery()
@@ -447,7 +460,7 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
 	}
-	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
+	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 }
 
 type IsolatedDeviceCountStat struct {
@@ -455,17 +468,46 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) (int, error) {
-	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj).CountWithError()
+func (manager *SIsolatedDeviceManager) totalCount(
+	devType,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+	rangeObjs []db.IStandaloneModel,
+) (int, error) {
+	return manager.totalCountQ(
+		devType,
+		hostTypes,
+		resourceTypes,
+		providers,
+		brands,
+		cloudEnv,
+		rangeObjs,
+	).CountWithError()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
+func (manager *SIsolatedDeviceManager) TotalCount(
+	hostType []string,
+	resourceTypes []string,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+	rangeObjs []db.IStandaloneModel,
+) (IsolatedDeviceCountStat, error) {
 	stat := IsolatedDeviceCountStat{}
-	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, brands, cloudEnv, rangeObj)
+	devCnt, err := manager.totalCount(
+		nil, hostType, resourceTypes,
+		providers, brands, cloudEnv,
+		rangeObjs)
 	if err != nil {
 		return stat, err
 	}
-	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, brands, cloudEnv, rangeObj)
+	gpuCnt, err := manager.totalCount(
+		VALID_GPU_TYPES, hostType, resourceTypes,
+		providers, brands, cloudEnv,
+		rangeObjs)
 	if err != nil {
 		return stat, err
 	}
