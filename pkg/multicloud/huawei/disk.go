@@ -90,6 +90,7 @@ type VolumeImageMetadata struct {
 type SDisk struct {
 	storage *SStorage
 	multicloud.SDisk
+	details *SResourceDetail
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -189,12 +190,27 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
+func (self *SDisk) getResourceDetails() *SResourceDetail {
+	if self.details != nil {
+		return self.details
+	}
+
+	res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
+	if err != nil {
+		log.Debugln(err)
+		return nil
+	}
+
+	self.details = &res
+	return self.details
+}
+
 func (self *SDisk) GetBillingType() string {
-	// https://support.huaweicloud.com/api-evs/zh-cn_topic_0020235170.html
-	if self.Metadata.Billing == "1" {
+	details := self.getResourceDetails()
+	if details == nil {
 		return billing_api.BILLING_TYPE_POSTPAID
 	} else {
-		return billing_api.BILLING_TYPE_PREPAID // ?
+		return billing_api.BILLING_TYPE_PREPAID
 	}
 }
 
@@ -204,13 +220,9 @@ func (self *SDisk) GetCreatedAt() time.Time {
 
 func (self *SDisk) GetExpiredAt() time.Time {
 	var expiredTime time.Time
-	if self.Metadata.Billing == "1" {
-		res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
-		if err != nil {
-			log.Debugln(err)
-		}
-
-		expiredTime = res.ExpireTime
+	details := self.getResourceDetails()
+	if details != nil {
+		expiredTime = details.ExpireTime
 	}
 
 	return expiredTime
