@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -158,9 +159,18 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
 	lb := backendGroup.GetLoadbalancer()
 	var backendModel db.IModel
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+
+	input := apis.VirtualResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
+
 	region := lb.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)

@@ -17,20 +17,14 @@ package quotas
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"sync"
+	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
-	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -40,13 +34,6 @@ var (
 	usageDirtyMap     = make(map[string]bool, 0)
 	usageDirtyMapLock = &sync.Mutex{}
 )
-
-type sUsageCalculateJob struct {
-	manager  *SQuotaBaseManager
-	scope    rbacutils.TRbacScope
-	ownerId  mcclient.IIdentityProvider
-	platform []string
-}
 
 func setDirty(key string) {
 	usageDirtyMapLock.Lock()
@@ -72,8 +59,8 @@ func isDirty(key string) bool {
 	return false
 }
 
-func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, usageChan chan IQuota, cleanEmpty bool, realTime bool) {
-	key := getMemoryStoreKey(scope, ownerId, platform)
+func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan IQuota, realTime bool) {
+	key := QuotaKeyString(keys)
 	setDirty(key)
 
 	var worker *appsrv.SWorkerManager
@@ -92,53 +79,13 @@ func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, owner
 		clearDirty(key)
 
 		usage := manager.newQuota()
-		err := usage.FetchUsage(ctx, scope, ownerId, platform)
+		usage.SetKeys(keys)
+		err := usage.FetchUsage(ctx)
 		if err != nil {
 			return
 		}
 
-		var save bool
-		if usage.IsEmpty() && cleanEmpty {
-			// check existence of project
-			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-			if scope == rbacutils.ScopeDomain {
-				domain, err := modules.Domains.GetById(s, ownerId.GetProjectDomainId(), nil)
-				if err == nil {
-					// update cache
-					domainId, _ := domain.GetString("id")
-					domainName, _ := domain.GetString("name")
-					db.TenantCacheManager.Save(ctx, domainId, domainName, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
-					save = true
-				} else if httputils.ErrorCode(err) == 404 {
-					// remove cache and quota
-					db.TenantCacheManager.Delete(ctx, ownerId.GetProjectDomainId())
-					save = false
-				}
-			} else {
-				proj, err := modules.Projects.GetById(s, ownerId.GetProjectId(), nil)
-				if err == nil {
-					// update cache
-					projId, _ := proj.GetString("id")
-					projName, _ := proj.GetString("name")
-					projDomainId, _ := proj.GetString("domain_id")
-					projDomain, _ := proj.GetString("project_domain")
-					db.TenantCacheManager.Save(ctx, projId, projName, projDomainId, projDomain)
-					save = true
-				} else if httputils.ErrorCode(err) == 404 {
-					// remove cache and quota
-					db.TenantCacheManager.Delete(ctx, ownerId.GetProjectId())
-					save = false
-				}
-			}
-		} else {
-			save = true
-		}
-		if save {
-			manager.usageStore.SetQuota(ctx, nil, scope, ownerId, platform, usage)
-		} else {
-			manager.usageStore.DeleteQuota(ctx, nil, scope, ownerId, platform)
-			manager.DeleteQuota(ctx, nil, scope, ownerId, platform)
-		}
+		manager.usageStore.SetQuota(ctx, nil, usage)
 
 		clearDirty(key)
 
@@ -150,9 +97,15 @@ func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, owner
 
 func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	log.Infof("CalculateQuotaUsages")
-	rows, err := manager.Query("domain_id", "tenant_id", "platform").IsNullOrEmpty("platform").Rows()
+	quota := manager.newQuota()
+	keys := quota.GetKeys()
+	keyFields := keys.Fields()
+	q := manager.Query(keyFields...)
+
+	keyList := make([]IQuotaKeys, 0)
+	rows, err := q.Rows()
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if errors.Cause(err) != sql.ErrNoRows {
 			log.Errorf("query quotas fail %s", err)
 		}
 		return
@@ -160,22 +113,62 @@ func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, user
 	defer rows.Close()
 
 	for rows.Next() {
-		var domainId, projectId, platform string
-		err := rows.Scan(&domainId, &projectId, &platform)
+		quota := manager.newQuota()
+		err = q.Row2Struct(rows, quota)
 		if err != nil {
-			log.Errorf("scan domain_id, project_id, platform error %s", err)
+			log.Errorf("Row2Struct fail %s", err)
 			return
 		}
-		scope := rbacutils.ScopeProject
-		owner := db.SOwnerId{
-			DomainId:  domainId,
-			ProjectId: projectId,
+		keyList = append(keyList, quota.GetKeys())
+	}
+
+	var fields []string
+
+	idNameMap, _ := manager.keyList2IdNameMap(ctx, keyList)
+	for _, keys := range keyList {
+		if idNameMap != nil {
+			// no error, do check
+			if len(fields) == 0 {
+				fields = keys.Fields()
+			}
+			values := keys.Values()
+			for i := range fields {
+				if strings.HasSuffix(fields[i], "_id") && len(values[i]) > 0 && len(idNameMap[fields[i]][values[i]]) == 0 {
+					manager.DeleteAllQuotas(ctx, userCred, keys)
+					manager.pendingStore.DeleteAllQuotas(ctx, userCred, keys)
+					manager.usageStore.DeleteAllQuotas(ctx, userCred, keys)
+					continue
+				}
+			}
 		}
-		if len(projectId) == 0 {
-			scope = rbacutils.ScopeDomain
+		manager.PostUsageJob(keys, nil, false)
+	}
+}
+
+
+func (manager *SQuotaBaseManager) keyList2IdNameMap(ctx context.Context, keyList []IQuotaKeys) (map[string]map[string]string, error) {
+	idMap := make(map[string]map[string]string)
+	var fields []string
+	for _, keys := range keyList {
+		if len(fields) == 0 {
+			fields = keys.Fields()
 		}
-		platforms := strings.Split(platform, nameSeparator)
-		// log.Debugf("PostUsageJob %s %s %s", scope, owner, platforms)
-		manager.PostUsageJob(scope, &owner, platforms, nil, true, false)
+		values := keys.Values()
+		for i := range fields {
+			if strings.HasSuffix(fields[i], "_id") && len(values[i]) > 0 {
+				if _, ok := idMap[fields[i]]; !ok {
+					idMap[fields[i]] = make(map[string]string)
+				}
+				if _, ok := idMap[fields[i]][values[i]]; !ok {
+					idMap[fields[i]][values[i]] = ""
+				}
+			}
+		}
+	}
+	ret, err := manager.GetIQuotaManager().FetchIdNames(ctx, idMap)
+	if err != nil {
+		return nil, err
+	}else {
+		return ret, nil
 	}
 }

@@ -19,7 +19,7 @@ import (
 )
 
 type DiskCreateInput struct {
-	apis.Meta
+	apis.VirtualResourceCreateInput
 
 	*DiskConfig
 
@@ -29,16 +29,14 @@ type DiskCreateInput struct {
 	PreferWire   string `json:"prefer_wire_id"`
 	PreferHost   string `json:"prefer_host_id"`
 
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Hypervisor  string `json:"hypervisor"`
-	Project     string `json:"project"`
-	Domain      string `json:"domain_id"`
+	Hypervisor string `json:"hypervisor"`
+	// Project    string `json:"project"`
+	// Domain     string `json:"domain_id"`
 }
 
 // ToServerCreateInput used by disk schedule
 func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
-	return &ServerCreateInput{
+	input := ServerCreateInput{
 		ServerConfigs: &ServerConfigs{
 			PreferRegion: req.PreferRegion,
 			PreferZone:   req.PreferZone,
@@ -46,22 +44,29 @@ func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 			PreferHost:   req.PreferHost,
 			Hypervisor:   req.Hypervisor,
 			Disks:        []*DiskConfig{req.DiskConfig},
-			Project:      req.Project,
-			Domain:       req.Domain,
+			// Project:      req.Project,
+			// Domain:       req.Domain,
 		},
-		Name: req.Name,
 	}
+	input.Name = req.Name
+	input.Project = req.Project
+	input.ProjectId = req.ProjectId
+	input.Domain = req.Domain
+	input.DomainId = req.DomainId
+	return &input
 }
 
 func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
-	return &DiskCreateInput{
+	input := DiskCreateInput{
 		DiskConfig:   req.Disks[0],
 		PreferRegion: req.PreferRegion,
 		PreferHost:   req.PreferHost,
 		PreferZone:   req.PreferZone,
 		PreferWire:   req.PreferWire,
-		Name:         req.Name,
-		Project:      req.Project,
 		Hypervisor:   req.Hypervisor,
 	}
+	input.Name = req.Name
+	input.Project = req.Project
+	input.Domain = req.Domain
+	return &input
 }

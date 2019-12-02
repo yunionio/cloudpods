@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -2027,7 +2028,7 @@ func (manager *SHostManager) FetchHostById(hostId string) *SHost {
 
 func (manager *SHostManager) totalCountQ(
 	userCred mcclient.IIdentityProvider,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
@@ -2035,15 +2036,6 @@ func (manager *SHostManager) totalCountQ(
 	enabled, isBaremetal tristate.TriState,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
-	/*
-			    MemSize     int
-		    MemReserved int
-		    MemCmtbound float32
-		    CpuCount    int8
-		    CpuReserved int8
-		    CpuCmtbound float32
-		    StorageSize int
-	*/
 	q := hosts.Query(
 		hosts.Field("mem_size"),
 		hosts.Field("mem_reserved"),
@@ -2073,7 +2065,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 	return q
 }
 
@@ -2152,14 +2144,28 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 
 func (manager *SHostManager) TotalCount(
 	userCred mcclient.IIdentityProvider,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) HostsCountStat {
-	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal))
+	return manager.calculateCount(
+		manager.totalCountQ(
+			userCred,
+			rangeObjs,
+			hostStatus,
+			status,
+			hostTypes,
+			resourceTypes,
+			providers,
+			brands,
+			cloudEnv,
+			enabled,
+			isBaremetal,
+		),
+	)
 }
 
 /*
@@ -2768,7 +2774,17 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 	}
 
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.EnabledStatusStandaloneResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal EnabledStatusStandaloneCreateInput fail %s", err)
+	}
+	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

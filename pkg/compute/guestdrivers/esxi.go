@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SESXiGuestDriver struct {
@@ -58,12 +60,14 @@ func (self *SESXiGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_VMWARE
 }
 
-func (self *SESXiGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_ON_PREMISE,
-		api.CLOUD_PROVIDER_VMWARE,
-		api.HYPERVISOR_ESXI,
-	}
+func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+	keys.Provider = api.CLOUD_PROVIDER_VMWARE
+	// ignore brand
+	// ignore hypervisor keys.Hypervisor = api.HYPERVISOR_ESXI
+	return keys
 }
 
 func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {

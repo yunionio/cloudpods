@@ -36,9 +36,7 @@ type NetworkListInput struct {
 }
 
 type NetworkCreateInput struct {
-	apis.Meta
-
-	IsSystem bool `json:"is_system"`
+	apis.SharableVirtualResourceCreateInput
 
 	// description: network name
 	// unique: true

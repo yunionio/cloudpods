@@ -154,7 +154,6 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		PreferBackupHost: o.BackupHost,
 		Hypervisor:       o.Hypervisor,
 		ResourceType:     o.ResourceType,
-		Project:          o.Project,
 		Backup:           o.Backup,
 		Count:            o.Count,
 	}
@@ -355,10 +354,8 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		Vga:                opts.Vga,
 		Vdi:                opts.Vdi,
 		Bios:               opts.Bios,
-		Description:        opts.Desc,
 		ShutdownBehavior:   opts.ShutdownBehavior,
 		AutoStart:          opts.AutoStart,
-		IsSystem:           opts.System,
 		Duration:           opts.Duration,
 		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
 		EipBw:              opts.EipBw,
@@ -369,6 +366,12 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		GuestImageID:       opts.GuestImageID,
 		Secgroups:          opts.Secgroups,
 	}
+
+	params.Description = opts.Desc
+	params.IsSystem = &opts.System
+
+	params.Project = opts.Project
+	params.ProjectId = opts.Project
 
 	if opts.GenerateName {
 		params.GenerateName = opts.NAME

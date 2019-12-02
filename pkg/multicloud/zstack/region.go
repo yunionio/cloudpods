@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -71,6 +70,10 @@ func (region *SRegion) IsEmulated() bool {
 
 func (region *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ZSTACK
+}
+
+func (region *SRegion) GetCloudEnv() string {
+	return ""
 }
 
 func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {

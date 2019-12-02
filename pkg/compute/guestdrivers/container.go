@@ -22,12 +22,14 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -55,12 +57,14 @@ func (self *SContainerDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SContainerDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_ON_PREMISE,
-		api.CLOUD_PROVIDER_ONECLOUD,
-		api.HYPERVISOR_CONTAINER,
-	}
+// for backward compatibility, deprecated driver
+func (self *SContainerDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	keys.Hypervisor = api.HYPERVISOR_CONTAINER
+	return keys
 }
 
 func (self *SContainerDriver) GetDefaultSysDiskBackend() string {

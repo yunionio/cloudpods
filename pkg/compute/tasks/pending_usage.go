@@ -22,24 +22,52 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
+func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
+	index := 0
 	pendingUsage := models.SQuota{}
-	err := task.GetPendingUsage(&pendingUsage)
+	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 		return errors.Wrap(err, "task.GetPendingUsage")
 	}
-	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), scope, ownerId, platform, &pendingUsage, &pendingUsage)
+
+	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}
-	err = task.ClearPendingUsage()
+	if pendingUsage.IsEmpty() {
+		err = task.ClearPendingUsage(index)
+		if err != nil {
+			return errors.Wrap(err, "task.ClearPendingUsage")
+		}
+	} else {
+		log.Warningf("pendingUsage is not empty after cancel????")
+	}
+	return nil
+}
+
+func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error {
+	index := 1
+	pendingUsage := models.SRegionQuota{}
+	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
-		return errors.Wrap(err, "task.ClearPendingUsage")
+		log.Errorf("GetPendingUsage fail %s", err)
+		return errors.Wrap(err, "task.GetPendingUsage")
+	}
+
+	err = models.RegionQuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	if err != nil {
+		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
+	}
+	if pendingUsage.IsEmpty() {
+		err = task.ClearPendingUsage(index)
+		if err != nil {
+			return errors.Wrap(err, "task.ClearPendingUsage")
+		}
+	} else {
+		log.Warningf("pendingUsage is not empty after cancel????")
 	}
 	return nil
 }

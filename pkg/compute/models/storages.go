@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -202,7 +203,17 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.StandaloneResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
@@ -804,7 +815,7 @@ func (manager *SStorageManager) disksFailedQ(scope rbacutils.TRbacScope, ownerId
 }
 
 func (manager *SStorageManager) totalCapacityQ(
-	rangeObj db.IStandaloneModel, hostTypes []string,
+	rangeObjs []db.IStandaloneModel, hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
@@ -828,7 +839,7 @@ func (manager *SStorageManager) totalCapacityQ(
 	q = q.LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id")))
 	q = q.LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
 
-	if len(hostTypes) > 0 || len(resourceTypes) > 0 || rangeObj != nil {
+	if len(hostTypes) > 0 || len(resourceTypes) > 0 || len(rangeObjs) > 0 {
 		hosts := HostManager.Query().SubQuery()
 		hostStorages := HoststorageManager.Query().SubQuery()
 
@@ -837,7 +848,7 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
-		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, nil, "", rangeObj)
+		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, nil, "", rangeObjs)
 	}
 
 	q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
@@ -899,8 +910,23 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 	}
 }
 
-func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) StoragesCapacityStat {
-	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId))
+func (manager *SStorageManager) TotalCapacity(
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+) StoragesCapacityStat {
+	res1 := manager.calculateCapacity(
+		manager.totalCapacityQ(
+			rangeObjs,
+			hostTypes,
+			resourceTypes,
+			providers, brands, cloudEnv,
+			scope, ownerId,
+		),
+	)
 	return res1
 }
 

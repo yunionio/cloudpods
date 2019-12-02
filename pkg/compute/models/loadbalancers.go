@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SLoadbalancerManager struct {
@@ -144,9 +146,16 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input := apis.VirtualResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	ctx = context.WithValue(ctx, "ownerId", ownerId)
 	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
@@ -860,4 +869,17 @@ func (man *SLoadbalancerManager) getLoadbalancer(lbId string) (*SLoadbalancer, e
 		return nil, errors.Wrap(errors.ErrNotFound, "pending deleted")
 	}
 	return lb, nil
+}
+
+func (man *SLoadbalancerManager) TotalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	providers []string, brands []string, cloudEnv string,
+) (int, error) {
+	q := man.Query()
+	q = scopeOwnerIdFilter(q, scope, ownerId)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"))
+	return q.CountWithError()
 }
