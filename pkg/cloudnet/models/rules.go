@@ -115,7 +115,7 @@ func (man *SRuleManager) validateData(ctx context.Context, userCred mcclient.Tok
 	protoV := validators.NewStringChoicesValidator("match_proto", protoChoices)
 	srcPortV := validators.NewPortValidator("match_src_port")
 	destPortV := validators.NewPortValidator("match_dest_port")
-	actionV := validators.NewStringChoicesValidator("action", protoChoices)
+	actionV := validators.NewStringChoicesValidator("action", actionChoices)
 	actionOptsV := validators.NewStringLenRangeValidator("action_options", 0, 256)
 	if isUpdate {
 		inIfnameV.Default(rule.MatchInIfname)
@@ -200,7 +200,7 @@ func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	if err := man.validateData(ctx, userCred, ownerId, query, data, nil); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return data, nil
 }
 
 func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
