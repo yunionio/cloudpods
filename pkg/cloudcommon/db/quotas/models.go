@@ -18,11 +18,12 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
-	"strings"
+	"sort"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -40,18 +41,16 @@ type SQuotaBaseManager struct {
 }
 
 const (
-	nameSeparator = "."
-
-	quotaKeyword  = "quota"
-	quotaKeywords = "quotas"
+	// quotaKeyword  = "quota"
+	// quotaKeywords = "quotas"
 
 	quotaUsageKeyword  = "quota-usage"
 	quotaUsageKeywords = "quota-usages"
 )
 
-func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore) SQuotaBaseManager {
+func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
-		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, quotaKeyword, quotaKeywords),
+		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 		pendingStore:         pendingStore,
 		usageStore:           usageStore,
 		autoCreate:           true,
@@ -66,89 +65,134 @@ func NewQuotaUsageManager(model interface{}, tableName string) SQuotaBaseManager
 
 type SQuotaBase struct {
 	db.SResourceBase
-
-	DomainId  string `width:"128" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	Platform  string `width:"128" charset:"utf8" nullable:"false" primary:"true" list:"user"`
 }
 
-func (manager *SQuotaBaseManager) getQuotaInternal(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
+func (manager *SQuotaBaseManager) GetIQuotaManager() IQuotaManager {
+	return manager.GetIResourceModelManager().(IQuotaManager)
+}
+
+func (manager *SQuotaBaseManager) FetchIdNames(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error) {
+	return idMap, nil
+}
+
+func (manager *SQuotaBaseManager) getQuotaByKeys(ctx context.Context, keys IQuotaKeys, quota IQuota) error {
 	q := manager.Query()
-	q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	if scope == rbacutils.ScopeProject {
-		q = q.Equals("tenant_id", ownerId.GetProjectId())
-	} else {
-		q = q.IsNullOrEmpty("tenant_id")
+
+	fields := keys.Fields()
+	values := keys.Values()
+	for i := range fields {
+		if len(values[i]) == 0 {
+			q = q.IsNullOrEmpty(fields[i])
+		} else {
+			q = q.Equals(fields[i], values[i])
+		}
 	}
-	var key string
-	if len(platform) > 0 {
-		key = strings.Join(platform, nameSeparator)
-	}
-	q = q.Equals("platform", key)
+
 	err := q.First(quota)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	} else if err == sql.ErrNoRows && manager.autoCreate {
-		quota.FetchSystemQuota(scope, ownerId)
-		return manager.setQuotaInternal(ctx, nil, scope, ownerId, platform, quota)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "q.First")
+		}
 	}
+	quota.SetKeys(keys)
 	return nil
 }
 
-func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
-	base := SQuotaBase{}
-	base.DomainId = ownerId.GetProjectDomainId()
-	if scope == rbacutils.ScopeProject {
-		base.ProjectId = ownerId.GetProjectId()
+func filterParentByKey(q *sqlchemy.SQuery, fieldName string, value string) *sqlchemy.SQuery {
+	if len(value) > 0 {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field(fieldName)),
+			sqlchemy.Equals(q.Field(fieldName), value),
+		))
+	} else {
+		q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field(fieldName)))
 	}
-	if len(platform) > 0 {
-		base.Platform = strings.Join(platform, nameSeparator)
-	}
-	base.SetModelManager(manager, quota.(db.IModel))
-
-	if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(base)) {
-		return errors.Error("no embed SBaseQuota")
-	}
-
-	return manager.TableSpec().InsertOrUpdate(quota)
+	return q
 }
 
-func (manager *SQuotaBaseManager) deleteQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
-	q := manager.Query("domain_id", "tenant_id", "platform")
-	q = q.Equals("domain_id", ownerId.GetProjectDomainId())
-	if scope == rbacutils.ScopeProject {
-		q = q.Equals("tenant_id", ownerId.GetProjectId())
+func filterChildrenByKey(q *sqlchemy.SQuery, fieldName string, value string) *sqlchemy.SQuery {
+	if len(value) > 0 {
+		q = q.Equals(fieldName, value)
 	}
-	if platform != nil {
-		q = q.Equals("platform", strings.Join(platform, nameSeparator))
+	return q
+}
+
+func (manager *SQuotaBaseManager) getQuotasInternal(ctx context.Context, keys IQuotaKeys, isParent bool) ([]IQuota, error) {
+	q := manager.Query()
+
+	fields := keys.Fields()
+	values := keys.Values()
+	for i := range fields {
+		if isParent {
+			q = filterParentByKey(q, fields[i], values[i])
+		} else {
+			q = filterChildrenByKey(q, fields[i], values[i])
+		}
 	}
 
 	rows, err := q.Rows()
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return errors.Wrap(err, "sql.Rows")
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, nil
+		} else {
+			return nil, errors.Wrap(err, "q.Rows")
+		}
+	}
+	defer rows.Close()
+	results := make([]IQuota, 0)
+	for rows.Next() {
+		r := manager.newQuota()
+		err := q.Row2Struct(rows, r)
+		if err != nil {
+			return nil, errors.Wrap(err, "q.Row2Struct")
+		}
+		results = append(results, r)
+	}
+	sort.Sort(TQuotaList(results))
+	return results, nil
+}
+
+func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
+	return manager.TableSpec().InsertOrUpdate(quota)
+}
+
+func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota, quota IQuota) error {
+	return manager.TableSpec().Increment(diff, quota)
+}
+
+func (manager *SQuotaBaseManager) subQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, cancel IQuota, quota IQuota) error {
+	return manager.TableSpec().Decrement(cancel, quota)
+}
+
+func (manager *SQuotaBaseManager) deleteQuotaByKeys(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
+	quota := manager.newQuota()
+	quota.SetKeys(keys)
+	_, err := db.Update(quota.(db.IModel), func() error {
+		return quota.(db.IModel).MarkDelete()
+	})
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "Delete")
+		}
+	}
+	return nil
+}
+
+func (manager *SQuotaBaseManager) deleteAllQuotas(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
+	quotas, err := manager.getQuotasInternal(ctx, keys, false)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "manager.getQuotasInternal")
 		} else {
 			return nil
 		}
 	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var domainId, tenantId, platform string
-		err := rows.Scan(&domainId, &tenantId, &platform)
+	for i := range quotas {
+		err := manager.deleteQuotaByKeys(ctx, userCred, quotas[i].GetKeys())
 		if err != nil {
-			return errors.Wrap(err, "rows.Scan")
-		}
-		base := SQuotaBase{
-			DomainId:  domainId,
-			ProjectId: tenantId,
-			Platform:  platform,
-		}
-		base.SetModelManager(manager, &base)
-		err = base.Delete(ctx, nil)
-		if err != nil {
-			return errors.Wrap(err, "Update")
+			if errors.Cause(err) != sql.ErrNoRows {
+				return errors.Wrapf(err, "manager.deleteQuotaByKeys %s", QuotaKeyString(quotas[i].GetKeys()))
+			}
 		}
 	}
 	return nil
@@ -195,18 +239,21 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		}
 
 		quota := manager.newQuota()
+		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+		if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys)) {
+			log.Fatalf("invalid quota??? fail to find SBaseQuotaKey")
+		}
 		err := metaQuota.GetQuota(context.Background(), scope, ownerId, quota)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
 			continue
 		}
 		if quota.IsEmpty() {
-			quota.FetchSystemQuota(scope, ownerId)
+			quota.FetchSystemQuota()
 		}
-		baseQuota := SQuotaBase{}
+		baseQuota := SBaseQuotaKeys{}
 		baseQuota.DomainId = ownerId.GetProjectDomainId()
 		baseQuota.ProjectId = ownerId.GetProjectId()
-		baseQuota.SetModelManager(manager, quota.(db.IModel))
 		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseQuota))
 
 		err = manager.TableSpec().Insert(quota)

@@ -102,7 +102,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/tencentcloud/tencentcloud-sdk-go v0.0.0-20181108132626-805d01dd0e2e
 	github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20191108095731-8ca4b370cde4
 	github.com/tinylib/msgp v1.1.0 // indirect
@@ -136,7 +136,7 @@ require (
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20191121110824-e03b47b93fe0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20191122085525-2d3bfdb3f51c
+	yunion.io/x/sqlchemy v0.0.0-20191206101534-32ae27ae30cb
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 

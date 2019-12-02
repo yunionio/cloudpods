@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type GuestBatchCreateTask struct {
@@ -45,12 +44,8 @@ func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, erro
 }
 
 func (self *GuestBatchCreateTask) clearPendingUsage(ctx context.Context, guest *models.SGuest) {
-	platform := make([]string, 0)
-	input, _ := self.GetCreateInput()
-	if len(input.Hypervisor) > 0 {
-		platform = models.GetDriver(input.Hypervisor).GetQuotaPlatformID()
-	}
-	ClearTaskPendingUsage(ctx, self, rbacutils.ScopeProject, guest.GetOwnerId(), platform)
+	ClearTaskPendingUsage(ctx, self)
+	ClearTaskPendingRegionUsage(ctx, self)
 }
 
 func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -74,18 +69,21 @@ func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Conte
 
 func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest, candidate *schedapi.CandidateResource) error {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 
 	host := guest.GetHost()
 
-	quotaPlatform := host.GetQuotaPlatformID()
-
 	quotaCpuMem := models.SQuota{Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaCpuMem)
-	self.SetPendingUsage(&pendingUsage)
+	keys, err := guest.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("guest.GetQuotaKeys fail %s", err)
+	}
+	quotaCpuMem.SetKeys(keys)
+	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem)
+	self.SetPendingUsage(&pendingUsage, 0)
 
 	input, err := self.GetCreateInput()
 	if err != nil {
@@ -109,9 +107,11 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
+	pendingRegionUsage := models.SRegionQuota{}
+	self.GetPendingUsage(&pendingRegionUsage, 1)
 	// allocate networks
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage, candidate.Nets)
-	self.SetPendingUsage(&pendingUsage)
+	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingRegionUsage, candidate.Nets)
+	self.SetPendingUsage(&pendingRegionUsage, 1)
 	if err != nil {
 		log.Errorf("Network failed: %s", err)
 		guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
@@ -120,8 +120,8 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	// allocate eips
 	if input.EipBw > 0 {
-		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, &pendingUsage)
-		self.SetPendingUsage(&pendingUsage)
+		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, &pendingRegionUsage)
+		self.SetPendingUsage(&pendingRegionUsage, 1)
 		if err != nil {
 			log.Errorf("guest.CreateElasticipOnHost failed: %s", err)
 			guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
@@ -147,7 +147,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	}
 	// 纳管的云需要有关联关系后,在做deploy时才有磁盘的信息
 	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks, true)
-	self.SetPendingUsage(&pendingUsage)
+	self.SetPendingUsage(&pendingUsage, 0)
 
 	if err != nil {
 		log.Errorf("Disk create failed: %s", err)
@@ -157,7 +157,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	// allocate GPUs
 	err = guest.CreateIsolatedDeviceOnHost(ctx, self.UserCred, host, input.IsolatedDevices, &pendingUsage)
-	self.SetPendingUsage(&pendingUsage)
+	self.SetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("IsolatedDevices create failed: %s", err)
 		guest.SetStatus(self.UserCred, api.VM_DEVICE_FAILED, err.Error())

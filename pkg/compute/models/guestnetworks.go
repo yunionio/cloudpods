@@ -472,26 +472,24 @@ func (self *SGuestnetwork) Detach(ctx context.Context, userCred mcclient.TokenCr
 	return db.DetachJoint(ctx, userCred, self)
 }
 
-func totalGuestNicCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, includeSystem bool) GuestnicsCount {
+func totalGuestNicCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	includeSystem bool,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+) GuestnicsCount {
 	guests := GuestManager.Query().SubQuery()
+	hosts := HostManager.Query().SubQuery()
 	guestnics := GuestnetworkManager.Query().SubQuery()
-	q := guestnics.Query().Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
-	if rangeObj != nil {
-		if rangeObj.Keyword() == "zone" {
-			hosts := HostManager.Query().SubQuery()
-			q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id"))).Filter(sqlchemy.Equals(hosts.Field("zone_id"), rangeObj.GetId()))
-		} else if rangeObj.Keyword() == "wire" {
-			hosts := HostManager.Query().SubQuery()
-			hostwires := HostwireManager.Query().SubQuery()
-			q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id"))).Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id"))).Filter(sqlchemy.Equals(hostwires.Field("wire_id"), rangeObj.GetId()))
-		} else if rangeObj.Keyword() == "host" {
+	q := guestnics.Query()
+	q = q.Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
+	q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 
-		} else if rangeObj.Keyword() == "vcenter" {
-
-		} else if rangeObj.Keyword() == "schedtag" {
-
-		}
-	}
+	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"))
 
 	switch scope {
 	case rbacutils.ScopeSystem:

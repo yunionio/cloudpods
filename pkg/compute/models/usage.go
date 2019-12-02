@@ -28,7 +28,7 @@ func AttachUsageQuery(
 	hostTypes []string,
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	if len(hostTypes) > 0 {
 		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
@@ -43,42 +43,7 @@ func AttachUsageQuery(
 			q = q.Filter(sqlchemy.In(hosts.Field("resource_type"), resourceTypes))
 		}
 	}
-
 	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
-
-	if rangeObj == nil {
-		return q
-	}
-	//rangeObjId := rangeObj.GetId()
-	kw := rangeObj.Keyword()
-	// log.Debugf("rangeObj keyword: %s", kw)
-	switch kw {
-	case "zone":
-		zone := rangeObj.(*SZone)
-		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
-	case "wire":
-		wire := rangeObj.(*SWire)
-		hostWires := HostwireManager.Query().SubQuery()
-		subq := hostWires.Query(hostWires.Field("host_id")).Equals("wire_id", wire.Id).SubQuery()
-		q = q.Filter(sqlchemy.In(hosts.Field("id"), subq))
-	case "host":
-		q = q.Filter(sqlchemy.Equals(hosts.Field("id"), rangeObj.GetId()))
-	case "cloudprovider":
-		q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), rangeObj.GetId()))
-	case "cloudaccount":
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(hosts.Field("manager_id"), subq))
-	case "schedtag":
-		aggHosts := HostschedtagManager.Query().SubQuery()
-		q = q.Join(aggHosts, sqlchemy.AND(
-			sqlchemy.Equals(hosts.Field("id"), aggHosts.Field("host_id")),
-			sqlchemy.IsFalse(aggHosts.Field("deleted")))).
-			Filter(sqlchemy.Equals(aggHosts.Field("schedtag_id"), rangeObj.GetId()))
-	case "cloudregion":
-		zones := ZoneManager.Query().SubQuery()
-		q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
-		q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), rangeObj.GetId()))
-	}
+	q = rangeObjectsFilter(q, rangeObjs, nil, hosts.Field("zone_id"), hosts.Field("manager_id"))
 	return q
 }

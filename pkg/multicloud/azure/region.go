@@ -141,6 +141,10 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_AZURE
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return self.client.envName
+}
+
 func (self *SRegion) trimGeographicString(geographic string) string {
 	return strings.TrimFunc(geographic, func(r rune) bool {
 		return !((r >= '0' && r <= '9') || r == '.' || r == '-')

@@ -218,10 +218,18 @@ func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCre
 	return db.JointModelExtra(ln, extra)
 }
 
-func totalLBNicCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) (int, error) {
+func totalLBNicCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+) (int, error) {
 	lbs := LoadbalancerManager.Query().SubQuery()
 	lbnics := LoadbalancernetworkManager.Query().SubQuery()
-	q := lbnics.Query().Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbnics.Field("loadbalancer_id")))
+	q := lbnics.Query()
+	q = q.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbnics.Field("loadbalancer_id")))
 	switch scope {
 	case rbacutils.ScopeSystem:
 		// do nothing
@@ -230,5 +238,7 @@ func totalLBNicCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvi
 	case rbacutils.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(lbs.Field("tenant_id"), ownerId.GetProjectId()))
 	}
+	q = rangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"))
+	q = CloudProviderFilter(q, lbs.Field("manager_id"), providers, brands, cloudEnv)
 	return q.CountWithError()
 }

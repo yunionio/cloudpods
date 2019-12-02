@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SDiskBaseTask struct {
@@ -38,11 +37,9 @@ func (self *SDiskBaseTask) SetStageFailed(ctx context.Context, reason string) {
 
 func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		disk := self.getDisk()
-		quotaPlatform := disk.GetQuotaPlatformID()
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 }
 

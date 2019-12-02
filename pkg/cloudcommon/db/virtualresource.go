@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -163,12 +164,16 @@ func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.II
 	return FetchByIdOrName(manager, userCred, idStr)
 }
 
-func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	isSystem, err := data.Bool("is_system")
-	if err == nil && isSystem && !IsAdminAllowCreate(userCred, manager) {
-		return nil, httperrors.NewNotSufficientPrivilegeError("non-admin user not allowed to create system object")
+func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.VirtualResourceCreateInput) (apis.VirtualResourceCreateInput, error) {
+	var err error
+	if input.IsSystem != nil && *input.IsSystem && !IsAdminAllowCreate(userCred, manager) {
+		return input, httperrors.NewNotSufficientPrivilegeError("non-admin user not allowed to create system object")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }
 
 func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
