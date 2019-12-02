@@ -41,6 +41,10 @@ func (region *SFakeOnPremiseRegion) GetStatus() string {
 	return "available"
 }
 
+func (region *SFakeOnPremiseRegion) GetCloudEnv() string {
+	return ""
+}
+
 func (region *SFakeOnPremiseRegion) Refresh() error {
 	return nil
 }

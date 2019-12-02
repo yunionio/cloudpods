@@ -143,15 +143,12 @@ func (this *QuotaManager) DoQuotaSet(s *mcclient.ClientSession, params jsonutils
 	return this.doPost(s, params, url)
 }
 
-func (this *QuotaManager) DoQuotaCheck(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	url := this.getURL(params)
-	url = fmt.Sprintf("%s/check_quota", url)
-	return this.doPost(s, params, url)
-}
-
 var (
-	Quotas      QuotaManager
-	ImageQuotas QuotaManager
+	Quotas        QuotaManager
+	ProjectQuotas QuotaManager
+	RegionQuotas  QuotaManager
+	ZoneQuotas    QuotaManager
+	ImageQuotas   QuotaManager
 )
 
 func init() {
@@ -159,6 +156,21 @@ func init() {
 		[]string{},
 		[]string{})}
 	registerCompute(&Quotas)
+
+	ProjectQuotas = QuotaManager{NewComputeManager("project_quota", "project_quotas",
+		[]string{},
+		[]string{})}
+	registerCompute(&ProjectQuotas)
+
+	RegionQuotas = QuotaManager{NewComputeManager("region_quota", "region_quotas",
+		[]string{},
+		[]string{})}
+	registerCompute(&RegionQuotas)
+
+	ZoneQuotas = QuotaManager{NewComputeManager("zone_quota", "zone_quotas",
+		[]string{},
+		[]string{})}
+	registerCompute(&ZoneQuotas)
 
 	ImageQuotas = QuotaManager{NewImageManager("quota", "quotas",
 		[]string{},

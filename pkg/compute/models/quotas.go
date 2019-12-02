@@ -16,17 +16,22 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -34,103 +39,149 @@ type SQuotaManager struct {
 	quotas.SQuotaBaseManager
 }
 
-var QuotaManager *SQuotaManager
-var QuotaUsageManager *SQuotaManager
+var (
+	Quota                    SQuota
+	QuotaManager             *SQuotaManager
+	QuotaUsageManager        *SQuotaManager
+	QuotaPendingUsageManager *SQuotaManager
+)
 
 func init() {
-	pendingStore := quotas.NewMemoryQuotaStore()
+	Quota = SQuota{}
 
 	QuotaUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota, "quota_usage_tbl"),
 	}
-
+	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
+	QuotaPendingUsageManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota, "quota_pending_usage_tbl"),
+	}
+	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
 	QuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", pendingStore, QuotaUsageManager),
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(Quota,
+			"quota_tbl",
+			QuotaPendingUsageManager,
+			QuotaUsageManager,
+			"quota",
+			"quotas",
+		),
 	}
+	QuotaManager.SetVirtualObject(QuotaManager)
 }
 
 type SQuota struct {
 	quotas.SQuotaBase
 
+	SComputeResourceKeys
+
+	Count   int
 	Cpu     int
 	Memory  int
 	Storage int
-	Port    int
-	Eip     int
-	Eport   int
-	Bw      int
-	Ebw     int
-	// Keypair int
-	// Image          int
+
 	Group          int
-	Secgroup       int
 	IsolatedDevice int
-	Snapshot       int
-
-	Bucket    int
-	ObjectGB  int
-	ObjectCnt int
 }
 
-func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
+func (self *SQuota) GetKeys() quotas.IQuotaKeys {
+	return self.SComputeResourceKeys
+}
+
+func (self *SQuota) SetKeys(keys quotas.IQuotaKeys) {
+	self.SComputeResourceKeys = keys.(SComputeResourceKeys)
+}
+
+func (self *SQuota) FetchSystemQuota() {
+	keys := self.SComputeResourceKeys
 	base := 0
-	if scope == rbacutils.ScopeDomain {
-		base = 10
-	} else if ownerId.GetProjectDomainId() == identityapi.DEFAULT_DOMAIN_ID && ownerId.GetProjectName() == identityapi.SystemAdminProject {
+	switch options.Options.DefaultQuotaValue {
+	case commonOptions.DefaultQuotaUnlimit:
+		base = -1
+	case commonOptions.DefaultQuotaZero:
+		base = 0
+		if keys.Scope() == rbacutils.ScopeDomain { // domain level quota
+			base = 10
+		} else if keys.DomainId == identityapi.DEFAULT_DOMAIN_ID && keys.ProjectId == auth.AdminCredential().GetProjectId() {
+			base = 1
+		}
+	case commonOptions.DefaultQuotaDefault:
 		base = 1
+		if keys.Scope() == rbacutils.ScopeDomain {
+			base = 10
+		}
 	}
-	self.Cpu = options.Options.DefaultCpuQuota * base
-	self.Memory = options.Options.DefaultMemoryQuota * base
-	self.Storage = options.Options.DefaultStorageQuota * base
-	self.Port = options.Options.DefaultPortQuota * base
-	self.Eip = options.Options.DefaultEipQuota * base
-	self.Eport = options.Options.DefaultEportQuota * base
-	self.Bw = options.Options.DefaultBwQuota * base
-	self.Ebw = options.Options.DefaultEbwQuota * base
-	self.Group = options.Options.DefaultGroupQuota * base
-	self.Secgroup = options.Options.DefaultSecgroupQuota * base
-	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota * base
-	self.Snapshot = options.Options.DefaultSnapshotQuota * base
-	self.Bucket = options.Options.DefaultBucketQuota * base
-	self.ObjectGB = options.Options.DefaultObjectGBQuota * base
-	self.ObjectCnt = options.Options.DefaultObjectCntQuota * base
+	defaultValue := func(def int) int {
+		if base < 0 {
+			return -1
+		} else {
+			return def * base
+		}
+	}
+	self.Count = defaultValue(options.Options.DefaultServerQuota)
+	self.Cpu = defaultValue(options.Options.DefaultCpuQuota)
+	self.Memory = defaultValue(options.Options.DefaultMemoryQuota)
+	self.Storage = defaultValue(options.Options.DefaultStorageQuota)
+	self.Group = defaultValue(options.Options.DefaultGroupQuota)
+	self.IsolatedDevice = defaultValue(options.Options.DefaultIsolatedDeviceQuota)
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
-	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false)
-	net := totalGuestNicCount(scope, ownerId, nil, false)
-	lbnic, _ := totalLBNicCount(scope, ownerId)
-	// net := WireManager.TotalCount(nil, nil, nil, "", scope, ownerId)
-	hypervisors := sets.NewString(api.HYPERVISORS...)
-	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
-	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, nil, "")
-	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, nil, "")
-	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, nil, "")
-	bucketUsage := BucketManager.TotalCount(scope, ownerId, nil, nil, nil, "")
-	// XXX
-	// keypair belongs to user
-	// keypair := totalKeypairCount(projectId)
+func (self *SQuota) FetchUsage(ctx context.Context) error {
+	keys := self.SComputeResourceKeys
 
+	scope := keys.Scope()
+	ownerId := keys.OwnerId()
+
+	rangeObjs := make([]db.IStandaloneModel, 0)
+	if len(keys.ManagerId) > 0 {
+		obj, err := CloudproviderManager.FetchById(keys.ManagerId)
+		if err != nil {
+			return errors.Wrap(err, "CloudproviderManager.FetchById")
+		}
+		rangeObjs = append(rangeObjs, obj.(db.IStandaloneModel))
+	} else if len(keys.AccountId) > 0 {
+		obj, err := CloudaccountManager.FetchById(keys.AccountId)
+		if err != nil {
+			return errors.Wrap(err, "CloudaccountManager.FetchById")
+		}
+		rangeObjs = append(rangeObjs, obj.(db.IStandaloneModel))
+	}
+
+	if len(keys.ZoneId) > 0 {
+		obj, err := ZoneManager.FetchById(keys.ZoneId)
+		if err != nil {
+			return errors.Wrap(err, "ZoneManager.FetchById")
+		}
+		rangeObjs = append(rangeObjs, obj.(db.IStandaloneModel))
+	} else if len(keys.RegionId) > 0 {
+		obj, err := CloudregionManager.FetchById(keys.RegionId)
+		if err != nil {
+			return errors.Wrap(err, "CloudregionManager.FetchById")
+		}
+		rangeObjs = append(rangeObjs, obj.(db.IStandaloneModel))
+	}
+	var hypervisors []string
+	if len(keys.Hypervisor) > 0 {
+		hypervisors = []string{keys.Hypervisor}
+	}
+	var providers []string
+	if len(keys.Provider) > 0 {
+		providers = []string{keys.Provider}
+	}
+	var brands []string
+	if len(keys.Brand) > 0 {
+		brands = []string{keys.Brand}
+	}
+
+	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false, rangeObjs, providers, brands, keys.CloudEnv, hypervisors)
+
+	guest := totalGuestResourceCount(scope, ownerId, rangeObjs, nil, hypervisors, false, false, nil, nil, providers, brands, keys.CloudEnv)
+
+	self.Count = guest.TotalGuestCount
 	self.Cpu = guest.TotalCpuCount
 	self.Memory = guest.TotalMemSize
 	self.Storage = diskSize
-	self.Eip = eipUsage.Total()
-	// log.Debugf("%d %d %d\n", net.InternalNicCount, net.InternalVirtualNicCount, lbnic)
-	self.Port = net.InternalNicCount + net.InternalVirtualNicCount + lbnic
-	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
-	self.Bw = net.InternalBandwidth
-	self.Ebw = net.ExternalBandwidth
-	// self.Port = net.GuestNicCount + net.GroupNicCount + net.LbNicCount
-	// if scope == rbacutils.ScopeSystem {
-	// 	self.Port += net.HostNicCount + net.ReservedCount
-	// }
 	self.Group = 0
-	self.Secgroup, _ = totalSecurityGroupCount(scope, ownerId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
-	self.Snapshot = snapshotCount
-	self.Bucket = bucketUsage.Buckets
-	self.ObjectGB = int(bucketUsage.Bytes / 1000 / 1000 / 1000)
-	self.ObjectCnt = bucketUsage.Objects
 	return nil
 }
 
@@ -144,40 +195,10 @@ func (self *SQuota) IsEmpty() bool {
 	if self.Storage > 0 {
 		return false
 	}
-	if self.Port > 0 {
-		return false
-	}
-	if self.Eip > 0 {
-		return false
-	}
-	if self.Eport > 0 {
-		return false
-	}
-	if self.Bw > 0 {
-		return false
-	}
-	if self.Ebw > 0 {
-		return false
-	}
 	if self.Group > 0 {
 		return false
 	}
-	if self.Secgroup > 0 {
-		return false
-	}
 	if self.IsolatedDevice > 0 {
-		return false
-	}
-	if self.Snapshot > 0 {
-		return false
-	}
-	if self.Bucket > 0 {
-		return false
-	}
-	if self.ObjectGB > 0 {
-		return false
-	}
-	if self.ObjectCnt > 0 {
 		return false
 	}
 	return true
@@ -185,21 +206,11 @@ func (self *SQuota) IsEmpty() bool {
 
 func (self *SQuota) Add(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
-	self.Cpu = self.Cpu + squota.Cpu
-	self.Memory = self.Memory + squota.Memory
-	self.Storage = self.Storage + squota.Storage
-	self.Port = self.Port + squota.Port
-	self.Eip = self.Eip + squota.Eip
-	self.Eport = self.Eport + squota.Eport
-	self.Bw = self.Bw + squota.Bw
-	self.Ebw = self.Ebw + squota.Ebw
-	self.Group = self.Group + squota.Group
-	self.Secgroup = self.Secgroup + squota.Secgroup
-	self.IsolatedDevice = self.IsolatedDevice + squota.IsolatedDevice
-	self.Snapshot = self.Snapshot + squota.Snapshot
-	self.Bucket = self.Bucket + squota.Bucket
-	self.ObjectGB = self.ObjectGB + squota.ObjectGB
-	self.ObjectCnt = self.ObjectCnt + squota.ObjectCnt
+	self.Cpu = self.Cpu + quotas.NonNegative(squota.Cpu)
+	self.Memory = self.Memory + quotas.NonNegative(squota.Memory)
+	self.Storage = self.Storage + quotas.NonNegative(squota.Storage)
+	self.Group = self.Group + quotas.NonNegative(squota.Group)
+	self.IsolatedDevice = self.IsolatedDevice + quotas.NonNegative(squota.IsolatedDevice)
 }
 
 func nonNegative(val int) int {
@@ -211,18 +222,8 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Cpu = nonNegative(self.Cpu - squota.Cpu)
 	self.Memory = nonNegative(self.Memory - squota.Memory)
 	self.Storage = nonNegative(self.Storage - squota.Storage)
-	self.Port = nonNegative(self.Port - squota.Port)
-	self.Eip = nonNegative(self.Eip - squota.Eip)
-	self.Eport = nonNegative(self.Eport - squota.Eport)
-	self.Bw = nonNegative(self.Bw - squota.Bw)
-	self.Ebw = nonNegative(self.Ebw - squota.Ebw)
 	self.Group = nonNegative(self.Group - squota.Group)
-	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
-	self.Snapshot = nonNegative(self.Snapshot - squota.Snapshot)
-	self.Bucket = nonNegative(self.Bucket - squota.Bucket)
-	self.ObjectGB = nonNegative(self.ObjectGB - squota.ObjectGB)
-	self.ObjectCnt = nonNegative(self.ObjectCnt - squota.ObjectCnt)
 }
 
 func (self *SQuota) Update(quota quotas.IQuota) {
@@ -236,41 +237,11 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	if squota.Storage > 0 {
 		self.Storage = squota.Storage
 	}
-	if squota.Port > 0 {
-		self.Port = squota.Port
-	}
-	if squota.Eip > 0 {
-		self.Eip = squota.Eip
-	}
-	if squota.Eport > 0 {
-		self.Eport = squota.Eport
-	}
-	if squota.Bw > 0 {
-		self.Bw = squota.Bw
-	}
-	if squota.Ebw > 0 {
-		self.Ebw = squota.Ebw
-	}
 	if squota.Group > 0 {
 		self.Group = squota.Group
 	}
-	if squota.Secgroup > 0 {
-		self.Secgroup = squota.Secgroup
-	}
 	if squota.IsolatedDevice > 0 {
 		self.IsolatedDevice = squota.IsolatedDevice
-	}
-	if squota.Snapshot > 0 {
-		self.Snapshot = squota.Snapshot
-	}
-	if squota.Bucket > 0 {
-		self.Bucket = squota.Bucket
-	}
-	if squota.ObjectGB > 0 {
-		self.ObjectGB = squota.ObjectGB
-	}
-	if squota.ObjectCnt > 0 {
-		self.ObjectCnt = squota.ObjectCnt
 	}
 }
 
@@ -287,41 +258,11 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.Storage > 0 && self.Storage > squota.Storage {
 		err.Add("storage", squota.Storage, self.Storage)
 	}
-	if sreq.Port > 0 && self.Port > squota.Port {
-		err.Add("port", squota.Port, self.Port)
-	}
-	if sreq.Eip > 0 && self.Eip > squota.Eip {
-		err.Add("eip", squota.Eip, self.Eip)
-	}
-	if sreq.Eport > 0 && self.Eport > squota.Eport {
-		err.Add("eport", squota.Eport, self.Eport)
-	}
-	if sreq.Bw > 0 && self.Bw > squota.Bw {
-		err.Add("bw", squota.Bw, self.Bw)
-	}
-	if sreq.Ebw > 0 && self.Ebw > squota.Ebw {
-		err.Add("ebw", squota.Ebw, self.Ebw)
-	}
 	if sreq.Group > 0 && self.Group > squota.Group {
 		err.Add("group", squota.Group, self.Group)
 	}
-	if sreq.Secgroup > 0 && self.Secgroup > squota.Secgroup {
-		err.Add("secgroup", squota.Secgroup, self.Secgroup)
-	}
 	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
 		err.Add("isolated_device", squota.IsolatedDevice, self.IsolatedDevice)
-	}
-	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
-		err.Add("snapshot", squota.Snapshot, self.Snapshot)
-	}
-	if sreq.Bucket > 0 && self.Bucket > squota.Bucket {
-		err.Add("bucket", squota.Bucket, self.Bucket)
-	}
-	if sreq.ObjectGB > 0 && self.ObjectGB > squota.ObjectGB {
-		err.Add("object_gb", squota.ObjectGB, self.ObjectGB)
-	}
-	if sreq.ObjectCnt > 0 && self.ObjectCnt > squota.ObjectCnt {
-		err.Add("object_cnt", squota.ObjectCnt, self.ObjectCnt)
 	}
 	if err.IsError() {
 		return err
@@ -343,17 +284,158 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.Cpu)), keyName(prefix, "cpu"))
 	ret.Add(jsonutils.NewInt(int64(self.Memory)), keyName(prefix, "memory"))
 	ret.Add(jsonutils.NewInt(int64(self.Storage)), keyName(prefix, "storage"))
-	ret.Add(jsonutils.NewInt(int64(self.Port)), keyName(prefix, "port"))
-	ret.Add(jsonutils.NewInt(int64(self.Eip)), keyName(prefix, "eip"))
-	ret.Add(jsonutils.NewInt(int64(self.Eport)), keyName(prefix, "eport"))
-	ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
-	ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
 	ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))
-	ret.Add(jsonutils.NewInt(int64(self.Secgroup)), keyName(prefix, "secgroup"))
 	ret.Add(jsonutils.NewInt(int64(self.IsolatedDevice)), keyName(prefix, "isolated_device"))
-	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
-	ret.Add(jsonutils.NewInt(int64(self.Bucket)), keyName(prefix, "bucket"))
-	ret.Add(jsonutils.NewInt(int64(self.ObjectGB)), keyName(prefix, "object_gb"))
-	ret.Add(jsonutils.NewInt(int64(self.ObjectCnt)), keyName(prefix, "object_cnt"))
 	return ret
+}
+
+func (manager *SQuotaManager) FetchIdMap(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error) {
+	for field := range idMap {
+		switch field {
+		case "domain_id":
+			fieldIdMap, err := utils.FetchDomainNames(ctx, idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "utils.FetchDomainNames")
+			}
+			idMap[field] = fieldIdMap
+		case "tenant_id":
+			fieldIdMap, err := utils.FetchTenantNames(ctx, idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "utils.FetchTenantNames")
+			}
+			idMap[field] = fieldIdMap
+		case "region_id":
+			fieldIdMap, err := fetchRegionNames(idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "fetchRegionNames")
+			}
+			idMap[field] = fieldIdMap
+		case "zone_id":
+			fieldIdMap, err := fetchZoneNames(idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "fetchZoneNames")
+			}
+			idMap[field] = fieldIdMap
+		case "account_id":
+			fieldIdMap, err := fetchAccountNames(idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "fetchAccountNames")
+			}
+			idMap[field] = fieldIdMap
+		case "manager_id":
+			fieldIdMap, err := fetchManagerNames(idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "fetchManagerNames")
+			}
+			idMap[field] = fieldIdMap
+		}
+	}
+	return idMap, nil
+}
+
+func dbFetchIdNameMap(manager db.IStandaloneModelManager, idMap map[string]string) (map[string]string, error) {
+	q := manager.Query("id", "name").In("id", utils.MapKeys(idMap))
+	rows, err := q.Rows()
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return idMap, nil
+		} else {
+			return idMap, errors.Wrap(err, "Query")
+		}
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var name string
+		err := rows.Scan(&id, &name)
+		if err != nil {
+			return idMap, errors.Wrap(err, "rows.Scan")
+		}
+		idMap[id] = name
+	}
+	return idMap, nil
+}
+
+func fetchRegionNames(idMap map[string]string) (map[string]string, error) {
+	return dbFetchIdNameMap(CloudregionManager, idMap)
+}
+
+func fetchZoneNames(idMap map[string]string) (map[string]string, error) {
+	return dbFetchIdNameMap(ZoneManager, idMap)
+}
+
+func fetchAccountNames(idMap map[string]string) (map[string]string, error) {
+	return dbFetchIdNameMap(CloudaccountManager, idMap)
+}
+
+func fetchManagerNames(idMap map[string]string) (map[string]string, error) {
+	return dbFetchIdNameMap(CloudproviderManager, idMap)
+}
+
+type SComputeResourceKeys struct {
+	quotas.SZonalCloudResourceKeys
+
+	Hypervisor string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+}
+
+func (k SComputeResourceKeys) Fields() []string {
+	return append(k.SZonalCloudResourceKeys.Fields(), "hypervisor")
+}
+
+func (k SComputeResourceKeys) Values() []string {
+	return append(k.SZonalCloudResourceKeys.Values(), k.Hypervisor)
+}
+
+func (k1 SComputeResourceKeys) Compare(ik quotas.IQuotaKeys) int {
+	k2 := ik.(SComputeResourceKeys)
+	r := k1.SZonalCloudResourceKeys.Compare(k2.SZonalCloudResourceKeys)
+	if r != 0 {
+		return r
+	}
+	if k1.Hypervisor < k2.Hypervisor {
+		return -1
+	} else if k1.Hypervisor > k2.Hypervisor {
+		return 1
+	}
+	return 0
+}
+
+func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, manager *SCloudprovider) quotas.SCloudResourceKeys {
+	keys := quotas.SCloudResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	if manager != nil {
+		account := manager.GetCloudaccount()
+		keys.Provider = account.Provider
+		keys.Brand = account.Brand
+		keys.CloudEnv = account.getCloudEnv()
+		keys.AccountId = account.Id
+		keys.ManagerId = manager.Id
+	} else {
+		keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
+		keys.Brand = api.ONECLOUD_BRAND_ONECLOUD
+		keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+	}
+	return keys
+}
+
+func fetchRegionalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, region *SCloudregion, manager *SCloudprovider) quotas.SRegionalCloudResourceKeys {
+	keys := quotas.SRegionalCloudResourceKeys{}
+	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
+	keys.RegionId = region.Id
+	return keys
+}
+
+func fetchZonalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider) quotas.SZonalCloudResourceKeys {
+	keys := quotas.SZonalCloudResourceKeys{}
+	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
+	keys.RegionId = zone.CloudregionId
+	keys.ZoneId = zone.Id
+	return keys
+}
+
+func fetchComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider, hypervisor string) SComputeResourceKeys {
+	keys := SComputeResourceKeys{}
+	keys.SZonalCloudResourceKeys = fetchZonalQuotaKeys(scope, ownerId, zone, manager)
+	keys.Hypervisor = hypervisor
+	return keys
 }

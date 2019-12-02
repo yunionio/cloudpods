@@ -56,7 +56,7 @@ type SHuaweiClient struct {
 	providerId   string
 	providerName string
 	projectId    string // 华为云项目ID.
-	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
+	cloudEnv     string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
 
@@ -73,12 +73,12 @@ type SHuaweiClient struct {
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，
 // 只能进行同步子账号、查询region列表等projectId无关的操作。
 // todo: 通过accessurl支持国际站。目前暂时未支持国际站
-func NewHuaweiClient(providerId, providerName, accessurl, accessKey, secret, projectId string, debug bool) (*SHuaweiClient, error) {
+func NewHuaweiClient(providerId, providerName, cloudEnv, accessKey, secret, projectId string, debug bool) (*SHuaweiClient, error) {
 	client := SHuaweiClient{
 		providerId:   providerId,
 		providerName: providerName,
 		projectId:    projectId,
-		accessUrl:    accessurl,
+		cloudEnv:     cloudEnv,
 		accessKey:    accessKey,
 		secret:       secret,
 		debug:        debug,
@@ -405,7 +405,7 @@ func (self *SHuaweiClient) GetVersion() string {
 }
 
 func (self *SHuaweiClient) GetAccessEnv() string {
-	switch self.accessUrl {
+	switch self.cloudEnv {
 	case HUAWEI_INTERNATIONAL_CLOUDENV:
 		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
 	case HUAWEI_CHINA_CLOUDENV:

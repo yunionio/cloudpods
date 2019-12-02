@@ -54,6 +54,33 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	R(&QuotaOptions{}, "project-quota", "Show project-quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.ProjectQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	R(&QuotaOptions{}, "region-quota", "Show region-quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.RegionQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	R(&QuotaOptions{}, "zone-quota", "Show zone-quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.ZoneQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 	R(&QuotaOptions{}, "image-quota", "Show image quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.ImageQuotas.GetQuota(s, params)

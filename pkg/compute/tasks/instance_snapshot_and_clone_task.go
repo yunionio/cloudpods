@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type InstanceSnapshotAndCloneTask struct {
@@ -66,15 +65,15 @@ func (self *InstanceSnapshotAndCloneTask) SetStageFailed(ctx context.Context, re
 
 func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		isp := self.GetObject().(*models.SInstanceSnapshot)
-		guest := models.GuestManager.FetchGuestById(isp.GuestId)
-		quotaPlatform := guest.GetQuotaPlatformID()
-		models.QuotaManager.CancelPendingUsage(
-			ctx, self.UserCred, rbacutils.ScopeProject,
-			guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage,
-		)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+	}
+
+	pendingRegionUsage := models.SRegionQuota{}
+	err = self.GetPendingUsage(&pendingRegionUsage, 1)
+	if err == nil && !pendingRegionUsage.IsEmpty() {
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 }
 
@@ -128,7 +127,7 @@ func (self *InstanceSnapshotAndCloneTask) doGuestCreate(
 			continue
 		}
 		isp.AddRefCount(ctx)
-		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, nil, input)
+		models.GuestManager.OnCreateComplete(ctx, []db.IModel{newGuest}, self.UserCred, self.UserCred, nil, input)
 	}
 	if len(errStr) > 0 {
 		return fmt.Errorf(errStr)

@@ -73,6 +73,10 @@ func (region *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_OPENSTACK
 }
 
+func (region *SRegion) GetCloudEnv() string {
+	return ""
+}
+
 func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }

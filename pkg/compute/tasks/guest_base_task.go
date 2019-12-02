@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGuestBaseTask struct {
@@ -38,10 +37,13 @@ func (self *SGuestBaseTask) SetStageFailed(ctx context.Context, reason string) {
 
 func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		guest := self.getGuest()
-		quotaPlatform := guest.GetQuotaPlatformID()
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+	}
+	pendingRegionUsage := models.SRegionQuota{}
+	err = self.GetPendingUsage(&pendingRegionUsage, 1)
+	if err == nil && !pendingRegionUsage.IsEmpty() {
+		models.RegionQuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage)
 	}
 }

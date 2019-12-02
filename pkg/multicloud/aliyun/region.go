@@ -206,6 +206,10 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ALIYUN
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return ""
+}
+
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.RegionId]; ok {
 		return info

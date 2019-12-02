@@ -20,8 +20,11 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SUCloudGuestDriver struct {
@@ -36,11 +39,14 @@ func (self *SUCloudGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_UCLOUD
 }
 
-func (self *SUCloudGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_PUBLIC_CLOUD,
-		api.CLOUD_PROVIDER_UCLOUD,
-	}
+func (self *SUCloudGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
+	keys.Provider = api.CLOUD_PROVIDER_UCLOUD
+	// ignore brand
+	// ignore hypervisor
+	return keys
 }
 
 func (self *SUCloudGuestDriver) GetDefaultSysDiskBackend() string {

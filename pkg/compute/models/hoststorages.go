@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -135,7 +136,17 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 		return nil, err
 	}
 
-	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.JoinResourceBaseCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal JoinResourceBaseCreateInput fail %s", err)
+	}
+	input, err = manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

@@ -21,11 +21,13 @@ import (
 	"net/http"
 	"reflect"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -178,12 +180,23 @@ func (self *STask) GetName() string {
 	return self.TaskName
 }
 
-func fetchTaskParams(ctx context.Context, taskName string, taskData *jsonutils.JSONDict,
-	parentTaskId string, parentTaskNotifyUrl string,
-	pendingUsage quotas.IQuota) *jsonutils.JSONDict {
+func fetchTaskParams(
+	ctx context.Context,
+	taskName string,
+	taskData *jsonutils.JSONDict,
+	parentTaskId string,
+	parentTaskNotifyUrl string,
+	pendingUsages []quotas.IQuota,
+) *jsonutils.JSONDict {
 	var data *jsonutils.JSONDict
 	if taskData != nil {
-		data = taskData.CopyExcludes(PARENT_TASK_ID_KEY, PARENT_TASK_NOTIFY_KEY, PENDING_USAGE_KEY)
+		excludeKeys := []string{
+			PARENT_TASK_ID_KEY, PARENT_TASK_NOTIFY_KEY, PENDING_USAGE_KEY,
+		}
+		for i := 1; taskData.Contains(pendingUsageKey(i)); i += 1 {
+			excludeKeys = append(excludeKeys, pendingUsageKey(i))
+		}
+		data = taskData.CopyExcludes(excludeKeys...)
 	} else {
 		data = jsonutils.NewDict()
 	}
@@ -210,16 +223,29 @@ func fetchTaskParams(ctx context.Context, taskName string, taskData *jsonutils.J
 			}
 		}
 	}
-	if pendingUsage != nil {
-		data.Add(jsonutils.Marshal(pendingUsage), PENDING_USAGE_KEY)
+	if len(pendingUsages) > 0 {
+		for i := range pendingUsages {
+			pendingUsage := pendingUsages[i]
+			if gotypes.IsNil(pendingUsage) || pendingUsage.IsEmpty() {
+				continue
+			}
+			key := pendingUsageKey(i)
+			data.Add(jsonutils.Marshal(pendingUsage), key)
+		}
 	}
 	return data
 }
 
-func (manager *STaskManager) NewTask(ctx context.Context, taskName string, obj db.IStandaloneModel,
-	userCred mcclient.TokenCredential, taskData *jsonutils.JSONDict,
-	parentTaskId string, parentTaskNotifyUrl string,
-	pendingUsage quotas.IQuota) (*STask, error) {
+func (manager *STaskManager) NewTask(
+	ctx context.Context,
+	taskName string,
+	obj db.IStandaloneModel,
+	userCred mcclient.TokenCredential,
+	taskData *jsonutils.JSONDict,
+	parentTaskId string,
+	parentTaskNotifyUrl string,
+	pendingUsage ...quotas.IQuota,
+) (*STask, error) {
 	if !isTaskExist(taskName) {
 		return nil, fmt.Errorf("task %s not found", taskName)
 	}
@@ -253,10 +279,16 @@ func (manager *STaskManager) NewTask(ctx context.Context, taskName string, obj d
 	return &task, nil
 }
 
-func (manager *STaskManager) NewParallelTask(ctx context.Context, taskName string, objs []db.IStandaloneModel,
-	userCred mcclient.TokenCredential, taskData *jsonutils.JSONDict,
-	parentTaskId string, parentTaskNotifyUrl string,
-	pendingUsage quotas.IQuota) (*STask, error) {
+func (manager *STaskManager) NewParallelTask(
+	ctx context.Context,
+	taskName string,
+	objs []db.IStandaloneModel,
+	userCred mcclient.TokenCredential,
+	taskData *jsonutils.JSONDict,
+	parentTaskId string,
+	parentTaskNotifyUrl string,
+	pendingUsage ...quotas.IQuota,
+) (*STask, error) {
 	if !isTaskExist(taskName) {
 		return nil, fmt.Errorf("task %s not found", taskName)
 	}
@@ -675,18 +707,28 @@ func (self *STask) IsCurrentStageComplete() bool {
 	}
 }
 
-func (self *STask) GetPendingUsage(quota quotas.IQuota) error {
-	quotaJson, err := self.Params.Get(PENDING_USAGE_KEY)
+func (self *STask) GetPendingUsage(quota quotas.IQuota, index int) error {
+	key := pendingUsageKey(index)
+	quotaJson, err := self.Params.Get(key)
 	if err != nil {
 		return err
 	}
 	return quotaJson.Unmarshal(quota)
 }
 
-func (self *STask) SetPendingUsage(quota quotas.IQuota) error {
+func pendingUsageKey(index int) string {
+	key := PENDING_USAGE_KEY
+	if index > 0 {
+		key += "." + strconv.FormatInt(int64(index), 10)
+	}
+	return key
+}
+
+func (self *STask) SetPendingUsage(quota quotas.IQuota, index int) error {
 	_, err := db.Update(self, func() error {
-		params := self.Params.CopyExcludes(PENDING_USAGE_KEY)
-		params.Add(jsonutils.Marshal(quota), PENDING_USAGE_KEY)
+		key := pendingUsageKey(index)
+		params := self.Params.CopyExcludes(key)
+		params.Add(jsonutils.Marshal(quota), key)
 		self.Params = params
 		return nil
 	})
@@ -696,9 +738,10 @@ func (self *STask) SetPendingUsage(quota quotas.IQuota) error {
 	return err
 }
 
-func (self *STask) ClearPendingUsage() error {
+func (self *STask) ClearPendingUsage(index int) error {
 	_, err := db.Update(self, func() error {
-		params := self.Params.CopyExcludes(PENDING_USAGE_KEY)
+		key := pendingUsageKey(index)
+		params := self.Params.CopyExcludes(key)
 		self.Params = params
 		return nil
 	})

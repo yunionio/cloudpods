@@ -22,47 +22,94 @@ import (
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/image/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 type SQuotaManager struct {
 	quotas.SQuotaBaseManager
 }
 
-var QuotaManager *SQuotaManager
-var QuotaUsageManager *SQuotaManager
+var (
+	ImageQuota               SQuota
+	QuotaManager             *SQuotaManager
+	QuotaUsageManager        *SQuotaManager
+	QuotaPendingUsageManager *SQuotaManager
+)
 
 func init() {
-	pendingStore := quotas.NewMemoryQuotaStore()
+	ImageQuota = SQuota{}
+
+	QuotaPendingUsageManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_pending_usage_tbl"),
+	}
+	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
 
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_usage_tbl"),
 	}
+	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
 
 	QuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", pendingStore, QuotaUsageManager),
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", QuotaPendingUsageManager, QuotaUsageManager,
+			"image_quota", "image_quotas"),
 	}
+	QuotaManager.SetVirtualObject(QuotaManager)
 }
 
 type SQuota struct {
 	quotas.SQuotaBase
 
+	quotas.SBaseQuotaKeys
+
 	Image int
 }
 
-func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
-	base := 0
-	if scope == rbacutils.ScopeDomain {
-		base = 10
-	} else if ownerId.GetProjectDomainId() == identityapi.DEFAULT_DOMAIN_ID && ownerId.GetProjectName() == identityapi.SystemAdminProject {
-		base = 1
-	}
-	self.Image = options.Options.DefaultImageQuota * base
+func (self *SQuota) GetKeys() quotas.IQuotaKeys {
+	return self.SBaseQuotaKeys
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
+func (self *SQuota) SetKeys(keys quotas.IQuotaKeys) {
+	self.SBaseQuotaKeys = keys.(quotas.SBaseQuotaKeys)
+}
+
+func (self *SQuota) FetchSystemQuota() {
+	keys := self.SBaseQuotaKeys
+	base := 0
+	switch options.Options.DefaultQuotaValue {
+	case commonOptions.DefaultQuotaUnlimit:
+		base = -1
+	case commonOptions.DefaultQuotaZero:
+		base = 0
+		if keys.Scope() == rbacutils.ScopeDomain { // domain level quota
+			base = 10
+		} else if keys.DomainId == identityapi.DEFAULT_DOMAIN_ID && keys.ProjectId == auth.AdminCredential().GetProjectId() {
+			base = 1
+		}
+	case commonOptions.DefaultQuotaDefault:
+		base = 1
+		if keys.Scope() == rbacutils.ScopeDomain {
+			base = 10
+		}
+	}
+	defaultValue := func(def int) int {
+		if base < 0 {
+			return -1
+		} else {
+			return def * base
+		}
+	}
+	self.Image = defaultValue(options.Options.DefaultImageQuota)
+}
+
+func (self *SQuota) FetchUsage(ctx context.Context) error {
+	keys := self.SBaseQuotaKeys
+
+	scope := keys.Scope()
+	ownerId := keys.OwnerId()
+
 	count := ImageManager.count(scope, ownerId, "", tristate.None, false)
 	self.Image = int(count["total"].Count)
 	return nil
@@ -77,7 +124,7 @@ func (self *SQuota) IsEmpty() bool {
 
 func (self *SQuota) Add(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
-	self.Image = self.Image + squota.Image
+	self.Image = self.Image + quotas.NonNegative(squota.Image)
 }
 
 func (self *SQuota) Sub(quota quotas.IQuota) {

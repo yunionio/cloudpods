@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -396,9 +397,16 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 }
 
 func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input := apis.VirtualResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)

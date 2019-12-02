@@ -50,6 +50,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 )
 
 const (
@@ -355,17 +357,25 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 }
 
 func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, err := manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.VirtualResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	// If this image is the part of guest image (contains "guest_image_id"),
 	// we do not need to check and set pending quota
 	// because that pending quota has been checked and set in SGuestImage.ValidateCreateData
 	if !data.Contains("guest_image_id") {
 		pendingUsage := SQuota{Image: 1}
-		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage); err != nil {
+		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		pendingUsage.SetKeys(keys)
+		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
 	}
@@ -493,7 +503,9 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
 		pendingUsage := SQuota{Image: 1}
-		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
+		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		pendingUsage.SetKeys(keys)
+		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	if data.Contains("properties") {

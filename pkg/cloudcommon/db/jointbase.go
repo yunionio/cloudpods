@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -225,4 +226,13 @@ func (manager *SJointResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
 
 func (manager *SJointResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
+}
+
+func (manager *SJointResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.JoinResourceBaseCreateInput) (apis.JoinResourceBaseCreateInput, error) {
+	var err error
+	input.ResourceBaseCreateInput, err = manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.ResourceBaseCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }

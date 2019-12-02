@@ -36,13 +36,11 @@ const (
 )
 
 type BucketCreateInput struct {
-	apis.Meta
+	apis.VirtualResourceCreateInput
+	RegionalResourceCreateInput
+	ManagedResourceCreateInput
 
-	Name         string `json:"name"`
-	Cloudregion  string `json:"cloudregion"`
-	Manager      string `json:"manager"`
 	StorageClass string `json:"storage_class"`
-	Description  string `json:"description"`
 }
 
 type BucketDetail struct {

@@ -17,6 +17,8 @@ package quotas
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SOutOfQuotaError struct {
@@ -27,6 +29,10 @@ type SOutOfQuotaError struct {
 
 type SOutOfQuotaErrors struct {
 	errors []SOutOfQuotaError
+}
+
+func (e *SOutOfQuotaError) Cause() error {
+	return httperrors.ErrOutOfQuota
 }
 
 func (e *SOutOfQuotaError) Error() string {

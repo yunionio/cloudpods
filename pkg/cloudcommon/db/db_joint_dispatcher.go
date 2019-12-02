@@ -187,7 +187,7 @@ func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, sl
 	}
 	item.PostCreate(ctx, userCred, nil, query, data)
 	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
-	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{item}, userCred, query, data)
+	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{item}, userCred, nil, query, data)
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
 

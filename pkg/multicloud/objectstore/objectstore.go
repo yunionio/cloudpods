@@ -134,6 +134,10 @@ func (cli *SObjectStoreClient) GetProvider() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
+func (cli *SObjectStoreClient) GetCloudEnv() string {
+	return ""
+}
+
 ////////////////////////////// IBucketProvider //////////////////////////////
 
 func (cli *SObjectStoreClient) NewBucket(bucket s3cli.BucketInfo) cloudprovider.ICloudBucket {

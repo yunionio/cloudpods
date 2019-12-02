@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IScheduleModel interface {
@@ -47,7 +46,7 @@ type IScheduleModel interface {
 type IScheduleTask interface {
 	GetUserCred() mcclient.TokenCredential
 	GetSchedParams() (*schedapi.ScheduleInput, error)
-	GetPendingUsage(quota quotas.IQuota) error
+	GetPendingUsage(quota quotas.IQuota, index int) error
 	SetStage(stageName string, data *jsonutils.JSONDict) error
 	SetStageFailed(ctx context.Context, reason string)
 
@@ -160,24 +159,29 @@ func doScheduleObjects(
 
 func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 	pendingUsage := models.SQuota{}
-	err := task.GetPendingUsage(&pendingUsage)
+	err := task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("Taks GetPendingUsage fail %s", err)
 		return
 	}
-	schedInput, err := task.GetSchedParams()
+	if !pendingUsage.IsEmpty() {
+		err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+		if err != nil {
+			log.Errorf("cancelpendingusage error %s", err)
+		}
+	}
+
+	pendingRegionUsage := models.SRegionQuota{}
+	err = task.GetPendingUsage(&pendingRegionUsage, 0)
 	if err != nil {
-		log.Errorf("cancelPendingUsage GetSchedParams fail: %s", err)
+		log.Errorf("Taks GetRegionPendingUsage fail %s", err)
 		return
 	}
-	ownerId := db.SOwnerId{
-		ProjectId: schedInput.ServerConfig.Project,
-		DomainId:  schedInput.ServerConfig.Domain,
-	}
-	quotaPlatform := models.GetQuotaPlatformID(schedInput.Hypervisor)
-	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), rbacutils.ScopeProject, &ownerId, quotaPlatform, &pendingUsage, &pendingUsage)
-	if err != nil {
-		log.Errorf("cancelpendingusage error %s", err)
+	if !pendingRegionUsage.IsEmpty() {
+		err = models.RegionQuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingRegionUsage, &pendingRegionUsage)
+		if err != nil {
+			log.Errorf("cancelpendingusage error %s", err)
+		}
 	}
 }
 

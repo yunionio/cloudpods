@@ -242,31 +242,26 @@ func (manager *SSecurityGroupManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	data *jsonutils.JSONDict,
-) (*jsonutils.JSONDict, error) {
+	input api.SSecgroupCreateInput,
+) (api.SSecgroupCreateInput, error) {
+	var err error
+
 	// TODO: check set pending quota
-
-	input := &api.SSecgroupCreateInput{}
-
-	err := data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Failed to unmarshal input: %v", err)
-	}
 	input.Status = api.SECGROUP_STATUS_READY
 
 	for i, rule := range input.Rules {
 		err = rule.Check()
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
+			return input, httperrors.NewInputParameterError("rule %d is invalid: %s", i, err)
 		}
 	}
 
-	data, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
-	return input.JSON(input), nil
+	return input, nil
 }
 
 func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

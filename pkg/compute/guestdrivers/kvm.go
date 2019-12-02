@@ -27,12 +27,14 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SKVMGuestDriver struct {
@@ -52,12 +54,14 @@ func (self *SKVMGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SKVMGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_ON_PREMISE,
-		api.CLOUD_PROVIDER_ONECLOUD,
-		api.HYPERVISOR_KVM,
-	}
+func (self *SKVMGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	// ignore brand keys.Brand = brand
+	keys.Hypervisor = api.HYPERVISOR_KVM
+	return keys
 }
 
 func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {

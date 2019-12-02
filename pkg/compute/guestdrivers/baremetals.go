@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBaremetalGuestDriver struct {
@@ -55,12 +56,14 @@ func (self *SBaremetalGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SBaremetalGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_ON_PREMISE,
-		api.CLOUD_PROVIDER_ONECLOUD,
-		api.HYPERVISOR_BAREMETAL,
-	}
+func (self *SBaremetalGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	// ignore brand
+	keys.Hypervisor = api.HYPERVISOR_BAREMETAL
+	return keys
 }
 
 func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {

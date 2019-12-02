@@ -31,7 +31,7 @@ if __name__ == '__main__':
             cms = find_lgtms(comments)
             if len(rvs) == 0:
                 print("No reviwer is assigned, give up check...")
-                os.exit(-1)
+                sys.exit(-1)
             print("Assigned reviwers: %s" % ", ".join(rvs))
             print("Lgtm reviwers: %s" % ", ".join(cms))
             req = []

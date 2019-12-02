@@ -737,7 +737,7 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SNetworkManager) allNetworksQ(providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+func (manager *SNetworkManager) allNetworksQ(providers []string, brands []string, cloudEnv string, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
 	networks := manager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -748,11 +748,18 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, brands []string
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
 		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
-	return AttachUsageQuery(q, hosts, nil, nil, providers, brands, cloudEnv, rangeObj)
+	return AttachUsageQuery(q, hosts, nil, nil, providers, brands, cloudEnv, rangeObjs)
 }
 
-func (manager *SNetworkManager) totalPortCountQ(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
-	q := manager.allNetworksQ(providers, brands, cloudEnv, rangeObj)
+func (manager *SNetworkManager) totalPortCountQ(
+	scope rbacutils.TRbacScope,
+	userCred mcclient.IIdentityProvider,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+	rangeObjs []db.IStandaloneModel,
+) *sqlchemy.SQuery {
+	q := manager.allNetworksQ(providers, brands, cloudEnv, rangeObjs)
 	switch scope {
 	case rbacutils.ScopeSystem:
 	case rbacutils.ScopeDomain:
@@ -772,10 +779,15 @@ func (manager *SNetworkManager) TotalPortCount(
 	scope rbacutils.TRbacScope,
 	userCred mcclient.IIdentityProvider,
 	providers []string, brands []string, cloudEnv string,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 ) NetworkPortStat {
 	nets := make([]SNetwork, 0)
-	err := manager.totalPortCountQ(scope, userCred, providers, brands, cloudEnv, rangeObj).All(&nets)
+	err := manager.totalPortCountQ(
+		scope,
+		userCred,
+		providers, brands, cloudEnv,
+		rangeObjs,
+	).All(&nets)
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}
@@ -1169,13 +1181,13 @@ func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	return r, nil
 }
 
-func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.NetworkCreateInput) (*jsonutils.JSONDict, error) {
+func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {
 	var err error
 	var startIp, endIp netutils.IPV4Addr
 	if len(input.GuestIpPrefix) > 0 {
 		prefix, err := netutils.NewIPV4Prefix(input.GuestIpPrefix)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("ip_prefix error: %s", err)
+			return input, httperrors.NewInputParameterError("ip_prefix error: %s", err)
 		}
 		iprange := prefix.ToIPRange()
 		startIp = iprange.StartIp().StepUp()
@@ -1184,11 +1196,11 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	} else {
 		startIp, err = netutils.NewIPV4Addr(input.GuestIpStart)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
+			return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
 		}
 		endIp, err = netutils.NewIPV4Addr(input.GuestIpEnd)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
+			return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
 		}
 		if startIp > endIp {
 			tmp := startIp
@@ -1200,7 +1212,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	input.GuestIpEnd = endIp.String()
 
 	if !isValidMaskLen(input.GuestIpMask) {
-		return nil, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
+		return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
 	}
 
 	{
@@ -1209,7 +1221,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		}
 		input.IfnameHint, err = manager.newIfnameHint(input.IfnameHint)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("cannot derive valid ifname hint: %v", err)
+			return input, httperrors.NewBadRequestError("cannot derive valid ifname hint: %v", err)
 		}
 	}
 
@@ -1219,22 +1231,22 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				ipList := strings.Split(ipStr, ",")
 				for _, ipstr := range ipList {
 					if !regutils.MatchIPAddr(ipstr) {
-						return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+						return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 					}
 				}
 			} else if !regutils.MatchIPAddr(ipStr) {
-				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+				return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
 		}
 	}
 
 	nets := manager.getAllNetworks("")
 	if nets == nil {
-		return nil, httperrors.NewInternalServerError("query all networks fail")
+		return input, httperrors.NewInternalServerError("query all networks fail")
 	}
 
 	if isOverlapNetworks(nets, startIp, endIp) {
-		return nil, httperrors.NewInputParameterError("Conflict address space with existing networks")
+		return input, httperrors.NewInputParameterError("Conflict address space with existing networks")
 	}
 
 	if len(input.WireId) > 0 {
@@ -1245,9 +1257,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		wireObj, err := WireManager.FetchByIdOrName(userCred, input.Wire)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("wire %s not found", input.Wire)
+				return input, httperrors.NewNotFoundError("wire %s not found", input.Wire)
 			} else {
-				return nil, httperrors.NewInternalServerError("query wire %s error %s", input.Wire, err)
+				return input, httperrors.NewInternalServerError("query wire %s error %s", input.Wire, err)
 			}
 		}
 		input.WireId = wireObj.GetId()
@@ -1257,24 +1269,24 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				zoneObj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
 				if err != nil {
 					if err == sql.ErrNoRows {
-						return nil, httperrors.NewNotFoundError("zone %s not found", input.Zone)
+						return input, httperrors.NewNotFoundError("zone %s not found", input.Zone)
 					} else {
-						return nil, httperrors.NewInternalServerError("query zone %s error %s", input.Zone, err)
+						return input, httperrors.NewInternalServerError("query zone %s error %s", input.Zone, err)
 					}
 				}
 				vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
 				if err != nil {
 					if err == sql.ErrNoRows {
-						return nil, httperrors.NewNotFoundError("vpc %s not found", input.Vpc)
+						return input, httperrors.NewNotFoundError("vpc %s not found", input.Vpc)
 					} else {
-						return nil, httperrors.NewInternalServerError("query vpc %s error %s", input.Vpc, err)
+						return input, httperrors.NewInternalServerError("query vpc %s error %s", input.Vpc, err)
 					}
 				}
 				vpc := vpcObj.(*SVpc)
 				zone := zoneObj.(*SZone)
 				region := zone.GetRegion()
 				if region == nil {
-					return nil, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
+					return input, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
 				}
 
 				// 华为云,ucloud wire zone_id 为空
@@ -1286,37 +1298,37 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				}
 
 				if err != nil {
-					return nil, httperrors.NewInternalServerError("query wire for zone %s and vpc %s: %v", input.Zone, input.Vpc, err)
+					return input, httperrors.NewInternalServerError("query wire for zone %s and vpc %s: %v", input.Zone, input.Vpc, err)
 				}
 				if len(wires) == 0 {
-					return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
+					return input, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
 				} else if len(wires) > 1 {
-					return nil, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
+					return input, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
 				} else {
 					input.WireId = wires[0].Id
 				}
 			} else {
-				return nil, httperrors.NewInputParameterError("No either wire or vpc provided")
+				return input, httperrors.NewInputParameterError("No either wire or vpc provided")
 			}
 		} else {
-			return nil, httperrors.NewInvalidStatusError("No either wire or zone provided")
+			return input, httperrors.NewInvalidStatusError("No either wire or zone provided")
 		}
 	}
 
 	if len(input.WireId) == 0 {
-		return nil, httperrors.NewMissingParameterError("wire_id")
+		return input, httperrors.NewMissingParameterError("wire_id")
 	}
 	wire := WireManager.FetchWireById(input.WireId)
 	if wire == nil {
-		return nil, httperrors.NewResourceNotFoundError("wire %s not found", input.WireId)
+		return input, httperrors.NewResourceNotFoundError("wire %s not found", input.WireId)
 	}
 	vpc := wire.getVpc()
 	if vpc == nil {
-		return nil, httperrors.NewInputParameterError("no valid vpc ???")
+		return input, httperrors.NewInputParameterError("no valid vpc ???")
 	}
 
 	if vpc.Status != api.VPC_STATUS_AVAILABLE {
-		return nil, httperrors.NewInvalidStatusError("VPC not ready")
+		return input, httperrors.NewInvalidStatusError("VPC not ready")
 	}
 
 	vpcRanges := vpc.getIPRanges()
@@ -1332,16 +1344,20 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	if !inRange {
-		return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
+		return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 	}
 
 	if len(input.ServerType) == 0 {
 		input.ServerType = api.NETWORK_TYPE_GUEST
 	} else if !utils.IsInStringArray(input.ServerType, ALL_NETWORK_TYPES) {
-		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
+		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
 	}
 
-	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.JSON(input))
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

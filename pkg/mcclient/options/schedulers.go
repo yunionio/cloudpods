@@ -38,6 +38,8 @@ func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*scheduler.Se
 	data := new(scheduler.ServerConfig)
 	data.ServerConfigs = config
 
+	data.Project = o.Project
+
 	if o.Mem > 0 {
 		data.Memory = o.Mem
 	}

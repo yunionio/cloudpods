@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -311,4 +312,13 @@ func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, 
 		return nil, err
 	}
 	return model.getMoreDetails(ctx, userCred, query, extra), nil
+}
+
+func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.SharableVirtualResourceCreateInput) (apis.SharableVirtualResourceCreateInput, error) {
+	var err error
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "manager.VirtualResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }

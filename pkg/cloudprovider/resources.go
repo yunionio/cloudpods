@@ -132,6 +132,7 @@ type ICloudRegion interface {
 	GetIElasticcacheById(id string) (ICloudElasticcache, error)
 	CreateIElasticcaches(ec *SCloudElasticCacheInput) (ICloudElasticcache, error)
 
+	GetCloudEnv() string
 	GetProvider() string
 
 	GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]ICloudEvent, error) //获取公有云操作日志接口

@@ -51,7 +51,7 @@ func (task *GuestResizeDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 
 	pendingUsage := models.SQuota{}
-	err = task.GetPendingUsage(&pendingUsage)
+	err = task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		task.OnTaskFailed(ctx, guest, err.Error())
 		return

@@ -121,10 +121,10 @@ type ServerConfigs struct {
 	// ResourceType "shared|prepaid|dedicated"`
 	ResourceType string `json:"resource_type"`
 	InstanceType string `json:"instance_type"`
-	Project      string `json:"project_id"`
-	Domain       string `json:"domain_id"`
-	Backup       bool   `json:"backup"`
-	Count        int    `json:"count"`
+	// Project      string `json:"project_id"`
+	// Domain       string `json:"domain_id"`
+	Backup bool `json:"backup"`
+	Count  int  `json:"count"`
 
 	Disks                []*DiskConfig           `json:"disks"`
 	Networks             []*NetworkConfig        `json:"nets"`
@@ -156,39 +156,40 @@ type DeployConfig struct {
 }
 
 type ServerCreateInput struct {
-	apis.Meta
+	apis.VirtualResourceCreateInput
+	DeletePreventableCreateInput
 
 	*ServerConfigs
 
-	Name         string `json:"name"`
-	GenerateName string `json:"generate_name"`
-	VmemSize     int    `json:"vmem_size"`
-	VcpuCount    int    `json:"vcpu_count"`
-	UserData     string `json:"user_data"`
+	// Name         string `json:"name"`
+	// GenerateName string `json:"generate_name"`
+	VmemSize  int    `json:"vmem_size"`
+	VcpuCount int    `json:"vcpu_count"`
+	UserData  string `json:"user_data"`
 
-	KeypairId          string          `json:"keypair_id"`
-	Password           string          `json:"password"`
-	Cdrom              string          `json:"cdrom"`
-	Vga                string          `json:"vga"`
-	Vdi                string          `json:"vdi"`
-	Bios               string          `json:"bios"`
-	Description        string          `json:"description"`
-	BootOrder          string          `json:"boot_order"`
-	EnableCloudInit    bool            `json:"enable_cloud_init"`
-	ResetPassword      *bool           `json:"reset_password"`
-	DisableDelete      *bool           `json:"disable_delete"`
-	ShutdownBehavior   string          `json:"shutdown_behavior"`
-	AutoStart          bool            `json:"auto_start"`
-	DeployConfigs      []*DeployConfig `json:"deploy_configs"`
-	IsSystem           bool            `json:"is_system"`
-	Duration           string          `json:"duration"`
-	AutoPrepaidRecycle bool            `json:"auto_prepaid_recycle,omitfalse"`
-	SecgroupId         string          `json:"secgrp_id"`
-	EipBw              int             `json:"eip_bw,omitzero"`
-	EipChargeType      string          `json:"eip_charge_type,omitempty"`
-	Eip                string          `json:"eip,omitempty"`
-	InstanceSnapshotId string          `json:"instance_snapshot_id,omitempty"`
-	Secgroups          []string        `json:"secgroups"`
+	KeypairId string `json:"keypair_id"`
+	Password  string `json:"password"`
+	Cdrom     string `json:"cdrom"`
+	Vga       string `json:"vga"`
+	Vdi       string `json:"vdi"`
+	Bios      string `json:"bios"`
+	// Description        string          `json:"description"`
+	BootOrder       string `json:"boot_order"`
+	EnableCloudInit bool   `json:"enable_cloud_init"`
+	ResetPassword   *bool  `json:"reset_password"`
+	// DisableDelete    *bool           `json:"disable_delete"`
+	ShutdownBehavior string          `json:"shutdown_behavior"`
+	AutoStart        bool            `json:"auto_start"`
+	DeployConfigs    []*DeployConfig `json:"deploy_configs"`
+	// IsSystem           bool            `json:"is_system"`
+	Duration           string   `json:"duration"`
+	AutoPrepaidRecycle bool     `json:"auto_prepaid_recycle,omitfalse"`
+	SecgroupId         string   `json:"secgrp_id"`
+	EipBw              int      `json:"eip_bw,omitzero"`
+	EipChargeType      string   `json:"eip_charge_type,omitempty"`
+	Eip                string   `json:"eip,omitempty"`
+	InstanceSnapshotId string   `json:"instance_snapshot_id,omitempty"`
+	Secgroups          []string `json:"secgroups"`
 
 	OsType string `json:"os_type"`
 	// Fill by server

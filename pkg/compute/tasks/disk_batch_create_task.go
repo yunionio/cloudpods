@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DiskBatchCreateTask struct {
@@ -49,9 +48,7 @@ func (self *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel
 }
 
 func (self *DiskBatchCreateTask) clearPendingUsage(ctx context.Context, disk *models.SDisk) {
-	input, _ := self.GetCreateInput()
-	quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
-	ClearTaskPendingUsage(ctx, self, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform)
+	ClearTaskPendingUsage(ctx, self)
 }
 
 func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -94,11 +91,11 @@ func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj
 func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	var err error
 	disk := obj.(*models.SDisk)
-	pendingUsage := models.SQuota{}
-	err = self.GetPendingUsage(&pendingUsage)
-	if err != nil {
-		log.Errorf("GetPendingUsage fail %s", err)
-	}
+	// pendingUsage := models.SQuota{}
+	// err = self.GetPendingUsage(&pendingUsage, 0)
+	// if err != nil {
+	// 	log.Errorf("GetPendingUsage fail %s", err)
+	// }
 
 	// input, _ := self.GetCreateInput()
 	// quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
@@ -142,17 +139,19 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 
 func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *models.SDisk) {
 	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
-		log.Errorf("GetPendingUsage fail %s", err)
+		log.Warningf("GetPendingUsage fail %s", err)
 	}
 
-	input, _ := self.GetCreateInput()
-	quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
-
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
-	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
-	self.SetPendingUsage(&pendingUsage)
+	keys, err := disk.GetQuotaKeys()
+	if err != nil {
+		log.Warningf("disk.GetQuotaKeys fail %s", err)
+	}
+	quotaStorage.SetKeys(keys)
+	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage)
+	self.SetPendingUsage(&pendingUsage, 0)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())
 }

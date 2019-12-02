@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SDBInstanceManager struct {
@@ -1373,4 +1374,17 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
 	return &instance, nil
+}
+
+func (man *SDBInstanceManager) TotalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	providers []string, brands []string, cloudEnv string,
+) (int, error) {
+	q := man.Query()
+	q = scopeOwnerIdFilter(q, scope, ownerId)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	return q.CountWithError()
 }

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IGuestScheduleDriver interface {
@@ -41,7 +42,7 @@ type IGuestDriver interface {
 
 	GetHypervisor() string
 	GetProvider() string
-	GetQuotaPlatformID() []string
+	GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) SComputeResourceKeys
 
 	GetMaxVCpuCount() int
 	GetMaxVMemSizeGB() int

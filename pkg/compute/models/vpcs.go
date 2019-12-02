@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -589,10 +590,18 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 			}
 		}
 	}
-	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.EnabledStatusStandaloneResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal EnabledStatusStandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
+
 	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
 }
 

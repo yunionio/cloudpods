@@ -20,9 +20,12 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SHuaweiGuestDriver struct {
@@ -42,11 +45,13 @@ func (self *SHuaweiGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI
 }
 
-func (self *SHuaweiGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_PUBLIC_CLOUD,
-		api.CLOUD_PROVIDER_HUAWEI,
-	}
+func (self *SHuaweiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
+	keys.Provider = api.CLOUD_PROVIDER_HUAWEI
+	// ignore brand
+	return keys
 }
 
 func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {

@@ -256,6 +256,10 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_QCLOUD
 }
 
+func (self *SRegion) GetCloudEnv() string {
+	return ""
+}
+
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
 	params := make(map[string]string)
 	if len(cidr) > 0 {

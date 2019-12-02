@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -88,51 +87,45 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 	auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)*/
 }
 
-func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platforma []string, refresh bool) (*jsonutils.JSONDict, IQuota, error) {
+func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, refresh bool) (*jsonutils.JSONDict, error) {
 	ret := jsonutils.NewDict()
 
-	quota := manager.newQuota()
-	err := manager.GetQuota(ctx, scope, ownerId, platforma, quota)
-	if err != nil {
-		return nil, nil, err
-	}
+	keys := quota.GetKeys()
+
 	usage := manager.newQuota()
-	err = manager.usageStore.GetQuota(ctx, scope, ownerId, platforma, usage)
+	err := manager.usageStore.GetQuota(ctx, keys, usage)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if usage.IsEmpty() || refresh {
+	if refresh {
 		usageChan := make(chan IQuota)
-		manager.PostUsageJob(scope, ownerId, nil, usageChan, false, true)
+		manager.PostUsageJob(keys, usageChan, true)
 
 		usage = <-usageChan
 	}
 
-	pending := manager.newQuota()
-	err = manager.GetPendingUsage(ctx, scope, ownerId, nil, pending)
+	pendings, err := manager.GetPendingUsages(ctx, keys)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
+	ret.Update(jsonutils.Marshal(keys))
 	ret.Update(quota.ToJSON(""))
 	ret.Update(usage.ToJSON("usage"))
-	if !pending.IsEmpty() {
-		ret.Update(pending.ToJSON("pending"))
-	}
-
-	if scope == rbacutils.ScopeDomain {
-		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), nil)
-		if err == nil {
-			ret.Update(total.ToJSON("total"))
+	if len(pendings) > 0 {
+		pendingArray := jsonutils.NewArray()
+		for _, q := range pendings {
+			pendingArray.Add(q.ToJSON(""))
 		}
+		ret.Add(pendingArray, "pending")
 	}
 
-	return ret, usage, nil
+	return ret, nil
 }
 
 func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	params := appctx.AppContextParams(ctx)
 
 	var ownerId mcclient.IIdentityProvider
 	var scope rbacutils.TRbacScope
@@ -157,27 +150,24 @@ func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.Re
 		scope = rbacutils.ScopeProject
 	}
 
-	quota, _, err := manager.queryQuota(ctx, scope, ownerId, nil, true)
-
+	keys := OwnerIdQuotaKeys(scope, ownerId)
+	refresh := jsonutils.QueryBoolean(query, "refresh", false)
+	quotaList, err := manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, refresh)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-
-	body := jsonutils.NewDict()
-	body.Add(quota, manager.KeywordPlural())
-
-	appsrv.SendJSON(w, body)
+	manager.sendQuotaList(w, quotaList)
 }
 
-func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, rbacutils.TRbacScope, error) {
+func (manager *SQuotaBaseManager) fetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, rbacutils.TRbacScope, error) {
 	var scope rbacutils.TRbacScope
 	ownerId, err := db.FetchProjectInfo(ctx, data)
 	if err != nil {
 		return nil, scope, scope, err
 	}
 	var requestScope rbacutils.TRbacScope
-	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), quotaKeywords, policy.PolicyActionUpdate)
+	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionUpdate)
 	if ownerId != nil {
 		if len(ownerId.GetProjectId()) > 0 {
 			// project level
@@ -204,8 +194,8 @@ func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, 
 }
 
 func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	params := appctx.AppContextParams(ctx)
 
 	projectId := params["<tenantid>"]
 	domainId := params["<domainid>"]
@@ -215,18 +205,23 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 	} else if len(domainId) > 0 {
 		data.Add(jsonutils.NewString(domainId), "project_domain")
 	}
-	ownerId, scope, allowScope, err := FetchSetQuotaScope(ctx, userCred, data)
+	ownerId, scope, _, err := manager.fetchSetQuotaScope(ctx, userCred, data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 
-	body, err := appsrv.FetchJSON(r)
-	if err != nil {
-		log.Errorf("Fail to decode JSON request body: %s", err)
+	if body == nil {
 		httperrors.InvalidInputError(w, "fail to decode body")
 		return
 	}
+
+	keys := SBaseQuotaKeys{}
+	body.Unmarshal(&keys, manager.KeywordPlural())
+	paramKeys := OwnerIdQuotaKeys(scope, ownerId)
+	keys.DomainId = paramKeys.DomainId
+	keys.ProjectId = paramKeys.ProjectId
+
 	quota := manager.newQuota()
 	err = body.Unmarshal(quota, manager.KeywordPlural())
 	if err != nil {
@@ -234,8 +229,10 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		httperrors.InvalidInputError(w, "fail to decode body")
 		return
 	}
+	quota.SetKeys(keys)
+
 	oquota := manager.newQuota()
-	err = manager.GetQuota(ctx, scope, ownerId, nil, oquota)
+	err = manager.GetQuota(ctx, keys, oquota)
 	if err != nil {
 		log.Errorf("get quota fail %s", err)
 		httperrors.GeneralServerError(w, err)
@@ -246,72 +243,14 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 	case QUOTA_ACTION_ADD:
 		oquota.Add(quota)
 	case QUOTA_ACTION_RESET:
-		oquota.FetchSystemQuota(scope, ownerId)
+		oquota.FetchSystemQuota()
 	case QUOTA_ACTION_REPLACE:
 		oquota = quota
 	default:
 		oquota.Update(quota)
 	}
 
-	if consts.GetNonDefaultDomainProjects() {
-		// only if non-default-domain-project is turned ON, check the conformance between project quotas and domain quotas
-		if scope == rbacutils.ScopeProject {
-			total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), []string{ownerId.GetProjectId()})
-			if err != nil {
-				log.Errorf("get total quota fail %s", err)
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-
-			domainQuota := manager.newQuota()
-			err = manager.GetQuota(ctx, rbacutils.ScopeDomain, ownerId, nil, domainQuota)
-			if err != nil {
-				log.Errorf("GetQuota for domain %s fail %s", ownerId.GetProjectDomainId(), err)
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-
-			total.Add(oquota)
-			err = total.Exceed(quota, domainQuota)
-			if err != nil {
-				// exeed domain quota
-				cascade, _ := body.Bool(manager.KeywordPlural(), "cascade")
-				if !cascade {
-					log.Errorf("project quota exeed domain quota: %s", err)
-					httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
-					return
-				} else {
-					if allowScope != rbacutils.ScopeSystem {
-						httperrors.OutOfQuotaError(w, "project quota exeed domain quota, no previlige to cascade set")
-						return
-					} else {
-						// cascade set domain quota
-						err = manager.SetQuota(ctx, userCred, rbacutils.ScopeDomain, ownerId, nil, total)
-						if err != nil {
-							log.Errorf("cascade set quota fail %s", err)
-							httperrors.GeneralServerError(w, err)
-							return
-						}
-					}
-				}
-			}
-		} else {
-			total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), nil)
-			if err != nil {
-				log.Errorf("get total quota fail %s", err)
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-			err = total.Exceed(quota, oquota)
-			if err != nil {
-				log.Errorf("project quota exeed domain quota: %s", err)
-				httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
-				return
-			}
-		}
-	}
-
-	err = manager.SetQuota(ctx, userCred, scope, ownerId, nil, oquota)
+	err = manager.SetQuota(ctx, userCred, oquota)
 	if err != nil {
 		log.Errorf("set quota fail %s", err)
 		httperrors.GeneralServerError(w, err)
@@ -323,6 +262,7 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 }
 
 func (manager *SQuotaBaseManager) listDomainQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	if consts.IsRbacEnabled() {
@@ -338,11 +278,16 @@ func (manager *SQuotaBaseManager) listDomainQuotaHanlder(ctx context.Context, w 
 		}
 	}
 
-	quotaList, err := manager.listQuotas(ctx, "")
+	refresh := jsonutils.QueryBoolean(query, "refresh", false)
+	quotaList, err := manager.listQuotas(ctx, userCred, "", "", refresh)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
+	manager.sendQuotaList(w, quotaList)
+}
+
+func (manager *SQuotaBaseManager) sendQuotaList(w http.ResponseWriter, quotaList []jsonutils.JSONObject) {
 	rbody := jsonutils.NewDict()
 	rbody.Set(manager.KeywordPlural(), jsonutils.NewArray(quotaList...))
 	appsrv.SendJSON(w, rbody)
@@ -375,218 +320,81 @@ func (manager *SQuotaBaseManager) listProjectQuotaHanlder(ctx context.Context, w
 	}
 
 	domainId := owner.GetProjectDomainId()
-	quotaList, err := manager.listQuotas(ctx, domainId)
+	refresh := jsonutils.QueryBoolean(query, "refresh", false)
+	quotaList, err := manager.listQuotas(ctx, userCred, domainId, "", refresh)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	rbody := jsonutils.NewDict()
-	rbody.Set(manager.KeywordPlural(), jsonutils.NewArray(quotaList...))
-	appsrv.SendJSON(w, rbody)
+	manager.sendQuotaList(w, quotaList)
 }
 
-func (manager *SQuotaBaseManager) getDomainTotalQuota(ctx context.Context, targetDomainId string, excludes []string) (IQuota, error) {
-	q := manager.Query("domain_id", "tenant_id", "platform")
-	q = q.Equals("domain_id", targetDomainId)
-	q = q.IsNotEmpty("tenant_id")
-	if len(excludes) > 0 {
-		q = q.NotIn("tenant_id", excludes)
-	}
-	// dsable platform
-	q = q.IsNullOrEmpty("platform")
-	rows, err := q.Rows()
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	defer rows.Close()
-
-	ret := manager.newQuota()
-	for rows.Next() {
-		var domainId, projectId, platformStr string
-		err := rows.Scan(&domainId, &projectId, &platformStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "scan")
-		}
-		scope := rbacutils.ScopeProject
-		owner := db.SOwnerId{
-			DomainId:  domainId,
-			ProjectId: projectId,
-		}
-		platform := strings.Split(platformStr, nameSeparator)
-
-		quota := manager.newQuota()
-		err = manager.GetQuota(ctx, scope, &owner, platform, quota)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetQuota")
-		}
-		ret.Add(quota)
-	}
-	return ret, nil
-}
-
-func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId string) ([]jsonutils.JSONObject, error) {
-	q := manager.Query("domain_id", "tenant_id", "platform")
+func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mcclient.TokenCredential, targetDomainId string, targetProjectId string, refresh bool) ([]jsonutils.JSONObject, error) {
+	q := manager.Query()
 	if len(targetDomainId) > 0 {
 		q = q.Equals("domain_id", targetDomainId)
+		if len(targetProjectId) > 0 {
+			q = q.Equals("tenant_id", targetProjectId)
+		}else {
+			q = q.IsNotEmpty("tenant_id")
+		}
 	} else {
 		// domain only
+		q = q.IsNotEmpty("domain_id")
 		q = q.IsNullOrEmpty("tenant_id")
 	}
-	// if tuen OFF NonDefaultDOmainProjects
-	// no domain quota should return
-	if !consts.GetNonDefaultDomainProjects() {
-		q = q.IsNotEmpty("tenant_id")
-	}
-	// dsable platform
-	q = q.IsNullOrEmpty("platform")
 	rows, err := q.Rows()
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("query quotas fail %s", err)
-		return nil, httperrors.NewInternalServerError("query quotas %s", err)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return nil, httperrors.NewInternalServerError("query quotas %s", err)
+		}else {
+			return nil, nil
+		}
 	}
 	defer rows.Close()
 
+	quotaList := make([]IQuota, 0)
+	keyList := make([]IQuotaKeys, 0)
 	ret := make([]jsonutils.JSONObject, 0)
 	for rows.Next() {
-		var domainId, projectId, platformStr string
-		err := rows.Scan(&domainId, &projectId, &platformStr)
+		quota := manager.newQuota()
+		err := q.Row2Struct(rows, quota)
 		if err != nil {
-			log.Errorf("scan domain_id, project_id, platform error %s", err)
-			return nil, httperrors.NewInternalServerError("scan quotas %s", err)
+			return nil, errors.Wrap(err, "q.Row2Struct")
 		}
-		scope := rbacutils.ScopeProject
-		owner := db.SOwnerId{
-			DomainId:  domainId,
-			ProjectId: projectId,
-		}
-		if len(projectId) == 0 {
-			scope = rbacutils.ScopeDomain
-		}
-		platform := strings.Split(platformStr, nameSeparator)
-		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform, false)
-		if err != nil {
-			log.Errorf("query quota for %s fail %s", getMemoryStoreKey(scope, &owner, platform), err)
-			continue
-		}
-		if len(projectId) > 0 {
-			quota.Set("tenant_id", jsonutils.NewString(projectId))
-			quota.Set("domain_id", jsonutils.NewString(domainId))
-			// fetch without cache expiration check
-			project, err := db.TenantCacheManager.FetchTenantByIdWithoutExpireCheck(ctx, projectId)
-			if err != nil {
-				if errors.Cause(err) == sql.ErrNoRows {
-					continue
-				}
-				log.Errorf("fail to query project %s", projectId)
-				return nil, err
-			}
-			quota.Set("tenant", jsonutils.NewString(project.Name))
-			quota.Set("project_domain", jsonutils.NewString(project.Domain))
-		} else {
-			quota.Set("domain_id", jsonutils.NewString(domainId))
-			// fetch without cache expiration check
-			domain, err := db.TenantCacheManager.FetchDomainByIdWithoutExpireCheck(ctx, domainId)
-			if err != nil {
-				if errors.Cause(err) == sql.ErrNoRows {
-					continue
-				}
-				log.Errorf("fail to query domain %s", domainId)
-				return nil, err
-			}
-			quota.Set("project_domain", jsonutils.NewString(domain.Name))
-		}
-		if len(platformStr) > 0 {
-			quota.Set("platform", jsonutils.NewString(platformStr))
-		}
-		ret = append(ret, quota)
+		quotaList = append(quotaList, quota)
+		keyList = append(keyList, quota.GetKeys())
 	}
-	// if no projects for a domain and NonDefaultDomainProjects is turned ON
-	if len(ret) == 0 && len(targetDomainId) > 0 && consts.GetNonDefaultDomainProjects() {
-		// return the initial quota of targetDomainId
-		scope := rbacutils.ScopeDomain
-		owner := db.SOwnerId{
-			DomainId: targetDomainId,
+	idNameMap, err := manager.keyList2IdNameMap(ctx, keyList)
+	var fields []string
+	for i := range quotaList {
+		keys := quotaList[i].GetKeys()
+		keyJson := jsonutils.Marshal(keys).(*jsonutils.JSONDict)
+		if idNameMap != nil {
+			// no error, do check
+			if len(fields) == 0 {
+				fields = keys.Fields()
+			}
+			values := keys.Values()
+			for i := range fields {
+				if strings.HasSuffix(fields[i], "_id") && len(values[i]) > 0 {
+				    if len(idNameMap[fields[i]][values[i]]) == 0 {
+						manager.DeleteAllQuotas(ctx, userCred, keys)
+						manager.pendingStore.DeleteAllQuotas(ctx, userCred, keys)
+						manager.usageStore.DeleteAllQuotas(ctx, userCred, keys)
+						continue
+					}else {
+						keyJson.Add(jsonutils.NewString(idNameMap[fields[i]][values[i]]), fields[i][:len(fields[i])-3])
+					}
+				}
+			}
 		}
-		platform := []string{}
-		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform, false)
+		quotaJson, err := manager.queryQuota(ctx, quotaList[i], refresh)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("query domain initial quotas %s", err)
+			return nil, errors.Wrap(err, "manager.queryQuota")
 		}
-		quota.Set("domain_id", jsonutils.NewString(targetDomainId))
-		// fetch without cache expiration check
-		domain, err := db.TenantCacheManager.FetchDomainByIdWithoutExpireCheck(ctx, targetDomainId)
-		if err != nil {
-			log.Errorf("fail to query target domain %s", targetDomainId)
-			return nil, err
-		}
-		quota.Set("project_domain", jsonutils.NewString(domain.Name))
-		ret = append(ret, quota)
+		quotaJson.Update(keyJson)
+		ret = append(ret, quotaJson)
 	}
 	return ret, nil
 }
-
-/*func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-
-	isAllow := false
-	if consts.IsRbacEnabled() {
-		isAllow = policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
-			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.Allow
-	} else {
-		isAllow = userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(),
-			policy.PolicyDelegation, policy.PolicyActionGet)
-	}
-	if !isAllow {
-		httperrors.ForbiddenError(w, "not allow to delegate check quota")
-		return
-	}
-	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
-			_manager.Keyword(), policy.PolicyActionGet) != rbacutils.Allow {
-			httperrors.ForbiddenError(w, "not allow to query quota")
-			return
-		}
-	}
-
-	params := appctx.AppContextParams(ctx)
-
-	var ownerId mcclient.IIdentityProvider
-
-	projectId := params["<tenantid>"]
-	if len(projectId) == 0 {
-		ownerId = userCred
-	} else {
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				httperrors.TenantNotFoundError(w, "project %s not found", projectId)
-				return
-			} else {
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-		}
-		ownerId = &db.SOwnerId{
-			DomainId:  tenant.DomainId,
-			Domain:    tenant.Domain,
-			ProjectId: tenant.Id,
-			Project:   tenant.Name,
-		}
-	}
-	body, err := appsrv.FetchJSON(r)
-	quota := _manager.newQuota()
-	err = body.Unmarshal(quota, _manager.Keyword())
-	if err != nil {
-		log.Errorf("Fail to decode JSON request body: %s", err)
-		httperrors.InvalidInputError(w, "fail to decode body")
-		return
-	}
-	used, err := _manager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quota)
-	if err != nil {
-		httperrors.OutOfQuotaError(w, "Out of quota: %s", err)
-		return
-	}
-	rbody := jsonutils.NewDict()
-	rbody.Add(used.ToJSON(""), _manager.Keyword())
-	appsrv.SendJSON(w, rbody)
-}*/

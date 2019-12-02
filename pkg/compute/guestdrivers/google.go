@@ -16,7 +16,10 @@ package guestdrivers
 
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGoogleGuestDriver struct {
@@ -28,11 +31,13 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
-func (self *SGoogleGuestDriver) GetQuotaPlatformID() []string {
-	return []string{
-		api.CLOUD_ENV_PUBLIC_CLOUD,
-		api.CLOUD_PROVIDER_GOOGLE,
-	}
+func (self *SGoogleGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
+	keys := models.SComputeResourceKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
+	keys.Provider = api.CLOUD_PROVIDER_GOOGLE
+	// ignore brand
+	return keys
 }
 
 func (self *SGoogleGuestDriver) GetHypervisor() string {

@@ -39,6 +39,6 @@ type ITask interface {
 	SetStageComplete(ctx context.Context, data *jsonutils.JSONDict)
 	SetStageFailed(ctx context.Context, reason string)
 
-	GetPendingUsage(quota quotas.IQuota) error
-	ClearPendingUsage() error
+	GetPendingUsage(quota quotas.IQuota, index int) error
+	ClearPendingUsage(index int) error
 }

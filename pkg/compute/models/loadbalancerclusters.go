@@ -17,12 +17,12 @@ package models
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -112,7 +112,18 @@ func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, 
 				wire.ZoneId, zone.Name, zone.Id)
 		}
 	}
-	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -177,19 +188,19 @@ func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred m
 	lbagents := []SLoadbalancerAgent{}
 	q := LoadbalancerAgentManager.Query().Equals("cluster_id", lbc.Id)
 	if err := db.FetchModelObjects(LoadbalancerAgentManager, q, &lbagents); err != nil {
-		return errors.WithMessagef(err, "lbcluster %s(%s): find lbagents", lbc.Name, lbc.Id)
+		return errors.Wrapf(err, "lbcluster %s(%s): find lbagents", lbc.Name, lbc.Id)
 	}
 	for i := range lbagents {
 		lbagent := &lbagents[i]
 		if err := lbagent.ValidateDeleteCondition(ctx); err != nil {
-			return errors.WithMessagef(err, "lbagent %s(%s): validate delete", lbagent.Name, lbagent.Id)
+			return errors.Wrapf(err, "lbagent %s(%s): validate delete", lbagent.Name, lbagent.Id)
 		}
 		if err := lbagent.CustomizeDelete(ctx, userCred, query, data); err != nil {
-			return errors.WithMessagef(err, "lbagent %s(%s): customize delete", lbagent.Name, lbagent.Id)
+			return errors.Wrapf(err, "lbagent %s(%s): customize delete", lbagent.Name, lbagent.Id)
 		}
 		lbagent.PreDelete(ctx, userCred)
 		if err := lbagent.Delete(ctx, userCred); err != nil {
-			return errors.WithMessagef(err, "lbagent %s(%s): delete", lbagent.Name, lbagent.Id)
+			return errors.Wrapf(err, "lbagent %s(%s): delete", lbagent.Name, lbagent.Id)
 		}
 		lbagent.PostDelete(ctx, userCred)
 	}
@@ -248,7 +259,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 		IsNullOrEmpty("manager_id").
 		IsNullOrEmpty("cluster_id")
 	if err := db.FetchModelObjects(LoadbalancerManager, lbQ, &lbs); err != nil {
-		return errors.WithMessage(err, "find lb with empty cluster_id")
+		return errors.Wrap(err, "find lb with empty cluster_id")
 	}
 
 	// create 1 cluster for each zone
@@ -267,13 +278,13 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 			if len(lbcs) == 0 {
 				m, err := db.NewModelObject(man)
 				if err != nil {
-					return errors.WithMessage(err, "new model object")
+					return errors.Wrap(err, "new model object")
 				}
 				lbc = m.(*SLoadbalancerCluster)
 				lbc.Name = "auto-lbc-" + zoneId
 				lbc.ZoneId = zoneId
 				if err := man.TableSpec().Insert(lbc); err != nil {
-					return errors.WithMessage(err, "insert lbcluster model")
+					return errors.Wrap(err, "insert lbcluster model")
 				}
 			} else {
 				if len(lbcs) > 1 {
@@ -287,7 +298,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 			lb.ClusterId = lbc.Id
 			return nil
 		}); err != nil {
-			return errors.WithMessagef(err, "lb %s(%s): assign cluster: %s(%s)", lb.Name, lb.Name, lbc.Name, lbc.Id)
+			return errors.Wrapf(err, "lb %s(%s): assign cluster: %s(%s)", lb.Name, lb.Name, lbc.Name, lbc.Id)
 		}
 	}
 
@@ -301,7 +312,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 		q := LoadbalancerAgentManager.Query().
 			IsNullOrEmpty("cluster_id")
 		if err := db.FetchModelObjects(LoadbalancerAgentManager, q, &lbagents); err != nil {
-			return errors.WithMessage(err, "find lbagents with empty cluster_id")
+			return errors.Wrap(err, "find lbagents with empty cluster_id")
 		}
 		for i := range lbagents {
 			lbagent := &lbagents[i]
@@ -309,7 +320,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 				lbagent.ClusterId = lbc.Id
 				return nil
 			}); err != nil {
-				return errors.WithMessagef(err, "lbagent %s(%s): assign cluster: %s(%s)",
+				return errors.Wrapf(err, "lbagent %s(%s): assign cluster: %s(%s)",
 					lbagent.Name, lbagent.Id, lbc.Name, lbc.Id)
 			}
 		}

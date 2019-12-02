@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -204,10 +205,17 @@ func (manager *SElasticcacheAclManager) ValidateCreateData(ctx context.Context, 
 		return nil, httperrors.NewMissingParameterError("elasticcache")
 	}
 
-	data, err := manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.StandaloneResourceCreateInput{}
+	var err error
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	return region.GetDriver().ValidateCreateElasticcacheAclData(ctx, userCred, ownerId, data)
 }

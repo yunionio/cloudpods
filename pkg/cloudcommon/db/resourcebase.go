@@ -18,9 +18,12 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -107,4 +110,13 @@ func (model *SResourceBase) MarkUnDelete() error {
 
 func (model *SResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return DeleteModel(ctx, userCred, model.GetIResourceModel())
+}
+
+func (manager *SResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.ResourceBaseCreateInput) (apis.ResourceBaseCreateInput, error) {
+	var err error
+	input.ModelBaseCreateInput, err = manager.SModelBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.ModelBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SModelBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -134,9 +135,17 @@ func (man *SCachedLoadbalancerAclManager) ValidateCreateData(ctx context.Context
 	data.Set("manager_id", jsonutils.NewString(provider.Id))
 	name, _ := db.GenerateName(man, ownerId, aclV.Model.GetName())
 	data.Set("name", jsonutils.NewString(name))
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+
+	input := apis.VirtualResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	return data, nil
 }
