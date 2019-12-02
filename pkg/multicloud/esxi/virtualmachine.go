@@ -440,6 +440,15 @@ func (self *SVirtualMachine) StopVM(ctx context.Context, isForce bool) error {
 	}
 }
 
+func (self *SVirtualMachine) SuspendVM(ctx context.Context) error {
+	vm := self.getVmObj()
+	task, err := vm.Suspend(ctx)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
+
 func (self *SVirtualMachine) poweroffVM(ctx context.Context) error {
 	vm := self.getVmObj()
 
