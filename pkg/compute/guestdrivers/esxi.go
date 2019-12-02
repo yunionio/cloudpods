@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -184,6 +186,30 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	return err
+}
+
+func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host := guest.GetHost()
+		if host == nil {
+			return nil, errors.Error("fail to get host of guest")
+		}
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, err
+		}
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		vm := ivm.(*esxi.SVirtualMachine)
+		err = vm.SuspendVM(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "VM.SuspendVM for vmware")
+		}
+		return nil, nil
+	})
+	return nil
 }
 
 func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
