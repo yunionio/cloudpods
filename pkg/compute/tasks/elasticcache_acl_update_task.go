@@ -63,6 +63,6 @@ func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateComplete(ctx conte
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
-	self.taskFail(ctx, ea, reason)
+func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAcl, data jsonutils.JSONObject) {
+	self.taskFail(ctx, ea, data.String())
 }
