@@ -282,9 +282,16 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules []secrules.SecurityRule) compare.SyncResult {
+func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules secrules.SecurityRuleSet) compare.SyncResult {
 	syncResult := compare.SyncResult{}
+	priority, prePriority := 100, 0
 	for i := 0; i < len(rules); i++ {
+		// 这里避免了Rule规则优先级在 1-100之外的问题,ext.GetRules()不需要进行优先级转换
+		if prePriority != 0 && rules[i].Priority != prePriority && priority > 1 {
+			priority--
+		}
+		prePriority = rules[i].Priority
+		rules[i].Priority = priority
 		_, err := manager.newFromCloudSecurityGroup(ctx, userCred, rules[i], secgroup)
 		if err != nil {
 			syncResult.AddError(err)

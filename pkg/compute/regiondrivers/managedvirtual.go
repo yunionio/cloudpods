@@ -18,12 +18,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -1468,6 +1470,31 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 
 	if err != nil {
 		return "", errors.Wrap(err, "db.Update")
+	}
+
+	inAllowList := secgroup.GetInAllowList()
+	outAllowList := secgroup.GetOutAllowList()
+
+	rules, err := iSecgroup.GetRules()
+	if err != nil {
+		return "", errors.Wrap(err, "iSecgroup.GetRules")
+	}
+
+	inRules := secrules.SecurityRuleSet{}
+	outRules := secrules.SecurityRuleSet{}
+	for i := 0; i < len(rules); i++ {
+		if rules[i].Direction == secrules.DIR_IN {
+			inRules = append(inRules, rules[i])
+		} else {
+			outRules = append(outRules, rules[i])
+		}
+	}
+	sort.Sort(inRules)
+	sort.Sort(outRules)
+	_inAllowList := inRules.AllowList()
+	_outAllowList := outRules.AllowList()
+	if inAllowList.Equals(_inAllowList) && outAllowList.Equals(_outAllowList) {
+		return cache.ExternalId, nil
 	}
 
 	err = iSecgroup.SyncRules(secgroup.GetSecRules(""))
