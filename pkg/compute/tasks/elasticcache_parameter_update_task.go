@@ -59,9 +59,11 @@ func (self *ElasticcacheParameterUpdateTask) OnInit(ctx context.Context, obj db.
 
 	self.SetStage("OnElasticcacheParameterUpdateComplete", nil)
 	if err := region.GetDriver().RequestElasticcacheUpdateInstanceParameters(ctx, self.GetUserCred(), iec.(*models.SElasticcache), self); err != nil {
-		self.taskFail(ctx, ep, err.Error())
+		self.OnElasticcacheParameterUpdateCompleteFailed(ctx, ep, err.Error())
 		return
 	}
+
+	self.OnElasticcacheParameterUpdateComplete(ctx, ep, data)
 }
 
 func (self *ElasticcacheParameterUpdateTask) OnElasticcacheParameterUpdateComplete(ctx context.Context, ep *models.SElasticcacheParameter, data jsonutils.JSONObject) {
