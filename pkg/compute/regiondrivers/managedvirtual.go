@@ -2371,6 +2371,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAcl(ctx
 
 	iea, err := iec.GetICloudElasticcacheAcl(ea.GetExternalId())
 	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+
 		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.GetICloudElasticcacheAccount")
 	}
 
