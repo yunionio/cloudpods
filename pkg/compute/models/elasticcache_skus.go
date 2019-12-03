@@ -147,12 +147,6 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 
 func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	data := query.(*jsonutils.JSONDict)
-	brands := jsonutils.GetQueryStringArray(query, "brand")
-	if len(brands) > 0 {
-		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
-		data.Remove("brand")
-	}
-
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, data)
 	if err != nil {
 		return nil, err
@@ -160,8 +154,8 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, true)
-		q = q.Equals("postpaid_status", "available")
-		q = q.Equals("prepaid_status", "available")
+		q = q.NotEquals("postpaid_status", api.SkuStatusSoldout)
+		q = q.NotEquals("prepaid_status", api.SkuStatusSoldout)
 	}
 
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
