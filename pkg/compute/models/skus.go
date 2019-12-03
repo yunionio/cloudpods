@@ -882,7 +882,7 @@ func (manager *SServerSkuManager) GetOneCloudSkus() ([]string, error) {
 	}
 	result := []string{}
 	for _, sku := range skus {
-		result = append(result, fmt.Sprintf("%s/%d/%d", sku.Name, sku.CpuCoreCount, sku.MemorySizeMB))
+		result = append(result, fmt.Sprintf("%d/%d", sku.CpuCoreCount, sku.MemorySizeMB))
 	}
 	return result, nil
 }
@@ -975,14 +975,14 @@ func (manager *SServerSkuManager) SyncPrivateCloudSkus(ctx context.Context, user
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
-	names, err := manager.GetOneCloudSkus()
+	localskus, err := manager.GetOneCloudSkus()
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
 	}
 
 	for _, sku := range skus {
-		if !utils.IsInStringArray(fmt.Sprintf("%s/%d/%d", sku.GetName(), sku.GetCpuCoreCount(), sku.GetMemorySizeMB()), names) {
+		if !utils.IsInStringArray(fmt.Sprintf("%d/%d", sku.GetCpuCoreCount(), sku.GetMemorySizeMB()), localskus) {
 			err := manager.newFromCloudSku(ctx, userCred, sku)
 			if err != nil {
 				syncResult.AddError(err)
