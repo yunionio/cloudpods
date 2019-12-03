@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"strings"
 	"time"
 
@@ -79,18 +80,25 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 			return nil, httperrors.NewInputParameterError("Failed fetching secgroup %s", input.Equals)
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
+		inAllowList := secgroup.GetInAllowList()
+		outAllowList := secgroup.GetOutAllowList()
 		sq := manager.Query().NotEquals("id", secgroup.Id)
 		secgroups := []SSecurityGroup{}
 		err = db.FetchModelObjects(manager, sq, &secgroups)
 		if err != nil {
 			return nil, err
 		}
-		srs := secgroup.getSecurityGroupRuleSet()
 		secgroupIds := []string{}
 		for i := 0; i < len(secgroups); i++ {
-			if srs.IsEqual(secgroups[i].getSecurityGroupRuleSet()) {
-				secgroupIds = append(secgroupIds, secgroups[i].Id)
+			_inAllowList := secgroups[i].GetInAllowList()
+			if !inAllowList.Equals(_inAllowList) {
+				continue
 			}
+			_outAllowList := secgroups[i].GetOutAllowList()
+			if !outAllowList.Equals(_outAllowList) {
+				continue
+			}
+			secgroupIds = append(secgroupIds, secgroups[i].Id)
 		}
 		q = q.In("id", secgroupIds)
 	}
@@ -490,16 +498,17 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SSecurityGroup) AllowPerformUnion(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "union")
+func (self *SSecurityGroup) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "merge")
 }
 
-func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SSecurityGroup) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	secgroupIds := jsonutils.GetQueryStringArray(data, "secgroups")
 	if len(secgroupIds) == 0 {
 		return nil, httperrors.NewMissingParameterError("secgroups")
 	}
-	srs := self.getSecurityGroupRuleSet()
+	inAllowList := self.GetInAllowList()
+	outAllowList := self.GetOutAllowList()
 	secgroups := []*SSecurityGroup{}
 	for _, secgroupId := range secgroupIds {
 		_secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
@@ -508,8 +517,12 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
 		secgroup.SetModelManager(SecurityGroupManager, secgroup)
-		_srs := secgroup.getSecurityGroupRuleSet()
-		if !srs.IsEqual(_srs) {
+		_inAllowList := secgroup.GetInAllowList()
+		if !inAllowList.Equals(_inAllowList) {
+			return nil, httperrors.NewUnsupportOperationError("secgroup %s rules not equals %s rules", secgroup.Name, self.Name)
+		}
+		_outAllowList := secgroup.GetOutAllowList()
+		if !outAllowList.Equals(_outAllowList) {
 			return nil, httperrors.NewUnsupportOperationError("secgroup %s rules not equals %s rules", secgroup.Name, self.Name)
 		}
 		secgroups = append(secgroups, secgroup)
@@ -528,6 +541,20 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 	}
 	self.DoSync(ctx, userCred)
 	return nil, nil
+}
+
+func (self *SSecurityGroup) GetOutAllowList() secrules.SecurityRuleSet {
+	rules := self.GetSecRules("out")
+	ruleSet := secrules.SecurityRuleSet(rules)
+	rules = append(rules, *secrules.MustParseSecurityRule("out:allow any"))
+	return ruleSet.AllowList()
+}
+
+func (self *SSecurityGroup) GetInAllowList() secrules.SecurityRuleSet {
+	rules := self.GetSecRules("in")
+	rules = append(rules, *secrules.MustParseSecurityRule("in:deny any"))
+	ruleSet := secrules.SecurityRuleSet(rules)
+	return ruleSet.AllowList()
 }
 
 func (self *SSecurityGroup) getSecurityGroupRuleSet() secrules.SecurityGroupRuleSet {
@@ -607,14 +634,23 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 }
 
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
-	srs := secrules.SecurityGroupRuleSet{}
 	rules, err := extSec.GetRules()
 	if err != nil {
 		return nil, err
 	}
+	inRules := secrules.SecurityRuleSet{}
+	outRules := secrules.SecurityRuleSet{}
 	for i := 0; i < len(rules); i++ {
-		srs.AddRule(rules[i])
+		if rules[i].Direction == secrules.DIR_IN {
+			inRules = append(inRules, rules[i])
+		} else {
+			outRules = append(outRules, rules[i])
+		}
 	}
+	sort.Sort(inRules)
+	sort.Sort(outRules)
+	inAllowList := inRules.AllowList()
+	outAllowList := outRules.AllowList()
 
 	// 查询所有共享或与provider在同一项目的安全组，比对寻找一个与云上安全组规则相同的安全组
 	secgroups := []SSecurityGroup{}
@@ -632,8 +668,9 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		log.Errorf("failed to fetch secgroups %v", err)
 	}
 	for _, secgroup := range secgroups {
-		_srs := secgroup.getSecurityGroupRuleSet()
-		if srs.IsEqual(_srs) {
+		_inAllowList := secgroup.GetInAllowList()
+		_outAllowList := secgroup.GetOutAllowList()
+		if outAllowList.Equals(_outAllowList) && inAllowList.Equals(_inAllowList) {
 			return &secgroup, nil
 		}
 	}
@@ -657,7 +694,8 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	}
 
 	//这里必须先同步下规则,不然下次对比此安全组规则为空
-	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, rules)
+	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, inRules)
+	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, outRules)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 
