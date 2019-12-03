@@ -205,6 +205,13 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Unmarshal input params error: %v", err)
 	}
+	if len(input.Password) > 0 {
+		if !seclib2.MeetComplxity(input.Password) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	} else {
+		input.Password = seclib2.RandomPassword2(12)
+	}
 	instance := instanceV.Model.(*SDBInstance)
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
