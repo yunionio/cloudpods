@@ -2237,6 +2237,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			guests.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
+			guestnetworks.Field("created_at"),
 		).Join(
 			guests,
 			sqlchemy.Equals(
@@ -2262,6 +2263,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			groups.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
+			groupnetworks.Field("created_at"),
 		).Join(
 			groups,
 			sqlchemy.Equals(
@@ -2287,6 +2289,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			hosts.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
+			hostnetworks.Field("created_at"),
 		).Join(
 			hosts,
 			sqlchemy.Equals(
@@ -2311,6 +2314,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			reserved.Field("notes").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
+			reserved.Field("created_at"),
 		)
 	}
 	reservedQ = reservedQ.Filter(sqlchemy.OR(
@@ -2334,6 +2338,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			loadbalancers.Field("name").Label("owner"),
 			sqlchemy.NewStringField("").Label("associate_id"),
 			sqlchemy.NewStringField("").Label("associate_type"),
+			lbnetworks.Field("created_at"),
 		).Join(
 			loadbalancers,
 			sqlchemy.Equals(
@@ -2358,6 +2363,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			elasticips.Field("name").Label("owner"),
 			elasticips.Field("associate_id"),
 			elasticips.Field("associate_type"),
+			elasticips.Field("created_at"),
 		)
 	}
 
@@ -2377,6 +2383,7 @@ func (network *SNetwork) getUsedAddressQuery(addrOnly bool) *sqlchemy.SQuery {
 			netifs.Field("name").Label("owner"),
 			netifs.Field("associate_id"),
 			netifs.Field("associate_type"),
+			netifnetworks.Field("created_at"),
 		).Join(
 			netifs,
 			sqlchemy.Equals(
