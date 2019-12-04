@@ -186,7 +186,7 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 // return all brands, compute engine brands, network manage brands, object storage brands
 func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string,
 ) ([]string, []string, []string, []string) {
-	q := CloudaccountManager.Query().IsTrue("enabled")
+	q := CloudaccountManager.Query()
 	providers := CloudproviderManager.Query().SubQuery()
 	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
 	if zone != nil {
