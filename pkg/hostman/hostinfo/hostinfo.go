@@ -392,7 +392,8 @@ func (h *SHostInfo) PreventArpFlux() {
 // set swappiness=0 to avoid swap
 func (h *SHostInfo) TuneSystem() {
 	kv := map[string]string{"/proc/sys/vm/swappiness": "0",
-		"/sys/module/kvm/parameters/ignore_msrs": "1",
+		"/sys/module/kvm/parameters/ignore_msrs":         "1",
+		"/sys/module/kvm/parameters/report_ignored_msrs": "0",
 	}
 	for k, v := range kv {
 		sysutils.SetSysConfig(k, v)
