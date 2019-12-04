@@ -132,8 +132,8 @@ func (ces *SCloudEyeManager) GetMetricsData(metrics []SMetricMeta, since time.Ti
 	request := requests.NewResourceRequest("POST", string(ces.ServiceName), ces.version, ces.Region, ces.ProjectId, "batch-query-metric-data")
 	input := SBatchQueryMetricDataInput{
 		Metrics: metricReq,
-		From:    since.UnixNano() / 1000,
-		To:      until.UnixNano() / 1000,
+		From:    since.Unix() * 1000,
+		To:      until.Unix() * 1000,
 		Period:  "1",
 		Filter:  "average",
 	}
