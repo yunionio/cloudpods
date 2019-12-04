@@ -37,6 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheAclDeleteTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(ea, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_DELETE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_DELETE_FAILED, reason)
