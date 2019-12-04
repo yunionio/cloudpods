@@ -239,7 +239,13 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 		return nil, fmt.Errorf("SkuResourcesMeta.get invalid url %s.expected has prefix 'http'", url)
 	}
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("SkuResourcesMeta.get.NewRequest %s", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("SkuResourcesMeta.get.Get %s", err)
 	}
@@ -247,18 +253,18 @@ func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Read %s", err)
+		return nil, fmt.Errorf("SkuResourcesMeta.get.ReadAll %s", err)
 	}
 
-	contentJson, err := jsonutils.Parse(content)
+	jsonContent, err := jsonutils.Parse(content)
 	if err != nil {
 		return nil, fmt.Errorf("SkuResourcesMeta.get.Parse %s", err)
 	}
 
-	ret := []jsonutils.JSONObject{}
-	err = contentJson.Unmarshal(&ret)
+	var ret []jsonutils.JSONObject
+	err = jsonContent.Unmarshal(&ret)
 	if err != nil {
-		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal(%s) %s", contentJson.String(), err)
+		return nil, fmt.Errorf("SkuResourcesMeta.get.Unmarshal %s", err)
 	}
 
 	return ret, nil
