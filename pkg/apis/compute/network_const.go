@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"time"
+)
+
 const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
 	MAX_BANDWIDTH = 100000
@@ -77,4 +81,5 @@ type SNetworkAddress struct {
 	OwnerType     string
 	AssociateId   string
 	AssociateType string
+	CreatedAt     time.Time
 }
