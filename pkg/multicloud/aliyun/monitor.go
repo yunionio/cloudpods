@@ -146,10 +146,10 @@ func (r *SRegion) DescribeMetricList(name string, ns string, since time.Time, un
 		params["NextToken"] = nextToken
 	}
 	if !since.IsZero() {
-		params["StartTime"] = strconv.FormatInt(since.UnixNano()/1000, 10)
+		params["StartTime"] = strconv.FormatInt(since.Unix()*1000, 10)
 	}
 	if !until.IsZero() {
-		params["EndTime"] = strconv.FormatInt(until.UnixNano()/1000, 10)
+		params["EndTime"] = strconv.FormatInt(until.Unix()*1000, 10)
 	}
 	body, err := r.metricsRequest("DescribeMetricList", params)
 	if err != nil {
