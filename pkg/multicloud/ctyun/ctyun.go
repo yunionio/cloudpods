@@ -187,6 +187,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 	MAX_RETRY := 3
 	retry := 0
 
+	var err error
 	for retry < MAX_RETRY {
 		resp, err := httputils.Request(
 			client.httpClient,
@@ -220,7 +221,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		}
 	}
 
-	return nil, fmt.Errorf("timeout for request: %s", params)
+	return nil, fmt.Errorf("timeout for request: %s \n\n with params: %s", err, params)
 }
 
 func (self *SCtyunClient) GetIRegions() []cloudprovider.ICloudRegion {
