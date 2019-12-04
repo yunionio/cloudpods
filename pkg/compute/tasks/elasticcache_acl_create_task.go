@@ -37,6 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheAclCreateTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(ea, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_CREATE_FAILED, reason)
