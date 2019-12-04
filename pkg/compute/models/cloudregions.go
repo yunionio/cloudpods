@@ -686,6 +686,11 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		case DBInstanceManager.KeywordPlural():
 			skusSQ := DBInstanceSkuManager.Query("cloudregion_id").Equals("status", api.DBINSTANCE_SKU_AVAILABLE).IsTrue("enabled").SubQuery()
 			q = q.In("id", skusSQ)
+		case ElasticcacheManager.KeywordPlural():
+			q2 := ElasticcacheSkuManager.Query("cloudregion_id")
+			statusFilter := sqlchemy.OR(sqlchemy.Equals(q2.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q2.Field("postpaid_status"), api.SkuStatusAvailable))
+			skusSQ := q2.Filter(statusFilter).SubQuery()
+			q = q.In("id", skusSQ)
 		default:
 			break
 		}
