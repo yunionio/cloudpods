@@ -1001,6 +1001,7 @@ func syncPublicCloudProviderInfo(
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
 		syncRegionSkus(ctx, userCred, localRegion)
+		syncRegionDBInstanceSkus(ctx, userCred, localRegion.Id, true)
 	} else {
 		syncSkusFromPrivateCloud(ctx, userCred, syncResults, provider, remoteRegion)
 	}
