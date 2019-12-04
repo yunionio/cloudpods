@@ -79,7 +79,6 @@ type GuestRestartTask struct {
 }
 
 func (self *GuestRestartTask) StopServer(ctx context.Context, guest *models.SGuest) {
-	guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
 	self.SetStage("OnServerStopComplete", nil)
 	isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
 	guest.StartGuestStopTask(ctx, self.UserCred, isForce, self.GetTaskId())
