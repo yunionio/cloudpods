@@ -135,6 +135,8 @@ func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 	self.SetStage("OnGuestSyncstatusAfterStart", nil)
 	if guest.Hypervisor != api.HYPERVISOR_KVM {
 		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	} else {
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "", self.UserCred, true)
 	}
 	// self.taskComplete(ctx, guest)
 }
