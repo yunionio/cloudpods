@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -453,9 +454,28 @@ func (manager *SDBInstanceSkuManager) newFromCloudSku(ctx context.Context, userC
 	return manager.TableSpec().Insert(sku)
 }
 
-func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {
+	if isStart {
+		q := DBInstanceSkuManager.Query()
+		if len(regionId) > 0 {
+			q = q.Equals("cloudregion_id", regionId)
+		}
+		cnt, err := q.Limit(1).CountWithError()
+		if err != nil && err != sql.ErrNoRows {
+			log.Errorf("SyncDBInstanceSkus.QueryDBInstanceSku %s", err)
+			return
+		}
+		if cnt > 0 {
+			log.Debugf("SyncDBInstanceSkus synced skus, skip...")
+			return
+		}
+	}
+
 	q := CloudregionManager.Query()
 	q = q.In("provider", CloudproviderManager.GetPublicProviderProvidersQuery())
+	if len(regionId) > 0 {
+		q = q.Equals("id", regionId)
+	}
 	cloudregions := []SCloudregion{}
 	err := db.FetchModelObjects(CloudregionManager, q, &cloudregions)
 	if err != nil {
@@ -475,4 +495,9 @@ func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, 
 		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
 		log.Infof(notes)
 	}
+
+}
+
+func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	syncRegionDBInstanceSkus(ctx, userCred, "", isStart)
 }
