@@ -27,29 +27,33 @@ var (
 type SSystemdServiceManager struct {
 }
 
+func systemctl(args ...string) *procutils.Command {
+	return procutils.NewRemoteCommandAsFarAsPossible("systemctl", args...)
+}
+
 func (manager *SSystemdServiceManager) Detect() bool {
-	return procutils.NewCommand("systemctl", "--version").Run() == nil
+	return systemctl("--version").Run() == nil
 }
 
 func (manager *SSystemdServiceManager) Start(srvname string) error {
-	return procutils.NewCommand("systemctl", "restart", srvname).Run()
+	return systemctl("restart", srvname).Run()
 }
 
 func (manager *SSystemdServiceManager) Enable(srvname string) error {
-	return procutils.NewCommand("systemctl", "enable", srvname).Run()
+	return systemctl("enable", srvname).Run()
 }
 
 func (manager *SSystemdServiceManager) Stop(srvname string) error {
-	return procutils.NewCommand("systemctl", "stop", srvname).Run()
+	return systemctl("stop", srvname).Run()
 }
 
 func (manager *SSystemdServiceManager) Disable(srvname string) error {
-	return procutils.NewCommand("systemctl", "disable", srvname).Run()
+	return systemctl("disable", srvname).Run()
 }
 
 func (manager *SSystemdServiceManager) GetStatus(srvname string) SServiceStatus {
-	res, _ := procutils.NewCommand("systemctl", "status", srvname).Output()
-	res2, _ := procutils.NewCommand("systemctl", "is-enabled", srvname).Output()
+	res, _ := systemctl("status", srvname).Output()
+	res2, _ := systemctl("is-enabled", srvname).Output()
 	return parseSystemdStatus(string(res), string(res2), srvname)
 }
 

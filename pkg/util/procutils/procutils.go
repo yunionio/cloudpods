@@ -38,7 +38,7 @@ func NewCommand(name string, args ...string) *Command {
 	return &Command{
 		path: name,
 		args: args,
-		cmd:  execInstance.Command(name, args...),
+		cmd:  localExecutor.Command(name, args...),
 	}
 }
 
@@ -46,7 +46,16 @@ func NewCommandContext(ctx context.Context, name string, args ...string) *Comman
 	return &Command{
 		path: name,
 		args: args,
-		cmd:  execInstance.CommandContext(ctx, name, args...),
+		cmd:  localExecutor.CommandContext(ctx, name, args...),
+	}
+}
+
+// exec remote command as far as possible
+func NewRemoteCommandAsFarAsPossible(name string, args ...string) *Command {
+	return &Command{
+		path: name,
+		args: args,
+		cmd:  execInstance.Command(name, args...),
 	}
 }
 

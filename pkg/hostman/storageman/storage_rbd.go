@@ -658,7 +658,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 		format = options.HostOptions.DefaultImageSaveFormat
 	}
 
-	err = procutils.NewCommand(qemutils.GetQemuImg(),
+	err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(),
 		"convert", "-f", "raw", "-O", format, imagePath, tmpImageFile).Run()
 	if err != nil {
 		return err

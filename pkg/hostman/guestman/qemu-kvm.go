@@ -916,7 +916,7 @@ func (s *SKVMGuestInstance) Stop() bool {
 }
 
 func (s *SKVMGuestInstance) scriptStart() error {
-	output, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("sh", s.GetStartScriptPath()).Output()
 	if err != nil {
 		s.scriptStop()
 		return fmt.Errorf("Start VM Failed %s %s", output, err)
@@ -925,7 +925,7 @@ func (s *SKVMGuestInstance) scriptStart() error {
 }
 
 func (s *SKVMGuestInstance) scriptStop() bool {
-	_, err := procutils.NewCommand("sh", s.GetStopScriptPath()).Output()
+	_, err := procutils.NewRemoteCommandAsFarAsPossible("sh", s.GetStopScriptPath()).Output()
 	if err != nil {
 		log.Errorln(err)
 		return false

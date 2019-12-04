@@ -209,12 +209,12 @@ func (s *SDeployService) RunService() {
 
 func (s *SDeployService) FixPathEnv() error {
 	var paths = []string{
+		"/usr/bin",
 		"/usr/local/sbin",
 		"/usr/local/bin",
 		"/sbin",
 		"/bin",
 		"/usr/sbin",
-		"/usr/bin",
 	}
 	return os.Setenv("PATH", strings.Join(paths, ":"))
 }

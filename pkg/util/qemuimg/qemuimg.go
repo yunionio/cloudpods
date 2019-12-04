@@ -111,7 +111,7 @@ func (img *SQemuImage) parse() error {
 			img.ActualSizeBytes = fileInfo.Size()
 		}
 	}
-	cmd := procutils.NewCommand(qemutils.GetQemuImg(), "info", img.Path)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path)
 
 	var stdin io.WriteCloser
 	var err error
@@ -234,7 +234,7 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	}
 	cmdline = append(cmdline, img.Path, name)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
-	cmd := procutils.NewCommand("ionice", cmdline...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
 	var stdin io.WriteCloser
 	var err error
 	if len(img.Password) > 0 || len(password) > 0 {
@@ -443,7 +443,7 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	if sizeMB > 0 {
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
-	cmd := procutils.NewCommand("ionice", args...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		log.Errorf("%v create error %s %s", args, output, err)
@@ -490,7 +490,7 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	cmd := procutils.NewCommand("ionice", "-c", strconv.Itoa(int(img.IoLevel)),
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", "-c", strconv.Itoa(int(img.IoLevel)),
 		qemutils.GetQemuImg(), "resize", img.Path, fmt.Sprintf("%dM", sizeMB))
 	err := cmd.Run()
 	if err != nil {
@@ -510,7 +510,7 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 		args = append(args, "-u")
 	}
 	args = append(args, "-b", backPath, img.Path)
-	cmd := procutils.NewCommand("ionice", args...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("rebase fail %s", err)

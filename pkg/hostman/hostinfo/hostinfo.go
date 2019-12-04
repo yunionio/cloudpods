@@ -253,12 +253,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Qemu not installed")
 	}
 
-	_, err = procutils.NewCommand(qemutils.GetQemu(""), "-version").Output()
+	_, err = procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemu(""), "-version").Output()
 	if err != nil {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
 
-	_, err = procutils.NewCommand("/sbin/ethtool", "-h").Output()
+	_, err = procutils.NewCommand("ethtool", "-h").Output()
 	if err != nil {
 		return fmt.Errorf("Ethtool not installed")
 	}
@@ -547,7 +547,7 @@ func (h *SHostInfo) detectiveSyssoftwareInfo() error {
 
 func (h *SHostInfo) detectiveQemuVersion() error {
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
-	version, err := procutils.NewCommand(cmd, "--version").Output()
+	version, err := procutils.NewRemoteCommandAsFarAsPossible(cmd, "--version").Output()
 	if err != nil {
 		log.Errorln(err)
 		return err

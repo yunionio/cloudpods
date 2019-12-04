@@ -9,14 +9,18 @@ import (
 	"yunion.io/x/executor/client"
 )
 
-var execInstance Executor
+var (
+	execInstance    Executor
+	localExecutor   = new(defaultExecutor)
+	_remoteExecutor = new(remoteExecutor)
+)
 
 func init() {
-	execInstance = new(defaultExecutor)
+	execInstance = localExecutor
 }
 
 func SetRemoteExecutor() {
-	execInstance = new(remoteExecutor)
+	execInstance = _remoteExecutor
 }
 
 type Cmd interface {

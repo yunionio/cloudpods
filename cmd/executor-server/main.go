@@ -58,6 +58,12 @@ func (s *SExecuteService) runService() {
 	grpcServer := grpc.NewServer()
 	apis.RegisterExecutorServer(grpcServer, &server.Executor{})
 	if _, err := os.Stat(socketPath); !os.IsNotExist(err) {
+		conn, err := net.Dial("unix", socketPath)
+		if err == nil {
+			conn.Close()
+			log.Fatalf("socket %s already listening", socketPath)
+		}
+
 		// socket file already exist, remove first
 		if err := os.Remove(socketPath); err != nil {
 			log.Fatalln(err)

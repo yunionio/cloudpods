@@ -36,7 +36,7 @@ var (
 )
 
 func getQemuImgVersion() string {
-	out, err := procutils.NewCommand(qemutils.GetQemuImg(), "--version").Output()
+	out, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "--version").Output()
 	if err != nil {
 		log.Errorf("check qemu-img version fail %s", out)
 		return ""
