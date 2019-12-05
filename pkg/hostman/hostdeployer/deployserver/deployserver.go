@@ -193,6 +193,11 @@ func (s *SDeployService) RunService() {
 	grpcServer := grpc.NewServer()
 	deployapi.RegisterDeployAgentServer(grpcServer, &DeployerServer{})
 	if fileutils2.Exists(DeployOption.DeployServerSocketPath) {
+		if conn, err := net.Dial("unix", DeployOption.DeployServerSocketPath); err == nil {
+			conn.Close()
+			log.Fatalf("socket %s already listening", DeployOption.DeployServerSocketPath)
+		}
+
 		if err := os.Remove(DeployOption.DeployServerSocketPath); err != nil {
 			log.Fatalln(err)
 		}
