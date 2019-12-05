@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -63,6 +64,7 @@ type ImageImportTask struct {
 	ImageId  string
 	RegionId string
 	TaskId   string
+	Status   string
 }
 
 type RootDevice struct {
@@ -115,6 +117,27 @@ func (self *ImageImportTask) GetGlobalId() string {
 }
 
 func (self *ImageImportTask) Refresh() error {
+	ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
+	if err != nil {
+		log.Errorf("DescribeImportImageTasks %s", err)
+		return errors.Wrap(err, "ImageImportTask.Refresh.DescribeImportImageTasks")
+	}
+
+	err = FillZero(ret)
+	if err != nil {
+		log.Errorf("DescribeImportImageTask.FillZero %s", err)
+		return errors.Wrap(err, "ImageImportTask.Refresh.FillZero")
+	}
+
+	// 打印上传进度
+	log.Debugf("DescribeImportImage Task %s", ret.String())
+	for _, item := range ret.ImportImageTasks {
+		if StrVal(item.ImportTaskId) == self.TaskId {
+			self.ImageId = StrVal(item.ImageId)
+			self.Status = StrVal(item.Status)
+		}
+	}
+
 	return nil
 }
 
@@ -127,28 +150,13 @@ func (self *ImageImportTask) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *ImageImportTask) GetStatus() string {
-	ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&self.TaskId}})
-	if err != nil {
-		log.Errorf("DescribeImportImageTasks %s", err)
-		return ImageImportStatusError
-	}
-
-	err = FillZero(ret)
-	if err != nil {
-		log.Errorf("DescribeImportImageTask.FillZero %s", err)
-		return ImageImportStatusError
-	}
-
-	// 打印上传进度
-	log.Debugf("DescribeImportImage Task %s", ret.String())
-	for _, item := range ret.ImportImageTasks {
-		if *item.Status == "completed" {
-			return ImageImportStatusCompleted
-		} else if *item.Status == "deleted" {
-			return ImageImportStatusDeleted
-		} else {
-			return ImageImportStatusUncompleted
-		}
+	self.Refresh()
+	if self.Status == "completed" {
+		return ImageImportStatusCompleted
+	} else if self.Status == "deleted" {
+		return ImageImportStatusDeleted
+	} else {
+		return ImageImportStatusUncompleted
 	}
 
 	return ImageImportStatusUncompleted
@@ -294,7 +302,7 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 		return nil, err
 	}
 	log.Debugf("ImportImage task: %s", ret.String())
-	return &ImageImportTask{ImageId: StrVal(ret.ImageId), RegionId: self.RegionId, TaskId: *ret.ImportTaskId}, nil
+	return &ImageImportTask{ImageId: StrVal(ret.ImageId), RegionId: self.RegionId, TaskId: *ret.ImportTaskId, Status: StrVal(ret.Status), region: self}, nil
 }
 
 type ImageExportTask struct {
