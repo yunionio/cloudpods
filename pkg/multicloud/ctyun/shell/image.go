@@ -12,4 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package shell
+
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/ctyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
+
+func init() {
+	type VImageListOptions struct {
+		ImageType string `help:"image type" choices:"gold|private|shared"`
+	}
+	shellutils.R(&VImageListOptions{}, "image-list", "List images", func(cli *ctyun.SRegion, args *VImageListOptions) error {
+		images, e := cli.GetImages(args.ImageType)
+		if e != nil {
+			return e
+		}
+		printList(images, 0, 0, 0, nil)
+		return nil
+	})
+}
