@@ -12,4 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package shell
+
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/ctyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
+
+func init() {
+	type RegionListOptions struct {
+	}
+	shellutils.R(&RegionListOptions{}, "region-list", "List regions", func(cli *ctyun.SRegion, args *RegionListOptions) error {
+		regions := cli.GetClient().GetRegions()
+		printList(regions, 0, 0, 0, nil)
+		return nil
+	})
+}

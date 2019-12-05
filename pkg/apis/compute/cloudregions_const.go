@@ -37,6 +37,23 @@ const (
 	CITY_KAOHSIUNG     = "Kaohsiung"   //高雄市
 	CITY_CHENG_DU      = "Chengdu"     //成都
 	CITY_CHONG_QING    = "Chongqing"   //重庆
+	CITY_LAN_ZHOU      = "Lanzhou"     //兰州
+	CITY_TAI_YUAN      = "Taiyuan"     //太原
+	CITY_TIAN_JIN      = "Tianjin"     //天津
+	CITY_WU_LU_MU_QI   = "Wulumuqi"    //乌鲁木齐
+	CITY_NAN_NING      = "Nanning"     //南宁
+	CITY_ZHENG_ZHOU    = "Zhengzhou"   //郑州
+	CITY_KUN_MING      = "Kunming"     //昆明
+	CITY_XI_AN         = "Xian"        //西安
+	CITY_HAI_KOU       = "Haikou"      //海口
+	CITY_WU_HU         = "Wuhu"        //芜湖
+	CITY_FU_ZHOU       = "Fuzhou"      //福州
+	CITY_WU_HAN        = "Wuhan"       //武汉
+	CITY_CHANG_SHA     = "Changsha"    //长沙
+	CITY_SHU_ZHOU      = "Shuzhou"     //苏州
+	CITY_BAO_DING      = "Baoding"     //保定
+	CITY_NAN_JING      = "Nanjing"     //南京
+	CITY_FO_SHAN       = "Foshan"      //佛山
 
 	// 日本
 	CITY_TOKYO = "Tokyo" //东京

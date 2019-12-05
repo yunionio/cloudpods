@@ -236,6 +236,17 @@ func init() {
 		return nil
 	})
 
+	R(&options.SCtyunCloudAccountCreateOptions{}, "cloud-account-create-ctyun", "Create a Ctyun cloud account", func(s *mcclient.ClientSession, args *options.SCtyunCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ctyun"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudaccountUpdateOptions struct {
 		ID        string `help:"ID or Name of cloud account"`
 		Name      string `help:"New name to update"`
@@ -401,6 +412,19 @@ func init() {
 	})
 
 	R(&options.SS3CloudAccountUpdateOptions{}, "cloud-account-update-s3", "update a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SCtyunCloudAccountUpdateOptions{}, "cloud-account-update-ctyun", "update a Ctyun cloud account", func(s *mcclient.ClientSession, args *options.SCtyunCloudAccountUpdateOptions) error {
 		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 		if params.Size() == 0 {
 			return InvalidUpdateError()
@@ -588,6 +612,16 @@ func init() {
 	})
 
 	R(&options.SS3CloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-s3", "Update credential of a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SCtyunCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-ctyun", "Update credential of an Ctyun cloud account", func(s *mcclient.ClientSession, args *options.SCtyunCloudAccountUpdateCredentialOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
 		if err != nil {

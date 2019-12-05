@@ -12,4 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell // import "yunion.io/x/onecloud/pkg/multicloud/google/shell"
+package shell
+
+import "yunion.io/x/onecloud/pkg/util/printutils"
+
+func printList(data interface{}, total, offset, limit int, columns []string) {
+	printutils.PrintInterfaceList(data, total, offset, limit, columns)
+}
+
+func printObject(obj interface{}) {
+	printutils.PrintInterfaceObject(obj)
+}
