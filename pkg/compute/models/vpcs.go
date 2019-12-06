@@ -226,6 +226,12 @@ func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict 
 	return extra
 }
 
+func (self *SVpc) getCloudProviderInfoV2() api.CloudproviderDetails {
+	region, _ := self.GetRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfoV2(region, nil, provider)
+}
+
 func (self *SVpc) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()

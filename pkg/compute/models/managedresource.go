@@ -198,6 +198,39 @@ func splitProviders(providers []string) (bool, []string) {
 	return oneCloud, others
 }
 
+func filterByProviderStrsV2(q *sqlchemy.SQuery, filterField string, subqFunc func() *sqlchemy.SQuery, fieldName string, providerStrs []string) *sqlchemy.SQuery {
+	oneCloud, providers := splitProviders(providerStrs)
+	sq := q
+	if len(filterField) > 0 {
+		sq = subqFunc()
+	}
+	filters := make([]sqlchemy.ICondition, 0)
+	if len(providers) > 0 {
+		account := CloudaccountManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		subq := providers.Query(providers.Field("id"))
+		subq = subq.Join(account, sqlchemy.Equals(
+			account.Field("id"), providers.Field("cloudaccount_id"),
+		))
+		subq = subq.Filter(sqlchemy.In(account.Field(fieldName), providerStrs))
+		filters = append(filters, sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()))
+	}
+	if oneCloud {
+		filters = append(filters, sqlchemy.IsNullOrEmpty(sq.Field("manager_id")))
+	}
+	if len(filters) == 1 {
+		sq = sq.Filter(filters[0])
+	} else if len(filters) > 1 {
+		sq = sq.Filter(sqlchemy.OR(filters...))
+	}
+	if len(filterField) == 0 {
+		q = sq
+	} else {
+		q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+	}
+	return q
+}
+
 func filterByProviderStrs(q *sqlchemy.SQuery, queryDict *jsonutils.JSONDict, filterField string, subqFunc func() *sqlchemy.SQuery, fieldName string, providerStrs []string) *sqlchemy.SQuery {
 	queryDict.Remove(fieldName)
 	oneCloud, providers := splitProviders(providerStrs)
@@ -231,6 +264,54 @@ func filterByProviderStrs(q *sqlchemy.SQuery, queryDict *jsonutils.JSONDict, fil
 		queryDict.Remove(filterField)
 	}
 	return q
+}
+
+func managedResourceFilterByAccountV2(q *sqlchemy.SQuery, input *api.CloudaccountListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+
+	if len(input.Cloudprovider) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, input.Cloudprovider)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), input.Cloudprovider)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if len(input.Cloudaccount) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, input.Cloudaccount)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), input.Cloudaccount)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if len(input.Providers) > 0 {
+		q = filterByProviderStrsV2(q, filterField, subqFunc, "provider", input.Providers)
+	}
+
+	if len(input.Brands) > 0 {
+		q = filterByProviderStrsV2(q, filterField, subqFunc, "brand", input.Brands)
+	}
+
+	return q, nil
 }
 
 func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
@@ -396,6 +477,61 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 	return q
 }
 
+func managedResourceFilterByCloudTypeV2(q *sqlchemy.SQuery, input *api.CloudTypeListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
+
+	if input.CloudEnv == api.CLOUD_ENV_PUBLIC_CLOUD {
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if input.CloudEnv == api.CLOUD_ENV_PRIVATE_CLOUD {
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if input.CloudEnv == api.CLOUD_ENV_ON_PREMISE {
+		if len(filterField) == 0 {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+				),
+			)
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
+				),
+			)
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if input.IsManaged {
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.IsNotEmpty(q.Field("manager_id")))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.IsNotEmpty(sq.Field("manager_id")))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	return q
+}
+
 type SCloudProviderInfo struct {
 	Provider         string `json:",omitempty"`
 	Brand            string `json:",omitempty"`
@@ -409,6 +545,7 @@ type SCloudProviderInfo struct {
 	ManagerDomainId  string `json:",omitempty"`
 	Region           string `json:",omitempty"`
 	RegionId         string `json:",omitempty"`
+	CloudregionId    string `json:",omitempty"`
 	RegionExternalId string `json:",omitempty"`
 	RegionExtId      string `json:",omitempty"`
 	Zone             string `json:",omitempty"`
@@ -447,6 +584,58 @@ func fetchExternalId(extId string) string {
 	}
 }
 
+func MakeCloudProviderInfoV2(region *SCloudregion, zone *SZone, provider *SCloudprovider) api.CloudproviderDetails {
+	info := api.CloudproviderDetails{}
+
+	if zone != nil {
+		info.Zone = zone.GetName()
+		info.ZoneId = zone.GetId()
+	}
+
+	if region != nil {
+		info.Region = region.GetName()
+		info.RegionId = region.GetId()
+		info.CloudregionId = region.GetId()
+	}
+
+	if provider != nil {
+		info.Manager = provider.GetName()
+		info.ManagerId = provider.GetId()
+
+		if len(provider.ProjectId) > 0 {
+			info.ManagerProjectId = provider.ProjectId
+			tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
+			if err == nil {
+				info.ManagerProject = tc.GetName()
+				info.ManagerDomain = tc.Domain
+				info.ManagerDomainId = tc.DomainId
+			}
+		}
+
+		account := provider.GetCloudaccount()
+		info.Account = account.GetName()
+		info.AccountId = account.GetId()
+
+		info.Provider = provider.Provider
+		info.Brand = account.Brand
+		info.CloudEnv = account.getCloudEnv()
+
+		if region != nil {
+			info.RegionExternalId = region.ExternalId
+			info.RegionExtId = fetchExternalId(region.ExternalId)
+			if zone != nil {
+				info.ZoneExtId = fetchExternalId(zone.ExternalId)
+			}
+		}
+	} else {
+		info.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+		info.Provider = api.CLOUD_PROVIDER_ONECLOUD
+		info.Brand = api.CLOUD_PROVIDER_ONECLOUD
+	}
+
+	return info
+}
+
 func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudProviderInfo {
 	info := SCloudProviderInfo{}
 
@@ -458,6 +647,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 	if region != nil {
 		info.Region = region.GetName()
 		info.RegionId = region.GetId()
+		info.CloudregionId = region.GetId()
 	}
 
 	if provider != nil {
