@@ -169,3 +169,9 @@ func NewDevtoolManager(keyword, keywordPlural string, columns, adminColumns []st
 		BaseManager: *modulebase.NewBaseManager("devtool", "", "", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
+
+func NewCloudeventManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
+	return modulebase.ResourceManager{
+		BaseManager: *modulebase.NewBaseManager("cloudevent", "", "", columns, adminColumns),
+		Keyword:     keyword, KeywordPlural: keywordPlural}
+}
