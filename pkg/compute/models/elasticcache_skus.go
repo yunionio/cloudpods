@@ -147,12 +147,6 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 
 func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	data := query.(*jsonutils.JSONDict)
-	brands := jsonutils.GetQueryStringArray(query, "brand")
-	if len(brands) > 0 {
-		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
-		data.Remove("brand")
-	}
-
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, data)
 	if err != nil {
 		return nil, err
@@ -160,8 +154,8 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, true)
-		q = q.Equals("postpaid_status", "available")
-		q = q.Equals("prepaid_status", "available")
+		q = q.NotEquals("postpaid_status", api.SkuStatusSoldout)
+		q = q.NotEquals("prepaid_status", api.SkuStatusSoldout)
 	}
 
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
@@ -273,4 +267,119 @@ func (self *SElasticcacheSku) syncWithCloudSku(ctx context.Context, userCred mcc
 
 func (manager *SElasticcacheSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SElasticcacheSku) error {
 	return manager.TableSpec().Insert(&extSku)
+}
+
+func (manager *SElasticcacheSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := manager.Query("memory_size_mb")
+	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	q = q.GroupBy(q.Field("memory_size_mb")).Asc(q.Field("memory_size_mb")).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+
+	mems := map[int]bool{}
+	mems_mb := jsonutils.NewArray()
+	defer rows.Close()
+	for rows.Next() {
+		var ms int
+		err := rows.Scan(&ms)
+		if err == nil {
+			if _, exist := mems[ms]; !exist {
+				if ms > 0 {
+					mems_mb.Add(jsonutils.NewInt(int64(ms)))
+				}
+				mems[ms] = true
+			}
+		} else {
+			log.Debugf("SElasticcacheSkuManager.GetPropertyInstanceSpecs %s", err)
+		}
+	}
+
+	ret := jsonutils.NewDict()
+	ret.Add(mems_mb, "mems_mb")
+	return ret, nil
+}
+
+func (manager *SElasticcacheSkuManager) AllowGetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SElasticcacheSkuManager) GetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := manager.Query("engine", "engine_version", "local_category", "node_type", "performance_type")
+	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	f1 := q.Field("engine")
+	f2 := q.Field("engine_version")
+	f3 := q.Field("local_category")
+	f4 := q.Field("node_type")
+	f5 := q.Field("performance_type")
+	q = q.GroupBy(f1, f2, f3, f4, f5).Asc(f1, f2, f3, f4, f5)
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+
+	var addNode func(src *jsonutils.JSONDict, keys ...string)
+	// keys至少2位，最后一位为叶子节点
+	addNode = func(src *jsonutils.JSONDict, keys ...string) {
+		length := len(keys)
+		if length < 2 {
+			return
+		}
+
+		if length == 2 {
+			if t, err := src.Get(keys[0]); err != nil {
+				n := jsonutils.NewArray()
+				n.Add(jsonutils.NewString(keys[1]))
+				src.Set(keys[0], n)
+			} else {
+				t.(*jsonutils.JSONArray).Add(jsonutils.NewString(keys[1]))
+			}
+
+			return
+		}
+
+		var temp *jsonutils.JSONDict
+		if t, err := src.Get(keys[0]); err != nil {
+			temp = jsonutils.NewDict()
+			src.Set(keys[0], temp)
+		} else {
+			temp = t.(*jsonutils.JSONDict)
+		}
+
+		nkeys := keys[1:]
+		addNode(temp, nkeys...)
+	}
+
+	result := jsonutils.NewDict()
+	defer rows.Close()
+	for rows.Next() {
+		var engine, version, category, node, performance string
+		err := rows.Scan(&engine, &version, &category, &node, &performance)
+		if err != nil {
+			log.Debugf("SElasticcacheSkuManager.GetPropertyCapability %s", err)
+			continue
+		}
+
+		switch engine {
+		case "redis":
+			addNode(result, engine, version, category, node, performance)
+		case "memcached":
+			addNode(result, engine, category)
+		}
+	}
+
+	return result, nil
 }

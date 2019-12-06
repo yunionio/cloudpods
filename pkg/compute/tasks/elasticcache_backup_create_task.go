@@ -64,6 +64,6 @@ func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateComplete(ctx
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateCompleteFailed(ctx context.Context, eb *models.SElasticcacheBackup, reason string) {
-	self.taskFail(ctx, eb, reason)
+func (self *ElasticcacheBackupCreateTask) OnElasticcacheBackupCreateCompleteFailed(ctx context.Context, eb *models.SElasticcacheBackup, data jsonutils.JSONObject) {
+	self.taskFail(ctx, eb, data.String())
 }
