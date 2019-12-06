@@ -21,9 +21,14 @@ type StandaloneResourceShortDescDetail struct {
 	Name string `json:"name"`
 }
 
+type STag struct {
+	Key   string
+	Value string
+}
+
 type StandaloneResourceListInput struct {
 	ModelBaseListInput
 
-	Tags            []string `json:"tags"`
-	WithoutUserMeta bool     `json:"without_user_meta"`
+	Tags            []STag `json:"tags"`
+	WithoutUserMeta bool   `json:"without_user_meta"`
 }
