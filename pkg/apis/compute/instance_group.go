@@ -26,7 +26,7 @@ type InstanceGroupListInput struct {
 	// Filter by zone id
 	ZoneId string `json:"zone_id"`
 	// Filter by guest id or name
-	Guest string `json:"guest"`
+	Server string `json:"server"`
 }
 
 type InstanceGroupDetail struct {

@@ -75,7 +75,7 @@ type SGroup struct {
 
 func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	input *api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
-	guestFilter := input.Guest
+	guestFilter := input.Server
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
 		if err != nil {
