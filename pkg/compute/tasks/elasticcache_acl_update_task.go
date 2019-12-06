@@ -37,6 +37,7 @@ func init() {
 }
 
 func (self *ElasticcacheAclUpdateTask) taskFail(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
+	ea.SetStatus(self.GetUserCred(), api.ELASTIC_CACHE_ACL_STATUS_UPDATE_FAILED, reason)
 	db.OpsLog.LogEvent(ea, db.ACT_UPDATE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, ea, logclient.ACT_UPDATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(ea.Id, ea.Name, api.ELASTIC_CACHE_ACL_STATUS_UPDATE_FAILED, reason)
@@ -63,6 +64,6 @@ func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateComplete(ctx conte
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAcl, reason string) {
-	self.taskFail(ctx, ea, reason)
+func (self *ElasticcacheAclUpdateTask) OnElasticcacheAclUpdateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAcl, data jsonutils.JSONObject) {
+	self.taskFail(ctx, ea, data.String())
 }
