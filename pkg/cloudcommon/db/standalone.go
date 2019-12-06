@@ -131,75 +131,14 @@ func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient
 	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
-type STagValue struct {
-	value string
-	exist bool
-}
-
 func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	input := &apis.StandaloneResourceListInput{}
+	err := query.Unmarshal(input)
 	if err != nil {
-		return q, err
+		return nil, httperrors.NewInputParameterError("invalid input error: %v", err)
 	}
 
-	tags := map[string]STagValue{}
-	if query.Contains("tags") {
-		idx := 0
-		for {
-			key, _ := query.GetString("tags", fmt.Sprintf("%d", idx), "key")
-			if len(key) == 0 {
-				break
-			}
-			value := STagValue{exist: false}
-			if query.Contains("tags", fmt.Sprintf("%d", idx), "value") {
-				value.value, _ = query.GetString("tags", fmt.Sprintf("%d", idx), "value")
-				value.exist = true
-			}
-			tags[key] = value
-			idx++
-		}
-	}
-
-	if len(tags) > 0 {
-		metadataView := Metadata.Query()
-		idx := 0
-		for k, v := range tags {
-			if idx == 0 {
-				metadataView = metadataView.Equals("key", k)
-				if v.exist {
-					metadataView = metadataView.Equals("value", v.value)
-				}
-			} else {
-				subMetataView := Metadata.Query().Equals("key", k)
-				if v.exist {
-					subMetataView = subMetataView.Equals("value", v.value)
-				}
-				sq := subMetataView.SubQuery()
-				metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
-			}
-			idx++
-		}
-		metadatas := metadataView.SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("id"), manager.Keyword()+"::%")).Distinct()
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
-	}
-
-	if withoutUserMeta, _ := query.Bool("without_user_meta"); withoutUserMeta {
-		metadatas := Metadata.Query().SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("key"), USER_TAG_PREFIX+"%")).Distinct()
-
-		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
-	}
-
-	return q, nil
+	return manager.ListItemFilterV2(ctx, q, userCred, input)
 }
 
 func (manager *SStandaloneResourceBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
@@ -208,25 +147,34 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilterV2(ctx context.Cont
 		return q, err
 	}
 
-	metadataView := Metadata.Query()
-	for idx, tag := range input.Tags {
-		tagInfo := strings.Split(tag, "=")
-		key, value := tagInfo[0], ""
-		if len(tagInfo) == 2 {
-			value = tagInfo[1]
+	tags := map[string][]string{}
+	for _, tag := range input.Tags {
+		if _, ok := tags[tag.Key]; !ok {
+			tags[tag.Key] = []string{}
 		}
-		if idx == 0 {
-			metadataView = metadataView.Equals("key", key)
-			if len(value) > 0 {
-				metadataView = metadataView.Equals("value", value)
+		if len(tag.Value) > 0 && !utils.IsInStringArray(tag.Value, tags[tag.Key]) {
+			tags[tag.Key] = append(tags[tag.Key], tag.Value)
+		}
+	}
+
+	if len(tags) > 0 {
+		metadataView := Metadata.Query()
+		idx := 0
+		for key, values := range tags {
+			if idx == 0 {
+				metadataView = metadataView.Equals("key", key)
+				if len(values) > 0 {
+					metadataView = metadataView.In("value", values)
+				}
+			} else {
+				subMetataView := Metadata.Query().Equals("key", key)
+				if len(values) > 0 {
+					subMetataView = subMetataView.In("value", values)
+				}
+				sq := subMetataView.SubQuery()
+				metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
 			}
-		} else {
-			subMetataView := Metadata.Query().Equals("key", key)
-			if len(value) > 0 {
-				subMetataView = subMetataView.Equals("value", value)
-			}
-			sq := subMetataView.SubQuery()
-			metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
+			idx++
 		}
 		metadatas := metadataView.SubQuery()
 		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
