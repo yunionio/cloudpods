@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -201,6 +202,55 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 	return q, nil
 }
 
+func (manager *SStandaloneResourceBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilterV2(ctx, q, userCred, &input.ModelBaseListInput)
+	if err != nil {
+		return q, err
+	}
+
+	metadataView := Metadata.Query()
+	for idx, tag := range input.Tags {
+		tagInfo := strings.Split(tag, "=")
+		key, value := tagInfo[0], ""
+		if len(tagInfo) == 2 {
+			value = tagInfo[1]
+		}
+		if idx == 0 {
+			metadataView = metadataView.Equals("key", key)
+			if len(value) > 0 {
+				metadataView = metadataView.Equals("value", value)
+			}
+		} else {
+			subMetataView := Metadata.Query().Equals("key", key)
+			if len(value) > 0 {
+				subMetataView = subMetataView.Equals("value", value)
+			}
+			sq := subMetataView.SubQuery()
+			metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
+		}
+		metadatas := metadataView.SubQuery()
+		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
+		metadataSQ := metadatas.Query(
+			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
+		)
+		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("id"), manager.Keyword()+"::%")).Distinct()
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+	}
+
+	if input.WithoutUserMeta {
+		metadatas := Metadata.Query().SubQuery()
+		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
+		metadataSQ := metadatas.Query(
+			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
+		)
+		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("key"), USER_TAG_PREFIX+"%")).Distinct()
+
+		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+	}
+
+	return q, nil
+}
+
 func (model *SStandaloneResourceBase) StandaloneModelManager() IStandaloneModelManager {
 	return model.GetModelManager().(IStandaloneModelManager)
 }
@@ -224,6 +274,14 @@ func (model *SStandaloneResourceBase) GetShortDesc(ctx context.Context) *jsonuti
 	/*if len(model.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(model.ExternalId), "external_id")
 	}*/
+	return desc
+}
+
+func (model *SStandaloneResourceBase) GetShortDescV2(ctx context.Context) *apis.StandaloneResourceShortDescDetail {
+	desc := &apis.StandaloneResourceShortDescDetail{}
+	desc.ModelBaseShortDescDetail = *model.SResourceBase.GetShortDescV2(ctx)
+	desc.Name = model.GetName()
+	desc.Id = model.GetId()
 	return desc
 }
 

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -118,6 +119,10 @@ func (manager *SModelBaseManager) ValidateListConditions(ctx context.Context, us
 }
 
 func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return q, nil
+}
+
+func (manager *SModelBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.ModelBaseListInput) (*sqlchemy.SQuery, error) {
 	return q, nil
 }
 
@@ -415,6 +420,10 @@ func (model *SModelBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
+func (model *SModelBase) GetShortDescV2(ctx context.Context) *apis.ModelBaseShortDescDetail {
+	return &apis.ModelBaseShortDescDetail{ResName: model.Keyword()}
+}
+
 // list hooks
 func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := jsonutils.NewDict()
@@ -424,6 +433,22 @@ func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mccli
 // get hooks
 func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
+}
+
+func (model *SModelBase) GetExtraDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out *apis.ModelBaseDetails) error {
+	out.CanDelete = true
+	out.CanUpdate = true
+	err := model.GetIModel().ValidateDeleteCondition(ctx)
+	if err != nil {
+		out.CanDelete = false
+		out.DeleteFailReason = err.Error()
+	}
+	err = model.GetIModel().ValidateUpdateCondition(ctx)
+	if err != nil {
+		out.CanUpdate = false
+		out.UpdateFailReason = err.Error()
+	}
+	return nil
 }
 
 func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
