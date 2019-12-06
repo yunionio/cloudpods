@@ -439,6 +439,23 @@ func (self *SVirtualMachine) SuspendVM(ctx context.Context) error {
 	return task.Wait(ctx)
 }
 
+func (self *SVirtualMachine) ResumeVM(ctx context.Context) error {
+	if self.GetStatus() == api.VM_RUNNING {
+		return nil
+	}
+	vm := self.getVmObj()
+
+	task, err := vm.PowerOn(ctx)
+	if err != nil {
+		return errors.Wrap(err, "VM.PowerOn")
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Task.Wait after VM.PowerOn")
+	}
+	return nil
+}
+
 func (self *SVirtualMachine) poweroffVM(ctx context.Context) error {
 	vm := self.getVmObj()
 

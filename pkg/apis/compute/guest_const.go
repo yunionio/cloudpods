@@ -59,6 +59,9 @@ const (
 	VM_SUSPEND        = "suspend"
 	VM_SUSPEND_FAILED = "suspend_failed"
 
+	VM_RESUMING      = "resuming"
+	VM_RESUME_FAILED = "resume_failed"
+
 	VM_START_DELETE = "start_delete"
 	VM_DELETE_FAIL  = "delete_fail"
 	VM_DELETING     = "deleting"
