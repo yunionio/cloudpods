@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -84,6 +85,45 @@ func (v SecurityGroupRuleSet) Less(i, j int) bool {
 		return strings.Compare(v[i].String(), v[j].String()) <= 0
 	}
 	return false
+}
+
+func (manager *SSecurityGroupRuleManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("secgroup_id")
+	return parentId
+}
+
+func (manager *SSecurityGroupRuleManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("secgroup_id", parentId)
+	}
+	return q
+}
+
+func (manager *SSecurityGroupRuleManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	parentId := manager.FetchParentId(ctx, data)
+	if len(parentId) > 0 {
+		secgroup, err := db.FetchById(SecurityGroupManager, parentId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.FetchById(SecurityGroupManager, %s)", parentId)
+		}
+		return secgroup.(*SSecurityGroup).GetOwnerId(), nil
+	}
+	return nil, nil
+}
+
+func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := SecurityGroupManager.Query("id")
+		ssq := SecurityGroupManager.FilterByOwner(sq, userCred, scope)
+		switch scope {
+		case rbacutils.ScopeProject:
+			return q.In("secgroup_id", ssq.SubQuery())
+		case rbacutils.ScopeDomain:
+			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+			return q.In("secgroup_id", ssq.SubQuery())
+		}
+	}
+	return q
 }
 
 func (manager *SSecurityGroupRuleManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -160,6 +200,12 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 	err = secgroupV.Validate(data)
 	if err != nil {
 		return nil, err
+	}
+
+	secgroup := secgroupV.Model.(*SSecurityGroup)
+
+	if !secgroup.IsOwner(userCred) && !userCred.HasSystemAdminPrivilege() {
+		return nil, httperrors.NewForbiddenError("not enough privilege")
 	}
 
 	input := &api.SSecgroupRuleCreateInput{}
