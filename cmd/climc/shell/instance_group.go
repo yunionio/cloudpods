@@ -29,7 +29,7 @@ func init() {
 		ServiceType string `help:"Service Type"`
 		ParentId    string `help:"Parent ID"`
 		ZoneId      string `help:"Zone ID"`
-		Guest       string `help:"Guest ID or Name"`
+		Server      string `help:"Guest ID or Name"`
 	}
 
 	R(&InstanceGroupListOptions{}, "instance-group-list", "List instance group", func(s *mcclient.ClientSession,
