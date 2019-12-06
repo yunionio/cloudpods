@@ -72,6 +72,10 @@ const (
 	ACT_STOP      = "stop"
 	ACT_STOP_FAIL = "stop_fail"
 
+	ACT_RESUMING    = "resuming"
+	ACT_RESUME      = "resume"
+	ACT_RESUME_FAIL = "resume_fail"
+
 	ACT_RESIZING    = "resizing"
 	ACT_RESIZE      = "resize"
 	ACT_RESIZE_FAIL = "resize_fail"

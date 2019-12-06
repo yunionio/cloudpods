@@ -145,6 +145,9 @@ type IGuestDriver interface {
 	StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 	RqeuestSuspendOnHost(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
+	StartResumeTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
+	RqeuestResumeOnHost(ctx context.Context, guest *SGuest, task taskman.ITask) error
+
 	AllowReconfigGuest() bool
 	DoGuestCreateDisksTask(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error

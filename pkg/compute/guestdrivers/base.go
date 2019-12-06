@@ -168,6 +168,10 @@ func (self *SBaseGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *m
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) RqeuestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error {
 	return fmt.Errorf("Not Implement")
 }

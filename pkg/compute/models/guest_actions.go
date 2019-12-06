@@ -749,6 +749,26 @@ func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.Toke
 	return self.GetDriver().StartSuspendTask(ctx, userCred, self, nil, parentTaskId)
 }
 
+func (self *SGuest) AllowPerformResume(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "resume")
+}
+
+func (self *SGuest) PerformResume(ctx context.Context, userCred mcclient.TokenCredential, query struct{}, data struct{}) (jsonutils.JSONObject, error) {
+	if self.Status == api.VM_SUSPEND {
+		err := self.StartResumeTask(ctx, userCred, "")
+		return nil, err
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot resume VM in status %s", self.Status)
+}
+
+func (self *SGuest) StartResumeTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	err := self.SetStatus(userCred, api.VM_RESUMING, "do resume")
+	if err != nil {
+		return err
+	}
+	return self.GetDriver().StartResumeTask(ctx, userCred, self, nil, parentTaskId)
+}
+
 func (self *SGuest) AllowPerformStart(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
