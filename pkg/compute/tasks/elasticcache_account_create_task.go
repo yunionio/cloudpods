@@ -64,6 +64,6 @@ func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateComplete(c
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAccount, reason string) {
-	self.taskFail(ctx, ea, reason)
+func (self *ElasticcacheAccountCreateTask) OnElasticcacheAccountCreateCompleteFailed(ctx context.Context, ea *models.SElasticcacheAccount, data jsonutils.JSONObject) {
+	self.taskFail(ctx, ea, data.String())
 }
