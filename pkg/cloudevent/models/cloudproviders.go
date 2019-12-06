@@ -56,16 +56,16 @@ func init() {
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	HealthStatus  string
+	HealthStatus  string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
 	SyncStatus    string
 	LastSync      time.Time
 	LastSyncEndAt time.Time
 
-	AccessUrl string
-	Account   string
-	Secret    string
+	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
+	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain"`
+	Secret    string `length:"0" charset:"ascii" nullable:"false" list:"domain"`
 
-	Provider string
+	Provider string `width:"64" charset:"ascii" list:"domain"`
 }
 
 func (manager *SCloudproviderManager) GetRegionCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudprovider, error) {
