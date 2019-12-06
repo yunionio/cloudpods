@@ -159,9 +159,10 @@ type ServerCreateInput struct {
 
 	*ServerConfigs
 
-	VmemSize  int    `json:"vmem_size"`
-	VcpuCount int    `json:"vcpu_count"`
-	UserData  string `json:"user_data"`
+	VmemSize  int               `json:"vmem_size"`
+	VcpuCount int               `json:"vcpu_count"`
+	UserData  string            `json:"user_data"`
+	Metadata  map[string]string `json:"metadata"`
 
 	KeypairId string `json:"keypair_id"`
 	Password  string `json:"password"`
