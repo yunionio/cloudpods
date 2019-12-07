@@ -34,7 +34,7 @@ type SResourceBase struct {
 	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
 	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true" list:"user"`
 	DeletedAt     time.Time ``
-	Deleted       bool      `nullable:"false" default:"false"`
+	Deleted       bool      `nullable:"false" default:"false" list:"admin"`
 }
 
 type SResourceBaseManager struct {

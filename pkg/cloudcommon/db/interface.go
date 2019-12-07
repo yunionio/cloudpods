@@ -63,6 +63,7 @@ type IModelManager interface {
 
 	// fetch hook
 	Query(val ...string) *sqlchemy.SQuery
+	RawQuery(val ...string) *sqlchemy.SQuery
 
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery

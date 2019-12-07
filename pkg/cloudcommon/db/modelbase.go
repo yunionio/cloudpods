@@ -149,6 +149,10 @@ func (manager *SModelBaseManager) Query(fieldNames ...string) *sqlchemy.SQuery {
 	return instance.Query(fields...)
 }
 
+func (manager *SModelBaseManager) RawQuery(fieldNames ...string) *sqlchemy.SQuery {
+	return manager.Query(fieldNames...)
+}
+
 func (manager *SModelBaseManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q
 }
