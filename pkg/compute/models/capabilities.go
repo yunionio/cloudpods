@@ -35,24 +35,28 @@ import (
 )
 
 type SCapabilities struct {
-	Hypervisors         []string `json:",allowempty"`
-	Brands              []string `json:",allowempty"`
-	ComputeEngineBrands []string `json:",allowempty"`
-	NetworkManageBrands []string `json:",allowempty"`
-	ObjectStorageBrands []string `json:",allowempty"`
-	ResourceTypes       []string `json:",allowempty"`
-	StorageTypes        []string `json:",allowempty"`
-	DataStorageTypes    []string `json:",allowempty"`
-	GPUModels           []string `json:",allowempty"`
-	MinNicCount         int
-	MaxNicCount         int
-	MinDataDiskCount    int
-	MaxDataDiskCount    int
-	SchedPolicySupport  bool
-	Usable              bool
-	PublicNetworkCount  int
-	DBInstance          map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
-	Specs               jsonutils.JSONObject
+	Hypervisors                 []string `json:",allowempty"`
+	Brands                      []string `json:",allowempty"`
+	DisabledBrands              []string `json:",allowempty"`
+	ComputeEngineBrands         []string `json:",allowempty"`
+	DisabledComputeEngineBrands []string `json:",allowempty"`
+	NetworkManageBrands         []string `json:",allowempty"`
+	DisabledNetworkManageBrands []string `json:",allowempty"`
+	ObjectStorageBrands         []string `json:",allowempty"`
+	DisabledObjectStorageBrands []string `json:",allowempty"`
+	ResourceTypes               []string `json:",allowempty"`
+	StorageTypes                []string `json:",allowempty"`
+	DataStorageTypes            []string `json:",allowempty"`
+	GPUModels                   []string `json:",allowempty"`
+	MinNicCount                 int
+	MaxNicCount                 int
+	MinDataDiskCount            int
+	MaxDataDiskCount            int
+	SchedPolicySupport          bool
+	Usable                      bool
+	PublicNetworkCount          int
+	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
+	Specs                       jsonutils.JSONObject
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -81,8 +85,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
-	var a, c, n, o = getBrands(region, zone, domainId, capa.Hypervisors)
-	capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
+	getBrands(region, zone, domainId, &capa)
+	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
 	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
 	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
@@ -183,10 +187,9 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 	return result
 }
 
-// return all brands, compute engine brands, network manage brands, object storage brands
-func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string,
-) ([]string, []string, []string, []string) {
-	q := CloudaccountManager.Query().IsTrue("enabled")
+// set all brands, compute engine brands, network manage brands, object storage brands
+func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabilities) {
+	q := CloudaccountManager.Query()
 	providers := CloudproviderManager.Query().SubQuery()
 	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
 	if zone != nil {
@@ -211,21 +214,49 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors [
 		))
 	}
 	cloudAccounts := make([]SCloudaccount, 0)
-	err := q.GroupBy("brand").All(&cloudAccounts)
+	err := q.All(&cloudAccounts)
 	if err != nil {
 		log.Errorf("get brands failed %s", err)
-		return nil, nil, nil, nil
+		return
 	}
 
+	enabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
+	disabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
+	for i := 0; i < len(cloudAccounts); i++ {
+		if _, ok := enabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
+			continue
+		} else if _, ok := disabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
+			if cloudAccounts[i].Enabled {
+				delete(disabledBrandAccountMap, cloudAccounts[i].Brand)
+				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
+			}
+			continue
+		} else {
+			if cloudAccounts[i].Enabled {
+				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
+			} else {
+				disabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
+			}
+		}
+	}
+	b, c, n, o := getBrandsFromBrandAccountMap(enabledBrandAccountMap, capa.Hypervisors, true)
+	capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = b, c, n, o
+	b, c, n, o = getBrandsFromBrandAccountMap(disabledBrandAccountMap, capa.Hypervisors, false)
+	capa.DisabledBrands, capa.DisabledComputeEngineBrands, capa.DisabledNetworkManageBrands, capa.DisabledObjectStorageBrands = b, c, n, o
+	return
+}
+
+func getBrandsFromBrandAccountMap(bam map[string]*SCloudaccount, hypervisors []string, enabled bool,
+) ([]string, []string, []string, []string) {
 	var (
 		brands              []string = make([]string, 0)
 		computeEngineBrands []string
 		networkManageBrands []string
 		objectStorageBrands []string
 	)
-	for i := 0; i < len(cloudAccounts); i++ {
-		brands = append(brands, cloudAccounts[i].Brand)
-		factory, err := cloudAccounts[i].GetProviderFactory()
+	for brand, cloudAccount := range bam {
+		brands = append(brands, brand)
+		factory, err := cloudAccount.GetProviderFactory()
 		if err != nil {
 			log.Errorln(err)
 			continue
@@ -234,36 +265,39 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors [
 			if computeEngineBrands == nil {
 				computeEngineBrands = make([]string, 0)
 			}
-			computeEngineBrands = append(computeEngineBrands, cloudAccounts[i].Brand)
+			computeEngineBrands = append(computeEngineBrands, brand)
 		}
 		if factory.IsSupportNetworkManage() {
 			if networkManageBrands == nil {
 				networkManageBrands = make([]string, 0)
 			}
-			networkManageBrands = append(networkManageBrands, cloudAccounts[i].Brand)
+			networkManageBrands = append(networkManageBrands, brand)
 		}
 		if factory.IsSupportObjectStorage() {
 			if objectStorageBrands == nil {
 				objectStorageBrands = make([]string, 0)
 			}
-			objectStorageBrands = append(objectStorageBrands, cloudAccounts[i].Brand)
+			objectStorageBrands = append(objectStorageBrands, brand)
 		}
 	}
 
-	for _, hyper := range api.ONECLOUD_HYPERVISORS {
-		if utils.IsInStringArray(hyper, hypervisors) {
-			brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
-			if computeEngineBrands == nil {
-				computeEngineBrands = make([]string, 0)
+	if enabled {
+		for _, hyper := range api.ONECLOUD_HYPERVISORS {
+			if utils.IsInStringArray(hyper, hypervisors) {
+				brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
+				if computeEngineBrands == nil {
+					computeEngineBrands = make([]string, 0)
+				}
+				computeEngineBrands = append(computeEngineBrands, api.CLOUD_PROVIDER_ONECLOUD)
+				if networkManageBrands == nil {
+					networkManageBrands = make([]string, 0)
+				}
+				networkManageBrands = append(networkManageBrands, api.CLOUD_PROVIDER_ONECLOUD)
+				break
 			}
-			computeEngineBrands = append(computeEngineBrands, api.CLOUD_PROVIDER_ONECLOUD)
-			if networkManageBrands == nil {
-				networkManageBrands = make([]string, 0)
-			}
-			networkManageBrands = append(networkManageBrands, api.CLOUD_PROVIDER_ONECLOUD)
-			break
 		}
 	}
+
 	return brands, computeEngineBrands, networkManageBrands, objectStorageBrands
 }
 
