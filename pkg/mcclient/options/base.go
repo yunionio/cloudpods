@@ -199,8 +199,9 @@ type BaseListOptions struct {
 	Scope         string   `help:"resource scope" choices:"system|domain|project|user"`
 
 	System           *bool `help:"Show system resource"`
-	PendingDelete    *bool `help:"Show only pending deleted resource"`
-	PendingDeleteAll *bool `help:"Show all resources including pending deleted" json:"-"`
+	PendingDelete    *bool `help:"Show only pending deleted resources"`
+	PendingDeleteAll *bool `help:"Show also pending-deleted resources" json:"-"`
+	DeleteAll        *bool `help:"Show also deleted resources" json:"-"`
 	ShowEmulated     *bool `help:"Show all resources including the emulated resources"`
 
 	ExportFile  string `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
@@ -247,6 +248,9 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	if len(opts.Filter) == 0 {
 		params.Remove("filter_any")
+	}
+	if BoolV(opts.DeleteAll) {
+		params.Set("delete", jsonutils.NewString("all"))
 	}
 	if BoolV(opts.PendingDeleteAll) {
 		params.Set("pending_delete", jsonutils.NewString("all"))
