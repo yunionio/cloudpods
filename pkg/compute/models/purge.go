@@ -147,7 +147,12 @@ func (disk *SDisk) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	lockman.LockObject(ctx, disk)
 	defer lockman.ReleaseObject(ctx, disk)
 
-	err := disk.ValidatePurgeCondition(ctx)
+	err := disk.DetachAllSnapshotpolicies(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "disk.DetachAllSnapshotpolicies")
+	}
+
+	err = disk.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}

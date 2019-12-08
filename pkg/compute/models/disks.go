@@ -355,6 +355,11 @@ func (self *SDisk) GetRuningGuestCount() (int, error) {
 		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
 }
 
+func (self *SDisk) getSnapshotpoliciesCount() (int, error) {
+	q := SnapshotPolicyDiskManager.Query().Equals("disk_id", self.Id)
+	return q.CountWithError()
+}
+
 func (self *SDisk) DetachAllSnapshotpolicies(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
 	if err != nil {
@@ -859,7 +864,7 @@ func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid storage")
 	}
 	provider := storage.GetCloudprovider()
-	if provider == nil {
+	if provider == nil && len(storage.ManagerId) > 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
 	}
 	zone := storage.getZone()
@@ -1044,6 +1049,13 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
 	}
+	/*cnt, err = self.getSnapshotpoliciesCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getSnapshotpoliciesCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("Virtual disk associated with snapshot policies")
+	}*/
 	if !isPurge && self.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
@@ -1742,18 +1754,7 @@ func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	guestdisks := self.GetGuestdisks()
-	if guestdisks != nil {
-		for _, guestdisk := range guestdisks {
-			guestdisk.Detach(ctx, userCred)
-		}
-	}
-	err := self.SVirtualResourceBase.Delete(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	return self.DetachAllSnapshotpolicies(ctx, userCred)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1868,10 +1869,13 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		snapshotpoliciesJson.Add(spsDict)
 	}
 	extra.Add(snapshotpoliciesJson, "snapshotpolicies")
-	manualSnapshotCount, _ := self.GetManualSnapshotCount()
-	if utils.IsInStringArray(self.GetStorage().StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
-		extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
-		extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+	storage := self.GetStorage()
+	if storage != nil {
+		manualSnapshotCount, _ := self.GetManualSnapshotCount()
+		if utils.IsInStringArray(storage.StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
+			extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
+			extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+		}
 	}
 
 	return extra

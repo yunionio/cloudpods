@@ -20,13 +20,13 @@ import (
 	"yunion.io/x/jsonutils"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 var (
@@ -40,15 +40,23 @@ func init() {
 	ZoneQuota = SZoneQuota{}
 
 	ZoneUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "zone_quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
+			"zone_quota_usage_tbl",
+			"zone_quota_usage",
+			"zone_quota_usages",
+		),
 	}
 	ZoneUsageManager.SetVirtualObject(ZoneUsageManager)
 	ZonePendingUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "zone_quota_pending_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
+			"zone_quota_pending_usage_tbl",
+			"zone_quota_pending_usage",
+			"zone_quota_pending_usages",
+		),
 	}
 	ZonePendingUsageManager.SetVirtualObject(ZonePendingUsageManager)
 	ZoneQuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(RegionQuota,
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(ZoneQuota,
 			"zone_quota_tbl",
 			ZonePendingUsageManager,
 			ZoneUsageManager,
@@ -180,8 +188,8 @@ func (self *SZoneQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SZoneQuota)
 	squota := quota.(*SZoneQuota)
-	if sreq.Loadbalancer > 0 && self.Loadbalancer > squota.Loadbalancer {
-		err.Add("loadbalancer", squota.Loadbalancer, self.Loadbalancer)
+	if sreq.Loadbalancer > 0 && self.Loadbalancer+sreq.Loadbalancer > squota.Loadbalancer {
+		err.Add("loadbalancer", squota.Loadbalancer, self.Loadbalancer, sreq.Loadbalancer)
 	}
 	if err.IsError() {
 		return err
