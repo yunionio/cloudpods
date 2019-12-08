@@ -16,16 +16,16 @@ package utils
 
 import (
 	"context"
-	"strings"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func MapKeys(idMap map[string]string) []string {

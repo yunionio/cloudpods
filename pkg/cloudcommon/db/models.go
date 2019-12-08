@@ -38,6 +38,9 @@ func RegisterModelManager(modelMan IModelManager) {
 		globalTables = make(map[string]IModelManager)
 	}
 	mustCheckModelManager(modelMan)
+	if _, ok := globalTables[modelMan.Keyword()]; ok {
+		log.Fatalf("keyword %s exists in globalTables!", modelMan.Keyword())
+	}
 	globalTables[modelMan.Keyword()] = modelMan
 }
 

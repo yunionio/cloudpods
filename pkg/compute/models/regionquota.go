@@ -40,11 +40,19 @@ func init() {
 	RegionQuota = SRegionQuota{}
 
 	RegionUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "region_quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota,
+			"region_quota_usage_tbl",
+			"region_quota_usage",
+			"region_quota_usages",
+		),
 	}
 	RegionUsageManager.SetVirtualObject(RegionUsageManager)
 	RegionPendingUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "region_quota_pending_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota,
+			"region_quota_pending_usage_tbl",
+			"region_quota_pending_usage",
+			"region_quota_pending_usages",
+		),
 	}
 	RegionPendingUsageManager.SetVirtualObject(RegionPendingUsageManager)
 	RegionQuotaManager = &SQuotaManager{
@@ -298,38 +306,38 @@ func (self *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SRegionQuota)
 	squota := quota.(*SRegionQuota)
-	if sreq.Port > 0 && self.Port > squota.Port {
-		err.Add("port", squota.Port, self.Port)
+	if sreq.Port > 0 && self.Port+sreq.Port > squota.Port {
+		err.Add("port", squota.Port, self.Port, sreq.Port)
 	}
-	if sreq.Eip > 0 && self.Eip > squota.Eip {
-		err.Add("eip", squota.Eip, self.Eip)
+	if sreq.Eip > 0 && self.Eip+sreq.Eip > squota.Eip {
+		err.Add("eip", squota.Eip, self.Eip, sreq.Eip)
 	}
-	if sreq.Eport > 0 && self.Eport > squota.Eport {
-		err.Add("eport", squota.Eport, self.Eport)
+	if sreq.Eport > 0 && self.Eport+sreq.Eport > squota.Eport {
+		err.Add("eport", squota.Eport, self.Eport, sreq.Eport)
 	}
-	if sreq.Bw > 0 && self.Bw > squota.Bw {
-		err.Add("bw", squota.Bw, self.Bw)
+	if sreq.Bw > 0 && self.Bw+sreq.Bw > squota.Bw {
+		err.Add("bw", squota.Bw, self.Bw, sreq.Bw)
 	}
-	if sreq.Ebw > 0 && self.Ebw > squota.Ebw {
-		err.Add("ebw", squota.Ebw, self.Ebw)
+	if sreq.Ebw > 0 && self.Ebw+sreq.Ebw > squota.Ebw {
+		err.Add("ebw", squota.Ebw, self.Ebw, sreq.Ebw)
 	}
-	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
-		err.Add("snapshot", squota.Snapshot, self.Snapshot)
+	if sreq.Snapshot > 0 && self.Snapshot+sreq.Snapshot > squota.Snapshot {
+		err.Add("snapshot", squota.Snapshot, self.Snapshot, sreq.Snapshot)
 	}
-	if sreq.Bucket > 0 && self.Bucket > squota.Bucket {
-		err.Add("bucket", squota.Bucket, self.Bucket)
+	if sreq.Bucket > 0 && self.Bucket+sreq.Bucket > squota.Bucket {
+		err.Add("bucket", squota.Bucket, self.Bucket, sreq.Bucket)
 	}
-	if sreq.ObjectGB > 0 && self.ObjectGB > squota.ObjectGB {
-		err.Add("object_gb", squota.ObjectGB, self.ObjectGB)
+	if sreq.ObjectGB > 0 && self.ObjectGB+sreq.ObjectGB > squota.ObjectGB {
+		err.Add("object_gb", squota.ObjectGB, self.ObjectGB, sreq.ObjectGB)
 	}
-	if sreq.ObjectCnt > 0 && self.ObjectCnt > squota.ObjectCnt {
-		err.Add("object_cnt", squota.ObjectCnt, self.ObjectCnt)
+	if sreq.ObjectCnt > 0 && self.ObjectCnt+sreq.ObjectCnt > squota.ObjectCnt {
+		err.Add("object_cnt", squota.ObjectCnt, self.ObjectCnt, sreq.ObjectCnt)
 	}
-	if sreq.Rds > 0 && self.Rds > squota.Rds {
-		err.Add("rds", squota.Rds, self.Rds)
+	if sreq.Rds > 0 && self.Rds+sreq.Rds > squota.Rds {
+		err.Add("rds", squota.Rds, self.Rds, sreq.Rds)
 	}
-	if sreq.Cache > 0 && self.Cache > squota.Cache {
-		err.Add("cache", squota.Cache, self.Cache)
+	if sreq.Cache > 0 && self.Cache+sreq.Cache > squota.Cache {
+		err.Add("cache", squota.Cache, self.Cache, sreq.Cache)
 	}
 	if err.IsError() {
 		return err

@@ -24,8 +24,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/image/options"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SQuotaManager struct {
@@ -43,12 +43,20 @@ func init() {
 	ImageQuota = SQuota{}
 
 	QuotaPendingUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_pending_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			"quota_pending_usage_tbl",
+			"quota_pending_usage",
+			"quota_pending_usages",
+		),
 	}
 	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
 
 	QuotaUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			"quota_usage_tbl",
+			"quota_usage",
+			"quota_usages",
+		),
 	}
 	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
 
@@ -159,4 +167,24 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.Image)), quotas.KeyName(prefix, "image"))
 	// }
 	return ret
+}
+
+func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error) {
+	for field := range idMap {
+		switch field {
+		case "domain_id":
+			fieldIdMap, err := utils.FetchDomainNames(ctx, idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "utils.FetchDomainNames")
+			}
+			idMap[field] = fieldIdMap
+		case "tenant_id":
+			fieldIdMap, err := utils.FetchTenantNames(ctx, idMap[field])
+			if err != nil {
+				return nil, errors.Wrap(err, "utils.FetchTenantNames")
+			}
+			idMap[field] = fieldIdMap
+		}
+	}
+	return idMap, nil
 }

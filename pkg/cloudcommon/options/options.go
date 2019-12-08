@@ -76,7 +76,7 @@ type BaseOptions struct {
 	IsSlaveNode        bool `help:"Region service slave node"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
 
-	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default"`
+	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default" default:"default"`
 
 	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
 

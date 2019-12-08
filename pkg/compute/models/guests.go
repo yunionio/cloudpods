@@ -890,6 +890,7 @@ func (manager *SGuestManager) BatchPreValidate(
 			return nil, err
 		}
 		quota := &SQuota{
+			Count:          reqQuota.Count / count,
 			Cpu:            reqQuota.Cpu / count,
 			Memory:         reqQuota.Memory / count,
 			Storage:        reqQuota.Storage / count,
@@ -1448,6 +1449,7 @@ func getGuestResourceRequirements(
 	}
 
 	req := SQuota{
+		Count:          count,
 		Cpu:            int(vcpuCount) * count,
 		Memory:         int(vmemSize) * count,
 		Storage:        diskSize * count,
@@ -2560,7 +2562,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 			log.Warningf("self.GetRegionalQuotaKeys fail %s", err)
 		}
 		cancelUsage.SetKeys(keys)
-		err = QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+		err = RegionQuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -4993,7 +4995,7 @@ func (guest *SGuest) GetRegionalQuotaKeys() (quotas.IQuotaKeys, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
 	}
 	provider := host.GetCloudprovider()
-	if provider == nil {
+	if provider == nil && len(host.ManagerId) > 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
 	}
 	region := host.GetRegion()
@@ -5009,7 +5011,7 @@ func (guest *SGuest) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
 	}
 	provider := host.GetCloudprovider()
-	if provider == nil {
+	if provider == nil && len(host.ManagerId) > 0 {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
 	}
 	zone := host.GetZone()

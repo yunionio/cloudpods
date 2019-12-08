@@ -15,6 +15,7 @@
 package quotas
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -208,7 +209,26 @@ func (k SBaseQuotaKeys) OwnerId() mcclient.IIdentityProvider {
 }
 
 func QuotaKeyString(k IQuotaKeys) string {
-	return strings.Join(k.Values(), "-")
+	parts := make([]string, 0)
+	fields := k.Fields()
+	values := k.Values()
+	for i := range fields {
+		if len(values[i]) > 0 {
+			parts = append(parts, fmt.Sprintf("%s=%s", fields[i], values[i]))
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+func IsBaseQuotaKeys(k IQuotaKeys) bool {
+	fields := k.Fields()
+	values := k.Values()
+	for i := range fields {
+		if fields[i] != "domain_id" && fields[i] != "tenant_id" && len(values[i]) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func OwnerIdQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) SBaseQuotaKeys {

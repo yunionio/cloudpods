@@ -50,7 +50,9 @@ func init() {
 		),
 	}
 	DBInstanceSkuManager.SetVirtualObject(DBInstanceSkuManager)
-	DBInstanceSkuManager.NameRequireAscii = false
+	// DBInstanceSkuManager.NameRequireAscii = true
+	// db.RegisterModelManager(DBInstanceSkuManager)
+	// DBInstanceSkuManager.NameRequireAscii = false
 }
 
 type SDBInstanceSku struct {

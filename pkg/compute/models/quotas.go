@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
@@ -50,11 +51,19 @@ func init() {
 	Quota = SQuota{}
 
 	QuotaUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota, "quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			"quota_usage_tbl",
+			"quota_usage",
+			"quota_usages",
+		),
 	}
 	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
 	QuotaPendingUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota, "quota_pending_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			"quota_pending_usage_tbl",
+			"quota_pending_usage",
+			"quota_pending_usages",
+		),
 	}
 	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
 	QuotaManager = &SQuotaManager{
@@ -186,6 +195,9 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 }
 
 func (self *SQuota) IsEmpty() bool {
+	if self.Count > 0 {
+		return false
+	}
 	if self.Cpu > 0 {
 		return false
 	}
@@ -206,6 +218,7 @@ func (self *SQuota) IsEmpty() bool {
 
 func (self *SQuota) Add(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
+	self.Count = self.Count + quotas.NonNegative(squota.Count)
 	self.Cpu = self.Cpu + quotas.NonNegative(squota.Cpu)
 	self.Memory = self.Memory + quotas.NonNegative(squota.Memory)
 	self.Storage = self.Storage + quotas.NonNegative(squota.Storage)
@@ -219,6 +232,7 @@ func nonNegative(val int) int {
 
 func (self *SQuota) Sub(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
+	self.Count = nonNegative(self.Count - squota.Count)
 	self.Cpu = nonNegative(self.Cpu - squota.Cpu)
 	self.Memory = nonNegative(self.Memory - squota.Memory)
 	self.Storage = nonNegative(self.Storage - squota.Storage)
@@ -228,6 +242,9 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 
 func (self *SQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
+	if squota.Count > 0 {
+		self.Count = squota.Count
+	}
 	if squota.Cpu > 0 {
 		self.Cpu = squota.Cpu
 	}
@@ -246,23 +263,30 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 }
 
 func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+	log.Debugf("used: %s", jsonutils.Marshal(self))
+	log.Debugf("request: %s", jsonutils.Marshal(request))
+	log.Debugf("quota: %s", jsonutils.Marshal(quota))
+
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
-	if sreq.Cpu > 0 && self.Cpu > squota.Cpu {
-		err.Add("cpu", squota.Cpu, self.Cpu)
+	if sreq.Count > 0 && self.Count+sreq.Count > squota.Count {
+		err.Add("count", squota.Count, self.Count, sreq.Count)
 	}
-	if sreq.Memory > 0 && self.Memory > squota.Memory {
-		err.Add("memory", squota.Memory, self.Memory)
+	if sreq.Cpu > 0 && self.Cpu+sreq.Cpu > squota.Cpu {
+		err.Add("cpu", squota.Cpu, self.Cpu, sreq.Cpu)
 	}
-	if sreq.Storage > 0 && self.Storage > squota.Storage {
-		err.Add("storage", squota.Storage, self.Storage)
+	if sreq.Memory > 0 && self.Memory+sreq.Memory > squota.Memory {
+		err.Add("memory", squota.Memory, self.Memory, sreq.Memory)
 	}
-	if sreq.Group > 0 && self.Group > squota.Group {
-		err.Add("group", squota.Group, self.Group)
+	if sreq.Storage > 0 && self.Storage+sreq.Storage > squota.Storage {
+		err.Add("storage", squota.Storage, self.Storage, sreq.Storage)
 	}
-	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
-		err.Add("isolated_device", squota.IsolatedDevice, self.IsolatedDevice)
+	if sreq.Group > 0 && self.Group+sreq.Group > squota.Group {
+		err.Add("group", squota.Group, self.Group, sreq.Group)
+	}
+	if sreq.IsolatedDevice > 0 && self.IsolatedDevice+sreq.IsolatedDevice > squota.IsolatedDevice {
+		err.Add("isolated_device", squota.IsolatedDevice, self.IsolatedDevice, sreq.IsolatedDevice)
 	}
 	if err.IsError() {
 		return err
@@ -281,6 +305,7 @@ func keyName(prefix, name string) string {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewInt(int64(self.Count)), keyName(prefix, "count"))
 	ret.Add(jsonutils.NewInt(int64(self.Cpu)), keyName(prefix, "cpu"))
 	ret.Add(jsonutils.NewInt(int64(self.Memory)), keyName(prefix, "memory"))
 	ret.Add(jsonutils.NewInt(int64(self.Storage)), keyName(prefix, "storage"))
@@ -289,7 +314,7 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	return ret
 }
 
-func (manager *SQuotaManager) FetchIdMap(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error) {
+func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error) {
 	for field := range idMap {
 		switch field {
 		case "domain_id":

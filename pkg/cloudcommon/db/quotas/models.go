@@ -40,14 +40,6 @@ type SQuotaBaseManager struct {
 	autoCreate bool
 }
 
-const (
-	// quotaKeyword  = "quota"
-	// quotaKeywords = "quotas"
-
-	quotaUsageKeyword  = "quota-usage"
-	quotaUsageKeywords = "quota-usages"
-)
-
 func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
@@ -57,9 +49,9 @@ func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuot
 	}
 }
 
-func NewQuotaUsageManager(model interface{}, tableName string) SQuotaBaseManager {
+func NewQuotaUsageManager(model interface{}, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
-		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, quotaUsageKeyword, quotaUsageKeywords),
+		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 	}
 }
 
@@ -156,12 +148,36 @@ func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred
 	return manager.TableSpec().InsertOrUpdate(quota)
 }
 
-func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota, quota IQuota) error {
-	return manager.TableSpec().Increment(diff, quota)
+func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota) error {
+	keys := diff.GetKeys()
+	quota := manager.newQuota()
+	err := manager.getQuotaByKeys(ctx, keys, quota)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			// insert one
+			quota.SetKeys(keys)
+		} else {
+			return err
+		}
+	}
+	quota.Add(diff)
+	return manager.setQuotaInternal(ctx, userCred, quota)
 }
 
-func (manager *SQuotaBaseManager) subQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, cancel IQuota, quota IQuota) error {
-	return manager.TableSpec().Decrement(cancel, quota)
+func (manager *SQuotaBaseManager) subQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota) error {
+	keys := diff.GetKeys()
+	quota := manager.newQuota()
+	err := manager.getQuotaByKeys(ctx, keys, quota)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			// insert one
+			quota.SetKeys(keys)
+		} else {
+			return err
+		}
+	}
+	quota.Sub(diff)
+	return manager.setQuotaInternal(ctx, userCred, quota)
 }
 
 func (manager *SQuotaBaseManager) deleteQuotaByKeys(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
@@ -199,7 +215,8 @@ func (manager *SQuotaBaseManager) deleteAllQuotas(ctx context.Context, userCred 
 }
 
 func (manager *SQuotaBaseManager) InitializeData() error {
-	quotaCnt, err := manager.Query().CountWithError()
+	q := manager.Query()
+	quotaCnt, err := q.CountWithError()
 	if err != nil {
 		return errors.Wrap(err, "SQuotaManager.CountWithError")
 	}
@@ -207,6 +224,8 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		// initlaized, quit
 		return nil
 	}
+
+	log.Debugf("%s", q.String())
 
 	metaQuota := newDBQuotaStore()
 
@@ -239,10 +258,6 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		}
 
 		quota := manager.newQuota()
-		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
-		if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys)) {
-			log.Fatalf("invalid quota??? fail to find SBaseQuotaKey")
-		}
 		err := metaQuota.GetQuota(context.Background(), scope, ownerId, quota)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
@@ -251,15 +266,14 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		if quota.IsEmpty() {
 			quota.FetchSystemQuota()
 		}
-		baseQuota := SBaseQuotaKeys{}
-		baseQuota.DomainId = ownerId.GetProjectDomainId()
-		baseQuota.ProjectId = ownerId.GetProjectId()
-		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseQuota))
-
+		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys))
 		err = manager.TableSpec().Insert(quota)
 		if err != nil {
-			log.Errorf("insert error %s", err)
+			log.Errorf("%s insert error %s", manager.KeywordPlural(), err)
 			continue
+		} else {
+			log.Infof("Insert %s", quota)
 		}
 	}
 

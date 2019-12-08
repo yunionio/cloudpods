@@ -17,9 +17,10 @@ package quotas
 import (
 	"context"
 	"database/sql"
-	"sync"
 	"strings"
+	"sync"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -125,6 +126,7 @@ func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, user
 	var fields []string
 
 	idNameMap, _ := manager.keyList2IdNameMap(ctx, keyList)
+	log.Debugf("%s", jsonutils.Marshal(idNameMap))
 	for _, keys := range keyList {
 		if idNameMap != nil {
 			// no error, do check
@@ -134,6 +136,7 @@ func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, user
 			values := keys.Values()
 			for i := range fields {
 				if strings.HasSuffix(fields[i], "_id") && len(values[i]) > 0 && len(idNameMap[fields[i]][values[i]]) == 0 {
+					log.Infof("%s=%s found not exists, delete quota with key %s", fields[i], values[i], jsonutils.Marshal(keys))
 					manager.DeleteAllQuotas(ctx, userCred, keys)
 					manager.pendingStore.DeleteAllQuotas(ctx, userCred, keys)
 					manager.usageStore.DeleteAllQuotas(ctx, userCred, keys)
@@ -144,7 +147,6 @@ func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, user
 		manager.PostUsageJob(keys, nil, false)
 	}
 }
-
 
 func (manager *SQuotaBaseManager) keyList2IdNameMap(ctx context.Context, keyList []IQuotaKeys) (map[string]map[string]string, error) {
 	idMap := make(map[string]map[string]string)
@@ -168,7 +170,7 @@ func (manager *SQuotaBaseManager) keyList2IdNameMap(ctx context.Context, keyList
 	ret, err := manager.GetIQuotaManager().FetchIdNames(ctx, idMap)
 	if err != nil {
 		return nil, err
-	}else {
+	} else {
 		return ret, nil
 	}
 }

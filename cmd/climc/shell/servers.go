@@ -37,6 +37,7 @@ import (
 )
 
 func init() {
+
 	R(&options.ServerListOptions{}, "server-list", "List virtual servers", func(s *mcclient.ClientSession, opts *options.ServerListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {

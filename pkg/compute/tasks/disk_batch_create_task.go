@@ -103,7 +103,6 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	// quotaStorage := models.SQuota{Storage: disk.DiskSize}
 
 	onError := func(err error) {
-		// models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
 		self.clearPendingUsage(ctx, disk)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
@@ -126,11 +125,6 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	err = disk.SetStorageByHost(hostId, diskConfig, storageIds)
 	if err != nil {
 		onError(err)
-		// models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
-		// disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
-		// self.SetStageFailed(ctx, err.Error())
-		// db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		// notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 		return
 	}
 
