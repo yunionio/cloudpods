@@ -2116,7 +2116,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		host := self.GetHost()
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 		host.ClearSchedDescCache()
@@ -2405,7 +2405,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if len(newDisks) > 0 {
 		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil, false)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
 		}
 		confs.Add(jsonutils.Marshal(newDisks), "create")
@@ -3235,7 +3235,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	params.Set("guest_status", jsonutils.NewString(self.Status))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, nil, &req)
+		QuotaManager.CancelPendingUsage(ctx, userCred, &req, &req)
 		log.Errorln(err)
 		return nil, err
 	} else {

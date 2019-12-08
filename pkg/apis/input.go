@@ -1,9 +1,23 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package apis
 
 type DomainizedResourceCreateInput struct {
 	// description: the owner domain name or id
 	// required: false
-	Domain   string `json:"project_domain"`
+	Domain string `json:"project_domain"`
 
 	// description: the owner domain name or id, alias field of domain
 	// required: false
@@ -15,7 +29,7 @@ type ProjectizedResourceCreateInput struct {
 
 	// description: the owner project name or id
 	// required: false
-	Project   string `json:"project"`
+	Project string `json:"project"`
 
 	// description: the owner project name or id, alias field of project
 	// required: false
@@ -27,7 +41,7 @@ type SharableVirtualResourceCreateInput struct {
 
 	// description: indicate the resource is a public resource
 	// required: false
-	IsPublic    *bool  `json:"is_public"`
+	IsPublic *bool `json:"is_public"`
 
 	// description: indicate the shared scope for a public resource, which can be domain or system or none
 	// required: false
@@ -66,7 +80,7 @@ type StandaloneResourceCreateInput struct {
 	// unique: true
 	// required: false
 	// example: test-network
-	Name         string `json:"name"`
+	Name string `json:"name"`
 
 	// description: generated resource name, given a pattern to generate name, required if name is not given
 	// unique: false
@@ -77,11 +91,11 @@ type StandaloneResourceCreateInput struct {
 	// description: resource description
 	// required: false
 	// example: test create network
-	Description  string `json:"description"`
+	Description string `json:"description"`
 
 	// description: the resource is an emulated resource
 	// required: false
-	IsEmulated   *bool  `json:"is_emulated"`
+	IsEmulated *bool `json:"is_emulated"`
 }
 
 type JoinResourceBaseCreateInput struct {

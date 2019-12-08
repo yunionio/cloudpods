@@ -38,15 +38,23 @@ func init() {
 	ProjectQuota = SProjectQuota{}
 
 	ProjectUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "project_quota_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
+			"project_quota_usage_tbl",
+			"project_quota_usage",
+			"project_quota_usages",
+		),
 	}
 	ProjectUsageManager.SetVirtualObject(ProjectUsageManager)
 	ProjectPendingUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota, "project_quota_pending_usage_tbl"),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
+			"project_quota_pending_usage_tbl",
+			"project_quota_pending_usage",
+			"project_quota_pending_usages",
+		),
 	}
 	ProjectPendingUsageManager.SetVirtualObject(ProjectPendingUsageManager)
 	ProjectQuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(RegionQuota,
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(ProjectQuota,
 			"project_quota_tbl",
 			ProjectPendingUsageManager,
 			ProjectUsageManager,
@@ -140,8 +148,8 @@ func (self *SProjectQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) er
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SProjectQuota)
 	squota := quota.(*SProjectQuota)
-	if sreq.Secgroup > 0 && self.Secgroup > squota.Secgroup {
-		err.Add("secgroup", squota.Secgroup, self.Secgroup)
+	if sreq.Secgroup > 0 && self.Secgroup+sreq.Secgroup > squota.Secgroup {
+		err.Add("secgroup", squota.Secgroup, self.Secgroup, sreq.Secgroup)
 	}
 	if err.IsError() {
 		return err
