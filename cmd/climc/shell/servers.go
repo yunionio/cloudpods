@@ -318,6 +318,13 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerIdsOptions{}, "server-resume", "Resume servers", func(s *mcclient.ClientSession,
+		opts *options.ServerIdsOptions) error {
+		ret := modules.Servers.BatchPerformAction(s, opts.ID, "resume", nil)
+		printBatchResults(ret, modules.Servers.GetColumns(s))
+		return nil
+	})
+
 	R(&options.ServerMigrateOptions{}, "server-migrate", "Migrate server", func(s *mcclient.ClientSession, opts *options.ServerMigrateOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
