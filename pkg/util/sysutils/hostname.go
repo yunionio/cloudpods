@@ -22,12 +22,11 @@ import (
 )
 
 func setHostname7(name string) error {
-	_, err := procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
-	return err
+	return procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
 }
 
 func setHostname6(name string) error {
-	_, err := procutils.NewCommand("hostname", name).Run()
+	err := procutils.NewCommand("hostname", name).Run()
 	if err != nil {
 		return err
 	}

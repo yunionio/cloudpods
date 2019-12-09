@@ -15,11 +15,9 @@
 package procutils
 
 import (
-	"bytes"
 	"context"
-	"os/exec"
+	"io"
 	"strings"
-	"syscall"
 	"time"
 
 	"yunion.io/x/log"
@@ -30,140 +28,85 @@ var (
 )
 
 type Command struct {
-	Path string
-	Args []string
+	path string
+	args []string
+
+	cmd Cmd
 }
 
 func NewCommand(name string, args ...string) *Command {
 	return &Command{
-		Path: name,
-		Args: args,
+		path: name,
+		args: args,
+		cmd:  localExecutor.Command(name, args...),
 	}
 }
 
-func ParseOutput(output []byte) []string {
-	lines := make([]string, 0)
-	for _, line := range strings.Split(string(output), "\n") {
-		lines = append(lines, strings.TrimSpace(line))
+func NewCommandContext(ctx context.Context, name string, args ...string) *Command {
+	return &Command{
+		path: name,
+		args: args,
+		cmd:  localExecutor.CommandContext(ctx, name, args...),
 	}
-	return lines
 }
 
-func Run(name string, args ...string) ([]string, error) {
-	ret, err := NewCommand(name, args...).Run()
+// exec remote command as far as possible
+func NewRemoteCommandAsFarAsPossible(name string, args ...string) *Command {
+	return &Command{
+		path: name,
+		args: args,
+		cmd:  execInstance.Command(name, args...),
+	}
+}
+
+func (c *Command) StdinPipe() (io.WriteCloser, error) {
+	return c.cmd.StdinPipe()
+}
+
+func (c *Command) StdoutPipe() (io.ReadCloser, error) {
+	return c.cmd.StdoutPipe()
+}
+
+func (c *Command) StderrPipe() (io.ReadCloser, error) {
+	return c.cmd.StderrPipe()
+}
+
+func (c *Command) Run() error {
+	log.Debugf("Exec command: %s %v", c.path, c.args)
+	err := c.cmd.Run()
 	if err != nil {
-		return nil, err
+		log.Errorf("Execute command %q , error: %v", c, err)
 	}
-	return ParseOutput(ret), nil
+	return err
 }
 
-// Doesn't have timeout
-func (c *Command) Run() ([]byte, error) {
-	log.Debugf("Exec command: %s %v", c.Path, c.Args)
-	output, err := RunCommandWithoutTimeout(c.Path, c.Args...)
+func (c *Command) Output() ([]byte, error) {
+	log.Debugf("Exec command: %s %v", c.path, c.args)
+	output, err := c.cmd.CombinedOutput()
 	if err != nil {
 		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
 	}
 	return output, err
 }
 
-// Have default timeout 3 * time.Second
-func (c *Command) RunWithTimeout(timeout time.Duration) ([]byte, error) {
-	if timeout <= 0 {
-		timeout = Timeout
-	}
-	output, err := RunCommandWithTimeout(timeout, c.Path, c.Args...)
-	if err != nil {
-		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
-	}
-	return output, err
+func (c *Command) Start() error {
+	return c.cmd.Start()
 }
 
-func (c *Command) RunWithContext(ctx context.Context) ([]byte, error) {
-	output, err := RunCommandWithContext(ctx, c.Path, c.Args...)
-	if err != nil {
-		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
-	}
-	return output, err
+func (c *Command) Wait() error {
+	return c.cmd.Wait()
 }
 
 func (c *Command) String() string {
-	ss := []string{c.Path}
-	ss = append(ss, c.Args...)
+	ss := []string{c.path}
+	ss = append(ss, c.args...)
 	return strings.Join(ss, " ")
 }
 
-func RunCommandWithoutTimeout(name string, args ...string) ([]byte, error) {
-	return RunCommandWithContext(context.Background(), name, args...)
+func (c *Command) Kill() error {
+	return c.cmd.Kill()
 }
 
-func RunCommandWithTimeout(timeout time.Duration, name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return RunCommandWithContext(ctx, name, args...)
-}
-
-func RunCommandWithContext(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
-	}
-
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	if err := cmd.Start(); err != nil {
-		return buf.Bytes(), err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return buf.Bytes(), err
-	}
-
-	return buf.Bytes(), nil
-}
-
-// https://gist.github.com/kylelemons/1525278
-func Pipeline(cmds ...*exec.Cmd) ([]byte, []byte, error) {
-	// Requires at least one command
-	if len(cmds) < 1 {
-		return nil, nil, nil
-	}
-
-	// Collect the output from the command(s)
-	var output bytes.Buffer
-	var stderr bytes.Buffer
-
-	last := len(cmds) - 1
-	for i, cmd := range cmds[:last] {
-		var err error
-		// Connect each command's stdin to the previous command's stdout
-		if cmds[i+1].Stdin, err = cmd.StdoutPipe(); err != nil {
-			return nil, nil, err
-		}
-		// Connect each command's stderr to a buffer
-		cmd.Stderr = &stderr
-	}
-
-	// Connect the output and error for the last command
-	cmds[last].Stdout, cmds[last].Stderr = &output, &stderr
-
-	// Start each command
-	for _, cmd := range cmds {
-		if err := cmd.Start(); err != nil {
-			return output.Bytes(), stderr.Bytes(), err
-		}
-
-	}
-
-	// Wait for each command to complete
-	for _, cmd := range cmds {
-		if err := cmd.Wait(); err != nil {
-			return output.Bytes(), stderr.Bytes(), err
-		}
-
-	}
-
-	// Return the pipeline output and the collected standard error
-	return output.Bytes(), stderr.Bytes(), nil
+func GetExitStatus(err error) (int, bool) {
+	return execInstance.GetExitStatus(err)
 }

@@ -38,16 +38,20 @@ type ISystemService interface {
 
 type NewServiceFunc func()
 
-var serviceMap = map[string]ISystemService{
-	"ntpd":          NewNtpdService(),
-	"telegraf":      NewTelegrafService(),
-	"host_sdnagent": NewHostSdnagentService(),
-	"openvswitch":   NewOpenvswitchService(),
-	"fluentbit":     NewFluentbitService(),
-	"kube_agent":    NewKubeAgentService(),
-	"lxcfs":         NewLxcfsService(),
-	"docker":        NewDockerService(),
-	"host-deployer": NewHostDeployerService(),
+var serviceMap map[string]ISystemService
+
+func Init() {
+	serviceMap = map[string]ISystemService{
+		"ntpd":          NewNtpdService(),
+		"telegraf":      NewTelegrafService(),
+		"host_sdnagent": NewHostSdnagentService(),
+		"openvswitch":   NewOpenvswitchService(),
+		"fluentbit":     NewFluentbitService(),
+		"kube_agent":    NewKubeAgentService(),
+		"lxcfs":         NewLxcfsService(),
+		"docker":        NewDockerService(),
+		"host-deployer": NewHostDeployerService(),
+	}
 }
 
 func GetService(name string) ISystemService {

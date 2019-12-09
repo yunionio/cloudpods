@@ -40,7 +40,7 @@ func (o *SOVSBridgeDriver) CleanupConfig() {
 }
 
 func (o *SOVSBridgeDriver) Exists() (bool, error) {
-	data, err := procutils.NewCommand("ovs-vsctl", "list-br").Run()
+	data, err := procutils.NewCommand("ovs-vsctl", "list-br").Output()
 	if err != nil {
 		return false, err
 	}
@@ -53,7 +53,7 @@ func (o *SOVSBridgeDriver) Exists() (bool, error) {
 }
 
 func (o *SOVSBridgeDriver) Interfaces() ([]string, error) {
-	data, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", o.bridge.String()).Run()
+	data, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", o.bridge.String()).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +74,10 @@ func (o *SOVSBridgeDriver) SetupInterface() error {
 	}
 
 	if o.inter != nil && !utils.IsInStringArray(o.inter.String(), infs) {
-		output, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist",
+		err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist",
 			"add-port", o.bridge.String(), o.inter.String()).Run()
 		if err != nil {
-			return fmt.Errorf("Failed to add interface %s", output)
+			return fmt.Errorf("Failed to add interface %s", err)
 		}
 	}
 	return nil
@@ -89,7 +89,7 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 		return err
 	}
 	if !exist {
-		_, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Run()
+		_, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Output()
 		return err
 	}
 	return nil
@@ -100,7 +100,7 @@ func (d *SOVSBridgeDriver) PersistentMac() error {
 		"ovs-vsctl", "set", "Bridge", d.bridge.String(),
 		"other-config:hwaddr=" + d.inter.Mac,
 	}
-	output, err := procutils.NewCommand(args[0], args[1:]...).Run()
+	output, err := procutils.NewCommand(args[0], args[1:]...).Output()
 	if err != nil {
 		return fmt.Errorf("Ovs bridge set mac address failed %s %s", output, err)
 	}
@@ -221,9 +221,8 @@ func (o *SOVSBridgeDriver) AddFlow(cond string, priority int, actions string) st
 }
 
 func (o *SOVSBridgeDriver) DoAddFlow(cond string, pri int, actions, swt string) error {
-	_, err := procutils.NewCommand("ovs-ofctl", "add-flow", swt,
+	return procutils.NewCommand("ovs-ofctl", "add-flow", swt,
 		fmt.Sprintf("%s priority=%d actions=%s", cond, pri, actions)).Run()
-	return err
 }
 
 func (o *SOVSBridgeDriver) DelFlow(cond string) string {

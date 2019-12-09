@@ -15,14 +15,14 @@
 package qemuimg
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -110,21 +111,52 @@ func (img *SQemuImage) parse() error {
 			img.ActualSizeBytes = fileInfo.Size()
 		}
 	}
-	cmd := exec.Command(qemutils.GetQemuImg(), "info", img.Path)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", img.Path)
+
+	var stdin io.WriteCloser
+	var err error
 	if len(img.Password) > 0 {
-		cmd.Stdin = bytes.NewBuffer([]byte(img.Password))
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			return errors.Wrap(err, "cmd stdin pipe")
+		}
+		defer stdin.Close()
 	}
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errOut
-	err := cmd.Run()
+	outb, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Errorf("qemu-img info %s fail %s: %s", img.Path, err, errOut.String())
-		return fmt.Errorf("qemu-img info error %s", errOut.String())
+		return err
 	}
-	for {
-		line, err := out.ReadString('\n')
+	defer outb.Close()
+
+	errb, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	defer errb.Close()
+
+	err = cmd.Start()
+
+	if len(img.Password) > 0 {
+		io.WriteString(stdin, img.Password+"\n")
+	}
+
+	out, err := ioutil.ReadAll(outb)
+	if err != nil {
+		return err
+	}
+	errOut, err := ioutil.ReadAll(errb)
+	if err != nil {
+		return err
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		log.Errorf("qemu-img info %s fail %s: %s", img.Path, err, errOut)
+		return fmt.Errorf("qemu-img info error %s", errOut)
+	}
+	lines := strings.Split(string(out), "\n")
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
 		if len(line) > 0 {
 			line = strings.TrimSpace(line)
 			switch {
@@ -159,12 +191,8 @@ func (img *SQemuImage) parse() error {
 			}
 		}
 		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				log.Errorf("read output fail %s", err)
-				return fmt.Errorf("read output fail %s", err)
-			}
+			log.Errorf("read output fail %s", err)
+			return fmt.Errorf("read output fail %s", err)
 		}
 	}
 	if img.Format == RAW && fileutils2.IsFile(img.Path) {
@@ -206,7 +234,19 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	}
 	cmdline = append(cmdline, img.Path, name)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
-	cmd := exec.Command("ionice", cmdline...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", cmdline...)
+	var stdin io.WriteCloser
+	var err error
+	if len(img.Password) > 0 || len(password) > 0 {
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			return errors.Wrap(err, "convert stdin")
+		}
+	}
+	err = cmd.Start()
+	if err != nil {
+		return errors.Wrap(err, "do convert")
+	}
 	if len(img.Password) > 0 || len(password) > 0 {
 		input := ""
 		if len(img.Password) > 0 {
@@ -215,9 +255,9 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 		if len(password) > 0 {
 			input = fmt.Sprintf("%s%s\r", input, password)
 		}
-		cmd.Stdin = bytes.NewBuffer([]byte(input))
+		io.WriteString(stdin, input+"\n")
 	}
-	err := cmd.Run()
+	err = cmd.Wait()
 	if err != nil {
 		log.Errorf("clone fail %s", err)
 		os.Remove(name)
@@ -255,7 +295,7 @@ func (img *SQemuImage) convert(format TImageFormat, options []string, compact bo
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("mv", "-f", tmpPath, img.Path)
+	cmd := procutils.NewCommand("mv", "-f", tmpPath, img.Path)
 	err = cmd.Run()
 	if err != nil {
 		log.Errorf("convert move temp file error %s", err)
@@ -281,7 +321,7 @@ func (img *SQemuImage) Copy(name string) (*SQemuImage, error) {
 	if !img.IsValid() {
 		return nil, fmt.Errorf("self is not valid")
 	}
-	cmd := exec.Command("cp", "--sparse=always", img.Path, name)
+	cmd := procutils.NewCommand("cp", "--sparse=always", img.Path, name)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("copy fail %s", err)
@@ -403,7 +443,7 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	if sizeMB > 0 {
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
-	cmd := exec.Command("ionice", args...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		log.Errorf("%v create error %s %s", args, output, err)
@@ -450,7 +490,7 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	cmd := exec.Command("ionice", "-c", strconv.Itoa(int(img.IoLevel)),
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", "-c", strconv.Itoa(int(img.IoLevel)),
 		qemutils.GetQemuImg(), "resize", img.Path, fmt.Sprintf("%dM", sizeMB))
 	err := cmd.Run()
 	if err != nil {
@@ -470,7 +510,7 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 		args = append(args, "-u")
 	}
 	args = append(args, "-b", backPath, img.Path)
-	cmd := exec.Command("ionice", args...)
+	cmd := procutils.NewRemoteCommandAsFarAsPossible("ionice", args...)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("rebase fail %s", err)
@@ -498,7 +538,7 @@ func (img *SQemuImage) Fallocate() error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	cmd := exec.Command("fallocate", "-l", fmt.Sprintf("%dm", img.GetSizeMB()), img.Path)
+	cmd := procutils.NewCommand("fallocate", "-l", fmt.Sprintf("%dm", img.GetSizeMB()), img.Path)
 	return cmd.Run()
 }
 

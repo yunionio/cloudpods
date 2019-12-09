@@ -59,7 +59,7 @@ func (p *SKVMGuestDiskPartition) GetPhysicalPartitionType() string {
 		dev = dev[:idxP]
 	}
 	cmd := fmt.Sprintf(`fdisk -l %s | grep "Disk label type:"`, dev)
-	output, err := procutils.NewCommand("sh", "-c", cmd).Run()
+	output, err := procutils.NewCommand("sh", "-c", cmd).Output()
 	if err != nil {
 		log.Errorf("get disk label type error %s", output)
 		return ""
@@ -131,7 +131,7 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 }
 
 func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
-	if _, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Output(); err != nil {
 		log.Errorln(err)
 		return err
 	}
@@ -154,7 +154,7 @@ func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 		cmds = append(cmds, "-o", opt)
 	}
 	cmds = append(cmds, p.partDev, p.mountPath)
-	_, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
+	_, err := procutils.NewCommand(cmds[0], cmds[1:]...).Output()
 	return err
 }
 
@@ -172,11 +172,11 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 		fixCmd = []string{"ntfsfix", p.partDev}
 	}
 	if len(checkCmd) > 0 {
-		_, err := procutils.NewCommand(checkCmd[0], checkCmd[1:]...).Run()
+		_, err := procutils.NewCommand(checkCmd[0], checkCmd[1:]...).Output()
 		if err != nil {
 			log.Warningf("FS %s dirty, try to repair ...", p.partDev)
 			for i := 0; i < 3; i++ {
-				_, err := procutils.NewCommand(fixCmd[0], fixCmd[1:]...).Run()
+				_, err := procutils.NewCommand(fixCmd[0], fixCmd[1:]...).Output()
 				if err == nil {
 					break
 				} else {
@@ -201,13 +201,13 @@ func (p *SKVMGuestDiskPartition) IsMounted() bool {
 	if !fileutils2.Exists(p.mountPath) {
 		return false
 	}
-	_, err := procutils.NewCommand("mountpoint", p.mountPath).Run()
+	output, err := procutils.NewCommand("mountpoint", p.mountPath).Output()
 	if err == nil {
 		return true
 	} else {
-		log.Errorln(err)
+		log.Errorln(output)
+		return false
 	}
-	return false
 }
 
 func (p *SKVMGuestDiskPartition) Umount() bool {
@@ -215,9 +215,9 @@ func (p *SKVMGuestDiskPartition) Umount() bool {
 		var tries = 0
 		for tries < 10 {
 			tries += 1
-			_, err := procutils.NewCommand("umount", p.mountPath).Run()
+			_, err := procutils.NewCommand("umount", p.mountPath).Output()
 			if err == nil {
-				procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Run()
+				procutils.NewCommand("blockdev", "--flushbufs", p.partDev).Output()
 				os.Remove(p.mountPath)
 				return true
 			} else {
@@ -243,7 +243,7 @@ func (p *SKVMGuestDiskPartition) Zerofree() {
 
 func (p *SKVMGuestDiskPartition) zerofreeSwap() {
 	uuids := fileutils2.GetDevUuid(p.partDev)
-	_, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Run()
+	_, err := procutils.NewCommand("shred", "-n", "0", "-z", p.partDev).Output()
 	if err != nil {
 		log.Errorf("zerofree swap error: %s", err)
 		return
@@ -253,14 +253,14 @@ func (p *SKVMGuestDiskPartition) zerofreeSwap() {
 		cmd = append(cmd, "-U", uuid)
 	}
 	cmd = append(cmd, p.partDev)
-	_, err = procutils.NewCommand(cmd[0], cmd[1:]...).Run()
+	_, err = procutils.NewCommand(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		log.Errorf("zerofree swap error: %s", err)
 	}
 }
 
 func (p *SKVMGuestDiskPartition) zerofreeExt() {
-	_, err := procutils.NewCommand("zerofree", p.partDev).Run()
+	_, err := procutils.NewCommand("zerofree", p.partDev).Output()
 	if err != nil {
 		log.Errorf("zerofree ext error: %s", err)
 		return
@@ -268,8 +268,7 @@ func (p *SKVMGuestDiskPartition) zerofreeExt() {
 }
 
 func (p *SKVMGuestDiskPartition) zerofreeNtfs() {
-	_, err := procutils.NewCommand("ntfswipe", "-f", "-l", "-m", "-p", "-s", "-q",
-		p.partDev).Run()
+	err := procutils.NewCommand("ntfswipe", "-f", "-l", "-m", "-p", "-s", "-q", p.partDev).Run()
 	if err != nil {
 		log.Errorf("zerofree ntfs error: %s", err)
 		return

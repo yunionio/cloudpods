@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package apis;
+
+message Command {
+  bytes path = 1;
+  repeated bytes args = 2;
+  repeated bytes env = 3;
+  bytes dir = 4;
+}
+
+message Input {
+  uint32 sn = 1;
+  bytes input = 2;
+}
+
+message Stdout {
+  bytes stdout = 1;
+  bool closed = 2;
+  bytes runtime_error = 3;
+  bool start = 4;
+}
+
+message Stderr {
+  bytes stderr = 1;
+  bool closed = 2;
+  bytes runtime_error = 3;
+  bool start = 4;
+}
+
+message StartResponse {
+  bool success = 1;
+  bytes error = 2;
+}
+
+message WaitCommand {
+  uint32 sn = 1;
+}
+
+message WaitResponse {
+  uint32 exit_status = 1;
+  bytes err_content = 2;
+}
+
+message Sn {
+  uint32 sn = 1;
+}
+
+message StartInput {
+  uint32 sn = 1;
+  bool has_stdin = 2;
+  bool has_stdout = 3;
+  bool has_stderr = 4;
+}
+
+message Error {
+  bytes error = 1;
+}
+
+service Executor {
+  rpc SendInput(stream Input) returns (Error);
+  rpc FetchStdout(Sn) returns (stream Stdout);
+  rpc FetchStderr(Sn) returns (stream Stderr);
+  rpc Start(StartInput) returns (StartResponse);
+  rpc Wait(Sn) returns (WaitResponse);
+  rpc ExecCommand(Command) returns (Sn);
+  rpc Kill(Sn) returns (Error);
+}

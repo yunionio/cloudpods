@@ -16,11 +16,12 @@ package timeutils2
 
 import (
 	"fmt"
-	"os/exec"
 	"runtime/debug"
 	"time"
 
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 func AddTimeout(second time.Duration, callback func()) {
@@ -37,9 +38,9 @@ func AddTimeout(second time.Duration, callback func()) {
 	}()
 }
 
-func CommandWithTimeout(timeout int, cmds ...string) *exec.Cmd {
+func CommandWithTimeout(timeout int, cmds ...string) *procutils.Command {
 	if timeout > 0 {
 		cmds = append([]string{"timeout", "--signal=KILL", fmt.Sprintf("%ds", timeout)}, cmds...)
 	}
-	return exec.Command(cmds[0], cmds[1:]...)
+	return procutils.NewCommand(cmds[0], cmds[1:]...)
 }

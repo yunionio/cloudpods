@@ -1,0 +1,18 @@
+[Unit]
+Description=Yunion Command Executor
+Documentation=https://docs.yunion.cn
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/opt/yunion/bin/executor-server
+WorkingDirectory=/opt/yunion/bin
+KillMode=process
+Restart=always
+RestartSec=30
+LimitNOFILE=500000
+LimitNPROC=500000
+
+[Install]
+WantedBy=multi-user.target

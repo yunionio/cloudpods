@@ -51,7 +51,7 @@ type SLinuxBridgeDriver struct {
 }
 
 func (l *SLinuxBridgeDriver) Exists() (bool, error) {
-	data, err := procutils.NewCommand("brctl", "show").Run()
+	data, err := procutils.NewCommand("brctl", "show").Output()
 	if err != nil {
 		return false, err
 	}
@@ -67,7 +67,7 @@ func (l *SLinuxBridgeDriver) Exists() (bool, error) {
 }
 
 func (l *SLinuxBridgeDriver) Interfaces() ([]string, error) {
-	data, err := procutils.NewCommand("brctl", "show", l.bridge.String()).Run()
+	data, err := procutils.NewCommand("brctl", "show", l.bridge.String()).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 		return err
 	}
 	if !exist {
-		_, err := procutils.NewCommand("brctl", "addbr", l.bridge.String()).Run()
+		_, err := procutils.NewCommand("brctl", "addbr", l.bridge.String()).Output()
 		if err != nil {
 			return fmt.Errorf("Failed to create bridge %s", l.bridge)
 		}
@@ -127,7 +127,7 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 }
 
 func (d *SLinuxBridgeDriver) PersistentMac() error {
-	output, err := procutils.NewCommand("ifconfig", d.bridge.String(), "hw", "ether", d.inter.Mac).Run()
+	output, err := procutils.NewCommand("ifconfig", d.bridge.String(), "hw", "ether", d.inter.Mac).Output()
 	if err != nil {
 		return fmt.Errorf("Linux bridge set mac address failed %s %s", output, err)
 	}
@@ -141,7 +141,7 @@ func (l *SLinuxBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 
 	// cmd := "iptables -t nat -F"
 	// cmd1 := strings.Split(cmd, " ")
-	// output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	// output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Output()
 	// if err != nil {
 	// 	log.Errorf("Clean iptables failed: %s", output)
 	// 	return err
@@ -151,7 +151,7 @@ func (l *SLinuxBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 	cmd += " -d 169.254.169.254/32 -p tcp -m tcp --dport 80"
 	cmd += fmt.Sprintf(" -j DNAT --to-destination %s", metadataServerLoc)
 	cmd1 := strings.Split(cmd, " ")
-	output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Output()
 	if err != nil {
 		log.Errorf("Inject DNAT rule failed: %s", output)
 		return err
@@ -159,7 +159,7 @@ func (l *SLinuxBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 
 	cmd = "sysctl -w net.ipv4.ip_forward=1"
 	cmd1 = strings.Split(cmd, " ")
-	output, err = procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	output, err = procutils.NewCommand(cmd1[0], cmd1[1:]...).Output()
 	if err != nil {
 		log.Errorf("Enable ip forwarding failed: %s", output)
 		return err
@@ -176,8 +176,7 @@ func (l *SLinuxBridgeDriver) SetupInterface() error {
 		return err
 	}
 	if l.inter != nil && !utils.IsInStringArray(l.inter.String(), infs) {
-		_, err := procutils.NewCommand(
-			"brctl", "addif", l.bridge.String(), l.inter.String()).Run()
+		err := procutils.NewCommand("brctl", "addif", l.bridge.String(), l.inter.String()).Run()
 		if err != nil {
 			return fmt.Errorf("Failed to add interface %s", l.inter)
 		}

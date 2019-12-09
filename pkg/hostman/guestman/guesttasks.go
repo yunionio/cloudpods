@@ -821,7 +821,7 @@ func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, s.snapshotId)
-	_, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Run()
+	_, err := procutils.NewCommand("mv", "-f", snapshotPath, s.disk.GetPath()).Output()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -886,17 +886,17 @@ func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
 	}
 
 	s.tmpPath = snapshotPath + ".swap"
-	if _, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Output(); err != nil {
 		log.Errorln(err)
 		if fileutils2.Exists(s.tmpPath) {
-			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run()
+			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
 		}
 		return err
 	}
-	if _, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Output(); err != nil {
 		log.Errorln(err)
 		if fileutils2.Exists(s.tmpPath) {
-			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run()
+			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output()
 		}
 		return err
 	}
@@ -918,7 +918,7 @@ func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 
 func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	snapshotPath := path.Join(s.disk.GetSnapshotDir(), s.convertSnapshot)
-	if _, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Output(); err != nil {
 		log.Errorln(err)
 	}
 	s.taskFailed("Reload blkdev failed")
@@ -927,7 +927,7 @@ func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 	log.Infof("guest do new snapshot task resume succ %s", res)
 	if len(s.tmpPath) > 0 {
-		_, err := procutils.NewCommand("rm", "-f", s.tmpPath).Run()
+		_, err := procutils.NewCommand("rm", "-f", s.tmpPath).Output()
 		if err != nil {
 			log.Errorln(err)
 		}

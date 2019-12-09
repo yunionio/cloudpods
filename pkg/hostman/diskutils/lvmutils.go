@@ -88,7 +88,7 @@ type SKVMGuestLVMPartition struct {
 }
 
 func findVgname(partDev string) string {
-	output, err := procutils.NewCommand("pvscan").Run()
+	output, err := procutils.NewCommand("pvscan").Output()
 	if err != nil {
 		log.Errorf("%s", output)
 		return ""
@@ -180,7 +180,7 @@ func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
 	if activate {
 		param = "-ay"
 	}
-	output, err := procutils.NewCommand("vgchange", param, p.vgname).Run()
+	output, err := procutils.NewCommand("vgchange", param, p.vgname).Output()
 	if err != nil {
 		log.Errorf("%s", output)
 		return false
@@ -189,7 +189,7 @@ func (p *SKVMGuestLVMPartition) vgActivate(activate bool) bool {
 }
 
 func (p *SKVMGuestLVMPartition) vgRename(oldname, newname string) bool {
-	output, err := procutils.NewCommand("vgrename", oldname, newname).Run()
+	output, err := procutils.NewCommand("vgrename", oldname, newname).Output()
 	if err != nil {
 		log.Errorf("%s", output)
 		return false

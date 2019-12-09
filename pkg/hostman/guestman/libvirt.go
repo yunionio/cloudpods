@@ -64,7 +64,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		iDisk := storage.CreateDisk(diskId)
 
 		// use symbol link replace mv, more security
-		output, err := procutils.NewCommand("ln", "-s", diskPath, iDisk.GetPath()).Run()
+		output, err := procutils.NewCommand("ln", "-s", diskPath, iDisk.GetPath()).Output()
 		if err != nil {
 			return nil, fmt.Errorf("Symbol link disk from %s to %s error %s", diskPath, iDisk.GetPath(), output)
 		}
@@ -93,7 +93,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 
 func findGuestProcessPid(originId, sufix string) string {
 	output, err := procutils.NewCommand(
-		"sh", "-c", fmt.Sprintf("ps -A -o pid,args | grep [q]emu | grep %s | grep %s", originId, sufix)).Run()
+		"sh", "-c", fmt.Sprintf("ps -A -o pid,args | grep [q]emu | grep %s | grep %s", originId, sufix)).Output()
 	if err != nil {
 		log.Errorf("find guest %s error: %s", originId, output)
 		return ""
@@ -190,9 +190,8 @@ func setAttributeFromLibvirtConfig(
 }
 
 func isServerRunning(sufix, uuid string) bool {
-	_, err := procutils.NewCommand("sh", "-c",
-		fmt.Sprintf("ps -ef | grep [q]emu | grep %s | grep %s", uuid, sufix)).Run()
-	return err == nil
+	return procutils.NewCommand("sh", "-c",
+		fmt.Sprintf("ps -ef | grep [q]emu | grep %s | grep %s", uuid, sufix)).Run() == nil
 }
 
 func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostConfig) (jsonutils.JSONObject, error) {

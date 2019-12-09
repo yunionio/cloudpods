@@ -92,7 +92,7 @@ func (s *SNFSStorage) SetStorageInfo(storageId, storageName string, conf jsonuti
 }
 
 func (s *SNFSStorage) checkAndMount() error {
-	if _, err := procutils.NewCommand("mountpoint", s.Path).Run(); err == nil {
+	if err := procutils.NewCommand("mountpoint", s.Path).Run(); err == nil {
 		return nil
 	}
 	if s.StorageConf == nil {
@@ -106,10 +106,12 @@ func (s *SNFSStorage) checkAndMount() error {
 	if err != nil {
 		return fmt.Errorf("Storage conf missing nfs_shared_dir")
 	}
-	output, err := procutils.NewCommand(
-		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", host, sharedDir), s.Path).RunWithTimeout(10 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = procutils.NewCommandContext(ctx,
+		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", host, sharedDir), s.Path).Run()
 	if err != nil {
-		return fmt.Errorf("%s", output)
+		return err
 	}
 	return nil
 }
