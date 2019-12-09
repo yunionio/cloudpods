@@ -212,6 +212,30 @@ func (self *SESXiGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *m
 	return nil
 }
 
+func (self *SESXiGuestDriver) RqeuestResumeOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		host := guest.GetHost()
+		if host == nil {
+			return nil, errors.Error("fail to get host of guest")
+		}
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, err
+		}
+		ivm, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		vm := ivm.(*esxi.SVirtualMachine)
+		err = vm.ResumeVM(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "VM.Resume for VMware")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
 func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
 	if data.Contains("host_ip") {

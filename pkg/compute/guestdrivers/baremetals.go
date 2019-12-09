@@ -486,15 +486,19 @@ func (self *SBaremetalGuestDriver) RequestSyncConfigOnHost(ctx context.Context, 
 }
 
 func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot detach disk from a baremetal serer")
+	return fmt.Errorf("Cannot detach disk from a baremetal server")
 }
 
 func (self *SBaremetalGuestDriver) StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot attach disk to a baremetal serer")
+	return fmt.Errorf("Cannot attach disk to a baremetal server")
 }
 
 func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot suspend a baremetal serer")
+	return fmt.Errorf("Cannot suspend a baremetal server")
+}
+
+func (self *SBaremetalGuestDriver) StartResumeTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	return fmt.Errorf("Cannot resume a baremetal server")
 }
 
 func (self *SBaremetalGuestDriver) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
