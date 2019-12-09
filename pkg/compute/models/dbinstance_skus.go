@@ -49,9 +49,6 @@ func init() {
 			"dbinstance_skus",
 		),
 	}
-
-	DBInstanceSkuManager.NameRequireAscii = true
-	db.RegisterModelManager(DBInstanceSkuManager)
 	DBInstanceSkuManager.SetVirtualObject(DBInstanceSkuManager)
 	DBInstanceSkuManager.NameRequireAscii = false
 }
