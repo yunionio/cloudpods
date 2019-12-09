@@ -71,18 +71,29 @@ func init() {
 	GuestTemplateManager.SetVirtualObject(GuestTemplateManager)
 }
 
-func (gtm *SGuestTemplateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *computeapis.GuesttemplateCreateInput) (*jsonutils.JSONDict, error) {
+func (gtm *SGuestTemplateManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input computeapis.GuesttemplateCreateInput,
+) (computeapis.GuesttemplateCreateInput, error) {
 
 	if input.Content == nil {
-		return nil, httperrors.NewMissingParameterError("content")
+		return input, httperrors.NewMissingParameterError("content")
 	}
 
-	data, err := gtm.validateData(ctx, userCred, ownerId, query, input)
+	input, err := gtm.validateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "gtm.validateData")
 	}
-	return gtm.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input.SharableVirtualResourceCreateInput, err = gtm.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
+	}
+
+	return input, nil
 }
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
@@ -96,36 +107,49 @@ func (gt *SGuestTemplate) PostUpdate(ctx context.Context, userCred mcclient.Toke
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_UPDATE, nil, userCred, true)
 }
 
-func (gtm *SGuestTemplateManager) validateData(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, cinput *computeapis.GuesttemplateCreateInput) (*jsonutils.JSONDict, error) {
+func (gtm *SGuestTemplateManager) validateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	cinput computeapis.GuesttemplateCreateInput,
+) (computeapis.GuesttemplateCreateInput, error) {
 	if cinput.Content == nil {
-		return cinput.JSON(cinput), nil
+		return cinput, nil
 	}
 	content := cinput.Content
-	data := cinput.JSON(cinput)
+	// data := cinput.JSON(cinput)
 	// not support guest image and guest snapshot for now
 	if content.Contains("instance_snapshot_id") {
-		return nil, httperrors.NewInputParameterError(
+		return cinput, httperrors.NewInputParameterError(
 			"no support for instance snapshot in guest template for now")
 	}
 	// I don't hope cinput.Content same with data["content"] will change in GuestManager.validateCreateData
 	copy := jsonutils.DeepCopy(content).(*jsonutils.JSONDict)
 	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, query, copy)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return cinput, httperrors.NewInputParameterError(err.Error())
 	}
 	// fill field
-	data.Add(jsonutils.NewInt(int64(input.VmemSize)), "vmem_size")
-	data.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
-	data.Add(jsonutils.NewString(input.OsType), "os_type")
-	data.Add(jsonutils.NewString(input.Hypervisor), "hypervisor")
+	cinput.VmemSize = input.VmemSize
+	// data.Add(jsonutils.NewInt(int64(input.VmemSize)), "vmem_size")
+	cinput.VcpuCount = input.VcpuCount
+	// data.Add(jsonutils.NewInt(int64(input.VcpuCount)), "vcpu_count")
+	cinput.OsType = input.OsType
+	// data.Add(jsonutils.NewString(input.OsType), "os_type")
+	cinput.Hypervisor = input.Hypervisor
+	// data.Add(jsonutils.NewString(input.Hypervisor), "hypervisor")
 
 	if len(input.GuestImageID) > 0 {
-		data.Add(jsonutils.NewString(IMAGE_TYPE_GUEST), "image_type")
-		data.Add(jsonutils.NewString(input.GuestImageID), "image_id")
+		cinput.ImageType = IMAGE_TYPE_GUEST
+		cinput.ImageId = input.GuestImageID
+		// data.Add(jsonutils.NewString(IMAGE_TYPE_GUEST), "image_type")
+		// data.Add(jsonutils.NewString(input.GuestImageID), "image_id")
 	} else {
-		data.Add(jsonutils.NewString(input.Disks[0].ImageId), "image_id")
-		data.Add(jsonutils.NewString(IMAGE_TYPE_NORMAL), "image_type")
+		cinput.ImageType = input.GuestImageID
+		cinput.ImageId = input.Disks[0].ImageId // if input.Didks is empty???
+		// data.Add(jsonutils.NewString(input.Disks[0].ImageId), "image_id")
+		// data.Add(jsonutils.NewString(IMAGE_TYPE_NORMAL), "image_type")
 	}
 
 	// hide some properties
@@ -136,17 +160,19 @@ func (gtm *SGuestTemplateManager) validateData(ctx context.Context, userCred mcc
 	contentDict.Remove("count")
 	contentDict.Remove("project_id")
 
-	data.Add(contentDict, "content")
-	return data, nil
+	cinput.Content = contentDict
+	// data.Add(contentDict, "content")
+	return cinput, nil
 }
 
 func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, cinput *computeapis.GuesttemplateCreateInput) (*jsonutils.JSONDict, error) {
 
-	data, err := GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, cinput)
+	input, err := GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, *cinput)
 	if err != nil {
 		return nil, nil
 	}
+	data := input.JSON(input)
 	return gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 

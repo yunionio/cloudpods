@@ -7,10 +7,18 @@ import (
 )
 
 type GuesttemplateCreateInput struct {
-	apis.SharableVirutalResourceCreateInput
+	apis.SharableVirtualResourceCreateInput
+
 	// description: the content of guest template
 	// required: true
 	Content jsonutils.JSONObject `json:"content"`
+
+	VmemSize   int    `json:"vmem_size"`
+	VcpuCount  int    `json:"vcpu_count"`
+	OsType     string `json:"os_type"`
+	Hypervisor string `json:"hypervisor"`
+	ImageType  string `json:"image_type"`
+	ImageId    string `json:"image_id"`
 }
 
 type GuesttemplateDetails struct {

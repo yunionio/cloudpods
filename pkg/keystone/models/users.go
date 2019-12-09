@@ -396,7 +396,17 @@ func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mc
 			return nil, errors.Wrap(err, "validatePasswordComplexity")
 		}
 	}
-	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := api.EnabledIdentityBaseResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal EnabledIdentityBaseResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -20,13 +20,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	apis "yunion.io/x/onecloud/pkg/apis/ansible"
+	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/ansible"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -76,8 +76,19 @@ func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, user
 	if err := pbV.Validate(data); err != nil {
 		return nil, err
 	}
-	data.Set("status", jsonutils.NewString(apis.AnsiblePlaybookStatusInit))
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	data.Set("status", jsonutils.NewString(api.AnsiblePlaybookStatusInit))
+	var err error
+	input := apis.VirtualResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (apb *SAnsiblePlaybook) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -91,14 +102,14 @@ func (apb *SAnsiblePlaybook) PostCreate(ctx context.Context, userCred mcclient.T
 func (man *SAnsiblePlaybookManager) InitializeData() error {
 	pbs := []SAnsiblePlaybook{}
 	q := AnsiblePlaybookManager.Query()
-	q = q.Filter(sqlchemy.Equals(q.Field("status"), apis.AnsiblePlaybookStatusRunning))
+	q = q.Filter(sqlchemy.Equals(q.Field("status"), api.AnsiblePlaybookStatusRunning))
 	if err := db.FetchModelObjects(AnsiblePlaybookManager, q, &pbs); err != nil {
-		return errors.WithMessage(err, "fetch running playbooks")
+		return errors.Wrap(err, "fetch running playbooks")
 	}
 	for i := 0; i < len(pbs); i++ {
 		pb := &pbs[i]
 		_, err := db.Update(pb, func() error {
-			pb.Status = apis.AnsiblePlaybookStatusUnknown
+			pb.Status = api.AnsiblePlaybookStatusUnknown
 			return nil
 		})
 		if err != nil {
@@ -109,14 +120,14 @@ func (man *SAnsiblePlaybookManager) InitializeData() error {
 }
 
 func (apb *SAnsiblePlaybook) ValidateDeleteCondition(ctx context.Context) error {
-	if apb.Status == apis.AnsiblePlaybookStatusRunning {
+	if apb.Status == api.AnsiblePlaybookStatusRunning {
 		return httperrors.NewConflictError("playbook is in running state")
 	}
 	return nil
 }
 
 func (apb *SAnsiblePlaybook) ValidateUpdateCondition(ctx context.Context) error {
-	if apb.Status == apis.AnsiblePlaybookStatusRunning {
+	if apb.Status == api.AnsiblePlaybookStatusRunning {
 		return httperrors.NewConflictError("playbook is in running state")
 	}
 	return nil
@@ -128,7 +139,7 @@ func (apb *SAnsiblePlaybook) ValidateUpdateData(ctx context.Context, userCred mc
 		return nil, err
 	}
 	apb.Playbook = pbV.Playbook // Update as a whole
-	data.Set("status", jsonutils.NewString(apis.AnsiblePlaybookStatusInit))
+	data.Set("status", jsonutils.NewString(api.AnsiblePlaybookStatusInit))
 	return data, nil
 }
 
@@ -185,7 +196,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 		apb.StartTime = time.Now()
 		apb.EndTime = time.Time{}
 		apb.Output = ""
-		apb.Status = apis.AnsiblePlaybookStatusRunning
+		apb.Status = api.AnsiblePlaybookStatusRunning
 		return nil
 	})
 	if err != nil {
@@ -205,12 +216,12 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 		_, err := db.Update(apb, func() error {
 			err := man.sessions.Err(apb.Id)
 			if err != nil {
-				apb.Status = apis.AnsiblePlaybookStatusCanceled
+				apb.Status = api.AnsiblePlaybookStatusCanceled
 			} else if runErr != nil {
 				log.Warningf("playbook %s(%s) failed: %v", apb.Name, apb.Id, runErr)
-				apb.Status = apis.AnsiblePlaybookStatusFailed
+				apb.Status = api.AnsiblePlaybookStatusFailed
 			} else {
-				apb.Status = apis.AnsiblePlaybookStatusSucceeded
+				apb.Status = api.AnsiblePlaybookStatusSucceeded
 			}
 			apb.EndTime = time.Now()
 			return nil
@@ -227,9 +238,9 @@ func (apb *SAnsiblePlaybook) stopPlaybook(ctx context.Context, userCred mcclient
 	man.sessionsMux.Lock()
 	defer man.sessionsMux.Unlock()
 	if !man.sessions.Has(apb.Id) {
-		if apb.Status == apis.AnsiblePlaybookStatusRunning {
+		if apb.Status == api.AnsiblePlaybookStatusRunning {
 			_, err := db.Update(apb, func() error {
-				apb.Status = apis.AnsiblePlaybookStatusUnknown
+				apb.Status = api.AnsiblePlaybookStatusUnknown
 				return nil
 			})
 			if err != nil {
