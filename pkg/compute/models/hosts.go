@@ -2464,6 +2464,17 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 	return nil
 }
 
+func (self *SHost) GetStoragecache() *SStoragecache {
+	localStorages := self.GetAttachedStorages("")
+	for i := 0; i < len(localStorages); i += 1 {
+		sc := localStorages[i].GetStoragecache()
+		if sc != nil {
+			return sc
+		}
+	}
+	return nil
+}
+
 func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	kwargs := data.(*jsonutils.JSONDict)
@@ -3863,9 +3874,16 @@ func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool) error {
-	sc := self.GetLocalStoragecache()
+	var sc *SStoragecache
+	switch self.HostType {
+	case api.HOST_TYPE_BAREMETAL:
+	case api.HOST_TYPE_HYPERVISOR, api.HOST_TYPE_ESXI:
+		sc = self.GetLocalStoragecache()
+	default:
+		sc = self.GetStoragecache()
+	}
 	if sc == nil {
-		return fmt.Errorf("No local storage cache found")
+		return errors.Wrap(errors.ErrNotSupported, "No associate storage cache found")
 	}
 	return sc.StartImageCacheTask(ctx, userCred, imageId, format, isForce, "")
 }
