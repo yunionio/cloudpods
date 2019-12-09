@@ -7,14 +7,7 @@ import (
 )
 
 type GuesttemplateCreateInput struct {
-	apis.Meta
-
-	// description: guest template name
-	// unique: true
-	// required: true
-	// example: hello
-	Name string `json:"name"`
-
+	apis.SharableVirutalResourceCreateInput
 	// description: the content of guest template
 	// required: true
 	Content jsonutils.JSONObject `json:"content"`
