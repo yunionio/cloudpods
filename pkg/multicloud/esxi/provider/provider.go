@@ -166,14 +166,6 @@ func (self *SESXiProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return nil
 }
 
-func (cli *SESXiProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	return []cloudprovider.ICloudGlobalnetwork{}, nil
-}
-
-func (cli *SESXiProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SESXiProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

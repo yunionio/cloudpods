@@ -117,7 +117,8 @@ type IRegionDriver interface {
 	RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *SVpc, secgroup *SSecurityGroup) (string, error)
 	IsSupportClassicSecurityGroup() bool
 	IsSecurityGroupBelongVpc() bool
-	IsSecurityGroupBelongGlobalNetwork() bool //安全组子账号范围内可用
+	IsVpcBelongGlobalVpc() bool
+	IsSecurityGroupBelongGlobalVpc() bool //安全组子账号范围内可用
 	GetDefaultSecurityGroupVpcId() string
 	GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, host *SHost, vpc *SVpc, classic bool) (string, error)
 

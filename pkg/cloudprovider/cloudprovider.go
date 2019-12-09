@@ -73,9 +73,6 @@ type ICloudProvider interface {
 	GetIProjects() ([]ICloudProject, error)
 	GetIRegionById(id string) (ICloudRegion, error)
 
-	GetIGlobalnetworks() ([]ICloudGlobalnetwork, error)
-	GetIGlobalnetworkById(id string) (ICloudGlobalnetwork, error)
-
 	GetOnPremiseIRegion() (ICloudRegion, error)
 
 	GetBalance() (float64, string, error)

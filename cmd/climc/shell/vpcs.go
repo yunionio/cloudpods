@@ -27,8 +27,9 @@ func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
 
-		Usable *bool  `help:"Filter usable vpcs"`
-		Region string `help:"ID or Name of region" json:"-"`
+		Usable    *bool  `help:"Filter usable vpcs"`
+		Region    string `help:"ID or Name of region" json:"-"`
+		Globalvpc string `help:"Filter by globalvpc"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, opts *VpcListOptions) error {
 		params, err := options.ListStructToParams(opts)
