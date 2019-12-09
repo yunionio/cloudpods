@@ -110,7 +110,7 @@ func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (zone *SZone) IsEmulated() bool {
-	return true
+	return false
 }
 
 func (zone *SZone) Refresh() error {

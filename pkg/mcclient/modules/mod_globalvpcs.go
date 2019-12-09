@@ -18,18 +18,18 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
 
-type GlobalNetworkManager struct {
+type GlobalVpcManager struct {
 	modulebase.ResourceManager
 }
 
 var (
-	GlobalNetworks GlobalNetworkManager
+	GlobalVpcs GlobalVpcManager
 )
 
 func init() {
-	GlobalNetworks = GlobalNetworkManager{NewComputeManager("globalnetwork", "globalnetworks",
+	GlobalVpcs = GlobalVpcManager{NewComputeManager("globalvpc", "globalvpcs",
 		[]string{},
-		[]string{"ID", "Name", "Description"})}
+		[]string{"ID", "Name", "Description", "Status", "Enabled"})}
 
-	registerCompute(&GlobalNetworks)
+	registerCompute(&GlobalVpcs)
 }

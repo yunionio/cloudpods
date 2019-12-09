@@ -12,22 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package compute
 
-import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
-
-var (
-	GlobalnetworkVpcs modulebase.JointResourceManager
+const (
+	GLOBAL_VPC_STATUS_AVAILABLE = "available"
+	GLOBAL_VPC_STATUS_UNKNOWN   = "unknown"
 )
-
-func init() {
-	GlobalnetworkVpcs = NewJointComputeManager(
-		"globalnetworkvpc",
-		"globalnetworkvpcs",
-		[]string{"Globalnetwork_Id", "Globalnetwork",
-			"Vpc_Id", "Vpc"},
-		[]string{},
-		&GlobalNetworks,
-		&Vpcs)
-	registerCompute(&GlobalnetworkVpcs)
-}

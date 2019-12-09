@@ -110,14 +110,6 @@ type SCtyunProvider struct {
 	client *ctyun.SCtyunClient
 }
 
-func (self *SCtyunProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	return []cloudprovider.ICloudGlobalnetwork{}, nil
-}
-
-func (self *SCtyunProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SCtyunProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }

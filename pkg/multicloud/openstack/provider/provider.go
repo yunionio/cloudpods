@@ -170,14 +170,6 @@ func (self *SOpenStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
-func (self *SOpenStackProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	return []cloudprovider.ICloudGlobalnetwork{}, nil
-}
-
-func (self *SOpenStackProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(extId)
 }

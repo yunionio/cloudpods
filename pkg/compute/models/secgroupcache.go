@@ -223,7 +223,7 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 	}
 
 	vpcId := ""
-	if region.GetDriver().IsSecurityGroupBelongGlobalNetwork() { //globalnetwork没有region属性
+	if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
 		vpcId, err = region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
 		if err != nil {
 			syncResult.Error(errors.Wrap(err, "GetSecurityGroupVpcId"))

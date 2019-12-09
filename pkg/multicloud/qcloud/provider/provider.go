@@ -161,14 +161,6 @@ func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
-func (client *SQcloudProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	return []cloudprovider.ICloudGlobalnetwork{}, nil
-}
-
-func (client *SQcloudProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }

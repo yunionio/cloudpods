@@ -14,7 +14,31 @@
 
 package compute
 
-const (
-	GLOBAL_NETWORK_STATUS_AVAILABLE = "available"
-	GLOBAL_NETWORK_STATUS_UNKNOWN   = "unknown"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
 )
+
+type GlobalVpcCreateInput struct {
+	apis.Meta
+
+	// description: global vpc name
+	// unique: true
+	// required: true
+	// example: test-globalvpc
+	Name string `json:"name"`
+
+	// description: global vpc description
+	// required: false
+	// example: test create globalvpc
+	Description string `json:"description"`
+
+	// description: enable or disable global vpc
+	// required: false
+	// default: false
+	Enabled *bool `json:"enabled"`
+
+	// description: global vpc status
+	// required: false
+	// default: available
+	Status string `json:"status"`
+}
