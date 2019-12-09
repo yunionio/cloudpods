@@ -142,6 +142,15 @@ func init() {
 		printQuotaList(quotas)
 		return nil
 	})
+	R(&QuotaOptions{}, "project-quota", "Show project-quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.ProjectQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printQuotaList(result)
+		return nil
+	})
 	R(&QuotaOptions{}, "image-quota", "Show image quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
 		params := jsonutils.Marshal(args)
 		quotas, err := modules.ImageQuotas.GetQuota(s, params)

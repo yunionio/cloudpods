@@ -16,7 +16,19 @@ package identity
 
 import (
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
+
+type IdentityBaseResourceCreateInput struct {
+	apis.StandaloneResourceCreateInput
+}
+
+type EnabledIdentityBaseResourceCreateInput struct {
+	IdentityBaseResourceCreateInput
+
+	Enabled *bool `json:"enabled"`
+}
 
 type SJoinProjectsInput struct {
 	Projects []string

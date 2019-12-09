@@ -24,7 +24,7 @@ func TestRelation(t *testing.T) {
 		{},
 		// Domain1 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId: "domain1",
@@ -34,7 +34,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Domain2 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId: "domain2",
@@ -44,7 +44,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project11 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -55,7 +55,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project12 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -66,7 +66,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project21 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain2",
@@ -77,7 +77,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project11Region1 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -89,7 +89,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project11Region2 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -101,7 +101,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project11Aliyun :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -113,7 +113,7 @@ func TestRelation(t *testing.T) {
 		},
 		// Project11AliyunRegion1 :=
 		{
-			SRegionalCloudRegionKeys: SRegionalCloudRegionKeys{
+			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
 					SBaseQuotaKeys: SBaseQuotaKeys{
 						DomainId:  "domain1",
@@ -241,9 +241,9 @@ func TestRelation(t *testing.T) {
 			QuotaKeysBelong,
 			QuotaKeysExclude,
 			QuotaKeysExclude,
+			QuotaKeysBelong,
 			QuotaKeysExclude,
-			QuotaKeysExclude,
-			QuotaKeysExclude,
+			QuotaKeysBelong,
 			QuotaKeysEqual,
 		},
 	}
@@ -251,7 +251,7 @@ func TestRelation(t *testing.T) {
 		for j := range keys {
 			rel := relation(keys[i], keys[j])
 			if rel != want[i][j] {
-				t.Errorf("%#v %#v got %s want %s", keys[i], keys[j], rel, want[i][j])
+				t.Errorf("i=%d j=%d %#v %#v got %s want %s", i, j, keys[i], keys[j], rel, want[i][j])
 			}
 		}
 	}

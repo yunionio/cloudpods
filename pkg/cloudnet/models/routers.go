@@ -20,10 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
-	yerrors "yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -63,9 +64,16 @@ func init() {
 }
 
 func (man *SRouterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	vs := []validators.IValidator{
 		validators.NewStringNonEmptyValidator("user").Default("cloudroot"),
@@ -153,7 +161,7 @@ func (router *SRouter) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	if err := router.SStandaloneResourceBase.CustomizeDelete(ctx, userCred, query, data); err != nil {
 		errs = append(errs, err)
 	}
-	return yerrors.NewAggregate(errs)
+	return errors.NewAggregate(errs)
 }
 
 func (router *SRouter) AllowPerformJoinMeshNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
