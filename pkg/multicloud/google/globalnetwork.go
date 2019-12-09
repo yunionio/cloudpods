@@ -14,12 +14,6 @@
 
 package google
 
-import (
-	"yunion.io/x/jsonutils"
-
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-)
-
 type SGlobalNetwork struct {
 	Id string
 	//CreationTimestamp     time.Time
@@ -42,32 +36,4 @@ func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([
 	params := map[string]string{}
 	resource := "global/networks"
 	return networks, cli.list(resource, params, maxResults, pageToken, &networks)
-}
-
-func (net *SGlobalNetwork) GetId() string {
-	return net.SelfLink
-}
-
-func (net *SGlobalNetwork) GetGlobalId() string {
-	return getGlobalId(net.SelfLink)
-}
-
-func (net *SGlobalNetwork) GetName() string {
-	return net.Name
-}
-
-func (net *SGlobalNetwork) GetMetadata() *jsonutils.JSONDict {
-	return nil
-}
-
-func (net *SGlobalNetwork) GetStatus() string {
-	return api.GLOBAL_NETWORK_STATUS_AVAILABLE
-}
-
-func (net *SGlobalNetwork) IsEmulated() bool {
-	return false
-}
-
-func (net *SGlobalNetwork) Refresh() error {
-	return nil
 }

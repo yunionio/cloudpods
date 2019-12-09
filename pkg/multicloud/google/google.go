@@ -267,26 +267,6 @@ func (self *SGoogleClient) fetchGlobalNetwork() ([]SGlobalNetwork, error) {
 	return globalnetworks, nil
 }
 
-func (cli *SGoogleClient) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	networks, err := cli.fetchGlobalNetwork()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchGlobalNetwork")
-	}
-	inetworks := []cloudprovider.ICloudGlobalnetwork{}
-	for i := range networks {
-		inetworks = append(inetworks, &networks[i])
-	}
-	return inetworks, nil
-}
-
-func (cli *SGoogleClient) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	network, err := cli.GetGlobalNetwork(id)
-	if err != nil {
-		return nil, err
-	}
-	return network, nil
-}
-
 func (self *SGoogleClient) GetRegions() []SRegion {
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i++ {

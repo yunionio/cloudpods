@@ -56,7 +56,7 @@ func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (host *SHost) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (host *SHost) GetStatus() string {

@@ -41,7 +41,7 @@ func (vpc *SVpc) GetId() string {
 }
 
 func (vpc *SVpc) GetGlobalId() string {
-	return vpc.GetId()
+	return fmt.Sprintf("%s/%s", vpc.region.GetGlobalId(), vpc.GetId())
 }
 
 func (vpc *SVpc) Refresh() error {
@@ -58,10 +58,6 @@ func (vpc *SVpc) Delete() error {
 
 func (vpc *SVpc) GetCidrBlock() string {
 	return ""
-}
-
-func (vpc *SVpc) GetIGlobalNetworkId() string {
-	return vpc.globalnetwork.GetGlobalId()
 }
 
 func (vpc *SVpc) IsEmulated() bool {

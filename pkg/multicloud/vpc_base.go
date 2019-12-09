@@ -27,7 +27,3 @@ type SVpc struct {
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
 	return nil, fmt.Errorf("Not Implemented GetNatGateways")
 }
-
-func (self *SVpc) GetIGlobalNetworkId() string {
-	return ""
-}

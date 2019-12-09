@@ -21,27 +21,27 @@ import (
 )
 
 func init() {
-	type GlobalNetworkListOptions struct {
+	type GlobalVpcListOptions struct {
 		options.BaseListOptions
 	}
-	R(&GlobalNetworkListOptions{}, "global-network-list", "List global networks", func(s *mcclient.ClientSession, args *GlobalNetworkListOptions) error {
+	R(&GlobalVpcListOptions{}, "global-vpc-list", "List global vpcs", func(s *mcclient.ClientSession, args *GlobalVpcListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
 		}
-		result, err := modules.GlobalNetworks.List(s, params)
+		result, err := modules.GlobalVpcs.List(s, params)
 		if err != nil {
 			return err
 		}
-		printList(result, modules.GlobalNetworks.GetColumns(s))
+		printList(result, modules.GlobalVpcs.GetColumns(s))
 		return nil
 	})
 
-	type GlobalNetworkShowOptions struct {
-		ID string `help:"ID or Name of globalnetwork"`
+	type GlobalVpcShowOptions struct {
+		ID string `help:"ID or Name of globalvpc"`
 	}
-	R(&GlobalNetworkShowOptions{}, "global-network-show", "Show details of a global network", func(s *mcclient.ClientSession, args *GlobalNetworkShowOptions) error {
-		result, err := modules.GlobalNetworks.GetById(s, args.ID, nil)
+	R(&GlobalVpcShowOptions{}, "global-vpc-show", "Show details of a global vpc", func(s *mcclient.ClientSession, args *GlobalVpcShowOptions) error {
+		result, err := modules.GlobalVpcs.GetById(s, args.ID, nil)
 		if err != nil {
 			return err
 		}

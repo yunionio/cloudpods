@@ -164,14 +164,6 @@ func (self *SGoogleProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
-func (self *SGoogleProvider) GetIGlobalnetworks() ([]cloudprovider.ICloudGlobalnetwork, error) {
-	return self.client.GetIGlobalnetworks()
-}
-
-func (self *SGoogleProvider) GetIGlobalnetworkById(id string) (cloudprovider.ICloudGlobalnetwork, error) {
-	return self.client.GetIGlobalnetworkById(id)
-}
-
 func (self *SGoogleProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(extId)
 }

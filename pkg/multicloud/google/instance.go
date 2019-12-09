@@ -330,7 +330,7 @@ func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 			if len(instance.ServiceAccounts) > 0 && isecgroup.GetName() == instance.ServiceAccounts[0].Email {
 				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
 			}
-			if isecgroup.GetName() == globalnetwork.GetName() {
+			if isecgroup.GetName() == globalnetwork.Name {
 				secgroupIds = append(secgroupIds, isecgroup.GetGlobalId())
 			}
 		}
