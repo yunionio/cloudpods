@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
@@ -25,6 +26,7 @@ import (
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -151,8 +153,8 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
-	if sreq.Image > 0 && self.Image > squota.Image {
-		err.Add("image", squota.Image, self.Image)
+	if sreq.Image > 0 && self.Image+sreq.Image > squota.Image {
+		err.Add("image", squota.Image, self.Image, sreq.Image)
 	}
 	if err.IsError() {
 		return err

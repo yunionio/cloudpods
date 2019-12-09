@@ -381,5 +381,15 @@ func (manager *SRoleManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err != nil {
 		return nil, err
 	}
-	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := api.IdentityBaseResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }

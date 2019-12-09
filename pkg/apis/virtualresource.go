@@ -17,8 +17,3 @@ package apis
 type VirtualResourceDetails struct {
 	ModelBaseDetails
 }
-
-type VirtualResourceCreateInput struct {
-	StandaloneResourceCreatInput
-	IsSystem bool `json:"is_system"`
-}

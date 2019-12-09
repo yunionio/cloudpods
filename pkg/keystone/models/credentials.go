@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -143,7 +144,17 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 	data.Add(jsonutils.NewString(string(blobEnc)), "encrypted_blob")
 	data.Add(jsonutils.NewString(keys.CredentialKeyManager.PrimaryKeyHash()), "key_hash")
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.StandaloneResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {

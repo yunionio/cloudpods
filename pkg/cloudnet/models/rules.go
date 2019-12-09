@@ -20,9 +20,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	yerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -194,9 +195,17 @@ func (man *SRuleManager) validateData(ctx context.Context, userCred mcclient.Tok
 }
 
 func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
+
 	if err := man.validateData(ctx, userCred, ownerId, query, data, nil); err != nil {
 		return nil, err
 	}
@@ -241,7 +250,7 @@ func (man *SRuleManager) removeByRouter(ctx context.Context, userCred mcclient.T
 			errs = append(errs, err)
 		}
 	}
-	return yerrors.NewAggregate(errs)
+	return errors.NewAggregate(errs)
 }
 
 func (man *SRuleManager) getByFilter(filter map[string]string) ([]SRule, error) {
@@ -357,7 +366,7 @@ func (man *SRuleManager) addRules(ctx context.Context, userCred mcclient.TokenCr
 			continue
 		}
 	}
-	return yerrors.NewAggregate(errs)
+	return errors.NewAggregate(errs)
 }
 
 func (man *SRuleManager) addRule(ctx context.Context, userCred mcclient.TokenCredential, rule *SRule) error {
@@ -455,5 +464,5 @@ func (man *SRuleManager) firewalldDirectByRouter(router *SRouter) (*firewalld.Di
 		}
 		rs = append(rs, r)
 	}
-	return firewalld.NewDirect(rs...), yerrors.NewAggregate(errs)
+	return firewalld.NewDirect(rs...), errors.NewAggregate(errs)
 }

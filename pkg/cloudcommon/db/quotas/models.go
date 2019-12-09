@@ -258,6 +258,10 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		}
 
 		quota := manager.newQuota()
+		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+		if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys)) {
+			log.Fatalf("invalid quota??? fail to find SBaseQuotaKey")
+		}
 		err := metaQuota.GetQuota(context.Background(), scope, ownerId, quota)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
@@ -266,8 +270,6 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		if quota.IsEmpty() {
 			quota.FetchSystemQuota()
 		}
-		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
-		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys))
 		err = manager.TableSpec().Insert(quota)
 		if err != nil {
 			log.Errorf("%s insert error %s", manager.KeywordPlural(), err)

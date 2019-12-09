@@ -372,17 +372,6 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		Secgroups:          opts.Secgroups,
 	}
 
-	params.Description = opts.Desc
-	params.IsSystem = &opts.System
-
-	params.Project = opts.Project
-	params.ProjectId = opts.Project
-
-	if opts.GenerateName {
-		params.GenerateName = opts.NAME
-	} else {
-		params.Name = opts.NAME
-	}
 	if regutils.MatchSize(opts.MemSpec) {
 		memSize, err := fileutils.GetSizeMb(opts.MemSpec, 'M', 1024)
 		if err != nil {

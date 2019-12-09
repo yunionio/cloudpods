@@ -164,12 +164,26 @@ func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, d
 	return fetchDomainInfo(data)
 }
 
-func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.IdentityBaseResourceCreateInput) (api.IdentityBaseResourceCreateInput, error) {
 	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
 	if domain.Enabled.IsFalse() {
-		return nil, httperrors.NewInvalidStatusError("domain is disabled")
+		return input, httperrors.NewInvalidStatusError("domain is disabled")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	var err error
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.EnabledIdentityBaseResourceCreateInput) (api.EnabledIdentityBaseResourceCreateInput, error) {
+	var err error
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacScope {

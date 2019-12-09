@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -59,10 +60,17 @@ func (self *SResourceBase) SetDeleteBy(uid string) {
 }
 
 func (self *SResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.ResourceBaseCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal ResourceBaseCreateInput fail %s", err)
+	}
+	input, err = self.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
+
 	data.Set("create_by", jsonutils.NewString(userCred.GetUserId()))
 	return data, nil
 }
