@@ -1715,6 +1715,14 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
+	// deprecate at 3.0
+	for _, region := range []string{input.Cloudregion, input.CloudregionId, input.Region, input.RegionId} {
+		if len(region) > 0 {
+			input.Cloudregion = region
+			break
+		}
+	}
+
 	if len(input.Cloudregion) > 0 {
 		region, err := CloudregionManager.FetchByIdOrName(userCred, input.Cloudregion)
 		if err != nil {

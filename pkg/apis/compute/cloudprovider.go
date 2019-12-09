@@ -40,8 +40,28 @@ type CloudaccountListInput struct {
 	// List objects belonging to the cloud provider
 	Cloudprovider string `json:"cloudprovider"`
 
+	// List objects belonging to the cloud provider
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	Manager string `json:"manager"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	ManagerId string `json:"manager_id"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	CloudproviderId string `json:"cloudprovider_id"`
+
 	// List objects belonging to the cloud account
-	Cloudaccount string `json:"cloudprovider"`
+	Cloudaccount string `json:"cloudaccount"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	CloudaccountId string `json:"cloudaccount_id"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	Account string `json:"account"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	AccountId string `json:"account_id"`
 
 	// List objects from the providers, choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google"
 	Providers []string `json:"providers"`
@@ -53,6 +73,24 @@ type CloudaccountListInput struct {
 type CloudTypeListInput struct {
 	// enum: public_cloud,private_cloud,on_premise
 	CloudEnv string `json:"cloud_env"`
+
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	PublicCloud bool `json:"public_cloud"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	IsPublic bool `json:"is_public"`
+
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	PrivateCloud bool `json:"private_cloud"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	IsPrivate bool `json:"is_private"`
+
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	IsOnPremise bool `json:"is_on_premise"`
 
 	// List objects managed by external providers
 	// default: false

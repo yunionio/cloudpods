@@ -28,11 +28,22 @@ type NetworkListInput struct {
 
 	Zones []string `json:"zones"`
 
-	Vpc         string `json:"vpc"`
+	Vpc string `json:"vpc"`
+
 	Cloudregion string `json:"cloudregion"`
-	Usable      bool   `json:"usable"`
-	Host        string `json:"host"`
-	City        string `json:"city"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	CloudregionId string `json:"cloudregion_id"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	Region string `json:"region"`
+	// deprecate:true
+	// description: this param will be deprecate at 3.0
+	RegionId string `json:"region_id"`
+
+	Usable bool   `json:"usable"`
+	Host   string `json:"host"`
+	City   string `json:"city"`
 }
 
 type NetworkCreateInput struct {
