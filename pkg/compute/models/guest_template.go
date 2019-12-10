@@ -395,3 +395,16 @@ func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope str
 	}
 	return httperrors.NewForbiddenError(msg)
 }
+
+func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
+	q := ServiceCatalogManager.Query("name").Equals("guest_template_id", gt.Id)
+	names := make([]string, 0, 1)
+	err := q.All(&names)
+	if err != nil {
+		return errors.Wrap(err, "SQuery.All")
+	}
+	if len(names) > 0 {
+		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0])
+	}
+	return nil
+}
