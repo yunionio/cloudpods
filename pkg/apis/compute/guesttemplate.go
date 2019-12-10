@@ -18,7 +18,7 @@ type GuesttemplateDetails struct {
 	apis.SharableVirtualResourceDetails
 	SGuestTemplate
 
-	Config GuesttemplateConfigInfo `json:"config"`
+	ConfigInfo GuesttemplateConfigInfo `json:"config_info"`
 }
 
 type GuesttemplateConfigInfo struct {
