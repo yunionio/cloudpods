@@ -26,6 +26,7 @@ type NetworkListInput struct {
 	CloudaccountListInput
 	CloudTypeListInput
 
+	Zone  string   `json:"zone"`
 	Zones []string `json:"zones"`
 
 	Vpc string `json:"vpc"`
