@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -97,6 +99,10 @@ func (mh *MiscHandler) PostUploads(ctx context.Context, w http.ResponseWriter, r
 	case "BatchHostRegister":
 		mh.DoBatchHostRegister(ctx, w, req)
 		return
+	// 用户批量注册
+	case "BatchUserRegister":
+		mh.DoBatchUserRegister(ctx, w, req)
+		return
 	default:
 		err := httperrors.NewInputParameterError("Unsupported action %s", actions[0])
 		httperrors.JsonClientError(w, err)
@@ -159,6 +165,98 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	appsrv.SendJSON(w, resp)
+}
+
+func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	s := FetchSession(ctx, req, "")
+	files := req.MultipartForm.File
+
+	userfiles, ok := files["users"]
+	if !ok || len(userfiles) == 0 || userfiles[0] == nil {
+		e := httperrors.NewInputParameterError("Missing parameter %s", "users")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	fileHeader := userfiles[0].Header
+	contentType := fileHeader.Get("Content-Type")
+	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
+		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	file, err := userfiles[0].Open()
+	defer file.Close()
+	if err != nil {
+		log.Errorf(err.Error())
+		e := httperrors.NewInternalServerError("can't open file")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	xlsx, err := excelize.OpenReader(file)
+	if err != nil {
+		log.Errorf(err.Error())
+		e := httperrors.NewInternalServerError("can't parse file")
+		httperrors.JsonClientError(w, e)
+	}
+
+	// skipped header row
+	names := map[string]string{}
+	domains := map[string]string{}
+	users := []jsonutils.JSONDict{}
+	for _, row := range xlsx.GetRows("users")[1:] {
+		if len(row) < 3 {
+			log.Debugf("batchHostRegister row length too short (less than 3) %s", row)
+		}
+
+		if _, ok := names[row[0]]; ok {
+			e := httperrors.NewClientError("duplicate name %s", row[0])
+			httperrors.JsonClientError(w, e)
+			return
+		}
+
+		domainId, ok := domains[row[1]]
+		if !ok {
+			id, err := modules.Domains.GetId(s, row[1], nil)
+			if err != nil {
+				httperrors.JsonClientError(w, httperrors.NewGeneralError(err))
+				return
+			}
+
+			domainId = id
+			domains[row[1]] = id
+		}
+
+		user := jsonutils.NewDict()
+		user.Add(jsonutils.NewString(row[0]), "name")
+		user.Add(jsonutils.NewString(domainId), "domain_id")
+		user.Add(jsonutils.NewString("OneCloud@2019"), "password")
+		if strings.ToLower(row[2]) == "true" {
+			user.Add(jsonutils.JSONTrue, "allow_web_console")
+		} else {
+			user.Add(jsonutils.JSONFalse, "allow_web_console")
+		}
+	}
+
+	// batch create
+	var userG errgroup.Group
+	for i := range users {
+		user := users[i]
+		userG.Go(func() error {
+			_, err := modules.Users.Create(s, &user)
+			return err
+		})
+	}
+
+	if err := userG.Wait(); err != nil {
+		e := httperrors.NewGeneralError(err)
+		httperrors.GeneralServerError(w, e)
+		return
+	}
+
+	appsrv.SendJSON(w, jsonutils.NewDict())
 }
 
 func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
