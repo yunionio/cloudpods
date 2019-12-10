@@ -150,6 +150,16 @@ func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mccli
 	return gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (gt *SGuestTemplate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := gt.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	out := &computeapis.GuesttemplateDetails{}
+	gt.getMoreDetailsV2(ctx, userCred, out)
+	ret := out.JSON(out)
+	ret.Update(extra)
+	return ret
+}
+
 func (gt *SGuestTemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*computeapis.GuesttemplateDetails, error) {
 
@@ -293,7 +303,7 @@ func (gt *SGuestTemplate) getMoreDetailsV2(ctx context.Context, userCred mcclien
 		// no arrivals
 	}
 
-	out.Config = configInfo
+	out.ConfigInfo = configInfo
 	return
 }
 
@@ -398,13 +408,13 @@ func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope str
 
 func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
 	q := ServiceCatalogManager.Query("name").Equals("guest_template_id", gt.Id)
-	names := make([]string, 0, 1)
+	names := make([]struct{ Name string }, 0, 1)
 	err := q.All(&names)
 	if err != nil {
 		return errors.Wrap(err, "SQuery.All")
 	}
 	if len(names) > 0 {
-		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0])
+		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0].Name)
 	}
 	return nil
 }
