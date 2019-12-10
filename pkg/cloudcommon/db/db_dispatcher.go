@@ -363,7 +363,9 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		if showDetails && !query.Contains("export_keys") {
 			extraDict := item.GetCustomizeColumns(ctx, userCred, query)
 			if extraDict != nil {
-				jsonDict.Update(extraDict)
+				// Fix for Now
+				extraDict.Update(jsonDict)
+				jsonDict = extraDict
 			}
 			// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 		}
