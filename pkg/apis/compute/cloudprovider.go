@@ -64,10 +64,10 @@ type CloudaccountListInput struct {
 	AccountId string `json:"account_id"`
 
 	// List objects from the providers, choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google"
-	Providers []string `json:"providers"`
+	Providers []string `json:"provider"`
 
 	// List objects belonging to brands
-	Brands []string `json:"brands"`
+	Brands []string `json:"brand"`
 }
 
 type CloudTypeListInput struct {

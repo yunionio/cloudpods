@@ -1658,6 +1658,10 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return nil, err
 	}
 
+	if len(input.Zone) > 0 {
+		input.Zones = append(input.Zones, input.Zone)
+	}
+
 	if len(input.Zones) > 0 {
 		zq := ZoneManager.Query().SubQuery()
 		regions := CloudregionManager.Query().SubQuery()
