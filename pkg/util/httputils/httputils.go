@@ -144,6 +144,7 @@ func GetAddrPort(urlStr string) (string, int, error) {
 
 func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
 	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   timeout,
 			KeepAlive: timeout,
