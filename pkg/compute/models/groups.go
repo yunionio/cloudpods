@@ -105,13 +105,10 @@ func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.Toke
 
 func (group *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	data jsonutils.JSONObject) (*api.InstanceGroupDetail, error) {
-	ret := data.(*jsonutils.JSONDict)
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
 	count, _ := q.CountWithError()
-	ret.Add(jsonutils.NewInt(int64(count)), "guest_count")
 	output := new(api.InstanceGroupDetail)
-	data.Unmarshal(ret)
-	log.Errorf("output is %#v", output)
+	output.GuestCount = int64(count)
 	return output, nil
 }
 
