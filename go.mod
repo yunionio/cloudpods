@@ -13,7 +13,7 @@ require (
 	github.com/Shopify/sarama v1.20.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20180112035716-b5829a0278c8
-	github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20181116160301-c6838fdc33ed
+	github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
 	github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa // indirect
 	github.com/anacrolix/go-libutp v0.0.0-20180808010927-aebbeb60ea05 // indirect
 	github.com/anacrolix/log v0.0.0-20180808012509-286fcf906b48 // indirect
