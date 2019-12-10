@@ -539,6 +539,7 @@ func (manager *SLoadbalancerBackendManager) InitializeData() error {
 			}
 		}
 	}
+	manager.initializeJanitor()
 	return nil
 }
 
