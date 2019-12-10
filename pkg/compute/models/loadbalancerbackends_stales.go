@@ -106,7 +106,7 @@ func (j *lbbJanitor) Stop() {
 
 var theLbbJanitor = newLbbJanitor()
 
-func init() {
+func (man *SLoadbalancerBackendManager) initializeJanitor() {
 	go theLbbJanitor.Start(context.Background())
 	eh := atexit.ExitHandler{
 		Prio: atexit.PRIO_LOG_OTHER,
