@@ -31,6 +31,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -227,8 +228,19 @@ func getOSSInternalDomain(regionId string) string {
 
 // https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.XqEgD1
 func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) {
+	// NOTE
+	//
+	// oss package as of version 20181116160301-c6838fdc33ed does not
+	// respect http.ProxyFromEnvironment.
+	//
+	// The ClientOption Proxy, AuthProxy lacks the feature NO_PROXY has
+	// which can be used to whitelist ips, domains from http_proxy,
+	// https_proxy setting
+	cliOpts := []oss.ClientOption{
+		oss.HTTPClient(httputils.GetDefaultClient()),
+	}
 	ep := getOSSExternalDomain(regionId)
-	cli, err := oss.New(ep, client.accessKey, client.secret)
+	cli, err := oss.New(ep, client.accessKey, client.secret, cliOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "oss.New")
 	}
