@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
 
@@ -168,23 +169,46 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 		return
 	}
 
+	var err error
+	var content bytes.Buffer
 	switch template {
 	case "BatchHostRegister":
 		records := [][]string{{"MAC地址", "名称", "IPMI地址", "IPMI用户名", "IPMI密码"}}
-		content, err := writeXlsx("hosts", records)
+		content, err = writeXlsx("hosts", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
 			return
 		}
+	case "BatchUserRegister":
+		records := [][]string{{"用户名（user）", "部门/域（domain）", "是否登录控制台（allow_web_console：true、false）"}}
+		content, err = writeXlsx("users", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
+	case "BatchProjectRegister":
+		var titles []string
+		if options.Options.NonDefaultDomainProjects {
+			titles = []string{"项目名称", "域", "配额"}
+		} else {
+			titles = []string{"项目名称", "域"}
+		}
 
-		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		w.Header().Set("Content-Disposition", "Attachment; filename=hosts_template.xlsx")
-		w.Write(content.Bytes())
-		return
+		records := [][]string{titles}
+		content, err = writeXlsx("projects", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
 	default:
 		httperrors.InputParameterError(w, "template not found %s", template)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", "Attachment; filename=hosts_template.xlsx")
+	w.Write(content.Bytes())
+	return
 }
 
 func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter, req *http.Request) {
