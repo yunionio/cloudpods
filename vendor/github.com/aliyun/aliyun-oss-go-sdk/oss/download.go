@@ -38,8 +38,14 @@ func (bucket Bucket) DownloadFile(objectKey, filePath string, partSize int64, op
 	cpConf := getCpConfig(options)
 	routines := getRoutines(options)
 
+	var strVersionId string
+	versionId, _ := findOption(options, "versionId", nil)
+	if versionId != nil {
+		strVersionId = versionId.(string)
+	}
+
 	if cpConf != nil && cpConf.IsEnable {
-		cpFilePath := getDownloadCpFilePath(cpConf, bucket.BucketName, objectKey, filePath)
+		cpFilePath := getDownloadCpFilePath(cpConf, bucket.BucketName, objectKey, strVersionId, filePath)
 		if cpFilePath != "" {
 			return bucket.downloadFileWithCp(objectKey, filePath, partSize, options, cpFilePath, routines, uRange)
 		}
@@ -48,11 +54,11 @@ func (bucket Bucket) DownloadFile(objectKey, filePath string, partSize int64, op
 	return bucket.downloadFile(objectKey, filePath, partSize, options, routines, uRange)
 }
 
-func getDownloadCpFilePath(cpConf *cpConfig, srcBucket, srcObject, destFile string) string {
+func getDownloadCpFilePath(cpConf *cpConfig, srcBucket, srcObject, versionId, destFile string) string {
 	if cpConf.FilePath == "" && cpConf.DirPath != "" {
 		src := fmt.Sprintf("oss://%v/%v", srcBucket, srcObject)
 		absPath, _ := filepath.Abs(destFile)
-		cpFileName := getCpFileName(src, absPath)
+		cpFileName := getCpFileName(src, absPath, versionId)
 		cpConf.FilePath = cpConf.DirPath + string(os.PathSeparator) + cpFileName
 	}
 	return cpConf.FilePath
@@ -225,12 +231,6 @@ func (bucket Bucket) downloadFile(objectKey, filePath string, partSize int64, op
 	tempFilePath := filePath + TempFileSuffix
 	listener := getProgressListener(options)
 
-	payerOptions := []Option{}
-	payer := getPayer(options)
-	if payer != "" {
-		payerOptions = append(payerOptions, RequestPayer(PayerType(payer)))
-	}
-
 	// If the file does not exist, create one. If exists, the download will overwrite it.
 	fd, err := os.OpenFile(tempFilePath, os.O_WRONLY|os.O_CREATE, FilePermMode)
 	if err != nil {
@@ -238,7 +238,10 @@ func (bucket Bucket) downloadFile(objectKey, filePath string, partSize int64, op
 	}
 	fd.Close()
 
-	meta, err := bucket.GetObjectDetailedMeta(objectKey, payerOptions...)
+	// Get the object detailed meta for object whole size
+	// must delete header:range to get whole object size
+	skipOptions := deleteOption(options, HTTPHeaderRange)
+	meta, err := bucket.GetObjectDetailedMeta(objectKey, skipOptions...)
 	if err != nil {
 		return err
 	}
@@ -266,7 +269,7 @@ func (bucket Bucket) downloadFile(objectKey, filePath string, partSize int64, op
 
 	var completedBytes int64
 	totalBytes := getObjectBytes(parts)
-	event := newProgressEvent(TransferStartedEvent, 0, totalBytes)
+	event := newProgressEvent(TransferStartedEvent, 0, totalBytes, 0)
 	publishProgress(listener, event)
 
 	// Start the download workers
@@ -284,13 +287,14 @@ func (bucket Bucket) downloadFile(objectKey, filePath string, partSize int64, op
 		select {
 		case part := <-results:
 			completed++
-			completedBytes += (part.End - part.Start + 1)
+			downBytes := (part.End - part.Start + 1)
+			completedBytes += downBytes
 			parts[part.Index].CRC64 = part.CRC64
-			event = newProgressEvent(TransferDataEvent, completedBytes, totalBytes)
+			event = newProgressEvent(TransferDataEvent, completedBytes, totalBytes, downBytes)
 			publishProgress(listener, event)
 		case err := <-failed:
 			close(die)
-			event = newProgressEvent(TransferFailedEvent, completedBytes, totalBytes)
+			event = newProgressEvent(TransferFailedEvent, completedBytes, totalBytes, 0)
 			publishProgress(listener, event)
 			return err
 		}
@@ -300,7 +304,7 @@ func (bucket Bucket) downloadFile(objectKey, filePath string, partSize int64, op
 		}
 	}
 
-	event = newProgressEvent(TransferCompletedEvent, completedBytes, totalBytes)
+	event = newProgressEvent(TransferCompletedEvent, completedBytes, totalBytes, 0)
 	publishProgress(listener, event)
 
 	if enableCRC {
@@ -474,12 +478,6 @@ func (bucket Bucket) downloadFileWithCp(objectKey, filePath string, partSize int
 	tempFilePath := filePath + TempFileSuffix
 	listener := getProgressListener(options)
 
-	payerOptions := []Option{}
-	payer := getPayer(options)
-	if payer != "" {
-		payerOptions = append(payerOptions, RequestPayer(PayerType(payer)))
-	}
-
 	// Load checkpoint data.
 	dcp := downloadCheckpoint{}
 	err := dcp.load(cpFilePath)
@@ -487,8 +485,10 @@ func (bucket Bucket) downloadFileWithCp(objectKey, filePath string, partSize int
 		os.Remove(cpFilePath)
 	}
 
-	// Get the object detailed meta.
-	meta, err := bucket.GetObjectDetailedMeta(objectKey, payerOptions...)
+	// Get the object detailed meta for object whole size
+	// must delete header:range to get whole object size
+	skipOptions := deleteOption(options, HTTPHeaderRange)
+	meta, err := bucket.GetObjectDetailedMeta(objectKey, skipOptions...)
 	if err != nil {
 		return err
 	}
@@ -517,7 +517,7 @@ func (bucket Bucket) downloadFileWithCp(objectKey, filePath string, partSize int
 	die := make(chan bool)
 
 	completedBytes := dcp.getCompletedBytes()
-	event := newProgressEvent(TransferStartedEvent, completedBytes, dcp.ObjStat.Size)
+	event := newProgressEvent(TransferStartedEvent, completedBytes, dcp.ObjStat.Size, 0)
 	publishProgress(listener, event)
 
 	// Start the download workers routine
@@ -538,12 +538,13 @@ func (bucket Bucket) downloadFileWithCp(objectKey, filePath string, partSize int
 			dcp.PartStat[part.Index] = true
 			dcp.Parts[part.Index].CRC64 = part.CRC64
 			dcp.dump(cpFilePath)
-			completedBytes += (part.End - part.Start + 1)
-			event = newProgressEvent(TransferDataEvent, completedBytes, dcp.ObjStat.Size)
+			downBytes := (part.End - part.Start + 1)
+			completedBytes += downBytes
+			event = newProgressEvent(TransferDataEvent, completedBytes, dcp.ObjStat.Size, downBytes)
 			publishProgress(listener, event)
 		case err := <-failed:
 			close(die)
-			event = newProgressEvent(TransferFailedEvent, completedBytes, dcp.ObjStat.Size)
+			event = newProgressEvent(TransferFailedEvent, completedBytes, dcp.ObjStat.Size, 0)
 			publishProgress(listener, event)
 			return err
 		}
@@ -553,7 +554,7 @@ func (bucket Bucket) downloadFileWithCp(objectKey, filePath string, partSize int
 		}
 	}
 
-	event = newProgressEvent(TransferCompletedEvent, completedBytes, dcp.ObjStat.Size)
+	event = newProgressEvent(TransferCompletedEvent, completedBytes, dcp.ObjStat.Size, 0)
 	publishProgress(listener, event)
 
 	if dcp.enableCRC {
