@@ -248,6 +248,10 @@ func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mccl
 	return true
 }
 
+func (self SServerSku) GetGlobalId() string {
+	return self.ExternalId
+}
+
 func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -1071,6 +1075,12 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	return nil
 }
 
+func (manager *SServerSkuManager) newPublicCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
+	extSku.Enabled = true
+	extSku.Status = api.SkuStatusReady
+	return manager.TableSpec().Insert(&extSku)
+}
+
 func (self *SServerSku) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, self, "enable")
 }
@@ -1107,6 +1117,94 @@ func (self *SServerSku) PerformDisable(ctx context.Context, userCred mcclient.To
 		logclient.AddSimpleActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 	}
 	return nil, nil
+}
+
+func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
+	_, err := db.Update(self, func() error {
+		self.PrepaidStatus = extSku.PrepaidStatus
+		self.PostpaidStatus = extSku.PostpaidStatus
+		return nil
+	})
+	return err
+}
+
+func (self *SServerSku) MarkAsSoldout(ctx context.Context) error {
+	_, err := db.UpdateWithLock(ctx, self, func() error {
+		self.PrepaidStatus = api.SkuStatusSoldout
+		self.PostpaidStatus = api.SkuStatusSoldout
+		return nil
+	})
+
+	return errors.Wrap(err, "SServerSku.MarkAsSoldout")
+}
+
+func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerSku, error) {
+	q := manager.Query()
+	q = q.Equals("cloudregion_id", regionID)
+
+	skus := make([]SServerSku, 0)
+	err := db.FetchModelObjects(manager, q, &skus)
+	if err != nil {
+		return nil, errors.Wrap(err, "SServerSkuManager.FetchSkusByRegion")
+	}
+
+	return skus, nil
+}
+
+func (manager *SServerSkuManager) syncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+
+	syncResult := compare.SyncResult{}
+
+	extSkus, err := extSkuMeta.GetServerSkus(region)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	dbSkus, err := manager.FetchSkusByRegion(region.GetId())
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := make([]SServerSku, 0)
+	commondb := make([]SServerSku, 0)
+	commonext := make([]SServerSku, 0)
+	added := make([]SServerSku, 0)
+
+	err = compare.CompareSets(dbSkus, extSkus, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].MarkAsSoldout(ctx)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].syncWithCloudSku(ctx, userCred, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = manager.newPublicCloudSku(ctx, userCred, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
 }
 
 // sku标记为soldout状态。

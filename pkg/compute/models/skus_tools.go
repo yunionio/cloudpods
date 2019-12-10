@@ -50,8 +50,9 @@ type SSkuResourcesMeta struct {
 	DBInstance   string `json:"dbinstance"`
 }
 
-// todo: 待测试
-func (self *SSkuResourcesMeta) GetServerSkus() ([]SServerSku, error) {
+func (self *SSkuResourcesMeta) GetServerSkus(region *SCloudregion) ([]SServerSku, error) {
+	self.SetRegionFilter(region)
+
 	result := []SServerSku{}
 	objs, err := self.get(self.Server)
 	if err != nil {
@@ -63,6 +64,31 @@ func (self *SSkuResourcesMeta) GetServerSkus() ([]SServerSku, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "obj.Unmarshal")
 		}
+
+		// provider must not be empty
+		if len(sku.Provider) == 0 {
+			log.Debugf("source sku error: provider should not be empty. %#v", sku)
+			continue
+		}
+
+		// 处理数据
+		sku.Id = ""
+
+		r, err := self.fetchRegion(sku.CloudregionId)
+		if err != nil {
+			return nil, errors.Wrap(err, "SkuResourcesMeta.GetServerSkus.fetchRegion")
+		}
+		sku.CloudregionId = r.GetId()
+
+		if len(sku.ZoneId) > 0 {
+			zone, err := self.fetchZone(sku.ZoneId)
+			if err != nil {
+				return nil, errors.Wrap(err, "SkuResourcesMeta.GetServerSkus.fetchZone")
+			}
+
+			sku.ZoneId = zone.GetId()
+		}
+
 		result = append(result, sku)
 	}
 	return result, nil
@@ -292,21 +318,13 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		}
 	}
 
-	cloudregions := []SCloudregion{}
-	q := CloudregionManager.Query()
-	q = q.In("provider", CloudproviderManager.GetPublicProviderProvidersQuery())
-	err := db.FetchModelObjects(CloudregionManager, q, &cloudregions)
-	if err != nil {
-		log.Errorf("SyncElasticCacheSkus.FetchCloudregions failed: %v", err)
-		return
-	}
-
 	meta, err := fetchSkuResourcesMeta()
 	if err != nil {
 		log.Errorf("SyncElasticCacheSkus.fetchSkuResourcesMeta %s", err)
 		return
 	}
 
+	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
 		meta.SetRegionFilter(region)
@@ -330,6 +348,53 @@ func syncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCr
 	log.Infof(notes)
 }
 
+// 全量同步sku列表.
+func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart {
+		cnt, err := ServerSkuManager.GetPublicCloudSkuCount()
+		if err != nil {
+			log.Errorf("GetPublicCloudSkuCount fail %s", err)
+			return
+		}
+		if cnt > 0 {
+			log.Debugf("GetPublicCloudSkuCount synced skus, skip...")
+			return
+		}
+	}
+
+	meta, err := fetchSkuResourcesMeta()
+	if err != nil {
+		log.Errorf("SyncServerSkus.fetchSkuResourcesMeta %s", err)
+		return
+	}
+
+	cloudregions := fetchSkuSyncCloudregions()
+	for i := range cloudregions {
+		region := &cloudregions[i]
+		meta.SetRegionFilter(region)
+		result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
+		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
+		log.Infof(notes)
+	}
+
+	// 清理无效的sku
+	log.Debugf("DeleteInvalidSkus in processing...")
+	ServerSkuManager.PendingDeleteInvalidSku()
+}
+
+// 同步指定region sku列表
+func syncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+	meta, err := fetchSkuResourcesMeta()
+	if err != nil {
+		return errors.Wrap(err, "syncServerSkusByRegion.fetchSkuResourcesMeta")
+	}
+
+	result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
+	notes := fmt.Sprintf("syncServerSkusByRegion %s result: %s", region.Name, result.Result())
+	log.Infof(notes)
+	return nil
+}
+
 func fetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s)
@@ -344,4 +409,17 @@ func fetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	}
 
 	return ret, nil
+}
+
+func fetchSkuSyncCloudregions() []SCloudregion {
+	cloudregions := []SCloudregion{}
+	q := CloudregionManager.Query()
+	q = q.In("provider", CloudproviderManager.GetPublicProviderProvidersQuery())
+	err := db.FetchModelObjects(CloudregionManager, q, &cloudregions)
+	if err != nil {
+		log.Errorf("fetchSkuSyncCloudregions.FetchCloudregions failed: %v", err)
+		return nil
+	}
+
+	return cloudregions
 }
