@@ -49,7 +49,7 @@ github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils
-# github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20181116160301-c6838fdc33ed
+# github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible
 github.com/aliyun/aliyun-oss-go-sdk/oss
 # github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa
 github.com/anacrolix/dht

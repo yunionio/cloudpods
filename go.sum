@@ -33,8 +33,8 @@ github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20180112035716-b5829a0278c8 h1:mb7rn6WX8viizO36Nv6VVCBrgwaq01HPrZv1qq07/Yg=
 github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20180112035716-b5829a0278c8/go.mod h1:T9M45xf79ahXVelWoOBmH0y4aC1t5kXO5BxwyakgIGA=
-github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20181116160301-c6838fdc33ed h1:8Nj1ihALo/UVM2EnOVQ1EY/kwNKRwLx1GW/z3Y65czY=
-github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20181116160301-c6838fdc33ed/go.mod h1:T/Aws4fEfogEE9v+HPhhw+CntffsBHJ8nXQCwKr0/g8=
+github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible h1:EaK5256H3ELiyaq5O/Zwd6fnghD6DqmZDQmmzzJklUU=
+github.com/aliyun/aliyun-oss-go-sdk v2.0.4+incompatible/go.mod h1:T/Aws4fEfogEE9v+HPhhw+CntffsBHJ8nXQCwKr0/g8=
 github.com/anacrolix/dht v0.0.0-20180412060941-24cbf25b72a4/go.mod h1:hQfX2BrtuQsLQMYQwsypFAab/GvHg8qxwVi4OJdR1WI=
 github.com/anacrolix/dht v0.0.0-20181127122252-acaa69c368bb/go.mod h1:Z/mP+H70xwnUv957UXVkTrzYRhKs0mGjS0lyqS331g4=
 github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa h1:5RyX9Tvqa9oewlJhFihkxe8biS0ojTlrNU3ryqm5g2s=
