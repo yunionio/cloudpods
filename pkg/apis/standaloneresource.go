@@ -27,3 +27,14 @@ type StandaloneResourceListInput struct {
 	Tags            []string `json:"tags"`
 	WithoutUserMeta bool     `json:"without_user_meta"`
 }
+
+type StandaloneResourceCreatInput struct {
+	Meta
+	// description: resource name
+	// unique: true
+	// required: true
+	// example: yunion
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsEmulated  bool   `json:"is_emulated"`
+}

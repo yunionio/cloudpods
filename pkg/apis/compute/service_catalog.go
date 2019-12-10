@@ -3,14 +3,7 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type ServiceCatalogCreateInput struct {
-	apis.Meta
-
-	// description: service catalog name
-	// uniqure: true
-	// required: true
-	// example: hello
-	Name string `json:"name`
-
+	apis.SharableVirutalResourceCreateInput
 	// description: service catalog icon url
 	// example: https://yunion.io/files/hello.png
 	IconUrl string `json:"icon_url"`
