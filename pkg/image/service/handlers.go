@@ -58,6 +58,7 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.QuotaManager,
 		models.QuotaUsageManager,
+		models.QuotaPendingUsageManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

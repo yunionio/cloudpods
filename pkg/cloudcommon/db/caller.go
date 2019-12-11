@@ -89,7 +89,6 @@ func convertParams(params []*param) []reflect.Value {
 type param struct {
 	pType reflect.Type
 	input interface{}
-	isPtr bool
 }
 
 func newParam(pType reflect.Type, input interface{}) *param {
@@ -137,6 +136,13 @@ func ValueToError(out reflect.Value) error {
 	return nil
 }
 
+func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
+	retJson := ValueToJSONObject(resVal).(*jsonutils.JSONDict)
+	// preserve the input info not returned by caller
+	data.Update(retJson)
+	return data
+}
+
 func ValidateCreateData(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ret, err := call(manager, "ValidateCreateData", ctx, userCred, ownerId, query, data)
 	if err != nil {
@@ -149,10 +155,7 @@ func ValidateCreateData(manager IModelManager, ctx context.Context, userCred mcc
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
 	}
-	retJson := ValueToJSONObject(resVal).(*jsonutils.JSONDict)
-	// preserve the input info not returned by caller
-	data.Update(retJson)
-	return data, nil
+	return mergeInputOutputData(data, resVal), nil
 }
 
 func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -195,7 +198,7 @@ func ValidateUpdateData(model IModel, ctx context.Context, userCred mcclient.Tok
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
 	}
-	return ValueToJSONObject(resVal).(*jsonutils.JSONDict), nil
+	return mergeInputOutputData(data, resVal), nil
 }
 
 func CustomizeDelete(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

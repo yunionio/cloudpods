@@ -457,8 +457,7 @@ func (self *SStorage) GetMasterHost() *SHost {
 	hosts := HostManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 
-	q := hosts.Query().Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-		sqlchemy.IsFalse(hoststorages.Field("deleted"))))
+	q := hosts.Query().Join(hoststorages, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.IsTrue("enabled")
 	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
@@ -963,8 +962,7 @@ func (self *SStorage) GetAllAttachingHosts() []SHost {
 	hoststorages := HoststorageManager.Query().SubQuery()
 
 	q := hosts.Query()
-	q = q.Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-		sqlchemy.IsFalse(hoststorages.Field("deleted"))))
+	q = q.Join(hoststorages, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
