@@ -1463,7 +1463,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var startIp, endIp netutils.IPV4Addr
 	var err error
 
@@ -1471,10 +1471,6 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	ipEndStr, _ := data.GetString("guest_ip_end")
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
-		if self.isManaged() {
-			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-		}
-
 		if len(ipStartStr) > 0 {
 			startIp, err = netutils.NewIPV4Addr(ipStartStr)
 			if err != nil {
@@ -1523,14 +1519,9 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 
 		data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
 		data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
-
 	}
 
 	if data.Contains("guest_ip_mask") {
-		if self.isManaged() {
-			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-		}
-
 		maskLen64, _ := data.Int("guest_ip_mask")
 		if !isValidMaskLen(maskLen64) {
 			return nil, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
@@ -1540,9 +1531,6 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
 		ipStr, _ := data.GetString(key)
 		if len(ipStr) > 0 {
-			if self.isManaged() {
-				return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-			}
 			if key == "guest_dhcp" {
 				ipList := strings.Split(ipStr, ",")
 				for _, ipstr := range ipList {
@@ -1554,6 +1542,24 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
 
+		}
+	}
+	return nil, nil
+}
+
+func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if !self.isManaged() && !self.isOneCloudVpcNetwork() {
+		data.Remove("guest_ip_start")
+		data.Remove("guest_ip_end")
+		data.Remove("guest_ip_mask")
+		data.Remove("guest_gateway")
+		data.Remove("guest_dns")
+		data.Remove("guest_dhcp")
+	} else {
+		var err error
+		data, err = self.validateUpdateData(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -1686,6 +1692,15 @@ func (self *SNetwork) isManaged() bool {
 	} else {
 		return false
 	}
+}
+
+func (self *SNetwork) isOneCloudVpcNetwork() bool {
+	vpc := self.getVpc()
+	region := self.getRegion()
+	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
+		return true
+	}
+	return false
 }
 
 func parseIpToIntArray(ip string) ([]int, error) {
