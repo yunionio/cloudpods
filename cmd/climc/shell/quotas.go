@@ -244,4 +244,58 @@ func init() {
 		return nil
 	})
 
+	R(&QuotaListOptions{}, "region-quota-list", "List region quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.RegionQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "zone-quota-list", "List zone quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.ZoneQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "project-quota-list", "List project quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.ProjectQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "image-quota-list", "List image quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.ImageQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	type CleanPendingUsageOptions struct {
+		Scope   string `help:"scope" choices:"domain|project"`
+		Project string `help:"Tenant name or ID" json:"tenant"`
+		Domain  string `help:"Domain name or ID" json:"domain"`
+	}
+	R(&CleanPendingUsageOptions{}, "clean-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		log.Debugf("%s", params)
+		_, err := modules.Quotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

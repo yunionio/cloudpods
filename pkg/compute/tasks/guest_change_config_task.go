@@ -24,6 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -234,7 +235,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
+	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
 		return

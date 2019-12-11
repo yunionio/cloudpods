@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -82,7 +83,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		log.Errorf("guest.GetQuotaKeys fail %s", err)
 	}
 	quotaCpuMem.SetKeys(keys)
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem)
+	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem)
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	input, err := self.GetCreateInput()

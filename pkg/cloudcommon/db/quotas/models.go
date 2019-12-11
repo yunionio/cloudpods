@@ -41,6 +41,8 @@ type SQuotaBaseManager struct {
 }
 
 func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
+	pendingStore.SetVirtualObject(pendingStore)
+	usageStore.SetVirtualObject(usageStore)
 	return SQuotaBaseManager{
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 		pendingStore:         pendingStore,
@@ -151,13 +153,13 @@ func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred
 func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota) error {
 	keys := diff.GetKeys()
 	quota := manager.newQuota()
+	quota.SetKeys(keys)
 	err := manager.getQuotaByKeys(ctx, keys, quota)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			// insert one
-			quota.SetKeys(keys)
 		} else {
-			return err
+			return errors.Wrap(err, "manager.getQuotaByKeys")
 		}
 	}
 	quota.Add(diff)
@@ -167,13 +169,13 @@ func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred
 func (manager *SQuotaBaseManager) subQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota) error {
 	keys := diff.GetKeys()
 	quota := manager.newQuota()
+	quota.SetKeys(keys)
 	err := manager.getQuotaByKeys(ctx, keys, quota)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			// insert one
-			quota.SetKeys(keys)
 		} else {
-			return err
+			return errors.Wrap(err, "manager.getQuotaByKeys")
 		}
 	}
 	quota.Sub(diff)

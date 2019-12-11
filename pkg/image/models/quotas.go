@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	commonOptions "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/image/options"
@@ -51,8 +52,6 @@ func init() {
 			"quota_pending_usages",
 		),
 	}
-	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
-
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
 			"quota_usage_tbl",
@@ -60,33 +59,32 @@ func init() {
 			"quota_usages",
 		),
 	}
-	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
-
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", QuotaPendingUsageManager, QuotaUsageManager,
 			"image_quota", "image_quotas"),
 	}
-	QuotaManager.SetVirtualObject(QuotaManager)
+
+	quotas.Register(QuotaManager)
 }
 
 type SQuota struct {
 	quotas.SQuotaBase
 
-	quotas.SBaseQuotaKeys
+	SImageQuotaKeys
 
 	Image int
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
-	return self.SBaseQuotaKeys
+	return self.SImageQuotaKeys
 }
 
 func (self *SQuota) SetKeys(keys quotas.IQuotaKeys) {
-	self.SBaseQuotaKeys = keys.(quotas.SBaseQuotaKeys)
+	self.SImageQuotaKeys = keys.(SImageQuotaKeys)
 }
 
 func (self *SQuota) FetchSystemQuota() {
-	keys := self.SBaseQuotaKeys
+	keys := self.SImageQuotaKeys
 	base := 0
 	switch options.Options.DefaultQuotaValue {
 	case commonOptions.DefaultQuotaUnlimit:
@@ -115,12 +113,21 @@ func (self *SQuota) FetchSystemQuota() {
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context) error {
-	keys := self.SBaseQuotaKeys
+	keys := self.SImageQuotaKeys
 
 	scope := keys.Scope()
 	ownerId := keys.OwnerId()
 
-	count := ImageManager.count(scope, ownerId, "", tristate.None, false)
+	var isISO tristate.TriState
+	if keys.Type == string(api.ImageTypeISO) {
+		isISO = tristate.True
+	} else if keys.Type == string(api.ImageTypeTemplate) {
+		isISO = tristate.False
+	} else {
+		isISO = tristate.None
+	}
+
+	count := ImageManager.count(scope, ownerId, "", isISO, false)
 	self.Image = int(count["total"].Count)
 	return nil
 }
@@ -189,4 +196,32 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 		}
 	}
 	return idMap, nil
+}
+
+type SImageQuotaKeys struct {
+	quotas.SBaseQuotaKeys
+
+	Type string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+}
+
+func (k SImageQuotaKeys) Fields() []string {
+	return append(k.SBaseQuotaKeys.Fields(), "type")
+}
+
+func (k SImageQuotaKeys) Values() []string {
+	return append(k.SBaseQuotaKeys.Values(), k.Type)
+}
+
+func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
+	k2 := ik.(SImageQuotaKeys)
+	r := k1.SBaseQuotaKeys.Compare(k2.SBaseQuotaKeys)
+	if r != 0 {
+		return r
+	}
+	if k1.Type < k2.Type {
+		return -1
+	} else if k1.Type > k2.Type {
+		return 1
+	}
+	return 0
 }

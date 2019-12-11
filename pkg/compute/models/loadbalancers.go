@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -882,4 +883,25 @@ func (man *SLoadbalancerManager) TotalCount(
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = rangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"))
 	return q.CountWithError()
+}
+
+func (lb *SLoadbalancer) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchZonalQuotaKeys(
+		rbacutils.ScopeProject,
+		lb.GetOwnerId(),
+		lb.GetZone(),
+		lb.GetCloudprovider(),
+	)
+}
+
+func (lb *SLoadbalancer) GetUsages() []db.IUsage {
+	if lb.PendingDeleted || lb.Deleted {
+		return nil
+	}
+	usage := SZoneQuota{Loadbalancer: 1}
+	keys := lb.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

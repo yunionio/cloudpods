@@ -149,7 +149,10 @@ func ValidateCreateData(manager IModelManager, ctx context.Context, userCred mcc
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
 	}
-	return ValueToJSONObject(resVal).(*jsonutils.JSONDict), nil
+	retJson := ValueToJSONObject(resVal).(*jsonutils.JSONDict)
+	// preserve the input info not returned by caller
+	data.Update(retJson)
+	return data, nil
 }
 
 func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

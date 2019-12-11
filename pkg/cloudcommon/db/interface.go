@@ -30,6 +30,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+type IUsage interface {
+	FetchUsage(ctx context.Context) error
+	IsEmpty() bool
+}
+
 type IModelManager interface {
 	lockman.ILockedClass
 	object.IObject
@@ -182,6 +187,8 @@ type IModel interface {
 	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	MarkDeletePreventionOn()
 	MarkDeletePreventionOff()
+
+	GetUsages() []IUsage
 }
 
 type IResourceModelManager interface {

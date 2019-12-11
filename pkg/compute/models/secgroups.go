@@ -32,6 +32,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -864,4 +865,22 @@ func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.To
 		}
 	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (sg *SSecurityGroup) GetQuotaKeys() quotas.IQuotaKeys {
+	return quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject,
+		sg.GetOwnerId(),
+	)
+}
+
+func (sg *SSecurityGroup) GetUsages() []db.IUsage {
+	if sg.PendingDeleted || sg.Deleted {
+		return nil
+	}
+	usage := SProjectQuota{Secgroup: 1}
+	keys := sg.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

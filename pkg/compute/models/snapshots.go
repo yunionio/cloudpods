@@ -31,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -268,7 +269,7 @@ func (manager *SSnapshotManager) ValidateCreateData(
 		return input, err
 	}
 	pendingUsage.SetKeys(keys.(SComputeResourceKeys).SRegionalCloudResourceKeys)
-	err = QuotaManager.CheckQuota(ctx, pendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
 		return input, err
 	}
@@ -278,6 +279,18 @@ func (manager *SSnapshotManager) ValidateCreateData(
 
 func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (snapshot *SSnapshot) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	snapshot.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	pendingUsage := SRegionQuota{Snapshot: 1}
+	keys := snapshot.GetQuotaKeys()
+	pendingUsage.SetKeys(keys)
+	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	if err != nil {
+		log.Errorf("quotas.CancelPendingUsage fail %s", err)
+	}
 }
 
 func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -899,4 +912,25 @@ func (manager *SSnapshotManager) StartSnapshotCleanupTask(
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (snapshot *SSnapshot) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		snapshot.GetOwnerId(),
+		snapshot.GetRegion(),
+		snapshot.GetCloudprovider(),
+	)
+}
+
+func (snapshot *SSnapshot) GetUsages() []db.IUsage {
+	if snapshot.PendingDeleted || snapshot.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Snapshot: 1}
+	keys := snapshot.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

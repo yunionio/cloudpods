@@ -46,7 +46,6 @@ func init() {
 			"zone_quota_usages",
 		),
 	}
-	ZoneUsageManager.SetVirtualObject(ZoneUsageManager)
 	ZonePendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ZoneQuota,
 			"zone_quota_pending_usage_tbl",
@@ -54,7 +53,6 @@ func init() {
 			"zone_quota_pending_usages",
 		),
 	}
-	ZonePendingUsageManager.SetVirtualObject(ZonePendingUsageManager)
 	ZoneQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ZoneQuota,
 			"zone_quota_tbl",
@@ -64,7 +62,7 @@ func init() {
 			"zone_quotas",
 		),
 	}
-	ZoneQuotaManager.SetVirtualObject(ZoneQuotaManager)
+	quotas.Register(ZoneQuotaManager)
 }
 
 type SZoneQuota struct {

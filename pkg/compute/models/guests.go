@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	// errors_aggr "yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
@@ -831,9 +830,12 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 
 	if vcpuCount > 0 || vmemSize > 0 {
-		err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
+		quota, err := self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
+		}
+		if !quota.IsEmpty() {
+			data.Add(jsonutils.Marshal(quota), "pending_usage")
 		}
 	}
 
@@ -908,8 +910,8 @@ func (manager *SGuestManager) BatchPreValidate(
 		quota.SetKeys(keys)
 		regionQuota.SetKeys(regionKeys)
 		return func() {
-			QuotaManager.CancelPendingUsage(ctx, userCred, quota, quota)
-			RegionQuotaManager.CancelPendingUsage(ctx, userCred, regionQuota, regionQuota)
+			quotas.CancelPendingUsage(ctx, userCred, quota, quota)
+			quotas.CancelPendingUsage(ctx, userCred, regionQuota, regionQuota)
 		}, nil
 	}
 	return nil, nil
@@ -1356,6 +1358,13 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 
 func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	if data.Contains("pending_usage") {
+		quota := SQuota{}
+		data.Unmarshal(&quota, "pending_usage")
+		quotas.CancelPendingUsage(ctx, userCred, &quota, &quota)
+	}
+
 	self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -1368,18 +1377,18 @@ func (manager *SGuestManager) checkCreateQuota(
 	count int,
 ) (*SQuota, *SRegionQuota, error) {
 	req, regionReq := getGuestResourceRequirements(ctx, userCred, input, ownerId, count, hasBackup)
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, &req)
+	err := quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, &regionReq)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &regionReq)
 	if err != nil {
 		return nil, nil, err
 	}
 	return &req, &regionReq, nil
 }
 
-func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) error {
+func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) (quotas.IQuota, error) {
 	req := SQuota{}
 
 	if vcpuCount > 0 && vcpuCount > int(self.VcpuCount) {
@@ -1392,12 +1401,15 @@ func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.Toke
 
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
-		return errors.Wrap(err, "self.GetQuotaKeys")
+		return nil, errors.Wrap(err, "self.GetQuotaKeys")
 	}
 	req.SetKeys(keys)
-	err = QuotaManager.CheckQuota(ctx, &req)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &req)
+	if err != nil {
+		return nil, errors.Wrap(err, "quotas.CheckSetPendingQuota")
+	}
 
-	return err
+	return &req, nil
 }
 
 func getGuestResourceRequirements(
@@ -1471,6 +1483,7 @@ func getGuestResourceRequirements(
 func (guest *SGuest) getGuestBackupResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential) SQuota {
 	guestDisksSize := guest.getDiskSize()
 	return SQuota{
+		Count:   1,
 		Cpu:     int(guest.VcpuCount),
 		Memory:  guest.VmemSize,
 		Storage: guestDisksSize,
@@ -2562,7 +2575,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 			log.Warningf("self.GetRegionalQuotaKeys fail %s", err)
 		}
 		cancelUsage.SetKeys(keys)
-		err = RegionQuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+		err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -3162,7 +3175,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 	cancelUsage.SetKeys(keys)
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 
 	return disk, nil
 }
@@ -3251,7 +3264,7 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 		return err
 	}
 	cancelUsage.SetKeys(keys)
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 	return err
 }
 
@@ -4899,6 +4912,7 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 func (self *SGuest) getGuestUsage(guestCount int) (SQuota, SRegionQuota, error) {
 	usage := SQuota{}
 	regionUsage := SRegionQuota{}
+	usage.Count = guestCount
 	usage.Cpu = int(self.VcpuCount) * guestCount
 	usage.Memory = int(self.VmemSize * guestCount)
 	diskSize := self.getDiskSize()
@@ -5029,4 +5043,26 @@ func (guest *SGuest) GetQuotaKeys() (quotas.IQuotaKeys, error) {
 		provider,
 		hypervisor,
 	), nil
+}
+
+func (guest *SGuest) GetUsages() []db.IUsage {
+	if guest.PendingDeleted || guest.Deleted {
+		return nil
+	}
+	usage, regionUsage, err := guest.getGuestUsage(1)
+	if err != nil {
+		log.Errorf("guest.getGuestUsage fail %s", err)
+		return nil
+	}
+	keys, err := guest.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("guest.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	regionUsage.SetKeys(keys.(SComputeResourceKeys).SRegionalCloudResourceKeys)
+	return []db.IUsage{
+		&usage,
+		&regionUsage,
+	}
 }

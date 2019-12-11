@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -67,13 +68,13 @@ func (self *InstanceSnapshotAndCloneTask) finalReleasePendingUsage(ctx context.C
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 }
 

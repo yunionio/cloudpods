@@ -426,7 +426,7 @@ func (manager *SBucketManager) ValidateCreateData(
 		managerV.Model.(*SCloudprovider))
 	pendingUsage := SRegionQuota{Bucket: 1}
 	pendingUsage.SetKeys(quotaKeys)
-	if err := RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
@@ -463,7 +463,7 @@ func (bucket *SBucket) PostCreate(
 		log.Errorf("bucket.GetQuotaKeys fail %s", err)
 	} else {
 		pendingUsage.SetKeys(keys)
-		err = RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		err = quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 		if err != nil {
 			log.Errorf("CancelPendingUsage error %s", err)
 		}
@@ -761,7 +761,7 @@ func (bucket *SBucket) PerformMakedir(
 		return nil, httperrors.NewInternalServerError("bucket.GetQuotaKeys %s", err)
 	}
 	pendingUsage.SetKeys(keys)
-	if err := RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
@@ -775,7 +775,7 @@ func (bucket *SBucket) PerformMakedir(
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 
-	RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 
 	return nil, nil
 }
@@ -930,7 +930,7 @@ func (bucket *SBucket) PerformUpload(
 	}
 	pendingUsage.SetKeys(keys)
 	if !pendingUsage.IsEmpty() {
-		if err := RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
 	}
@@ -946,7 +946,7 @@ func (bucket *SBucket) PerformUpload(
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 
 	if !pendingUsage.IsEmpty() {
-		RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	return nil, nil
@@ -1250,4 +1250,20 @@ func (bucket *SBucket) GetDetailsAccessInfo(
 	account := manager.GetCloudaccount()
 	info.(*jsonutils.JSONDict).Add(jsonutils.NewString(account.Brand), "PROVIDER")
 	return info, err
+}
+
+func (bucket *SBucket) GetUsages() []db.IUsage {
+	if bucket.PendingDeleted || bucket.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Bucket: 1}
+	keys, err := bucket.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("bucket.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

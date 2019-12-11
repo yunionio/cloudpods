@@ -66,6 +66,15 @@ func (this *QuotaManager) GetQuota(s *mcclient.ClientSession, params jsonutils.J
 	return ret, nil
 }
 
+func (this *QuotaManager) DoCleanPendingUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := this.getURL(params)
+	results, err := modulebase.Delete(this.ResourceManager, s, url, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var reqUrl string
 	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain", "domain_id", "project_domain_id"})
