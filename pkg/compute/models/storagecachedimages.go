@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -131,28 +132,17 @@ func (self *SStoragecachedimage) getStorageHostId() (string, error) {
 }
 
 func (self *SStoragecachedimage) GetHost() (*SHost, error) {
-	hostId, err := self.getStorageHostId()
+	sc, err := self.GetStoragecache()
 	if err != nil {
-		return nil, err
-	} else if len(hostId) == 0 {
-		return nil, nil
+		return nil, errors.Wrap(err, "self.GetStoragecache")
 	}
-
-	host, err := HostManager.FetchById(hostId)
-	if err != nil {
-		return nil, err
-	} else if host == nil {
-		return nil, nil
-	}
-	h, _ := host.(*SHost)
-	return h, nil
-
+	return sc.GetHost()
 }
 
 func (self *SStoragecachedimage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SJointResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
+	return self.getExtraDetails(ctx, extra)
 }
 
 func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
@@ -161,7 +151,7 @@ func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred m
 		return nil, err
 	}
 	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+	return self.getExtraDetails(ctx, extra), nil
 }
 
 func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
@@ -176,18 +166,22 @@ func (self *SStoragecachedimage) GetCachedimage() *SCachedimage {
 	return nil
 }
 
-func (self *SStoragecachedimage) GetStoragecache() *SStoragecache {
-	cache, _ := StoragecacheManager.FetchById(self.StoragecacheId)
-	if cache != nil {
-		return cache.(*SStoragecache)
+func (self *SStoragecachedimage) GetStoragecache() (*SStoragecache, error) {
+	cache, err := StoragecacheManager.FetchById(self.StoragecacheId)
+	if err != nil {
+		return nil, errors.Wrap(err, "StoragecacheManager.FetchById")
 	}
-	return nil
+	return cache.(*SStoragecache), nil
 }
 
-func (self *SStoragecachedimage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	storagecache := self.GetStoragecache()
+func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	storagecache, _ := self.GetStoragecache()
 	if storagecache != nil {
 		extra.Add(jsonutils.NewStringArray(storagecache.getStorageNames()), "storages")
+		host, _ := storagecache.GetHost()
+		if host != nil {
+			extra.Add(host.GetShortDesc(ctx), "host")
+		}
 	}
 	cachedImage := self.GetCachedimage()
 	if cachedImage != nil {
@@ -302,7 +296,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 		}
 	}
 
-	cache := self.GetStoragecache()
+	cache, _ := self.GetStoragecache()
 	image := self.GetCachedimage()
 
 	if image != nil {
