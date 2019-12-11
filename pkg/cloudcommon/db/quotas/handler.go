@@ -85,6 +85,17 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.setQuotaHanlder), nil, "set_quota_for_project", nil)
 
+	app.AddHandler2("DELETE",
+		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage", nil)
+
+	app.AddHandler2("DELETE",
+		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage_for_domain", nil)
+
+	app.AddHandler2("DELETE",
+		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage_for_project", nil)
 	/*app.AddHandler2("POST",
 	fmt.Sprintf("%s/%s/<tenantid>/<action>", prefix, _manager.Keyword()),
 	auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)*/
@@ -228,6 +239,49 @@ func (manager *SQuotaBaseManager) fetchSetQuotaScope(ctx context.Context, userCr
 		return nil, scope, scope, httperrors.NewForbiddenError("not enough privilleges")
 	}
 	return ownerId, scope, ownerScope, nil
+}
+
+func (manager *SQuotaBaseManager) cleanPendingUsageHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, query, _ := appsrv.FetchEnv(ctx, w, r)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+
+	var ownerId mcclient.IIdentityProvider
+	var scope rbacutils.TRbacScope
+	var err error
+
+	projectId := params["<tenantid>"]
+	domainId := params["<domainid>"]
+	if len(projectId) > 0 || len(domainId) > 0 {
+		data := jsonutils.NewDict()
+		if len(domainId) > 0 {
+			data.Add(jsonutils.NewString(domainId), "project_domain")
+		} else if len(projectId) > 0 {
+			data.Add(jsonutils.NewString(projectId), "project")
+		}
+		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager, policy.PolicyActionGet, true)
+		if err != nil {
+			httperrors.GeneralServerError(w, err)
+			return
+		}
+	} else {
+		scopeStr, _ := query.GetString("scope")
+		if scopeStr == "project" {
+			scope = rbacutils.ScopeProject
+		} else if scopeStr == "domain" {
+			scope = rbacutils.ScopeDomain
+		} else {
+			scope = rbacutils.ScopeProject
+		}
+		ownerId = userCred
+	}
+	keys := OwnerIdQuotaKeys(scope, ownerId)
+	err = manager.cleanPendingUsage(ctx, userCred, keys)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	rbody := jsonutils.NewDict()
+	appsrv.SendJSON(w, rbody)
 }
 
 func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {

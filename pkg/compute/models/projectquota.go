@@ -44,7 +44,6 @@ func init() {
 			"project_quota_usages",
 		),
 	}
-	ProjectUsageManager.SetVirtualObject(ProjectUsageManager)
 	ProjectPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(ProjectQuota,
 			"project_quota_pending_usage_tbl",
@@ -52,7 +51,6 @@ func init() {
 			"project_quota_pending_usages",
 		),
 	}
-	ProjectPendingUsageManager.SetVirtualObject(ProjectPendingUsageManager)
 	ProjectQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(ProjectQuota,
 			"project_quota_tbl",
@@ -62,7 +60,7 @@ func init() {
 			"project_quotas",
 		),
 	}
-	ProjectQuotaManager.SetVirtualObject(ProjectQuotaManager)
+	quotas.Register(ProjectQuotaManager)
 }
 
 type SProjectQuota struct {

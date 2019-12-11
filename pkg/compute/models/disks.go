@@ -507,7 +507,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 	pendingUsage.SetKeys(quotaKey)
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 	return input.JSON(input), nil
@@ -919,7 +919,7 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 		return httperrors.NewInternalServerError("disk.GetQuotaKeys fail %s", err)
 	}
 	pendingUsage.SetKeys(keys)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}
@@ -2433,4 +2433,20 @@ func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 		lockman.ReleaseObject(ctx, &snapshot)
 	}
 	return nil, nil
+}
+
+func (disk *SDisk) GetUsages() []db.IUsage {
+	if disk.PendingDeleted || disk.Deleted {
+		return nil
+	}
+	usage := SQuota{Storage: disk.DiskSize}
+	keys, err := disk.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("disk.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

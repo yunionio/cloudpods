@@ -375,7 +375,7 @@ func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred m
 		pendingUsage := SQuota{Image: 1}
 		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
 		pendingUsage.SetKeys(keys)
-		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
 	}
@@ -505,7 +505,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		pendingUsage := SQuota{Image: 1}
 		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
 		pendingUsage.SetKeys(keys)
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	if data.Contains("properties") {
@@ -1276,4 +1276,27 @@ func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
 	dict := data.(*jsonutils.JSONDict)
 	// Only allow update description for now when Image is part of guest image
 	return self.IsGuestImage.IsFalse() || (dict.Length() == 1 && dict.Contains("description"))
+}
+
+func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
+	keys := SImageQuotaKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, img.GetOwnerId())
+	if img.GetImageType() == api.ImageTypeISO {
+		keys.Type = string(api.ImageTypeISO)
+	} else {
+		keys.Type = string(api.ImageTypeTemplate)
+	}
+	return keys
+}
+
+func (img *SImage) GetUsages() []db.IUsage {
+	if img.PendingDeleted || img.Deleted {
+		return nil
+	}
+	usage := SQuota{Image: 1}
+	keys := img.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

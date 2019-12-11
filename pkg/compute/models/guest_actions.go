@@ -1533,7 +1533,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	pendingUsage.SetKeys(keys)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
@@ -1544,7 +1544,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 
 	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil, false)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
@@ -2109,14 +2109,14 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 		pendingUsage.SetKeys(keys)
-		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+		err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
+			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 		host.ClearSchedDescCache()
@@ -2396,7 +2396,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 	pendingUsage.SetKeys(keys)
 	if !pendingUsage.IsEmpty() {
-		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+		err := quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 		if err != nil {
 			return nil, err
 		}
@@ -2405,7 +2405,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if len(newDisks) > 0 {
 		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil, false)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
+			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
 		}
 		confs.Add(jsonutils.Marshal(newDisks), "create")
@@ -2871,7 +2871,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, err
 	}
 	eipPendingUsage.SetKeys(keys)
-	err = RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
@@ -3226,7 +3226,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 	req.SetKeys(keys)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, &req)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
@@ -3235,7 +3235,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	params.Set("guest_status", jsonutils.NewString(self.Status))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &req, &req)
+		quotas.CancelPendingUsage(ctx, userCred, &req, &req)
 		log.Errorln(err)
 		return nil, err
 	} else {
@@ -4128,7 +4128,7 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 		return nil, err
 	}
 	pendingUsage.SetKeys(keys)
-	err = RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}
@@ -4151,13 +4151,13 @@ func (self *SGuest) PerformInstanceSnapshot(
 	name, _ := data.GetString("name")
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name, false)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(
+		quotas.CancelPendingUsage(
 			ctx, userCred, pendingUsage, pendingUsage)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
 	err = self.InstaceCreateSnapshot(ctx, userCred, ownerId, instanceSnapshot, pendingUsage)
 	if err != nil {
-		RegionQuotaManager.CancelPendingUsage(
+		quotas.CancelPendingUsage(
 			ctx, userCred, pendingUsage, pendingUsage)
 		return nil, httperrors.NewInternalServerError("start create snapshot task failed: %s", err)
 	}
@@ -4257,24 +4257,24 @@ func (self *SGuest) PerformSnapshotAndClone(
 	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(int(count))
 	keys, err := self.GetQuotaKeys()
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage)
+		quotas.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage)
 		return nil, err
 	}
 	pendingUsage.SetKeys(keys)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage)
+		quotas.CancelPendingUsage(ctx, userCred, snapshotUsage, snapshotUsage)
 		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}
 	regionKeys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 		return nil, err
 	}
 	pendingRegionUsage.SetKeys(regionKeys)
-	err = RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingRegionUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingRegionUsage)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 		return nil, err
 	}
 	pendingRegionUsage.Snapshot = snapshotUsage.Snapshot
@@ -4282,24 +4282,24 @@ func (self *SGuest) PerformSnapshotAndClone(
 	instanceSnapshotName, err := db.GenerateName(InstanceSnapshotManager, self.GetOwnerId(),
 		fmt.Sprintf("%s-%s", newlyGuestName, rand.String(8)))
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
-		RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
 		return nil, httperrors.NewInternalServerError("Generate snapshot name failed %s", err)
 	}
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(
 		ctx, self.GetOwnerId(), self, instanceSnapshotName,
 		jsonutils.QueryBoolean(data, "auto_delete_instance_snapshot", false))
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
-		RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
 
 	err = self.StartInstanceSnapshotAndCloneTask(
 		ctx, userCred, newlyGuestName, &pendingUsage, &pendingRegionUsage, instanceSnapshot, data.(*jsonutils.JSONDict))
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
-		RegionQuotaManager.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingRegionUsage, &pendingRegionUsage)
 		return nil, err
 	}
 	return nil, nil

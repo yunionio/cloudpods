@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -33,7 +34,7 @@ func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
 		return errors.Wrap(err, "task.GetPendingUsage")
 	}
 
-	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}
@@ -57,7 +58,7 @@ func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error 
 		return errors.Wrap(err, "task.GetPendingUsage")
 	}
 
-	err = models.RegionQuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}

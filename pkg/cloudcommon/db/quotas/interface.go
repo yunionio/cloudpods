@@ -18,7 +18,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -29,20 +31,24 @@ type IQuotaKeys interface {
 }
 
 type IQuota interface {
+	db.IUsage
+
 	GetKeys() IQuotaKeys
 	SetKeys(IQuotaKeys)
 
 	FetchSystemQuota()
-	FetchUsage(ctx context.Context) error
+	// FetchUsage(ctx context.Context) error
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
 	Exceed(request IQuota, quota IQuota) error
-	IsEmpty() bool
+	// IsEmpty() bool
 	ToJSON(prefix string) jsonutils.JSONObject
 }
 
 type IQuotaStore interface {
+	object.IObject
+
 	GetQuota(ctx context.Context, keys IQuotaKeys, quota IQuota) error
 	GetChildrenQuotas(ctx context.Context, keys IQuotaKeys) ([]IQuota, error)
 	GetParentQuotas(ctx context.Context, keys IQuotaKeys) ([]IQuota, error)
@@ -57,6 +63,10 @@ type IQuotaStore interface {
 
 type IQuotaManager interface {
 	db.IResourceModelManager
+
+	checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error
+	cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error
+	cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error
 
 	FetchIdNames(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error)
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -38,7 +39,28 @@ func (manager *SQuotaBaseManager) newQuota() IQuota {
 	return model.(IQuota)
 }
 
-func (manager *SQuotaBaseManager) CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaBaseManager) cleanPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
+	LockQuotaKeys(ctx, manager, keys)
+	defer ReleaseQuotaKeys(ctx, manager, keys)
+
+	return manager._cleanPendingUsage(ctx, userCred, keys)
+}
+
+func (manager *SQuotaBaseManager) _cleanPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
+	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, keys)
+	if err != nil {
+		return errors.Wrap(err, "manager.pendingStore.GetChildrenQuotas")
+	}
+	for i := range pendings {
+		err := manager.pendingStore.SubQuota(ctx, userCred, pendings[i])
+		if err != nil {
+			return errors.Wrap(err, "manager.pendingStore.SubQuota")
+		}
+	}
+	return nil
+}
+
+func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
 	LockQuota(ctx, manager, localUsage)
 	defer ReleaseQuota(ctx, manager, localUsage)
 
@@ -52,6 +74,7 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	pendingUsage := manager.newQuota()
 	pendingUsage.SetKeys(originKeys)
 	pendingUsage.Update(cancelUsage)
+	log.Debugf("pending delete key %s %s", QuotaKeyString(originKeys), jsonutils.Marshal(pendingUsage))
 	err := manager.pendingStore.SubQuota(ctx, userCred, pendingUsage)
 	if err != nil {
 		return errors.Wrap(err, "manager.pendingStore.SubQuota")
@@ -63,6 +86,9 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	if localUsage != nil {
 		localUsage.Sub(cancelUsage)
 	}
+
+	log.Debugf("cancelUsage: %s localUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage))
+
 	// update usages
 	quotas, err := manager.usageStore.GetParentQuotas(ctx, currentKeys)
 	if err != nil {
@@ -71,6 +97,30 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	for i := range quotas {
 		subUsage.SetKeys(quotas[i].GetKeys())
 		err := manager.usageStore.AddQuota(ctx, userCred, subUsage)
+		if err != nil {
+			return errors.Wrap(err, "manager.usageStore.AddQuota")
+		}
+	}
+	return nil
+}
+
+func (manager *SQuotaBaseManager) cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	LockQuota(ctx, manager, usage)
+	defer ReleaseQuota(ctx, manager, usage)
+
+	return manager._cancelUsage(ctx, userCred, usage)
+}
+
+func (manager *SQuotaBaseManager) _cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	usages, err := manager.usageStore.GetParentQuotas(ctx, usage.GetKeys())
+	if err != nil {
+		return errors.Wrap(err, "manager.usageStore.GetParentQuotas")
+	}
+	subUsage := manager.newQuota()
+	subUsage.Update(usage)
+	for i := range usages {
+		subUsage.SetKeys(usages[i].GetKeys())
+		err := manager.usageStore.SubQuota(ctx, userCred, subUsage)
 		if err != nil {
 			return errors.Wrap(err, "manager.usageStore.AddQuota")
 		}
@@ -145,7 +195,7 @@ func (manager *SQuotaBaseManager) DeleteAllQuotas(ctx context.Context, userCred 
 	return manager.deleteAllQuotas(ctx, userCred, keys)
 }
 
-func (manager *SQuotaBaseManager) CheckQuota(ctx context.Context, request IQuota) error {
+func (manager *SQuotaBaseManager) checkQuota(ctx context.Context, request IQuota) error {
 	LockQuota(ctx, manager, request)
 	defer ReleaseQuota(ctx, manager, request)
 
@@ -182,7 +232,7 @@ func (manager *SQuotaBaseManager) _checkQuota(ctx context.Context, request IQuot
 	return nil
 }
 
-func (manager *SQuotaBaseManager) CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
+func (manager *SQuotaBaseManager) checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
 	LockQuota(ctx, manager, quota)
 	defer ReleaseQuota(ctx, manager, quota)
 

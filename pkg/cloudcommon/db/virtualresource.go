@@ -436,7 +436,7 @@ func (model *SVirtualResourceBase) Delete(ctx context.Context, userCred mcclient
 	if !model.PendingDeleted {
 		model.DoPendingDelete(ctx, userCred)
 	}
-	return DeleteModel(ctx, userCred, model)
+	return DeleteModel(ctx, userCred, model.GetIVirtualModel())
 }
 
 func (model *SVirtualResourceBase) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

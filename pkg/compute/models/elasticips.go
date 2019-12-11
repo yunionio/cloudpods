@@ -723,7 +723,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	eipPendingUsage := &SRegionQuota{Eip: 1}
 	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
 	eipPendingUsage.SetKeys(quotaKeys)
-	err = RegionQuotaManager.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +753,7 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		log.Errorf("GetQuotaKeys fail %s", err)
 	} else {
 		eipPendingUsage.SetKeys(keys)
-		err := RegionQuotaManager.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage)
+		err := quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage)
 		if err != nil {
 			log.Errorf("SElasticip CancelPendingUsage error: %s", err)
 		}
@@ -1103,7 +1103,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		host.GetCloudprovider(),
 	)
 	eipPendingUsage.SetKeys(keys)
-	QuotaManager.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage)
 
 	return &eip, nil
 }
@@ -1293,4 +1293,20 @@ func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (eip *SElasticip) GetUsages() []db.IUsage {
+	if eip.PendingDeleted || eip.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Eip: 1}
+	keys, err := eip.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("disk.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

@@ -33,6 +33,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -1265,4 +1266,25 @@ func (man *SElasticcacheManager) TotalCount(
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 	return q.CountWithError()
+}
+
+func (cache *SElasticcache) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		cache.GetOwnerId(),
+		cache.GetRegion(),
+		cache.GetCloudprovider(),
+	)
+}
+
+func (cache *SElasticcache) GetUsages() []db.IUsage {
+	if cache.PendingDeleted || cache.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Cache: 1}
+	keys := cache.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

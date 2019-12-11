@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -144,7 +145,7 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 		log.Warningf("disk.GetQuotaKeys fail %s", err)
 	}
 	quotaStorage.SetKeys(keys)
-	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage)
+	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage)
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())
