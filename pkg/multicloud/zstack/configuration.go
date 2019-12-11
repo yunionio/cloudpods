@@ -14,6 +14,8 @@
 
 package zstack
 
+import "net/url"
+
 type SConfiguration struct {
 	Name         string
 	Category     string
@@ -24,5 +26,5 @@ type SConfiguration struct {
 
 func (region *SRegion) GetConfigrations() ([]SConfiguration, error) {
 	configrations := []SConfiguration{}
-	return configrations, region.client.listAll("global-configurations", []string{}, &configrations)
+	return configrations, region.client.listAll("global-configurations", url.Values{}, &configrations)
 }

@@ -14,6 +14,8 @@
 
 package zstack
 
+import "net/url"
+
 type SCluster struct {
 	ZStackBasic
 	Description    string `json:"description"`
@@ -26,9 +28,9 @@ type SCluster struct {
 
 func (region *SRegion) GetClusters() ([]SCluster, error) {
 	clusters := []SCluster{}
-	params := []string{}
+	params := url.Values{}
 	if SkipEsxi {
-		params = append(params, "q=type!=vmware")
+		params.Set("q", "type!=vmware")
 	}
 	return clusters, region.client.listAll("clusters", params, &clusters)
 }

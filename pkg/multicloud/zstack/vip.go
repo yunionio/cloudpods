@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/pkg/errors"
 
@@ -132,9 +133,9 @@ func (region *SRegion) GetNetworkId(vip *SVirtualIP) string {
 
 func (region *SRegion) GetVirtualIPs(vipId string) ([]SVirtualIP, error) {
 	vips := []SVirtualIP{}
-	params := []string{}
+	params := url.Values{}
 	if len(vipId) > 0 {
-		params = append(params, "q=uuid="+vipId)
+		params.Add("q", "uuid="+vipId)
 	}
 	return vips, region.client.listAll("vips", params, &vips)
 }

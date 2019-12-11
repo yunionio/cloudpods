@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
@@ -197,15 +198,16 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 
 func (region *SRegion) GetImages(zoneId string, imageId string) ([]SImage, error) {
 	images := []SImage{}
-	params := []string{"q=system=false"}
+	params := url.Values{}
+	params.Add("q", "system=false")
 	if len(zoneId) > 0 {
-		params = append(params, "q=backupStorage.zone.uuid="+zoneId)
+		params.Add("q", "backupStorage.zone.uuid="+zoneId)
 	}
 	if len(imageId) > 0 {
-		params = append(params, "q=uuid="+imageId)
+		params.Add("q", "uuid="+imageId)
 	}
 	if SkipEsxi {
-		params = append(params, "q=type!=vmware")
+		params.Add("q", "type!=vmware")
 	}
 	return images, region.client.listAll("images", params, &images)
 }

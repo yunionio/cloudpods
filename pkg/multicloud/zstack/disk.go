@@ -17,6 +17,7 @@ package zstack
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -119,15 +120,17 @@ func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 
 func (region *SRegion) GetDisks(storageId string, diskIds []string, diskType string) ([]SDisk, error) {
 	disks := []SDisk{}
-	params := []string{"q=status!=Deleted", "q=status!=NotInstantiated"}
+	params := url.Values{}
+	params.Add("q", "status!=Deleted")
+	params.Add("q", "status!=NotInstantiated")
 	if len(storageId) > 0 {
-		params = append(params, "q=primaryStorageUuid="+storageId)
+		params.Add("q", "primaryStorageUuid="+storageId)
 	}
 	if len(diskIds) > 0 {
-		params = append(params, "q=uuid?="+strings.Join(diskIds, ","))
+		params.Add("q", "uuid?="+strings.Join(diskIds, ","))
 	}
 	if len(diskType) > 0 {
-		params = append(params, "q=type="+diskType)
+		params.Add("q", "type="+diskType)
 	}
 	return disks, region.client.listAll("volumes", params, &disks)
 }

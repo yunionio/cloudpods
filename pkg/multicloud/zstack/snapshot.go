@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -95,12 +96,12 @@ func (region *SRegion) GetSnapshot(snapshotId string) (*SSnapshot, error) {
 
 func (region *SRegion) GetSnapshots(snapshotId string, diskId string) ([]SSnapshot, error) {
 	snapshots := []SSnapshot{}
-	params := []string{}
+	params := url.Values{}
 	if len(snapshotId) > 0 {
-		params = append(params, "q=uuid="+snapshotId)
+		params.Add("q", "uuid="+snapshotId)
 	}
 	if len(diskId) > 0 {
-		params = append(params, "q=volumeUuid="+diskId)
+		params.Add("q", "volumeUuid="+diskId)
 	}
 	if err := region.client.listAll("volume-snapshots", params, &snapshots); err != nil {
 		return nil, err

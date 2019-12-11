@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -118,18 +119,18 @@ func (region *SRegion) GetStorage(storageId string) (*SStorage, error) {
 
 func (region *SRegion) GetStorages(zoneId, clusterId, storageId string) ([]SStorage, error) {
 	storages := []SStorage{}
-	params := []string{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
+		params.Add("q", "zone.uuid="+zoneId)
 	}
 	if len(clusterId) > 0 {
-		params = append(params, "q=cluster.uuid="+clusterId)
+		params.Add("q", "cluster.uuid="+clusterId)
 	}
 	if SkipEsxi {
-		params = append(params, "q=type!=VCenter")
+		params.Add("q", "type!=VCenter")
 	}
 	if len(storageId) > 0 {
-		params = append(params, "q=uuid="+storageId)
+		params.Add("q", "uuid="+storageId)
 	}
 	return storages, region.client.listAll("primary-storage", params, &storages)
 }

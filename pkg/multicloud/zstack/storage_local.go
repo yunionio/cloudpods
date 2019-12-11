@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -55,9 +56,9 @@ func (region *SRegion) GetLocalStorage(storageId string, hostId string) (*SLocal
 
 func (region *SRegion) GetLocalStorages(storageId string, hostId string) ([]SLocalStorage, error) {
 	localStorage := []SLocalStorage{}
-	params := []string{}
+	params := url.Values{}
 	if len(hostId) > 0 {
-		params = append(params, "hostUuid="+hostId)
+		params.Set("hostUuid", hostId)
 	}
 	err := region.client.listAll(fmt.Sprintf("primary-storage/local-storage/%s/capacities", storageId), params, &localStorage)
 	if err != nil {

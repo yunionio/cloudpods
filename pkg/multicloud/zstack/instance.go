@@ -74,18 +74,20 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (region *SRegion) GetInstances(hostId string, instanceId string, nicId string) ([]SInstance, error) {
 	instance := []SInstance{}
-	params := []string{"q=type=UserVm", "q=state!=Destroyed"}
+	params := url.Values{}
+	params.Add("q", "type=UserVm")
+	params.Add("q", "state!=Destroyed")
 	if len(hostId) > 0 {
-		params = append(params, "q=lastHostUuid="+hostId)
+		params.Add("q", "lastHostUuid="+hostId)
 	}
 	if len(instanceId) > 0 {
-		params = append(params, "q=uuid="+instanceId)
+		params.Add("q", "uuid="+instanceId)
 	}
 	if len(nicId) > 0 {
-		params = append(params, "q=vmNics.uuid="+nicId)
+		params.Add("q", "vmNics.uuid="+nicId)
 	}
 	if SkipEsxi {
-		params = append(params, "q=hypervisorType!=ESX")
+		params.Add("q", "hypervisorType!=ESX")
 	}
 	return instance, region.client.listAll("vm-instances", params, &instance)
 }

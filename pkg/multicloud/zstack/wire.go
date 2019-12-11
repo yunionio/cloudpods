@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -48,15 +49,16 @@ func (region *SRegion) GetWires(zoneId string, wireId string, clusterId string) 
 	if err != nil {
 		return nil, err
 	}
-	params := []string{"q=attachedClusterUuids?=" + strings.Join(clusterIds, ",")}
+	params := url.Values{}
+	params.Add("q", "attachedClusterUuids?="+strings.Join(clusterIds, ","))
 	if len(clusterId) > 0 {
-		params = []string{"q=attachedClusterUuids?=" + clusterId}
+		params.Set("q", "attachedClusterUuids?="+clusterId)
 	}
 	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
+		params.Add("q", "zone.uuid="+zoneId)
 	}
 	if len(wireId) > 0 {
-		params = append(params, "q=uuid="+wireId)
+		params.Add("q", "uuid="+wireId)
 	}
 	err = region.client.listAll("l2-networks", params, &wires)
 	if err != nil {

@@ -17,6 +17,7 @@ package zstack
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -81,15 +82,15 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 
 func (region *SRegion) GetSecurityGroups(secgroupId string, instanceId string, name string) ([]SSecurityGroup, error) {
 	secgroups := []SSecurityGroup{}
-	params := []string{}
+	params := url.Values{}
 	if len(secgroupId) > 0 {
-		params = append(params, "q=uuid="+secgroupId)
+		params.Add("q", "uuid="+secgroupId)
 	}
 	if len(instanceId) > 0 {
-		params = append(params, "q=vmNic.vmInstanceUuid="+instanceId)
+		params.Add("q", "vmNic.vmInstanceUuid="+instanceId)
 	}
 	if len(name) > 0 {
-		params = append(params, "q=name="+name)
+		params.Add("q", "name="+name)
 	}
 	err := region.client.listAll("security-groups", params, &secgroups)
 	if err != nil {
