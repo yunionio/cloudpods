@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
 )
 
 func NewStringArray(arr []string) *JSONArray {
@@ -102,10 +102,10 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 	for _, f := range fields {
 		jsonVal, ok := jsonMap[f]
 		if !ok {
-			return errors.WithMessage(ErrMisingInputField, f)
+			return errors.Wrap(ErrMisingInputField, f)
 		}
 		if jsonVal == JSONNull {
-			return errors.WithMessage(ErrNilInputField, f)
+			return errors.Wrap(ErrNilInputField, f)
 		}
 	}
 	return nil
