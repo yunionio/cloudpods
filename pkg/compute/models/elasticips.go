@@ -1202,32 +1202,7 @@ func (manager *SElasticipManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers
 }
 
 func (manager *SElasticipManager) usageQByRanges(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
-	for _, rangeObj := range rangeObjs {
-		kw := rangeObj.Keyword()
-		// log.Debugf("rangeObj keyword: %s", kw)
-		switch kw {
-		case "zone":
-			zone := rangeObj.(*SZone)
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-		case "wire":
-			wire := rangeObj.(*SWire)
-			zone := wire.GetZone()
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-		case "host":
-			host := rangeObj.(*SHost)
-			zone := host.GetZone()
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-		case "cloudprovider":
-			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
-		case "cloudaccount":
-			cloudproviders := CloudproviderManager.Query().SubQuery()
-			subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-		case "cloudregion":
-			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
-		}
-	}
-	return q
+	return rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 }
 
 func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
