@@ -37,6 +37,7 @@ func init() {
 		NAME       string `help:"name of instance"`
 		ADMINPASS  string `help:"admin password of instance"`
 		ImageId    string `help:"image Id of instance"`
+		OsType     string `help:"Os type of image"`
 		VolumeType string `help:"volume type of instance"`
 		Flavor     string `help:"Flavor of instance"`
 		VpcId      string `help:"Vpc of instance"`
@@ -45,7 +46,7 @@ func init() {
 	}
 
 	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create intance", func(cli *ctyun.SRegion, args *InstanceCreateOptions) error {
-		e := cli.CreateInstance(args.ZoneId, args.NAME, args.ImageId, args.VolumeType, args.Flavor, args.VpcId, args.SubnetId, args.SecGroupId, args.ADMINPASS)
+		_, e := cli.CreateInstance(args.ZoneId, args.NAME, args.ImageId, args.OsType, args.VolumeType, args.Flavor, args.VpcId, args.SubnetId, args.SecGroupId, args.ADMINPASS)
 		if e != nil {
 			return e
 		}

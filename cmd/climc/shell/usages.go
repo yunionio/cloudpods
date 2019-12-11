@@ -22,7 +22,7 @@ import (
 )
 
 type GeneralUsageOptions struct {
-	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack"`
+	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack|ctyun"`
 	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
 	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack|DStack"`
 	Project  string   `help:"show usage of specified project"`

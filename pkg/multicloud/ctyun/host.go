@@ -16,6 +16,8 @@ package ctyun
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -160,7 +162,53 @@ func (self *SHost) GetVersion() string {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	network, err := self.zone.region.GetNetwork(desc.ExternalNetworkId)
+	if err != nil {
+		return nil, errors.Wrap(err, "Host.CreateVM.GetNetwork")
+	}
+
+	jobId, err := self.zone.region.CreateInstance(self.zone.GetId(), desc.Name, desc.ExternalImageId, desc.OsType, desc.SysDisk.StorageType, desc.InstanceType, network.VpcID, desc.ExternalNetworkId, desc.ExternalSecgroupId, desc.Password)
+	if err != nil {
+		return nil, errors.Wrap(err, "Host.CreateVM.CreateInstance")
+	}
+
+	vmId := ""
+	err = cloudprovider.Wait(10*time.Second, 600*time.Second, func() (b bool, err error) {
+		statusJson, err := self.zone.region.GetJob(jobId)
+		if err != nil {
+			if strings.Contains(err.Error(), "job fail") {
+				return false, err
+			}
+
+			return false, nil
+		}
+
+		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
+			jobs, err := statusJson.GetArray("entities", "sub_jobs")
+			if err != nil {
+				return false, err
+			}
+
+			if len(jobs) > 0 {
+				vmId, err = jobs[0].GetString("entities", "server_id")
+				if err != nil {
+					return false, err
+				}
+			} else {
+				return false, fmt.Errorf("CreateVM empty sub jobs")
+			}
+			return true, nil
+		} else if status == "FAILED" {
+			return false, fmt.Errorf("CreateVM job %s failed", jobId)
+		} else {
+			return false, nil
+		}
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "Disk.CreateISnapshot.Wait")
+	}
+
+	return self.zone.region.GetVMById(vmId)
 }
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
@@ -188,7 +236,7 @@ func (self *SRegion) getVMs(vmId string) ([]SInstance, error) {
 	}
 
 	for i := range ret {
-		izone, err := self.GetIZoneById(ret[i].OSEXTAZAvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, ret[i].OSEXTAZAvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.getVMs.GetIZoneById")
 		}
@@ -214,7 +262,7 @@ func (self *SRegion) GetVMById(vmId string) (*SInstance, error) {
 	if len(vms) == 0 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVMById")
 	} else if len(vms) == 1 {
-		izone, err := self.GetIZoneById(vms[0].OSEXTAZAvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, vms[0].OSEXTAZAvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.GetVMById.GetIZoneById")
 		}

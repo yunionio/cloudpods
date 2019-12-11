@@ -41,7 +41,7 @@ func init() {
 		DhcpEnable string `help:"gateway ip" choice:"true|false"`
 	}
 	shellutils.R(&NetworkCreateOptions{}, "subnet-create", "Create subnet", func(cli *ctyun.SRegion, args *NetworkCreateOptions) error {
-		vpc, e := cli.CreateNetwork(args.VpcId, args.ZoneId, args.Name, args.Cidr, args.GatewayIp, args.DhcpEnable)
+		vpc, e := cli.CreateNetwork(args.VpcId, args.ZoneId, args.Name, args.Cidr, args.DhcpEnable)
 		if e != nil {
 			return e
 		}

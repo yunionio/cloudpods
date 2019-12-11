@@ -213,7 +213,7 @@ type BaseListOptions struct {
 
 	Manager      string   `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string   `help:"List objects belonging to the cloud account" json:"account,omitempty"`
-	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack" json:"provider,omitempty"`
+	Provider     []string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Ctyun" json:"provider,omitempty"`
 	Brand        []string `help:"List objects belonging to a special brand"`
 	CloudEnv     string   `help:"Cloud environment" choices:"public|private|onpremise|private_or_onpremise" json:"cloud_env,omitempty"`
 	PublicCloud  *bool    `help:"List objects belonging to public cloud" json:"public_cloud"`

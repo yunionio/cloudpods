@@ -153,7 +153,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		iVM, err := guest.GetIVM()
 		if err != nil {
 			//若guest被删除,忽略错误，否则会无限删除guest失败(有挂载的云盘)
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			return nil, errors.Wrapf(err, "guest.GetIVM")
@@ -163,7 +163,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		}
 
 		_, err = disk.GetIDisk()
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			//忽略云上磁盘已经被删除错误
 			return nil, nil
 		}
@@ -596,7 +596,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		ihost, err := host.GetIHost()
 		if err != nil {
 			//私有云宿主机有可能下线,会导致虚拟机无限删除失败
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			log.Errorf("host.GetIHost fail %s", err)
@@ -610,9 +610,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 
 		ivm, err := ihost.GetIVMById(guest.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
+
 			log.Errorf("ihost.GetIVMById fail %s", err)
 			return nil, err
 		}
@@ -626,7 +627,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			if disk := guestdisk.GetDisk(); disk != nil && disk.AutoDelete {
 				idisk, err := disk.GetIDisk()
 				if err != nil {
-					if err == cloudprovider.ErrNotFound {
+					if errors.Cause(err) == cloudprovider.ErrNotFound {
 						continue
 					}
 					log.Errorf("disk.GetIDisk fail %s", err)
