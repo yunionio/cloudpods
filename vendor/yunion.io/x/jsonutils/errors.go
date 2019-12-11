@@ -3,39 +3,39 @@ package jsonutils
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
 )
 
 var (
-	ErrJsonDictFailInsert = errors.New("fail to insert object")
+	ErrJsonDictFailInsert = errors.Error("fail to insert object")
 
-	ErrInvalidJsonDict    = errors.New("not a valid JSONDict")
-	ErrInvalidJsonArray   = errors.New("not a valid JSONArray")
-	ErrInvalidJsonInt     = errors.New("not a valid number")
-	ErrInvalidJsonFloat   = errors.New("not a valid float")
-	ErrInvalidJsonBoolean = errors.New("not a valid boolean")
-	ErrInvalidJsonString  = errors.New("not a valid string")
+	ErrInvalidJsonDict    = errors.Error("not a valid JSONDict")
+	ErrInvalidJsonArray   = errors.Error("not a valid JSONArray")
+	ErrInvalidJsonInt     = errors.Error("not a valid number")
+	ErrInvalidJsonFloat   = errors.Error("not a valid float")
+	ErrInvalidJsonBoolean = errors.Error("not a valid boolean")
+	ErrInvalidJsonString  = errors.Error("not a valid string")
 
-	ErrJsonDictKeyNotFound = errors.New("key not found")
+	ErrJsonDictKeyNotFound = errors.Error("key not found")
 
-	ErrUnsupported     = errors.New("unsupported operation")
-	ErrOutOfKeyRange   = errors.New("out of key range")
-	ErrOutOfIndexRange = errors.New("out of index range")
+	ErrUnsupported     = errors.Error("unsupported operation")
+	ErrOutOfKeyRange   = errors.Error("out of key range")
+	ErrOutOfIndexRange = errors.Error("out of index range")
 
-	ErrInvalidChar = errors.New("invalid char")
-	ErrInvalidHex  = errors.New("invalid hex")
-	ErrInvalidRune = errors.New("invalid 4 byte rune")
+	ErrInvalidChar = errors.Error("invalid char")
+	ErrInvalidHex  = errors.Error("invalid hex")
+	ErrInvalidRune = errors.Error("invalid 4 byte rune")
 
-	ErrTypeMismatch         = errors.New("unmarshal type mismatch")
-	ErrArrayLengthMismatch  = errors.New("unmarshal array length mismatch")
-	ErrInterfaceUnsupported = errors.New("do not known how to deserialize json into this interface type")
-	ErrMapKeyMustString     = errors.New("map key must be string")
+	ErrTypeMismatch         = errors.Error("unmarshal type mismatch")
+	ErrArrayLengthMismatch  = errors.Error("unmarshal array length mismatch")
+	ErrInterfaceUnsupported = errors.Error("do not known how to deserialize json into this interface type")
+	ErrMapKeyMustString     = errors.Error("map key must be string")
 
-	ErrMisingInputField = errors.New("missing input field")
-	ErrNilInputField    = errors.New("nil input field")
+	ErrMisingInputField = errors.Error("missing input field")
+	ErrNilInputField    = errors.Error("nil input field")
 
-	ErrYamlMissingDictKey = errors.New("Cannot find JSONDict key")
-	ErrYamlIllFormat      = errors.New("Illformat")
+	ErrYamlMissingDictKey = errors.Error("Cannot find JSONDict key")
+	ErrYamlIllFormat      = errors.Error("Illformat")
 )
 
 type JSONError struct {
