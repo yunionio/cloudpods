@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -52,15 +53,15 @@ type SHost struct {
 
 func (region *SRegion) GetHosts(zoneId string, hostId string) ([]SHost, error) {
 	hosts := []SHost{}
-	params := []string{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
+		params.Add("q", "zone.uuid="+zoneId)
 	}
 	if len(hostId) > 0 {
-		params = append(params, "q=uuid="+hostId)
+		params.Add("q", "uuid="+hostId)
 	}
 	if SkipEsxi {
-		params = append(params, "q=hypervisorType!=ESX")
+		params.Add("q", "hypervisorType!=ESX")
 	}
 	return hosts, region.client.listAll("hosts", params, &hosts)
 }

@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 )
@@ -30,9 +31,9 @@ type SDiskOffering struct {
 
 func (region *SRegion) GetDiskOfferings(diskSizeGB int) ([]SDiskOffering, error) {
 	offerings := []SDiskOffering{}
-	params := []string{}
+	params := url.Values{}
 	if diskSizeGB != 0 {
-		params = append(params, "q=diskSize="+fmt.Sprintf("%d", diskSizeGB*1024*1024*1024))
+		params.Add("q", "diskSize="+fmt.Sprintf("%d", diskSizeGB*1024*1024*1024))
 	}
 	return offerings, region.client.listAll("disk-offerings", params, &offerings)
 }
