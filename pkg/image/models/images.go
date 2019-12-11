@@ -383,22 +383,22 @@ func (self *SImage) GetPath(format string) string {
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
 	self.saveFailed(userCred, msg)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
 
 func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
 	self.saveFailed(userCred, msg)
-	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
 
 func (self *SImage) OnSaveSuccess(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
 	self.saveSuccess(userCred, msg)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, msg, userCred, true)
 }
 
 func (self *SImage) OnSaveTaskSuccess(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
 	self.saveSuccess(userCred, msg)
-	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, msg, userCred, true)
 }
 
 func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
