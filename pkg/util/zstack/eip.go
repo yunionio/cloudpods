@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -43,12 +44,12 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 
 func (region *SRegion) GetEips(eipId, instanceId string) ([]SEipAddress, error) {
 	eips := []SEipAddress{}
-	params := []string{}
+	params := url.Values{}
 	if len(eipId) > 0 {
-		params = append(params, "q=uuid="+eipId)
+		params.Add("q", "uuid="+eipId)
 	}
 	if len(instanceId) > 0 {
-		params = append(params, "q=vmNic.vmInstanceUuid="+instanceId)
+		params.Add("q", "vmNic.vmInstanceUuid="+instanceId)
 	}
 	err := region.client.listAll("eips", params, &eips)
 	if err != nil {
