@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -184,9 +185,9 @@ func (region *SRegion) GetZone(zoneId string) (*SZone, error) {
 
 func (region *SRegion) GetZones(zoneId string) ([]SZone, error) {
 	zones := []SZone{}
-	params := []string{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params = append(params, "q=uuid="+zoneId)
+		params.Add("q", "uuid="+zoneId)
 	}
 	err := region.client.listAll("zones", params, &zones)
 	if err != nil {
