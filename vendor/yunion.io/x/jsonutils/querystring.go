@@ -16,28 +16,87 @@ package jsonutils
 
 import (
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
+
+func addQueryStringSeg(body JSONObject, segs []sTextNumber, val []string) (JSONObject, error) {
+	if len(segs) == 0 {
+		if len(val) == 1 {
+			return NewString(val[0]), nil
+		} else if len(val) > 1 {
+			return NewStringArray(val), nil
+		}
+		return nil, errors.Wrap(ErrNilInputField, "empty value???")
+	}
+	if body == nil {
+		if segs[0].isNumber && segs[0].number == 0 {
+			body = NewArray()
+		} else {
+			body = NewDict()
+		}
+	}
+	switch jbody := body.(type) {
+	case *JSONDict:
+		key := segs[0].String()
+		if !jbody.Contains(key) {
+			next, err := addQueryStringSeg(nil, segs[1:], val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "addQueryStringSeg %s with %s fail", body, key)
+			}
+			jbody.Add(next, key)
+		} else {
+			next, err := jbody.Get(key)
+			if err != nil {
+				return nil, errors.Wrapf(err, "get jsondict %s with %s fail", body, key)
+			}
+			addQueryStringSeg(next, segs[1:], val)
+		}
+		return jbody, nil
+	case *JSONArray:
+		index := segs[0].number
+		arrSize := int64(jbody.Size())
+		if index < arrSize {
+			next, err := jbody.GetAt(int(index))
+			if err != nil {
+				return nil, errors.Wrapf(err, "get jsonarray %s at %d fail", body, index)
+			}
+			addQueryStringSeg(next, segs[1:], val)
+		} else if arrSize == index {
+			// new
+			next, err := addQueryStringSeg(nil, segs[1:], val)
+			if err != nil {
+				return nil, errors.Wrapf(err, "addQueryStringSeg %s at %d fail", body, index)
+			}
+			jbody.Add(next)
+		} else {
+			return nil, errors.Wrapf(ErrOutOfIndexRange, "index %d out of range", index)
+		}
+		return jbody, nil
+	default:
+		return nil, errors.Wrapf(ErrTypeMismatch, "invalid body %s and key %s", body, segs)
+	}
+}
 
 func (this *JSONDict) parseQueryString(str string) error {
 	m, err := url.ParseQuery(str)
 	if err != nil {
 		return errors.Wrap(err, "url.ParseQuery")
 	}
-	for k, v := range m {
-		keys := strings.Split(k, ".")
-		if len(v) == 1 {
-			this.Add(NewString(v[0]), keys...)
-		} else if len(v) > 1 {
-			arr := NewArray()
-			for _, val := range v {
-				arr.Add(NewString(val))
-			}
-			this.Add(arr, keys...)
+	keys := make([]string, 0)
+	for k := range m {
+		keys = append(keys, k)
+	}
+	segmentKeys := strings2stringSegments(keys)
+	sort.Sort(segmentKeys)
+	for _, segs := range segmentKeys {
+		_, err := addQueryStringSeg(this, segs, m[segments2string(segs)])
+		if err != nil {
+			return errors.Wrap(err, "addQueryStringSeg")
 		}
 	}
 	return nil
@@ -86,12 +145,12 @@ func (this *JSONBool) _queryString(key string) string {
 
 func (this *JSONArray) _queryString(key string) string {
 	rets := make([]string, 0)
-	for _, val := range this.data {
-		/* k := fmt.Sprintf("%d", i)
-		   if len(key) > 0 {
-		       k = key + "." + k
-		   } */
-		rets = append(rets, val._queryString(key))
+	for i, val := range this.data {
+		k := strconv.FormatInt(int64(i), 10)
+		if len(key) > 0 {
+			k = key + "." + k
+		}
+		rets = append(rets, val._queryString(k))
 	}
 	return strings.Join(rets, "&")
 }
