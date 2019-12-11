@@ -1549,7 +1549,8 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		guestUserTagsQuery.AppendField(sqlchemy.SubStr("guest_id", guestUserTagsQuery.Field("id"), len("server::")+1, 0))
 		guestUserTagsQuery.AppendField(
 			sqlchemy.GROUP_CONCAT("user_tags", sqlchemy.CONCAT("",
-				guestUserTagsQuery.Field("key"),
+				sqlchemy.SubStr("", guestUserTagsQuery.Field("key"), len(db.USER_TAG_PREFIX)+1, 0),
+				sqlchemy.NewStringField(":"),
 				guestUserTagsQuery.Field("value"),
 			)))
 		subQ := guestUserTagsQuery.SubQuery()
