@@ -50,17 +50,6 @@ type NetworkListInput struct {
 type NetworkCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
-	// description: network name
-	// unique: true
-	// required: true
-	// example: test-network
-	Name string `json:"name"`
-
-	// description: network description
-	// required: false
-	// example: test create network
-	Description string `json:"description"`
-
 	// description: ip range of guest, if not set, you shoud set guest_ip_start,guest_ip_end and guest_ip_mask params
 	// example: 10.168.222.1/24
 	GuestIpPrefix string `json:"guest_ip_prefix"`
