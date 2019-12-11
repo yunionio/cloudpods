@@ -123,7 +123,7 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 }
 
 func (self *SVpc) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteVpc(self.GetId())
 }
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
@@ -211,4 +211,18 @@ func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 
 	vpc.region = self
 	return vpc, nil
+}
+
+func (self *SRegion) DeleteVpc(vpcId string) error {
+	params := map[string]jsonutils.JSONObject{
+		"regionId": jsonutils.NewString(self.GetId()),
+		"vpcId":    jsonutils.NewString(vpcId),
+	}
+
+	_, err := self.client.DoPost("/apiproxy/v3/deleteVPC", params)
+	if err != nil {
+		return errors.Wrap(err, "SRegion.DeleteVpc.DoPost")
+	}
+
+	return nil
 }
