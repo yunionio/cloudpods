@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -121,7 +122,7 @@ func (self *SStoragecache) getStorageNames() []string {
 func (self *SStoragecache) GetHost() (*SHost, error) {
 	hostId, err := self.getHostId()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "self.getHostId")
 	}
 	if len(hostId) == 0 {
 		return nil, nil
@@ -129,12 +130,11 @@ func (self *SStoragecache) GetHost() (*SHost, error) {
 
 	host, err := HostManager.FetchById(hostId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "HostManager.FetchById")
 	} else if host == nil {
 		return nil, nil
 	}
-	h, _ := host.(*SHost)
-	return h, nil
+	return host.(*SHost), nil
 }
 
 func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
@@ -258,13 +258,13 @@ func (self *SStoragecache) GetExtraDetails(ctx context.Context, userCred mcclien
 	if err != nil {
 		return nil, err
 	}
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra, nil
 }
 
 func (self *SStoragecache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra
 }
 
@@ -329,10 +329,15 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	return size
 }
 
-func (self *SStoragecache) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SStoragecache) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewStringArray(self.getStorageNames()), "storages")
 	extra.Add(jsonutils.NewInt(self.getCachedImageSize()), "size")
 	extra.Add(jsonutils.NewInt(int64(self.getCachedImageCount())), "count")
+
+	host, _ := self.GetHost()
+	if host != nil {
+		extra.Add(host.GetShortDesc(ctx), "host")
+	}
 	return extra
 }
 
