@@ -165,7 +165,7 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		return
 	}
 	if !pendingUsage.IsEmpty() {
-		err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+		err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
 		if err != nil {
 			log.Errorf("cancelpendingusage error %s", err)
 		}
@@ -178,7 +178,7 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		return
 	}
 	if !pendingRegionUsage.IsEmpty() {
-		err = models.RegionQuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), &pendingRegionUsage, &pendingRegionUsage)
+		err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingRegionUsage, &pendingRegionUsage)
 		if err != nil {
 			log.Errorf("cancelpendingusage error %s", err)
 		}

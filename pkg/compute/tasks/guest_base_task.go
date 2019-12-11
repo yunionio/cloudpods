@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -39,11 +40,11 @@ func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		models.RegionQuotaManager.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage)
 	}
 }

@@ -33,6 +33,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -1387,4 +1388,25 @@ func (man *SDBInstanceManager) TotalCount(
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 	return q.CountWithError()
+}
+
+func (dbinstance *SDBInstance) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		dbinstance.GetOwnerId(),
+		dbinstance.GetRegion(),
+		dbinstance.GetCloudprovider(),
+	)
+}
+
+func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
+	if dbinstance.PendingDeleted || dbinstance.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Rds: 1}
+	keys := dbinstance.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

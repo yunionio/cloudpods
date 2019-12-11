@@ -77,7 +77,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 	pendingUsage := SQuota{Image: int(imageNum)}
 	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
 	pendingUsage.SetKeys(keys)
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
@@ -150,7 +150,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	pendingUsage := SQuota{Image: int(imageNumber)}
 	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
 	pendingUsage.SetKeys(keys)
-	QuotaManager.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 
 	if !suc {
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")

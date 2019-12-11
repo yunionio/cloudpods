@@ -57,7 +57,6 @@ func init() {
 			"quota_usages",
 		),
 	}
-	QuotaUsageManager.SetVirtualObject(QuotaUsageManager)
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
 			"quota_pending_usage_tbl",
@@ -65,7 +64,6 @@ func init() {
 			"quota_pending_usages",
 		),
 	}
-	QuotaPendingUsageManager.SetVirtualObject(QuotaPendingUsageManager)
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(Quota,
 			"quota_tbl",
@@ -75,7 +73,7 @@ func init() {
 			"quotas",
 		),
 	}
-	QuotaManager.SetVirtualObject(QuotaManager)
+	quotas.Register(QuotaManager)
 }
 
 type SQuota struct {

@@ -46,7 +46,6 @@ func init() {
 			"region_quota_usages",
 		),
 	}
-	RegionUsageManager.SetVirtualObject(RegionUsageManager)
 	RegionPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota,
 			"region_quota_pending_usage_tbl",
@@ -54,7 +53,6 @@ func init() {
 			"region_quota_pending_usages",
 		),
 	}
-	RegionPendingUsageManager.SetVirtualObject(RegionPendingUsageManager)
 	RegionQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(RegionQuota,
 			"region_quota_tbl",
@@ -64,7 +62,7 @@ func init() {
 			"region_quotas",
 		),
 	}
-	RegionQuotaManager.SetVirtualObject(RegionQuotaManager)
+	quotas.Register(RegionQuotaManager)
 }
 
 type SRegionQuota struct {
