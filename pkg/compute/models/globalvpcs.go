@@ -82,9 +82,14 @@ func (self *SGlobalVpc) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	return self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 }
 
-func (manager *SGlobalVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.GlobalVpcCreateInput) (*jsonutils.JSONDict, error) {
+func (manager *SGlobalVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.GlobalVpcCreateInput) (api.GlobalVpcCreateInput, error) {
 	input.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.JSON(input))
+	var err error
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }
 
 func (self *SGlobalVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
