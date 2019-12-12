@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	errors_aggr "yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
@@ -831,9 +830,12 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 
 	if vcpuCount > 0 || vmemSize > 0 {
-		err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
+		quota, err := self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
+		}
+		if !quota.IsEmpty() {
+			data.Add(jsonutils.Marshal(quota), "pending_usage")
 		}
 	}
 
@@ -845,6 +847,37 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
+	// input.Hypervisor must be set
+	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
+		rbacutils.ScopeProject,
+		ownerId,
+		"",
+	)
+	if len(input.PreferHost) > 0 {
+		hostObj, _ := HostManager.FetchById(input.PreferHost)
+		host := hostObj.(*SHost)
+		zone := host.GetZone()
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferZone) > 0 {
+		zoneObj, _ := ZoneManager.FetchById(input.PreferZone)
+		zone := zoneObj.(*SZone)
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferWire) > 0 {
+		wireObj, _ := WireManager.FetchById(input.PreferWire)
+		wire := wireObj.(*SWire)
+		zone := wire.GetZone()
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferRegion) > 0 {
+		regionObj, _ := CloudregionManager.FetchById(input.PreferRegion)
+		keys.RegionId = regionObj.GetId()
+	}
+	return keys
+}
+
 func (manager *SGuestManager) BatchPreValidate(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict, count int,
@@ -853,29 +886,32 @@ func (manager *SGuestManager) BatchPreValidate(
 	if err != nil {
 		return nil, err
 	}
-	if !input.IsSystem {
-		reqQuota, err := manager.checkCreateQuota(ctx, userCred, ownerId, input, input.Backup, count)
+	if input.IsSystem == nil || *input.IsSystem == false {
+		reqQuota, reqRegionQuota, err := manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, count)
 		if err != nil {
 			return nil, err
 		}
 		quota := &SQuota{
+			Count:          reqQuota.Count / count,
 			Cpu:            reqQuota.Cpu / count,
 			Memory:         reqQuota.Memory / count,
 			Storage:        reqQuota.Storage / count,
-			Port:           reqQuota.Port / count,
-			Eport:          reqQuota.Eport / count,
-			Bw:             reqQuota.Bw / count,
-			Ebw:            reqQuota.Ebw / count,
 			IsolatedDevice: reqQuota.IsolatedDevice / count,
-			Eip:            reqQuota.Eip / count,
 		}
-		quotaPlatform := make([]string, 0)
-		if len(input.Hypervisor) > 0 {
-			quotaPlatform = GetDriver(input.Hypervisor).GetQuotaPlatformID()
+		regionQuota := &SRegionQuota{
+			Port:  reqRegionQuota.Port / count,
+			Eport: reqRegionQuota.Eport / count,
+			Bw:    reqRegionQuota.Bw / count,
+			Ebw:   reqRegionQuota.Ebw / count,
+			Eip:   reqRegionQuota.Eip / count,
 		}
+		keys := serverCreateInput2ComputeQuotaKeys(*input, ownerId)
+		regionKeys := keys.SRegionalCloudResourceKeys
+		quota.SetKeys(keys)
+		regionQuota.SetKeys(regionKeys)
 		return func() {
-			QuotaManager.CancelPendingUsage(
-				ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, quota, quota)
+			quotas.CancelPendingUsage(ctx, userCred, quota, quota)
+			quotas.CancelPendingUsage(ctx, userCred, regionQuota, regionQuota)
 		}, nil
 	}
 	return nil, nil
@@ -1243,15 +1279,10 @@ func (manager *SGuestManager) validateCreateData(
 		}
 	}
 
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.JSON(input))
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	if err := data.Unmarshal(input); err != nil {
-		return nil, err
-	}
-
-	log.Debugf("Create data: %s", data)
 
 	if err := userdata.ValidateUserdata(input.UserData); err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
@@ -1276,8 +1307,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	if err != nil {
 		return nil, err
 	}
-	if !input.IsSystem {
-		_, err = manager.checkCreateQuota(ctx, userCred, ownerId, input, input.Backup, 1)
+	if input.IsSystem == nil || !(*input.IsSystem) {
+		_, _, err = manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, 1)
 		if err != nil {
 			return nil, err
 		}
@@ -1327,27 +1358,37 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 
 func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	if data.Contains("pending_usage") {
+		quota := SQuota{}
+		data.Unmarshal(&quota, "pending_usage")
+		quotas.CancelPendingUsage(ctx, userCred, &quota, &quota)
+	}
+
 	self.StartSyncTask(ctx, userCred, true, "")
 }
 
 func (manager *SGuestManager) checkCreateQuota(
-	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
-	input *api.ServerCreateInput, hasBackup bool, count int) (*SQuota, error) {
-
-	req := getGuestResourceRequirements(ctx, userCred, input, count, hasBackup)
-	quotaPlatform := make([]string, 0)
-	if len(input.Hypervisor) > 0 {
-		quotaPlatform = GetDriver(input.Hypervisor).GetQuotaPlatformID()
-	}
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, &req)
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	input api.ServerCreateInput,
+	hasBackup bool,
+	count int,
+) (*SQuota, *SRegionQuota, error) {
+	req, regionReq := getGuestResourceRequirements(ctx, userCred, input, ownerId, count, hasBackup)
+	err := quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
-	} else {
-		return &req, nil
+		return nil, nil, err
 	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &regionReq)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &req, &regionReq, nil
 }
 
-func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) error {
+func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) (quotas.IQuota, error) {
 	req := SQuota{}
 
 	if vcpuCount > 0 && vcpuCount > int(self.VcpuCount) {
@@ -1358,13 +1399,27 @@ func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.Toke
 		req.Memory = vmemSize - self.VmemSize
 	}
 
-	quotaPlatform := self.GetQuotaPlatformID()
-	_, err := QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, &req)
+	keys, err := self.GetQuotaKeys()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetQuotaKeys")
+	}
+	req.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &req)
+	if err != nil {
+		return nil, errors.Wrap(err, "quotas.CheckSetPendingQuota")
+	}
 
-	return err
+	return &req, nil
 }
 
-func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, count int, hasBackup bool) SQuota {
+func getGuestResourceRequirements(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input api.ServerCreateInput,
+	ownerId mcclient.IIdentityProvider,
+	count int,
+	hasBackup bool,
+) (SQuota, SRegionQuota) {
 	vcpuCount := input.VcpuCount
 	if vcpuCount == 0 {
 		vcpuCount = 1
@@ -1405,22 +1460,30 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 		eipCnt = 1
 	}
 
-	return SQuota{
+	req := SQuota{
+		Count:          count,
 		Cpu:            int(vcpuCount) * count,
 		Memory:         int(vmemSize) * count,
 		Storage:        diskSize * count,
-		Port:           iNicCnt * count,
-		Eport:          eNicCnt * count,
-		Bw:             iBw * count,
-		Ebw:            eBw * count,
 		IsolatedDevice: devCount * count,
-		Eip:            eipCnt * count,
 	}
+	regionReq := SRegionQuota{
+		Port:  iNicCnt * count,
+		Eport: eNicCnt * count,
+		Bw:    iBw * count,
+		Ebw:   eBw * count,
+		Eip:   eipCnt * count,
+	}
+	keys := serverCreateInput2ComputeQuotaKeys(input, ownerId)
+	req.SetKeys(keys)
+	regionReq.SetKeys(keys.SRegionalCloudResourceKeys)
+	return req, regionReq
 }
 
 func (guest *SGuest) getGuestBackupResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential) SQuota {
 	guestDisksSize := guest.getDiskSize()
 	return SQuota{
+		Count:   1,
 		Cpu:     int(guest.VcpuCount),
 		Memory:  guest.VmemSize,
 		Storage: guestDisksSize,
@@ -1503,14 +1566,14 @@ func (manager *SGuestManager) SetPropertiesWithInstanceSnapshot(
 	}
 }
 
-func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	input := new(api.ServerCreateInput)
-	data.Unmarshal(input)
+func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := api.ServerCreateInput{}
+	data.Unmarshal(&input)
 	if len(input.InstanceSnapshotId) > 0 {
 		manager.SetPropertiesWithInstanceSnapshot(ctx, userCred, input.InstanceSnapshotId, items)
 	}
-	pendingUsage := getGuestResourceRequirements(ctx, userCred, input, len(items), input.Backup)
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask", input.ParentTaskId)
+	pendingUsage, pendingRegionUsage := getGuestResourceRequirements(ctx, userCred, input, ownerId, len(items), input.Backup)
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, pendingRegionUsage, "GuestBatchCreateTask", input.ParentTaskId)
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
@@ -2383,12 +2446,12 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 func (manager *SGuestManager) TotalCount(
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(scope, ownerId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	return totalGuestResourceCount(scope, ownerId, rangeObjs, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -2499,7 +2562,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 	network.updateGuestNetmap(guestnic)
 	bwLimit = guestnic.getBandwidth()
 	if pendingUsage != nil && len(teamWithMac) == 0 {
-		cancelUsage := SQuota{}
+		cancelUsage := SRegionQuota{}
 		if network.IsExitNetwork() {
 			cancelUsage.Eport = 1
 			cancelUsage.Ebw = bwLimit
@@ -2507,8 +2570,12 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 			cancelUsage.Port = 1
 			cancelUsage.Bw = bwLimit
 		}
-		quotaPlatform := self.GetQuotaPlatformID()
-		err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
+		keys, err := self.GetRegionalQuotaKeys()
+		if err != nil {
+			log.Warningf("self.GetRegionalQuotaKeys fail %s", err)
+		}
+		cancelUsage.SetKeys(keys)
+		err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -2814,14 +2881,14 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 	return result
 }
 
-func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+func filterGuestByRange(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
 
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
 	//q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
 
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObjs)
 	return q
 }
 
@@ -2840,7 +2907,7 @@ type SGuestCountStat struct {
 func totalGuestResourceCount(
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
-	rangeObj db.IStandaloneModel,
+	rangeObjs []db.IStandaloneModel,
 	status []string,
 	hypervisors []string,
 	includeSystem bool,
@@ -2899,7 +2966,7 @@ func totalGuestResourceCount(
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
 
-	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	q = filterGuestByRange(q, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv)
 
 	switch scope {
 	case rbacutils.ScopeSystem:
@@ -3007,7 +3074,7 @@ func (self *SGuest) attach2NetworkDesc(
 			}
 			errs = append(errs, err)
 		}
-		return nil, errors_aggr.NewAggregate(errs)
+		return nil, errors.NewAggregate(errs)
 	} else {
 		netConfig.Network = ""
 		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
@@ -3101,11 +3168,14 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
-	quotaPlatform := self.GetQuotaPlatformID()
-
 	cancelUsage := SQuota{}
 	cancelUsage.Storage = disk.DiskSize
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
+	keys, err := self.GetQuotaKeys()
+	if err != nil {
+		return nil, err
+	}
+	cancelUsage.SetKeys(keys)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 
 	return disk, nil
 }
@@ -3188,10 +3258,13 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 		return err
 	}
 
-	quotaPlatform := self.GetQuotaPlatformID()
-
 	cancelUsage := SQuota{IsolatedDevice: 1}
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
+	keys, err := self.GetQuotaKeys()
+	if err != nil {
+		return err
+	}
+	cancelUsage.SetKeys(keys)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
 	return err
 }
 
@@ -4619,7 +4692,9 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.KeypairId = genInput.KeypairId
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
-	userInput.Project = genInput.Project
+	// cloned server should belongs to the project creating it
+	userInput.Project = userCred.GetProjectId()
+	userInput.Domain = userCred.GetProjectDomainId()
 	userInput.Secgroups = []string{}
 	secgroups := self.GetSecgroups()
 	for _, secgroup := range secgroups {
@@ -4658,7 +4733,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	*r.DisableDelete = self.DisableDelete.Bool()
 	r.ShutdownBehavior = self.ShutdownBehavior
 	// ignore r.DeployConfigs
-	r.IsSystem = self.IsSystem
+	r.IsSystem = &self.IsSystem
 	r.SecgroupId = self.SecgrpId
 
 	r.ServerConfigs = new(api.ServerConfigs)
@@ -4834,22 +4909,31 @@ func (self *SGuest) GetDiskSnapshotsNotInInstanceSnapshots() ([]SSnapshot, error
 	return snapshots, nil
 }
 
-func (self *SGuest) getGuestUsage(guestCount int) (*SQuota, error) {
-	usage := new(SQuota)
+func (self *SGuest) getGuestUsage(guestCount int) (SQuota, SRegionQuota, error) {
+	usage := SQuota{}
+	regionUsage := SRegionQuota{}
+	usage.Count = guestCount
 	usage.Cpu = int(self.VcpuCount) * guestCount
 	usage.Memory = int(self.VmemSize * guestCount)
 	diskSize := self.getDiskSize()
 	if diskSize < 0 {
-		return nil, httperrors.NewInternalServerError("fetch disk size failed")
+		return usage, regionUsage, httperrors.NewInternalServerError("fetch disk size failed")
 	}
 	usage.Storage = self.getDiskSize() * guestCount
 	netCount, err := self.NetworkCount()
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return usage, regionUsage, err
 	}
-	usage.Port = netCount
-	usage.Bw = self.getBandwidth(false)
-	return usage, err
+	regionUsage.Port = netCount
+	regionUsage.Bw = self.getBandwidth(false)
+	eip, err := self.GetEip()
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return usage, regionUsage, err
+	}
+	if eip != nil {
+		regionUsage.Eip = 1
+	}
+	return usage, regionUsage, nil
 }
 
 func (self *SGuestManager) checkGuestImage(ctx context.Context, input *api.ServerCreateInput) error {
@@ -4917,4 +5001,68 @@ func (self *SGuest) GetDiskIndex(diskId string) int8 {
 		}
 	}
 	return -1
+}
+
+func (guest *SGuest) GetRegionalQuotaKeys() (quotas.IQuotaKeys, error) {
+	host := guest.GetHost()
+	if host == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
+	}
+	provider := host.GetCloudprovider()
+	if provider == nil && len(host.ManagerId) > 0 {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
+	}
+	region := host.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
+	}
+	return fetchRegionalQuotaKeys(rbacutils.ScopeProject, guest.GetOwnerId(), region, provider), nil
+}
+
+func (guest *SGuest) GetQuotaKeys() (quotas.IQuotaKeys, error) {
+	host := guest.GetHost()
+	if host == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid host")
+	}
+	provider := host.GetCloudprovider()
+	if provider == nil && len(host.ManagerId) > 0 {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
+	}
+	zone := host.GetZone()
+	if zone == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid zone")
+	}
+	hypervisor := guest.Hypervisor
+	if !utils.IsInStringArray(hypervisor, api.ONECLOUD_HYPERVISORS) {
+		hypervisor = ""
+	}
+	return fetchComputeQuotaKeys(
+		rbacutils.ScopeProject,
+		guest.GetOwnerId(),
+		zone,
+		provider,
+		hypervisor,
+	), nil
+}
+
+func (guest *SGuest) GetUsages() []db.IUsage {
+	if guest.PendingDeleted || guest.Deleted {
+		return nil
+	}
+	usage, regionUsage, err := guest.getGuestUsage(1)
+	if err != nil {
+		log.Errorf("guest.getGuestUsage fail %s", err)
+		return nil
+	}
+	keys, err := guest.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("guest.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	regionUsage.SetKeys(keys.(SComputeResourceKeys).SRegionalCloudResourceKeys)
+	return []db.IUsage{
+		&usage,
+		&regionUsage,
+	}
 }

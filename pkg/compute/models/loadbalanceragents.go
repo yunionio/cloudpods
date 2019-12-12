@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -364,7 +365,18 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 				otherCluster.Name, otherCluster.Id, vrrpRouterId)
 		}
 	}
-	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (man *SLoadbalancerAgentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

@@ -27,9 +27,3 @@ type SharableVirtualResourceDetails struct {
 type SharableVirtualResourceListInput struct {
 	StandaloneResourceListInput
 }
-
-type SharableVirutalResourceCreateInput struct {
-	VirtualResourceCreateInput
-	IsPublic    bool   `json:"is_public"`
-	PublicScope string `json:"public_scope"`
-}

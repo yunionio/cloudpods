@@ -17,20 +17,27 @@ package quotas
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SOutOfQuotaError struct {
-	name  string
-	limit int
-	used  int
+	name    string
+	limit   int
+	used    int
+	request int
 }
 
 type SOutOfQuotaErrors struct {
 	errors []SOutOfQuotaError
 }
 
+func (e *SOutOfQuotaError) Cause() error {
+	return httperrors.ErrOutOfQuota
+}
+
 func (e *SOutOfQuotaError) Error() string {
-	return fmt.Sprintf("%s limit %d used %d", e.name, e.limit, e.used)
+	return fmt.Sprintf("%s limit %d used %d request %d", e.name, e.limit, e.used, e.request)
 }
 
 func (es *SOutOfQuotaErrors) Error() string {
@@ -56,11 +63,16 @@ func NewOutOfQuotaError() *SOutOfQuotaErrors {
 	}
 }
 
-func (es *SOutOfQuotaErrors) Add(name string, limit int, used int) {
+func (es *SOutOfQuotaErrors) Add(name string, limit int, used int, request int) {
 	e := SOutOfQuotaError{
-		name:  name,
-		limit: limit,
-		used:  used,
+		name:    name,
+		limit:   limit,
+		used:    used,
+		request: request,
 	}
 	es.errors = append(es.errors, e)
+}
+
+func (es *SOutOfQuotaErrors) Cause() error {
+	return httperrors.ErrOutOfQuota
 }

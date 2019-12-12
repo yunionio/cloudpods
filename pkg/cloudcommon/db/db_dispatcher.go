@@ -43,6 +43,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+var (
+	CancelUsages func(ctx context.Context, userCred mcclient.TokenCredential, usages []IUsage)
+)
+
 type DBModelDispatcher struct {
 	modelManager IModelManager
 }
@@ -1108,7 +1112,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
-	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
+	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
 
@@ -1239,7 +1243,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-		manager.OnCreateComplete(ctx, models, userCred, query, multiData[0])
+		manager.OnCreateComplete(ctx, models, userCred, ownerId, query, multiData[0])
 	}
 	return results, nil
 }
@@ -1539,6 +1543,7 @@ func objectUpdateSpec(dispatcher *DBModelDispatcher, model IModel, modelValue re
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
 	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
+	cleanModelUsages(ctx, userCred, item)
 	_, err := Update(item, func() error {
 		return item.MarkDelete()
 	})

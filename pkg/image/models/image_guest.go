@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
@@ -74,8 +75,9 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 	imageNum, _ := data.Int("image_number")
 
 	pendingUsage := SQuota{Image: int(imageNum)}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil,
-		&pendingUsage); err != nil {
+	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	pendingUsage.SetKeys(keys)
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
@@ -146,7 +148,9 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 	imageNumber, _ := data.Int("image_number")
 	pendingUsage := SQuota{Image: int(imageNumber)}
-	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
+	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	pendingUsage.SetKeys(keys)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 
 	if !suc {
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
