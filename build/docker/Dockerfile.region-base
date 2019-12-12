@@ -1,0 +1,11 @@
+FROM frolvlad/alpine-glibc:glibc-2.28
+
+MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
+
+RUN apk update && \
+    apk add --no-cache tzdata ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+ENV TZ Asia/Shanghai
