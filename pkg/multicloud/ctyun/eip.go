@@ -64,6 +64,10 @@ func (self *SEip) GetCreatedAt() time.Time {
 }
 
 func (self *SEip) GetExpiredAt() time.Time {
+	if self.ExpireTime == 0 {
+		return time.Time{}
+	}
+
 	return time.Unix(self.ExpireTime/1000, 0)
 }
 
@@ -81,14 +85,10 @@ func (self *SEip) GetGlobalId() string {
 
 func (self *SEip) GetStatus() string {
 	switch self.Status {
-	case "bind", "unbind":
+	case "ACTIVE", "DOWN":
 		return api.EIP_STATUS_READY
-	case "binding":
-		return api.EIP_STATUS_ALLOCATE
-	case "error":
+	case "ERROR":
 		return api.EIP_STATUS_ALLOCATE_FAIL
-	case "unbinding":
-		return api.EIP_STATUS_DEALLOCATE
 	default:
 		return api.EIP_STATUS_UNKNOWN
 	}

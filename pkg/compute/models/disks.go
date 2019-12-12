@@ -1354,7 +1354,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 				return err
 			}
 		}
-	} else if err != cloudprovider.ErrNotFound {
+	} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 		return err
 	}
 
