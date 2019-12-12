@@ -406,28 +406,6 @@ func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCred
 	}
 }
 
-func (self *SNetwork) GetUsedIfnames() map[string]bool {
-	used := make(map[string]bool)
-	tbl := GuestnetworkManager.Query().SubQuery()
-	q := tbl.Query(tbl.Field("ifname")).Equals("network_id", self.Id)
-	rows, err := q.Rows()
-	if err != nil {
-		log.Errorf("GetUsedIfnames query fail: %s", err)
-		return nil
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var ifname string
-		err = rows.Scan(&ifname)
-		if err != nil {
-			log.Errorf("GetUsedIfnames scan fail: %s", err)
-			return nil
-		}
-		used[ifname] = true
-	}
-	return used
-}
-
 func (self *SNetwork) GetNetAddr() netutils.IPV4Addr {
 	startIp, _ := netutils.NewIPV4Addr(self.GuestIpStart)
 	return startIp.NetAddr(self.GuestIpMask)
