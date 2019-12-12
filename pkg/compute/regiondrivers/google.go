@@ -32,6 +32,10 @@ func (self *SGoogleRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_GOOGLE
 }
 
-func (self *SGoogleRegionDriver) IsSecurityGroupBelongGlobalNetwork() bool {
+func (self *SGoogleRegionDriver) IsSecurityGroupBelongGlobalVpc() bool {
+	return true
+}
+
+func (self *SGoogleRegionDriver) IsVpcBelongGlobalVpc() bool {
 	return true
 }

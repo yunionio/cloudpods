@@ -30,6 +30,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+type IUsage interface {
+	FetchUsage(ctx context.Context) error
+	IsEmpty() bool
+}
+
 type IModelManager interface {
 	lockman.ILockedClass
 	object.IObject
@@ -83,7 +88,7 @@ type IModelManager interface {
 	BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	// ValidateCreateData dynamic called by dispatcher
 	// ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
-	OnCreateComplete(ctx context.Context, items []IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
+	OnCreateComplete(ctx context.Context, items []IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject)
 	BatchPreValidate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 		query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) (func(), error)
 
@@ -182,6 +187,8 @@ type IModel interface {
 	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	MarkDeletePreventionOn()
 	MarkDeletePreventionOff()
+
+	GetUsages() []IUsage
 }
 
 type IResourceModelManager interface {

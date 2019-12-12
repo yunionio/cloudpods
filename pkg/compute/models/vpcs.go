@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -65,6 +66,7 @@ type SVpc struct {
 	CidrBlock string `charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	GlobalvpcId   string `width:"36" charset:"ascii" list:"user"`
 }
 
 func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
@@ -347,36 +349,30 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
-		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localVPCs = append(localVPCs, commondb[i])
-			remoteVPCs = append(remoteVPCs, commonext[i])
-			syncResult.Update()
+			continue
 		}
-		globalnetworkId := commonext[i].GetIGlobalNetworkId()
-		if len(globalnetworkId) > 0 {
-			err := commondb[i].checkAndSetGlobalNetwork(globalnetworkId)
-			if err != nil {
-				log.Errorf("failed to set globalnetwork for %s error: %v", globalnetworkId, err)
-			}
+		syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+		localVPCs = append(localVPCs, commondb[i])
+		remoteVPCs = append(remoteVPCs, commonext[i])
+		syncResult.Update()
+		err = commondb[i].SyncGlobalVpc(ctx, userCred)
+		if err != nil {
+			log.Errorf("%s(%s) sync global vpc error: %v", commondb[i].Name, commondb[i].Id, err)
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudVpc(ctx, userCred, added[i], provider, region)
+		newVpc, err := manager.newFromCloudVpc(ctx, userCred, added[i], provider, region)
 		if err != nil {
 			syncResult.AddError(err)
-		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localVPCs = append(localVPCs, *new)
-			remoteVPCs = append(remoteVPCs, added[i])
-			syncResult.Add()
+			continue
 		}
-		globalnetworkId := added[i].GetIGlobalNetworkId()
-		if len(globalnetworkId) > 0 {
-			err := new.checkAndSetGlobalNetwork(globalnetworkId)
-			if err != nil {
-				log.Errorf("failed to set globalnetwork for %s error: %v", globalnetworkId, err)
-			}
+		syncMetadata(ctx, userCred, newVpc, added[i])
+		localVPCs = append(localVPCs, *newVpc)
+		remoteVPCs = append(remoteVPCs, added[i])
+		syncResult.Add()
+		err = newVpc.SyncGlobalVpc(ctx, userCred)
+		if err != nil {
+			log.Errorf("%s(%s) sync global vpc error: %v", newVpc.Name, newVpc.Id, err)
 		}
 	}
 
@@ -400,6 +396,61 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
+func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(self.GlobalvpcId) > 0 {
+		return nil
+	}
+	region, err := self.GetRegion()
+	if err != nil {
+		return errors.Wrap(err, "GetRegion")
+	}
+	if region.GetDriver().IsVpcBelongGlobalVpc() {
+		externalId := strings.Replace(self.ExternalId, region.ExternalId+"/", "", -1)
+		vpcs := []SVpc{}
+		sq := VpcManager.Query().SubQuery()
+		q := sq.Query().Filter(
+			sqlchemy.AND(
+				sqlchemy.Equals(sq.Field("manager_id"), self.ManagerId),
+				sqlchemy.NOT(sqlchemy.IsNullOrEmpty(sq.Field("globalvpc_id"))),
+				sqlchemy.Endswith(sq.Field("external_id"), externalId),
+			),
+		)
+		err := db.FetchModelObjects(VpcManager, q, &vpcs)
+		if err != nil {
+			return errors.Wrap(err, "db.FetchModelObjects")
+		}
+		globalvpcId := ""
+		if len(vpcs) > 0 {
+			globalvpcId = vpcs[0].GlobalvpcId
+		} else {
+			gv := &SGlobalVpc{}
+			gv.Name = self.Name
+			idx := strings.Index(gv.Name, "(")
+			if idx > 0 {
+				gv.Name = gv.Name[:idx]
+			}
+			gv.Name, err = db.GenerateName(GlobalVpcManager, userCred, gv.Name)
+			if err != nil {
+				return errors.Wrap(err, "db.GenerateName")
+			}
+			gv.Enabled = true
+			gv.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
+			gv.SetModelManager(GlobalVpcManager, gv)
+			err = GlobalVpcManager.TableSpec().Insert(gv)
+			if err != nil {
+				return errors.Wrap(err, "GlobalVpcManager.Insert")
+			}
+			globalvpcId = gv.Id
+		}
+		_, err = db.Update(self, func() error {
+			self.GlobalvpcId = globalvpcId
+			return nil
+		})
+		return err
+	}
+	return nil
+}
+
 func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
@@ -416,16 +467,9 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return err
 	}
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
-}
-
-func (vpc *SVpc) checkAndSetGlobalNetwork(globalnetworkId string) error {
-	globalnetwork, err := db.FetchByExternalId(GlobalNetworkManager, globalnetworkId)
-	if err != nil {
-		return errors.Wrap(err, "FetchByExternalId")
-	}
-	return GlobalnetworkVpcManager.NewGlobalnetworkVpc(vpc, globalnetwork.(*SGlobalNetwork))
 }
 
 func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider, region *SCloudregion) (*SVpc, error) {
@@ -546,10 +590,18 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 			}
 		}
 	}
-	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+
+	input := apis.EnabledStatusStandaloneResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal EnabledStatusStandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
+
 	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
 }
 
@@ -744,6 +796,18 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		q = q.In("id", sq.SubQuery())
 	}
 
+	globalVpcStr, _ := query.GetString("globalvpc")
+	if len(globalVpcStr) > 0 {
+		globalVpc, err := GlobalVpcManager.FetchByIdOrName(userCred, globalVpcStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("globaalvpc %s not found", globalVpcStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("globalvpc_id", globalVpc.GetId())
+	}
+
 	return q, nil
 }
 
@@ -816,26 +880,13 @@ func (vpc *SVpc) StartVpcSyncstatusTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (vpc *SVpc) GetGlobalNetwork() (*SGlobalNetwork, error) {
-	gv := GlobalnetworkVpcManager.Query().SubQuery()
-	q := GlobalNetworkManager.Query()
-	q.Join(gv, sqlchemy.Equals(q.Field("id"), gv.Field("globalnetwork_id")))
-	q = q.Filter(sqlchemy.Equals(gv.Field("vpc_id"), vpc.Id))
-	count, err := q.CountWithError()
+func (vpc *SVpc) GetGlobalVpc() (*SGlobalVpc, error) {
+	if len(vpc.GlobalvpcId) == 0 {
+		return nil, fmt.Errorf("vpc does not belong to any globalvpc")
+	}
+	gv, err := GlobalVpcManager.FetchById(vpc.GlobalvpcId)
 	if err != nil {
-		return nil, errors.Wrap(err, "CountWithError")
+		return nil, err
 	}
-	if count > 1 {
-		return nil, sqlchemy.ErrDuplicateEntry
-	}
-	if count == 0 {
-		return nil, sql.ErrNoRows
-	}
-	globalnetwork := &SGlobalNetwork{}
-	globalnetwork.SetModelManager(GlobalNetworkManager, globalnetwork)
-	err = q.First(globalnetwork)
-	if err != nil {
-		return nil, errors.Wrap(err, "First")
-	}
-	return globalnetwork, nil
+	return gv.(*SGlobalVpc), nil
 }

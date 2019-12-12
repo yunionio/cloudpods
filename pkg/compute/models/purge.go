@@ -147,7 +147,12 @@ func (disk *SDisk) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	lockman.LockObject(ctx, disk)
 	defer lockman.ReleaseObject(ctx, disk)
 
-	err := disk.ValidatePurgeCondition(ctx)
+	err := disk.DetachAllSnapshotpolicies(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "disk.DetachAllSnapshotpolicies")
+	}
+
+	err = disk.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
@@ -1618,59 +1623,6 @@ func (manager *SSecurityGroupCacheManager) purgeAll(ctx context.Context, userCre
 	}
 	for i := range caches {
 		err := caches[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (gnv *SGlobalnetworkVpc) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, gnv)
-	defer lockman.ReleaseObject(ctx, gnv)
-
-	return gnv.Delete(ctx, userCred)
-}
-
-func (gn *SGlobalNetwork) purgeGlobalNetworkVpcs(ctx context.Context, userCred mcclient.TokenCredential) error {
-	globalnetworkVpcs, err := gn.GetGlobalNetworkVpcs()
-	if err != nil {
-		return errors.Wrap(err, "gn.GetGlobalNetworkVpcs")
-	}
-	for i := range globalnetworkVpcs {
-		err = globalnetworkVpcs[i].purge(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "globalnetworkVpcs[i].purge")
-		}
-	}
-	return nil
-}
-
-func (gn *SGlobalNetwork) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, gn)
-	defer lockman.ReleaseObject(ctx, gn)
-
-	err := gn.purgeGlobalNetworkVpcs(ctx, userCred)
-	if err != nil {
-		return errors.Wrap(err, "gn.purgeGlobalNetworkVpcs")
-	}
-
-	err = gn.ValidateDeleteCondition(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "globalnetwork %s(%s)", gn.Name, gn.Id)
-	}
-
-	return gn.RealDelete(ctx, userCred)
-}
-
-func (manager *SGlobalNetworkManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	globalnetworks := []SGlobalNetwork{}
-	err := fetchByManagerId(manager, providerId, &globalnetworks)
-	if err != nil {
-		return err
-	}
-	for i := range globalnetworks {
-		err := globalnetworks[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}

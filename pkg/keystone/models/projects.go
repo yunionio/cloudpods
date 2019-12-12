@@ -359,7 +359,17 @@ func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred
 	if err != nil {
 		return nil, err
 	}
-	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := api.IdentityBaseResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (project *SProject) AllowPerformJoin(ctx context.Context,

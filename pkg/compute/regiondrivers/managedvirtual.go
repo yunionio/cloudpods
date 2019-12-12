@@ -1387,12 +1387,8 @@ func (self *SManagedVirtualizationRegionDriver) BindIPToNatgatewayRollback(ctx c
 }
 
 func (self *SManagedVirtualizationRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, host *models.SHost, vpc *models.SVpc, classic bool) (string, error) {
-	if region.GetDriver().IsSecurityGroupBelongGlobalNetwork() {
-		globalnetwork, err := vpc.GetGlobalNetwork()
-		if err != nil {
-			return "", errors.Wrap(err, "vpc.GetGlobalNetwork")
-		}
-		return globalnetwork.ExternalId, nil
+	if region.GetDriver().IsSecurityGroupBelongGlobalVpc() {
+		return strings.TrimPrefix(vpc.ExternalId, region.ExternalId+"/"), nil
 	} else if region.GetDriver().IsSupportClassicSecurityGroup() && (classic || (host != nil && strings.HasSuffix(host.Name, "-classic"))) {
 		return "classic", nil
 	} else if region.GetDriver().IsSecurityGroupBelongVpc() {

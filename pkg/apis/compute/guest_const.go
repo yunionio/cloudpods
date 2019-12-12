@@ -244,3 +244,11 @@ const (
 	VM_METADATA_OS_NAME             = "os_name"
 	VM_METADATA_OS_VERSION          = "os_version"
 )
+
+func Hypervisors2HostTypes(hypervisors []string) []string {
+	hostTypes := make([]string, len(hypervisors))
+	for i := range hypervisors {
+		hostTypes[i] = HYPERVISOR_HOSTTYPE[hypervisors[i]]
+	}
+	return hostTypes
+}

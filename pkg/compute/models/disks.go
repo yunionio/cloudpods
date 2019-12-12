@@ -54,14 +54,14 @@ import (
 )
 
 type SDiskManager struct {
-	db.SSharableVirtualResourceBaseManager
+	db.SVirtualResourceBaseManager
 }
 
 var DiskManager *SDiskManager
 
 func init() {
 	DiskManager = &SDiskManager{
-		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SDisk{},
 			"disks_tbl",
 			"disk",
@@ -72,7 +72,7 @@ func init() {
 }
 
 type SDisk struct {
-	db.SSharableVirtualResourceBase
+	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
 	SBillingResourceBase
@@ -147,7 +147,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		queryDict.Remove("billing_type")
 	}
 
-	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +355,11 @@ func (self *SDisk) GetRuningGuestCount() (int, error) {
 		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
 }
 
+func (self *SDisk) getSnapshotpoliciesCount() (int, error) {
+	q := SnapshotPolicyDiskManager.Query().Equals("disk_id", self.Id)
+	return q.CountWithError()
+}
+
 func (self *SDisk) DetachAllSnapshotpolicies(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
 	if err != nil {
@@ -369,7 +374,7 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	self.fetchDiskInfo(input.DiskConfig)
-	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -397,6 +402,37 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
+	// input.Hypervisor must be set
+	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
+		rbacutils.ScopeProject,
+		ownerId,
+		"",
+	)
+	if len(input.PreferHost) > 0 {
+		hostObj, _ := HostManager.FetchById(input.PreferHost)
+		host := hostObj.(*SHost)
+		zone := host.GetZone()
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferZone) > 0 {
+		zoneObj, _ := ZoneManager.FetchById(input.PreferZone)
+		zone := zoneObj.(*SZone)
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferWire) > 0 {
+		wireObj, _ := WireManager.FetchById(input.PreferWire)
+		wire := wireObj.(*SWire)
+		zone := wire.GetZone()
+		keys.ZoneId = zone.Id
+		keys.RegionId = zone.CloudregionId
+	} else if len(input.PreferRegion) > 0 {
+		regionObj, _ := CloudregionManager.FetchById(input.PreferRegion)
+		keys.RegionId = regionObj.GetId()
+	}
+	return keys
+}
+
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input, err := cmdline.FetchDiskCreateInputByJSON(data)
 	if err != nil {
@@ -410,6 +446,8 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	input.Project = ownerId.GetProjectId()
 	input.Domain = ownerId.GetProjectDomainId()
 
+	var quotaKey quotas.IQuotaKeys
+
 	storageID := input.Storage
 	if storageID != "" {
 		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
@@ -418,7 +456,8 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		storage := storageObj.(*SStorage)
 
-		if provider := storage.GetCloudprovider(); provider != nil {
+		provider := storage.GetCloudprovider()
+		if provider != nil {
 			if !provider.Enabled {
 				return nil, httperrors.NewInputParameterError("provider %s(%s) is disabled, you need enable provider first", provider.Name, provider.Id)
 			}
@@ -432,7 +471,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 
 		host := storage.GetMasterHost()
 		if host == nil {
-			return nil, httperrors.NewResourceNotFoundError("storage %s(%s) need onlne and attach host for create disk", storage.Name, storage.Id)
+			return nil, httperrors.NewResourceNotFoundError("storage %s(%s) need online and attach host for create disk", storage.Name, storage.Id)
 		}
 		input.Hypervisor = host.GetHostDriver().GetHypervisor()
 		if len(diskConfig.Backend) == 0 {
@@ -443,6 +482,14 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			return nil, err
 		}
 		input.Storage = storage.Id
+
+		quotaKey = fetchComputeQuotaKeys(
+			rbacutils.ScopeProject,
+			ownerId,
+			storage.getZone(),
+			provider,
+			input.Hypervisor,
+		)
 	} else {
 		diskConfig.Backend = api.STORAGE_LOCAL
 		serverInput, err := ValidateScheduleCreateData(ctx, userCred, input.ToServerCreateInput(), input.Hypervisor)
@@ -450,15 +497,17 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 			return nil, err
 		}
 		input = serverInput.ToDiskCreateInput()
+		quotaKey = diskCreateInput2ComputeQuotaKeys(*input, ownerId)
 	}
 
-	if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
 		return nil, err
 	}
-	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 
-	quotaName := GetDriver(input.Hypervisor).GetQuotaPlatformID()
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaName, &pendingUsage); err != nil {
+	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
+	pendingUsage.SetKeys(quotaKey)
+	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 	return input.JSON(input), nil
@@ -549,11 +598,26 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig, s
 	return err
 }
 
-func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, count int) SQuota {
-	diskSize, _ := data.Int("disk", "size")
-	return SQuota{
-		Storage: int(diskSize) * count,
+func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DiskCreateInput, count int) SQuota {
+	req := SQuota{
+		Storage: input.SizeMb * count,
 	}
+	var quotaKey SComputeResourceKeys
+	if len(input.Storage) > 0 {
+		storageObj, _ := StorageManager.FetchById(input.Storage)
+		storage := storageObj.(*SStorage)
+		quotaKey = fetchComputeQuotaKeys(
+			rbacutils.ScopeProject,
+			ownerId,
+			storage.getZone(),
+			storage.GetCloudprovider(),
+			input.Hypervisor,
+		)
+	} else {
+		quotaKey = diskCreateInput2ComputeQuotaKeys(input, ownerId)
+	}
+	req.SetKeys(quotaKey)
+	return req
 }
 
 /*func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -563,9 +627,14 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 	return newData
 }*/
 
-func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	pendingUsage := getDiskResourceRequirements(ctx, userCred, data, len(items))
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "DiskBatchCreateTask", "")
+func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := api.DiskCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		log.Errorf("!!!data.Unmarshal api.DiskCreateInput fail %s", err)
+	}
+	pendingUsage := getDiskResourceRequirements(ctx, userCred, ownerId, input, len(items))
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, SRegionQuota{}, "DiskBatchCreateTask", "")
 }
 
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {
@@ -777,6 +846,40 @@ func (disk *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	return nil, nil
 }
 
+func (disk *SDisk) getHypervisor() string {
+	storage := disk.GetStorage()
+	if storage != nil {
+		host := storage.GetMasterHost()
+		if host != nil {
+			return host.GetHostDriver().GetHypervisor()
+		}
+	}
+	hypervisor := disk.GetMetadata("hypervisor", nil)
+	return hypervisor
+}
+
+func (disk *SDisk) GetQuotaKeys() (quotas.IQuotaKeys, error) {
+	storage := disk.GetStorage()
+	if storage == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid storage")
+	}
+	provider := storage.GetCloudprovider()
+	if provider == nil && len(storage.ManagerId) > 0 {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid manager")
+	}
+	zone := storage.getZone()
+	if zone == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid zone")
+	}
+	return fetchComputeQuotaKeys(
+		rbacutils.ScopeProject,
+		disk.GetOwnerId(),
+		zone,
+		provider,
+		disk.getHypervisor(),
+	), nil
+}
+
 func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, guest *SGuest) error {
 	sizeStr, err := data.GetString("size")
 	if err != nil {
@@ -811,10 +914,14 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	}
 	pendingUsage := SQuota{Storage: int(addDisk)}
-
-	quotaName := storage.getQuotaPlatformID()
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaName, &pendingUsage); err != nil {
-		return httperrors.NewOutOfQuotaError(err.Error())
+	keys, err := disk.GetQuotaKeys()
+	if err != nil {
+		return httperrors.NewInternalServerError("disk.GetQuotaKeys fail %s", err)
+	}
+	pendingUsage.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
 	}
 
 	if guest != nil {
@@ -942,6 +1049,13 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
 	}
+	/*cnt, err = self.getSnapshotpoliciesCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getSnapshotpoliciesCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("Virtual disk associated with snapshot policies")
+	}*/
 	if !isPurge && self.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
@@ -955,7 +1069,7 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 			return httperrors.NewBadRequestError("not allow to delete %s disk with snapshots", storage.StorageType)
 		}
 	}
-	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1379,13 +1493,33 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	return &disk, nil
 }
 
-func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, active tristate.TriState, ready tristate.TriState, includeSystem bool, pendingDelete bool) int {
+func totalDiskSize(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	active tristate.TriState,
+	ready tristate.TriState,
+	includeSystem bool,
+	pendingDelete bool,
+	rangeObjs []db.IStandaloneModel,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+	hypervisors []string,
+) int {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(sqlchemy.SUM("total", disks.Field("disk_size")))
+	storages := StorageManager.Query().SubQuery()
+	q = q.Join(storages, sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id")))
+	q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"))
+	if len(hypervisors) > 0 {
+		hoststorages := HoststorageManager.Query().SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		q = q.Join(hoststorages, sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")))
+		q = q.Join(hosts, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")))
+		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), api.Hypervisors2HostTypes(hypervisors)))
+	}
 	if !active.IsNone() {
-		storages := StorageManager.Query().SubQuery()
-		q = q.Join(storages, sqlchemy.AND(sqlchemy.IsFalse(storages.Field("deleted")),
-			sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id"))))
 		if active.IsTrue() {
 			q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 		} else {
@@ -1620,18 +1754,7 @@ func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	guestdisks := self.GetGuestdisks()
-	if guestdisks != nil {
-		for _, guestdisk := range guestdisks {
-			guestdisk.Detach(ctx, userCred)
-		}
-	}
-	err := self.SSharableVirtualResourceBase.Delete(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	return self.DetachAllSnapshotpolicies(ctx, userCred)
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1746,17 +1869,20 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		snapshotpoliciesJson.Add(spsDict)
 	}
 	extra.Add(snapshotpoliciesJson, "snapshotpolicies")
-	manualSnapshotCount, _ := self.GetManualSnapshotCount()
-	if utils.IsInStringArray(self.GetStorage().StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
-		extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
-		extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+	storage := self.GetStorage()
+	if storage != nil {
+		manualSnapshotCount, _ := self.GetManualSnapshotCount()
+		if utils.IsInStringArray(storage.StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
+			extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
+			extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+		}
 	}
 
 	return extra
 }
 
 func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1764,7 +1890,7 @@ func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return self.getMoreDetails(ctx, userCred, extra)
 }
 
@@ -1859,7 +1985,7 @@ func (self *SDisk) ClearHostSchedCache() error {
 }
 
 func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := self.SSharableVirtualResourceBase.GetShortDesc(ctx)
+	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
 	storage := self.GetStorage()
 	if storage != nil {
@@ -2307,4 +2433,20 @@ func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 		lockman.ReleaseObject(ctx, &snapshot)
 	}
 	return nil, nil
+}
+
+func (disk *SDisk) GetUsages() []db.IUsage {
+	if disk.PendingDeleted || disk.Deleted {
+		return nil
+	}
+	usage := SQuota{Storage: disk.DiskSize}
+	keys, err := disk.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("disk.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

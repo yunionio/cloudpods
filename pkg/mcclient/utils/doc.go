@@ -12,9 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
-
-const (
-	GLOBAL_NETWORK_STATUS_AVAILABLE = "available"
-	GLOBAL_NETWORK_STATUS_UNKNOWN   = "unknown"
-)
+package utils // import "yunion.io/x/onecloud/pkg/mcclient/utils"

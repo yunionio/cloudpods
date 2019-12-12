@@ -119,15 +119,10 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchGlobalNetwork")
 	}
-	substr := fmt.Sprintf("regions/%s/subnetworks", region.Name)
 	ivpcs := []cloudprovider.ICloudVpc{}
 	for i := range globalnetworks {
-		for _, subnet := range globalnetworks[i].Subnetworks {
-			if strings.Index(subnet, substr) >= 0 {
-				vpc := SVpc{region: region, globalnetwork: &globalnetworks[i]}
-				ivpcs = append(ivpcs, &vpc)
-			}
-		}
+		vpc := SVpc{region: region, globalnetwork: &globalnetworks[i]}
+		ivpcs = append(ivpcs, &vpc)
 	}
 	return ivpcs, nil
 }

@@ -120,13 +120,13 @@ func (cli *SZStackClient) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (cli *SZStackClient) getRequestURL(resource string, params []string) string {
-	return cli.authURL + fmt.Sprintf("/zstack/%s/%s", ZSTACK_API_VERSION, resource) + "?" + strings.Join(params, "&")
+func (cli *SZStackClient) getRequestURL(resource string, params url.Values) string {
+	return cli.authURL + fmt.Sprintf("/zstack/%s/%s", ZSTACK_API_VERSION, resource) + "?" + params.Encode()
 }
 
 func (cli *SZStackClient) testAccessKey() error {
 	zones := []SZone{}
-	err := cli.listAll("zones", []string{}, &zones)
+	err := cli.listAll("zones", url.Values{}, &zones)
 	if err != nil {
 		return errors.Wrap(err, "testAccessKey")
 	}
@@ -155,7 +155,7 @@ func (cli *SZStackClient) connect() error {
 	return fmt.Errorf("password auth has been deprecated, please using ak sk auth")
 }
 
-func (cli *SZStackClient) listAll(resource string, params []string, retVal interface{}) error {
+func (cli *SZStackClient) listAll(resource string, params url.Values, retVal interface{}) error {
 	result := []jsonutils.JSONObject{}
 	start, limit := 0, 50
 	for {
@@ -193,18 +193,18 @@ func (cli *SZStackClient) sign(uri, method string, header http.Header) error {
 	return nil
 }
 
-func (cli *SZStackClient) _list(resource string, start int, limit int, params []string) (jsonutils.JSONObject, error) {
+func (cli *SZStackClient) _list(resource string, start int, limit int, params url.Values) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
 	if params == nil {
-		params = []string{}
+		params = url.Values{}
 	}
-	params = append(params, "replyWithCount=true")
-	params = append(params, fmt.Sprintf("start=%d", start))
+	params.Set("replyWithCount", "true")
+	params.Set("start", fmt.Sprintf("%d", start))
 	if limit == 0 {
 		limit = 50
 	}
-	params = append(params, fmt.Sprintf("limit=%d", limit))
+	params.Set("limit", fmt.Sprintf("%d", limit))
 	requestURL := cli.getRequestURL(resource, params)
 	err := cli.sign(requestURL, "GET", header)
 	if err != nil {
@@ -404,7 +404,7 @@ func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (j
 	return resp, nil
 }
 
-func (cli *SZStackClient) list(baseURL string, start int, limit int, params []string, retVal interface{}) error {
+func (cli *SZStackClient) list(baseURL string, start int, limit int, params url.Values, retVal interface{}) error {
 	resp, err := cli._list(baseURL, start, limit, params)
 	if err != nil {
 		return err

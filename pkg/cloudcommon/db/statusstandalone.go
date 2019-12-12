@@ -19,8 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -88,4 +90,13 @@ func (model *SStatusStandaloneResourceBase) GetDetailsStatus(ctx context.Context
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(model.Status), "status")
 	return ret, nil
+}
+
+func (manager *SStatusStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StatusStandaloneResourceCreateInput) (apis.StatusStandaloneResourceCreateInput, error) {
+	var err error
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }

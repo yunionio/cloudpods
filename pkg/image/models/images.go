@@ -35,9 +35,11 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
@@ -355,17 +357,25 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 }
 
 func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, err := manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.VirtualResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	// If this image is the part of guest image (contains "guest_image_id"),
 	// we do not need to check and set pending quota
 	// because that pending quota has been checked and set in SGuestImage.ValidateCreateData
 	if !data.Contains("guest_image_id") {
 		pendingUsage := SQuota{Image: 1}
-		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage); err != nil {
+		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		pendingUsage.SetKeys(keys)
+		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
 	}
@@ -402,22 +412,22 @@ func (self *SImage) OnJointFailed(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
 	self.saveFailed(userCred, msg)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
 
 func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
 	self.saveFailed(userCred, msg)
-	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, msg, userCred, false)
 }
 
 func (self *SImage) OnSaveSuccess(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
 	self.saveSuccess(userCred, msg)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, msg, userCred, true)
 }
 
 func (self *SImage) OnSaveTaskSuccess(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
 	self.saveSuccess(userCred, msg)
-	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, msg, userCred, true)
 }
 
 func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
@@ -493,7 +503,9 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
 		pendingUsage := SQuota{Image: 1}
-		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
+		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		pendingUsage.SetKeys(keys)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	if data.Contains("properties") {
@@ -1264,4 +1276,27 @@ func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
 	dict := data.(*jsonutils.JSONDict)
 	// Only allow update description for now when Image is part of guest image
 	return self.IsGuestImage.IsFalse() || (dict.Length() == 1 && dict.Contains("description"))
+}
+
+func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
+	keys := SImageQuotaKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, img.GetOwnerId())
+	if img.GetImageType() == api.ImageTypeISO {
+		keys.Type = string(api.ImageTypeISO)
+	} else {
+		keys.Type = string(api.ImageTypeTemplate)
+	}
+	return keys
+}
+
+func (img *SImage) GetUsages() []db.IUsage {
+	if img.PendingDeleted || img.Deleted {
+		return nil
+	}
+	usage := SQuota{Image: 1}
+	keys := img.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

@@ -88,7 +88,7 @@ func (wire *SWire) GetStatus() string {
 }
 
 func (wire *SWire) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (wire *SWire) Refresh() error {

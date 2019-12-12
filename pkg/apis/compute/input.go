@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package compute
 
-import (
-	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-)
-
-type GlobalNetworkManager struct {
-	modulebase.ResourceManager
+type RegionalResourceCreateInput struct {
+	Cloudregion   string `json:"cloudregion"`
+	CloudregionId string `json:"cloudregion_id"`
 }
 
-var (
-	GlobalNetworks GlobalNetworkManager
-)
+type ManagedResourceCreateInput struct {
+	Manager   string `json:"manager"`
+	ManagerId string `json:"manager_id"`
+}
 
-func init() {
-	GlobalNetworks = GlobalNetworkManager{NewComputeManager("globalnetwork", "globalnetworks",
-		[]string{},
-		[]string{"ID", "Name", "Description"})}
-
-	registerCompute(&GlobalNetworks)
+type DeletePreventableCreateInput struct {
+	DisableDelete *bool `json:"disable_delete"`
 }

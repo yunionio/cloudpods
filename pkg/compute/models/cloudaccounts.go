@@ -259,33 +259,33 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudaccountCreateInput) (api.CloudaccountCreateInput, error) {
 	// check domainId
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	tenantV := validators.NewModelIdOrNameValidator("tenant", "tenant", ownerId)
 	tenantV.Optional(true)
 	err = tenantV.Validate(data)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
-	input := &api.CloudaccountCreateInput{}
-	err = data.Unmarshal(input)
+	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("failed to unmarshal input params error: %v", err)
+		return input, httperrors.NewInputParameterError("failed to unmarshal input params error: %v", err)
 	}
 
 	if !cloudprovider.IsSupported(input.Provider) {
-		return nil, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
+		return input, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
 	}
 	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
-	err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input)
+	err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, &input)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 	if len(input.Brand) > 0 && input.Brand != providerDriver.GetName() {
 		brands := providerDriver.GetSupportedBrands()
@@ -293,7 +293,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 			brands = append(brands, providerDriver.GetName())
 		}
 		if !utils.IsInStringArray(input.Brand, brands) {
-			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", input.Brand, brands)
+			return input, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", input.Brand, brands)
 		}
 	}
 	input.IsPublicCloud = providerDriver.IsPublicCloud()
@@ -309,29 +309,29 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 
 	cnt, err := q.CountWithError()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("check uniqness fail %s", err)
+		return input, httperrors.NewInternalServerError("check uniqness fail %s", err)
 	}
 	if cnt > 0 {
-		return nil, httperrors.NewConflictError("The account has been registered")
+		return input, httperrors.NewConflictError("The account has been registered")
 	}
 
 	accountId, err := cloudprovider.IsValidCloudAccount(input.AccessUrl, input.Account, input.Secret, input.Provider)
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
-			return nil, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
+			return input, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
 		}
 		//log.Debugf("ValidateCreateData %s", err.Error())
-		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
+		return input, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
 
 	// check accountId uniqueness
 	if len(accountId) > 0 {
 		cnt, err := manager.Query().Equals("account_id", accountId).CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("check account_id duplication error %s", err)
+			return input, httperrors.NewInternalServerError("check account_id duplication error %s", err)
 		}
 		if cnt > 0 {
-			return nil, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
+			return input, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
 		}
 		data.Set("account_id", jsonutils.NewString(accountId))
 	}
@@ -348,20 +348,20 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 			params := jsonutils.Marshal(map[string]string{"domain_id": ownerId.GetProjectDomainId()})
 			tenants, err := modules.Projects.List(s, params)
 			if err != nil {
-				return nil, err
+				return input, err
 			}
 			if tenants.Total == 0 {
-				return nil, httperrors.NewInputParameterError("There are no projects under the domain %s", ownerId.GetProjectDomainId())
+				return input, httperrors.NewInputParameterError("There is no projects under the domain %s", ownerId.GetProjectDomainId())
 			}
 		}
 	}
 
-	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 
-	return input.JSON(input), nil
+	return input, nil
 }
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1439,10 +1439,6 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 			if err != nil {
 				log.Errorf("syncCloudproviderRegion fail %s", err)
 				return err
-			}
-			err = providers[i].syncCloudproviderGlobalnetworks(ctx, userCred)
-			if err != nil {
-				log.Errorf("failed to sync cloudprovider globalnetwork for %s %s error: %v", providers[i].Provider, providers[i].Name, err)
 			}
 		}
 	}

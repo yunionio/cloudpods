@@ -166,7 +166,7 @@ func (firewall *SFirewall) toRules() ([]secrules.SecurityRule, error) {
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
-	return secgroup.vpc.globalnetwork.GetGlobalId()
+	return getGlobalId(secgroup.vpc.globalnetwork.SelfLink)
 }
 
 func (secgroup *SSecurityGroup) GetGlobalId() string {
@@ -190,7 +190,7 @@ func (secgroup *SSecurityGroup) GetName() string {
 	if len(secgroup.ServiceAccount) > 0 {
 		return secgroup.ServiceAccount
 	}
-	return secgroup.vpc.globalnetwork.GetName()
+	return secgroup.vpc.globalnetwork.Name
 }
 
 func (secgroup *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {

@@ -51,11 +51,11 @@ func (o DiskCreateOptions) Params() (*api.DiskCreateInput, error) {
 		PreferZone:   o.Zone,
 		PreferWire:   o.Wire,
 		PreferHost:   o.Host,
-		Description:  o.Desc,
-		Name:         o.NAME,
 		DiskConfig:   config,
 		Hypervisor:   o.Hypervisor,
 	}
+	params.Description = o.Desc
+	params.Name = o.NAME
 	if o.Storage != "" {
 		params.Storage = o.Storage
 	}

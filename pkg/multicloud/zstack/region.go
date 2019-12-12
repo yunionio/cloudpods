@@ -16,12 +16,12 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -71,6 +71,10 @@ func (region *SRegion) IsEmulated() bool {
 
 func (region *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ZSTACK
+}
+
+func (region *SRegion) GetCloudEnv() string {
+	return ""
 }
 
 func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
@@ -184,9 +188,9 @@ func (region *SRegion) GetZone(zoneId string) (*SZone, error) {
 
 func (region *SRegion) GetZones(zoneId string) ([]SZone, error) {
 	zones := []SZone{}
-	params := []string{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params = append(params, "q=uuid="+zoneId)
+		params.Add("q", "uuid="+zoneId)
 	}
 	err := region.client.listAll("zones", params, &zones)
 	if err != nil {
