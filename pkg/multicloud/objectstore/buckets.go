@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/utils"
 )
 
 type SBucket struct {
@@ -141,6 +142,9 @@ func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter strin
 	ret.Objects = make([]cloudprovider.ICloudObject, len(result.Contents))
 	for i := range result.Contents {
 		object := result.Contents[i]
+		if len(object.ContentType) > 0 {
+			object.Metadata.Set(cloudprovider.META_HEADER_CONTENT_TYPE, object.ContentType)
+		}
 		ret.Objects[i] = &SObject{
 			bucket: bucket,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -149,7 +153,7 @@ func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter strin
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				ContentType:  object.ContentType,
+				Meta:         object.Metadata,
 			},
 		}
 	}
@@ -169,6 +173,9 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 		if !isRecursive && prefix == object.Key {
 			continue
 		}
+		if len(object.ContentType) > 0 {
+			object.Metadata.Set(cloudprovider.META_HEADER_CONTENT_TYPE, object.ContentType)
+		}
 		obj := &SObject{
 			bucket: bucket,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -177,7 +184,7 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				ContentType:  object.ContentType,
+				Meta:         object.Metadata,
 			},
 		}
 		ret = append(ret, obj)
@@ -185,11 +192,51 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 	return ret, nil
 }
 
-func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func metaInitOptions(meta http.Header) s3cli.PutObjectOptions {
 	opts := s3cli.PutObjectOptions{}
-	if len(contType) > 0 {
-		opts.ContentType = contType
+	if meta != nil {
+		val := meta.Get(cloudprovider.META_HEADER_CONTENT_TYPE)
+		if len(val) > 0 {
+			opts.ContentType = val
+		}
+		val = meta.Get(cloudprovider.META_HEADER_CACHE_CONTROL)
+		if len(val) > 0 {
+			opts.CacheControl = val
+		}
+		val = meta.Get(cloudprovider.META_HEADER_CONTENT_DISPOSITION)
+		if len(val) > 0 {
+			opts.ContentDisposition = val
+		}
+		val = meta.Get(cloudprovider.META_HEADER_CONTENT_ENCODING)
+		if len(val) > 0 {
+			opts.ContentEncoding = val
+		}
+		val = meta.Get(cloudprovider.META_HEADER_CONTENT_LANGUAGE)
+		if len(val) > 0 {
+			opts.ContentLanguage = val
+		}
+		userMeta := make(map[string]string)
+		for k, v := range meta {
+			if utils.IsInStringArray(k, []string{
+				cloudprovider.META_HEADER_CONTENT_TYPE,
+				cloudprovider.META_HEADER_CACHE_CONTROL,
+				cloudprovider.META_HEADER_CONTENT_DISPOSITION,
+				cloudprovider.META_HEADER_CONTENT_ENCODING,
+				cloudprovider.META_HEADER_CONTENT_LANGUAGE,
+			}) {
+				continue
+			}
+			if len(v) > 0 {
+				userMeta[http.CanonicalHeaderKey(k)] = v[0]
+			}
+		}
+		opts.UserMetadata = userMeta
 	}
+	return opts
+}
+
+func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
+	opts := metaInitOptions(meta)
 	if len(storageClassStr) > 0 {
 		opts.StorageClass = storageClassStr
 	}
@@ -202,6 +249,9 @@ func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reade
 	if err != nil {
 		return errors.Wrap(err, "cloudprovider.GetIObject")
 	}
+	if len(cannedAcl) == 0 {
+		cannedAcl = bucket.GetAcl()
+	}
 	err = obj.SetAcl(cannedAcl)
 	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		return errors.Wrap(err, "obj.SetAcl")
@@ -209,11 +259,8 @@ func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reade
 	return nil
 }
 
-func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
-	opts := s3cli.PutObjectOptions{}
-	if len(contType) > 0 {
-		opts.ContentType = contType
-	}
+func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
+	opts := metaInitOptions(meta)
 	if len(storageClassStr) > 0 {
 		opts.StorageClass = storageClassStr
 	}
@@ -275,10 +322,12 @@ func (bucket *SBucket) GetTempUrl(method string, key string, expire time.Duratio
 	return url.String(), nil
 }
 
-func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, dstMeta http.Header) error {
 	meta := make(map[string]string)
-	if len(contType) > 0 {
-		meta[http.CanonicalHeaderKey("Content-Type")] = contType
+	if dstMeta != nil {
+		for k, v := range dstMeta {
+			meta[http.CanonicalHeaderKey(k)] = v[0]
+		}
 	}
 	if len(storageClassStr) > 0 {
 		meta[http.CanonicalHeaderKey("x-amz-storage-class")] = storageClassStr
@@ -295,6 +344,9 @@ func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket
 	obj, err := cloudprovider.GetIObject(bucket, destKey)
 	if err != nil {
 		return errors.Wrap(err, "GetIObject")
+	}
+	if len(cannedAcl) == 0 {
+		cannedAcl = bucket.GetAcl()
 	}
 	err = obj.SetAcl(cannedAcl)
 	if err != nil {

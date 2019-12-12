@@ -935,7 +935,11 @@ func (bucket *SBucket) PerformUpload(
 		}
 	}
 
-	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, contType, cloudprovider.TBucketACLType(aclStr), storageClass, false)
+	meta := http.Header{}
+	if len(contType) > 0 {
+		meta.Add(cloudprovider.META_HEADER_CONTENT_TYPE, contType)
+	}
+	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, cloudprovider.TBucketACLType(aclStr), storageClass, meta, false)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}
