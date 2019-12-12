@@ -116,7 +116,11 @@ func rangeObjHandler(
 		providers := json.GetQueryStringArray(query, "provider")
 		brands := json.GetQueryStringArray(query, "brand")
 		cloudEnv, _ := query.GetString("cloud_env")
-		usage, err := reporter(scope, ownerId, isOwner, []db.IStandaloneModel{obj}, hostTypes, providers, brands, cloudEnv)
+		var rangeObjs []db.IStandaloneModel
+		if obj != nil {
+			rangeObjs = []db.IStandaloneModel{obj}
+		}
+		usage, err := reporter(scope, ownerId, isOwner, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
