@@ -38,7 +38,7 @@ build_bin() {
 }
 
 build_bundle_libraries() {
-    for bundle_component in 'host' 'host-deployer'; do
+    for bundle_component in 'host' 'host-deployer' 'baremetal-agent'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle-libraries.sh _output/bin/bundles/$1 _output/bin/$1
             break

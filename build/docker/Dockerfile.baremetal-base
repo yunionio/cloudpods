@@ -1,0 +1,29 @@
+FROM frolvlad/alpine-glibc:glibc-2.28
+
+MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
+
+RUN mkdir -p /opt/yunion/bin
+
+RUN apk update && \
+    apk add --no-cache ipmitool ethtool tzdata && \
+    rm -rf /var/cache/apk/*
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+RUN mkdir -p /opt/cloud/yunion/baremetal
+
+# download baremetal-pxerom-*.x86_64.rpm and unpack rpm in current directory
+COPY ./opt/cloud/yunion/baremetal/bootia32.efi /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/bootx64.efi /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/chain.c32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/initramfs /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/isolinux.bin /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/kernel /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/ldlinux.c32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/ldlinux.e32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/ldlinux.e64 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/libcom32.c32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
+COPY ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal

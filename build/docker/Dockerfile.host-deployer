@@ -1,4 +1,4 @@
-FROM frolvlad/alpine-glibc:glibc-2.28
+FROM registry.cn-beijing.aliyuncs.com/yunionio/host-deployer-base
 
 MAINTAINER "Yaoqi Wan wanyaoqi@yunionyun.com"
 
