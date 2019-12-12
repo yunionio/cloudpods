@@ -194,8 +194,7 @@ func (self *SRegion) getVMs(vmId string) ([]SInstance, error) {
 		}
 
 		ret[i].host = &SHost{
-			zone:      izone.(*SZone),
-			projectId: self.client.projectId,
+			zone: izone.(*SZone),
 		}
 	}
 
@@ -221,8 +220,7 @@ func (self *SRegion) GetVMById(vmId string) (*SInstance, error) {
 		}
 
 		vms[0].host = &SHost{
-			zone:      izone.(*SZone),
-			projectId: self.client.projectId,
+			zone: izone.(*SZone),
 		}
 		return &vms[0], nil
 	} else {

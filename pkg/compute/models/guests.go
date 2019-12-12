@@ -2229,7 +2229,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 				return err
 			}
 		}
-	} else if err != cloudprovider.ErrNotFound {
+	} else if errors.Cause(err) != cloudprovider.ErrNotFound {
 		return err
 	}
 
