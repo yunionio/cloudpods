@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"net/http"
 )
 
 type SObject struct {
@@ -75,4 +76,27 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		return errors.Wrap(err, "bucket.SetObjectACL")
 	}
 	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	if o.Meta != nil {
+		return o.Meta
+	}
+	osscli, err := o.bucket.region.GetOssClient()
+	if err != nil {
+		log.Errorf("o.bucket.region.GetOssClient error %s", err)
+		return nil
+	}
+	bucket, err := osscli.Bucket(o.bucket.Name)
+	if err != nil {
+		log.Errorf("osscli.Bucket error %s", err)
+		return nil
+	}
+	result, err := bucket.GetObjectDetailedMeta(o.Key)
+	if err != nil {
+		log.Errorf("bucket.GetObjectACL error %s", err)
+		return nil
+	}
+	o.Meta = result
+	return result
 }

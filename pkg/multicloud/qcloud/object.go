@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"net/http"
 )
 
 type SObject struct {
@@ -63,5 +64,9 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	if err != nil {
 		return errors.Wrap(err, "coscli.Object.PutACL")
 	}
+	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
 	return nil
 }

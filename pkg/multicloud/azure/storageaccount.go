@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"net/http"
 )
 
 type SContainer struct {
@@ -524,7 +525,7 @@ func (self *SContainer) CopySnapshot(snapshotId, fileName string) (*storage.Blob
 	return blobRef, blobRef.GetProperties(&storage.GetBlobPropertiesOptions{})
 }
 
-func (self *SContainer) UploadStream(key string, reader io.Reader, contType string) error {
+func (self *SContainer) UploadStream(key string, reader io.Reader, meta http.Header) error {
 	blobService, err := self.storageaccount.getBlobServiceClient()
 	if err != nil {
 		return errors.Wrap(err, "getBlobServiceClient")
@@ -532,7 +533,32 @@ func (self *SContainer) UploadStream(key string, reader io.Reader, contType stri
 	containerRef := blobService.GetContainerReference(self.Name)
 	blobRef := containerRef.GetBlobReference(key)
 	blobRef.Properties.BlobType = storage.BlobTypeBlock
-	blobRef.Properties.ContentType = contType
+	if meta != nil {
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0{
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				blobRef.Properties.CacheControl = v[0]
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				blobRef.Properties.ContentType = v[0]
+			case cloudprovider.META_HEADER_CONTENT_MD5:
+				blobRef.Properties.ContentMD5 = v[0]
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				blobRef.Properties.ContentEncoding = v[0]
+			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+				blobRef.Properties.ContentLanguage = v[0]
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				blobRef.Properties.ContentDisposition = v[0]
+			default:
+				if blobRef.Metadata == nil {
+					blobRef.Metadata = storage.BlobMetadata{}
+				}
+				blobRef.Metadata[k] = v[0]
+			}
+		}
+	}
 	return blobRef.CreateBlockBlobFromReader(reader, &storage.PutBlobOptions{})
 }
 
@@ -692,12 +718,12 @@ func (self *SStorageAccount) getOrCreateContainer(containerName string, create b
 	return container, nil
 }
 
-func (self *SStorageAccount) UploadStream(containerName string, key string, reader io.Reader, contType string) error {
+func (self *SStorageAccount) UploadStream(containerName string, key string, reader io.Reader, meta http.Header) error {
 	container, err := self.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return errors.Wrap(err, "getOrCreateContainer")
 	}
-	return container.UploadStream(key, reader, contType)
+	return container.UploadStream(key, reader, meta)
 }
 
 func (b *SStorageAccount) MaxPartSizeBytes() int64 {
@@ -896,6 +922,28 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 				}
 				for i := range oResult.Blobs {
 					blob := oResult.Blobs[i]
+					meta := http.Header{}
+					for k, v := range blob.Metadata {
+						meta.Add(k, v)
+					}
+					if len(blob.Properties.CacheControl) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CACHE_CONTROL, blob.Properties.CacheControl)
+					}
+					if len(blob.Properties.ContentType) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CONTENT_TYPE, blob.Properties.ContentType)
+					}
+					if len(blob.Properties.ContentDisposition) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CONTENT_DISPOSITION, blob.Properties.ContentDisposition)
+					}
+					if len(blob.Properties.ContentLanguage) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, blob.Properties.ContentLanguage)
+					}
+					if len(blob.Properties.ContentEncoding) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CONTENT_ENCODING, blob.Properties.ContentEncoding)
+					}
+					if len(blob.Properties.ContentMD5) > 0 {
+						meta.Set(cloudprovider.META_HEADER_CONTENT_MD5, blob.Properties.ContentMD5)
+					}
 					o := &SObject{
 						container: &container,
 						SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -904,7 +952,7 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 							StorageClass: "",
 							ETag:         blob.Properties.Etag,
 							LastModified: time.Time(blob.Properties.LastModified),
-							ContentType:  blob.Properties.ContentType,
+							Meta:         meta,
 						},
 					}
 					result.Objects = append(result.Objects, o)
@@ -956,14 +1004,14 @@ func splitKeyAndBlob(path string) (string, string, error) {
 	return containerName, key, nil
 }
 
-func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	containerName, blob, err := splitKey(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
 	}
 	if len(blob) > 0 {
 		// put blob
-		err = b.UploadStream(containerName, blob, reader, contType)
+		err = b.UploadStream(containerName, blob, reader, meta)
 		if err != nil {
 			return errors.Wrap(err, "UploadStream")
 		}
@@ -980,7 +1028,7 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 	return nil
 }
 
-func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	containerName, blob, err := splitKeyAndBlob(key)
 	if err != nil {
 		return "", errors.Wrap(err, "splitKey")
@@ -999,7 +1047,6 @@ func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, co
 	if err != nil {
 		return "", errors.Wrap(err, "CreateBlockBlob")
 	}
-
 	uploadId, err := blobRef.AcquireLease(-1, "", nil)
 	if err != nil {
 		return "", errors.Wrap(err, "blobRef.AcquireLease")
@@ -1149,7 +1196,7 @@ func (b *SStorageAccount) GetTempUrl(method string, key string, expire time.Dura
 	return container.SignUrl(method, blob, expire)
 }
 
-func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	srcIBucket, err := b.region.GetIBucketByName(srcBucket)
 	if err != nil {
 		return errors.Wrap(err, "GetIBucketByName")
