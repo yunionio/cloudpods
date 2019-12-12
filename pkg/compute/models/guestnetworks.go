@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
@@ -151,7 +152,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
-	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string, teamWithMac string) (*SGuestnetwork, error) {
+	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifname string, teamWithMac string) (*SGuestnetwork, error) {
 
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager, &gn)
@@ -192,17 +193,11 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 		}
 		gn.IpAddr = ipAddr
 	}
-	ifTable := network.GetUsedIfnames()
-	if len(ifName) > 0 {
-		if _, ok := ifTable[ifName]; ok {
-			ifName = ""
-			log.Infof("ifname %s has been used, to release ...", ifName)
-		}
+	ifname, err = gn.checkOrAllocateIfname(network, ifname)
+	if err != nil {
+		return nil, err
 	}
-	if len(ifName) == 0 {
-		ifName = gn.GetFreeIfname(network, ifTable)
-	}
-	gn.Ifname = ifName
+	gn.Ifname = ifname
 	gn.TeamWith = teamWithMac
 	err = manager.TableSpec().Insert(&gn)
 	if err != nil {
@@ -238,21 +233,38 @@ func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, rando
 	}
 }
 
-func (self *SGuestnetwork) GetFreeIfname(network *SNetwork, ifTable map[string]bool) string {
-	ifname := self.generateIfname(network, self.Virtual, false)
-	if _, exist := ifTable[ifname]; exist {
-		if !self.Virtual {
-			ifname = self.generateIfname(network, true, false)
-		}
-		for {
-			if _, exist = ifTable[ifname]; exist {
-				ifname = self.generateIfname(network, true, true)
-			} else {
-				break
-			}
-		}
+func (man *SGuestnetworkManager) ifnameUsed(ifname string) bool {
+	count, err := GuestnetworkManager.Query().Equals("ifname", ifname).CountWithError()
+	if err != nil {
+		panic(errors.Wrap(err, "query if ifname is used"))
 	}
-	return ifname
+	return count > 0
+}
+
+func (self *SGuestnetwork) checkOrAllocateIfname(network *SNetwork, preferIfname string) (string, error) {
+	man := GuestnetworkManager
+	if !man.ifnameUsed(preferIfname) {
+		return preferIfname, nil
+	}
+	ifname := self.generateIfname(network, self.Virtual, false)
+	if !man.ifnameUsed(ifname) {
+		return ifname, nil
+	}
+	if !self.Virtual {
+		ifname = self.generateIfname(network, true, false)
+	}
+	found := false
+	for i := 0; i < 5; i++ {
+		if !man.ifnameUsed(ifname) {
+			found = true
+			break
+		}
+		ifname = self.generateIfname(network, true, true)
+	}
+	if !found {
+		return "", httperrors.NewConflictError("cannot allocate ifname")
+	}
+	return ifname, nil
 }
 
 func (self *SGuestnetwork) GetGuest() *SGuest {
