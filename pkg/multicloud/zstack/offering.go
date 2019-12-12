@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/pkg/errors"
 
@@ -84,18 +85,20 @@ func (region *SRegion) CreateInstanceOffering(name string, cpu int, memoryMb int
 
 func (region *SRegion) GetInstanceOfferings(offerId string, name string, cpu int, memorySizeMb int) ([]SInstanceOffering, error) {
 	offerings := []SInstanceOffering{}
-	params := []string{"q=type=UserVM", "q=state=Enabled"}
+	params := url.Values{}
+	params.Add("q", "type=UserVM")
+	params.Add("q", "state=Enabled")
 	if len(offerId) > 0 {
-		params = append(params, "q=uuid="+offerId)
+		params.Add("q", "uid="+offerId)
 	}
 	if len(name) > 0 {
-		params = append(params, "q=name="+name)
+		params.Add("q", "name="+name)
 	}
 	if cpu != 0 {
-		params = append(params, fmt.Sprintf("q=cpuNum=%d", cpu))
+		params.Add("q", fmt.Sprintf("cpuNum=%d", cpu))
 	}
 	if memorySizeMb != 0 {
-		params = append(params, fmt.Sprintf("q=memorySize=%d", memorySizeMb*1024*1024))
+		params.Add("q", fmt.Sprintf("memorySize=%d", memorySizeMb*1024*1024))
 	}
 	if err := region.client.listAll("instance-offerings", params, &offerings); err != nil {
 		return nil, err

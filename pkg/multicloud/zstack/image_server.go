@@ -14,6 +14,8 @@
 
 package zstack
 
+import "net/url"
+
 type ImageServers []SImageServer
 
 type SImageServer struct {
@@ -49,15 +51,17 @@ func (v ImageServers) Less(i, j int) bool {
 
 func (region *SRegion) GetImageServers(zoneId, serverId string) ([]SImageServer, error) {
 	servers := []SImageServer{}
-	params := []string{"q=state=Enabled", "q=status=Connected"}
+	params := url.Values{}
+	params.Add("q", "state=Enabled")
+	params.Add("q", "status=Connected")
 	if SkipEsxi {
-		params = append(params, "q=type!=VCenter")
+		params.Add("q", "type!=VCenter")
 	}
 	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
+		params.Add("q", "zone.uuid="+zoneId)
 	}
 	if len(serverId) > 0 {
-		params = append(params, "q=uuid="+serverId)
+		params.Add("q", "uuid="+serverId)
 	}
 	return servers, region.client.listAll("backup-storage", params, &servers)
 }
