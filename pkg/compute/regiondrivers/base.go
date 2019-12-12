@@ -215,7 +215,11 @@ func (self *SBaseRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return false
 }
 
-func (self *SBaseRegionDriver) IsSecurityGroupBelongGlobalNetwork() bool {
+func (self *SBaseRegionDriver) IsVpcBelongGlobalVpc() bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) IsSecurityGroupBelongGlobalVpc() bool {
 	return false
 }
 

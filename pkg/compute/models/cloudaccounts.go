@@ -1440,10 +1440,6 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 				log.Errorf("syncCloudproviderRegion fail %s", err)
 				return err
 			}
-			err = providers[i].syncCloudproviderGlobalnetworks(ctx, userCred)
-			if err != nil {
-				log.Errorf("failed to sync cloudprovider globalnetwork for %s %s error: %v", providers[i].Provider, providers[i].Name, err)
-			}
 		}
 	}
 	return nil
