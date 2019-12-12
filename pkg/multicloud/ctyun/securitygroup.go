@@ -216,7 +216,10 @@ func (self *SRegion) GetSecurityGroupDetails(groupId string) (*SSecurityGroup, e
 func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 	params := map[string]string{
 		"regionId": self.GetId(),
-		"vpcId":    vpcId,
+	}
+
+	if len(vpcId) > 0 {
+		params["vpcId"] = vpcId
 	}
 
 	resp, err := self.client.DoGet("/apiproxy/v3/getSecurityGroups", params)

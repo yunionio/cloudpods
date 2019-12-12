@@ -107,7 +107,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 
 func (self *SZone) getHost() *SHost {
 	if self.host == nil {
-		self.host = &SHost{zone: self, projectId: self.region.client.projectId}
+		self.host = &SHost{zone: self}
 	}
 	return self.host
 }

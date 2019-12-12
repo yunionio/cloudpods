@@ -58,19 +58,24 @@ type SOrder struct {
 }
 
 type ResourceConfigMap struct {
-	AvailabilityZone string `json:"availability_zone"`
-	Value            string `json:"value"`
-	Number           string `json:"number"`
-	IsSystemVolume   bool   `json:"isSystemVolume"`
-	VolumeType       string `json:"volumeType"`
-	Size             int64  `json:"size"`
-	ZoneID           string `json:"zoneId"`
-	RegionID         string `json:"regionId"`
-	Version          string `json:"version"`
-	CycleCnt         int64  `json:"cycleCnt"`
-	CycleType        int64  `json:"cycleType"`
-	ResEbsID         string `json:"resEbsId"`
-	ActualResourceID string `json:"actualResourceId"`
+	AvailabilityZone string            `json:"availability_zone"`
+	Value            string            `json:"value"`
+	Number           string            `json:"number"`
+	IsSystemVolume   bool              `json:"isSystemVolume"`
+	VolumeType       string            `json:"volumeType"`
+	Size             int64             `json:"size"`
+	ZoneID           string            `json:"zoneId"`
+	RegionID         string            `json:"regionId"`
+	Version          string            `json:"version"`
+	CycleCnt         int64             `json:"cycleCnt"`
+	CycleType        int64             `json:"cycleType"`
+	ResEbsID         string            `json:"resEbsId"`
+	ActualResourceID string            `json:"actualResourceId"`
+	SecurityGroups   []SecurityGroupID `json:"security_groups"`
+}
+
+type SecurityGroupID struct {
+	ID string `json:"id"`
 }
 
 func (self *SRegion) GetOrder(orderId string) ([]SOrder, error) {
