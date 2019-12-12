@@ -27,7 +27,6 @@ func init() {
 		EndDay   int `help:"time range of the associated bills, example: 20060102" required:"true"`
 
 		ResourceId string `help:"resource id"`
-		Brand      string `help:"brand"`
 	}
 	R(&AssociatedBillListOptions{}, "associated-bill-list", "List associated bills",
 		func(s *mcclient.ClientSession, args *AssociatedBillListOptions) error {
