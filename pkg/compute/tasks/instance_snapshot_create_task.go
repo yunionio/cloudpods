@@ -24,12 +24,12 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type InstanceSnapshotCreateTask struct {
@@ -46,16 +46,10 @@ func (self *InstanceSnapshotCreateTask) SetStageFailed(ctx context.Context, reas
 }
 
 func (self *InstanceSnapshotCreateTask) finalReleasePendingUsage(ctx context.Context) {
-	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
+	pendingUsage := models.SRegionQuota{}
+	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		isp := self.GetObject().(*models.SInstanceSnapshot)
-		guest := models.GuestManager.FetchGuestById(isp.GuestId)
-		quotaPlatform := guest.GetQuotaPlatformID()
-		models.QuotaManager.CancelPendingUsage(
-			ctx, self.UserCred, rbacutils.ScopeProject,
-			guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage,
-		)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
 	}
 }
 

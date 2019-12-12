@@ -33,12 +33,14 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -1373,4 +1375,38 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
 	return &instance, nil
+}
+
+func (man *SDBInstanceManager) TotalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	providers []string, brands []string, cloudEnv string,
+) (int, error) {
+	q := man.Query()
+	q = scopeOwnerIdFilter(q, scope, ownerId)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	return q.CountWithError()
+}
+
+func (dbinstance *SDBInstance) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		dbinstance.GetOwnerId(),
+		dbinstance.GetRegion(),
+		dbinstance.GetCloudprovider(),
+	)
+}
+
+func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
+	if dbinstance.PendingDeleted || dbinstance.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Rds: 1}
+	keys := dbinstance.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

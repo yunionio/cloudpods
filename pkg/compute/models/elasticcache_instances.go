@@ -28,10 +28,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -490,10 +492,17 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 		return nil, fmt.Errorf("getting region failed")
 	}
 
-	data, err := manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.VirtualResourceCreateInput{}
+	var err error
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	return region.GetDriver().ValidateCreateElasticcacheData(ctx, userCred, nil, data)
 }
@@ -1243,5 +1252,39 @@ func (self *SElasticcache) DeleteSubResources(ctx context.Context, userCred mccl
 				}
 			}
 		}(m)
+	}
+}
+
+func (man *SElasticcacheManager) TotalCount(
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObjs []db.IStandaloneModel,
+	providers []string, brands []string, cloudEnv string,
+) (int, error) {
+	q := man.Query()
+	q = scopeOwnerIdFilter(q, scope, ownerId)
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	return q.CountWithError()
+}
+
+func (cache *SElasticcache) GetQuotaKeys() quotas.IQuotaKeys {
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		cache.GetOwnerId(),
+		cache.GetRegion(),
+		cache.GetCloudprovider(),
+	)
+}
+
+func (cache *SElasticcache) GetUsages() []db.IUsage {
+	if cache.PendingDeleted || cache.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Cache: 1}
+	keys := cache.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
 	}
 }

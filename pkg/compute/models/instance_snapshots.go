@@ -133,10 +133,14 @@ func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcc
 	extra = self.getMoreDetails(userCred, extra)
 	return extra, nil
 }
-func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
-	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
-	pendingUsage quotas.IQuota, parentTaskId string) error {
 
+func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	pendingUsage quotas.IQuota,
+	parentTaskId string,
+) error {
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "InstanceSnapshotCreateTask", self, userCred, nil, parentTaskId, "", pendingUsage); err != nil {
 		return err

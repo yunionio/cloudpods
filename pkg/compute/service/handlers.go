@@ -36,6 +36,9 @@ func InitHandlers(app *appsrv.Application) {
 	db.AddProjectResourceCountHandler("", app)
 
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.RegionQuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.ZoneQuotaManager.SQuotaBaseManager, "", app)
+	quotas.AddQuotaHandler(&models.ProjectQuotaManager.SQuotaBaseManager, "", app)
 
 	usages.AddUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
@@ -57,6 +60,16 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.QuotaManager,
 		models.QuotaUsageManager,
+		models.QuotaPendingUsageManager,
+		models.ZoneQuotaManager,
+		models.ZoneUsageManager,
+		models.ZonePendingUsageManager,
+		models.RegionQuotaManager,
+		models.RegionUsageManager,
+		models.RegionPendingUsageManager,
+		models.ProjectQuotaManager,
+		models.ProjectUsageManager,
+		models.ProjectPendingUsageManager,
 
 		models.GroupguestManager,
 	} {

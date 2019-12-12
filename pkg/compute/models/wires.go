@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -124,7 +125,17 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 		data.Add(jsonutils.NewString(vpcObj.GetId()), "vpc_id")
 	}
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -358,7 +369,13 @@ func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerI
 	return q
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SWireManager) totalCountQ(
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+) *sqlchemy.SQuery {
 	guests := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId).SubQuery()
 	hosts := HostManager.Query().SubQuery()
 	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
@@ -437,12 +454,12 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	)
 	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
 
-	if rangeObj != nil || len(hostTypes) > 0 {
+	if len(rangeObjs) > 0 || len(hostTypes) > 0 {
 		hostwires := HostwireManager.Query().SubQuery()
 		sq := hostwires.Query(hostwires.Field("wire_id"))
 		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, nil, "", rangeObj)
+		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, nil, "", rangeObjs)
 		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
 	}
 
@@ -471,9 +488,20 @@ func (wstat WiresCountStat) NicCount() int {
 	return wstat.GuestNicCount + wstat.HostNicCount + wstat.ReservedCount + wstat.GroupNicCount + wstat.LbNicCount
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) WiresCountStat {
+func (manager *SWireManager) TotalCount(
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes, providers, brands, cloudEnv, scope, ownerId).First(&stat)
+	err := manager.totalCountQ(
+		rangeObjs,
+		hostTypes,
+		providers, brands, cloudEnv,
+		scope, ownerId,
+	).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}

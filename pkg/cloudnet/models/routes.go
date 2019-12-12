@@ -19,9 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	yerrors "yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -60,9 +61,16 @@ func init() {
 }
 
 func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+	input := apis.StandaloneResourceCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+	}
+	input, err = man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	ifaceV := validators.NewModelIdOrNameValidator("iface", "iface", ownerId)
 	networkV := validators.NewIPv4PrefixValidator("network")
@@ -151,7 +159,7 @@ func (man *SRouteManager) removeByIface(ctx context.Context, userCred mcclient.T
 			errs = append(errs, err)
 		}
 	}
-	return yerrors.NewAggregate(errs)
+	return errors.NewAggregate(errs)
 }
 
 func (man *SRouteManager) getByFilter(filter map[string]string) ([]SRoute, error) {

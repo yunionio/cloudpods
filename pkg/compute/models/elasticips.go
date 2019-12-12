@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -685,7 +686,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewMissingParameterError("manager_id")
 	}
 
-	provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+	providerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
@@ -693,7 +694,8 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 			return nil, httperrors.NewResourceNotFoundError("Cloud provider %s not found", managerStr)
 		}
 	}
-	data.Add(jsonutils.NewString(provider.GetId()), "manager_id")
+	provider := providerObj.(*SCloudprovider)
+	data.Add(jsonutils.NewString(provider.Id), "manager_id")
 
 	chargeType := jsonutils.GetAnyString(data, []string{"charge_type"})
 	if len(chargeType) == 0 {
@@ -706,31 +708,55 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	data.Add(jsonutils.NewString(chargeType), "charge_type")
 
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	input := apis.VirtualResourceCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
+	}
+	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
+	data.Update(jsonutils.Marshal(input))
 
 	//避免参数重名后还有pending.eip残留
-	eipPendingUsage := &SQuota{Eip: 1}
-
-	quotaPlatform := provider.(*SCloudprovider).GetQuotaPlatformID()
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, eipPendingUsage)
+	eipPendingUsage := &SRegionQuota{Eip: 1}
+	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, region, provider)
+	eipPendingUsage.SetKeys(quotaKeys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, eipPendingUsage)
 	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
+		return nil, err
 	}
 
 	return region.GetDriver().ValidateCreateEipData(ctx, userCred, data)
 }
 
+func (eip *SElasticip) GetQuotaKeys() (quotas.IQuotaKeys, error) {
+	region := eip.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid region")
+	}
+	return fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		eip.GetOwnerId(),
+		region,
+		eip.GetCloudprovider(),
+	), nil
+}
+
 func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	quotaPlatform := self.GetQuotaPlatformID()
-	eipPendingUsage := &SQuota{Eip: 1}
-	err := QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, eipPendingUsage, eipPendingUsage)
+	eipPendingUsage := &SRegionQuota{Eip: 1}
+	keys, err := self.GetQuotaKeys()
 	if err != nil {
-		log.Errorf("SElasticip CancelPendingUsage error: %s", err)
+		log.Errorf("GetQuotaKeys fail %s", err)
+	} else {
+		eipPendingUsage.SetKeys(keys)
+		err := quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage)
+		if err != nil {
+			log.Errorf("SElasticip CancelPendingUsage error: %s", err)
+		}
 	}
 
 	self.startEipAllocateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
@@ -1069,8 +1095,15 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		return nil, err
 	}
 
-	eipPendingUsage := &SQuota{Eip: 1}
-	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, vm.GetOwnerId(), vm.GetQuotaPlatformID(), pendingUsage, eipPendingUsage)
+	eipPendingUsage := &SRegionQuota{Eip: 1}
+	keys := fetchRegionalQuotaKeys(
+		rbacutils.ScopeProject,
+		vm.GetOwnerId(),
+		region,
+		host.GetCloudprovider(),
+	)
+	eipPendingUsage.SetKeys(keys)
+	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage)
 
 	return &eip, nil
 }
@@ -1168,52 +1201,24 @@ func (manager *SElasticipManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers
 	return CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 }
 
-func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
-	if rangeObj == nil {
-		return q
-	}
-
-	kw := rangeObj.Keyword()
-	// log.Debugf("rangeObj keyword: %s", kw)
-	switch kw {
-	case "zone":
-		zone := rangeObj.(*SZone)
-		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-	case "wire":
-		wire := rangeObj.(*SWire)
-		zone := wire.GetZone()
-		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-	case "host":
-		host := rangeObj.(*SHost)
-		zone := host.GetZone()
-		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
-	case "cloudprovider":
-		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
-	case "cloudaccount":
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	case "cloudregion":
-		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
-	}
-
-	return q
+func (manager *SElasticipManager) usageQByRanges(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
+	return rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
-	q = manager.usageQByRange(q, rangeObj)
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+	q = manager.usageQByRanges(q, rangeObjs)
 	q = manager.usageQByCloudEnv(q, providers, brands, cloudEnv)
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) EipUsage {
+func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObj, providers, brands, cloudEnv)
+	q1 = manager.usageQ(q1, rangeObjs, providers, brands, cloudEnv)
 	q2 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObj, providers, brands, cloudEnv)
+	q2 = manager.usageQ(q2, rangeObjs, providers, brands, cloudEnv)
 	q3 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObj, providers, brands, cloudEnv)
+	q3 = manager.usageQ(q3, rangeObjs, providers, brands, cloudEnv)
 	switch scope {
 	case rbacutils.ScopeSystem:
 		// do nothing
@@ -1263,4 +1268,20 @@ func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (eip *SElasticip) GetUsages() []db.IUsage {
+	if eip.PendingDeleted || eip.Deleted {
+		return nil
+	}
+	usage := SRegionQuota{Eip: 1}
+	keys, err := eip.GetQuotaKeys()
+	if err != nil {
+		log.Errorf("disk.GetQuotaKeys fail %s", err)
+		return nil
+	}
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

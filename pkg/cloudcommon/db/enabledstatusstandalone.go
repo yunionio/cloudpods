@@ -19,7 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -77,4 +79,13 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformDisable(ctx context.Con
 		logclient.AddSimpleActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 	}
 	return nil, nil
+}
+
+func (manager *SEnabledStatusStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.EnabledStatusStandaloneResourceCreateInput) (apis.EnabledStatusStandaloneResourceCreateInput, error) {
+	var err error
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ValidateCreateData")
+	}
+	return input, nil
 }

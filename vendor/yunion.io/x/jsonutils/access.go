@@ -19,8 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 )
 
@@ -378,6 +377,13 @@ func (this *JSONFloat) Float(keys ...string) (float64, error) {
 		return 0.0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
+}
+
+func (this *JSONInt) Float(keys ...string) (float64, error) {
+	if len(keys) > 0 {
+		return 0.0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
+	}
+	return float64(this.data), nil
 }
 
 func (this *JSONString) Float(keys ...string) (float64, error) {
