@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"net/http"
 )
 
 type SObject struct {
@@ -63,6 +64,48 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	_, err = s3cli.PutObjectAcl(input)
 	if err != nil {
 		return errors.Wrap(err, "s3cli.PutObjectAcl")
+	}
+	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	log.Infof("GetMeta for %s/%s", o.bucket.Name, o.Key)
+	if o.Meta != nil {
+		return o.Meta
+	}
+	s3cli, err := o.bucket.region.GetS3Client()
+	if err != nil {
+		log.Errorf("o.bucket.region.GetS3Client fail %s", err)
+		return nil
+	}
+	input := &s3.HeadObjectInput{}
+	input.SetBucket(o.bucket.Name)
+	input.SetKey(o.Key)
+	output, err := s3cli.HeadObject(input)
+	if err != nil {
+		log.Errorf("s3cli.HeadObject fail %s", err)
+		return nil
+	}
+	ret := http.Header{}
+	for k, v := range output.Metadata {
+		if v != nil && len(*v) > 0 {
+			ret.Add(k, *v)
+		}
+	}
+	if output.CacheControl != nil && len(*output.CacheControl) > 0 {
+		ret.Set(cloudprovider.META_HEADER_CACHE_CONTROL, *output.CacheControl)
+	}
+	if output.ContentType != nil && len(*output.ContentType) > 0 {
+		ret.Set(cloudprovider.META_HEADER_CONTENT_TYPE, *output.ContentType)
+	}
+	if output.ContentDisposition != nil && len(*output.ContentDisposition) > 0 {
+		ret.Set(cloudprovider.META_HEADER_CONTENT_DISPOSITION, *output.ContentDisposition)
+	}
+	if output.ContentEncoding != nil && len(*output.ContentEncoding) > 0 {
+		ret.Set(cloudprovider.META_HEADER_CONTENT_ENCODING, *output.ContentEncoding)
+	}
+	if output.ContentLanguage != nil && len(*output.ContentLanguage) > 0 {
+		ret.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, *output.ContentLanguage)
 	}
 	return nil
 }

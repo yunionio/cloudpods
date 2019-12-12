@@ -178,7 +178,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", "", false)
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", nil, false)
 	// err = bucket.PutObject(image.ImageId, reader)
 	if err != nil {
 		log.Errorf("PutObject error %s %s", image.ImageId, err)

@@ -29,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"net/http"
 )
 
 type SBucket struct {
@@ -198,7 +199,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 				SizeBytes:    int64(object.Size),
 				ETag:         object.ETag,
 				LastModified: lastModified,
-				ContentType:  "",
 			},
 		}
 		result.Objects = append(result.Objects, obj)
@@ -220,7 +220,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return errors.Wrap(err, "GetCosClient")
@@ -232,12 +232,35 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 	if sizeBytes > 0 {
 		opts.ContentLength = int(sizeBytes)
 	}
-	if len(contType) > 0 {
-		opts.ContentType = contType
+	if meta != nil {
+		extraHdr := http.Header{}
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				opts.CacheControl = v[0]
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				opts.ContentType = v[0]
+			case cloudprovider.META_HEADER_CONTENT_MD5:
+				opts.ContentMD5 = v[0]
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				opts.ContentEncoding = v[0]
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				opts.ContentDisposition = v[0]
+			default:
+				extraHdr.Add(k, v[0])
+			}
+		}
+		if len(extraHdr) > 0 {
+			opts.XCosMetaXXX = &extraHdr
+		}
 	}
-	if len(cannedAcl) > 0 {
-		opts.XCosACL = string(cannedAcl)
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	opts.XCosACL = string(cannedAcl)
 	if len(storageClassStr) > 0 {
 		opts.XCosStorageClass = storageClassStr
 	}
@@ -248,7 +271,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 	return nil
 }
 
-func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return "", errors.Wrap(err, "GetCosClient")
@@ -257,12 +280,35 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType s
 		ACLHeaderOptions:       &cos.ACLHeaderOptions{},
 		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{},
 	}
-	if len(contType) > 0 {
-		opts.ContentType = contType
+	if meta != nil {
+		extraHdr := http.Header{}
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				opts.CacheControl = v[0]
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				opts.ContentType = v[0]
+			case cloudprovider.META_HEADER_CONTENT_MD5:
+				opts.ContentMD5 = v[0]
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				opts.ContentEncoding = v[0]
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				opts.ContentDisposition = v[0]
+			default:
+				extraHdr.Add(k, v[0])
+			}
+		}
+		if len(extraHdr) > 0 {
+			opts.XCosMetaXXX = &extraHdr
+		}
 	}
-	if len(cannedAcl) > 0 {
-		opts.XCosACL = string(cannedAcl)
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	opts.XCosACL = string(cannedAcl)
 	if len(storageClassStr) > 0 {
 		opts.XCosStorageClass = storageClassStr
 	}
@@ -356,7 +402,7 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	return url.String(), nil
 }
 
-func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return errors.Wrap(err, "GetCosClient")
@@ -365,14 +411,35 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName,
 		ObjectCopyHeaderOptions: &cos.ObjectCopyHeaderOptions{},
 		ACLHeaderOptions:        &cos.ACLHeaderOptions{},
 	}
-	if len(cannedAcl) > 0 {
-		opts.XCosACL = string(cannedAcl)
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	opts.XCosACL = string(cannedAcl)
 	if len(storageClassStr) > 0 {
 		opts.XCosStorageClass = storageClassStr
 	}
-	if len(contType) > 0 {
-		opts.ContentType = contType
+	if meta != nil {
+		extraHdr := http.Header{}
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				opts.CacheControl = v[0]
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				opts.ContentType = v[0]
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				opts.ContentEncoding = v[0]
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				opts.ContentDisposition = v[0]
+			default:
+				extraHdr.Add(k, v[0])
+			}
+		}
+		if len(extraHdr) > 0 {
+			opts.XCosMetaXXX = &extraHdr
+		}
 	}
 	srcBucket := SBucket{
 		region: b.region,
