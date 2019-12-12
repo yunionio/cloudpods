@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
@@ -78,15 +79,15 @@ func (region *SRegion) GetL3Network(l3Id string) (*SL3Network, error) {
 
 func (region *SRegion) GetL3Networks(zoneId string, wireId string, l3Id string) ([]SL3Network, error) {
 	l3Networks := []SL3Network{}
-	params := []string{}
+	params := url.Values{}
 	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
+		params.Add("q", "zone.uuid="+zoneId)
 	}
 	if len(wireId) > 0 {
-		params = append(params, "q=l2NetworkUuid="+wireId)
+		params.Add("q", "l2NetworkUuid="+wireId)
 	}
 	if len(l3Id) > 0 {
-		params = append(params, "q=uuid="+l3Id)
+		params.Add("q", "uuid="+l3Id)
 	}
 	return l3Networks, region.client.listAll("l3-networks", params, &l3Networks)
 }
