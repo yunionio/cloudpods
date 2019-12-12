@@ -79,9 +79,9 @@ func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonuti
 	var reqUrl string
 	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain", "domain_id", "project_domain_id"})
 	if len(domainId) > 0 {
-		reqUrl = "/quotas/projects?project_domain=" + domainId
+		reqUrl = fmt.Sprintf("%s/projects?project_domain=%s", this.URLPath(), domainId)
 	} else {
-		reqUrl = "/quotas/domains"
+		reqUrl = fmt.Sprintf("%s/domains", this.URLPath())
 	}
 	computeQuotaList, err := modulebase.List(this.ResourceManager, s, reqUrl, this.KeywordPlural)
 	if err != nil {
@@ -148,7 +148,7 @@ func init() {
 		[]string{})}
 	registerCompute(&ZoneQuotas)
 
-	ImageQuotas = QuotaManager{NewImageManager("quota", "quotas",
+	ImageQuotas = QuotaManager{NewImageManager("image_quota", "image_quotas",
 		quotaColumns,
 		[]string{})}
 	// registerV2(&ImageQuotas)

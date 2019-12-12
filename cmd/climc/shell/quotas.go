@@ -291,11 +291,47 @@ func init() {
 	}
 	R(&CleanPendingUsageOptions{}, "clean-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
 		params := jsonutils.Marshal(args)
-		log.Debugf("%s", params)
 		_, err := modules.Quotas.DoCleanPendingUsage(s, params)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
+
+	R(&CleanPendingUsageOptions{}, "clean-region-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.RegionQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	R(&CleanPendingUsageOptions{}, "clean-zone-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.ZoneQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	R(&CleanPendingUsageOptions{}, "clean-project-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.ProjectQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	R(&CleanPendingUsageOptions{}, "clean-image-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.ImageQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
