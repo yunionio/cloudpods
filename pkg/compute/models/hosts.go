@@ -823,7 +823,7 @@ func (self *SHostManager) AllowGetPropertyBmStartRegisterScript(ctx context.Cont
 }
 
 func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	regionUri, err := auth.GetServiceURL("compute_v2", options.Options.Region, "", "")
+	regionUri, err := auth.GetPublicServiceURL("compute_v2", options.Options.Region, "")
 	if err != nil {
 		return nil, err
 	}
