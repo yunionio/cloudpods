@@ -16,6 +16,7 @@ package zstack
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -63,21 +64,21 @@ func (region *SRegion) GetNetworkServices() (*SNetworkService, error) {
 
 func (region *SRegion) GetNetworkServiceProviders(Type string) ([]SNetworkServiceProvider, error) {
 	providers := []SNetworkServiceProvider{}
-	params := []string{}
+	params := url.Values{}
 	if len(Type) > 0 {
-		params = append(params, "q=type="+Type)
+		params.Add("q", "type="+Type)
 	}
 	return providers, region.client.listAll("network-services/providers", params, &providers)
 }
 
 func (region *SRegion) GetNetworkServiceRef(l3Id string, Type string) ([]SNetworkServiceRef, error) {
 	refs := []SNetworkServiceRef{}
-	params := []string{}
+	params := url.Values{}
 	if len(l3Id) > 0 {
-		params = append(params, "q=l3NetworkUuid="+l3Id)
+		params.Add("q", "l3NetworkUuid="+l3Id)
 	}
 	if len(Type) > 0 {
-		params = append(params, "q=networkServiceType="+Type)
+		params.Add("q", "networkServiceType="+Type)
 	}
 	return refs, region.client.listAll("l3-networks/network-services/refs", params, &refs)
 }
