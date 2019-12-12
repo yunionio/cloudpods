@@ -30,6 +30,9 @@ func rangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, reg
 }
 
 func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField) *sqlchemy.SQuery {
+	if rangeObj == nil {
+		return q
+	}
 	kw := rangeObj.Keyword()
 	switch kw {
 	case "zone":
