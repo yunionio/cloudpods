@@ -14,6 +14,8 @@
 
 package zstack
 
+import "net/url"
+
 type SSysTag struct {
 	ZStackTime
 	Inherent     bool   `json:"inherent"`
@@ -26,18 +28,18 @@ type SSysTag struct {
 
 func (region *SRegion) GetSysTags(tagId string, resourceType string, resourceId string, tag string) ([]SSysTag, error) {
 	tags := []SSysTag{}
-	params := []string{}
+	params := url.Values{}
 	if len(tagId) > 0 {
-		params = append(params, "q=uuid="+tagId)
+		params.Add("q", "uuid="+tagId)
 	}
 	if len(resourceType) > 0 {
-		params = append(params, "q=resourceType="+resourceType)
+		params.Add("q", "resourceType="+resourceType)
 	}
 	if len(resourceId) > 0 {
-		params = append(params, "q=resourceUuid="+resourceId)
+		params.Add("q", "resourceUuid="+resourceId)
 	}
 	if len(tag) > 0 {
-		params = append(params, "q=tag="+tag)
+		params.Add("q", "tag="+tag)
 	}
 	return tags, region.client.listAll("system-tags", params, &tags)
 }
