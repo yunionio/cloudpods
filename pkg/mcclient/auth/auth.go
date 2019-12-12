@@ -261,6 +261,10 @@ func GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	return manager.GetServiceURL(service, region, zone, endpointType)
 }
 
+func GetPublicServiceURL(service, region, zone string) (string, error) {
+	return manager.GetServiceURL(service, region, zone, PublicEndpointType)
+}
+
 func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	return manager.GetServiceURLs(service, region, zone, endpointType)
 }
