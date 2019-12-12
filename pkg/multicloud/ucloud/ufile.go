@@ -182,6 +182,10 @@ func (self *SFile) SetAcl(cloudprovider.TBucketACLType) error {
 	return nil
 }
 
+func (self *SFile) GetMeta() http.Header {
+	return nil
+}
+
 func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
 	res, err := httputils.GetDefaultClient().Do(req)
 	if err != nil {
@@ -343,11 +347,11 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	return "", cloudprovider.ErrNotSupported
 }
 
@@ -375,7 +379,7 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	return "", cloudprovider.ErrNotSupported
 }
 
-func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	return cloudprovider.ErrNotSupported
 }
 
