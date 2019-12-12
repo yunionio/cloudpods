@@ -1085,25 +1085,6 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 	return provider.ClearSchedDescCache()
 }
 
-func (provider *SCloudprovider) syncCloudproviderGlobalnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	driver, err := provider.GetProvider()
-	if err != nil {
-		return err
-	}
-	if !driver.GetFactory().IsOnPremise() {
-		globalnetworks, err := driver.GetIGlobalnetworks()
-		if err != nil {
-			return errors.Wrap(err, "GetIGlobalnetworks")
-		}
-		result := GlobalNetworkManager.SyncGlobalnetworks(ctx, userCred, provider, globalnetworks)
-		if result.IsError() {
-			log.Errorf("syncGlobalnetworks fail %s", result.Result())
-		}
-		return nil
-	}
-	return nil
-}
-
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
 	driver, err := provider.GetProvider()
 	if err != nil {
@@ -1200,7 +1181,6 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		DBInstanceBackupManager,
 		ElasticcacheManager,
 		VpcManager,
-		GlobalNetworkManager,
 		ElasticipManager,
 		NetworkInterfaceManager,
 		CloudproviderRegionManager,
