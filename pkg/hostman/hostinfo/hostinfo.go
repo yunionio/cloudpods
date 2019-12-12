@@ -93,6 +93,14 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 			return n.BridgeDev
 		}
 	}
+	if bridge == options.HostOptions.OvnIntegrationBridge {
+		drv, err := hostbridge.NewOVSBridgeDriverByName(bridge)
+		if err != nil {
+			log.Errorf("create ovn bridge driver: %v", err)
+			return nil
+		}
+		return drv
+	}
 	return nil
 }
 
@@ -133,8 +141,24 @@ func (h *SHostInfo) Init() error {
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
+	if err := h.setupOvnChassis(); err != nil {
+		return err
+	}
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *SHostInfo) setupOvnChassis() error {
+	opts := &options.HostOptions
+	if opts.BridgeDriver != hostbridge.DRV_OPEN_VSWITCH {
+		return nil
+	}
+	log.Infof("Start setting up ovn chassis")
+	oh := NewOvnHelper(h)
+	if err := oh.Init(); err != nil {
 		return err
 	}
 	return nil
@@ -846,6 +870,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
 	content.Set("version", jsonutils.NewString(version.GetShortString()))
+	content.Set("ovn_version", jsonutils.NewString(MustGetOvnVersion()))
 
 	var (
 		res jsonutils.JSONObject
