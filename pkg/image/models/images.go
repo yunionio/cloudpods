@@ -373,7 +373,7 @@ func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred m
 	// because that pending quota has been checked and set in SGuestImage.ValidateCreateData
 	if !data.Contains("guest_image_id") {
 		pendingUsage := SQuota{Image: 1}
-		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		keys := imageCreateInput2QuotaKeys(data, ownerId)
 		pendingUsage.SetKeys(keys)
 		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
@@ -503,9 +503,12 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
 		pendingUsage := SQuota{Image: 1}
-		keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+		keys := imageCreateInput2QuotaKeys(data, ownerId)
 		pendingUsage.SetKeys(keys)
-		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		cancelUsage := SQuota{Image: 1}
+		keys = self.GetQuotaKeys()
+		cancelUsage.SetKeys(keys)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &cancelUsage)
 	}
 
 	if data.Contains("properties") {
@@ -1284,6 +1287,18 @@ func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 	if img.GetImageType() == api.ImageTypeISO {
 		keys.Type = string(api.ImageTypeISO)
 	} else {
+		keys.Type = string(api.ImageTypeTemplate)
+	}
+	return keys
+}
+
+func imageCreateInput2QuotaKeys(data jsonutils.JSONObject, ownerId mcclient.IIdentityProvider) quotas.IQuotaKeys {
+	keys := SImageQuotaKeys{}
+	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	format, _ := data.GetString("disk_format")
+	if format == string(api.ImageTypeISO) {
+		keys.Type = string(api.ImageTypeISO)
+	} else if len(format) > 0 {
 		keys.Type = string(api.ImageTypeTemplate)
 	}
 	return keys
