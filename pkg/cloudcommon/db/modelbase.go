@@ -412,6 +412,18 @@ func (model *SModelBase) GetName() string {
 	return ""
 }
 
+func (model *SModelBase) GetUpdatedAt() time.Time {
+	return time.Time{}
+}
+
+func (model *SModelBase) GetUpdateVersion() int {
+	return 0
+}
+
+func (model *SModelBase) GetDeleted() bool {
+	return false
+}
+
 func (model *SModelBase) SetModelManager(man IModelManager, virtual IModel) {
 	model.manager = man
 	model.SetVirtualObject(virtual)

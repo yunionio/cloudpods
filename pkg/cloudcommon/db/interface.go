@@ -129,6 +129,9 @@ type IModel interface {
 	object.IObject
 
 	GetName() string
+	GetUpdateVersion() int
+	GetUpdatedAt() time.Time
+	GetDeleted() bool
 
 	KeywordPlural() string
 
@@ -283,6 +286,7 @@ type IVirtualModelManager interface {
 
 type IVirtualModel interface {
 	IStandaloneModel
+	IPendingDeletable
 
 	IsOwner(userCred mcclient.TokenCredential) bool
 	// IsAdmin(userCred mcclient.TokenCredential) bool
