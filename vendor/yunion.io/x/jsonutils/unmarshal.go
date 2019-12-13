@@ -361,6 +361,15 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		return this.unmarshalValue(val.Elem())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
+	case reflect.Slice:
+		dataLen := 1
+		if val.Cap() < dataLen {
+			newVal := reflect.MakeSlice(val.Type(), dataLen, dataLen)
+			val.Set(newVal)
+		} else if val.Len() != dataLen {
+			val.SetLen(dataLen)
+		}
+		return this.unmarshalValue(val.Index(0))
 	default:
 		log.Errorf("JSONDict type mismatch: %s", val.Type())
 		return ErrTypeMismatch // fmt.Errorf("JSONString type mismatch: %s", val.Type())
