@@ -121,10 +121,8 @@ type ServerConfigs struct {
 	// ResourceType "shared|prepaid|dedicated"`
 	ResourceType string `json:"resource_type"`
 	InstanceType string `json:"instance_type"`
-	// Project      string `json:"project_id"`
-	// Domain       string `json:"domain_id"`
-	Backup bool `json:"backup"`
-	Count  int  `json:"count"`
+	Backup       bool   `json:"backup"`
+	Count        int    `json:"count"`
 
 	Disks                []*DiskConfig           `json:"disks"`
 	Networks             []*NetworkConfig        `json:"nets"`
@@ -161,8 +159,6 @@ type ServerCreateInput struct {
 
 	*ServerConfigs
 
-	// Name         string `json:"name"`
-	// GenerateName string `json:"generate_name"`
 	VmemSize  int    `json:"vmem_size"`
 	VcpuCount int    `json:"vcpu_count"`
 	UserData  string `json:"user_data"`
