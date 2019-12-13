@@ -31,3 +31,10 @@ func KeyName(prefix, name string) string {
 		return name
 	}
 }
+
+func Exceed(used, request, quota int) bool {
+	if quota >= 0 && request > 0 && used+request > quota {
+		return true
+	}
+	return false
+}

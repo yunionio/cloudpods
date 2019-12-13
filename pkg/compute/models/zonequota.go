@@ -70,7 +70,7 @@ type SZoneQuota struct {
 
 	quotas.SZonalCloudResourceKeys
 
-	Loadbalancer int
+	Loadbalancer int `default:"-1"`
 }
 
 func (self *SZoneQuota) GetKeys() quotas.IQuotaKeys {
@@ -182,12 +182,12 @@ func (self *SZoneQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SZoneQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+func (used *SZoneQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SZoneQuota)
 	squota := quota.(*SZoneQuota)
-	if sreq.Loadbalancer > 0 && self.Loadbalancer+sreq.Loadbalancer > squota.Loadbalancer {
-		err.Add("loadbalancer", squota.Loadbalancer, self.Loadbalancer, sreq.Loadbalancer)
+	if quotas.Exceed(used.Loadbalancer, sreq.Loadbalancer, squota.Loadbalancer) {
+		err.Add("loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
 	}
 	if err.IsError() {
 		return err
