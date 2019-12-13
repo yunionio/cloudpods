@@ -766,6 +766,16 @@ func (self *SVpc) getIPRanges() []netutils.IPV4AddrRange {
 	return ret
 }
 
+func (self *SVpc) containsIPV4Range(a netutils.IPV4AddrRange) bool {
+	ranges := self.getIPRanges()
+	for i := range ranges {
+		if ranges[i].ContainsRange(a) {
+			return true
+		}
+	}
+	return false
+}
+
 func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
