@@ -927,3 +927,20 @@ func (vpc *SVpc) GetGlobalVpc() (*SGlobalVpc, error) {
 	}
 	return gv.(*SGlobalVpc), nil
 }
+
+func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
+	wire := &SWire{
+		VpcId:     self.Id,
+		ZoneId:    zone.Id,
+		Bandwidth: 10000,
+		Mtu:       1500,
+	}
+	wire.IsEmulated = true
+	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
+	wire.SetModelManager(WireManager, wire)
+	err := WireManager.TableSpec().Insert(wire)
+	if err != nil {
+		return nil, err
+	}
+	return wire, nil
+}

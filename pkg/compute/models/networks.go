@@ -1374,7 +1374,15 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 					return input, httperrors.NewInternalServerError("query wire for zone %s and vpc %s: %v", input.Zone, input.Vpc, err)
 				}
 				if len(wires) == 0 {
-					return input, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
+					if region.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+						wire, err := vpc.initWire(ctx, zone)
+						if err != nil {
+							return input, httperrors.NewNotFoundError("init wire for zone %s and vpc %s: %v", input.Zone, input.Vpc, err)
+						}
+						input.WireId = wire.Id
+					} else {
+						return input, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
+					}
 				} else if len(wires) > 1 {
 					return input, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
 				} else {
