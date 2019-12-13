@@ -70,20 +70,20 @@ type SRegionQuota struct {
 
 	quotas.SRegionalCloudResourceKeys
 
-	Eip   int
-	Port  int
-	Eport int
-	Bw    int
-	Ebw   int
+	Eip   int `default:"-1"`
+	Port  int `default:"-1"`
+	Eport int `default:"-1"`
+	Bw    int `default:"-1"`
+	Ebw   int `default:"-1"`
 
-	Snapshot int
+	Snapshot int `default:"-1"`
 
-	Bucket    int
-	ObjectGB  int
-	ObjectCnt int
+	Bucket    int `default:"-1"`
+	ObjectGB  int `default:"-1"`
+	ObjectCnt int `default:"-1"`
 
-	Rds   int
-	Cache int
+	Rds   int `default:"-1"`
+	Cache int `default:"-1"`
 }
 
 func (self *SRegionQuota) GetKeys() quotas.IQuotaKeys {
@@ -300,42 +300,42 @@ func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SRegionQuota)
 	squota := quota.(*SRegionQuota)
-	if sreq.Port > 0 && self.Port+sreq.Port > squota.Port {
-		err.Add("port", squota.Port, self.Port, sreq.Port)
+	if quotas.Exceed(used.Port, sreq.Port, squota.Port) {
+		err.Add("port", squota.Port, used.Port, sreq.Port)
 	}
-	if sreq.Eip > 0 && self.Eip+sreq.Eip > squota.Eip {
-		err.Add("eip", squota.Eip, self.Eip, sreq.Eip)
+	if quotas.Exceed(used.Eip, sreq.Eip, squota.Eip) {
+		err.Add("eip", squota.Eip, used.Eip, sreq.Eip)
 	}
-	if sreq.Eport > 0 && self.Eport+sreq.Eport > squota.Eport {
-		err.Add("eport", squota.Eport, self.Eport, sreq.Eport)
+	if quotas.Exceed(used.Eport, sreq.Eport, squota.Eport) {
+		err.Add("eport", squota.Eport, used.Eport, sreq.Eport)
 	}
-	if sreq.Bw > 0 && self.Bw+sreq.Bw > squota.Bw {
-		err.Add("bw", squota.Bw, self.Bw, sreq.Bw)
+	if quotas.Exceed(used.Bw, sreq.Bw, squota.Bw) {
+		err.Add("bw", squota.Bw, used.Bw, sreq.Bw)
 	}
-	if sreq.Ebw > 0 && self.Ebw+sreq.Ebw > squota.Ebw {
-		err.Add("ebw", squota.Ebw, self.Ebw, sreq.Ebw)
+	if quotas.Exceed(used.Bw, sreq.Ebw, squota.Ebw) {
+		err.Add("ebw", squota.Ebw, used.Ebw, sreq.Ebw)
 	}
-	if sreq.Snapshot > 0 && self.Snapshot+sreq.Snapshot > squota.Snapshot {
-		err.Add("snapshot", squota.Snapshot, self.Snapshot, sreq.Snapshot)
+	if quotas.Exceed(used.Snapshot, sreq.Snapshot, squota.Snapshot) {
+		err.Add("snapshot", squota.Snapshot, used.Snapshot, sreq.Snapshot)
 	}
-	if sreq.Bucket > 0 && self.Bucket+sreq.Bucket > squota.Bucket {
-		err.Add("bucket", squota.Bucket, self.Bucket, sreq.Bucket)
+	if quotas.Exceed(used.Bucket, sreq.Bucket, squota.Bucket) {
+		err.Add("bucket", squota.Bucket, used.Bucket, sreq.Bucket)
 	}
-	if sreq.ObjectGB > 0 && self.ObjectGB+sreq.ObjectGB > squota.ObjectGB {
-		err.Add("object_gb", squota.ObjectGB, self.ObjectGB, sreq.ObjectGB)
+	if quotas.Exceed(used.ObjectGB, sreq.ObjectGB, squota.ObjectGB) {
+		err.Add("object_gb", squota.ObjectGB, used.ObjectGB, sreq.ObjectGB)
 	}
-	if sreq.ObjectCnt > 0 && self.ObjectCnt+sreq.ObjectCnt > squota.ObjectCnt {
-		err.Add("object_cnt", squota.ObjectCnt, self.ObjectCnt, sreq.ObjectCnt)
+	if quotas.Exceed(used.ObjectCnt, sreq.ObjectCnt, squota.ObjectCnt) {
+		err.Add("object_cnt", squota.ObjectCnt, used.ObjectCnt, sreq.ObjectCnt)
 	}
-	if sreq.Rds > 0 && self.Rds+sreq.Rds > squota.Rds {
-		err.Add("rds", squota.Rds, self.Rds, sreq.Rds)
+	if quotas.Exceed(used.Rds, sreq.Rds, squota.Rds) {
+		err.Add("rds", squota.Rds, used.Rds, sreq.Rds)
 	}
-	if sreq.Cache > 0 && self.Cache+sreq.Cache > squota.Cache {
-		err.Add("cache", squota.Cache, self.Cache, sreq.Cache)
+	if quotas.Exceed(used.Cache, sreq.Cache, squota.Cache) {
+		err.Add("cache", squota.Cache, used.Cache, sreq.Cache)
 	}
 	if err.IsError() {
 		return err
