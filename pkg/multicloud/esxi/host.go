@@ -92,6 +92,10 @@ type SHost struct {
 }
 
 func NewHost(manager *SESXiClient, host *mo.HostSystem, dc *SDatacenter) *SHost {
+	if host.Config == nil {
+		log.Errorf("empty host config %s", host.Name)
+		return nil
+	}
 	return &SHost{SManagedObject: newManagedObject(manager, host, dc)}
 }
 
@@ -307,6 +311,10 @@ func (self *SHost) getNicInfo() []SHostNicInfo {
 
 func (self *SHost) fetchNicInfo() []SHostNicInfo {
 	moHost := self.getHostSystem()
+
+	if moHost.Config == nil || moHost.Config.Network == nil {
+		return nil
+	}
 
 	nicInfoList := make([]SHostNicInfo, 0)
 
