@@ -72,7 +72,7 @@ type SQuota struct {
 
 	SImageQuotaKeys
 
-	Image int
+	Image int `default:"-1"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
@@ -156,12 +156,12 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
-	if sreq.Image > 0 && self.Image+sreq.Image > squota.Image {
-		err.Add("image", squota.Image, self.Image, sreq.Image)
+	if quotas.Exceed(used.Image, sreq.Image, squota.Image) {
+		err.Add("image", squota.Image, used.Image, sreq.Image)
 	}
 	if err.IsError() {
 		return err

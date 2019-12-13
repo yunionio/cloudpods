@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
@@ -81,13 +80,13 @@ type SQuota struct {
 
 	SComputeResourceKeys
 
-	Count   int
-	Cpu     int
-	Memory  int
-	Storage int
+	Count   int `default:"-1"`
+	Cpu     int `default:"-1"`
+	Memory  int `default:"-1"`
+	Storage int `default:"-1"`
 
-	Group          int
-	IsolatedDevice int
+	Group          int `default:"-1"`
+	IsolatedDevice int `default:"-1"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
@@ -260,31 +259,27 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
-	log.Debugf("used: %s", jsonutils.Marshal(self))
-	log.Debugf("request: %s", jsonutils.Marshal(request))
-	log.Debugf("quota: %s", jsonutils.Marshal(quota))
-
+func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
-	if sreq.Count > 0 && self.Count+sreq.Count > squota.Count {
-		err.Add("count", squota.Count, self.Count, sreq.Count)
+	if quotas.Exceed(used.Count, sreq.Count, squota.Count) {
+		err.Add("count", squota.Count, used.Count, sreq.Count)
 	}
-	if sreq.Cpu > 0 && self.Cpu+sreq.Cpu > squota.Cpu {
-		err.Add("cpu", squota.Cpu, self.Cpu, sreq.Cpu)
+	if quotas.Exceed(used.Cpu, sreq.Cpu, squota.Cpu) {
+		err.Add("cpu", squota.Cpu, used.Cpu, sreq.Cpu)
 	}
-	if sreq.Memory > 0 && self.Memory+sreq.Memory > squota.Memory {
-		err.Add("memory", squota.Memory, self.Memory, sreq.Memory)
+	if quotas.Exceed(used.Memory, sreq.Memory, squota.Memory) {
+		err.Add("memory", squota.Memory, used.Memory, sreq.Memory)
 	}
-	if sreq.Storage > 0 && self.Storage+sreq.Storage > squota.Storage {
-		err.Add("storage", squota.Storage, self.Storage, sreq.Storage)
+	if quotas.Exceed(used.Storage, sreq.Storage, squota.Storage) {
+		err.Add("storage", squota.Storage, used.Storage, sreq.Storage)
 	}
-	if sreq.Group > 0 && self.Group+sreq.Group > squota.Group {
-		err.Add("group", squota.Group, self.Group, sreq.Group)
+	if quotas.Exceed(used.Group, sreq.Group, squota.Group) {
+		err.Add("group", squota.Group, used.Group, sreq.Group)
 	}
-	if sreq.IsolatedDevice > 0 && self.IsolatedDevice+sreq.IsolatedDevice > squota.IsolatedDevice {
-		err.Add("isolated_device", squota.IsolatedDevice, self.IsolatedDevice, sreq.IsolatedDevice)
+	if quotas.Exceed(used.IsolatedDevice, sreq.IsolatedDevice, squota.IsolatedDevice) {
+		err.Add("isolated_device", squota.IsolatedDevice, used.IsolatedDevice, sreq.IsolatedDevice)
 	}
 	if err.IsError() {
 		return err
