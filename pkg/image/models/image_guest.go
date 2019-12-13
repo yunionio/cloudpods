@@ -39,7 +39,6 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGuestImageManager struct {
@@ -75,7 +74,8 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 	imageNum, _ := data.Int("image_number")
 
 	pendingUsage := SQuota{Image: int(imageNum)}
-	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	data.Set("disk_format", jsonutils.NewString("qcow2"))
+	keys := imageCreateInput2QuotaKeys(data, ownerId)
 	pendingUsage.SetKeys(keys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 
@@ -148,7 +148,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 
 	imageNumber, _ := data.Int("image_number")
 	pendingUsage := SQuota{Image: int(imageNumber)}
-	keys := quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	keys := imageCreateInput2QuotaKeys(data, ownerId)
 	pendingUsage.SetKeys(keys)
 	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 
