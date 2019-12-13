@@ -67,6 +67,27 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 
 var pageLimit = 1000
 
+// offset 表示的是页码
+func doListAllWithPagerOffset(doList listFunc, queries map[string]string, result interface{}) error {
+	startIndex := 0
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	queries["limit"] = fmt.Sprintf("%d", pageLimit)
+	queries["offset"] = fmt.Sprintf("%d", startIndex)
+	for {
+		total, part, err := doListPart(doList, queries, result)
+		if err != nil {
+			return err
+		}
+		if (total > 0 && resultValue.Len() >= total) || (total == 0 && pageLimit > part) {
+			break
+		}
+
+		startIndex++
+		queries["offset"] = fmt.Sprintf("%d", startIndex)
+	}
+	return nil
+}
+
 func doListAllWithOffset(doList listFunc, queries map[string]string, result interface{}) error {
 	startIndex := 0
 	resultValue := reflect.Indirect(reflect.ValueOf(result))
