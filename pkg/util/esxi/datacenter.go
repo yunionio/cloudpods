@@ -60,9 +60,12 @@ func (dc *SDatacenter) scanHosts() error {
 		if err != nil {
 			return errors.Wrap(err, "dc.manager.scanMObjects")
 		}
-		dc.ihosts = make([]cloudprovider.ICloudHost, len(hosts))
+		dc.ihosts = make([]cloudprovider.ICloudHost, 0)
 		for i := 0; i < len(hosts); i += 1 {
-			dc.ihosts[i] = NewHost(dc.manager, &hosts[i], dc)
+			h := NewHost(dc.manager, &hosts[i], dc)
+			if h != nil {
+				dc.ihosts = append(dc.ihosts, h)
+			}
 		}
 	}
 	return nil

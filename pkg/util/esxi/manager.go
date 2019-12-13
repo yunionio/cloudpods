@@ -201,16 +201,16 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 
 	v, err := m.CreateContainerView(cli.context, folder, []string{resType}, true)
 	if err != nil {
-		log.Fatalf("%s", err)
-		return err
+		log.Errorf("m.CreateContainerView for type %s props %s fail: %s", resType, props, err)
+		return errors.Wrapf(err, "m.CreateContainerView %s", resType)
 	}
 
 	defer v.Destroy(cli.context)
 
 	err = v.Retrieve(cli.context, []string{resType}, props, dst)
 	if err != nil {
-		log.Fatalf("%s", err)
-		return err
+		log.Errorf("v.Retrieve for type %s props %s fail: %s", resType, props, err)
+		return errors.Wrapf(err, "v.Retrieve %s", resType)
 	}
 
 	return nil
@@ -310,7 +310,11 @@ func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 		return nil, err
 	}
 
-	return NewHost(cli, &host, nil), nil
+	h := NewHost(cli, &host, nil)
+	if h == nil {
+		return nil, errors.Wrap(errors.ErrInvalidStatus, "empty host mo")
+	}
+	return h, nil
 }
 
 func (cli *SESXiClient) acquireCloneTicket() (string, error) {
