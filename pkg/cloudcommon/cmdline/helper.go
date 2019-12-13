@@ -337,6 +337,12 @@ func FetchScheduleInputByJSON(obj jsonutils.JSONObject) (*scheduler.ScheduleInpu
 	if err != nil {
 		return nil, err
 	}
+	if input.Domain == "" {
+		input.Domain = jsonutils.GetAnyString(obj, []string{"project_domain", "domain_id"})
+	}
+	if input.Project == "" {
+		input.Project = jsonutils.GetAnyString(obj, []string{"project", "project_id"})
+	}
 	return input, nil
 }
 
