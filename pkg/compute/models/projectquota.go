@@ -68,7 +68,7 @@ type SProjectQuota struct {
 
 	quotas.SBaseQuotaKeys
 
-	Secgroup int
+	Secgroup int `default:"-1"`
 }
 
 func (self *SProjectQuota) GetKeys() quotas.IQuotaKeys {
@@ -142,12 +142,12 @@ func (self *SProjectQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SProjectQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+func (used *SProjectQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SProjectQuota)
 	squota := quota.(*SProjectQuota)
-	if sreq.Secgroup > 0 && self.Secgroup+sreq.Secgroup > squota.Secgroup {
-		err.Add("secgroup", squota.Secgroup, self.Secgroup, sreq.Secgroup)
+	if quotas.Exceed(used.Secgroup, sreq.Secgroup, squota.Secgroup) {
+		err.Add("secgroup", squota.Secgroup, used.Secgroup, sreq.Secgroup)
 	}
 	if err.IsError() {
 		return err
