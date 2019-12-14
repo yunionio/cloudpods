@@ -132,6 +132,12 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 	return nil
 }
 
+func (self *SQuota) ResetNegative() {
+	if self.Image < 0 {
+		self.Image = 0
+	}
+}
+
 func (self *SQuota) IsEmpty() bool {
 	if self.Image > 0 {
 		return false

@@ -158,6 +158,12 @@ func (self *SZoneQuota) FetchUsage(ctx context.Context) error {
 	return nil
 }
 
+func (self *SZoneQuota) ResetNegative() {
+	if self.Loadbalancer < 0 {
+		self.Loadbalancer = 0
+	}
+}
+
 func (self *SZoneQuota) IsEmpty() bool {
 	if self.Loadbalancer > 0 {
 		return false

@@ -37,7 +37,7 @@ type SQuotaBaseManager struct {
 	pendingStore IQuotaStore
 	usageStore   IQuotaStore
 
-	autoCreate bool
+	nonNegative bool
 }
 
 func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
@@ -47,13 +47,14 @@ func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuot
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 		pendingStore:         pendingStore,
 		usageStore:           usageStore,
-		autoCreate:           true,
+		nonNegative:          false,
 	}
 }
 
 func NewQuotaUsageManager(model interface{}, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
+		nonNegative:          true,
 	}
 }
 
@@ -88,7 +89,9 @@ func (manager *SQuotaBaseManager) getQuotaByKeys(ctx context.Context, keys IQuot
 			return errors.Wrap(err, "q.First")
 		}
 	}
-	quota.SetKeys(keys)
+	if manager.nonNegative {
+		quota.ResetNegative()
+	}
 	return nil
 }
 
@@ -139,6 +142,9 @@ func (manager *SQuotaBaseManager) getQuotasInternal(ctx context.Context, keys IQ
 		err := q.Row2Struct(rows, r)
 		if err != nil {
 			return nil, errors.Wrap(err, "q.Row2Struct")
+		}
+		if manager.nonNegative {
+			r.ResetNegative()
 		}
 		results = append(results, r)
 	}

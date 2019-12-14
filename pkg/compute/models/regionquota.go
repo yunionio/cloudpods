@@ -196,6 +196,42 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	return nil
 }
 
+func (self *SRegionQuota) ResetNegative() {
+	if self.Port < 0 {
+		self.Port = 0
+	}
+	if self.Eip < 0 {
+		self.Eip = 0
+	}
+	if self.Eport < 0 {
+		self.Eport = 0
+	}
+	if self.Bw < 0 {
+		self.Bw = 0
+	}
+	if self.Ebw < 0 {
+		self.Ebw = 0
+	}
+	if self.Snapshot < 0 {
+		self.Snapshot = 0
+	}
+	if self.Bucket < 0 {
+		self.Bucket = 0
+	}
+	if self.ObjectGB < 0 {
+		self.ObjectGB = 0
+	}
+	if self.ObjectCnt < 0 {
+		self.ObjectCnt = 0
+	}
+	if self.Rds < 0 {
+		self.Rds = 0
+	}
+	if self.Cache < 0 {
+		self.Cache = 0
+	}
+}
+
 func (self *SRegionQuota) IsEmpty() bool {
 	if self.Port > 0 {
 		return false

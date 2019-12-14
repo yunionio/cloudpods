@@ -118,6 +118,12 @@ func (self *SProjectQuota) FetchUsage(ctx context.Context) error {
 	return nil
 }
 
+func (self *SProjectQuota) ResetNegative() {
+	if self.Secgroup < 0 {
+		self.Secgroup = 0
+	}
+}
+
 func (self *SProjectQuota) IsEmpty() bool {
 	if self.Secgroup > 0 {
 		return false

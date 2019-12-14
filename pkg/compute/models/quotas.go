@@ -191,6 +191,27 @@ func (self *SQuota) FetchUsage(ctx context.Context) error {
 	return nil
 }
 
+func (self *SQuota) ResetNegative() {
+	if self.Count < 0 {
+		self.Count = 0
+	}
+	if self.Cpu < 0 {
+		self.Cpu = 0
+	}
+	if self.Memory < 0 {
+		self.Memory = 0
+	}
+	if self.Storage < 0 {
+		self.Storage = 0
+	}
+	if self.Group < 0 {
+		self.Group = 0
+	}
+	if self.IsolatedDevice < 0 {
+		self.IsolatedDevice = 0
+	}
+}
+
 func (self *SQuota) IsEmpty() bool {
 	if self.Count > 0 {
 		return false
