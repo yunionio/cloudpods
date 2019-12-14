@@ -70,7 +70,7 @@ type SZoneQuota struct {
 
 	quotas.SZonalCloudResourceKeys
 
-	Loadbalancer int `default:"-1"`
+	Loadbalancer int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SZoneQuota) GetKeys() quotas.IQuotaKeys {

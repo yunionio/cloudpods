@@ -84,14 +84,20 @@ type ProjectQuotaOptions struct {
 	Secgroup int64 `help:"Secgroup count" json:"secgroup,omitzero"`
 }
 
+type ImageQuotaKeys struct {
+	Type string `help:"image type, either iso or image" choices:"iso|image" json:"type,omitempty"`
+}
+
 type ImageQuotaOptions struct {
+	ImageQuotaKeys
+
 	Image int64 `help:"Template count" json:"image,omitzero"`
 }
 
 type QuotaSetBaseOptions struct {
 	Project string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
 	Domain  string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
-	Action  string `help:"quota set action" choices:"add|sub|reset|replace"`
+	Action  string `help:"quota set action" choices:"add|sub|reset|replace|delete|update"`
 }
 
 func printQuotaList(result jsonutils.JSONObject) {
