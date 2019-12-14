@@ -70,20 +70,20 @@ type SRegionQuota struct {
 
 	quotas.SRegionalCloudResourceKeys
 
-	Eip   int `default:"-1"`
-	Port  int `default:"-1"`
-	Eport int `default:"-1"`
-	Bw    int `default:"-1"`
-	Ebw   int `default:"-1"`
+	Eip   int `default:"-1" allow_zero:"true"`
+	Port  int `default:"-1" allow_zero:"true"`
+	Eport int `default:"-1" allow_zero:"true"`
+	Bw    int `default:"-1" allow_zero:"true"`
+	Ebw   int `default:"-1" allow_zero:"true"`
 
-	Snapshot int `default:"-1"`
+	Snapshot int `default:"-1" allow_zero:"true"`
 
-	Bucket    int `default:"-1"`
-	ObjectGB  int `default:"-1"`
-	ObjectCnt int `default:"-1"`
+	Bucket    int `default:"-1" allow_zero:"true"`
+	ObjectGB  int `default:"-1" allow_zero:"true"`
+	ObjectCnt int `default:"-1" allow_zero:"true"`
 
-	Rds   int `default:"-1"`
-	Cache int `default:"-1"`
+	Rds   int `default:"-1" allow_zero:"true"`
+	Cache int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SRegionQuota) GetKeys() quotas.IQuotaKeys {

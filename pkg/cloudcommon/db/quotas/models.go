@@ -84,13 +84,11 @@ func (manager *SQuotaBaseManager) getQuotaByKeys(ctx context.Context, keys IQuot
 	}
 
 	err := q.First(quota)
-	if err != nil {
-		if errors.Cause(err) != sql.ErrNoRows {
-			return errors.Wrap(err, "q.First")
-		}
-	}
 	if manager.nonNegative {
 		quota.ResetNegative()
+	}
+	if err != nil {
+		return errors.Wrap(err, "q.Query")
 	}
 	return nil
 }

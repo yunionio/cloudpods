@@ -16,6 +16,7 @@ package quotas
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -150,7 +151,17 @@ func (manager *SQuotaBaseManager) GetPendingUsages(ctx context.Context, keys IQu
 }
 
 func (manager *SQuotaBaseManager) GetQuota(ctx context.Context, keys IQuotaKeys, quota IQuota) error {
-	return manager.getQuotaByKeys(ctx, keys, quota)
+	LockQuotaKeys(ctx, manager, keys)
+	defer ReleaseQuotaKeys(ctx, manager, keys)
+
+	err := manager.getQuotaByKeys(ctx, keys, quota)
+	if err != nil {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return errors.Wrap(err, "manager.getQuotaByKeys")
+		}
+		// else, ignore the sql.ErrNoRows error
+	}
+	return nil
 }
 
 func (manager *SQuotaBaseManager) GetChildrenQuotas(ctx context.Context, keys IQuotaKeys) ([]IQuota, error) {

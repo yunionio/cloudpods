@@ -72,7 +72,7 @@ type SQuota struct {
 
 	SImageQuotaKeys
 
-	Image int `default:"-1"`
+	Image int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
