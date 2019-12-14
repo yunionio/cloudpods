@@ -327,6 +327,10 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			sqlchemy.In(q.Field("id"), hostQ1.SubQuery()),
 			sqlchemy.In(q.Field("id"), hostQ2.SubQuery()),
 		))
+
+		zones := ZoneManager.Query().SubQuery()
+		q = q.Join(zones, sqlchemy.Equals(q.Field("zone_id"), zones.Field("id"))).
+			Filter(sqlchemy.Equals(zones.Field("status"), api.ZONE_ENABLE))
 	}
 
 	if query.Contains("is_empty") {
