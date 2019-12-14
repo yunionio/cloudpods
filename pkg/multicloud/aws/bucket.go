@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"net/http"
 )
 
 type SBucket struct {
@@ -443,6 +443,7 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 		cannedAcl = b.GetAcl()
 	}
 	input.SetACL(string(cannedAcl))
+	var metaDir string
 	if meta != nil {
 		metaHdr := make(map[string]*string)
 		for k, v := range meta {
@@ -467,7 +468,11 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 		if len(metaHdr) > 0 {
 			input.SetMetadata(metaHdr)
 		}
+		metaDir = "REPLACE"
+	} else {
+		metaDir = "COPY"
 	}
+	input.SetMetadataDirective(metaDir)
 	_, err = s3cli.CopyObject(input)
 	if err != nil {
 		return errors.Wrap(err, "CopyObject")

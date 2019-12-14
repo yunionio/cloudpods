@@ -19,38 +19,9 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
-
-type CloudaccountCredentialInput struct {
-	ProjectName string //OpenStack
-	DomainName  string //OpenStack
-	Username    string //OpenStack Esxi ZStack
-	Password    string //OpenStack Esxi ZStack
-	AuthUrl     string //OpenStack ZStack
-
-	AccessKeyId     string //Huawei Aliyun Ucloud Aws
-	AccessKeySecret string //Huawei Aliyun Ucloud Aws
-	Environment     string //Huawei Azure Aws
-
-	DirectoryId  string //Azure
-	ClientId     string //Azure
-	ClientSecret string //Azure
-
-	Host string //Esxi
-	Port int    //Esxi
-
-	Endpoint string
-
-	AppId     string //Qcloud
-	SecretId  string //Qcloud
-	SecretKey string //Qcloud
-
-	ClientEmail  string //Google
-	ProjectId    string //Google
-	PrivateKeyId string //Google
-	PrivateKey   string //Google
-}
 
 type CloudaccountCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
@@ -59,18 +30,14 @@ type CloudaccountCreateInput struct {
 	Brand               string
 	IsPublicCloud       bool
 	IsOnPremise         bool
-	Account             string
-	Secret              string
-	AccessUrl           string
 	TenantId            string
-	Description         string
-	Enabled             bool
 	EnableAutoSync      bool
 	SyncIntervalSeconds int
 	AutoCreateProject   bool
 	Options             *jsonutils.JSONObject
 
-	CloudaccountCredentialInput
+	cloudprovider.SCloudaccount
+	cloudprovider.SCloudaccountCredential
 }
 
 type CloudaccountShareModeInput struct {

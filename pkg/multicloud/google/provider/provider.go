@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -52,7 +53,8 @@ func (self *SGoogleProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
-func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	for key, value := range map[string]string{
 		"client_email":   input.ClientEmail,
 		"project_id":     input.ProjectId,
@@ -60,15 +62,16 @@ func (self *SGoogleProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		"private_key":    input.PrivateKey,
 	} {
 		if len(value) == 0 {
-			return httperrors.NewMissingParameterError(key)
+			return output, errors.Wrap(httperrors.ErrMissingParameter, key)
 		}
 	}
-	input.Account = fmt.Sprintf("%s/%s", input.ProjectId, input.ClientEmail)
-	input.Secret = fmt.Sprintf("%s/%s", input.PrivateKeyId, input.PrivateKey)
-	return nil
+	output.Account = fmt.Sprintf("%s/%s", input.ProjectId, input.ClientEmail)
+	output.Secret = fmt.Sprintf("%s/%s", input.PrivateKeyId, input.PrivateKey)
+	return output, nil
 }
 
-func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	projectID, clientEmail := "", ""
 	accountInfo := strings.Split(cloudaccount, "/")
 	if len(accountInfo) == 2 {
@@ -80,7 +83,7 @@ func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 		"private_key":    input.PrivateKey,
 	} {
 		if len(value) == 0 {
-			return nil, httperrors.NewMissingParameterError(key)
+			return output, errors.Wrap(httperrors.ErrMissingParameter, key)
 		}
 	}
 	if len(input.ClientEmail) == 0 {
@@ -91,11 +94,11 @@ func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 		input.ProjectId = projectID
 	}
 
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: fmt.Sprintf("%s/%s", input.ProjectId, input.ClientEmail),
 		Secret:  fmt.Sprintf("%s/%s", input.PrivateKeyId, input.PrivateKey),
 	}
-	return account, nil
+	return output, nil
 }
 
 func (self *SGoogleProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
