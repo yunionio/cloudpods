@@ -1053,19 +1053,12 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku.constructSku(extSku)
 
 	sku.Name = extSku.GetName()
+	sku.CloudregionId = api.DEFAULT_REGION_ID
 	sku.SetModelManager(manager, sku)
 	err := manager.TableSpec().Insert(sku)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudSku.Insert")
 	}
-	_, err = sku.GetModelManager().TableSpec().Update(sku, func() error {
-		sku.CloudregionId = ""
-		return nil
-	})
-	if err != nil {
-		return errors.Wrapf(err, "Update sku %s cloudregion info", sku.Name)
-	}
-
 	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
 
 	return nil
