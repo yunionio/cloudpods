@@ -64,8 +64,8 @@ type ComputeOptions struct {
 	DefaultIsolatedDeviceQuota int `default:"200" help:"Common isolated device quota per tenant, default 200"`
 	DefaultSnapshotQuota       int `default:"10" help:"Common snapshot quota per tenant, default 10"`
 	DefaultBucketQuota         int `default:"100" help:"Common bucket quota per tenant, default 100"`
-	DefaultObjectGBQuota       int `default:"100" help:"Common object size quota per tenant in GB, default 100GB"`
-	DefaultObjectCntQuota      int `default:"500" help:"Common object count quota per tenant, default 500"`
+	DefaultObjectGBQuota       int `default:"500" help:"Common object size quota per tenant in GB, default 500GB"`
+	DefaultObjectCntQuota      int `default:"5000" help:"Common object count quota per tenant, default 5000"`
 
 	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
 
