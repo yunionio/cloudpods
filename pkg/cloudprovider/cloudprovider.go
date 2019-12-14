@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -31,9 +30,40 @@ const (
 	ErrNoSuchProvder = errors.Error("no such provider")
 )
 
+type SCloudaccountCredential struct {
+	ProjectName string //OpenStack
+	DomainName  string //OpenStack
+	Username    string //OpenStack Esxi ZStack
+	Password    string //OpenStack Esxi ZStack
+	AuthUrl     string //OpenStack ZStack
+
+	AccessKeyId     string //Huawei Aliyun Ucloud Aws
+	AccessKeySecret string //Huawei Aliyun Ucloud Aws
+	Environment     string //Huawei Azure Aws
+
+	DirectoryId  string //Azure
+	ClientId     string //Azure
+	ClientSecret string //Azure
+
+	Host string //Esxi
+	Port int    //Esxi
+
+	Endpoint string
+
+	AppId     string //Qcloud
+	SecretId  string //Qcloud
+	SecretKey string //Qcloud
+
+	ClientEmail  string //Google
+	ProjectId    string //Google
+	PrivateKeyId string //Google
+	PrivateKey   string //Google
+}
+
 type SCloudaccount struct {
-	Account string
-	Secret  string
+	Account   string
+	Secret    string
+	AccessUrl string
 }
 
 type ICloudProviderFactory interface {
@@ -45,8 +75,8 @@ type ICloudProviderFactory interface {
 	GetName() string
 
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
-	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error
-	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
+	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input SCloudaccountCredential) (SCloudaccount, error)
+	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input SCloudaccountCredential, cloudaccount string) (SCloudaccount, error)
 	GetSupportedBrands() []string
 
 	IsPublicCloud() bool
@@ -201,14 +231,6 @@ func (factory *baseProviderFactory) ValidateChangeBandwidth(instanceId string, b
 
 func (factory *baseProviderFactory) GetSupportedBrands() []string {
 	return []string{}
-}
-
-func (factory *baseProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
-	return httperrors.NewNotImplementedError("Not Implemented ValidateCreateCloudaccountData")
-}
-
-func (factory *baseProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implemented ValidateUpdateCloudaccountCredential")
 }
 
 func (factory *baseProviderFactory) GetProvider(providerId, providerName, url, username, password string) (ICloudProvider, error) {

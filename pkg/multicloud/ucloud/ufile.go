@@ -186,6 +186,10 @@ func (self *SFile) GetMeta() http.Header {
 	return nil
 }
 
+func (self *SFile) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
 	res, err := httputils.GetDefaultClient().Do(req)
 	if err != nil {

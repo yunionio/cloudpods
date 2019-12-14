@@ -15,12 +15,14 @@
 package huawei
 
 import (
+	"context"
+	"net/http"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
-	"net/http"
 )
 
 type SObject struct {
@@ -90,4 +92,8 @@ func (o *SObject) GetMeta() http.Header {
 	}
 	o.Meta = meta
 	return meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

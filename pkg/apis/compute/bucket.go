@@ -14,6 +14,13 @@
 
 package compute
 
+import (
+	"net/http"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
+
 const (
 	BUCKET_OPS_STATS_CHANGE = "stats_change"
 
@@ -30,3 +37,39 @@ const (
 	BUCKET_UPLOAD_OBJECT_ACL_HEADER          = "X-Yunion-Bucket-Upload-Acl"
 	BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER = "X-Yunion-Bucket-Upload-Storageclass"
 )
+
+type BucketObjectsActionInput struct {
+	Key []string
+}
+
+type BucketAclInput struct {
+	BucketObjectsActionInput
+
+	Acl cloudprovider.TBucketACLType
+}
+
+func (input *BucketAclInput) Validate() error {
+	switch input.Acl {
+	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
+		// do nothing
+	default:
+		return httperrors.NewInputParameterError("acl")
+	}
+	return nil
+}
+
+type BucketMetadataInput struct {
+	BucketObjectsActionInput
+
+	Metadata http.Header
+}
+
+func (input *BucketMetadataInput) Validate() error {
+	if len(input.Key) == 0 {
+		return httperrors.NewInputParameterError("key")
+	}
+	if len(input.Metadata) == 0 {
+		return httperrors.NewInputParameterError("metadata")
+	}
+	return nil
+}
