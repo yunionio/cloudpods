@@ -941,6 +941,10 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, err
 	}
 
+	if len(input.Metadata) > 20 {
+		return nil, httperrors.NewInputParameterError("metdata must less then 20")
+	}
+
 	if len(input.InstanceSnapshotId) > 0 {
 		input, err = parseInstanceSnapshot(input)
 		if err != nil {
@@ -1515,6 +1519,11 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		gs := SGuestsecgroup{SecgroupId: secgroup}
 		gs.GuestId = guest.Id
 		GuestsecgroupManager.TableSpec().Insert(&gs)
+	}
+	if data.Contains("metadata") {
+		metadata := map[string]interface{}{}
+		data.Unmarshal(&metadata, "metadata")
+		guest.SetAllMetadata(ctx, metadata, userCred)
 	}
 }
 
