@@ -16,6 +16,7 @@ package ctyun
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -31,7 +32,7 @@ type SSnapshot struct {
 	VolumeID         string `json:"volume_id"`
 	FailReason       string `json:"fail_reason"`
 	ID               string `json:"id"`
-	Size             int64  `json:"size"`
+	Size             int32  `json:"size"`
 	Container        string `json:"container"`
 	Name             string `json:"name"`
 	CreatedAt        string `json:"created_at"`
@@ -92,7 +93,7 @@ func (self *SSnapshot) GetProjectId() string {
 }
 
 func (self *SSnapshot) GetSizeMb() int32 {
-	return 0
+	return self.Size * 1024
 }
 
 func (self *SSnapshot) GetDiskId() string {
@@ -100,7 +101,13 @@ func (self *SSnapshot) GetDiskId() string {
 }
 
 func (self *SSnapshot) GetDiskType() string {
-	return api.DISK_TYPE_SYS
+	disk, err := self.region.GetDisk(self.VolumeID)
+	if err != nil {
+		log.Debugf("SSnapshot.GetDiskType.GetDisk %s", err)
+		return ""
+	}
+
+	return disk.GetDiskType()
 }
 
 func (self *SSnapshot) Delete() error {

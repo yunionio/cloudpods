@@ -89,12 +89,15 @@ func (client *SCtyunClient) fetchRegions() error {
 		return err
 	}
 
-	regionIds := []string{}
 	regions := map[string]SRegion{}
 	for i := range zones {
 		zone := zones[i]
+
+		if len(client.projectId) > 0 && !strings.Contains(client.projectId, zone.RegionID) {
+			continue
+		}
+
 		if region, ok := regions[zone.RegionID]; !ok {
-			regionIds = append(regionIds, zone.RegionID)
 			region = SRegion{
 				client:         client,
 				Description:    zone.ZoneName,
@@ -104,11 +107,11 @@ func (client *SCtyunClient) fetchRegions() error {
 			}
 
 			zone.region = &region
-			zone.host = &SHost{projectId: client.projectId, zone: &zone}
+			zone.host = &SHost{zone: &zone}
 			regions[zone.RegionID] = region
 		} else {
 			zone.region = &region
-			zone.host = &SHost{projectId: client.projectId, zone: &zone}
+			zone.host = &SHost{zone: &zone}
 			region.izones = append(region.izones, &zone)
 		}
 	}
@@ -201,6 +204,10 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		_, jsonResp, err := httputils.ParseJSONResponse(resp, err, client.debug)
 		if err == nil {
 			if code, _ := jsonResp.Int("statusCode"); code != 800 {
+				if strings.Contains(jsonResp.String(), "itemNotFound") {
+					return nil, cloudprovider.ErrNotFound
+				}
+
 				return nil, &httputils.JSONClientError{Code: 400, Details: jsonResp.String()}
 			}
 
@@ -287,4 +294,12 @@ func (self *SCtyunClient) GetRegion(regionId string) *SRegion {
 		}
 	}
 	return nil
+}
+
+func (self *SCtyunClient) GetCloudRegionExternalIdPrefix() string {
+	if len(self.projectId) > 0 {
+		return self.iregions[0].GetGlobalId()
+	} else {
+		return CLOUD_PROVIDER_CTYUN
+	}
 }

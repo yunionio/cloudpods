@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -54,6 +55,7 @@ type SInstance struct {
 	SecurityGroups                   []SecurityGroup      `json:"security_groups"`
 	OSEXTAZAvailabilityZone          string               `json:"OS-EXT-AZ:availability_zone"`
 	OSExtendedVolumesVolumesAttached []Volume             `json:"os-extended-volumes:volumes_attached"`
+	MasterOrderId                    string               `json:"masterOrderId"`
 }
 
 type InstanceDetails struct {
@@ -113,6 +115,10 @@ func (self *SInstance) GetCreatedAt() time.Time {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
+	if self.DueDate == 0 {
+		return time.Time{}
+	}
+
 	return time.Unix(self.DueDate/1000, 0)
 }
 
@@ -184,17 +190,32 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 
 // GET http://ctyun-api-url/apiproxy/v3/queryDataDiskByVMId
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	err := self.Refresh()
+	details, err := self.GetDetails()
 	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetIDisks.Refresh")
+		return nil, errors.Wrap(err, "SInstance.GetIDisks.GetDetails")
 	}
 
-	disks, err := self.host.zone.region.GetVMDisks(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SInstance.GetIDisks.GetVMDisks")
+	disks := []SDisk{}
+	for i := range details.Volumes {
+		volume := details.Volumes[i]
+		disk, err := self.host.zone.region.GetDisk(volume.ID)
+		if err != nil {
+			return nil, errors.Wrap(err, "SInstance.GetIDisks.GetDisk")
+		}
+
+		disks = append(disks, *disk)
 	}
 
-	idisks := make([]cloudprovider.ICloudDisk, 0)
+	for i := 0; i < len(disks); i += 1 {
+		// 将系统盘放到第0个位置
+		if disks[i].Bootable == "true" {
+			_temp := disks[0]
+			disks[0] = disks[i]
+			disks[i] = _temp
+		}
+	}
+
+	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := range disks {
 		disk := disks[i]
 		idisks[i] = &disk
@@ -246,10 +267,20 @@ func (self *SInstance) GetDetails() (*InstanceDetails, error) {
 }
 
 func (self *SInstance) GetVcpuCount() int {
+	details, err := self.GetDetails()
+	if err == nil {
+		return details.FlavorObj.CPUNum
+	}
+
 	return self.Flavor.CPUNum
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
+	details, err := self.GetDetails()
+	if err == nil {
+		return details.FlavorObj.MemSize * 1024
+	}
+
 	return self.Flavor.MemSize * 1024
 }
 
@@ -312,6 +343,57 @@ func (self *SInstance) GetInstanceType() string {
 }
 
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	if len(self.SecurityGroups) == 0 {
+		return nil, nil
+	}
+
+	if len(self.MasterOrderId) == 0 {
+		return self.getSecurityGroupIdsByMasterOrderId(self.MasterOrderId)
+	}
+
+	secgroups, err := self.host.zone.region.GetSecurityGroups("")
+	if err != nil {
+		return nil, errors.Wrap(err, "SInstance.GetSecurityGroupIds.GetSecurityGroups")
+	}
+
+	names := []string{}
+	for i := range self.SecurityGroups {
+		names = append(names, self.SecurityGroups[i].Name)
+	}
+
+	ids := []string{}
+	for i := range secgroups {
+		// todo: bugfix 如果安全组重名比较尴尬
+		if utils.IsInStringArray(secgroups[i].Name, names) {
+			ids = append(ids, secgroups[i].ID)
+		}
+	}
+
+	return ids, nil
+}
+
+func (self *SInstance) getSecurityGroupIdsByMasterOrderId(orderId string) ([]string, error) {
+	orders, err := self.host.zone.region.GetOrder(self.MasterOrderId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SInstance.GetSecurityGroupIds.GetOrder")
+	}
+
+	if len(orders) == 0 {
+		return nil, nil
+	}
+
+	for i := range orders {
+		secgroups := orders[i].ResourceConfigMap.SecurityGroups
+		if len(secgroups) > 0 {
+			ids := []string{}
+			for j := range secgroups {
+				ids = append(ids, secgroups[j].ID)
+			}
+
+			return ids, nil
+		}
+	}
+
 	return nil, nil
 }
 
@@ -390,35 +472,6 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 
 func (self *SInstance) GetError() error {
 	return nil
-}
-
-func (self *SRegion) GetVMDisks(vmId string) ([]SDisk, error) {
-	params := map[string]string{
-		"VMId": vmId,
-	}
-
-	resp, err := self.client.DoGet("/apiproxy/v3/queryDataDiskByVMId", params)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVMDisks.DoGet")
-	}
-
-	ret := make([]SDisk, 0)
-	err = resp.Unmarshal(&ret, "returnObj")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetVMDisks.Unmarshal")
-	}
-
-	disks := []SDisk{}
-	for i := 0; i < len(ret); i += 1 {
-		// 将系统盘放到第0个位置
-		if ret[i].IsSysVolume == 1 {
-			_temp := ret[0]
-			disks[0] = ret[i]
-			disks[i] = _temp
-		}
-	}
-
-	return ret, nil
 }
 
 type SDiskDetails struct {
