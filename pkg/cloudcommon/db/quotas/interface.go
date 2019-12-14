@@ -41,6 +41,7 @@ type IQuota interface {
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
+	ResetNegative()
 	Exceed(request IQuota, quota IQuota) error
 	// IsEmpty() bool
 	ToJSON(prefix string) jsonutils.JSONObject
