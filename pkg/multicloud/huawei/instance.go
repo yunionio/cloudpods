@@ -690,7 +690,7 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 	}
 
 	instances := make([]SInstance, 0)
-	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances)
+	err := doListAllWithPagerOffset(self.ecsClient.Servers.List, queries, &instances)
 	return instances, err
 }
 
