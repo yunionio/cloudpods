@@ -15,12 +15,19 @@
 package objectstore
 
 import (
+	"context"
+	"net/http"
 	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+const (
+	META_HEADER = "X-Amz-Meta-"
 )
 
 type SObject struct {
@@ -52,4 +59,25 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		}
 	}
 	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	if o.Meta != nil {
+		return o.Meta
+	}
+	cli := o.bucket.client.S3Client()
+	objInfo, err := cli.StatObject(o.bucket.Name, o.Key, s3cli.StatObjectOptions{})
+	if err != nil {
+		log.Errorf("cli.statObject fail %s", err)
+		return nil
+	}
+	if len(objInfo.ContentType) > 0 {
+		objInfo.Metadata.Set(cloudprovider.META_HEADER_CONTENT_TYPE, objInfo.ContentType)
+	}
+	o.Meta = cloudprovider.FetchMetaFromHttpHeader(META_HEADER, objInfo.Metadata)
+	return o.Meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

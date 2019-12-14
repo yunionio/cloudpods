@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -61,37 +62,39 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.DirectoryId) == 0 {
-		return httperrors.NewMissingParameterError("directory_id")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "directory_id")
 	}
 	if len(input.ClientId) == 0 {
-		return httperrors.NewMissingParameterError("client_id")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_id")
 	}
 	if len(input.ClientSecret) == 0 {
-		return httperrors.NewMissingParameterError("client_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_secret")
 	}
 	if len(input.Environment) == 0 {
-		return httperrors.NewMissingParameterError("environment")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "environment")
 	}
-	input.Account = input.DirectoryId
-	input.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
-	input.AccessUrl = input.Environment
-	return nil
+	output.Account = input.DirectoryId
+	output.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
+	output.AccessUrl = input.Environment
+	return output, nil
 }
 
-func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.ClientId) == 0 {
-		return nil, httperrors.NewMissingParameterError("client_id")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_id")
 	}
 	if len(input.ClientSecret) == 0 {
-		return nil, httperrors.NewMissingParameterError("client_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "client_secret")
 	}
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: cloudaccount,
 		Secret:  fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret),
 	}
-	return account, nil
+	return output, nil
 }
 
 func parseAccount(account, secret string) (tenantId string, appId string, appKey string, subId string) {

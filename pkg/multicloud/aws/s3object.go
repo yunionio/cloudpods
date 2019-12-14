@@ -15,13 +15,15 @@
 package aws
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"net/http"
 )
 
 type SObject struct {
@@ -69,7 +71,6 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 }
 
 func (o *SObject) GetMeta() http.Header {
-	log.Infof("GetMeta for %s/%s", o.bucket.Name, o.Key)
 	if o.Meta != nil {
 		return o.Meta
 	}
@@ -107,5 +108,9 @@ func (o *SObject) GetMeta() http.Header {
 	if output.ContentLanguage != nil && len(*output.ContentLanguage) > 0 {
 		ret.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, *output.ContentLanguage)
 	}
-	return nil
+	return ret
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

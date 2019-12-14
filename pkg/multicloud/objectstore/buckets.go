@@ -24,11 +24,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"yunion.io/x/pkg/utils"
 )
 
 type SBucket struct {
@@ -142,9 +142,6 @@ func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter strin
 	ret.Objects = make([]cloudprovider.ICloudObject, len(result.Contents))
 	for i := range result.Contents {
 		object := result.Contents[i]
-		if len(object.ContentType) > 0 {
-			object.Metadata.Set(cloudprovider.META_HEADER_CONTENT_TYPE, object.ContentType)
-		}
 		ret.Objects[i] = &SObject{
 			bucket: bucket,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -153,7 +150,6 @@ func (bucket *SBucket) ListObjects(prefix string, marker string, delimiter strin
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				Meta:         object.Metadata,
 			},
 		}
 	}

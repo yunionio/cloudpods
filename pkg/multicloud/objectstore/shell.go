@@ -18,10 +18,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"time"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"yunion.io/x/pkg/errors"
 
@@ -42,12 +42,16 @@ type ObjectHeaderOptions struct {
 	Meta []string `help:"header, common seperatored key and value, e.g. max-age:100"`
 }
 
-func objectHeaderOptions2Meta(args ObjectHeaderOptions) http.Header {
+func (args ObjectHeaderOptions) Options2Header() http.Header {
 	meta := http.Header{}
 	for _, kv := range args.Meta {
 		parts := strings.Split(kv, ":")
-		if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
-			meta.Add(parts[0], parts[1])
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if len(key) > 0 && len(value) > 0 {
+				meta.Add(key, value)
+			}
 		}
 	}
 	if len(args.CacheControl) > 0 {
@@ -267,7 +271,7 @@ func S3Shell() {
 		} else {
 			input = os.Stdout
 		}
-		meta := objectHeaderOptions2Meta(args.ObjectHeaderOptions)
+		meta := args.ObjectHeaderOptions.Options2Header()
 		err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, input, fSize, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, meta, true)
 		if err != nil {
 			return err
@@ -426,7 +430,7 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		meta := objectHeaderOptions2Meta(args.ObjectHeaderOptions)
+		meta := args.ObjectHeaderOptions.Options2Header()
 		if args.Native {
 			err = dstBucket.CopyObject(ctx, args.DSTKEY, args.SRC, args.SRCKEY, srcObj.GetAcl(), srcObj.GetStorageClass(), meta)
 			if err != nil {
@@ -477,8 +481,8 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		meta := objectHeaderOptions2Meta(args.ObjectHeaderOptions)
-		err = cloudprovider.ObjectSetMeta(context.Background(), bucket, obj, meta)
+		meta := args.ObjectHeaderOptions.Options2Header()
+		err = obj.SetMeta(context.Background(), meta)
 		if err != nil {
 			return err
 		}
