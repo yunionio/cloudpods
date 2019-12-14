@@ -42,63 +42,62 @@ const (
 	QUOTA_ACTION_SUB     = "sub"
 	QUOTA_ACTION_RESET   = "reset"
 	QUOTA_ACTION_REPLACE = "replace"
+	QUOTA_ACTION_UPDATE  = "update"
+	QUOTA_ACTION_DELETE  = "delete"
 )
 
 func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHanlder), nil, "get_quota", nil)
+		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota", nil)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHanlder), nil, "get_quota_for_project", nil)
+		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/domains", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.listDomainQuotaHanlder), nil, "list_quotas_for_all_domains", nil)
+		auth.Authenticate(manager.listDomainQuotaHandler), nil, "list_quotas_for_all_domains", nil)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHanlder), nil, "get_quota_for_domain", nil)
+		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_domain", nil)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/projects", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.listProjectQuotaHanlder), nil, "list_quotas_for_all_projects", nil)
+		auth.Authenticate(manager.listProjectQuotaHandler), nil, "list_quotas_for_all_projects", nil)
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHanlder), nil, "get_quota_for_project", nil)
+		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHanlder), nil, "set_quota", nil)
+		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota", nil)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHanlder), nil, "set_quota_for_project", nil)
+		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHanlder), nil, "set_quota_for_domain", nil)
+		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_domain", nil)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHanlder), nil, "set_quota_for_project", nil)
+		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
 
 	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage", nil)
+		fmt.Sprintf("%s/%s/pending", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage", nil)
 
 	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage_for_domain", nil)
+		fmt.Sprintf("%s/%s/domains/<domainid>/pending", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_domain", nil)
 
 	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHanlder), nil, "clean_pending_usage_for_project", nil)
-	/*app.AddHandler2("POST",
-	fmt.Sprintf("%s/%s/<tenantid>/<action>", prefix, _manager.Keyword()),
-	auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)*/
+		fmt.Sprintf("%s/%s/projects/<tenantid>/pending", prefix, manager.KeywordPlural()),
+		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_project", nil)
 }
 
 func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, refresh bool) (*jsonutils.JSONDict, error) {
@@ -139,7 +138,7 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, 
 	return ret, nil
 }
 
-func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
@@ -196,14 +195,23 @@ func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.Re
 	manager.sendQuotaList(w, quotaList)
 }
 
-func (manager *SQuotaBaseManager) fetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, isBaseQuotaKeys bool) (mcclient.IIdentityProvider, rbacutils.TRbacScope, rbacutils.TRbacScope, error) {
+func (manager *SQuotaBaseManager) fetchSetQuotaScope(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	data jsonutils.JSONObject,
+	isBaseQuotaKeys bool,
+) (
+	mcclient.IIdentityProvider,
+	rbacutils.TRbacScope,
+	rbacutils.TRbacScope,
+	error,
+) {
 	var scope rbacutils.TRbacScope
 	ownerId, err := db.FetchProjectInfo(ctx, data)
 	if err != nil {
 		return nil, scope, scope, err
 	}
 	var requestScope rbacutils.TRbacScope
-	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionUpdate)
 	if ownerId != nil {
 		if len(ownerId.GetProjectId()) > 0 {
 			// project level
@@ -235,13 +243,11 @@ func (manager *SQuotaBaseManager) fetchSetQuotaScope(ctx context.Context, userCr
 			requestScope = rbacutils.ScopeProject
 		}
 	}
-	if requestScope.HigherThan(ownerScope) {
-		return nil, scope, scope, httperrors.NewForbiddenError("not enough privilleges")
-	}
-	return ownerId, scope, ownerScope, nil
+
+	return ownerId, scope, requestScope, nil
 }
 
-func (manager *SQuotaBaseManager) cleanPendingUsageHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (manager *SQuotaBaseManager) cleanPendingUsageHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
@@ -284,7 +290,7 @@ func (manager *SQuotaBaseManager) cleanPendingUsageHanlder(ctx context.Context, 
 	appsrv.SendJSON(w, rbody)
 }
 
-func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
@@ -305,45 +311,96 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		return
 	}
 
-	ownerId, scope, _, err := manager.fetchSetQuotaScope(ctx, userCred, data, IsBaseQuotaKeys(quota.GetKeys()))
+	// check is there any nonempty key other than domain_id and project_id
+	isBaseQuota := IsBaseQuotaKeys(quota.GetKeys())
+	ownerId, scope, requestScope, err := manager.fetchSetQuotaScope(ctx, userCred, data, isBaseQuota)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 
+	// fill project_id and domain_id
 	baseKeys := OwnerIdQuotaKeys(scope, ownerId)
 	reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys))
 
+	keys := quota.GetKeys()
+	isNew := false
 	oquota := manager.newQuota()
-	err = manager.GetQuota(ctx, quota.GetKeys(), oquota)
+	oquota.SetKeys(keys)
+	err = manager.getQuotaByKeys(ctx, keys, oquota)
 	if err != nil {
-		log.Errorf("get quota fail %s", err)
-		httperrors.GeneralServerError(w, err)
-		return
+		if errors.Cause(err) != sql.ErrNoRows {
+			log.Errorf("get quota %s fail %s", QuotaKeyString(keys), err)
+			httperrors.GeneralServerError(w, err)
+			return
+		} else {
+			isNew = true
+		}
 	}
+
 	action, _ := body.GetString(manager.KeywordPlural(), "action")
-	switch action {
-	case QUOTA_ACTION_ADD:
-		oquota.Add(quota)
-	case QUOTA_ACTION_SUB:
-		oquota.Sub(quota)
-	case QUOTA_ACTION_RESET:
-		oquota.FetchSystemQuota()
-	case QUOTA_ACTION_REPLACE:
-		oquota = quota
-	default:
-		oquota.Update(quota)
+	var policyAction string
+	if action == QUOTA_ACTION_DELETE {
+		if isNew {
+			// no need to delete
+			httperrors.NotFoundError(w, "Quota %s not found", QuotaKeyString(keys))
+			return
+		} else if isBaseQuota {
+			// base quota is not deletable
+			httperrors.ForbiddenError(w, "Default quota %s not allow to delete", QuotaKeyString(keys))
+			return
+		}
+		policyAction = policy.PolicyActionDelete
+	} else {
+		if isNew {
+			policyAction = policy.PolicyActionCreate
+		} else {
+			policyAction = policy.PolicyActionUpdate
+		}
 	}
 
-	err = manager.SetQuota(ctx, userCred, oquota)
-	if err != nil {
-		log.Errorf("set quota fail %s", err)
-		httperrors.GeneralServerError(w, err)
+	log.Debugf("is_new: %v action: %s origin: %s current: %s", isNew, action, jsonutils.Marshal(oquota), jsonutils.Marshal(quota))
+
+	// check rbac policy
+	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policyAction)
+	if requestScope.HigherThan(ownerScope) {
+		httperrors.ForbiddenError(w, "not enough privilleges")
 		return
 	}
 
-	keys := OwnerIdQuotaKeys(scope, ownerId)
-	quotaList, err := manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacutils.ScopeDomain, true)
+	if action == QUOTA_ACTION_DELETE {
+		err = manager.DeleteQuota(ctx, userCred, keys)
+		if err != nil {
+			httperrors.GeneralServerError(w, err)
+			return
+		}
+	} else {
+		switch action {
+		case QUOTA_ACTION_ADD:
+			oquota.Add(quota)
+		case QUOTA_ACTION_SUB:
+			oquota.Sub(quota)
+		case QUOTA_ACTION_RESET:
+			oquota.FetchSystemQuota()
+		case QUOTA_ACTION_REPLACE:
+			oquota = quota
+		case QUOTA_ACTION_UPDATE:
+			fallthrough
+		default:
+			oquota.Update(quota)
+		}
+
+		log.Debugf("To set %s", jsonutils.Marshal(oquota))
+
+		err = manager.SetQuota(ctx, userCred, oquota)
+		if err != nil {
+			log.Errorf("set quota fail %s", err)
+			httperrors.GeneralServerError(w, err)
+			return
+		}
+	}
+
+	quotaList, err := manager.listQuotas(ctx, userCred, baseKeys.DomainId, baseKeys.ProjectId, scope == rbacutils.ScopeDomain, true)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -351,7 +408,7 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 	manager.sendQuotaList(w, quotaList)
 }
 
-func (manager *SQuotaBaseManager) listDomainQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (manager *SQuotaBaseManager) listDomainQuotaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
@@ -383,7 +440,7 @@ func (manager *SQuotaBaseManager) sendQuotaList(w http.ResponseWriter, quotaList
 	appsrv.SendJSON(w, rbody)
 }
 
-func (manager *SQuotaBaseManager) listProjectQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func (manager *SQuotaBaseManager) listProjectQuotaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	owner, err := db.FetchDomainInfo(ctx, query)
