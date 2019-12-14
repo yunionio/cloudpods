@@ -18,17 +18,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
-	"net/http"
-	"yunion.io/x/pkg/utils"
 )
 
 type SBucket struct {
@@ -262,7 +262,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 		}
 		extraMeta := make(map[string]string)
 		for k, v := range meta {
-			if utils.IsInStringArray(k, []string {
+			if utils.IsInStringArray(k, []string{
 				cloudprovider.META_HEADER_CONTENT_TYPE,
 				cloudprovider.META_HEADER_CONTENT_MD5,
 			}) {
@@ -297,7 +297,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 		}
 		extraMeta := make(map[string]string)
 		for k, v := range meta {
-			if utils.IsInStringArray(k, []string {
+			if utils.IsInStringArray(k, []string{
 				cloudprovider.META_HEADER_CONTENT_TYPE,
 			}) {
 				continue
@@ -472,6 +472,8 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 		return errors.Wrap(err, "GetOBSClient")
 	}
 	input := &obs.CopyObjectInput{}
+	input.Bucket = b.Name
+	input.Key = destKey
 	input.CopySourceBucket = srcBucket
 	input.CopySourceKey = srcKey
 	if len(storageClassStr) > 0 {
@@ -491,7 +493,7 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 		}
 		extraMeta := make(map[string]string)
 		for k, v := range meta {
-			if utils.IsInStringArray(k, []string {
+			if utils.IsInStringArray(k, []string{
 				cloudprovider.META_HEADER_CONTENT_TYPE,
 			}) {
 				continue
@@ -501,6 +503,9 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 			}
 		}
 		input.Metadata = extraMeta
+		input.MetadataDirective = obs.ReplaceMetadata
+	} else {
+		input.MetadataDirective = obs.CopyMetadata
 	}
 	_, err = obscli.CopyObject(input)
 	if err != nil {

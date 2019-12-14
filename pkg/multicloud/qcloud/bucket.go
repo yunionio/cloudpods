@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -29,7 +30,10 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"net/http"
+)
+
+const (
+	COS_META_HEADER = "X-Cos-Meta-"
 )
 
 type SBucket struct {
@@ -250,7 +254,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
 				opts.ContentDisposition = v[0]
 			default:
-				extraHdr.Add(k, v[0])
+				extraHdr.Add(fmt.Sprintf("%s%s", COS_META_HEADER, k), v[0])
 			}
 		}
 		if len(extraHdr) > 0 {
@@ -298,7 +302,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
 				opts.ContentDisposition = v[0]
 			default:
-				extraHdr.Add(k, v[0])
+				extraHdr.Add(fmt.Sprintf("%s%s", COS_META_HEADER, k), v[0])
 			}
 		}
 		if len(extraHdr) > 0 {
@@ -419,6 +423,7 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName,
 		opts.XCosStorageClass = storageClassStr
 	}
 	if meta != nil {
+		opts.XCosMetadataDirective = "Replaced"
 		extraHdr := http.Header{}
 		for k, v := range meta {
 			if len(v) == 0 || len(v[0]) == 0 {
@@ -434,19 +439,20 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucketName,
 			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
 				opts.ContentDisposition = v[0]
 			default:
-				extraHdr.Add(k, v[0])
+				extraHdr.Add(fmt.Sprintf("%s%s", COS_META_HEADER, k), v[0])
 			}
 		}
 		if len(extraHdr) > 0 {
 			opts.XCosMetaXXX = &extraHdr
 		}
+	} else {
+		opts.XCosMetadataDirective = "Copy"
 	}
 	srcBucket := SBucket{
 		region: b.region,
 		Name:   srcBucketName,
 	}
 	srcUrl := fmt.Sprintf("%s/%s", srcBucket.getBucketUrlHost(), srcKey)
-	log.Debugf("source url: %s", srcUrl)
 	_, _, err = coscli.Object.Copy(ctx, destKey, srcUrl, opts)
 	if err != nil {
 		return errors.Wrap(err, "coscli.Object.Copy")

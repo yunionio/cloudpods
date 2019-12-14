@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -51,36 +52,38 @@ func (self *SHuaweiProviderFactory) GetMaxCloudEventKeepDays() int {
 	return 7
 }
 
-func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return httperrors.NewMissingParameterError("access_key_id")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return httperrors.NewMissingParameterError("access_key_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
 	if len(input.Environment) == 0 {
-		return httperrors.NewMissingParameterError("environment")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "environment")
 	}
 
-	input.Account = input.AccessKeyId
-	input.Secret = input.AccessKeySecret
-	input.AccessUrl = input.Environment
+	output.Account = input.AccessKeyId
+	output.Secret = input.AccessKeySecret
+	output.AccessUrl = input.Environment
 
-	return nil
+	return output, nil
 }
 
-func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
-		return nil, httperrors.NewMissingParameterError("access_key_id")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id")
 	}
 	if len(input.AccessKeySecret) == 0 {
-		return nil, httperrors.NewMissingParameterError("access_key_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_secret")
 	}
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: input.AccessKeyId,
 		Secret:  input.AccessKeySecret,
 	}
-	return account, nil
+	return output, nil
 }
 
 func parseAccount(account string) (accessKey string, projectId string) {

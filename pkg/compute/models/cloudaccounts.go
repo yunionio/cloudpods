@@ -283,7 +283,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return input, httperrors.NewInputParameterError("Unsupported provider %s", input.Provider)
 	}
 	providerDriver, _ := cloudprovider.GetProviderFactory(input.Provider)
-	err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, &input)
+	input.SCloudaccount, err = providerDriver.ValidateCreateCloudaccountData(ctx, userCred, input.SCloudaccountCredential)
 	if err != nil {
 		return input, err
 	}
@@ -440,7 +440,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, httperrors.NewBadRequestError("failed to found provider factory error: %v", err)
 	}
 
-	input := &api.CloudaccountCredentialInput{}
+	input := cloudprovider.SCloudaccountCredential{}
 	err = data.Unmarshal(input)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)

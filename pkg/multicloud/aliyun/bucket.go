@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
@@ -27,7 +28,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"net/http"
 )
 
 type SBucket struct {

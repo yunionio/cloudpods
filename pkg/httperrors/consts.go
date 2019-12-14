@@ -50,8 +50,9 @@ const (
 	ErrUnsupportedOperation = errors.Error("UnsupportOperationError")
 	ErrNotSupported         = errors.ErrNotSupported
 
-	ErrNotEmpty   = errors.Error("NotEmptyError")
-	ErrBadRequest = errors.Error("BadRequestError")
+	ErrNotEmpty     = errors.Error("NotEmptyError")
+	ErrBadRequest   = errors.Error("BadRequestError")
+	ErrEmptyRequest = errors.Error("EmptyRequestError")
 
 	ErrUnauthorized      = errors.Error("UnauthorizedError")
 	ErrInvalidCredential = errors.Error("InvalidCredentialError")
@@ -120,8 +121,9 @@ var (
 		ErrUnsupportedOperation: 406,
 		ErrNotSupported:         406,
 
-		ErrNotEmpty:   406,
-		ErrBadRequest: 400,
+		ErrNotEmpty:     406,
+		ErrBadRequest:   400,
+		ErrEmptyRequest: 400,
 
 		ErrUnauthorized:      401,
 		ErrInvalidCredential: 401,

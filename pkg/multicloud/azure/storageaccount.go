@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"path"
 	"strconv"
 	"strings"
@@ -37,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud"
-	"net/http"
 )
 
 type SContainer struct {
@@ -525,6 +525,43 @@ func (self *SContainer) CopySnapshot(snapshotId, fileName string) (*storage.Blob
 	return blobRef, blobRef.GetProperties(&storage.GetBlobPropertiesOptions{})
 }
 
+func setBlobRefMeta(blobRef *storage.Blob, meta http.Header) (bool, bool) {
+	propChanged := false
+	metaChanged := false
+	for k, v := range meta {
+		if len(v) == 0 || len(v[0]) == 0 {
+			continue
+		}
+		switch http.CanonicalHeaderKey(k) {
+		case cloudprovider.META_HEADER_CACHE_CONTROL:
+			blobRef.Properties.CacheControl = v[0]
+			propChanged = true
+		case cloudprovider.META_HEADER_CONTENT_TYPE:
+			blobRef.Properties.ContentType = v[0]
+			propChanged = true
+		case cloudprovider.META_HEADER_CONTENT_MD5:
+			blobRef.Properties.ContentMD5 = v[0]
+			propChanged = true
+		case cloudprovider.META_HEADER_CONTENT_ENCODING:
+			blobRef.Properties.ContentEncoding = v[0]
+			propChanged = true
+		case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+			blobRef.Properties.ContentLanguage = v[0]
+			propChanged = true
+		case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+			blobRef.Properties.ContentDisposition = v[0]
+			propChanged = true
+		default:
+			if blobRef.Metadata == nil {
+				blobRef.Metadata = storage.BlobMetadata{}
+			}
+			blobRef.Metadata[k] = v[0]
+			metaChanged = true
+		}
+	}
+	return propChanged, metaChanged
+}
+
 func (self *SContainer) UploadStream(key string, reader io.Reader, meta http.Header) error {
 	blobService, err := self.storageaccount.getBlobServiceClient()
 	if err != nil {
@@ -534,30 +571,7 @@ func (self *SContainer) UploadStream(key string, reader io.Reader, meta http.Hea
 	blobRef := containerRef.GetBlobReference(key)
 	blobRef.Properties.BlobType = storage.BlobTypeBlock
 	if meta != nil {
-		for k, v := range meta {
-			if len(v) == 0 || len(v[0]) == 0{
-				continue
-			}
-			switch http.CanonicalHeaderKey(k) {
-			case cloudprovider.META_HEADER_CACHE_CONTROL:
-				blobRef.Properties.CacheControl = v[0]
-			case cloudprovider.META_HEADER_CONTENT_TYPE:
-				blobRef.Properties.ContentType = v[0]
-			case cloudprovider.META_HEADER_CONTENT_MD5:
-				blobRef.Properties.ContentMD5 = v[0]
-			case cloudprovider.META_HEADER_CONTENT_ENCODING:
-				blobRef.Properties.ContentEncoding = v[0]
-			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
-				blobRef.Properties.ContentLanguage = v[0]
-			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
-				blobRef.Properties.ContentDisposition = v[0]
-			default:
-				if blobRef.Metadata == nil {
-					blobRef.Metadata = storage.BlobMetadata{}
-				}
-				blobRef.Metadata[k] = v[0]
-			}
-		}
+		setBlobRefMeta(blobRef, meta)
 	}
 	return blobRef.CreateBlockBlobFromReader(reader, &storage.PutBlobOptions{})
 }
@@ -853,6 +867,32 @@ func (b *SStorageAccount) GetIObjects(prefix string, isRecursive bool) ([]cloudp
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
+func getBlobRefMeta(blob *storage.Blob) http.Header {
+	meta := http.Header{}
+	for k, v := range blob.Metadata {
+		meta.Add(k, v)
+	}
+	if len(blob.Properties.CacheControl) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CACHE_CONTROL, blob.Properties.CacheControl)
+	}
+	if len(blob.Properties.ContentType) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CONTENT_TYPE, blob.Properties.ContentType)
+	}
+	if len(blob.Properties.ContentDisposition) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CONTENT_DISPOSITION, blob.Properties.ContentDisposition)
+	}
+	if len(blob.Properties.ContentLanguage) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, blob.Properties.ContentLanguage)
+	}
+	if len(blob.Properties.ContentEncoding) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CONTENT_ENCODING, blob.Properties.ContentEncoding)
+	}
+	if len(blob.Properties.ContentMD5) > 0 {
+		meta.Set(cloudprovider.META_HEADER_CONTENT_MD5, blob.Properties.ContentMD5)
+	}
+	return meta
+}
+
 func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
 	containers, err := b.GetContainers()
@@ -922,28 +962,6 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 				}
 				for i := range oResult.Blobs {
 					blob := oResult.Blobs[i]
-					meta := http.Header{}
-					for k, v := range blob.Metadata {
-						meta.Add(k, v)
-					}
-					if len(blob.Properties.CacheControl) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CACHE_CONTROL, blob.Properties.CacheControl)
-					}
-					if len(blob.Properties.ContentType) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CONTENT_TYPE, blob.Properties.ContentType)
-					}
-					if len(blob.Properties.ContentDisposition) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CONTENT_DISPOSITION, blob.Properties.ContentDisposition)
-					}
-					if len(blob.Properties.ContentLanguage) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CONTENT_LANGUAGE, blob.Properties.ContentLanguage)
-					}
-					if len(blob.Properties.ContentEncoding) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CONTENT_ENCODING, blob.Properties.ContentEncoding)
-					}
-					if len(blob.Properties.ContentMD5) > 0 {
-						meta.Set(cloudprovider.META_HEADER_CONTENT_MD5, blob.Properties.ContentMD5)
-					}
 					o := &SObject{
 						container: &container,
 						SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -952,7 +970,6 @@ func (b *SStorageAccount) ListObjects(prefix string, marker string, delimiter st
 							StorageClass: "",
 							ETag:         blob.Properties.Etag,
 							LastModified: time.Time(blob.Properties.LastModified),
-							Meta:         meta,
 						},
 					}
 					result.Objects = append(result.Objects, o)
@@ -1042,7 +1059,9 @@ func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, ca
 		return "", errors.Wrap(err, "getContainerRef")
 	}
 	blobRef := containerRef.GetBlobReference(blob)
-
+	if meta != nil {
+		setBlobRefMeta(blobRef, meta)
+	}
 	err = blobRef.CreateBlockBlob(&storage.PutBlobOptions{})
 	if err != nil {
 		return "", errors.Wrap(err, "CreateBlockBlob")
@@ -1216,7 +1235,7 @@ func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBuc
 	}
 	srcBlobRef := srcContRef.GetBlobReference(srcBlob)
 
-	containerName, blob, err := splitKeyAndBlob(destKey)
+	containerName, blobName, err := splitKeyAndBlob(destKey)
 	if err != nil {
 		return errors.Wrap(err, "dest splitKey")
 	}
@@ -1228,8 +1247,10 @@ func (b *SStorageAccount) CopyObject(ctx context.Context, destKey string, srcBuc
 	if err != nil {
 		return errors.Wrap(err, "dest getContainerRef")
 	}
-	blobRef := containerRef.GetBlobReference(blob)
-
+	blobRef := containerRef.GetBlobReference(blobName)
+	if meta != nil {
+		setBlobRefMeta(blobRef, meta)
+	}
 	opts := &storage.CopyOptions{}
 	err = blobRef.Copy(srcBlobRef.GetURL(), opts)
 	if err != nil {

@@ -15,13 +15,19 @@
 package aliyun
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"net/http"
+)
+
+const (
+	OSS_META_HEADER = "x-oss-meta-"
 )
 
 type SObject struct {
@@ -97,6 +103,10 @@ func (o *SObject) GetMeta() http.Header {
 		log.Errorf("bucket.GetObjectACL error %s", err)
 		return nil
 	}
-	o.Meta = result
-	return result
+	o.Meta = cloudprovider.FetchMetaFromHttpHeader(OSS_META_HEADER, result)
+	return o.Meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

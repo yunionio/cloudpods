@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,7 +28,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
-	"net/http"
 )
 
 type TBucketACLType string
@@ -44,12 +44,14 @@ const (
 	ACLPublicReadWrite = TBucketACLType(s3cli.CANNED_ACL_PUBLIC_READ_WRITE)
 	ACLUnknown         = TBucketACLType("")
 
-	META_HEADER_CONTENT_TYPE        = "Content-Type"
 	META_HEADER_CACHE_CONTROL       = "Cache-Control"
+	META_HEADER_CONTENT_TYPE        = "Content-Type"
 	META_HEADER_CONTENT_DISPOSITION = "Content-Disposition"
 	META_HEADER_CONTENT_ENCODING    = "Content-Encoding"
 	META_HEADER_CONTENT_LANGUAGE    = "Content-Language"
 	META_HEADER_CONTENT_MD5         = "Content-MD5"
+
+	META_HEADER_PREFIX = "X-Yunion-Meta-"
 )
 
 type SBucketStats struct {
@@ -171,7 +173,9 @@ type ICloudObject interface {
 	GetLastModified() time.Time
 	GetStorageClass() string
 	GetETag() string
+
 	GetMeta() http.Header
+	SetMeta(ctx context.Context, meta http.Header) error
 
 	GetAcl() TBucketACLType
 	SetAcl(acl TBucketACLType) error
@@ -221,6 +225,10 @@ func (o *SBaseCloudObject) GetETag() string {
 func (o *SBaseCloudObject) GetMeta() http.Header {
 	return o.Meta
 }
+
+//func (o *SBaseCloudObject) SetMeta(meta http.Header) error {
+//    return nil
+//}
 
 func GetIBucketById(region ICloudRegion, name string) (ICloudBucket, error) {
 	buckets, err := region.GetIBuckets()
@@ -552,4 +560,52 @@ func ObjectSetMeta(ctx context.Context,
 	meta http.Header,
 ) error {
 	return bucket.CopyObject(ctx, obj.GetKey(), bucket.GetName(), obj.GetKey(), obj.GetAcl(), obj.GetStorageClass(), meta)
+}
+
+func MetaToHttpHeader(metaPrefix string, meta http.Header) http.Header {
+	hdr := http.Header{}
+	for k, v := range meta {
+		if len(v) == 0 || len(v[0]) == 0 {
+			continue
+		}
+		k = http.CanonicalHeaderKey(k)
+		switch k {
+		case META_HEADER_CACHE_CONTROL,
+			META_HEADER_CONTENT_TYPE,
+			META_HEADER_CONTENT_DISPOSITION,
+			META_HEADER_CONTENT_ENCODING,
+			META_HEADER_CONTENT_LANGUAGE,
+			META_HEADER_CONTENT_MD5:
+			hdr.Set(k, v[0])
+		default:
+			hdr.Set(fmt.Sprintf("%s%s", metaPrefix, k), v[0])
+		}
+	}
+	return hdr
+}
+
+func FetchMetaFromHttpHeader(metaPrefix string, headers http.Header) http.Header {
+	metaPrefix = http.CanonicalHeaderKey(metaPrefix)
+	meta := http.Header{}
+	for hdr, vals := range headers {
+		hdr = http.CanonicalHeaderKey(hdr)
+		if strings.HasPrefix(hdr, metaPrefix) {
+			for _, val := range vals {
+				meta.Add(hdr[len(metaPrefix):], val)
+			}
+		}
+	}
+	for _, hdr := range []string{
+		META_HEADER_CONTENT_TYPE,
+		META_HEADER_CONTENT_ENCODING,
+		META_HEADER_CONTENT_DISPOSITION,
+		META_HEADER_CONTENT_LANGUAGE,
+		META_HEADER_CACHE_CONTROL,
+	} {
+		val := headers.Get(hdr)
+		if len(val) > 0 {
+			meta.Set(hdr, val)
+		}
+	}
+	return meta
 }
