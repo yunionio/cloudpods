@@ -328,27 +328,27 @@ func (d *SBaseBridgeDriver) WarmupConfig() error {
 }
 
 func NewDriver(bridgeDriver, bridge, inter, ip string) (IBridgeDriver, error) {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		return NewOVSBridgeDriver(bridge, inter, ip)
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		return NewLinuxBridgeDeriver(bridge, inter, ip)
 	}
 	return nil, fmt.Errorf("Dirver %s not found", bridgeDriver)
 }
 
 func Prepare(bridgeDriver string) error {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		return OVSPrepare()
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		return LinuxBridgePrepare()
 	}
 	return fmt.Errorf("Dirver %s not found", bridgeDriver)
 }
 
 func CleanDeletedPorts(bridgeDriver string) {
-	if bridgeDriver == "openvswitch" {
+	if bridgeDriver == DRV_OPEN_VSWITCH {
 		cleanOvsBridge()
-	} else if bridgeDriver == "linux_bridge" {
+	} else if bridgeDriver == DRV_LINUX_BRIDGE {
 		cleanLinuxBridge()
 	}
 }
