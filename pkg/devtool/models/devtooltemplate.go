@@ -51,7 +51,6 @@ func init() {
 		),
 	}
 	DevtoolTemplateManager.SetVirtualObject(DevtoolTemplateManager)
-	db.RegisterModelManager(DevtoolTemplateManager)
 }
 
 func (obj *SDevtoolTemplate) PerformBind(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
