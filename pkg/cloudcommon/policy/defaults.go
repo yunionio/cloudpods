@@ -276,6 +276,24 @@ var (
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  "notify",
+					Resource: "contacts",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "notify",
+					Resource: "contacts",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "notify",
+					Resource: "contacts",
+					Action:   PolicyActionDelete,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
