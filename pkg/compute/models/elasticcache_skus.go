@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -275,7 +276,12 @@ func (manager *SElasticcacheSkuManager) AllowGetPropertyInstanceSpecs(ctx contex
 
 func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := manager.Query("memory_size_mb")
-	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +321,12 @@ func (manager *SElasticcacheSkuManager) AllowGetPropertyCapability(ctx context.C
 
 func (manager *SElasticcacheSkuManager) GetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := manager.Query("engine", "engine_version", "local_category", "node_type", "performance_type")
-	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
