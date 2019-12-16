@@ -36,6 +36,7 @@ type IRegionDriver interface {
 	IElasticcacheAccount
 	IElasticcacheAcl
 	IElasticcacheBackup
+	IDBInstanceDriver
 
 	ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	ValidateDeleteLoadbalancerCondition(ctx context.Context, lb *SLoadbalancer) error
@@ -120,6 +121,11 @@ type IRegionDriver interface {
 	GetDefaultSecurityGroupVpcId() string
 	GetSecurityGroupVpcId(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, host *SHost, vpc *SVpc, classic bool) string
 
+	IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool
+	GetSecgroupVpcid(vpcId string) string
+}
+
+type IDBInstanceDriver interface {
 	ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []SDBInstanceSku, network *SNetwork) (*api.SDBInstanceCreateInput, error)
 	ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error)
 	ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error)
@@ -130,14 +136,14 @@ type IRegionDriver interface {
 
 	RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, task taskman.ITask) error
 	RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, backup *SDBInstanceBackup, task taskman.ITask) error
+	RequestRenewDBInstance(instance *SDBInstance, bc billing.SBillingCycle) (time.Time, error)
+	RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, task taskman.ITask) error
+
+	IsSupportedDBInstance() bool
 	IsSupportDBInstancePublicConnection() bool
 	IsSupportKeepDBInstanceManualBackup() bool
 
-	IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool
-	GetSecgroupVpcid(vpcId string) string
 	InitDBInstanceUser(dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
-	RequestRenewDBInstance(instance *SDBInstance, bc billing.SBillingCycle) (time.Time, error)
-	RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, task taskman.ITask) error
 }
 
 type IElasticcacheDriver interface {
