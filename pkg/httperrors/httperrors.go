@@ -61,12 +61,8 @@ func JsonClientError(w http.ResponseWriter, e *httputils.JSONClientError) {
 }
 
 func GeneralServerError(w http.ResponseWriter, e error) {
-	je, ok := e.(*httputils.JSONClientError)
-	if ok {
-		JsonClientError(w, je)
-	} else {
-		InternalServerError(w, "%s", e)
-	}
+	je := NewGeneralError(e)
+	JsonClientError(w, je)
 }
 
 func BadRequestError(w http.ResponseWriter, msg string, params ...interface{}) {
