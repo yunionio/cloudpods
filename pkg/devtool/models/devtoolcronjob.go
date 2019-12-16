@@ -65,9 +65,6 @@ func init() {
 		),
 	}
 	CronjobManager.SetVirtualObject(CronjobManager)
-	db.RegisterModelManager(CronjobManager)
-	DevToolCronManager = cronman.InitCronJobManager(true, 8)
-	DevToolCronManager.Start()
 }
 
 func RunAnsibleCronjob(id string, s *mcclient.ClientSession) cronman.TCronJobFunction {
@@ -114,7 +111,8 @@ func AddOneCronjob(item *SCronjob, s *mcclient.ClientSession) error {
 }
 
 func InitializeCronjobs() error {
-
+	DevToolCronManager = cronman.InitCronJobManager(true, 8)
+	DevToolCronManager.Start()
 	Session := auth.GetAdminSession(nil, "", "")
 
 	go func() {
