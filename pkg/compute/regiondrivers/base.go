@@ -291,6 +291,10 @@ func (self *SBaseRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
 	return false
 }
 
+func (self *SBaseRegionDriver) IsSupportedDBInstance() bool {
+	return false
+}
+
 func (self *SBaseRegionDriver) IsSupportedElasticcache() bool {
 	return false
 }
