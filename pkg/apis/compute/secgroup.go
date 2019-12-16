@@ -37,6 +37,7 @@ type SSecgroupRuleCreateInput struct {
 	CIDR        string
 	Action      string
 	Description string
+	Secgroup    string
 	SecgroupId  string
 }
 
