@@ -50,14 +50,17 @@ type SRpcService struct {
 	SendServices  *ServiceMap
 	socketFileDir string
 	configStore   _interface.IServiceConfigStore
+	templateStore _interface.ITemplateStore
 }
 
 // NewSRpcService create a SRpcService
-func NewSRpcService(socketFileDir string, configStore _interface.IServiceConfigStore) *SRpcService {
+func NewSRpcService(socketFileDir string, configStore _interface.IServiceConfigStore,
+	tempalteStore _interface.ITemplateStore) *SRpcService {
 	return &SRpcService{
 		SendServices:  NewServiceMap(),
 		socketFileDir: socketFileDir,
 		configStore:   configStore,
+		templateStore: tempalteStore,
 	}
 }
 
@@ -106,20 +109,24 @@ func (self *SRpcService) StopAll() {
 // Send call the corresponding rpc server to send messager.
 func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, msg, priority string) error {
 
-	args := apis.SendParams{
-		Contact:  contact,
-		Topic:    topic,
-		Message:  msg,
-		Priority: priority,
+	args, err := self.templateStore.NotifyFilter(contactType, topic, msg)
+	if err != nil {
+		return errors.Wrap(err, "templateStore.NotifyFilter")
 	}
+
+	args.Contact = contact
+	args.Priority = priority
 
 	f := func(service *apis.SendNotificationClient) (interface{}, error) {
 		log.Debugf("send one")
 		return service.Send(ctx, &args)
 	}
 
-	_, err := self.execute(ctx, f, contactType)
-	return err
+	_, err = self.execute(ctx, f, contactType)
+	if err != nil {
+		return errors.Wrapf(err, "contactType: %s", contactType)
+	}
+	return nil
 }
 
 // RestartService can restart remote rpc server and pass config info.
@@ -179,7 +186,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 		}
 
 		if st.Message() != ErrSendServiceNotInit.Error() {
-			return nil, errors.Error(fmt.Sprintf("Send message failed because that %s.", st.Message()))
+			return nil, errors.Error(st.Message())
 		}
 
 		// if NOINIT, try to restart server and send again
@@ -197,7 +204,7 @@ func (self *SRpcService) execute(ctx context.Context, f func(client *apis.SendNo
 
 				return nil, errors.Wrap(ErrSendServiceNotFound, serviceName)
 			}
-			return nil, errors.Error(fmt.Sprintf("Send message failed because that %s.", st.Message()))
+			return nil, errors.Error(st.Message())
 		}
 	}
 	return ret, nil

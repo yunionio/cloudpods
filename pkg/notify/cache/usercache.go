@@ -18,26 +18,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SUserCacheManager struct {
-	db.SKeystoneCacheObjectManager
+	db.SUserCacheManager
 }
 
 type SUser struct {
-	db.SKeystoneCacheObject
+	db.SUser
 }
 
 func (user *SUser) GetModelManager() db.IModelManager {
@@ -45,13 +40,6 @@ func (user *SUser) GetModelManager() db.IModelManager {
 }
 
 var UserCacheManager *SUserCacheManager
-
-func init() {
-	UserCacheManager = &SUserCacheManager{
-		db.NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
-	// log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
-	UserCacheManager.SetVirtualObject(UserCacheManager)
-}
 
 func RegistUserCredCacheUpdater() {
 	auth.RegisterAuthHook(onAuthCompleteUpdateCache)
@@ -63,97 +51,18 @@ func onAuthCompleteUpdateCache(userCred mcclient.TokenCredential) {
 
 func (ucm *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {
 	ucm.Save(context.Background(), userCred.GetUserId(), userCred.GetUserName(),
-		userCred.GetDomainId())
+		userCred.GetDomainId(), userCred.GetDomainName())
 }
 
-func (ucm *SUserCacheManager) FetchUserByIdOrName(idStr string) (*SUser, error) {
-	obj, err := ucm.SKeystoneCacheObjectManager.FetchByIdOrName(nil, idStr)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*SUser), nil
-}
-
-func (ucm *SUserCacheManager) FetchUserById(idStr string) (*SUser, error) {
-	obj, err := ucm.SKeystoneCacheObjectManager.FetchById(idStr)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*SUser), nil
-}
-
-func (ucm *SUserCacheManager) FetchUserByName(idStr string) (*SUser, error) {
-	obj, err := ucm.SKeystoneCacheObjectManager.FetchByName(nil, idStr)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*SUser), nil
-}
-
-func (ucm *SUserCacheManager) Save(ctx context.Context, idStr string, name string, domainId string) (*SUser, error) {
-	lockman.LockRawObject(ctx, ucm.KeywordPlural(), idStr)
-	defer lockman.ReleaseRawObject(ctx, ucm.KeywordPlural(), idStr)
-
-	objo, err := ucm.FetchById(idStr)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("FetchTenantbyId fail %s", err)
-		return nil, err
-	}
-	now := time.Now().UTC()
-	if err == nil {
-		obj := objo.(*SUser)
-		if obj.Id == idStr && obj.Name == name && obj.DomainId == domainId {
-			db.Update(obj, func() error {
-				obj.LastCheck = now
-				return nil
-			})
-			return obj, nil
-		}
-		_, err = db.Update(obj, func() error {
-			obj.Id = idStr
-			obj.Name = name
-			obj.DomainId = domainId
-			obj.LastCheck = now
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		} else {
-			return obj, nil
-		}
-	} else {
-		objm, err := db.NewModelObject(ucm)
-		obj := objm.(*SUser)
-		obj.Id = idStr
-		obj.Name = name
-		obj.DomainId = domainId
-		obj.LastCheck = now
-		err = ucm.TableSpec().Insert(obj)
-		if err != nil {
-			return nil, err
-		} else {
-			return obj, nil
-		}
-	}
-}
-
-func (ucm *SUserCacheManager) fetchUserFromKeystone(ctx context.Context, idStr string) (*SUser, error) {
-	if len(idStr) == 0 {
-		return nil, fmt.Errorf("Empty idStr")
-	}
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v3")
-	user, err := modules.UsersV3.GetById(s, idStr, nil)
+func (ucm *SUserCacheManager) dealErrFromKeystone(err error) error {
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
-			return nil, sql.ErrNoRows
+			return sql.ErrNoRows
+		} else {
+			return errors.Wrap(err, "fetch User info from keystone")
 		}
-		log.Errorf("fetch project %s fail %s", idStr, err)
-		return nil, errors.Wrap(err, "modules.Projects.Get")
 	}
-	userId, _ := user.GetString("id")
-	userName, _ := user.GetString("name")
-	domainId, _ := user.GetString("domain_id")
-	return ucm.Save(ctx, userId, userName, domainId)
+	return nil
 }
 
 func (ucm *SUserCacheManager) FetchUsersByIDs(ctx context.Context, ids []string) (map[string]SUser, error) {
@@ -174,32 +83,21 @@ func (ucm *SUserCacheManager) FetchUsersByIDs(ctx context.Context, ids []string)
 		if _, ok := ret[id]; ok {
 			continue
 		}
-		user, err := ucm.fetchUserFromKeystone(ctx, id)
+		user, err := ucm.FetchUserFromKeystone(ctx, id)
 		if err != nil {
 			continue
 		}
-		ret[id] = *user
+		ret[id] = SUser{*user}
 	}
 	return ret, nil
 }
 
-func (ucm *SUserCacheManager) FetchUserByID(ctx context.Context, idStr string, noExpireCheck bool) (*SUser, error) {
-
-	q := ucm.Query().Equals("id", idStr)
-	uobj, err := db.NewModelObject(ucm)
+func (ucm *SUserCacheManager) FetchUserByIDOrName(ctx context.Context, idStr string) (*SUser, error) {
+	user, err := ucm.SUserCacheManager.FetchUserByIdOrName(ctx, idStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "NewModelObject")
+		return nil, err
 	}
-	err = q.First(uobj)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "query")
-	} else if uobj != nil {
-		user := uobj.(*SUser)
-		if noExpireCheck || !user.IsExpired() {
-			return user, nil
-		}
-	}
-	return ucm.fetchUserFromKeystone(ctx, idStr)
+	return &SUser{*user}, nil
 }
 
 func (ucm *SUserCacheManager) FetchUserLikeName(ctx context.Context, name string, noExpireCheck bool) ([]SUser,

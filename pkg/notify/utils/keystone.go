@@ -17,11 +17,26 @@ package utils
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/notify/cache"
 )
 
-func GetUserByID(ctx context.Context, id string) (*cache.SUser, error) {
-	return cache.UserCacheManager.FetchUserByID(ctx, id, false)
+func GetUserByIDOrName(ctx context.Context, idStr string) (*cache.SUser, error) {
+	return cache.UserCacheManager.FetchUserByIDOrName(ctx, idStr)
+}
+
+func GetUsersWithoutRemote(idStr []string) ([]cache.SUser, error) {
+	q := cache.UserCacheManager.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idStr), sqlchemy.In(q.Field("name"), idStr)))
+	users := make([]cache.SUser, 0, 1)
+	err := db.FetchModelObjects(cache.UserCacheManager, q, &users)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch user cache failed")
+	}
+	return users, nil
 }
 
 func GetUserIdsLikeName(ctx context.Context, name string) ([]string, error) {
@@ -49,7 +64,7 @@ func GetUsersByGroupID(ctx context.Context, gid string) ([]string, error) {
 }
 
 func GetUsernameByID(ctx context.Context, id string) (string, error) {
-	user, err := GetUserByID(ctx, id)
+	user, err := GetUserByIDOrName(ctx, id)
 	if err != nil {
 		return "", err
 	}

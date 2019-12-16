@@ -12,32 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package template
 
-import (
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+const (
+	EMAIL_VERIFY_CONTENT_PATH = "/opt/yunion/share/notify/email_verify_template"
+	EMAIL_VERIFY_TITLE        = "Yunion Verify"
 )
-
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
-
-		ContactManager,
-		VerifyManager,
-		NotificationManager,
-		ConfigManager,
-		TemplateManager,
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
-	}
-	return nil
-}
