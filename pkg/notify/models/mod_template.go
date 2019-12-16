@@ -133,7 +133,7 @@ func (tm *STemplateManager) NotifyFilter(contactType, topic, msg string) (params
 	templates := make([]STemplate, 0, 3)
 	q := tm.Query().Equals("contact_type", contactType).Equals("topic", strings.ToUpper(topic))
 	err = db.FetchModelObjects(tm, q, &templates)
-	if errors.Cause(err) == sql.ErrNoRows {
+	if errors.Cause(err) == sql.ErrNoRows || len(templates) == 0 {
 		// no such template, return as is
 		params.Title = topic
 		params.Message = msg
