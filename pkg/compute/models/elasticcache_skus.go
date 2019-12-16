@@ -173,6 +173,16 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id"))).Filter(sqlchemy.Equals(regionTable.Field("city"), city))
 	}
 
+	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
+	memSizeMB, _ := query.Int("memory_size_mb")
+	if memSizeMB > 0 {
+		s, e := intervalMem(int(memSizeMB))
+		q.GT("memory_size_mb", s)
+		q.LE("memory_size_mb", e)
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("memory_size_mb")
+	}
+
 	return q, err
 }
 
@@ -299,11 +309,12 @@ func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Con
 		var ms int
 		err := rows.Scan(&ms)
 		if err == nil {
-			if _, exist := mems[ms]; !exist {
+			m := roundMem(ms)
+			if _, exist := mems[m]; !exist {
 				if ms > 0 {
-					mems_mb.Add(jsonutils.NewInt(int64(ms)))
+					mems_mb.Add(jsonutils.NewInt(int64(m)))
 				}
-				mems[ms] = true
+				mems[m] = true
 			}
 		} else {
 			log.Debugf("SElasticcacheSkuManager.GetPropertyInstanceSpecs %s", err)
