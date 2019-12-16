@@ -487,6 +487,10 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	for _, region := range cloudregions {
+		if !region.GetDriver().IsSupportedDBInstance() {
+			log.Infof("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
+			continue
+		}
 		result := DBInstanceSkuManager.syncDBInstanceSkus(ctx, userCred, &region, meta)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
