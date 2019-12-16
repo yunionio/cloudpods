@@ -499,6 +499,9 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
 	}
 	account := self.GetCloudaccount()
+	if !account.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Cloudaccount disabled")
+	}
 	if account.EnableAutoSync {
 		return nil, httperrors.NewInvalidStatusError("Account auto sync enabled")
 	}
