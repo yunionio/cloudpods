@@ -46,6 +46,7 @@ func (self *SZoneResourceBase) GetCustomizeColumns(ctx context.Context, userCred
 		info["region"] = region.GetName()
 		info["region_id"] = region.GetId()
 		if len(region.ExternalId) > 0 {
+			info["region_external_id"] = region.ExternalId
 			info["region_ext_id"] = fetchExternalId(region.ExternalId)
 		}
 	}
