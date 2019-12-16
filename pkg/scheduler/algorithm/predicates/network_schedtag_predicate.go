@@ -115,6 +115,12 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 	}
 
 	if net.Network == "" {
+		if network.Provider == computeapi.CLOUD_PROVIDER_ONECLOUD {
+			return &FailReason{
+				Reason: fmt.Sprintf("Network %s is from onecloud vpc %s", network.Name, network.VpcId),
+				Type:   NetworkTypeMatch,
+			}
+		}
 		netTypes := p.GetNetworkTypes(net.NetType)
 		if !utils.IsInStringArray(network.ServerType, netTypes) {
 			return &FailReason{

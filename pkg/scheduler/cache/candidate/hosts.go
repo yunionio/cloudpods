@@ -93,6 +93,10 @@ func (h *hostGetter) GetFreePort(netId string) int {
 	return h.h.GetFreePort(netId)
 }
 
+func (h *hostGetter) OvnCapable() bool {
+	return len(h.h.OvnVersion) > 0
+}
+
 type HostDesc struct {
 	*BaseHostDesc
 

@@ -66,6 +66,7 @@ type CandidatePropertyGetter interface {
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork
+	OvnCapable() bool
 	Status() string
 	HostStatus() string
 	Enabled() bool
