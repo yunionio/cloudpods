@@ -169,9 +169,6 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 		if !isRecursive && prefix == object.Key {
 			continue
 		}
-		if len(object.ContentType) > 0 {
-			object.Metadata.Set(cloudprovider.META_HEADER_CONTENT_TYPE, object.ContentType)
-		}
 		obj := &SObject{
 			bucket: bucket,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
@@ -180,7 +177,6 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				Meta:         object.Metadata,
 			},
 		}
 		ret = append(ret, obj)
