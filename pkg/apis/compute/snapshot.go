@@ -22,6 +22,7 @@ type SSnapshotCreateInput struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
+	Disk          string `json:"disk"`
 	DiskId        string `json:"disk_id"`
 	StorageId     string `json:"storage_id"`
 	CreatedBy     string `json:"created_by"`

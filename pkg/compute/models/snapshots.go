@@ -232,7 +232,7 @@ func (manager *SSnapshotManager) ValidateCreateData(
 		return input, err
 	}
 
-	err = data.Unmarshal(input)
+	err = data.Unmarshal(&input)
 	if err != nil {
 		return input, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
 	}
