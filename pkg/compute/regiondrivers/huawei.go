@@ -2563,6 +2563,10 @@ func (self *SHuaWeiRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Con
 	return fmt.Errorf("not support update huawei elastic cache auth_mode")
 }
 
+func (self *SHuaWeiRegionDriver) IsSupportedDBInstance() bool {
+	return true
+}
+
 func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
 	return true
 }
