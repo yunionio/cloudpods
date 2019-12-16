@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
@@ -226,7 +227,7 @@ func fetchTaskParams(
 	if len(pendingUsages) > 0 {
 		for i := range pendingUsages {
 			pendingUsage := pendingUsages[i]
-			if gotypes.IsNil(pendingUsage) || pendingUsage.IsEmpty() {
+			if gotypes.IsNil(pendingUsage) {
 				continue
 			}
 			key := pendingUsageKey(i)
@@ -709,11 +710,17 @@ func (self *STask) IsCurrentStageComplete() bool {
 
 func (self *STask) GetPendingUsage(quota quotas.IQuota, index int) error {
 	key := pendingUsageKey(index)
-	quotaJson, err := self.Params.Get(key)
-	if err != nil {
-		return err
+	if self.Params.Contains(key) {
+		quotaJson, err := self.Params.Get(key)
+		if err != nil {
+			return errors.Wrapf(err, "task.Params.Get %s", key)
+		}
+		err = quotaJson.Unmarshal(quota)
+		if err != nil {
+			return errors.Wrap(err, "quotaJson.Unmarshal")
+		}
 	}
-	return quotaJson.Unmarshal(quota)
+	return nil
 }
 
 func pendingUsageKey(index int) string {

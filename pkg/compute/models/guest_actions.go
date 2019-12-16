@@ -2395,11 +2395,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 	pendingUsage.SetKeys(keys)
-	if !pendingUsage.IsEmpty() {
-		err := quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
-		if err != nil {
-			return nil, err
-		}
+	log.Debugf("ChangeConfig pendingUsage %s", jsonutils.Marshal(pendingUsage))
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(newDisks) > 0 {

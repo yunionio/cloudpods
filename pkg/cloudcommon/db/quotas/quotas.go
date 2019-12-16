@@ -69,7 +69,7 @@ func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCr
 
 func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
 	originKeys := localUsage.GetKeys()
-	currentKeys := cancelUsage.GetKeys()
+	// currentKeys := cancelUsage.GetKeys()
 
 	pendingUsage := manager.newQuota()
 	pendingUsage.SetKeys(originKeys)
@@ -79,9 +79,6 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	if err != nil {
 		return errors.Wrap(err, "manager.pendingStore.SubQuota")
 	}
-	// save cancelUsage values
-	subUsage := manager.newQuota()
-	subUsage.Update(cancelUsage)
 	//
 	if localUsage != nil {
 		localUsage.Sub(cancelUsage)
@@ -89,18 +86,11 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 
 	log.Debugf("cancelUsage: %s localUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage))
 
-	// update usages
-	quotas, err := manager.usageStore.GetParentQuotas(ctx, currentKeys)
+	err = manager.changeUsage(ctx, userCred, cancelUsage, true)
 	if err != nil {
-		return errors.Wrap(err, "manager.usageStore.GetParentQuotas")
+		return errors.Wrap(err, "manager.changelUsage")
 	}
-	for i := range quotas {
-		subUsage.SetKeys(quotas[i].GetKeys())
-		err := manager.usageStore.AddQuota(ctx, userCred, subUsage)
-		if err != nil {
-			return errors.Wrap(err, "manager.usageStore.AddQuota")
-		}
-	}
+
 	return nil
 }
 
@@ -112,6 +102,10 @@ func (manager *SQuotaBaseManager) cancelUsage(ctx context.Context, userCred mccl
 }
 
 func (manager *SQuotaBaseManager) _cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error {
+	return manager.changeUsage(ctx, userCred, usage, false)
+}
+
+func (manager *SQuotaBaseManager) changeUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota, isAdd bool) error {
 	usages, err := manager.usageStore.GetParentQuotas(ctx, usage.GetKeys())
 	if err != nil {
 		return errors.Wrap(err, "manager.usageStore.GetParentQuotas")
@@ -120,9 +114,16 @@ func (manager *SQuotaBaseManager) _cancelUsage(ctx context.Context, userCred mcc
 	subUsage.Update(usage)
 	for i := range usages {
 		subUsage.SetKeys(usages[i].GetKeys())
-		err := manager.usageStore.SubQuota(ctx, userCred, subUsage)
-		if err != nil {
-			return errors.Wrap(err, "manager.usageStore.AddQuota")
+		if isAdd {
+			err := manager.usageStore.AddQuota(ctx, userCred, subUsage)
+			if err != nil {
+				return errors.Wrap(err, "manager.usageStore.AddQuota")
+			}
+		} else {
+			err := manager.usageStore.SubQuota(ctx, userCred, subUsage)
+			if err != nil {
+				return errors.Wrap(err, "manager.usageStore.SubQuota")
+			}
 		}
 	}
 	return nil
@@ -203,16 +204,23 @@ func (manager *SQuotaBaseManager) checkQuota(ctx context.Context, request IQuota
 }
 
 func (manager *SQuotaBaseManager) __checkQuota(ctx context.Context, quota IQuota, request IQuota) error {
+	keys := quota.GetKeys()
+	log.Debugf("__checkQuota for keys: %s", QuotaKeyString(keys))
 	used := manager.newQuota()
-	err := manager.usageStore.GetQuota(ctx, quota.GetKeys(), used)
+	err := manager.usageStore.GetQuota(ctx, keys, used)
 	if err != nil {
 		return errors.Wrap(err, "manager.usageStore.GetQuotaByKeys")
 	}
-	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, quota.GetKeys())
+	log.Debugf("__checkQuota usage: %s", jsonutils.Marshal(used))
+	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, keys)
 	if err != nil {
 		return errors.Wrap(err, "manager.pendingStore.GetChildrenQuotas")
 	}
 	for i := range pendings {
+		if pendings[i].IsEmpty() {
+			continue
+		}
+		log.Debugf("__checkQuota pending %d: %s", i, jsonutils.Marshal(pendings[i]))
 		used.Add(pendings[i])
 	}
 	return used.Exceed(request, quota)
