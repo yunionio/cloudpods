@@ -216,12 +216,12 @@ func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient
 			}
 		}
 	}
-	if self.EnableAutoSync {
+	/*if self.EnableAutoSync {
 		err := self.disableAutoSync(ctx, userCred)
 		if err != nil {
 			return nil, err
 		}
-	}
+	}*/
 	return nil, nil
 }
 
