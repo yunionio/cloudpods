@@ -331,6 +331,18 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		zones := ZoneManager.Query().SubQuery()
 		q = q.Join(zones, sqlchemy.Equals(q.Field("zone_id"), zones.Field("id"))).
 			Filter(sqlchemy.Equals(zones.Field("status"), api.ZONE_ENABLE))
+
+		q = q.In("status", []string{api.HOST_STATUS_RUNNING, api.HOST_STATUS_READY})
+
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.AND(
+					sqlchemy.NotEquals(q.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+					sqlchemy.Equals(q.Field("host_status"), api.HOST_ONLINE),
+				),
+				sqlchemy.Equals(q.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+			),
+		)
 	}
 
 	if query.Contains("is_empty") {
