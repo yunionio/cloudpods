@@ -16,6 +16,7 @@ package modules
 
 import (
 	"fmt"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 
@@ -42,6 +43,21 @@ func (this *ContactsManager) DoBatchDeleteContacts(s *mcclient.ClientSession, pa
 	path := "/contacts/delete-contact"
 
 	return modulebase.Post(this.ResourceManager, s, path, params, this.Keyword)
+}
+
+func (this *ContactsManager) PerformAction(session *mcclient.ClientSession, id string, action string,
+	params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	path := fmt.Sprintf("/%s/%s/%s?uname=true", this.ContextPath(nil), url.PathEscape(id), url.PathEscape(action))
+	return modulebase.Post(this.ResourceManager, session, path, params, this.KeywordPlural)
+}
+
+func (this *ContactsManager) Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject,
+	error) {
+
+	q := params.(*jsonutils.JSONDict)
+	q.Add(jsonutils.JSONTrue, "uname")
+	return this.ResourceManager.Get(session, id, params)
 }
 
 var (
