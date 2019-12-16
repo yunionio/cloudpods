@@ -42,8 +42,7 @@ type NotificationManager struct {
 }
 
 func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyMessage) error {
-	path := "/" + manager.KeywordPlural
-	_, err := modulebase.Post(manager.ResourceManager, s, path, jsonutils.Marshal(&msg), manager.KeywordPlural)
+	_, err := manager.Create(s, jsonutils.Marshal(&msg))
 	return err
 }
 

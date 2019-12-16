@@ -172,14 +172,14 @@ func (self *SContactManager) FetchByMore(uid, contact, contactType string) ([]SC
 func (self *SContact) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
 
-	ret, _ := self.getMoreDetail(ctx, userCred, query)
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	ret, _ := self.getMoreDetail(ctx, userCred, extra)
 	return ret
 }
 
 func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	ret *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 
-	ret := jsonutils.NewDict()
 	uname, err := utils.GetUsernameByID(ctx, self.UID)
 	if err != nil {
 		return ret, err
@@ -200,8 +200,11 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 
 func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-
-	return self.getMoreDetail(ctx, userCred, query)
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetail(ctx, userCred, extra)
 }
 
 func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

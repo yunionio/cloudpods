@@ -64,7 +64,7 @@ func NewSVerify(contactType string, cid string) *SVerify {
 		expireAt = now.Add(12 * time.Hour)
 	} else {
 		token = utils.GenerateMobileToken()
-		expireAt = now.Add(5 * time.Minute)
+		expireAt = now.Add(2 * time.Minute)
 	}
 	ret := &SVerify{
 		CID:      cid,

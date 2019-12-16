@@ -16,15 +16,11 @@ package cache
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SUserCacheManager struct {
@@ -41,6 +37,15 @@ func (user *SUser) GetModelManager() db.IModelManager {
 
 var UserCacheManager *SUserCacheManager
 
+func init() {
+	dbUserCacheManager := db.SUserCacheManager{db.NewKeystoneCacheObjectManager(db.SUser{}, "users_cache_tbl", "user",
+		"users")}
+	UserCacheManager = &SUserCacheManager{
+		dbUserCacheManager,
+	}
+	UserCacheManager.SetVirtualObject(&dbUserCacheManager)
+}
+
 func RegistUserCredCacheUpdater() {
 	auth.RegisterAuthHook(onAuthCompleteUpdateCache)
 }
@@ -54,20 +59,9 @@ func (ucm *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential)
 		userCred.GetDomainId(), userCred.GetDomainName())
 }
 
-func (ucm *SUserCacheManager) dealErrFromKeystone(err error) error {
-	if err != nil {
-		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
-			return sql.ErrNoRows
-		} else {
-			return errors.Wrap(err, "fetch User info from keystone")
-		}
-	}
-	return nil
-}
-
 func (ucm *SUserCacheManager) FetchUsersByIDs(ctx context.Context, ids []string) (map[string]SUser, error) {
 	q := ucm.Query().In("id", ids)
-	users := make([]SUser, 0)
+	users := make([]db.SUser, 0)
 	err := db.FetchModelObjects(ucm, q, &users)
 	if err != nil {
 		return nil, err
@@ -75,7 +69,7 @@ func (ucm *SUserCacheManager) FetchUsersByIDs(ctx context.Context, ids []string)
 	ret := make(map[string]SUser)
 
 	for i := range users {
-		ret[users[i].Id] = users[i]
+		ret[users[i].Id] = SUser{users[i]}
 	}
 
 	// check that id is exist

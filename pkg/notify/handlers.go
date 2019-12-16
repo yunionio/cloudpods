@@ -168,7 +168,7 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 		fmt.Sprintf("%s/%s/<type>", prefix, SMS_KEYWORDPLURAL),
 		middleware(smsConfigUpdateHandler), metadata, "", tags)
 
-	// Contact Handler
+	// Template Handler
 	modelDispatcher = NewNotifyModelDispatcher(models.TemplateManager)
 	metadata, tags = map[string]interface{}{"manager": modelDispatcher}, map[string]string{"resource": modelDispatcher.KeywordPlural()}
 	app.AddHandler2("POST",
@@ -314,6 +314,7 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	var data []jsonutils.JSONObject
 	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
 	if err != nil {
+		log.Errorf("body: %s, err: %s\n", body.String(), err)
 		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s or %s", manager.Keyword(),
 			manager.KeywordPlural()))
 		return
@@ -359,7 +360,7 @@ func deleteContactHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 // verify trigger handler
 func verifyTriggerHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, _, body := fetchEnv(ctx, w, r)
-	data, err := body.Get(models.ContactManager.Keyword(), models.ContactManager.KeywordPlural())
+	data, err := body.Get(models.ContactManager.Keyword())
 	if err != nil {
 		httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
 		return
