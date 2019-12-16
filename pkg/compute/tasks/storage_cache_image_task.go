@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type StorageCacheImageTask struct {
@@ -95,6 +96,10 @@ func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *mod
 	body.Add(jsonutils.NewString(err.Error()), "reason")
 	body.Add(jsonutils.NewString(imageId), "image_id")
 	db.OpsLog.LogEvent(cache, db.ACT_CACHE_IMAGE_FAIL, body, self.UserCred)
+	ci := scimg.GetCachedimage()
+	if ci != nil {
+		logclient.AddActionLogWithStartable(self, ci, logclient.ACT_CACHED_IMAGE, body, self.UserCred, false)
+	}
 	self.SetStageFailed(ctx, err.Error())
 }
 

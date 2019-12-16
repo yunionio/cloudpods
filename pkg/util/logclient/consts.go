@@ -128,6 +128,8 @@ const (
 	ACT_VM_SNAPSHOT_AND_CLONE        = "虚拟机快照并克隆"
 	ACT_VM_BLOCK_STREAM              = "同步数据"
 
+	ACT_CACHED_IMAGE = "缓存镜像"
+
 	ACT_REBOOT        = "重启"
 	ACT_CHANGE_CONFIG = "调整配置"
 
