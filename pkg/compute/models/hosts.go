@@ -1984,15 +1984,34 @@ func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mc
 }
 
 func (self *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error) {
-	networks := NetworkManager.Query().SubQuery()
-	hostwires := HostwireManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	var q1, q2 *sqlchemy.SQuery
+	{
+		networks := NetworkManager.Query()
+		hostwires := HostwireManager.Query().SubQuery()
+		hosts := HostManager.Query().SubQuery()
+		q1 = networks
+		q1 = q1.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		q1 = q1.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		q1 = q1.Filter(sqlchemy.Equals(networks.Field("id"), netId))
+		q1 = q1.Filter(sqlchemy.Equals(hosts.Field("id"), self.Id))
+	}
+	{
+		networks := NetworkManager.Query()
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		regions := CloudregionManager.Query().SubQuery()
+		q2 = networks
+		q2 = q2.Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		q2 = q2.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		q2 = q2.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+		q2 = q2.Filter(sqlchemy.Equals(networks.Field("id"), netId))
+		q2 = q2.Filter(sqlchemy.AND(
+			sqlchemy.Equals(regions.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+			sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), api.DEFAULT_VPC_ID)),
+		))
+	}
 
-	q := networks.Query()
-	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
-	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
-	q = q.Filter(sqlchemy.Equals(hosts.Field("id"), self.Id))
-	q = q.Filter(sqlchemy.Equals(networks.Field("id"), netId))
+	q := sqlchemy.Union(q1, q2).Query()
 
 	net := SNetwork{}
 	net.SetModelManager(NetworkManager, &net)
