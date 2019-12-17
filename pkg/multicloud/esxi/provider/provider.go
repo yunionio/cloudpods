@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -47,37 +48,39 @@ func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, ban
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
-func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.Username) == 0 {
-		return httperrors.NewMissingParameterError("username")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "username")
 	}
 	if len(input.Password) == 0 {
-		return httperrors.NewMissingParameterError("password")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "password")
 	}
 	if len(input.Host) == 0 {
-		return httperrors.NewMissingParameterError("host")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "host")
 	}
-	input.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
+	output.AccessUrl = fmt.Sprintf("https://%s:%d/sdk", input.Host, input.Port)
 	if input.Port == 0 || input.Port == 443 {
-		input.AccessUrl = fmt.Sprintf("https://%s/sdk", input.Host)
+		output.AccessUrl = fmt.Sprintf("https://%s/sdk", input.Host)
 	}
-	input.Account = input.Username
-	input.Secret = input.Password
-	return nil
+	output.Account = input.Username
+	output.Secret = input.Password
+	return output, nil
 }
 
-func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+func (self *SESXiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.Username) == 0 {
-		return nil, httperrors.NewMissingParameterError("username")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "username")
 	}
 	if len(input.Password) == 0 {
-		return nil, httperrors.NewMissingParameterError("password")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "password")
 	}
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: input.Username,
 		Secret:  input.Password,
 	}
-	return account, nil
+	return output, nil
 }
 
 func parseHostPort(host string, defPort int) (string, int, error) {

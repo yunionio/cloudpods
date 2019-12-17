@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
@@ -160,7 +161,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				ContentType:  object.Type,
 			},
 		}
 		result.Objects = append(result.Objects, obj)
@@ -183,7 +183,32 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func metaOpts(opts []oss.Option, meta http.Header) []oss.Option {
+	for k, v := range meta {
+		if len(v) == 0 {
+			continue
+		}
+		switch http.CanonicalHeaderKey(k) {
+		case cloudprovider.META_HEADER_CONTENT_TYPE:
+			opts = append(opts, oss.ContentType(v[0]))
+		case cloudprovider.META_HEADER_CONTENT_MD5:
+			opts = append(opts, oss.ContentMD5(v[0]))
+		case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+			opts = append(opts, oss.ContentLanguage(v[0]))
+		case cloudprovider.META_HEADER_CONTENT_ENCODING:
+			opts = append(opts, oss.ContentEncoding(v[0]))
+		case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+			opts = append(opts, oss.ContentDisposition(v[0]))
+		case cloudprovider.META_HEADER_CACHE_CONTROL:
+			opts = append(opts, oss.CacheControl(v[0]))
+		default:
+			opts = append(opts, oss.Meta(http.CanonicalHeaderKey(k), v[0]))
+		}
+	}
+	return opts
+}
+
+func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOssClient")
@@ -196,16 +221,17 @@ func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, si
 	if sizeBytes > 0 {
 		opts = append(opts, oss.ContentLength(sizeBytes))
 	}
-	if len(contType) > 0 {
-		opts = append(opts, oss.ContentType(contType))
+	if meta != nil {
+		opts = metaOpts(opts, meta)
 	}
-	if len(cannedAcl) > 0 {
-		acl, err := str2Acl(string(cannedAcl))
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		opts = append(opts, oss.ObjectACL(acl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	acl, err := str2Acl(string(cannedAcl))
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	opts = append(opts, oss.ObjectACL(acl))
 	if len(storageClassStr) > 0 {
 		storageClass, err := str2StorageClass(storageClassStr)
 		if err != nil {
@@ -216,7 +242,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, si
 	return bucket.PutObject(key, input, opts...)
 }
 
-func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
 		return "", errors.Wrap(err, "GetOssClient")
@@ -226,16 +252,17 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType s
 		return "", errors.Wrap(err, "Bucket")
 	}
 	opts := make([]oss.Option, 0)
-	if len(contType) > 0 {
-		opts = append(opts, oss.ContentType(contType))
+	if meta != nil {
+		opts = metaOpts(opts, meta)
 	}
-	if len(cannedAcl) > 0 {
-		acl, err := str2Acl(string(cannedAcl))
-		if err != nil {
-			return "", errors.Wrap(err, "")
-		}
-		opts = append(opts, oss.ObjectACL(acl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	acl, err := str2Acl(string(cannedAcl))
+	if err != nil {
+		return "", errors.Wrap(err, "str2Acl")
+	}
+	opts = append(opts, oss.ObjectACL(acl))
 	if len(storageClassStr) > 0 {
 		storageClass, err := str2StorageClass(storageClassStr)
 		if err != nil {
@@ -361,7 +388,7 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	return urlStr, nil
 }
 
-func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOssClient")
@@ -371,16 +398,17 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 		return errors.Wrap(err, "Bucket")
 	}
 	opts := make([]oss.Option, 0)
-	if len(contType) > 0 {
-		opts = append(opts, oss.ContentType(contType))
+	if meta != nil {
+		opts = metaOpts(opts, meta)
 	}
-	if len(cannedAcl) > 0 {
-		acl, err := str2Acl(string(cannedAcl))
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		opts = append(opts, oss.ObjectACL(acl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	acl, err := str2Acl(string(cannedAcl))
+	if err != nil {
+		return errors.Wrap(err, "str2Acl")
+	}
+	opts = append(opts, oss.ObjectACL(acl))
 	if len(storageClassStr) > 0 {
 		storageClass, err := str2StorageClass(storageClassStr)
 		if err != nil {

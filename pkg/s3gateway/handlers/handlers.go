@@ -270,11 +270,7 @@ func downloadObject(ctx context.Context, userCred mcclient.TokenCredential, buck
 	if err != nil {
 		return errors.Wrap(err, "cloudprovider.GetIObject")
 	}
-	hdr := http.Header{}
-	contType := obj.GetContentType()
-	if len(contType) > 0 {
-		hdr.Set("Content-Type", obj.GetContentType())
-	}
+	hdr := cloudprovider.MetaToHttpHeader(cloudprovider.META_HEADER_PREFIX, obj.GetMeta())
 	eTag := obj.GetETag()
 	if len(eTag) > 0 {
 		hdr.Set("ETag", eTag)

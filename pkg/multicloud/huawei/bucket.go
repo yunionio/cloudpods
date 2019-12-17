@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -205,7 +207,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 				SizeBytes:    object.Size,
 				ETag:         object.ETag,
 				LastModified: object.LastModified,
-				ContentType:  "",
 			},
 		}
 		result.Objects = append(result.Objects, obj)
@@ -227,7 +228,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
@@ -246,11 +247,32 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 			return err
 		}
 	}
-	if len(cannedAcl) > 0 {
-		input.ACL = obs.AclType(string(cannedAcl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
-	if len(contType) > 0 {
-		input.ContentType = contType
+	input.ACL = obs.AclType(string(cannedAcl))
+	if meta != nil {
+		val := meta.Get(cloudprovider.META_HEADER_CONTENT_TYPE)
+		if len(val) > 0 {
+			input.ContentType = val
+		}
+		val = meta.Get(cloudprovider.META_HEADER_CONTENT_MD5)
+		if len(val) > 0 {
+			input.ContentMD5 = val
+		}
+		extraMeta := make(map[string]string)
+		for k, v := range meta {
+			if utils.IsInStringArray(k, []string{
+				cloudprovider.META_HEADER_CONTENT_TYPE,
+				cloudprovider.META_HEADER_CONTENT_MD5,
+			}) {
+				continue
+			}
+			if len(v[0]) > 0 {
+				extraMeta[k] = v[0]
+			}
+		}
+		input.Metadata = extraMeta
 	}
 	_, err = obscli.PutObject(input)
 	if err != nil {
@@ -259,7 +281,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, s
 	return nil
 }
 
-func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
 		return "", errors.Wrap(err, "GetOBSClient")
@@ -268,12 +290,28 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType s
 	input := &obs.InitiateMultipartUploadInput{}
 	input.Bucket = b.Name
 	input.Key = key
-	if len(contType) > 0 {
-		input.ContentType = contType
+	if meta != nil {
+		val := meta.Get(cloudprovider.META_HEADER_CONTENT_TYPE)
+		if len(val) > 0 {
+			input.ContentType = val
+		}
+		extraMeta := make(map[string]string)
+		for k, v := range meta {
+			if utils.IsInStringArray(k, []string{
+				cloudprovider.META_HEADER_CONTENT_TYPE,
+			}) {
+				continue
+			}
+			if len(v[0]) > 0 {
+				extraMeta[k] = v[0]
+			}
+		}
+		input.Metadata = extraMeta
 	}
-	if len(cannedAcl) > 0 {
-		input.ACL = obs.AclType(string(cannedAcl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	input.ACL = obs.AclType(string(cannedAcl))
 	if len(storageClassStr) > 0 {
 		input.StorageClass, err = str2StorageClass(storageClassStr)
 		if err != nil {
@@ -428,12 +466,14 @@ func (b *SBucket) SetLimit(limit cloudprovider.SBucketStats) error {
 	return nil
 }
 
-func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
 	}
 	input := &obs.CopyObjectInput{}
+	input.Bucket = b.Name
+	input.Key = destKey
 	input.CopySourceBucket = srcBucket
 	input.CopySourceKey = srcKey
 	if len(storageClassStr) > 0 {
@@ -442,11 +482,30 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 			return err
 		}
 	}
-	if len(cannedAcl) > 0 {
-		input.ACL = obs.AclType(string(cannedAcl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
-	if len(contType) > 0 {
-		input.ContentType = contType
+	input.ACL = obs.AclType(string(cannedAcl))
+	if meta != nil {
+		val := meta.Get(cloudprovider.META_HEADER_CONTENT_TYPE)
+		if len(val) > 0 {
+			input.ContentType = val
+		}
+		extraMeta := make(map[string]string)
+		for k, v := range meta {
+			if utils.IsInStringArray(k, []string{
+				cloudprovider.META_HEADER_CONTENT_TYPE,
+			}) {
+				continue
+			}
+			if len(v[0]) > 0 {
+				extraMeta[k] = v[0]
+			}
+		}
+		input.Metadata = extraMeta
+		input.MetadataDirective = obs.ReplaceMetadata
+	} else {
+		input.MetadataDirective = obs.CopyMetadata
 	}
 	_, err = obscli.CopyObject(input)
 	if err != nil {

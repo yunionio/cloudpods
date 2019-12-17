@@ -224,7 +224,6 @@ func (bucket *SBucketDelegate) ListObject(ctx context.Context, userCred mcclient
 			ETag:         obj.GetETag(),
 			Size:         obj.GetSizeBytes(),
 			LastModified: obj.GetLastModified(),
-			ContentType:  obj.GetContentType(),
 			StorageClass: obj.GetStorageClass(),
 		}
 	}

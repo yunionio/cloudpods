@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -42,36 +43,37 @@ func (self *SZStackProviderFactory) GetSupportedBrands() []string {
 	return []string{api.ZSTACK_BRAND_DSTACK}
 }
 
-func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
-		return httperrors.NewMissingParameterError("auth_url")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "auth_url")
 	}
-	input.AccessUrl = input.AuthUrl
+	output.AccessUrl = input.AuthUrl
 	//为了兼容以前用username的参数，2.12之后尽可能的使用access_key_id参数
 	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
-		input.Account = input.AccessKeyId
-		input.Secret = input.AccessKeySecret
+		output.Account = input.AccessKeyId
+		output.Secret = input.AccessKeySecret
 	} else if len(input.Username) > 0 && len(input.Password) > 0 {
-		input.Account = input.Username
-		input.Secret = input.Password
+		output.Account = input.Username
+		output.Secret = input.Password
 	} else {
-		return httperrors.NewMissingParameterError("access_key_id or access_key_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id or access_key_secret")
 	}
-	return nil
+	return output, nil
 }
 
-func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCredentialInput, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	account := &cloudprovider.SCloudaccount{}
+func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
-		account.Account = input.AccessKeyId
-		account.Secret = input.AccessKeySecret
+		output.Account = input.AccessKeyId
+		output.Secret = input.AccessKeySecret
 	} else if len(input.Username) > 0 && len(input.Password) > 0 {
-		account.Account = input.Username
-		account.Secret = input.Password
+		output.Account = input.Username
+		output.Secret = input.Password
 	} else {
-		return nil, httperrors.NewMissingParameterError("access_key_id or access_key_secret")
+		return output, errors.Wrap(httperrors.ErrMissingParameter, "access_key_id or access_key_secret")
 	}
-	return account, nil
+	return output, nil
 }
 
 func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {

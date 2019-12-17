@@ -36,10 +36,10 @@ func initMultipartUpload(ctx context.Context, userCred mcclient.TokenCredential,
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "bucket.GetIBucket")
 	}
-	contType := hdr.Get(http.CanonicalHeaderKey("content-type"))
+	meta := cloudprovider.FetchMetaFromHttpHeader(cloudprovider.META_HEADER_PREFIX, hdr)
 	aclStr := hdr.Get(http.CanonicalHeaderKey("x-amz-acl"))
 	storageClassStr := hdr.Get(http.CanonicalHeaderKey("x-amz-storage-class"))
-	uploadId, err := iBucket.NewMultipartUpload(ctx, key, contType, cloudprovider.TBucketACLType(aclStr), storageClassStr)
+	uploadId, err := iBucket.NewMultipartUpload(ctx, key, cloudprovider.TBucketACLType(aclStr), storageClassStr, meta)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "NewMultipartUpload")
 	}
