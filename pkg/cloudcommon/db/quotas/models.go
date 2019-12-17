@@ -153,7 +153,14 @@ func (manager *SQuotaBaseManager) getQuotasInternal(ctx context.Context, keys IQ
 }
 
 func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error {
-	return manager.TableSpec().InsertOrUpdate(quota)
+	err := manager.TableSpec().InsertOrUpdate(quota)
+	if err != nil {
+		return errors.Wrap(err, "InsertOrUpdate")
+	}
+	if manager.nonNegative {
+		quota.ResetNegative()
+	}
+	return nil
 }
 
 func (manager *SQuotaBaseManager) addQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, diff IQuota) error {
