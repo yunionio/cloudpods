@@ -131,11 +131,11 @@ require (
 	k8s.io/client-go v9.0.0+incompatible
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
-	yunion.io/x/jsonutils v0.0.0-20191005115334-bb1c187fc0e7
+	yunion.io/x/jsonutils v0.0.0-20191213141000-dfc176a66644
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191112153320-4346cc308eed
+	yunion.io/x/pkg v0.0.0-20191213141200-9b18cc7f696e
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20191119025555-5948646b39e6
+	yunion.io/x/sqlchemy v0.0.0-20191206101534-32ae27ae30cb
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
