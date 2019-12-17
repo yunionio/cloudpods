@@ -48,6 +48,7 @@ type IColumnSpec interface {
 	ConvertFromValue(val interface{}) interface{}
 	// ConvertToValue(str interface{}) interface{}
 	IsZero(val interface{}) bool
+	AllowZero() bool
 	// IsEqual(v1, v2 interface{}) bool
 	Tags() map[string]string
 
@@ -64,6 +65,7 @@ type SBaseColumn struct {
 	isPrimary     bool
 	isUnique      bool
 	isIndex       bool
+	isAllowZero   bool
 	tags          map[string]string
 }
 
@@ -125,6 +127,10 @@ func (c *SBaseColumn) IsSearchable() bool {
 
 func (c *SBaseColumn) IsNumeric() bool {
 	return false
+}
+
+func (c *SBaseColumn) AllowZero() bool {
+	return c.isAllowZero
 }
 
 func (c *SBaseColumn) ConvertFromString(str string) string {
@@ -217,6 +223,11 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	if isPrimary {
 		isNullable = false
 	}
+	isAllowZero := false
+	tagmap, val, ok = utils.TagPop(tagmap, TAG_ALLOW_ZERO)
+	if ok {
+		isAllowZero = utils.ToBool(val)
+	}
 	return SBaseColumn{
 		name:          name,
 		dbName:        dbName,
@@ -228,6 +239,7 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 		isIndex:       isIndex,
 		tags:          tagmap,
 		isPointer:     isPointer,
+		isAllowZero:   isAllowZero,
 	}
 }
 
