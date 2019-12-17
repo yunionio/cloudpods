@@ -199,10 +199,10 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	changeConfigSpec := jsonutils.NewDict()
-	if addCpu > 0 {
+	if addCpu != 0 {
 		changeConfigSpec.Set("add_cpu", jsonutils.NewInt(int64(addCpu)))
 	}
-	if addMem > 0 {
+	if addMem != 0 {
 		changeConfigSpec.Set("add_mem", jsonutils.NewInt(int64(addMem)))
 	}
 	if len(instanceType) > 0 {
@@ -218,11 +218,16 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	var cancelUsage models.SQuota
+	var reduceUsage models.SQuota
 	if addCpu > 0 {
 		cancelUsage.Cpu = addCpu
+	} else if addCpu < 0 {
+		reduceUsage.Cpu = -addCpu
 	}
 	if addMem > 0 {
 		cancelUsage.Memory = addMem
+	} else if addMem < 0 {
+		reduceUsage.Memory = -addMem
 	}
 
 	keys, err := guest.GetQuotaKeys()
@@ -231,19 +236,26 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 		return
 	}
 	cancelUsage.SetKeys(keys)
+	reduceUsage.SetKeys(keys)
 
 	lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
-	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
-	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
-		return
+	if !cancelUsage.IsEmpty() {
+		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
+		if err != nil {
+			self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
+			return
+		}
+		err = self.SetPendingUsage(&pendingUsage, 0)
+		if err != nil {
+			self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
+			return
+		}
 	}
-	err = self.SetPendingUsage(&pendingUsage, 0)
-	if err != nil {
-		self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
-		return
+
+	if !reduceUsage.IsEmpty() {
+		quotas.CancelUsages(ctx, self.UserCred, []db.IUsage{&reduceUsage})
 	}
 
 	self.OnGuestChangeCpuMemSpecFinish(ctx, guest)
