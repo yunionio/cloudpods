@@ -328,6 +328,10 @@ func findDatacenterByMoId(dcs []*SDatacenter, dcId string) (*SDatacenter, error)
 		if dcs[i].GetId() == dcId {
 			return dcs[i], nil
 		}
+		// defaultDcId means no premision to get datacenter, so return fake dc
+		if dcs[i].GetId() == defaultDcId {
+			return dcs[i], nil
+		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
