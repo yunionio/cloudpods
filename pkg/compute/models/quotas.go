@@ -80,13 +80,13 @@ type SQuota struct {
 
 	SComputeResourceKeys
 
-	Count   int `default:"-1"`
-	Cpu     int `default:"-1"`
-	Memory  int `default:"-1"`
-	Storage int `default:"-1"`
+	Count   int `default:"-1" allow_zero:"true"`
+	Cpu     int `default:"-1" allow_zero:"true"`
+	Memory  int `default:"-1" allow_zero:"true"`
+	Storage int `default:"-1" allow_zero:"true"`
 
-	Group          int `default:"-1"`
-	IsolatedDevice int `default:"-1"`
+	Group          int `default:"-1" allow_zero:"true"`
+	IsolatedDevice int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {

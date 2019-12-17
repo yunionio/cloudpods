@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type QuotaManager struct {
@@ -28,6 +29,10 @@ type QuotaManager struct {
 }
 
 func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
+	return this.getURL2(params, "")
+}
+
+func (this *QuotaManager) getURL2(params jsonutils.JSONObject, extra string) string {
 	url := fmt.Sprintf("/%s", this.URLPath())
 	query := jsonutils.NewDict()
 	if params != nil {
@@ -50,6 +55,9 @@ func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
 			query.Add(jsonutils.JSONTrue, "refresh")
 		}
 	}
+	if len(extra) > 0 {
+		url = httputils.JoinPath(url, extra)
+	}
 	if query.Size() > 0 {
 		url += "?" + query.QueryString()
 	}
@@ -67,7 +75,7 @@ func (this *QuotaManager) GetQuota(s *mcclient.ClientSession, params jsonutils.J
 }
 
 func (this *QuotaManager) DoCleanPendingUsage(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	url := this.getURL(params)
+	url := this.getURL2(params, "pending")
 	results, err := modulebase.Delete(this.ResourceManager, s, url, nil, "")
 	if err != nil {
 		return nil, err
