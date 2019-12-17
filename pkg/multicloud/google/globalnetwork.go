@@ -14,12 +14,18 @@
 
 package google
 
+import (
+	"time"
+
+	"yunion.io/x/pkg/errors"
+)
+
 type SGlobalNetwork struct {
-	Id string
-	//CreationTimestamp     time.Time
-	Name                  string
+	SResourceBase
+
+	Id                    string
+	CreationTimestamp     time.Time
 	Description           string
-	SelfLink              string
 	AutoCreateSubnetworks bool
 	Subnetworks           []string
 	RoutingConfig         map[string]string
@@ -28,12 +34,29 @@ type SGlobalNetwork struct {
 
 func (cli *SGoogleClient) GetGlobalNetwork(id string) (*SGlobalNetwork, error) {
 	net := &SGlobalNetwork{}
-	return net, cli.get(id, net)
+	return net, cli.ecsGet(id, net)
 }
 
 func (cli *SGoogleClient) GetGlobalNetworks(maxResults int, pageToken string) ([]SGlobalNetwork, error) {
 	networks := []SGlobalNetwork{}
 	params := map[string]string{}
 	resource := "global/networks"
-	return networks, cli.list(resource, params, maxResults, pageToken, &networks)
+	if maxResults == 0 && len(pageToken) == 0 {
+		err := cli.ecsListAll(resource, params, &networks)
+		if err != nil {
+			return nil, errors.Wrap(err, "ecsListAll")
+		}
+		return networks, nil
+	}
+	resp, err := cli.ecsList(resource, params)
+	if err != nil {
+		return nil, errors.Wrap(err, "ecsList")
+	}
+	if resp.Contains("items") {
+		err = resp.Unmarshal(&networks, "items")
+		if err != nil {
+			return nil, errors.Wrap(err, "resp.Unmarshal")
+		}
+	}
+	return networks, nil
 }

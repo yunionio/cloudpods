@@ -41,7 +41,7 @@ func (region *SRegion) GetRegionDisks(storageType string, maxResults int, pageTo
 	disks := []SRegionDisk{}
 	params := map[string]string{}
 	if len(storageType) > 0 {
-		params["filter"] = fmt.Sprintf(`type="%s/regions/%s/diskTypes/%s"`, region.GetUrlPrefixWithProjectId(), region.Name, storageType)
+		params["filter"] = fmt.Sprintf(`type="%s/%s/projects/%s/regions/%s/diskTypes/%s"`, GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, region.GetProjectId(), region.Name, storageType)
 	}
 	resource := fmt.Sprintf("regions/%s/disks", region.Name)
 	return disks, region.List(resource, params, maxResults, pageToken, &disks)

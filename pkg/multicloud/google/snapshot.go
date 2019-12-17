@@ -26,10 +26,10 @@ import (
 
 type SSnapshot struct {
 	region *SRegion
+	SResourceBase
 
 	Id                 string
 	CreationTimestamp  time.Time
-	Name               string
 	Status             string
 	SourceDisk         string
 	SourceDiskId       string
@@ -37,7 +37,6 @@ type SSnapshot struct {
 	StorageBytes       int
 	StorageBytesStatus string
 	Licenses           []string
-	SelfLink           string
 	LabelFingerprint   string
 	LicenseCodes       []string
 	StorageLocations   []string
@@ -57,18 +56,6 @@ func (region *SRegion) GetSnapshots(disk string, maxResults int, pageToken strin
 func (region *SRegion) GetSnapshot(id string) (*SSnapshot, error) {
 	snapshot := &SSnapshot{region: region}
 	return snapshot, region.Get(id, snapshot)
-}
-
-func (snapshot *SSnapshot) GetId() string {
-	return snapshot.SelfLink
-}
-
-func (snapshot *SSnapshot) GetGlobalId() string {
-	return getGlobalId(snapshot.SelfLink)
-}
-
-func (snapshot *SSnapshot) GetName() string {
-	return snapshot.Name
 }
 
 //CREATING, DELETING, FAILED, READY, or UPLOADING

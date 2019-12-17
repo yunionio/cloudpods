@@ -39,10 +39,10 @@ type SDeprecated struct {
 
 type SImage struct {
 	storagecache *SStoragecache
+	SResourceBase
 
 	Id                string
 	CreationTimestamp time.Time
-	Name              string
 	Description       string
 	SourceType        string
 	RawDisk           map[string]string
@@ -52,7 +52,6 @@ type SImage struct {
 	DiskSizeGb        int
 	Licenses          []string
 	Family            string
-	SelfLink          string
 	LabelFingerprint  string
 	GuestOsFeatures   []GuestOsFeature
 	LicenseCodes      []string
@@ -107,18 +106,6 @@ func (region *SRegion) GetImages(project string, maxResults int, pageToken strin
 func (region *SRegion) GetImage(id string) (*SImage, error) {
 	image := &SImage{}
 	return image, region.Get(id, image)
-}
-
-func (image *SImage) GetId() string {
-	return image.SelfLink
-}
-
-func (image *SImage) GetGlobalId() string {
-	return getGlobalId(image.SelfLink)
-}
-
-func (image *SImage) GetName() string {
-	return image.Name
 }
 
 func (image *SImage) GetMetadata() *jsonutils.JSONDict {

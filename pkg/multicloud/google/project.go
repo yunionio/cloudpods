@@ -15,7 +15,6 @@
 package google
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,31 +32,38 @@ type SProject struct {
 
 func (cli *SGoogleClient) GetProject(id string) (*SProject, error) {
 	project := &SProject{}
-	return project, cli.get(id, project)
+	resp, err := cli.managerGet(id)
+	if err != nil {
+		return nil, errors.Wrap(err, "managerGet")
+	}
+	err = resp.Unmarshal(project)
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return project, nil
 }
 
 func (cli *SGoogleClient) GetProjects() ([]SProject, error) {
-	baseUrl := "https://cloudresourcemanager.googleapis.com/v1/projects"
 	nextPageToken := ""
+	params := map[string]string{}
 	result := []SProject{}
 	for {
-		url := baseUrl
 		if len(nextPageToken) > 0 {
-			url = fmt.Sprintf("%s?pageToken=%s", baseUrl, nextPageToken)
+			params["pageToken"] = nextPageToken
 		}
-		data, err := jsonRequest(cli.client, "GET", url, nil, cli.Debug)
+		resp, err := cli.managerList("projects", params)
 		if err != nil {
-			return nil, errors.Wrap(err, "JSONRequest")
+			return nil, errors.Wrap(err, "managerList")
 		}
 		_result := []SProject{}
-		if data.Contains("projects") {
-			err = data.Unmarshal(&_result, "projects")
+		if resp.Contains("projects") {
+			err = resp.Unmarshal(&_result, "projects")
 			if err != nil {
 				return nil, errors.Wrap(err, "data.Unmarshal")
 			}
 		}
 		result = append(result, _result...)
-		nextPageToken, _ = data.GetString("nextPageToken")
+		nextPageToken, _ = resp.GetString("nextPageToken")
 		if len(nextPageToken) == 0 || len(_result) == 0 {
 			break
 		}
