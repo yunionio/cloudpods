@@ -404,7 +404,8 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 	for _, newData := range newDatas {
 		_, err := self.Create(ctx, jsonutils.JSONNull, jsonutils.Marshal(newData), ctxIds)
 		if err != nil {
-			createFailed = append(createFailed, fmt.Sprintf(`uid:%q, contact:%q, contact_type:%q`, idstr, newData["contact_type"], newData["contact"]))
+			createFailed = append(createFailed, fmt.Sprintf(`uid:%q, contact_type:%q, contact:%q`, idstr,
+				newData["contact_type"], newData["contact"]))
 		}
 	}
 

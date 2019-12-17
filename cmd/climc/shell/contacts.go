@@ -50,8 +50,10 @@ func init() {
 
 		arr.Add(tmpObj)
 
+		tmpObj = jsonutils.NewDict()
+		tmpObj.Add(arr, "contacts")
 		params := jsonutils.NewDict()
-		params.Add(arr, "contacts")
+		params.Add(tmpObj, "contact")
 		if args.UpdateDingtalk {
 			params.Add(jsonutils.JSONTrue, "update_dingtalk")
 		}
