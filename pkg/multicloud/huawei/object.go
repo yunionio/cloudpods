@@ -15,6 +15,9 @@
 package huawei
 
 import (
+	"context"
+	"net/http"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -61,4 +64,36 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		return errors.Wrap(err, "obscli.SetObjectAcl")
 	}
 	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	if o.Meta != nil {
+		return o.Meta
+	}
+	obscli, err := o.bucket.region.getOBSClient()
+	if err != nil {
+		log.Errorf("getOBSClient fail %s", err)
+		return nil
+	}
+	input := &obs.GetObjectMetadataInput{}
+	input.Bucket = o.bucket.Name
+	input.Key = o.Key
+	output, err := obscli.GetObjectMetadata(input)
+	if err != nil {
+		log.Errorf("obscli.GetObjectMetadata fail %s", err)
+		return nil
+	}
+	meta := http.Header{}
+	for k, v := range output.Metadata {
+		meta.Add(k, v)
+	}
+	if len(output.ContentType) > 0 {
+		meta.Add(cloudprovider.META_HEADER_CONTENT_TYPE, output.ContentType)
+	}
+	o.Meta = meta
+	return meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

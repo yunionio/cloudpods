@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,6 +43,15 @@ const (
 	ACLPublicRead      = TBucketACLType(s3cli.CANNED_ACL_PUBLIC_READ)
 	ACLPublicReadWrite = TBucketACLType(s3cli.CANNED_ACL_PUBLIC_READ_WRITE)
 	ACLUnknown         = TBucketACLType("")
+
+	META_HEADER_CACHE_CONTROL       = "Cache-Control"
+	META_HEADER_CONTENT_TYPE        = "Content-Type"
+	META_HEADER_CONTENT_DISPOSITION = "Content-Disposition"
+	META_HEADER_CONTENT_ENCODING    = "Content-Encoding"
+	META_HEADER_CONTENT_LANGUAGE    = "Content-Language"
+	META_HEADER_CONTENT_MD5         = "Content-MD5"
+
+	META_HEADER_PREFIX = "X-Yunion-Meta-"
 )
 
 type SBucketStats struct {
@@ -69,7 +79,7 @@ type SBaseCloudObject struct {
 	StorageClass string
 	ETag         string
 	LastModified time.Time
-	ContentType  string
+	Meta         http.Header
 }
 
 type SListObjectResult struct {
@@ -140,14 +150,15 @@ type ICloudBucket interface {
 	ListObjects(prefix string, marker string, delimiter string, maxCount int) (SListObjectResult, error)
 	GetIObjects(prefix string, isRecursive bool) ([]ICloudObject, error)
 
-	CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl TBucketACLType, storageClassStr string) error
+	CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl TBucketACLType, storageClassStr string, meta http.Header) error
 	GetObject(ctx context.Context, key string, rangeOpt *SGetObjectRange) (io.ReadCloser, error)
 
 	DeleteObject(ctx context.Context, keys string) error
 	GetTempUrl(method string, key string, expire time.Duration) (string, error)
 
-	PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl TBucketACLType, storageClassStr string) error
-	NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl TBucketACLType, storageClassStr string) (string, error)
+	PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, cannedAcl TBucketACLType, storageClassStr string, meta http.Header) error
+
+	NewMultipartUpload(ctx context.Context, key string, cannedAcl TBucketACLType, storageClassStr string, meta http.Header) (string, error)
 	UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error)
 	CopyPart(ctx context.Context, key string, uploadId string, partIndex int, srcBucketName string, srcKey string, srcOffset int64, srcLength int64) (string, error)
 	CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error
@@ -162,7 +173,9 @@ type ICloudObject interface {
 	GetLastModified() time.Time
 	GetStorageClass() string
 	GetETag() string
-	GetContentType() string
+
+	GetMeta() http.Header
+	SetMeta(ctx context.Context, meta http.Header) error
 
 	GetAcl() TBucketACLType
 	SetAcl(acl TBucketACLType) error
@@ -175,7 +188,7 @@ func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
 		StorageClass string
 		ETag         string
 		LastModified time.Time
-		ContentType  string
+		Meta         http.Header
 		Acl          string
 	}{
 		Key:          obj.GetKey(),
@@ -183,7 +196,7 @@ func ICloudObject2JSONObject(obj ICloudObject) jsonutils.JSONObject {
 		StorageClass: obj.GetStorageClass(),
 		ETag:         obj.GetETag(),
 		LastModified: obj.GetLastModified(),
-		ContentType:  obj.GetContentType(),
+		Meta:         obj.GetMeta(),
 		Acl:          string(obj.GetAcl()),
 	}
 	return jsonutils.Marshal(obj2)
@@ -209,9 +222,13 @@ func (o *SBaseCloudObject) GetETag() string {
 	return o.ETag
 }
 
-func (o *SBaseCloudObject) GetContentType() string {
-	return o.ContentType
+func (o *SBaseCloudObject) GetMeta() http.Header {
+	return o.Meta
 }
+
+//func (o *SBaseCloudObject) SetMeta(meta http.Header) error {
+//    return nil
+//}
 
 func GetIBucketById(region ICloudRegion, name string) (ICloudBucket, error) {
 	buckets, err := region.GetIBuckets()
@@ -323,14 +340,14 @@ func Makedir(ctx context.Context, bucket ICloudBucket, key string) error {
 		}
 	}
 	path := strings.Join(segs, "/") + "/"
-	err := bucket.PutObject(ctx, path, strings.NewReader(""), 0, "", ACLPrivate, "")
+	err := bucket.PutObject(ctx, path, strings.NewReader(""), 0, bucket.GetAcl(), "", nil)
 	if err != nil {
 		return errors.Wrap(err, "PutObject")
 	}
 	return nil
 }
 
-func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz int64, input io.Reader, sizeBytes int64, contType string, cannedAcl TBucketACLType, storageClass string, debug bool) error {
+func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz int64, input io.Reader, sizeBytes int64, cannedAcl TBucketACLType, storageClass string, meta http.Header, debug bool) error {
 	if blocksz <= 0 {
 		blocksz = MAX_PUT_OBJECT_SIZEBYTES
 	}
@@ -338,7 +355,7 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 		if debug {
 			log.Debugf("too small, put object in one shot")
 		}
-		return bucket.PutObject(ctx, key, input, sizeBytes, contType, cannedAcl, storageClass)
+		return bucket.PutObject(ctx, key, input, sizeBytes, cannedAcl, storageClass, meta)
 	}
 	partSize := blocksz
 	partCount := sizeBytes / partSize
@@ -358,7 +375,7 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 	if debug {
 		log.Debugf("multipart upload part count %d part size %d", partCount, partSize)
 	}
-	uploadId, err := bucket.NewMultipartUpload(ctx, key, contType, cannedAcl, storageClass)
+	uploadId, err := bucket.NewMultipartUpload(ctx, key, cannedAcl, storageClass, meta)
 	if err != nil {
 		return errors.Wrap(err, "bucket.NewMultipartUpload")
 	}
@@ -407,7 +424,31 @@ func DeletePrefix(ctx context.Context, bucket ICloudBucket, prefix string) error
 	return nil
 }
 
-func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, debug bool) error {
+func MergeMeta(src http.Header, dst http.Header) http.Header {
+	if src != nil && dst != nil {
+		ret := http.Header{}
+		for k, vs := range src {
+			for _, v := range vs {
+				ret.Add(k, v)
+			}
+		}
+		for k, vs := range dst {
+			for _, v := range vs {
+				ret.Add(k, v)
+			}
+		}
+		return ret
+	} else if src != nil && dst == nil {
+		return src
+	} else if src == nil && dst != nil {
+		return dst
+	} else {
+		return nil
+	}
+}
+
+func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstKey string, srcBucket ICloudBucket, srcKey string, dstMeta http.Header, debug bool) error {
+
 	srcObj, err := GetIObject(srcBucket, srcKey)
 	if err != nil {
 		return errors.Wrap(err, "GetIObject")
@@ -425,7 +466,7 @@ func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstK
 			return errors.Wrap(err, "srcBucket.GetObject")
 		}
 		defer srcStream.Close()
-		err = dstBucket.PutObject(ctx, dstKey, srcStream, sizeBytes, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+		err = dstBucket.PutObject(ctx, dstKey, srcStream, sizeBytes, srcObj.GetAcl(), srcObj.GetStorageClass(), MergeMeta(srcObj.GetMeta(), dstMeta))
 		if err != nil {
 			return errors.Wrap(err, "dstBucket.PutObject")
 		}
@@ -449,7 +490,7 @@ func CopyObject(ctx context.Context, blocksz int64, dstBucket ICloudBucket, dstK
 	if debug {
 		log.Debugf("multipart upload part count %d part size %d", partCount, partSize)
 	}
-	uploadId, err := dstBucket.NewMultipartUpload(ctx, dstKey, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+	uploadId, err := dstBucket.NewMultipartUpload(ctx, dstKey, srcObj.GetAcl(), srcObj.GetStorageClass(), MergeMeta(srcObj.GetMeta(), dstMeta))
 	if err != nil {
 		return errors.Wrap(err, "bucket.NewMultipartUpload")
 	}
@@ -512,4 +553,59 @@ func CopyPart(ctx context.Context,
 		return "", errors.Wrap(err, "iDstBucket.UploadPart")
 	}
 	return etag, nil
+}
+
+func ObjectSetMeta(ctx context.Context,
+	bucket ICloudBucket, obj ICloudObject,
+	meta http.Header,
+) error {
+	return bucket.CopyObject(ctx, obj.GetKey(), bucket.GetName(), obj.GetKey(), obj.GetAcl(), obj.GetStorageClass(), meta)
+}
+
+func MetaToHttpHeader(metaPrefix string, meta http.Header) http.Header {
+	hdr := http.Header{}
+	for k, v := range meta {
+		if len(v) == 0 || len(v[0]) == 0 {
+			continue
+		}
+		k = http.CanonicalHeaderKey(k)
+		switch k {
+		case META_HEADER_CACHE_CONTROL,
+			META_HEADER_CONTENT_TYPE,
+			META_HEADER_CONTENT_DISPOSITION,
+			META_HEADER_CONTENT_ENCODING,
+			META_HEADER_CONTENT_LANGUAGE,
+			META_HEADER_CONTENT_MD5:
+			hdr.Set(k, v[0])
+		default:
+			hdr.Set(fmt.Sprintf("%s%s", metaPrefix, k), v[0])
+		}
+	}
+	return hdr
+}
+
+func FetchMetaFromHttpHeader(metaPrefix string, headers http.Header) http.Header {
+	metaPrefix = http.CanonicalHeaderKey(metaPrefix)
+	meta := http.Header{}
+	for hdr, vals := range headers {
+		hdr = http.CanonicalHeaderKey(hdr)
+		if strings.HasPrefix(hdr, metaPrefix) {
+			for _, val := range vals {
+				meta.Add(hdr[len(metaPrefix):], val)
+			}
+		}
+	}
+	for _, hdr := range []string{
+		META_HEADER_CONTENT_TYPE,
+		META_HEADER_CONTENT_ENCODING,
+		META_HEADER_CONTENT_DISPOSITION,
+		META_HEADER_CONTENT_LANGUAGE,
+		META_HEADER_CACHE_CONTROL,
+	} {
+		val := headers.Get(hdr)
+		if len(val) > 0 {
+			meta.Set(hdr, val)
+		}
+	}
+	return meta
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -183,7 +184,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 				SizeBytes:    *object.Size,
 				ETag:         *object.ETag,
 				LastModified: *object.LastModified,
-				ContentType:  "",
 			},
 		}
 		result.Objects = append(result.Objects, obj)
@@ -210,7 +210,7 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	if sizeBytes < 0 {
 		return errors.Error("content length expected")
 	}
@@ -228,12 +228,37 @@ func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, siz
 	defer seeker.Close()
 	input.SetBody(seeker)
 	input.SetContentLength(sizeBytes)
-	if len(contType) > 0 {
-		input.SetContentType(contType)
+	if meta != nil {
+		metaHdr := make(map[string]*string)
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				input.SetCacheControl(v[0])
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				input.SetContentType(v[0])
+			case cloudprovider.META_HEADER_CONTENT_MD5:
+				input.SetContentMD5(v[0])
+			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+				input.SetContentLanguage(v[0])
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				input.SetContentEncoding(v[0])
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				input.SetContentDisposition(v[0])
+			default:
+				metaHdr[k] = &v[0]
+			}
+		}
+		if len(metaHdr) > 0 {
+			input.SetMetadata(metaHdr)
+		}
 	}
-	if len(cannedAcl) > 0 {
-		input.SetACL(string(cannedAcl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	input.SetACL(string(cannedAcl))
 	if len(storageClassStr) > 0 {
 		input.SetStorageClass(storageClassStr)
 	}
@@ -244,7 +269,7 @@ func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, siz
 	return nil
 }
 
-func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
 		return "", errors.Wrap(err, "GetS3Client")
@@ -252,12 +277,35 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType s
 	input := &s3.CreateMultipartUploadInput{}
 	input.SetBucket(b.Name)
 	input.SetKey(key)
-	if len(contType) > 0 {
-		input.SetContentType(contType)
+	if meta != nil {
+		metaHdr := make(map[string]*string)
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				input.SetCacheControl(v[0])
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				input.SetContentType(v[0])
+			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+				input.SetContentLanguage(v[0])
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				input.SetContentEncoding(v[0])
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				input.SetContentDisposition(v[0])
+			default:
+				metaHdr[k] = &v[0]
+			}
+		}
+		if len(metaHdr) > 0 {
+			input.SetMetadata(metaHdr)
+		}
 	}
-	if len(cannedAcl) > 0 {
-		input.SetACL(string(cannedAcl))
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
 	}
+	input.SetACL(string(cannedAcl))
 	if len(storageClassStr) > 0 {
 		input.SetStorageClass(storageClassStr)
 	}
@@ -380,7 +428,7 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	return url, nil
 }
 
-func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
 		return errors.Wrap(err, "GetS3Client")
@@ -391,8 +439,40 @@ func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, src
 	input.SetKey(destKey)
 	input.SetCopySource(fmt.Sprintf("%s/%s", srcBucket, url.PathEscape(srcKey)))
 	input.SetStorageClass(storageClassStr)
+	if len(cannedAcl) == 0 {
+		cannedAcl = b.GetAcl()
+	}
 	input.SetACL(string(cannedAcl))
-	input.SetContentType(contType)
+	var metaDir string
+	if meta != nil {
+		metaHdr := make(map[string]*string)
+		for k, v := range meta {
+			if len(v) == 0 || len(v[0]) == 0 {
+				continue
+			}
+			switch http.CanonicalHeaderKey(k) {
+			case cloudprovider.META_HEADER_CACHE_CONTROL:
+				input.SetCacheControl(v[0])
+			case cloudprovider.META_HEADER_CONTENT_TYPE:
+				input.SetContentType(v[0])
+			case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+				input.SetContentLanguage(v[0])
+			case cloudprovider.META_HEADER_CONTENT_ENCODING:
+				input.SetContentEncoding(v[0])
+			case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+				input.SetContentDisposition(v[0])
+			default:
+				metaHdr[k] = &v[0]
+			}
+		}
+		if len(metaHdr) > 0 {
+			input.SetMetadata(metaHdr)
+		}
+		metaDir = "REPLACE"
+	} else {
+		metaDir = "COPY"
+	}
+	input.SetMetadataDirective(metaDir)
 	_, err = s3cli.CopyObject(input)
 	if err != nil {
 		return errors.Wrap(err, "CopyObject")
