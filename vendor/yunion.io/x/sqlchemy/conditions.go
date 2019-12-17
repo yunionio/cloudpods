@@ -351,7 +351,7 @@ func (t *SLikeCondition) WhereClause() string {
 	return tupleConditionWhereClause(&t.STupleCondition, SQL_OP_LIKE)
 }
 
-func Like(f IQueryField, v interface{}) ICondition {
+func Like(f IQueryField, v string) ICondition {
 	c := SLikeCondition{NewTupleCondition(f, v)}
 	return &c
 }

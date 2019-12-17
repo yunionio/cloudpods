@@ -1,6 +1,6 @@
 # sqlchemy
 
-A golang lightweight ORM library inspired by sqlalchemy.
+A lightweight golang ORM library inspired by python sqlalchemy.
 
 Features
 ----------------
@@ -13,7 +13,7 @@ Features
 Quick Examples
 ----------------
 
-## Table Schema definition
+## Table Schema
 
 Table schema is defined by struct field tags
 
@@ -32,9 +32,9 @@ Table schema is defined by struct field tags
         Notes     string               `default:"default notes"`
     }
 
-## Create table instance
+## Table initialization
 
-Create a table from a struct
+Create a table from a struct schema
 
     tablespec := sqlchemy.NewTableSpecFromStruct(TestTable{}, "testtable")
 
@@ -63,10 +63,12 @@ Synchronize database table schema and make it consistent with the struct definti
     // select * from testtable where id = '981b10ed-b6f9-4120-8a77-a3b03e343143'
     // query by field name, in which the name is unique in the query
     q := ti.Query().Equals("id", "981b10ed-b6f9-4120-8a77-a3b03e343143")
+
     // query by field instance, in which the field name might be ambiguous
     q := ti.Query().Filter(sqlchemy.Equals(ti.Field("id"), "981b10ed-b6f9-4120-8a77-a3b03e343143"))
 
     // joint query
+
     // select * from t1 join t2 on t1.id=t2.testtable_id where t2.created_at > '2019-11-02'
     q := ti.Query("name").Join(t2, sqlchemy.Equals(ti.Field("id"), t2.Field("testtable_id"))).Filter(sqlchermy.GT(t2.Field("created_at"), '2019-11-02')
 
@@ -86,7 +88,8 @@ Synchronize database table schema and make it consistent with the struct definti
     if err != nil {
         log.Fatalf("fetch object error %s", err)
     }
-    // first single row into a string map, where strMap is map[string]string
+
+    // fetch single row into a string map, where strMap is map[string]string
     strMap, err := q.FirstStringMap()
     if err != nil {
         log.Fatalf("fetch object error %s", err)
@@ -99,6 +102,7 @@ Synchronize database table schema and make it consistent with the struct definti
     if err != nil {
         log.Fatalf("query failure: %s", err)
     }
+
     // fetch rows into string maps, where maps is []map[string]string
     maps, err := q.AllStringMap()
     if err != nil {
@@ -127,6 +131,11 @@ Query can be used as a subquery in other queries.
     // insert the data, primary key fields must be populated
     // the primary key has been populated by the BeforeInsert hook
     err = tablespec.Insert(&dt1)
+
+    // insert or update
+    // insert the object if no primary key conflict, otherwise, update the record
+    err = tablespec.InsertOrUpdate(&dt1)
+
 
 ## Update
 
