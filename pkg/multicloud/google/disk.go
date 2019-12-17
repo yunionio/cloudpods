@@ -17,6 +17,7 @@ package google
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,14 +29,13 @@ import (
 
 type SDisk struct {
 	storage *SStorage
+	SResourceBase
 
 	Id                     string
 	CreationTimestamp      time.Time
-	Name                   string
 	SizeGB                 int
 	Zone                   string
 	Status                 string
-	SelfLink               string
 	Type                   string
 	SourceImage            string
 	LastAttachTimestamp    time.Time
@@ -56,7 +56,7 @@ func (region *SRegion) GetDisks(zone string, storageType string, maxResults int,
 	}
 	params := map[string]string{}
 	if len(storageType) > 0 {
-		params["filter"] = fmt.Sprintf(`type="%s/zones/%s/diskTypes/%s"`, region.GetUrlPrefixWithProjectId(), zone, storageType)
+		params["filter"] = fmt.Sprintf(`type="%s/%s/projects/%s/zones/%s/diskTypes/%s"`, GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, region.GetProjectId(), zone, storageType)
 	}
 	return disks, region.List(fmt.Sprintf("zones/%s/disks", zone), params, maxResults, pageToken, &disks)
 }
@@ -64,18 +64,6 @@ func (region *SRegion) GetDisks(zone string, storageType string, maxResults int,
 func (region *SRegion) GetDisk(id string) (*SDisk, error) {
 	disk := &SDisk{}
 	return disk, region.Get(id, disk)
-}
-
-func (disk *SDisk) GetId() string {
-	return disk.SelfLink
-}
-
-func (disk *SDisk) GetGlobalId() string {
-	return getGlobalId(disk.SelfLink)
-}
-
-func (disk *SDisk) GetName() string {
-	return disk.Name
 }
 
 func (disk *SDisk) GetStatus() string {
@@ -194,7 +182,8 @@ func (disk *SDisk) GetISnapshot(id string) (cloudprovider.ICloudSnapshot, error)
 func (disk *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 	result := []string{}
 	for _, policy := range disk.ResourcePolicies {
-		result = append(result, getGlobalId(policy))
+		globalId := strings.TrimPrefix(policy, fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
+		result = append(result, globalId)
 	}
 	return result, nil
 }

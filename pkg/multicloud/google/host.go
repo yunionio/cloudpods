@@ -36,7 +36,7 @@ func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (host *SHost) GetId() string {
-	return getGlobalId(host.zone.GetId())
+	return host.zone.GetId()
 }
 
 func (host *SHost) GetGlobalId() string {
