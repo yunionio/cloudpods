@@ -89,7 +89,7 @@ func (self *SManagedObject) findInParents(objType string) *mo.ManagedEntity {
 	obj := self.object.Entity()
 
 	for obj != nil && obj.Self.Type != objType {
-		// log.Debugf("find %s want %s", obj.Self.Type, objType)
+		log.Debugf("find %s want %s", obj.Self.Type, objType)
 		obj = self.getParentEntity(obj)
 	}
 

@@ -45,20 +45,37 @@ func newDatacenter(manager *SESXiClient, dc *mo.Datacenter) *SDatacenter {
 	return &obj
 }
 
+func (dc *SDatacenter) isDefaultDc() bool {
+	if dc.object == &defaultDc {
+		return true
+	}
+	return false
+}
+
 func (dc *SDatacenter) getDatacenter() *mo.Datacenter {
 	return dc.object.(*mo.Datacenter)
 }
 
 func (dc *SDatacenter) getObjectDatacenter() *object.Datacenter {
+	if dc.isDefaultDc() {
+		return nil
+	}
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
 func (dc *SDatacenter) scanHosts() error {
 	if dc.ihosts == nil {
 		var hosts []mo.HostSystem
-		err := dc.manager.scanMObjects(dc.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
-		if err != nil {
-			return errors.Wrap(err, "dc.manager.scanMObjects")
+		if dc.isDefaultDc() {
+			err := dc.manager.scanAllMObjects(HOST_SYSTEM_PROPS, &hosts)
+			if err != nil {
+				return errors.Wrap(err, "dc.manager.scanAllMObjects")
+			}
+		} else {
+			err := dc.manager.scanMObjects(dc.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
+			if err != nil {
+				return errors.Wrap(err, "dc.manager.scanMObjects")
+			}
 		}
 		dc.ihosts = make([]cloudprovider.ICloudHost, 0)
 		for i := 0; i < len(hosts); i += 1 {
@@ -82,11 +99,18 @@ func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 func (dc *SDatacenter) scanDatastores() error {
 	if dc.istorages == nil {
 		var stores []mo.Datastore
-		dsList := dc.getDatacenter().Datastore
-		if dsList != nil {
-			err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
+		if dc.isDefaultDc() {
+			err := dc.manager.scanAllMObjects(DATASTORE_PROPS, &stores)
 			if err != nil {
-				return errors.Wrap(err, "dc.manager.references2Objects")
+				return errors.Wrap(err, "dc.manager.scanAllMObjects")
+			}
+		} else {
+			dsList := dc.getDatacenter().Datastore
+			if dsList != nil {
+				err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
+				if err != nil {
+					return errors.Wrap(err, "dc.manager.references2Objects")
+				}
 			}
 		}
 		dc.istorages = make([]cloudprovider.ICloudStorage, 0)
@@ -136,6 +160,9 @@ func (dc *SDatacenter) GetIStorageByMoId(idstr string) (cloudprovider.ICloudStor
 }
 
 func (dc *SDatacenter) getDcObj() *object.Datacenter {
+	if dc.isDefaultDc() {
+		return nil
+	}
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
@@ -162,24 +189,74 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 
 func (dc *SDatacenter) scanNetworks() error {
 	if dc.inetworks == nil {
-		dc.inetworks = make([]IVMNetwork, 0)
+		if dc.isDefaultDc() {
+			return dc.scanDefaultNetworks()
+		} else {
+			return dc.scanDcNetworks()
+		}
+	}
+	return nil
+}
 
-		netMOBs := dc.getDatacenter().Network
-		for i := range netMOBs {
-			dvport := mo.DistributedVirtualPortgroup{}
-			err := dc.manager.reference2Object(netMOBs[i], DVPORTGROUP_PROPS, &dvport)
+func (dc *SDatacenter) scanDefaultNetworks() error {
+	dc.inetworks = make([]IVMNetwork, 0)
+	err := dc.scanAllDvPortgroups()
+	if err != nil {
+		return errors.Wrap(err, "dc.scanAllDvPortgroups")
+	}
+	err = dc.scanAllNetworks()
+	if err != nil {
+		return errors.Wrap(err, "dc.scanAllNetworks")
+	}
+	return nil
+}
+
+func (dc *SDatacenter) scanAllDvPortgroups() error {
+	var dvports []mo.DistributedVirtualPortgroup
+
+	err := dc.manager.scanAllMObjects(DVPORTGROUP_PROPS, &dvports)
+	if err != nil {
+		return errors.Wrap(err, "dc.manager.scanAllMObjects mo.DistributedVirtualPortgroup")
+	}
+	for i := range dvports {
+		net := NewDistributedVirtualPortgroup(dc.manager, &dvports[i], dc)
+		dc.inetworks = append(dc.inetworks, net)
+	}
+	return nil
+}
+
+func (dc *SDatacenter) scanAllNetworks() error {
+	var nets []mo.Network
+
+	err := dc.manager.scanAllMObjects(NETWORK_PROPS, &nets)
+	if err != nil {
+		return errors.Wrap(err, "dc.manager.scanAllMObjects mo.Network")
+	}
+	for i := range nets {
+		net := NewNetwork(dc.manager, &nets[i], dc)
+		dc.inetworks = append(dc.inetworks, net)
+	}
+	return nil
+}
+
+func (dc *SDatacenter) scanDcNetworks() error {
+	dc.inetworks = make([]IVMNetwork, 0)
+
+	netMOBs := dc.getDatacenter().Network
+	for i := range netMOBs {
+		dvport := mo.DistributedVirtualPortgroup{}
+		err := dc.manager.reference2Object(netMOBs[i], DVPORTGROUP_PROPS, &dvport)
+		if err == nil {
+			net := NewDistributedVirtualPortgroup(dc.manager, &dvport, dc)
+			dc.inetworks = append(dc.inetworks, net)
+		} else {
+			net := mo.Network{}
+			err = dc.manager.reference2Object(netMOBs[i], NETWORK_PROPS, &net)
 			if err == nil {
-				net := NewDistributedVirtualPortgroup(dc.manager, &dvport, dc)
-				dc.inetworks = append(dc.inetworks, net)
+				vnet := NewNetwork(dc.manager, &net, dc)
+				dc.inetworks = append(dc.inetworks, vnet)
 			} else {
-				net := mo.Network{}
-				err = dc.manager.reference2Object(netMOBs[i], NETWORK_PROPS, &net)
-				if err == nil {
-					vnet := NewNetwork(dc.manager, &net, dc)
-					dc.inetworks = append(dc.inetworks, vnet)
-				} else {
-					return errors.Wrap(err, "dc.manager.reference2Object")
-				}
+				return errors.Wrap(err, "dc.manager.reference2Object")
 			}
 		}
 	}

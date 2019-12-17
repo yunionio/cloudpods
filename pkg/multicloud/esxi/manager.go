@@ -42,6 +42,18 @@ const (
 	CLOUD_PROVIDER_VMWARE = api.CLOUD_PROVIDER_VMWARE
 )
 
+var (
+	defaultDc mo.Datacenter
+
+	defaultDcId = "esxi-default-datacenter"
+)
+
+func init() {
+	defaultDc.ManagedEntity.Name = "Datacenter"
+	defaultDc.ManagedEntity.ExtensibleManagedObject.Self.Type = "Datacenter"
+	defaultDc.ManagedEntity.ExtensibleManagedObject.Self.Value = defaultDcId
+}
+
 type SESXiClient struct {
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
@@ -118,6 +130,8 @@ func (cli *SESXiClient) connect() error {
 
 	cli.client = govmcli
 
+	defaultDc.ManagedEntity.Parent = &cli.client.ServiceContent.RootFolder
+
 	return nil
 }
 
@@ -169,27 +183,80 @@ func (cli *SESXiClient) GetUUID() string {
 	return about.InstanceUuid
 }
 
+func (cli *SESXiClient) fetchDatacentersFromHosts() error {
+	var hosts []mo.HostSystem
+	err := cli.scanAllMObjects(HOST_SYSTEM_PROPS, &hosts)
+	if err != nil {
+		return errors.Wrap(err, "cli.scanAllMObjects host")
+	}
+	dcList := make([]*SDatacenter, 0)
+	for i := 0; i < len(hosts); i += 1 {
+		me := newManagedObject(cli, &hosts[i], nil)
+		dcme := me.findInParents("Datacenter")
+		if dcme == nil {
+			return cloudprovider.ErrNotFound
+		}
+		_, err := findDatacenterByMoId(dcList, dcme.Self.Value)
+		if err == nil {
+			continue
+		}
+		var moDc mo.Datacenter
+		err = cli.reference2Object(dcme.Self, DATACENTER_PROPS, &moDc)
+		if err != nil {
+			return errors.Wrap(err, "cli.reference2Object")
+		}
+		dc, err := cli.newDatacenterFromMo(&moDc)
+		if err != nil {
+			return errors.Wrap(err, "cli.newDatacenterFromMo")
+		}
+		dcList = append(dcList, dc)
+	}
+	cli.datacenters = dcList
+	return nil
+}
+
+func (cli *SESXiClient) fetchFakeDatacenter() error {
+	dc, err := cli.newDatacenterFromMo(&defaultDc)
+	if err != nil {
+		return errors.Wrap(err, "newDatacenterFromMo")
+	}
+	cli.datacenters = []*SDatacenter{dc}
+	return nil
+}
+
 func (cli *SESXiClient) fetchDatacenters() error {
 	var dcs []mo.Datacenter
 	err := cli.scanAllMObjects(DATACENTER_PROPS, &dcs)
 	if err != nil {
-		return err
+		// log.Debugf("cli.scanAllMObjects datacenter fail %s, try cli.fetchDatacentersFromHosts", err)
+		// err := cli.fetchDatacentersFromHosts()
+		// if err != nil {
+		log.Debugf("cli.fetchDatacentersFromHosts fail %s, try cli.fetchFakeDatacenter", err)
+		return cli.fetchFakeDatacenter()
+		// }
 	}
 	cli.datacenters = make([]*SDatacenter, len(dcs))
 	for i := 0; i < len(dcs); i += 1 {
-		cli.datacenters[i] = newDatacenter(cli, &dcs[i])
-
-		err = cli.datacenters[i].scanHosts()
+		dc, err := cli.newDatacenterFromMo(&dcs[i])
 		if err != nil {
-			return err
+			return errors.Wrap(err, "cli.newDatacenterFromMo")
 		}
-
-		err = cli.datacenters[i].scanDatastores()
-		if err != nil {
-			return err
-		}
+		cli.datacenters[i] = dc
 	}
 	return nil
+}
+
+func (cli *SESXiClient) newDatacenterFromMo(mo *mo.Datacenter) (*SDatacenter, error) {
+	dc := newDatacenter(cli, mo)
+	err := dc.scanHosts()
+	if err != nil {
+		return nil, errors.Wrap(err, "dc.scanHosts")
+	}
+	err = dc.scanDatastores()
+	if err != nil {
+		return nil, errors.Wrap(err, "dc.scanDatastores")
+	}
+	return dc, nil
 }
 
 func (cli *SESXiClient) scanAllMObjects(props []string, dst interface{}) error {
@@ -206,7 +273,6 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 
 	v, err := m.CreateContainerView(cli.context, folder, []string{resType}, true)
 	if err != nil {
-		log.Errorf("m.CreateContainerView for type %s props %s fail: %s", resType, props, err)
 		return errors.Wrapf(err, "m.CreateContainerView %s", resType)
 	}
 
@@ -214,7 +280,6 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 
 	err = v.Retrieve(cli.context, []string{resType}, props, dst)
 	if err != nil {
-		log.Errorf("v.Retrieve for type %s props %s fail: %s", resType, props, err)
 		return errors.Wrapf(err, "v.Retrieve %s", resType)
 	}
 
@@ -255,6 +320,10 @@ func (cli *SESXiClient) FindDatacenterByMoId(dcId string) (*SDatacenter, error) 
 	if err != nil {
 		return nil, err
 	}
+	return findDatacenterByMoId(dcs, dcId)
+}
+
+func findDatacenterByMoId(dcs []*SDatacenter, dcId string) (*SDatacenter, error) {
 	for i := 0; i < len(dcs); i += 1 {
 		if dcs[i].GetId() == dcId {
 			return dcs[i], nil
