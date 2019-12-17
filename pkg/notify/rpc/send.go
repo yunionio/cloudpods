@@ -256,7 +256,7 @@ func (self *SRpcService) startNewService(ctx context.Context, serviceName string
 
 	filename := filepath.Join(self.socketFileDir, serviceName+".sock")
 	if !fileutils2.Exists(filename) {
-		return nil, err
+		return nil, errors.Error(fmt.Sprintf("no such socket file '%s'", filename))
 	}
 
 	grpcConn, err := grpcDialWithUnixSocket(ctx, filename)
