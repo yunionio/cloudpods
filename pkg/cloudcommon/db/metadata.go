@@ -23,10 +23,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -156,16 +158,19 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		}
 	}
 	conditions := []sqlchemy.ICondition{}
-	admin := jsonutils.QueryBoolean(query, "admin", false)
 	for _, resource := range resources {
 		if man, ok := ResourceMap[resource]; ok {
 			resourceView := man.Query().SubQuery()
 			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
 			field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
 			sq := resourceView.Query(field)
-			if !admin && !IsAllowList(rbacutils.ScopeSystem, userCred, man) {
-				sq = man.FilterByOwner(sq, userCred, man.ResourceScope())
+			ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(errors.Wrap(err, "FetchCheckQueryOwnerScope"))
 			}
+			sq = man.FilterByOwner(sq, ownerId, queryScope)
+			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
+			sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
 			conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
 		} else {
 			return nil, httperrors.NewInputParameterError("Not support resource %s tag filter", resource)
