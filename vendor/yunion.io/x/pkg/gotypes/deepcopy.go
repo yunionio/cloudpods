@@ -24,6 +24,13 @@ type IDeepCopy interface {
 
 type DeepCopyFlags uintptr
 
+// DeepCopy copies the passed argument recursively
+//
+// There are a few constraint
+//
+//  - It cannot handle un-exported fields
+//  - It cannot handle circular references.  Doing so will cause runtime stack
+//    overflow panic
 func DeepCopy(v interface{}) interface{} {
 	rv := reflect.ValueOf(v)
 	cpRv := DeepCopyRv(rv)

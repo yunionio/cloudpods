@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -126,8 +125,7 @@ func (this *JSONInt) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch // fmt.Errorf("JSONInt type mismatch: %s", val.Type())
+		return errors.Wrapf(ErrTypeMismatch, "JSONInt vs. %s", val.Type())
 	}
 	return nil
 }
@@ -194,8 +192,7 @@ func (this *JSONBool) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch // fmt.Errorf("JSONBool type mismatch: %s", val.Type())
+		return errors.Wrapf(ErrTypeMismatch, "JSONBool vs. %s", val.Type())
 	}
 	return nil
 }
@@ -271,8 +268,7 @@ func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch // fmt.Errorf("JSONFloat type mismatch: %s", val.Type())
+		return errors.Wrapf(ErrTypeMismatch, "JSONFloat vs. %s", val.Type())
 	}
 	return nil
 }
@@ -371,8 +367,7 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		}
 		return this.unmarshalValue(val.Index(0))
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch // fmt.Errorf("JSONString type mismatch: %s", val.Type())
+		return errors.Wrapf(ErrTypeMismatch, "JSONString vs. %s", val.Type())
 	}
 	return nil
 }
@@ -429,8 +424,7 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 			}
 		}
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch // fmt.Errorf("JSONArray type mismatch: %s", val.Type())
+		return errors.Wrapf(ErrTypeMismatch, "JSONArray vs. %s", val.Type())
 	}
 	return nil
 }
@@ -481,8 +475,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 			//
 			val.Set(reflect.ValueOf(objPtr).Convert(val.Type()))
 		} else {
-			log.Errorf("Do not known how to deserialize json into this interface type %s", val.Type())
-			return ErrInterfaceUnsupported
+			return errors.Wrapf(ErrInterfaceUnsupported, "JSONDict.unmarshalValue: %s", val.Type())
 		}
 	case reflect.Ptr:
 		kind := val.Type().Elem().Kind()
@@ -495,8 +488,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 		}
 		fallthrough
 	default:
-		log.Errorf("JSONDict type mismatch: %s", val.Type())
-		return ErrTypeMismatch
+		return errors.Wrapf(ErrTypeMismatch, "JSONDict.unmarshalValue: %s", val.Type())
 	}
 	return nil
 }
@@ -517,8 +509,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 
 		err := v.unmarshalValue(valVal)
 		if err != nil {
-			log.Debugf("unmarshalMap field %s error %s", k, err)
-			return errors.Wrap(err, "unmarshalValue")
+			return errors.Wrap(err, "JSONDict.unmarshalMap")
 		}
 		val.SetMapIndex(keyVal, valVal)
 	}
@@ -532,8 +523,7 @@ func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
 		if find {
 			err := v.unmarshalValue(fieldValue)
 			if err != nil {
-				log.Debugf("unmarshalStruct field %s error %s", k, err)
-				return errors.Wrap(err, "unmarshalValue")
+				return errors.Wrap(err, "JSONDict.unmarshalStruct")
 			}
 		}
 	}

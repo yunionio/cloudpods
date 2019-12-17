@@ -144,10 +144,12 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStruct
 			}
 		}
 		jsonInfo := ParseStructFieldJsonInfo(sf)
-		fields = append(fields, SStructFieldValue{
-			Info:  jsonInfo,
-			Value: fv,
-		})
+		if !jsonInfo.Ignore {
+			fields = append(fields, SStructFieldValue{
+				Info:  jsonInfo,
+				Value: fv,
+			})
+		}
 	}
 	return fields
 }
