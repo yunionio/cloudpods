@@ -45,7 +45,7 @@ func (region *SRegion) GetZones(regionId string, maxResults int, pageToken strin
 	zones := []SZone{}
 	params := map[string]string{}
 	if len(regionId) > 0 {
-		params["filter"] = fmt.Sprintf(`region="%s/regions/%s"`, region.GetUrlPrefixWithProjectId(), regionId)
+		params["filter"] = fmt.Sprintf(`region="%s/%s/projects/%s/regions/%s"`, GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, region.GetProjectId(), regionId)
 	}
 	resource := "zones"
 	return zones, region.List(resource, params, maxResults, pageToken, &zones)

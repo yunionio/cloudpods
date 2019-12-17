@@ -39,7 +39,11 @@ const (
 
 	GOOGLE_DEFAULT_REGION = "asia-east1"
 
-	GOOGLE_API_VERSION = "v1"
+	GOOGLE_COMPUTE_DOMAIN = "https://www.googleapis.com/compute"
+	GOOGLE_MANAGER_DOMAIN = "https://cloudresourcemanager.googleapis.com"
+
+	GOOGLE_API_VERSION         = "v1"
+	GOOGLE_MANAGER_API_VERSION = "v1"
 )
 
 type SGoogleClient struct {
@@ -94,7 +98,7 @@ func (self *SGoogleClient) GetAccountId() string {
 
 func (self *SGoogleClient) fetchRegions() error {
 	regions := []SRegion{}
-	err := self.listAll("regions", nil, &regions)
+	err := self.ecsListAll("regions", nil, &regions)
 	if err != nil {
 		return err
 	}
@@ -107,87 +111,75 @@ func (self *SGoogleClient) fetchRegions() error {
 	return nil
 }
 
-func (self *SGoogleClient) get(id string, retval interface{}) error {
-	if !strings.HasPrefix(id, getUrlPrefix()) {
-		id = getUrlPrefix() + id
+func jsonRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion, resource string, params map[string]string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
+	resource = strings.TrimPrefix(resource, fmt.Sprintf("%s/%s/", domain, apiVersion))
+	_url := fmt.Sprintf("%s/%s/%s", domain, apiVersion, resource)
+	values := url.Values{}
+	for k, v := range params {
+		values.Set(k, v)
 	}
-	data, err := jsonRequest(self.client, "GET", id, nil, self.Debug)
+	if len(values) > 0 {
+		_url = fmt.Sprintf("%s?%s", _url, values.Encode())
+	}
+	return _jsonRequest(client, method, _url, body, debug)
+}
+
+func (self *SGoogleClient) ecsGet(resource string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, nil, self.Debug)
 	if err != nil {
-		if strings.Index(err.Error(), "not found") > 0 {
-			return cloudprovider.ErrNotFound
+		return errors.Wrap(err, "jsonRequest")
+	}
+	if retval != nil {
+		err = resp.Unmarshal(retval)
+		if err != nil {
+			return errors.Wrap(err, "resp.Unmarshal")
 		}
-		return errors.Wrap(err, "JSONRequest")
-	}
-	err = data.Unmarshal(retval)
-	if err != nil {
-		return errors.Wrap(err, "Unmarshal")
 	}
 	return nil
 }
 
-func (self *SGoogleClient) listAll(resource string, params map[string]string, retval interface{}) error {
-	var (
-		items  *jsonutils.JSONArray   = jsonutils.NewArray()
-		_items []jsonutils.JSONObject = []jsonutils.JSONObject{}
+func (self *SGoogleClient) ecsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	return jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.Debug)
+}
 
-		maxResults    int    = 500
-		nextPageToken string = ""
-		err           error  = nil
-	)
+func (self *SGoogleClient) managerList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, params, nil, self.Debug)
+}
+
+func (self *SGoogleClient) managerGet(resource string) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, nil, nil, self.Debug)
+}
+
+func (self *SGoogleClient) ecsListAll(resource string, params map[string]string, retval interface{}) error {
+	if params == nil {
+		params = map[string]string{}
+	}
+	items := jsonutils.NewArray()
+	nextPageToken := ""
+	params["maxResults"] = "500"
 	for {
-		_items, nextPageToken, err = self._listAll(resource, params, maxResults, nextPageToken)
+		params["pageToken"] = nextPageToken
+		resp, err := self.ecsList(resource, params)
 		if err != nil {
-			return errors.Wrapf(err, `_listAll("%s")`, resource)
+			return errors.Wrap(err, "ecsList")
 		}
-		items.Add(_items...)
-		if len(nextPageToken) == 0 || len(_items) == 0 {
+		if resp.Contains("items") {
+			_items, err := resp.GetArray("items")
+			if err != nil {
+				return errors.Wrap(err, "resp.GetArray")
+			}
+			items.Add(_items...)
+		}
+		nextPageToken, _ = resp.GetString("nextPageToken")
+		if len(nextPageToken) == 0 {
 			break
 		}
 	}
 	return items.Unmarshal(retval)
 }
 
-func (self *SGoogleClient) _listAll(resource string, params map[string]string, maxResults int, pageToken string) ([]jsonutils.JSONObject, string, error) {
-	if params == nil {
-		params = map[string]string{}
-	}
-	params["maxResults"] = fmt.Sprintf("%d", maxResults)
-	params["pageToken"] = pageToken
-	data, err := self._list(resource, params)
-	if err != nil {
-		return nil, "", err
-	}
-	items := []jsonutils.JSONObject{}
-	if data.Contains("items") {
-		items, err = data.GetArray("items")
-		if err != nil {
-			return nil, "", errors.Wrap(err, "data.GetArray")
-		}
-	}
-	nextPageToken, _ := data.GetString("nextPageToken")
-	return items, nextPageToken, nil
-}
-
-func (self *SGoogleClient) list(resource string, params map[string]string, maxResults int, pageToken string, retval interface{}) error {
-	if maxResults == 0 && len(pageToken) == 0 {
-		return self.listAll(resource, params, retval)
-	}
-	params["maxResults"] = fmt.Sprintf("%d", maxResults)
-	params["pageToken"] = pageToken
-	data, err := self._list(resource, params)
-	if err != nil {
-		return errors.Wrapf(err, "_list(%s)", resource)
-	}
-	if data.Contains("items") {
-		err := data.Unmarshal(retval, "items")
-		if err != nil {
-			return errors.Wrap(err, "data.Unmarshal")
-		}
-	}
-	return nil
-}
-
-func jsonRequest(client *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
+func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
 	_, data, err := httputils.JSONRequest(client, context.Background(), method, url, nil, body, debug)
 	if err != nil {
 		if strings.Index(err.Error(), "not found") > 0 {
@@ -196,18 +188,6 @@ func jsonRequest(client *http.Client, method httputils.THttpMethod, url string, 
 		return nil, errors.Wrap(err, "JSONRequest")
 	}
 	return data, nil
-}
-
-func (self *SGoogleClient) _list(resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	baseUrl := fmt.Sprintf("%s%s/%s", getUrlPrefix(), self.projectId, resource)
-	values := url.Values{}
-	for k, v := range params {
-		values.Set(k, v)
-	}
-	if len(values) > 0 {
-		baseUrl = fmt.Sprintf("%s?%s", baseUrl, values.Encode())
-	}
-	return jsonRequest(self.client, "GET", baseUrl, nil, self.Debug)
 }
 
 func (self *SGoogleClient) GetRegion(regionId string) *SRegion {
@@ -287,12 +267,4 @@ func (self *SGoogleClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 		iprojects = append(iprojects, &projects[i])
 	}
 	return iprojects, nil
-}
-
-func getUrlPrefix() string {
-	return fmt.Sprintf("https://www.googleapis.com/compute/%s/projects/", GOOGLE_API_VERSION)
-}
-
-func getGlobalId(id string) string {
-	return strings.TrimPrefix(id, getUrlPrefix())
 }

@@ -37,7 +37,7 @@ func (vpc *SVpc) GetName() string {
 }
 
 func (vpc *SVpc) GetId() string {
-	return getGlobalId(vpc.globalnetwork.SelfLink)
+	return vpc.globalnetwork.GetGlobalId()
 }
 
 func (vpc *SVpc) GetGlobalId() string {

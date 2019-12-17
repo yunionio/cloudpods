@@ -26,6 +26,7 @@ import (
 
 type SStorage struct {
 	zone *SZone
+	SResourceBase
 
 	CreationTimestamp time.Time
 	Name              string
@@ -50,14 +51,6 @@ func (region *SRegion) GetStorages(zone string, maxResults int, pageToken string
 func (region *SRegion) GetStorage(id string) (*SStorage, error) {
 	storage := &SStorage{}
 	return storage, region.Get(id, storage)
-}
-
-func (storage *SStorage) GetId() string {
-	return getGlobalId(storage.SelfLink)
-}
-
-func (storage *SStorage) GetGlobalId() string {
-	return storage.GetId()
 }
 
 func (storage *SStorage) GetName() string {

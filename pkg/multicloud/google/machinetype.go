@@ -49,7 +49,7 @@ func (region *SRegion) GetMachineTypes(zone string, maxResults int, pageToken st
 
 func (region *SRegion) GetMachineType(id string) (*SMachineType, error) {
 	machine := &SMachineType{}
-	err := region.client.get(id, machine)
+	err := region.client.ecsGet(id, machine)
 	if err != nil {
 		return nil, err
 	}
