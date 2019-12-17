@@ -42,35 +42,37 @@ func (self *SZStackProviderFactory) GetSupportedBrands() []string {
 	return []string{api.ZSTACK_BRAND_DSTACK}
 }
 
-func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
-	if len(input.Username) == 0 {
-		return httperrors.NewMissingParameterError("username")
-	}
-	if len(input.Password) == 0 {
-		return httperrors.NewMissingParameterError("password")
-	}
+func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AuthUrl) == 0 {
-		return httperrors.NewMissingParameterError("auth_url")
+		return output, httperrors.NewMissingParameterError("auth_url")
 	}
-	input.Account = input.Username
-	input.Secret = input.Password
-	input.AccessUrl = input.AuthUrl
-	return nil
+	output.AccessUrl = input.AuthUrl
+	//为了兼容以前用username的参数，2.12之后尽可能的使用access_key_id参数
+	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
+		output.Account = input.AccessKeyId
+		output.Secret = input.AccessKeySecret
+	} else if len(input.Username) > 0 && len(input.Password) > 0 {
+		output.Account = input.Username
+		output.Secret = input.Password
+	} else {
+		return output, httperrors.NewMissingParameterError("access_key_id or access_key_secret")
+	}
+	return output, nil
 }
 
-func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	if username, _ := data.GetString("username"); len(username) > 0 {
-		cloudaccount = username
+func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
+	if len(input.AccessKeyId) > 0 && len(input.AccessKeySecret) > 0 {
+		output.Account = input.AccessKeyId
+		output.Secret = input.AccessKeySecret
+	} else if len(input.Username) > 0 && len(input.Password) > 0 {
+		output.Account = input.Username
+		output.Secret = input.Password
+	} else {
+		return output, httperrors.NewMissingParameterError("access_key_id or access_key_secret")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
-		return nil, httperrors.NewMissingParameterError("password")
-	}
-	account := &cloudprovider.SCloudaccount{
-		Account: cloudaccount,
-		Secret:  password,
-	}
-	return account, nil
+	return output, nil
 }
 
 func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {

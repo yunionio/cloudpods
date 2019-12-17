@@ -47,43 +47,42 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
-func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.AppId) == 0 {
-		return httperrors.NewMissingParameterError("app_id")
+		return output, httperrors.NewMissingParameterError("app_id")
 	}
 	if len(input.SecretId) == 0 {
-		return httperrors.NewMissingParameterError("secret_id")
+		return output, httperrors.NewMissingParameterError("secret_id")
 	}
 	if len(input.SecretKey) == 0 {
-		return httperrors.NewMissingParameterError("secret_key")
+		return output, httperrors.NewMissingParameterError("secret_key")
 	}
-	input.Account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
-	input.Secret = input.SecretKey
-	return nil
+	output.Account = fmt.Sprintf("%s/%s", input.SecretId, input.AppId)
+	output.Secret = input.SecretKey
+	return output, nil
 }
 
-func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	appID, _ := data.GetString("app_id")
-	if len(appID) == 0 {
+func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
+	if len(input.AppId) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
 		if len(accountInfo) < 2 {
-			return nil, httperrors.NewMissingParameterError("app_id")
+			return output, httperrors.NewMissingParameterError("app_id")
 		}
-		appID = accountInfo[1]
+		input.AppId = accountInfo[1]
 	}
-	secretID, _ := data.GetString("secret_id")
-	if len(secretID) == 0 {
-		return nil, httperrors.NewMissingParameterError("secret_id")
+	if len(input.SecretId) == 0 {
+		return output, httperrors.NewMissingParameterError("secret_id")
 	}
-	secretKey, _ := data.GetString("secret_key")
-	if len(secretKey) == 0 {
-		return nil, httperrors.NewMissingParameterError("secret_key")
+	if len(input.SecretKey) == 0 {
+		return output, httperrors.NewMissingParameterError("secret_key")
 	}
-	account := &cloudprovider.SCloudaccount{
-		Account: fmt.Sprintf("%s/%s", secretID, appID),
-		Secret:  secretKey,
+	output = cloudprovider.SCloudaccount{
+		Account: fmt.Sprintf("%s/%s", input.SecretId, input.AppId),
+		Secret:  input.SecretKey,
 	}
-	return account, nil
+	return output, nil
 }
 
 func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {

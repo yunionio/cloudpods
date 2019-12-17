@@ -42,65 +42,63 @@ func (self *SOpenStackProviderFactory) GetName() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
 }
 
-func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.ProjectName) == 0 {
-		return httperrors.NewMissingParameterError("project_name")
+		return output, httperrors.NewMissingParameterError("project_name")
 	}
 	if len(input.Username) == 0 {
-		return httperrors.NewMissingParameterError("username")
+		return output, httperrors.NewMissingParameterError("username")
 	}
 	if len(input.Password) == 0 {
-		return httperrors.NewMissingParameterError("password")
+		return output, httperrors.NewMissingParameterError("password")
 	}
 	if len(input.AuthUrl) == 0 {
-		return httperrors.NewMissingParameterError("auth_url")
+		return output, httperrors.NewMissingParameterError("auth_url")
 	}
 
-	input.Account = fmt.Sprintf("%s/%s", input.ProjectName, input.Username)
+	output.Account = fmt.Sprintf("%s/%s", input.ProjectName, input.Username)
 	if len(input.DomainName) > 0 {
-		input.Account = fmt.Sprintf("%s/%s", input.Account, input.DomainName)
+		output.Account = fmt.Sprintf("%s/%s", output.Account, input.DomainName)
 	}
 
-	input.Secret = input.Password
-	input.AccessUrl = input.AuthUrl
-	return nil
+	output.Secret = input.Password
+	output.AccessUrl = input.AuthUrl
+	return output, nil
 }
 
-func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	projectName, _ := data.GetString("project_name")
-	if len(projectName) == 0 {
+func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
+	if len(input.ProjectName) == 0 {
 		accountInfo := strings.Split(cloudaccount, "/")
 		if len(accountInfo) < 2 {
-			return nil, httperrors.NewMissingParameterError("project_name")
+			return output, httperrors.NewMissingParameterError("project_name")
 		}
-		projectName = accountInfo[0]
+		input.ProjectName = accountInfo[0]
 	}
-	username, _ := data.GetString("username")
-	if len(username) == 0 {
-		return nil, httperrors.NewMissingParameterError("username")
+	if len(input.Username) == 0 {
+		return output, httperrors.NewMissingParameterError("username")
 	}
-	password, _ := data.GetString("password")
-	if len(password) == 0 {
-		return nil, httperrors.NewMissingParameterError("password")
+	if len(input.Password) == 0 {
+		return output, httperrors.NewMissingParameterError("password")
 	}
 
-	_account := fmt.Sprintf("%s/%s", projectName, username)
-	domainName, _ := data.GetString("domain_name")
-	if len(domainName) == 0 {
+	_account := fmt.Sprintf("%s/%s", input.ProjectName, input.Username)
+	if len(input.DomainName) == 0 {
 		if accountInfo := strings.Split(cloudaccount, "/"); len(accountInfo) == 3 {
-			domainName = accountInfo[2]
+			input.DomainName = accountInfo[2]
 		}
 	}
 
-	if len(domainName) > 0 {
-		_account = fmt.Sprintf("%s/%s", _account, domainName)
+	if len(input.DomainName) > 0 {
+		_account = fmt.Sprintf("%s/%s", _account, input.DomainName)
 	}
 
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: _account,
-		Secret:  password,
+		Secret:  input.Password,
 	}
-	return account, nil
+	return output, nil
 }
 
 func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url, account, password string) (cloudprovider.ICloudProvider, error) {

@@ -47,11 +47,10 @@ func headObject(ctx context.Context, userCred mcclient.TokenCredential, bucketNa
 	if err != nil {
 		return nil, errors.Wrap(err, "cloudprovider.GetIObject")
 	}
-	hdr := http.Header{}
+	hdr := cloudprovider.MetaToHttpHeader(cloudprovider.META_HEADER_PREFIX, obj.GetMeta())
 	hdr.Set(http.CanonicalHeaderKey("x-amz-acl"), string(obj.GetAcl()))
 	hdr.Set(http.CanonicalHeaderKey("x-amz-storage-class"), obj.GetStorageClass())
 	hdr.Set(http.CanonicalHeaderKey("content-length"), strconv.FormatInt(obj.GetSizeBytes(), 10))
-	hdr.Set(http.CanonicalHeaderKey("content-type"), obj.GetContentType())
 	hdr.Set(http.CanonicalHeaderKey("etag"), obj.GetETag())
 	hdr.Set(http.CanonicalHeaderKey("last-modified"), obj.GetLastModified().Format(timeutils.RFC2882Format))
 	return hdr, nil
@@ -86,10 +85,10 @@ func uploadObject(ctx context.Context, userCred mcclient.TokenCredential, bucket
 		}
 		respHdr.Set("ETag", etag)
 	} else {
-		contType := header.Get(http.CanonicalHeaderKey("content-type"))
+		meta := cloudprovider.FetchMetaFromHttpHeader(cloudprovider.META_HEADER_PREFIX, header)
 		aclStr := header.Get(http.CanonicalHeaderKey("x-amz-acl"))
 		storageClassStr := header.Get(http.CanonicalHeaderKey("x-amz-storage-class"))
-		err = iBucket.PutObject(ctx, key, body, contLen, contType, cloudprovider.TBucketACLType(aclStr), storageClassStr)
+		err = iBucket.PutObject(ctx, key, body, contLen, cloudprovider.TBucketACLType(aclStr), storageClassStr, meta)
 		if err != nil {
 			return nil, errors.Wrap(err, "iBucket.PutObject")
 		}
@@ -179,13 +178,14 @@ func copyObject(ctx context.Context, userCred mcclient.TokenCredential, bucketNa
 		}
 		return &result, nil, nil
 	} else {
+		meta := cloudprovider.FetchMetaFromHttpHeader(cloudprovider.META_HEADER_PREFIX, hdr)
 		if dstBucket.ManagerId == srcBucket.ManagerId && dstBucket.RegionExternalId == srcBucket.RegionExternalId {
-			err = iDstBucket.CopyObject(ctx, key, iSrcBucket.GetName(), srcKey, srcObj.GetContentType(), srcObj.GetAcl(), srcObj.GetStorageClass())
+			err = iDstBucket.CopyObject(ctx, key, iSrcBucket.GetName(), srcKey, srcObj.GetAcl(), srcObj.GetStorageClass(), meta)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "iDstBucket.CopyObject")
 			}
 		} else {
-			err = cloudprovider.CopyObject(ctx, 0, iDstBucket, key, iSrcBucket, srcKey, false)
+			err = cloudprovider.CopyObject(ctx, 0, iDstBucket, key, iSrcBucket, srcKey, meta, false)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "cloudprovider.CopyObject")
 			}

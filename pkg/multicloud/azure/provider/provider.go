@@ -49,39 +49,39 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
-func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input *api.CloudaccountCreateInput) error {
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
 	if len(input.DirectoryId) == 0 {
-		return httperrors.NewMissingParameterError("directory_id")
+		return output, httperrors.NewMissingParameterError("directory_id")
 	}
 	if len(input.ClientId) == 0 {
-		return httperrors.NewMissingParameterError("client_id")
+		return output, httperrors.NewMissingParameterError("client_id")
 	}
 	if len(input.ClientSecret) == 0 {
-		return httperrors.NewMissingParameterError("client_secret")
+		return output, httperrors.NewMissingParameterError("client_secret")
 	}
 	if len(input.Environment) == 0 {
-		return httperrors.NewMissingParameterError("environment")
+		return output, httperrors.NewMissingParameterError("environment")
 	}
-	input.Account = input.DirectoryId
-	input.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
-	input.AccessUrl = input.Environment
-	return nil
+	output.Account = input.DirectoryId
+	output.Secret = fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret)
+	output.AccessUrl = input.Environment
+	return output, nil
 }
 
-func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	clientID, _ := data.GetString("client_id")
-	if len(clientID) == 0 {
-		return nil, httperrors.NewMissingParameterError("client_id")
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential, cloudaccount string) (cloudprovider.SCloudaccount, error) {
+	output := cloudprovider.SCloudaccount{}
+	if len(input.ClientId) == 0 {
+		return output, httperrors.NewMissingParameterError("client_id")
 	}
-	clientSecret, _ := data.GetString("client_secret")
-	if len(clientSecret) == 0 {
-		return nil, httperrors.NewMissingParameterError("client_secret")
+	if len(input.ClientSecret) == 0 {
+		return output, httperrors.NewMissingParameterError("client_secret")
 	}
-	account := &cloudprovider.SCloudaccount{
+	output = cloudprovider.SCloudaccount{
 		Account: cloudaccount,
-		Secret:  fmt.Sprintf("%s/%s", clientID, clientSecret),
+		Secret:  fmt.Sprintf("%s/%s", input.ClientId, input.ClientSecret),
 	}
-	return account, nil
+	return output, nil
 }
 
 func parseAccount(account, secret string) (tenantId string, appId string, appKey string, subId string) {

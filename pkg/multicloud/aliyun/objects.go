@@ -15,12 +15,19 @@
 package aliyun
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+const (
+	OSS_META_HEADER = "x-oss-meta-"
 )
 
 type SObject struct {
@@ -75,4 +82,31 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		return errors.Wrap(err, "bucket.SetObjectACL")
 	}
 	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	if o.Meta != nil {
+		return o.Meta
+	}
+	osscli, err := o.bucket.region.GetOssClient()
+	if err != nil {
+		log.Errorf("o.bucket.region.GetOssClient error %s", err)
+		return nil
+	}
+	bucket, err := osscli.Bucket(o.bucket.Name)
+	if err != nil {
+		log.Errorf("osscli.Bucket error %s", err)
+		return nil
+	}
+	result, err := bucket.GetObjectDetailedMeta(o.Key)
+	if err != nil {
+		log.Errorf("bucket.GetObjectACL error %s", err)
+		return nil
+	}
+	o.Meta = cloudprovider.FetchMetaFromHttpHeader(OSS_META_HEADER, result)
+	return o.Meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }

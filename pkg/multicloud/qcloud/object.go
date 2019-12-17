@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
 
@@ -64,4 +65,26 @@ func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 		return errors.Wrap(err, "coscli.Object.PutACL")
 	}
 	return nil
+}
+
+func (o *SObject) GetMeta() http.Header {
+	if o.Meta != nil {
+		return o.Meta
+	}
+	coscli, err := o.bucket.region.GetCosClient(o.bucket)
+	if err != nil {
+		log.Errorf("o.bucket.region.GetCosClient fail %s", err)
+		return nil
+	}
+	resp, err := coscli.Object.Head(context.Background(), o.Key, nil)
+	if err != nil {
+		log.Errorf("coscli.Object.Head fail %s", err)
+		return nil
+	}
+	o.Meta = cloudprovider.FetchMetaFromHttpHeader(COS_META_HEADER, resp.Header)
+	return o.Meta
+}
+
+func (o *SObject) SetMeta(ctx context.Context, meta http.Header) error {
+	return cloudprovider.ObjectSetMeta(ctx, o.bucket, o, meta)
 }
