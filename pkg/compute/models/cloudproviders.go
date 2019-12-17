@@ -758,7 +758,6 @@ func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) *SCloudprovider {
 	providerObj, err := manager.FetchById(providerId)
 	if err != nil {
-		log.Errorf("fetch cloud provider %s: %s", providerId, err)
 		return nil
 	}
 	return providerObj.(*SCloudprovider)

@@ -989,7 +989,9 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 	}
-	extra.Add(jsonutils.NewString(wire.Name), "wire")
+	if wire != nil {
+		extra.Add(jsonutils.NewString(wire.Name), "wire")
+	}
 	if self.IsExitNetwork() {
 		extra.Add(jsonutils.JSONTrue, "exit")
 	} else {
@@ -1018,14 +1020,14 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 		if len(vpc.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
+		info := vpc.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
 	routes := self.GetRoutes()
 	if len(routes) > 0 {
 		extra.Add(jsonutils.Marshal(routes), "routes")
 	}
 
-	info := vpc.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
 	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 
 	return extra
