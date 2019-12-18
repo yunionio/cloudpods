@@ -31,7 +31,7 @@ func (wire *SWire) GetId() string {
 }
 
 func (wire *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", getGlobalId(wire.GetId()), wire.vpc.region.Name)
+	return fmt.Sprintf("%s-%s", wire.GetId(), wire.vpc.region.Name)
 }
 
 func (wire *SWire) GetName() string {

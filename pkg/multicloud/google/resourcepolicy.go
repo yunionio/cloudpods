@@ -73,13 +73,12 @@ type SSnapshotSchedulePolicy struct {
 
 type SResourcePolicy struct {
 	region *SRegion
+	SResourceBase
 
 	Id string
 
 	CreationTimestamp      time.Time
-	SelfLink               string
 	Region                 string
-	Name                   string
 	Status                 string
 	Kind                   string
 	SnapshotSchedulePolicy SSnapshotSchedulePolicy `json:"snapshotSchedulePolicy"`
@@ -95,18 +94,6 @@ func (region *SRegion) GetResourcePolicies(maxResults int, pageToken string) ([]
 func (region *SRegion) GetResourcePolicy(id string) (*SResourcePolicy, error) {
 	policy := &SResourcePolicy{region: region}
 	return policy, region.Get(id, policy)
-}
-
-func (policy *SResourcePolicy) GetId() string {
-	return getGlobalId(policy.SelfLink)
-}
-
-func (policy *SResourcePolicy) GetGlobalId() string {
-	return policy.GetId()
-}
-
-func (policy *SResourcePolicy) GetName() string {
-	return policy.Name
 }
 
 func (policy *SResourcePolicy) GetStatus() string {

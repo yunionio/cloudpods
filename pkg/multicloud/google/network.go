@@ -28,15 +28,14 @@ import (
 
 type SNetwork struct {
 	wire *SWire
+	SResourceBase
 
 	Id                    string
 	CreationTimestamp     time.Time
-	Name                  string
 	Network               string
 	IpCidrRange           string
 	Region                string
 	GatewayAddress        string
-	SelfLink              string
 	Status                string
 	AvailableCpuPlatforms []string
 	PrivateIpGoogleAccess bool
@@ -58,14 +57,6 @@ func (region *SRegion) GetNetworks(network string, maxResults int, pageToken str
 func (region *SRegion) GetNetwork(id string) (*SNetwork, error) {
 	network := &SNetwork{}
 	return network, region.Get(id, network)
-}
-
-func (network *SNetwork) GetId() string {
-	return network.SelfLink
-}
-
-func (network *SNetwork) GetName() string {
-	return network.Name
 }
 
 func (network *SNetwork) GetMetadata() *jsonutils.JSONDict {
@@ -90,10 +81,6 @@ func (network *SNetwork) IsEmulated() bool {
 
 func (network *SNetwork) GetStatus() string {
 	return api.NETWORK_INTERFACE_STATUS_AVAILABLE
-}
-
-func (network *SNetwork) GetGlobalId() string {
-	return getGlobalId(network.SelfLink)
 }
 
 func (network *SNetwork) Delete() error {
