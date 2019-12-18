@@ -25,6 +25,22 @@ type ServiceCatalogCreateInput struct {
 
 	// description: the id or name of guest template
 	// example: good
+	// required: true
+	GuestTemplate string `json:"guest_template"`
+}
+
+type ServiceCatalogUpdateInput struct {
+	// description: resource name
+	// unique: true
+	// example: test-network
+	Name string `json:"name"`
+
+	// description: service catalog icon url
+	// example: https://yunion.io/files/hello.png
+	IconUrl string `json:"icon_url"`
+
+	// description: the id or name of guest template
+	// example: good
 	GuestTemplate string `json:"guest_template"`
 }
 
