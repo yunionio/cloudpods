@@ -16,6 +16,7 @@ package google
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,6 +29,7 @@ import (
 
 type SAddress struct {
 	region *SRegion
+	SResourceBase
 
 	Id                string
 	CreationTimestamp time.Time
@@ -56,18 +58,6 @@ func (region *SRegion) GetEips(address string, maxResults int, pageToken string)
 func (region *SRegion) GetEip(id string) (*SAddress, error) {
 	eip := &SAddress{region: region}
 	return eip, region.Get(id, eip)
-}
-
-func (addr *SAddress) GetId() string {
-	return addr.SelfLink
-}
-
-func (addr *SAddress) GetName() string {
-	return addr.Name
-}
-
-func (addr *SAddress) GetGlobalId() string {
-	return getGlobalId(addr.SelfLink)
 }
 
 func (addr *SAddress) GetStatus() string {
@@ -143,7 +133,7 @@ func (addr *SAddress) GetAssociationType() string {
 
 func (addr *SAddress) GetAssociationExternalId() string {
 	if len(addr.Users) > 0 {
-		return getGlobalId(addr.Users[0])
+		return strings.TrimPrefix(addr.Users[0], fmt.Sprintf("%s/%s/", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION))
 	}
 	return ""
 }

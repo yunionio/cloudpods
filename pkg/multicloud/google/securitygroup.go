@@ -82,6 +82,9 @@ func (region *SRegion) GetFirewalls(network string, maxResults int, pageToken st
 	firewalls := []SFirewall{}
 	params := map[string]string{"filter": "disabled = false"}
 	resource := "global/firewalls"
+	if len(network) > 0 {
+		params["filter"] = fmt.Sprintf(`(disabled = false) AND (network="%s")`, network)
+	}
 	return firewalls, region.List(resource, params, maxResults, pageToken, &firewalls)
 }
 
@@ -166,7 +169,7 @@ func (firewall *SFirewall) toRules() ([]secrules.SecurityRule, error) {
 }
 
 func (secgroup *SSecurityGroup) GetId() string {
-	return getGlobalId(secgroup.vpc.globalnetwork.SelfLink)
+	return secgroup.vpc.globalnetwork.GetGlobalId()
 }
 
 func (secgroup *SSecurityGroup) GetGlobalId() string {
