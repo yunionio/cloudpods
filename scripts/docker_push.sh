@@ -34,7 +34,7 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
-    make cmd/$1
+    GOOS=linux make cmd/$1
 }
 
 build_bundle_libraries() {
