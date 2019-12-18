@@ -38,8 +38,8 @@ type SServiceCatalogManager struct {
 type SServiceCatalog struct {
 	db.SSharableVirtualResourceBase
 
-	IconUrl         string `charset:"ascii" create:"optional" list:"user" get:"user"`
-	GuestTemplateID string `width:"128" charset:"ascii" create:"optional" list:"user" get:"user"`
+	IconUrl         string `charset:"ascii" create:"optional" list:"user" get:"user" update:"user"`
+	GuestTemplateID string `width:"128" charset:"ascii" create:"optional" list:"user" get:"user" update:"user"`
 }
 
 var ServiceCatalogManager *SServiceCatalogManager
@@ -54,6 +54,37 @@ func init() {
 		),
 	}
 	ServiceCatalogManager.SetVirtualObject(ServiceCatalogManager)
+}
+
+func (scm *SServiceCatalog) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input *computeapis.ServiceCatalogUpdateInput) (*jsonutils.JSONDict, error) {
+
+	data := jsonutils.NewDict()
+	if len(input.GuestTemplate) > 0 {
+		// check
+		model, err := GuestTemplateManager.FetchByIdOrName(userCred, input.GuestTemplate)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("no such guest template")
+		}
+		if err != nil {
+			return nil, err
+		}
+		data.Add(jsonutils.NewString(model.GetId()), "guest_template_id")
+	}
+	if len(input.Name) > 0 {
+		// no need to check name
+		data.Add(jsonutils.NewString(input.Name), "name")
+	}
+	if len(input.IconUrl) > 0 {
+		//check icon url
+		url, err := url.Parse(input.IconUrl)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("fail to parse icon url '%s'", input.IconUrl)
+		}
+		data.Add(jsonutils.NewString(url.String()), "icon_url")
+
+	}
+	return data, nil
 }
 
 func (scm *SServiceCatalogManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
