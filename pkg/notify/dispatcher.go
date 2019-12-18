@@ -118,9 +118,10 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 		createData.Add(jsonutils.NewString(key), "key_text")
 		createData.Add(jsonutils.NewString(contactType), "type")
 		_, err := self.Create(ctx, jsonutils.JSONNull, createData, nil)
-		config[key] = tmp.String()
+		value, _ := tmp.GetString()
+		config[key] = value
 		if err != nil {
-			return errors.Wrapf(err, "Create config (%s, %s, %s) failed", contactType, key, tmp)
+			return errors.Wrapf(err, "Create config (%s, %s, %s) failed", contactType, key, value)
 		}
 	}
 	// update config
@@ -250,7 +251,10 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 			return nil, httperrors.NewGeneralError(err)
 		}
 		processID := verification.ID
-		models.SendVerifyMessage(userCred, verification, uid, contactType, contact)
+		err := models.SendVerifyMessage(ctx, userCred, verification, &scontact)
+		if err != nil {
+			return nil, err
+		}
 		ret := map[string]map[string]string{
 			"contact": {
 				"process_id": processID,
