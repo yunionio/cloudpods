@@ -234,6 +234,9 @@ func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, rando
 }
 
 func (man *SGuestnetworkManager) ifnameUsed(ifname string) bool {
+	if ifname == "" {
+		return true
+	}
 	count, err := GuestnetworkManager.Query().Equals("ifname", ifname).CountWithError()
 	if err != nil {
 		panic(errors.Wrap(err, "query if ifname is used"))
