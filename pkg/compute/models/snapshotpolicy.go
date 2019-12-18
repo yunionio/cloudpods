@@ -307,21 +307,24 @@ func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, us
 
 func (sp *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	ret, _ := sp.getMoreDetails(ctx, userCred, query)
+	extraDict := sp.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	ret, _ := sp.getMoreDetails(ctx, userCred, extraDict)
 	return ret
 }
 
 func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-
-	return sp.getMoreDetails(ctx, userCred, query)
+	extraDict, err := sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return sp.getMoreDetails(ctx, userCred, extraDict)
 }
 
 func (sp *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extraDict *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 
-	ret := query.(*jsonutils.JSONDict)
+	ret := extraDict
 	// more
 	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
 	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
