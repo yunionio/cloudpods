@@ -43,9 +43,6 @@ func StartService() {
 	baseOpts := &options.Options.BaseOptions
 	common_options.ParseOptions(opts, os.Args, "notify.conf", "notify")
 
-	// init email url
-	models.TemplateManager.SetEmailUrl(options.Options.VerifyEmailUrl)
-
 	// init auth
 	app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!")
