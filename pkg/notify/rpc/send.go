@@ -124,7 +124,7 @@ func (self *SRpcService) Send(ctx context.Context, contactType, contact, topic, 
 
 	_, err = self.execute(ctx, f, contactType)
 	if err != nil {
-		return errors.Wrapf(err, "contactType: %s", contactType)
+		return errors.Wrapf(err, "contactType '%s'", contactType)
 	}
 	return nil
 }

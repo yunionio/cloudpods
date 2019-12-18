@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"sync"
 	ptem "text/template"
 
 	"yunion.io/x/jsonutils"
@@ -31,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
 	"yunion.io/x/onecloud/pkg/notify/template"
 )
@@ -58,12 +58,6 @@ const (
 	TEMPLATE_TYPE_REMOTE  = "remote"
 )
 
-var (
-	DefaultEmailUrl = ""
-	EmailUrl        = ""
-	EmailUrlLock    sync.RWMutex
-)
-
 type STemplate struct {
 	SStandaloneResourceBase
 
@@ -76,18 +70,7 @@ type STemplate struct {
 }
 
 func (tm *STemplateManager) GetEmailUrl() string {
-	EmailUrlLock.RLock()
-	defer EmailUrlLock.RUnlock()
-	if len(EmailUrl) == 0 {
-		return DefaultEmailUrl
-	}
-	return EmailUrl
-}
-
-func (tm *STemplateManager) SetEmailUrl(url string) {
-	EmailUrlLock.Lock()
-	defer EmailUrlLock.Unlock()
-	EmailUrl = url
+	return options.Options.VerifyEmailUrl
 }
 
 func (tm *STemplateManager) InitializeData() error {

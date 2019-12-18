@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	_interface "yunion.io/x/onecloud/pkg/notify/interface"
+	"yunion.io/x/onecloud/pkg/notify/options"
 )
 
 type SConfigManager struct {
@@ -89,6 +90,47 @@ func (self *SConfigManager) InitializeData() error {
 	sql = fmt.Sprintf("update %s set type='mobile' where type='sms_aliyun'", self.TableSpec().Name())
 	q = sqlchemy.NewRawQuery(sql, "")
 	q.Row()
+
+	// init webconsole's config
+	q = self.Query().Equals("type", "webconsole")
+	n, err := q.CountWithError()
+	if err != nil {
+		return err
+	}
+	if n >= 4 {
+		return nil
+	}
+	sql = fmt.Sprintf("update %s set deleted='1' where type='webconsole'", self.TableSpec().Name())
+	q = sqlchemy.NewRawQuery(sql)
+	q.Row()
+	configs := []SConfig{
+		{
+			Type:      "webconsole",
+			KeyText:   "auth_uri",
+			ValueText: options.Options.AuthURL,
+		},
+		{
+			Type:      "webconsole",
+			KeyText:   "admin_user",
+			ValueText: options.Options.AdminUser,
+		},
+		{
+			Type:      "webconsole",
+			KeyText:   "admin_password",
+			ValueText: options.Options.AdminPassword,
+		},
+		{
+			Type:      "webconsole",
+			KeyText:   "admin_tenant_name",
+			ValueText: options.Options.AdminProject,
+		},
+	}
+	for _, config := range configs {
+		err := self.TableSpec().Insert(&config)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

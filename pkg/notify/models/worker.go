@@ -22,12 +22,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 )
 
@@ -69,25 +68,19 @@ func RestartService(config map[string]string, serviceName string) {
 	}, nil, nil)
 }
 
-func SendVerifyMessage(userCred mcclient.TokenCredential, verify *SVerify, uid, contactType, contact string) {
-	workMan.Run(func() {
-		sendVerifyMessage(context.Background(), userCred, verify, uid, contactType, contact)
-	}, nil, nil)
-}
-
-func sendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, verify *SVerify, uid, contactType,
-	contact string) {
+func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, verify *SVerify,
+	contact *SContact) error {
 	var (
 		err error
 		msg string
 	)
 	processId, token := verify.ID, verify.Token
-	if contactType == "email" {
+	if contact.ContactType == "email" {
 		emailUrl := strings.Replace(TemplateManager.GetEmailUrl(), "{0}", processId, 1)
 		emailUrl = strings.Replace(emailUrl, "{1}", token, 1)
 
 		// get uName
-		uName, err := utils.GetUsernameByID(ctx, uid)
+		uName, err := utils.GetUsernameByID(ctx, contact.UID)
 		if err != nil || len(uName) == 0 {
 			uName = "用户"
 		}
@@ -96,23 +89,23 @@ func sendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 			Link string
 		}{uName, emailUrl}
 		msg = jsonutils.Marshal(data).String()
-	} else if contactType == "mobile" {
+	} else if contact.ContactType == "mobile" {
 		msg = fmt.Sprintf(`{"code": "%s"}`, token)
 	} else {
 		// todo
-		return
+		return nil
 	}
 
-	err = NotifyService.Send(ctx, contactType, contact, "verify", msg, "")
+	err = NotifyService.Send(ctx, contact.ContactType, contact.Contact, "verify", msg, "")
 	if err != nil {
 		verify.SetStatus(userCred, VERIFICATION_SENT_FAIL, "")
-		// notify the uid through the webconsole
-		notifyclient.RawNotify([]string{uid}, false, notify.NotifyByWebConsole, notify.NotifyPriorityCritical,
-			"Send Verify Message Failed", jsonutils.NewString(err.Error()))
+		// set contact's status as "init"
+		contact.SetStatus(userCred, CONTACT_INIT, "send verify message failed")
 		log.Errorf("Send verify message failed: %s.", err.Error())
-		return
+		return errors.Wrap(err, "Send Verify Message Failed")
 	}
 	verify.SetStatus(userCred, VERIFICATION_SENT, "")
+	return nil
 }
 
 func UpdateDingtalk(uid string) {

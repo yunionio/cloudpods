@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -182,38 +181,6 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/delete-template", prefix, modelDispatcher.KeywordPlural()),
 		middleware(deleteTemplateHandler), metadata, "delete", tags)
-
-	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/email-url", prefix, modelDispatcher.KeywordPlural()),
-		middleware(updateEmailUrlHandler), metadata, "update_email_url", tags)
-
-	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/email-url", prefix, modelDispatcher.KeywordPlural()),
-		middleware(getEmailUrlHandler), metadata, "get_email_url", tags)
-}
-
-func updateEmailUrlHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := policy.FetchUserCredential(ctx)
-	if !userCred.HasSystemAdminPrivilege() {
-		httperrors.ForbiddenError(w, "only system admin can update email url")
-		return
-	}
-	_, _, _, body := fetchEnv(ctx, w, r)
-	if !body.Contains("email_url") {
-		httperrors.InputParameterError(w, "miss email_url")
-	}
-	emailUrl, _ := body.GetString("email_url")
-	eUrl, err := url.Parse(emailUrl)
-	if err != nil {
-		httperrors.InputParameterError(w, "invalid url")
-	}
-	models.TemplateManager.SetEmailUrl(eUrl.String())
-}
-
-func getEmailUrlHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(models.TemplateManager.GetEmailUrl()), "email_url")
-	appsrv.Send(w, ret.PrettyString())
 }
 
 func templateUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
