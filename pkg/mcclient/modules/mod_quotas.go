@@ -159,5 +159,5 @@ func init() {
 	ImageQuotas = QuotaManager{NewImageManager("image_quota", "image_quotas",
 		quotaColumns,
 		[]string{})}
-	// registerV2(&ImageQuotas)
+	registerV2(&ImageQuotas)
 }
