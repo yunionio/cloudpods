@@ -89,10 +89,10 @@ func (this *HostManager) GetIpmiInfo(s *mcclient.ClientSession, id string, param
 	return ret, nil
 }
 
-func parseHosts(data string) ([]jsonutils.JSONObject, string) {
+func parseHosts(data string) ([]*jsonutils.JSONDict, string) {
 	msg := ""
 	hosts := strings.Split(data, "\n")
-	ret := []jsonutils.JSONObject{}
+	ret := []*jsonutils.JSONDict{}
 	for i, host := range hosts {
 		host = strings.TrimSpace(host)
 		if len(host) == 0 {
@@ -145,6 +145,8 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonu
 	if err != nil {
 		return nil, err
 	}
+	input := params.(*jsonutils.JSONDict)
+	input.Remove("hosts")
 
 	hosts, msg := parseHosts(data)
 	if len(msg) > 0 {
@@ -153,6 +155,7 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonu
 
 	results := make(chan modulebase.SubmitResult, len(hosts))
 	for _, host := range hosts {
+		host.Update(input)
 		go func(data jsonutils.JSONObject) {
 			ret, e := this.Create(s, data)
 			id, _ := data.GetString("access_mac")
