@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -58,14 +57,10 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	}
 	tlsConf.InsecureSkipVerify = insecure
 
-	tr := &http.Transport{
-		TLSClientConfig: tlsConf,
-		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).DialContext,
-		IdleConnTimeout:     5 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
-	}
+	tr := httputils.GetTransport(insecure, 5*time.Second)
+	tr.TLSClientConfig = tlsConf
+	tr.IdleConnTimeout = 5 * time.Second
+	tr.TLSHandshakeTimeout = 10 * time.Second
 
 	client := Client{authUrl: authUrl,
 		timeout: timeout,
