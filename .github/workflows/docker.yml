@@ -34,9 +34,9 @@ jobs:
         # make cmd/logger cmd/region cmd/scheduler cmd/webconsole
         # make cmd/yunionconf cmd/glance cmd/torrent cmd/s3gateway
         # make cmd/ansibleserver cmd/cloudnet cmd/notify
-        make cmd/host && ./scripts/bundle-libraries.sh _output/bin/bundles/host _output/bin/host
-        # make cmd/host-deployer && ./scripts/bundle-libraries.sh _output/bin/bundles/host-deployer _output/bin/host-deployer
-        # make cmd/baremetal-agent && ./scripts/bundle-libraries.sh _output/bin/bundles/baremetal-agent _output/bin/baremetal-agent
+        make cmd/host && ./scripts/bundle_libraries.sh _output/bin/bundles/host _output/bin/host && ./scripts/host_find_libraries.sh _output/bin/bundles/host
+        # make cmd/host-deployer && ./scripts/bundle_libraries.sh _output/bin/bundles/host-deployer _output/bin/host-deployer
+        # make cmd/baremetal-agent && ./scripts/bundle_libraries.sh _output/bin/bundles/baremetal-agent _output/bin/baremetal-agent
         # make cmd/cloudevent
 
     # - name: Image baremetal-agent
