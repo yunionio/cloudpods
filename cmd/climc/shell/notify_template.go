@@ -25,17 +25,17 @@ import (
 func init() {
 	type NotifyTemplateUpdateOptions struct {
 		CONTACTTYPE  string `help:"the contanct type, such as 'email', 'mobile'"`
-		Topic        string `help:"the topic of temlate, such as 'VERIFY', 'ALARM'"`
-		TemplateType string `help:"the type of template" choices:"content|title|remote"`
-		Content      string `help:"the content of template"`
+		TOPIC        string `help:"the topic of temlate, such as 'VERIFY', 'ALARM'"`
+		TEMPLATETYPE string `help:"the type of template" choices:"content|title|remote"`
+		CONTENT      string `help:"the content of template"`
 	}
 	R(&NotifyTemplateUpdateOptions{}, "notify-template-update", "Create, update contact for user", func(s *mcclient.ClientSession,
 		args *NotifyTemplateUpdateOptions) error {
 		arr := jsonutils.NewArray()
 		tmpObj := jsonutils.NewDict()
-		tmpObj.Add(jsonutils.NewString(args.Topic), "topic")
-		tmpObj.Add(jsonutils.NewString(args.TemplateType), "template_type")
-		tmpObj.Add(jsonutils.NewString(args.Content), "content")
+		tmpObj.Add(jsonutils.NewString(args.TOPIC), "topic")
+		tmpObj.Add(jsonutils.NewString(args.TEMPLATETYPE), "template_type")
+		tmpObj.Add(jsonutils.NewString(args.CONTENT), "content")
 		arr.Add(tmpObj)
 
 		params := jsonutils.NewDict()

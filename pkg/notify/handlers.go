@@ -187,8 +187,8 @@ func templateUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
 	if err != nil {
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s or %s", manager.Keyword(),
-			manager.KeywordPlural()))
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s and %s",
+			manager.Keyword(), manager.KeywordPlural()))
 		return
 	}
 	ctype := params["<ctype>"]
@@ -282,8 +282,8 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	data, err := body.GetArray(manager.Keyword(), manager.KeywordPlural())
 	if err != nil {
 		log.Errorf("body: %s, err: %s\n", body.String(), err)
-		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s or %s", manager.Keyword(),
-			manager.KeywordPlural()))
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need %s and %s",
+			manager.Keyword(), manager.KeywordPlural()))
 		return
 	}
 
@@ -329,7 +329,7 @@ func verifyTriggerHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	manager, params, _, body := fetchEnv(ctx, w, r)
 	data, err := body.Get(models.ContactManager.Keyword())
 	if err != nil {
-		httperrors.BadRequestError(w, "request body should have %s", manager.KeywordPlural())
+		httperrors.BadRequestError(w, "request body should have %s", manager.Keyword())
 		return
 	}
 	ret, err := manager.VerifyTrigger(ctx, params, data)

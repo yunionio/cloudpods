@@ -66,9 +66,9 @@ func StartService() {
 
 	cron := cronman.InitCronJobManager(true, 2)
 	// update service
-	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Second, models.NotifyService.UpdateServices)
+	cron.AddJobAtIntervals("UpdateServices", time.Duration(opts.UpdateInterval)*time.Minute, models.NotifyService.UpdateServices)
 
-	// resend notifications
+	// wrapped func to resend notifications
 	resend := func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 		models.ReSend(opts.ReSendScope)
 	}
