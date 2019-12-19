@@ -432,7 +432,7 @@ func ParseOutput(output []byte) []string {
 
 func bashOutput(cmd string) ([]string, error) {
 	args := []string{"-c", cmd}
-	output, err := procutils.NewCommand("bash", args...).Output()
+	output, err := procutils.NewCommand("sh", args...).Output()
 	if err != nil {
 		return nil, err
 	} else {

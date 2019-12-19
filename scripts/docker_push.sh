@@ -37,10 +37,35 @@ build_bin() {
     GOOS=linux make cmd/$1
 }
 
+add_host_specific_libraries() {
+    for libraries in 'libsoftokn3.so' 'libsqlite3.so.0' 'libfreeblpriv3.so'; do
+        lib_path=""
+        for base_lib_path in '/lib64/' '/lib/' '/usr/lib/x86_64-linux-gnu/' '/lib/x86_64-linux-gnu/'; do
+            if [ ! -e $base_lib_path ]; then
+                continue
+            fi
+            lib_path="$(find $base_lib_path -name $libraries -print -quit)"
+            if [ -z "$lib_path" ]; then
+                continue
+            fi
+            real_lib_path="$(readlink -f $lib_path)"
+            cp $real_lib_path $1/lib/$libraries
+            break
+        done
+        if [ -z "$lib_path" ]; then
+            echo "failed find $libraries ..."
+            exit 1
+        fi
+    done
+}
+
 build_bundle_libraries() {
     for bundle_component in 'host' 'host-deployer' 'baremetal-agent'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle-libraries.sh _output/bin/bundles/$1 _output/bin/$1
+            if [ $bundle_component == 'host' ]; then
+                add_host_specific_libraries _output/bin/bundles/$1
+            fi
             break
         fi
     done
