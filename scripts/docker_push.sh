@@ -50,6 +50,7 @@ add_host_specific_libraries() {
             fi
             real_lib_path="$(readlink -f $lib_path)"
             cp $real_lib_path $1/lib/$libraries
+            echo "cp $real_lib_path to $1/lib/$libraries ###########"
             break
         done
         if [ -z "$lib_path" ]; then
