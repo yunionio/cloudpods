@@ -37,6 +37,7 @@ jobs:
         make cmd/host && ./scripts/bundle-libraries.sh _output/bin/bundles/host _output/bin/host
         make cmd/host-deployer && ./scripts/bundle-libraries.sh _output/bin/bundles/host-deployer _output/bin/host-deployer
         make cmd/baremetal-agent && ./scripts/bundle-libraries.sh _output/bin/bundles/baremetal-agent _output/bin/baremetal-agent
+        make cmd/cloudevent
 
     - name: Image baremetal-agent
       uses: elgohr/Publish-Docker-Github-Action@master
@@ -177,3 +178,13 @@ jobs:
         registry: registry.cn-beijing.aliyuncs.com
         snapshot: true
         dockerfile: build/docker/Dockerfile.host-deployer
+
+    - name: Image cloudevent 
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: registry.cn-beijing.aliyuncs.com/yunionio/cloudevent
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: registry.cn-beijing.aliyuncs.com
+        snapshot: true
+        dockerfile: build/docker/Dockerfile.cloudevent
