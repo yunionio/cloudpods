@@ -50,15 +50,13 @@ func init() {
 
 		arr.Add(tmpObj)
 
-		tmpObj = jsonutils.NewDict()
-		tmpObj.Add(arr, "contacts")
 		params := jsonutils.NewDict()
-		params.Add(tmpObj, "contact")
+		params.Add(arr, "contacts")
 		if args.UpdateDingtalk {
 			params.Add(jsonutils.JSONTrue, "update_dingtalk")
 		}
 
-		contact, err := modules.Contacts.PerformAction(s, args.UID, "update-contact", params)
+		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", params)
 
 		if err != nil {
 			return err
@@ -80,7 +78,7 @@ func init() {
 		arr.Add(tmpObj)
 		params := jsonutils.NewDict()
 		params.Add(arr, "contacts")
-		contact, err := modules.Contacts.PerformAction(s, args.UID, "update-contact", params)
+		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", params)
 		if err != nil {
 			return err
 		}
@@ -135,7 +133,7 @@ func init() {
 
 		params.Add(jsonutils.JSONTrue, "details")
 
-		result, err := modules.Contacts.Get(s, args.UID, params)
+		result, err := modules.Contacts.CustomizedGet(s, args.UID, params)
 		if err != nil {
 			return err
 		}
@@ -168,12 +166,10 @@ func init() {
 		CONTACT      string `help:"The contacts details mobile number or email address"`
 	}
 	R(&ContactsVerifyOptions{}, "contact-verify-trigger", "Trigger contact verify", func(s *mcclient.ClientSession, args *ContactsVerifyOptions) error {
-		params := jsonutils.NewDict()
 		tmpDict := jsonutils.NewDict()
 		tmpDict.Add(jsonutils.NewString(args.CONTACT_TYPE), "contact_type")
 		tmpDict.Add(jsonutils.NewString(args.CONTACT), "contact")
-		params.Add(tmpDict, "contact")
-		_, err := modules.Contacts.PerformAction(s, args.UID, "verify", params)
+		_, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "verify", tmpDict)
 		if err != nil {
 			return err
 		}
