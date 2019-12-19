@@ -22,6 +22,7 @@ var (
 		"zones",
 		"storages",
 		"wires",
+		"globalvpcs",
 		"vpcs",
 		"route_tables",
 		"cloudregions",
