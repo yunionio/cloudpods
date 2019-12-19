@@ -24,16 +24,31 @@ import (
 	"time"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
+	"golang.org/x/sync/errgroup"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apigateway/options"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+)
+
+const (
+	HOST_MAC                    = "*MAC地址"
+	HOST_NAME                   = "*名称"
+	HOST_IPMI_ADDR              = "*IPMI地址"
+	HOST_IPMI_USERNAME          = "*IPMI用户名"
+	HOST_IPMI_PASSWORD          = "*IPMI密码"
+	HOST_MNG_IP_ADDR            = "*管理口IP地址"
+	HOST_IPMI_ADDR_OPTIONAL     = "IPMI地址"
+	HOST_IPMI_USERNAME_OPTIONAL = "IPMI用户名"
+	HOST_IPMI_PASSWORD_OPTIONAL = "IPMI密码"
+	HOST_MNG_IP_ADDR_OPTIONAL   = "管理口IP地址"
 )
 
 func FetchSession(ctx context.Context, r *http.Request, apiVersion string) *mcclient.ClientSession {
@@ -96,6 +111,10 @@ func (mh *MiscHandler) PostUploads(ctx context.Context, w http.ResponseWriter, r
 	case "BatchHostRegister":
 		mh.DoBatchHostRegister(ctx, w, req)
 		return
+	// 用户批量注册
+	case "BatchUserRegister":
+		mh.DoBatchUserRegister(ctx, w, req)
+		return
 	default:
 		err := httperrors.NewInputParameterError("Unsupported action %s", actions[0])
 		httperrors.JsonClientError(w, err)
@@ -135,22 +154,48 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		log.Errorf(err.Error())
 		e := httperrors.NewInternalServerError("can't parse file")
 		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	rows := xlsx.GetRows("hosts")
+	if len(rows) == 0 {
+		e := httperrors.NewGeneralError(fmt.Errorf("empty file content"))
+		httperrors.JsonClientError(w, e)
+		return
 	}
 
 	h := ""
+	paramKeys := []string{}
+	for _, title := range rows[0] {
+		switch title {
+		case HOST_MAC:
+			paramKeys = append(paramKeys, "access_mac")
+		case HOST_NAME:
+			paramKeys = append(paramKeys, "name")
+		case HOST_IPMI_ADDR, HOST_IPMI_ADDR_OPTIONAL:
+			paramKeys = append(paramKeys, "ipmi_ip_addr")
+		case HOST_IPMI_USERNAME, HOST_IPMI_USERNAME_OPTIONAL:
+			paramKeys = append(paramKeys, "ipmi_username")
+		case HOST_IPMI_PASSWORD, HOST_IPMI_PASSWORD_OPTIONAL:
+			paramKeys = append(paramKeys, "ipmi_password")
+		case HOST_MNG_IP_ADDR, HOST_MNG_IP_ADDR_OPTIONAL:
+			paramKeys = append(paramKeys, "access_ip")
+		default:
+			e := httperrors.NewInternalServerError("empty file content")
+			httperrors.JsonClientError(w, e)
+			return
+		}
+	}
+
 	// skipped header row
 	for _, row := range xlsx.GetRows("hosts")[1:] {
-		if len(row) < 4 {
-			log.Debugf("batchHostRegister row length too short (less than 4) %s", row)
-		}
-
 		h = h + strings.Join(row, ",") + "\n"
 	}
 
 	s := FetchSession(ctx, req, "")
 	params := jsonutils.NewDict()
 	params.Set("hosts", jsonutils.NewString(h))
-	resp, err := modules.Hosts.DoBatchRegister(s, params)
+	resp, err := modules.Hosts.DoBatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
 		httperrors.JsonClientError(w, e)
@@ -158,6 +203,117 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	appsrv.SendJSON(w, resp)
+}
+
+func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	s := FetchSession(ctx, req, "")
+	files := req.MultipartForm.File
+
+	userfiles, ok := files["users"]
+	if !ok || len(userfiles) == 0 || userfiles[0] == nil {
+		e := httperrors.NewInputParameterError("Missing parameter %s", "users")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	fileHeader := userfiles[0].Header
+	contentType := fileHeader.Get("Content-Type")
+	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" {
+		e := httperrors.NewInputParameterError("Wrong content type %s, required application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentType)
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	file, err := userfiles[0].Open()
+	defer file.Close()
+	if err != nil {
+		log.Errorf(err.Error())
+		e := httperrors.NewInternalServerError("can't open file")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	xlsx, err := excelize.OpenReader(file)
+	if err != nil {
+		log.Errorf(err.Error())
+		e := httperrors.NewInternalServerError("can't parse file")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	// skipped header row
+	rows := xlsx.GetRows("users")
+	if len(rows) <= 1 {
+		e := httperrors.NewInputParameterError("empty file")
+		httperrors.JsonClientError(w, e)
+		return
+	}
+
+	users := []jsonutils.JSONObject{}
+	names := map[string]bool{}
+	domains := map[string]string{}
+	for i, row := range rows[1:] {
+		name := row[0]
+		if len(name) == 0 {
+			e := httperrors.NewClientError("row %d name is empty", i+2)
+			httperrors.JsonClientError(w, e)
+			return
+		}
+
+		if _, ok := names[name]; ok {
+			e := httperrors.NewClientError("duplicate name %s", row[0])
+			httperrors.JsonClientError(w, e)
+			return
+		} else {
+			names[name] = true
+			_, err := modules.UsersV3.Get(s, name, nil)
+			if err == nil {
+				continue
+			}
+		}
+
+		domainId, ok := domains[row[1]]
+		if !ok {
+			id, err := modules.Domains.GetId(s, row[1], nil)
+			if err != nil {
+				httperrors.JsonClientError(w, httperrors.NewGeneralError(err))
+				return
+			}
+
+			domainId = id
+			domains[row[1]] = id
+		}
+
+		user := jsonutils.NewDict()
+		user.Add(jsonutils.NewString(name), "name")
+		user.Add(jsonutils.NewString(domainId), "domain_id")
+		user.Add(jsonutils.NewString("OneCloud@2019"), "password")
+		if strings.ToLower(row[2]) == "true" || strings.ToLower(row[2]) == "1" {
+			user.Add(jsonutils.JSONTrue, "allow_web_console")
+		} else {
+			user.Add(jsonutils.JSONFalse, "allow_web_console")
+		}
+
+		users = append(users, user)
+	}
+
+	// batch create
+	var userG errgroup.Group
+	for i := range users {
+		user := users[i]
+		userG.Go(func() error {
+			_, err := modules.UsersV3.Create(s, user)
+			return err
+		})
+	}
+
+	if err := userG.Wait(); err != nil {
+		e := httperrors.NewGeneralError(err)
+		httperrors.GeneralServerError(w, e)
+		return
+	}
+
+	appsrv.SendJSON(w, jsonutils.NewDict())
 }
 
 func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
@@ -168,23 +324,60 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 		return
 	}
 
+	var err error
+	var content bytes.Buffer
 	switch template {
 	case "BatchHostRegister":
-		records := [][]string{{"MAC地址", "名称", "IPMI地址", "IPMI用户名", "IPMI密码"}}
-		content, err := writeXlsx("hosts", records)
+		records := [][]string{{HOST_MAC, HOST_NAME, HOST_IPMI_ADDR_OPTIONAL, HOST_IPMI_USERNAME_OPTIONAL, HOST_IPMI_PASSWORD_OPTIONAL}}
+		content, err = writeXlsx("hosts", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
 			return
 		}
+	case "BatchHostISORegister":
+		records := [][]string{{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR}}
+		content, err = writeXlsx("hosts", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
+	case "BatchHostPXERegister":
+		records := [][]string{{HOST_NAME, HOST_IPMI_ADDR, HOST_IPMI_USERNAME, HOST_IPMI_PASSWORD, HOST_MNG_IP_ADDR_OPTIONAL}}
+		content, err = writeXlsx("hosts", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
+	case "BatchUserRegister":
+		records := [][]string{{"用户名（user）", "部门/域（domain）", "是否登录控制台（allow_web_console：true、false）"}}
+		content, err = writeXlsx("users", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
+	case "BatchProjectRegister":
+		var titles []string
+		if options.Options.NonDefaultDomainProjects {
+			titles = []string{"项目名称", "域", "配额"}
+		} else {
+			titles = []string{"项目名称", "域"}
+		}
 
-		w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		w.Header().Set("Content-Disposition", "Attachment; filename=hosts_template.xlsx")
-		w.Write(content.Bytes())
-		return
+		records := [][]string{titles}
+		content, err = writeXlsx("projects", records)
+		if err != nil {
+			httperrors.InternalServerError(w, "internal server error")
+			return
+		}
 	default:
 		httperrors.InputParameterError(w, "template not found %s", template)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", "Attachment; filename=template.xlsx")
+	w.Write(content.Bytes())
+	return
 }
 
 func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter, req *http.Request) {
