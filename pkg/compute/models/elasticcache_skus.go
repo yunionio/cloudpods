@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -155,8 +156,17 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, true)
-		q = q.NotEquals("postpaid_status", api.SkuStatusSoldout)
-		q = q.NotEquals("prepaid_status", api.SkuStatusSoldout)
+		sq := sqlchemy.OR(sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable))
+		q = q.Filter(sq)
+	}
+
+	if b, _ := query.GetString("billing_type"); len(b) > 0 {
+		switch b {
+		case billing.BILLING_TYPE_POSTPAID:
+			q = q.Equals("postpaid_status", api.SkuStatusAvailable)
+		case billing.BILLING_TYPE_PREPAID:
+			q = q.Equals("prepaid_status", api.SkuStatusAvailable)
+		}
 	}
 
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
