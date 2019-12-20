@@ -35,3 +35,14 @@ type GatewayOptions struct {
 var (
 	Options GatewayOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*GatewayOptions)
+	newOpts := newO.(*GatewayOptions)
+
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		return true
+	}
+
+	return false
+}

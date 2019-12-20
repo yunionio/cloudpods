@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -159,6 +160,14 @@ func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclie
 	return db.IsAdminAllowUpdateSpec(userCred, service, "config")
 }
 
+func (service *SService) isCommonService() bool {
+	if service.Type == consts.COMMON_SERVICE {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	action, _ := data.GetString("action")
 	opts := api.TConfigs{}
@@ -166,7 +175,11 @@ func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid input data")
 	}
-	err = saveConfigs(action, service, opts, api.BlacklistOptionMap, nil)
+	if service.isCommonService() {
+		err = saveConfigs(action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
+	} else {
+		err = saveConfigs(action, service, opts, nil, api.ServiceBlacklistOptionMap, nil)
+	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}

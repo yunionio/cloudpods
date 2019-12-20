@@ -46,3 +46,14 @@ type SImageOptions struct {
 var (
 	Options SImageOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*SImageOptions)
+	newOpts := newO.(*SImageOptions)
+
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		return true
+	}
+
+	return false
+}

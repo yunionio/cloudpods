@@ -17,8 +17,6 @@ package shell
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -32,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -212,33 +211,13 @@ func init() {
 			return err
 		}
 
-		tmpfile, err := ioutil.TempFile("", "policy-blob")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(tmpfile.Name()) // clean up
-
-		if _, err := tmpfile.Write([]byte(yaml)); err != nil {
-			return err
-		}
-		if err := tmpfile.Close(); err != nil {
-			return err
-		}
-
-		cmd := exec.Command("vim", tmpfile.Name())
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		err = cmd.Run()
+		yaml, err = shellutils.Edit(yaml)
 		if err != nil {
 			return err
 		}
 
 		params := jsonutils.NewDict()
-		policyBytes, err := ioutil.ReadFile(tmpfile.Name())
-		if err != nil {
-			return err
-		}
-		params.Add(jsonutils.NewString(string(policyBytes)), "policy")
+		params.Add(jsonutils.NewString(yaml), "policy")
 
 		result, err = modules.Policies.Patch(s, policyId, params)
 		if err != nil {

@@ -73,6 +73,8 @@ type BaseOptions struct {
 	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 5 minutes" default:"300"`
 	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
+	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 300 seconds/5 minutes" default:"300"`
+
 	IsSlaveNode        bool `help:"Region service slave node"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
 
@@ -80,7 +82,7 @@ type BaseOptions struct {
 
 	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
 
-	NonDefaultDomainProjects bool `help:"allow projects in non-default domains" default:"false"`
+	NonDefaultDomainProjects bool `help:"allow projects in non-default domains" default:"false" json:",allowfalse"`
 
 	TimeZone string `help:"time zone" default:"Asia/Shanghai"`
 
