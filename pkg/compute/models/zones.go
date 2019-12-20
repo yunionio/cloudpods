@@ -576,6 +576,17 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		iconditions := NetworkUsableZoneQueries(q.Field("id"), usableNet, usableVpc)
 		q = q.Filter(sqlchemy.OR(iconditions...))
 		q = q.Equals("status", api.ZONE_ENABLE)
+
+		service, _ := query.GetString("service")
+		switch service {
+		case ElasticcacheManager.KeywordPlural():
+			q2 := ElasticcacheSkuManager.Query("zone_id").Distinct()
+			statusFilter := sqlchemy.OR(sqlchemy.Equals(q2.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q2.Field("postpaid_status"), api.SkuStatusAvailable))
+			skusSQ := q2.Filter(statusFilter).SubQuery()
+			q = q.In("id", skusSQ)
+		default:
+			break
+		}
 	}
 
 	managerStr, _ := query.GetString("manager")
