@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -435,11 +434,17 @@ func (self *SNotification) SetStatusWithoutUserCred(status string) error {
 	return nil
 }
 func sendWithoutUserCred(notifications []SNotification) {
-	var wg sync.WaitGroup
+	// limit the number of Concurrency
+	Max := 10
+	limit := make(chan struct{}, Max)
 	sendone := func(notification SNotification) {
+		defer func() {
+			<-limit
+		}()
 		// Get contact
 		contact, err := ContactManager.FetchByUIDAndCType(notification.UID, []string{notification.ContactType})
 		if err != nil {
+			log.Debugf("fail to fetch contacts with uid '%s' in ReSend Cron Job", notification.UID)
 			return
 		}
 		if len(contact) == 0 {
@@ -454,18 +459,20 @@ func sendWithoutUserCred(notifications []SNotification) {
 			return
 		}
 		if err != nil {
-			log.Errorf("Send notification failed because that %s.", err.Error())
+			log.Errorf("Send notification failed in ReSend Cron Job: %s.", err.Error())
 			notification.SetStatusWithoutUserCred(NOTIFY_FAIL)
 		} else {
 			notification.SetStatusWithoutUserCred(NOTIFY_OK)
 		}
-		wg.Done()
 	}
 	for i := range notifications {
-		wg.Add(1)
+		limit <- struct{}{}
 		go sendone(notifications[i])
 	}
-	wg.Wait()
+	// wait all finish
+	for i := 0; i < Max; i++ {
+		limit <- struct{}{}
+	}
 }
 
 func ReSend(seconds int) {
