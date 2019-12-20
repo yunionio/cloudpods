@@ -180,6 +180,30 @@ var (
 					Action:   PolicyActionCreate,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  "devtool",
+					Resource: "devtool_cronjobs",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "devtool",
+					Resource: "devtool_cronjobs",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "devtool",
+					Resource: "devtool_templates",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "devtool",
+					Resource: "devtool_templates",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
