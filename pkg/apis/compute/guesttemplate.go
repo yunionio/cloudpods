@@ -68,7 +68,7 @@ type GuesttemplateNetwork struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	GuestIpStart string `json:"guest_ip_start"`
-	GuestIpEnd   string `json:"guest_up_end"`
+	GuestIpEnd   string `json:"guest_ip_end"`
 	VlanId       int    `json:"vlan_id"`
 }
 
