@@ -16,7 +16,6 @@ package google
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
@@ -37,11 +36,11 @@ func (cache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (cache *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerId, cache.region.GetId())
+	return cache.region.client.providerId
 }
 
 func (cache *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerName, cache.region.GetId())
+	return cache.region.client.providerName
 }
 
 func (cache *SStoragecache) GetStatus() string {
@@ -53,7 +52,7 @@ func (cache *SStoragecache) Refresh() error {
 }
 
 func (cache *SStoragecache) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerId, cache.region.GetGlobalId())
+	return cache.region.client.providerId
 }
 
 func (cache *SStoragecache) IsEmulated() bool {
