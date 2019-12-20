@@ -23,9 +23,11 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -154,8 +156,17 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, true)
-		q = q.NotEquals("postpaid_status", api.SkuStatusSoldout)
-		q = q.NotEquals("prepaid_status", api.SkuStatusSoldout)
+		sq := sqlchemy.OR(sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable))
+		q = q.Filter(sq)
+	}
+
+	if b, _ := query.GetString("billing_type"); len(b) > 0 {
+		switch b {
+		case billing.BILLING_TYPE_POSTPAID:
+			q = q.Equals("postpaid_status", api.SkuStatusAvailable)
+		case billing.BILLING_TYPE_PREPAID:
+			q = q.Equals("prepaid_status", api.SkuStatusAvailable)
+		}
 	}
 
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
@@ -170,6 +181,16 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 	if len(city) > 0 {
 		regionTable := CloudregionManager.Query().SubQuery()
 		q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id"))).Filter(sqlchemy.Equals(regionTable.Field("city"), city))
+	}
+
+	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
+	memSizeMB, _ := query.Int("memory_size_mb")
+	if memSizeMB > 0 {
+		s, e := intervalMem(int(memSizeMB))
+		q.GT("memory_size_mb", s)
+		q.LE("memory_size_mb", e)
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("memory_size_mb")
 	}
 
 	return q, err
@@ -275,7 +296,12 @@ func (manager *SElasticcacheSkuManager) AllowGetPropertyInstanceSpecs(ctx contex
 
 func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := manager.Query("memory_size_mb")
-	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -293,11 +319,12 @@ func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Con
 		var ms int
 		err := rows.Scan(&ms)
 		if err == nil {
-			if _, exist := mems[ms]; !exist {
+			m := roundMem(ms)
+			if _, exist := mems[m]; !exist {
 				if ms > 0 {
-					mems_mb.Add(jsonutils.NewInt(int64(ms)))
+					mems_mb.Add(jsonutils.NewInt(int64(m)))
 				}
-				mems[ms] = true
+				mems[m] = true
 			}
 		} else {
 			log.Debugf("SElasticcacheSkuManager.GetPropertyInstanceSpecs %s", err)
@@ -315,7 +342,12 @@ func (manager *SElasticcacheSkuManager) AllowGetPropertyCapability(ctx context.C
 
 func (manager *SElasticcacheSkuManager) GetPropertyCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := manager.Query("engine", "engine_version", "local_category", "node_type", "performance_type")
-	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+	if err != nil {
+		return nil, err
+	}
+
+	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
