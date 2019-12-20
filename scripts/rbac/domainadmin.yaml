@@ -3,6 +3,4 @@ roles:
   - domain_admin
 scope: domain
 policy:
-  *:
-    *:
-      *: allow
+  '*': allow

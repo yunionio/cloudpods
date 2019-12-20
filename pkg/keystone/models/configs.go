@@ -19,13 +19,14 @@ import (
 	"sort"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/keystone/options"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
 type SConfigOptionManager struct {
@@ -183,7 +184,7 @@ func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfi
 	return nil
 }
 
-func getConfigOptions(conf api.TConfigs, model db.IModel, blackList map[string][]string, sensitiveList map[string][]string) (TConfigOptions, TConfigOptions) {
+func getConfigOptions(conf api.TConfigs, model db.IModel, whiteList map[string][]string, blackList map[string][]string, sensitiveList map[string][]string) (TConfigOptions, TConfigOptions) {
 	options := make(TConfigOptions, 0)
 	sensitive := make(TConfigOptions, 0)
 	for group, groupConf := range conf {
@@ -194,12 +195,21 @@ func getConfigOptions(conf api.TConfigs, model db.IModel, blackList map[string][
 			opt.Group = group
 			opt.Option = optKey
 			opt.Value = optVal
-			if v, ok := blackList[group]; ok && utils.IsInStringArray(optKey, v) {
-				// skip
-			} else if v, ok := sensitiveList[group]; ok && utils.IsInStringArray(optKey, v) {
+			if v, ok := sensitiveList[group]; ok && utils.IsInStringArray(optKey, v) {
 				sensitive = append(sensitive, opt)
 			} else {
-				options = append(options, opt)
+				if whiteList != nil {
+					if v, ok := whiteList[group]; ok && utils.IsInStringArray(optKey, v) {
+						options = append(options, opt)
+					}
+				} else if blackList != nil {
+					if v, ok := blackList[group]; ok && utils.IsInStringArray(optKey, v) {
+					} else {
+						options = append(options, opt)
+					}
+				} else {
+					options = append(options, opt)
+				}
 			}
 		}
 	}
@@ -297,8 +307,8 @@ func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
 	return config2map(opts), nil
 }
 
-func saveConfigs(action string, model db.IModel, opts api.TConfigs, blackList map[string][]string, sensitiveConfs map[string][]string) error {
-	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, blackList, sensitiveConfs)
+func saveConfigs(action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
+	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, whiteList, blackList, sensitiveConfs)
 	if action == "update" {
 		err := WhitelistedConfigManager.updateConfigs(whiteListedOpts)
 		if err != nil {
@@ -330,47 +340,65 @@ func saveConfigs(action string, model db.IModel, opts api.TConfigs, blackList ma
 	return nil
 }
 
-func MergeServiceConfig(opts *options.SKeystoneOptions) error {
+type dbServiceConfigSession struct {
+	config  *jsonutils.JSONDict
+	service *SService
+}
+
+func NewServiceConfigSession() common_options.IServiceConfigSession {
+	return &dbServiceConfigSession{}
+}
+
+func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string) bool {
 	merged := false
-	conf := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	service, _ := ServiceManager.fetchServiceByType(api.SERVICE_TYPE)
-	if service != nil {
-		serviceConf, err := GetConfigs(service, false)
+	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	s.service, _ = ServiceManager.fetchServiceByType(serviceType)
+	if s.service != nil {
+		serviceConf, err := GetConfigs(s.service, false)
 		if err != nil {
-			return errors.Wrap(err, "GetConfigs service")
+			log.Errorf("GetConfigs for %s fail: %s", serviceType, err)
+		} else {
+			serviceConfJson := jsonutils.Marshal(serviceConf["default"])
+			s.config.Update(serviceConfJson)
+			merged = true
 		}
-		serviceConfJson := jsonutils.Marshal(serviceConf["default"])
-		conf.Update(serviceConfJson)
-		merged = true
 	}
 	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
 	if commonService != nil {
 		commonConf, err := GetConfigs(commonService, false)
 		if err != nil {
-			return errors.Wrap(err, "GetConfigs commonService")
+			log.Errorf("GetConfigs for %s fail: %s", consts.COMMON_SERVICE, err)
+		} else {
+			commonConfJson := jsonutils.Marshal(commonConf["default"])
+			s.config.Update(commonConfJson)
+			merged = true
 		}
-		commonConfJson := jsonutils.Marshal(commonConf["default"])
-		conf.Update(commonConfJson)
-		merged = true
 	}
 	if merged {
-		err := conf.Unmarshal(opts)
-		if err != nil {
-			return errors.Wrap(err, "conf.Unmarshal")
+		err := s.config.Unmarshal(opts)
+		if err == nil {
+			return true
 		}
-		if service != nil {
-			nconf := jsonutils.NewDict()
-			nconf.Add(conf, "default")
-			tconf := api.TConfigs{}
-			err = nconf.Unmarshal(tconf)
-			if err != nil {
-				return errors.Wrap(err, "conf.Unmarshal(tconf)")
-			}
-			err = saveConfigs("", service, tconf, api.BlacklistOptionMap, nil)
-			if err != nil {
-				return errors.Wrap(err, "saveConfigs")
-			}
-		}
+		log.Errorf("s.config.Unmarshal fail %s", err)
 	}
-	return nil
+	return false
+}
+
+func (s *dbServiceConfigSession) Upload() {
+	if s.service == nil {
+		return
+	}
+	nconf := jsonutils.NewDict()
+	nconf.Add(s.config, "default")
+	tconf := api.TConfigs{}
+	err := nconf.Unmarshal(tconf)
+	if err != nil {
+		log.Errorf("nconf.Unmarshal fail %s", err)
+		return
+	}
+	err = saveConfigs("", s.service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
+	if err != nil {
+		log.Errorf("saveConfigs fail %s", err)
+		return
+	}
 }
