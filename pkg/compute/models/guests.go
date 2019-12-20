@@ -112,6 +112,9 @@ type SGuest struct {
 	SecgrpId      string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`                  // Column(VARCHAR(36, charset='ascii'), nullable=True)
 
+	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default=HYPERVISOR_DEFAULT)
 
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
@@ -3568,6 +3571,9 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewString(self.getMachine()), "machine")
 	desc.Add(jsonutils.NewString(self.getBios()), "bios")
 	desc.Add(jsonutils.NewString(self.BootOrder), "boot_order")
+
+	desc.Add(jsonutils.NewBool(self.SrcIpCheck.Bool()), "src_ip_check")
+	desc.Add(jsonutils.NewBool(self.SrcMacCheck.Bool()), "src_mac_check")
 
 	if len(self.BackupHostId) > 0 {
 		if self.HostId == host.Id {
