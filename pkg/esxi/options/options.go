@@ -19,9 +19,8 @@ import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type EsxiOptions struct {
 	common_options.CommonOptions
 
-	ListenInterface string `help;"Master address of host server" default:"br0"`
-	ListenAddress string `help:"Host serve IP address to select when multiple address bind to
-ListenInterface"`
+	ListenInterface         string `help:"Master address of host server" default:"br0"`
+	ListenAddress           string `help:"Host serve IP address to select when multiple address bind to ListenInterface"`
 	EsxiAgentPath           string `default:"/opt/cloud/workspace/esxi_agent" help:"Path for esxi agent configuration files"`
 	ImageCachePath          string `help:"Path for storing image caches"`
 	ImageCacheLimit         int    `help:"Maximal storage space for image caching, in GB" default:"20"`

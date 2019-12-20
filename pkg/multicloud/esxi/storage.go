@@ -848,4 +848,5 @@ func (self *SDatastore) ImportTemplate(ctx context.Context, diskFile, remotePath
 		dst_url := self.GetPathUrl(remotePath)
 		return self.manager.MoveDisk(ctx, disk_url, dst_url, true)
 	}
+	return nil
 }

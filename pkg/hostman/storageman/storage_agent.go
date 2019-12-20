@@ -21,7 +21,6 @@ import (
 	"path"
 	"path/filepath"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -29,7 +28,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/agent"
+	_interface "yunion.io/x/onecloud/pkg/cloudcommon/agent/interface"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -45,10 +44,10 @@ import (
 
 type SAgentStorage struct {
 	SLocalStorage
-	agent agent.IAgent
+	agent _interface.IAgent
 }
 
-func NewAgentStorage(manager *SStorageManager, agent agent.IAgent, path string) *SAgentStorage {
+func NewAgentStorage(manager *SStorageManager, agent _interface.IAgent, path string) *SAgentStorage {
 	s := &SAgentStorage{SLocalStorage: *NewLocalStorage(manager, path, 0)}
 	s.agent = agent
 	s.checkDirC(path)
