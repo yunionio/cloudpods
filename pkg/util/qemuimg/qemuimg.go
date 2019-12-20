@@ -124,13 +124,13 @@ func (img *SQemuImage) parse() error {
 	}
 	outb, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "cmd stdout pipe")
 	}
 	defer outb.Close()
 
 	errb, err := cmd.StderrPipe()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "cmd stderr pipe")
 	}
 	defer errb.Close()
 
@@ -142,11 +142,11 @@ func (img *SQemuImage) parse() error {
 
 	out, err := ioutil.ReadAll(outb)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "read stdout pipe")
 	}
 	errOut, err := ioutil.ReadAll(errb)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "read stderr pipe")
 	}
 
 	err = cmd.Wait()
