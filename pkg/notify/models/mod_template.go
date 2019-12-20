@@ -74,6 +74,7 @@ func (tm *STemplateManager) GetEmailUrl() string {
 }
 
 func (tm *STemplateManager) InitializeData() error {
+	// init email VERIFY template
 	q := tm.Query().Equals("contact_type", "email").Equals("topic", "VERIFY").Equals("template_type", "content")
 	count, _ := q.CountWithError()
 	if count > 0 {
@@ -89,13 +90,13 @@ func (tm *STemplateManager) InitializeData() error {
 	contentTem := STemplate{
 		ContactType:  "email",
 		Topic:        "VERIFY",
-		TemplateType: "content",
+		TemplateType: TEMPLATE_TYPE_CONTENT,
 		Content:      string(content),
 	}
 	titleTem := STemplate{
 		ContactType:  "email",
 		Topic:        "VERIFY",
-		TemplateType: "title",
+		TemplateType: TEMPLATE_TYPE_TITLE,
 		Content:      template.EMAIL_VERIFY_TITLE,
 	}
 	err = tm.TableSpec().InsertOrUpdate(&contentTem)
@@ -105,6 +106,32 @@ func (tm *STemplateManager) InitializeData() error {
 	tm.TableSpec().InsertOrUpdate(&titleTem)
 	if err != nil {
 		return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
+	}
+	// init email IMAGE_ACTIVED template
+	q = tm.Query().Equals("contact_type", "email").Equals("topic", "IMAGE_ACTIVED")
+	count, _ = q.CountWithError()
+	if count > 1 {
+		return nil
+	}
+	titleTem = STemplate{
+		ContactType:  "email",
+		Topic:        "IMAGE_ACTIVED",
+		TemplateType: TEMPLATE_TYPE_TITLE,
+		Content:      template.IMAGE_ACTIVED_TITLE,
+	}
+	contentTem = STemplate{
+		ContactType:  "email",
+		Topic:        "IMAGE_ACTIVED",
+		TemplateType: TEMPLATE_TYPE_CONTENT,
+		Content:      template.IMAGE_ACTIVED_CONTENT,
+	}
+	err = tm.TableSpec().InsertOrUpdate(&titleTem)
+	if err != nil {
+		return errors.Wrapf(err, "fail to InsertOrUpdate for email IMAGE_ACTIVED title template")
+	}
+	err = tm.TableSpec().InsertOrUpdate(&contentTem)
+	if err != nil {
+		return errors.Wrapf(err, "fail to InsertOrUpdate for email IMAGE_ACTIVED content template")
 	}
 	return nil
 }
