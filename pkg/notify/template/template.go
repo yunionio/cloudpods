@@ -17,4 +17,7 @@ package template
 const (
 	EMAIL_VERIFY_CONTENT_PATH = "/opt/yunion/share/notify/email_verify_template"
 	EMAIL_VERIFY_TITLE        = "Yunion Verify"
+
+	IMAGE_ACTIVED_TITLE   = "镜像 {{.name}} 上传完成"
+	IMAGE_ACTIVED_CONTENT = "{{.os_type}} 镜像 {{.name}} 上传完成"
 )
