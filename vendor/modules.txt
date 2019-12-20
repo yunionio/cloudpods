@@ -798,12 +798,12 @@ k8s.io/kubernetes/pkg/scheduler/api
 k8s.io/kubernetes/pkg/scheduler/api/v1
 # sigs.k8s.io/yaml v1.1.0
 sigs.k8s.io/yaml
-# yunion.io/x/jsonutils v0.0.0-20191213141000-dfc176a66644
+# yunion.io/x/jsonutils v0.0.0-20191220095028-7fef3b75f64d
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20191213141200-9b18cc7f696e
+# yunion.io/x/pkg v0.0.0-20191219140303-66e6c7b6d46b
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable

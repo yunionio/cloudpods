@@ -29,7 +29,7 @@ type JSONPair struct {
 }
 
 func NewDict(objs ...JSONPair) *JSONDict {
-	dict := JSONDict{data: make(map[string]JSONObject)}
+	dict := JSONDict{data: make(map[string]JSONObject, len(objs))}
 	for _, o := range objs {
 		dict.data[o.key] = o.val
 	}
@@ -37,7 +37,7 @@ func NewDict(objs ...JSONPair) *JSONDict {
 }
 
 func NewArray(objs ...JSONObject) *JSONArray {
-	arr := JSONArray{data: make([]JSONObject, 0)}
+	arr := JSONArray{data: make([]JSONObject, 0, len(objs))}
 	for _, o := range objs {
 		arr.data = append(arr.data, o)
 	}
@@ -301,6 +301,9 @@ func (this *JSONDict) GetArray(keys ...string) ([]JSONObject, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
 		return nil, errors.Wrap(err, "Get")
+	}
+	if _, ok := obj.(*JSONDict); ok {
+		return nil, ErrInvalidJsonArray
 	}
 	return obj.GetArray()
 	/* arr, ok := obj.(*JSONArray)
