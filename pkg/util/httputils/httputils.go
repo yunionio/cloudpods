@@ -153,7 +153,6 @@ func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
-		DisableCompression:    true,
 	}
 }
 
