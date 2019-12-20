@@ -228,7 +228,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInputParameterError("invalid input data")
 	}
 	action, _ := data.GetString("action")
-	err = saveConfigs(action, ident, opts, nil, api.SensitiveDomainConfigMap)
+	err = saveConfigs(action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
@@ -327,7 +327,7 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 		log.Errorf("parse config error %s", err)
 		return
 	}
-	err = saveConfigs("", ident, opts, nil, api.SensitiveDomainConfigMap)
+	err = saveConfigs("", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return

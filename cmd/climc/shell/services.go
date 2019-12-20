@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -231,6 +232,36 @@ func init() {
 		}
 		config := jsonutils.NewDict()
 		config.Add(yamlJson, "config", "default")
+		nconf, err := modules.ServicesV3.PerformAction(s, args.SERVICE, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
+	type ServiceConfigEditOptions struct {
+		SERVICE string `help:"service name or id"`
+	}
+	R(&ServiceConfigEditOptions{}, "service-config-edit", "Edit config yaml of a service", func(s *mcclient.ClientSession, args *ServiceConfigEditOptions) error {
+		conf, err := modules.ServicesV3.GetSpecific(s, args.SERVICE, "config", nil)
+		if err != nil {
+			return err
+		}
+		confJson, err := conf.Get("config")
+		if err != nil {
+			return err
+		}
+		content, err := shellutils.Edit(confJson.YAMLString())
+		if err != nil {
+			return err
+		}
+		yamlJson, err := jsonutils.ParseYAML(content)
+		if err != nil {
+			return err
+		}
+		config := jsonutils.NewDict()
+		config.Add(yamlJson, "config")
 		nconf, err := modules.ServicesV3.PerformAction(s, args.SERVICE, "config", config)
 		if err != nil {
 			return err
