@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
@@ -94,8 +95,20 @@ func (self *SContactManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.II
 }
 
 func (self *SContactManager) InitializeData() error {
+	q := self.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNotNull(q.Field("updated_at")), sqlchemy.IsTrue(q.Field("deleted"))))
+	n, err := q.CountWithError()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		log.Debugf("no need to init data for %s", self.TableSpec().Name())
+		// no need to init data
+		return nil
+	}
+	log.Debugf("need to init data for %s", self.TableSpec().Name())
 	sql := fmt.Sprintf("update %s set updated_at=update_at, deleted=is_deleted", self.TableSpec().Name())
-	q := sqlchemy.NewRawQuery(sql, "")
+	q = sqlchemy.NewRawQuery(sql, "")
 	q.Row()
 	return nil
 }
