@@ -124,7 +124,8 @@ type SHost struct {
 
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
-	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
+	Version    string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
+	OvnVersion string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
 
 	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
 
