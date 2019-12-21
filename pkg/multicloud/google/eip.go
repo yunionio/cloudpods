@@ -33,13 +33,11 @@ type SAddress struct {
 
 	Id                string
 	CreationTimestamp time.Time
-	Name              string
 	Description       string
 	Address           string
 	Status            string
 	Region            string
 	Users             []string
-	SelfLink          string
 	NetworkTier       string
 	AddressType       string
 	Kind              string
