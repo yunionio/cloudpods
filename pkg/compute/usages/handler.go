@@ -295,9 +295,9 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 }
 
 func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (count Usage, err error) {
-	guestNormalUsage := GuestNormalUsage("servers", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
+	guestNormalUsage := GuestNormalUsage(getKey(scope, "servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
 
-	containerUsage := containerUsage("containers", scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv)
+	containerUsage := containerUsage(getKey(scope, "containers"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv)
 
 	eipUsage := EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
@@ -305,29 +305,29 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	snapshotUsage := SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
-	disksUsage := disksUsage("", rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred)
+	disksUsage := DisksUsage(getKey(scope, "disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred)
 
 	nicsUsage := nicsUsage(rangeObjs, nil, providers, brands, cloudEnv, scope, cred)
 
 	count = guestNormalUsage.Include(
-		GuestNormalUsage("servers.prepaid_pool", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		GuestNormalUsage("servers.any_pool", scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		GuestNormalUsage(getKey(scope, "servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		GuestRunningUsage("running_servers", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
-		GuestRunningUsage("running_servers.prepaid_pool", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		GuestRunningUsage("running_servers.any_pool", scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		GuestRunningUsage(getKey(scope, "running_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		GuestRunningUsage(getKey(scope, "running_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		GuestRunningUsage(getKey(scope, "running_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		GuestPendingDeleteUsage("pending_delete_servers", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
-		GuestPendingDeleteUsage("pending_delete_servers.prepaid_pool", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		GuestPendingDeleteUsage("pending_delete_servers.any_pool", scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		GuestPendingDeleteUsage(getKey(scope, "pending_delete_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		GuestReadyUsage("ready_servers", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
-		GuestReadyUsage("ready_servers.prepaid_pool", scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		GuestReadyUsage("ready_servers.any_pool", scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		GuestReadyUsage(getKey(scope, "ready_servers"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		GuestReadyUsage(getKey(scope, "ready_servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		GuestReadyUsage(getKey(scope, "ready_servers.any_pool"), scope, cred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		containerUsage,
 
-		NetworkUsage("", scope, cred, providers, brands, cloudEnv, rangeObjs),
+		NetworkUsage(getKey(scope, ""), scope, cred, providers, brands, cloudEnv, rangeObjs),
 
 		eipUsage,
 
@@ -366,7 +366,9 @@ func ReportGeneralUsage(
 		if err == nil {
 			count.Include(commonUsage)
 		}
-	} else if scope.HigherEqual(rbacutils.ScopeProject) {
+	}
+
+	if scope.HigherEqual(rbacutils.ScopeProject) {
 		commonUsage, err := getCommonGeneralUsage(rbacutils.ScopeProject, userCred, rangeObjs, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
@@ -449,11 +451,7 @@ func StorageUsage(
 	return count
 }
 
-func disksUsage(prefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
-	dPrefix := "disks"
-	if len(prefix) > 0 {
-		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
-	}
+func DisksUsage(dPrefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
 	count := make(map[string]interface{})
 	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId)
 	count[dPrefix] = result.CapacityUsed
@@ -622,40 +620,48 @@ func IsolatedDeviceUsage(pref string, rangeObjs []db.IStandaloneModel, hostType 
 	return count
 }
 
-func getKey(projectId, key string) string {
-	if len(projectId) > 0 {
+func getKey(scope rbacutils.TRbacScope, key string) string {
+	switch scope {
+	case rbacutils.ScopeProject:
 		return key
-	} else {
-		return fmt.Sprintf("all.%s", key)
+	case rbacutils.ScopeDomain:
+		if len(key) > 0 {
+			return fmt.Sprintf("domain.%s", key)
+		} else {
+			return "domain"
+		}
+	default:
+		if len(key) > 0 {
+			return fmt.Sprintf("all.%s", key)
+		} else {
+			return "all"
+		}
 	}
 }
 
 func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	projectId := mcclient.OwnerIdString(ownerId, scope)
 	eipUsage := models.ElasticipManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
-	count[getKey(projectId, "eip")] = eipUsage.Total()
-	count[getKey(projectId, "eip.public_ip")] = eipUsage.PublicIPCount
-	count[getKey(projectId, "eip.floating_ip")] = eipUsage.EIPCount
-	count[getKey(projectId, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
-	count[getKey(projectId, "eip.used")] = eipUsage.EIPUsedCount + eipUsage.PublicIPCount
+	count[getKey(scope, "eip")] = eipUsage.Total()
+	count[getKey(scope, "eip.public_ip")] = eipUsage.PublicIPCount
+	count[getKey(scope, "eip.floating_ip")] = eipUsage.EIPCount
+	count[getKey(scope, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
+	count[getKey(scope, "eip.used")] = eipUsage.EIPUsedCount + eipUsage.PublicIPCount
 	return count
 }
 
 func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	projectId := mcclient.OwnerIdString(ownerId, scope)
 	bucketUsage := models.BucketManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
-	count[getKey(projectId, "buckets")] = bucketUsage.Buckets
-	count[getKey(projectId, "bucket_objects")] = bucketUsage.Objects
-	count[getKey(projectId, "bucket_bytes")] = bucketUsage.Bytes
+	count[getKey(scope, "buckets")] = bucketUsage.Buckets
+	count[getKey(scope, "bucket_objects")] = bucketUsage.Objects
+	count[getKey(scope, "bucket_bytes")] = bucketUsage.Bytes
 	return count
 }
 
 func SnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
-	projectId := mcclient.OwnerIdString(ownerId, scope)
 	cnt, _ := models.TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
-	count[getKey(projectId, "snapshot")] = cnt
+	count[getKey(scope, "snapshot")] = cnt
 	return count
 }
