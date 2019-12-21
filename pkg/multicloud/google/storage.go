@@ -29,11 +29,9 @@ type SStorage struct {
 	SResourceBase
 
 	CreationTimestamp time.Time
-	Name              string
 	Description       string
 	ValidDiskSize     string
 	Zone              string
-	SelfLink          string
 	DefaultDiskSizeGb string
 	Kind              string
 }
