@@ -135,7 +135,7 @@ require (
 	yunion.io/x/executor v0.0.0-20191202093616-92e2e6119257
 	yunion.io/x/jsonutils v0.0.0-20191220095028-7fef3b75f64d
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191219140303-66e6c7b6d46b
+	yunion.io/x/pkg v0.0.0-20191221094533-5097f12f41ac
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20191217082202-5f99691a51c9
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3

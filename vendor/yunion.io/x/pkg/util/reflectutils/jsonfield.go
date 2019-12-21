@@ -34,6 +34,24 @@ type SStructFieldInfo struct {
 	Tags        map[string]string
 }
 
+func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
+	scopy := SStructFieldInfo{
+		Ignore:      s.Ignore,
+		OmitEmpty:   s.OmitEmpty,
+		OmitFalse:   s.OmitFalse,
+		OmitZero:    s.OmitZero,
+		Name:        s.Name,
+		FieldName:   s.FieldName,
+		ForceString: s.ForceString,
+	}
+	tags := make(map[string]string, len(s.Tags))
+	for k, v := range s.Tags {
+		tags[k] = v
+	}
+	scopy.Tags = tags
+	return &scopy
+}
+
 func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
 	info := SStructFieldInfo{}
 	info.FieldName = sf.Name
@@ -104,30 +122,10 @@ func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValue
 	return fetchStructFieldValueSet(dataValue, true)
 }
 
-type sStructFieldInfoMap struct {
-	indexMap map[string]int
-	infos []SStructFieldInfo
-}
+type sStructFieldInfoMap map[string]SStructFieldInfo
 
-func newStructFieldInfoMap(cap int) sStructFieldInfoMap {
-	return sStructFieldInfoMap{
-		indexMap: make(map[string]int, cap),
-		infos:    make([]SStructFieldInfo, 0, cap),
-	}
-}
-
-func (m *sStructFieldInfoMap) shrink() {
-	m.infos = m.infos[:len(m.infos):len(m.infos)]
-}
-
-func (m *sStructFieldInfoMap) get(name string) *SStructFieldInfo {
-	return &m.infos[m.indexMap[name]]
-}
-
-func (m *sStructFieldInfoMap) set(name string, info SStructFieldInfo) bool {
-	m.indexMap[name] = len(m.infos)
-	m.infos = append(m.infos, info)
-	return true
+func newStructFieldInfoMap(caps int) sStructFieldInfoMap {
+	return make(map[string]SStructFieldInfo, caps)
 }
 
 var structFieldInfoCache sync.Map
@@ -160,12 +158,10 @@ func fetchStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
 				continue
 			}
 		}
-		smap.set(sf.Name, ParseStructFieldJsonInfo(sf))
+		smap[sf.Name] = ParseStructFieldJsonInfo(sf)
 	}
-	smap.shrink()
 	return smap
 }
-
 
 func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
@@ -208,7 +204,7 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStruct
 				continue
 			}
 		}
-		fieldInfo := fieldInfos.get(sf.Name)
+		fieldInfo := fieldInfos[sf.Name].deepCopy()
 		if !fieldInfo.Ignore {
 			fields = append(fields, SStructFieldValue{
 				Info:  fieldInfo,
