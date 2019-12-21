@@ -132,5 +132,5 @@ func (storage *SStorage) GetMountPoint() string {
 }
 
 func (storage *SStorage) IsSysDiskStore() bool {
-	return storage.Name != api.STORAGE_GOOGLE_LOCAL_STORAGE
+	return storage.Name != api.STORAGE_GOOGLE_LOCAL_SSD
 }
