@@ -222,12 +222,12 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 					return &eips[0], nil
 				}
 				eip := &SAddress{
-					region:   instance.host.zone.region,
-					SelfLink: instance.SelfLink,
-					Id:       instance.SelfLink,
-					Status:   "IN_USE",
-					Address:  conf.NatIP,
+					region:  instance.host.zone.region,
+					Id:      instance.SelfLink,
+					Status:  "IN_USE",
+					Address: conf.NatIP,
 				}
+				eip.SelfLink = instance.SelfLink
 				return eip, nil
 			}
 		}
