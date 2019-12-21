@@ -934,7 +934,11 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 		cmds.WriteString(nicDesc.Name)
 		cmds.WriteString("\n")
 		cmds.WriteString("ONBOOT=yes\n")
-		cmds.WriteString("NM_CONTROLLED=no\n")
+		if iv < 8 {
+			cmds.WriteString("NM_CONTROLLED=no\n")
+		} else {
+			cmds.WriteString("NM_CONTROLLED=yes\n")
+		}
 		cmds.WriteString("USERCTL=no\n")
 		if nicDesc.Mtu > 0 {
 			cmds.WriteString(fmt.Sprintf("MTU=%d\n", nicDesc.Mtu))
