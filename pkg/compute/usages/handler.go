@@ -289,6 +289,12 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 		BucketUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 
 		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
+		LoadbalancerUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
+		DBInstanceUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
+
+		ElasticCacheUsage(rbacutils.ScopeSystem, nil, rangeObjs, providers, brands, cloudEnv),
 	)
 
 	return
@@ -302,8 +308,6 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 	eipUsage := EipUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
 	bucketUsage := BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
-
-	snapshotUsage := SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
 	disksUsage := DisksUsage(getKey(scope, "disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred)
 
@@ -333,11 +337,17 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		bucketUsage,
 
-		snapshotUsage,
-
 		disksUsage,
 
 		nicsUsage,
+
+		SnapshotUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		LoadbalancerUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		DBInstanceUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
+
+		ElasticCacheUsage(scope, cred, rangeObjs, providers, brands, cloudEnv),
 	)
 	return
 }
@@ -663,5 +673,26 @@ func SnapshotUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvide
 	cnt, _ := models.TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
 	count := make(map[string]interface{})
 	count[getKey(scope, "snapshot")] = cnt
+	return count
+}
+
+func LoadbalancerUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "loadbalancer")] = cnt
+	return count
+}
+
+func DBInstanceUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "rds")] = cnt
+	return count
+}
+
+func ElasticCacheUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	cnt, _ := models.ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(scope, "cache")] = cnt
 	return count
 }
