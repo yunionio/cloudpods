@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -106,6 +108,19 @@ func (ucm *SUserCacheManager) FetchUserLikeName(ctx context.Context, name string
 	err := db.FetchModelObjects(ucm, q, &users)
 	if err != nil {
 		return nil, err
+	}
+	return users, nil
+}
+
+func (ucm *SUserCacheManager) FetchUserFromLoaclCache(ctx context.Context, q *sqlchemy.SQuery) ([]SUser, error) {
+	dbUsers := make([]db.SUser, 0, 1)
+	err := db.FetchModelObjects(ucm, q, &dbUsers)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]SUser, len(dbUsers))
+	for i := range dbUsers {
+		users[i] = SUser{dbUsers[i]}
 	}
 	return users, nil
 }
