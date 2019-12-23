@@ -701,8 +701,7 @@ func (c *CompoundColumn) IsZero(val interface{}) bool {
 	if c.isPointer && reflect.ValueOf(val).IsNil() {
 		return true
 	}
-	json := val.(gotypes.ISerializable)
-	return json.IsZero()
+	return false
 }
 
 func (c *CompoundColumn) ConvertFromValue(val interface{}) interface{} {
@@ -718,77 +717,3 @@ func NewCompoundColumn(name string, tagmap map[string]string, isPointer bool) Co
 	dtc := CompoundColumn{NewTextColumn(name, tagmap, isPointer)}
 	return dtc
 }
-
-/*type JSONDictColumn struct {
-	JSONColumn
-}
-
-type JSONArrayColumn struct {
-	JSONColumn
-}
-
-func (c *JSONDictColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal, ok := val.(*jsonutils.JSONDict)
-	if ok && bVal != nil {
-		return bVal.String()
-	} else {
-		return nil
-	}
-}
-
-func (c *JSONDictColumn) ConvertToValue(val interface{}) interface{} {
-	iVal, ok := val.(string)
-	if ok && len(iVal) > 0 {
-		json, err := jsonutils.ParseString(iVal)
-		if err == nil {
-			return json.(*jsonutils.JSONDict)
-		}
-	}
-	return nil
-}
-
-func (c *JSONDictColumn) IsZero(val interface{}) bool {
-	if val == nil {
-		return true
-	}
-	dict := val.(*jsonutils.JSONDict)
-	return dict.Size() == 0
-}
-
-func (c *JSONArrayColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal, ok := val.(*jsonutils.JSONArray)
-	if ok && bVal != nil {
-		return bVal.String()
-	} else {
-		return nil
-	}
-}
-
-func (c *JSONArrayColumn) ConvertToValue(val interface{}) interface{} {
-	iVal, ok := val.(string)
-	if ok && len(iVal) > 0 {
-		json, err := jsonutils.ParseString(iVal)
-		if err == nil {
-			return json.(*jsonutils.JSONArray)
-		}
-	}
-	return nil
-}
-
-func (c *JSONArrayColumn) IsZero(val interface{}) bool {
-	if val == nil {
-		return true
-	}
-	dict := val.(*jsonutils.JSONArray)
-	return dict.Size() == 0
-}
-
-func NewJSONDictColumn(name string, tagmap map[string]string) JSONDictColumn {
-	dtc := JSONDictColumn{NewJSONColumn(name, tagmap)}
-	return dtc
-}
-
-func NewJSONArrayColumn(name string, tagmap map[string]string) JSONArrayColumn {
-	dtc := JSONArrayColumn{NewJSONColumn(name, tagmap)}
-	return dtc
-}*/
