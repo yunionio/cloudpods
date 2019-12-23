@@ -305,7 +305,7 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 	if v := ctx.Value("uname"); v != nil {
 		uname = true
 	}
-	contacts, err := models.ContactManager.FetchByUIDs(uids, uname)
+	contacts, err := models.ContactManager.FetchByUIDs(ctx, uids, uname)
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}

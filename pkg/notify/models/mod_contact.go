@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -113,10 +114,10 @@ func (self *SContactManager) InitializeData() error {
 	return nil
 }
 
-func (self *SContactManager) FetchByUIDs(uids []string, uname bool) ([]SContact, error) {
+func (self *SContactManager) FetchByUIDs(ctx context.Context, uids []string, uname bool) ([]SContact, error) {
 	var err error
 	if uname {
-		uids, err = self._UIDsFromUIDOrName(uids)
+		uids, err = self._UIDsFromUIDOrName(ctx, uids)
 		if err != nil {
 			return nil, err
 		}
@@ -131,8 +132,8 @@ func (self *SContactManager) FetchByUIDs(uids []string, uname bool) ([]SContact,
 	return records, nil
 }
 
-func (self *SContactManager) _UIDsFromUIDOrName(uidStrs []string) ([]string, error) {
-	users, err := utils.GetUsersWithoutRemote(uidStrs)
+func (self *SContactManager) _UIDsFromUIDOrName(ctx context.Context, uidStrs []string) ([]string, error) {
+	users, err := utils.GetUsersWithoutRemote(ctx, uidStrs)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,10 @@ func (self *SContact) GetCustomizeColumns(ctx context.Context, userCred mcclient
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
 
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, _ := self.getMoreDetail(ctx, userCred, extra)
+	ret, err := self.getMoreDetail(ctx, userCred, extra)
+	if err != nil {
+		log.Errorf("getMoreDetail error: %s", err)
+	}
 	return ret
 }
 
@@ -194,6 +198,10 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	ret *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 
 	uname, err := utils.GetUsernameByID(ctx, self.UID)
+	if errors.Cause(err) == sql.ErrNoRows {
+		uname = self.UID
+		err = nil
+	}
 	if err != nil {
 		return ret, err
 	}
@@ -269,7 +277,7 @@ func (self *SContactManager) GetAllNotify(ctx context.Context, ids []string, con
 	q := self.Query()
 	if !group {
 		if v := ctx.Value("uname"); v != nil {
-			ids, err = self._UIDsFromUIDOrName(ids)
+			ids, err = self._UIDsFromUIDOrName(ctx, ids)
 			if err != nil {
 				return nil, errors.Wrap(err, "fail to transfer array of UID or Uname to UIDs")
 			}
