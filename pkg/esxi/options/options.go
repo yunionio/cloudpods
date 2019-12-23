@@ -30,6 +30,7 @@ type EsxiOptions struct {
 	WindowsDefaultAdminUser bool   `help:"Default account for Windows system is Administrator" default:"true"`
 	DefaultImageSaveFormat  string `help:"Default image save format, default is vmdk, canbe qcow2" default:"vmdk"`
 	Zone                    string `help:"Zone where the agent locates"`
+	DeployServerSocketPath  string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 }
 
 var (

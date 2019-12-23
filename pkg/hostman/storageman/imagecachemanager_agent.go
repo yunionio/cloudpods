@@ -46,7 +46,7 @@ func (c *SAgentImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		HostID, _  = dataDict.GetString("host_id")
 	)
 	lockman.LockRawObject(ctx, HostID, imageID)
-	defer lockman.LockRawObject(ctx, HostID, imageID)
+	defer lockman.ReleaseRawObject(ctx, HostID, imageID)
 	if dataDict.Contains("src_host_ip") {
 		return c.prefetchImageCacheByCopy(ctx, dataDict)
 	}
@@ -154,6 +154,9 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 		return nil, err
 	}
 	ds, err := host.FindDataStoreById(info.PrivateId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.FindDataStoreById")
+	}
 	remotePath := fmt.Sprintf("image_cache/%s.%s", imageID, format)
 
 	// check if dst vmdk is exist
@@ -161,21 +164,25 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	if format == "vmdk" {
 		err = ds.CheckVmdk(ctx, remotePath)
 		if err != nil {
-			return nil, err
+			log.Debugf("ds.CheckVmdk failed: %s", err)
+		} else {
+			exists = true
 		}
-		exists = true
 	} else {
 		ret, err := ds.CheckFile(ctx, remotePath)
 		if err != nil {
-			return nil, err
-		}
-		if int64(ret.Size) == localImgSize {
-			// exist and same size
-			exists = true
+			log.Debugf("ds.CheckFile failed: %s", err)
+		} else {
+			if int64(ret.Size) == localImgSize {
+				// exist and same size
+				exists = true
+			}
 		}
 	}
+	log.Debugf("exist: %t, remotePath: %s", exists, remotePath)
 	if !exists || isForce {
-		err := ds.ImportTemplate(ctx, localImgPath, remotePath, host)
+		err := ds.ImportVMDK(ctx, localImgPath, remotePath, host)
+		//err := ds.ImportVMDK(ctx, localImgPath, host)
 		if err != nil {
 			return nil, errors.Wrap(err, "SDatastore.ImportTemplate")
 		}
@@ -188,6 +195,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("prefetchImageCacheByUpload over")
 	return remoteImg, nil
 }
 

@@ -611,7 +611,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	if data.Contains("os_name") {
 		osName, _ = data.GetString("os_name")
 	}
-	datastorePath := fmt.Sprintf("[%s] %s", ds.GetName(), name)
+	datastorePath := fmt.Sprintf("[%s] %s", ds.GetRelName(), name)
 	if data.Contains("mem") {
 		memoryMB, _ = data.Int("mem")
 	}
@@ -624,7 +624,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	if data.Contains("bios") {
 		bios, _ = data.GetString("bios")
 	}
-	if len(bios) == 0 {
+	if len(bios) != 0 {
 		if bios == "BIOS" {
 			firmware = "bios"
 		} else if bios == "UEFI" {
@@ -695,7 +695,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		imagePath, _ := disk.GetString("image_path")
 		var size int64 = 0
 		if len(imagePath) == 0 {
-			size, _ := disk.Int("size")
+			size, _ = disk.Int("size")
 			if size == 0 {
 				size = 30 * 1024
 			}
@@ -710,7 +710,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		if disk.Contains("driver") {
 			driver, _ = disk.GetString("driver")
 		}
-		if driver == "scsi" || driver == "pyscsi" {
+		if driver == "scsi" || driver == "pvscsi" {
 			if self.isVersion50() {
 				driver = "scsi"
 			}
@@ -722,6 +722,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 			index = ideIdx % 2
 			ideIdx += 1
 		}
+		log.Debugf("size: %d, image path: %s, uuid: %s, index: %d, ctrlKey: %d", size, imagePath, uuid, index, ctrlKey)
 		spec := addDevSpec(NewDiskDev(size, imagePath, uuid, int32(index), 2000, int32(ctrlKey)))
 		spec.FileOperation = "create"
 		deviceChange = append(deviceChange, spec)
@@ -873,7 +874,7 @@ func (host *SHost) FindDataStoreById(id string) (*SDatastore, error) {
 		return nil, err
 	}
 	for i := range datastores {
-		if datastores[i].GetId() == id {
+		if datastores[i].GetGlobalId() == id {
 			return datastores[i].(*SDatastore), nil
 		}
 	}
@@ -914,6 +915,7 @@ func (host *SHost) fetchDatastores() error {
 			continue
 		}
 		host.datastores = dss
+		break
 	}
 	return nil
 }
@@ -927,7 +929,7 @@ func (host *SHost) FileUrlPathToDsPath(path string) (string, error) {
 	for _, ds := range dss {
 		rds := ds.(*SDatastore)
 		if strings.HasPrefix(path, rds.GetUrl()) {
-			newPath = fmt.Sprintf("[%s] %s", ds.GetName(), path[len(rds.GetUrl()):])
+			newPath = fmt.Sprintf("[%s] %s", rds.GetRelName(), path[len(rds.GetUrl()):])
 		}
 		break
 	}
@@ -964,10 +966,14 @@ func (host *SHost) GetNetwork() ([]SNetwork, error) {
 		return host.networks, nil
 	}
 	netMobs := host.getHostSystem().Network
-	nets := make([]SNetwork, 0)
-	err := host.manager.references2Objects(netMobs, NETWORK_PROPS, &nets)
+	moNets := make([]mo.Network, 0)
+	err := host.manager.references2Objects(netMobs, NETWORK_PROPS, &moNets)
 	if err != nil {
 		return nil, errors.Wrap(err, "references2Objects")
+	}
+	nets := make([]SNetwork, len(moNets))
+	for i := range moNets {
+		nets[i] = *NewNetwork(host.manager, &moNets[i], host.datacenter)
 	}
 	host.networks = nets
 	return host.networks, nil

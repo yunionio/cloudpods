@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
@@ -160,7 +161,8 @@ func performImageCache(
 		return
 	}
 
-	hostutils.DelayTask(ctx, performTask, disk)
+	hostutils.DelayTask(context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_TASK_ID,
+		ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID)), performTask, disk)
 	hostutils.ResponseOk(ctx, w)
 }
 

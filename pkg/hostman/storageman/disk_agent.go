@@ -61,10 +61,12 @@ func (sd *SAgentDisk) ReSize(ctx context.Context, diskInfo interface{}) (jsonuti
 		}
 	}
 
-	sizeMb, _ := body.Int("size")
-	hostInfo, _ := body.Get("host_info")
-	vmId, _ := body.GetString("vm_private_id")
-	diskId, _ := body.GetString("disk_private_id")
+	var (
+		sizeMb, _   = body.Int("size")
+		hostInfo, _ = body.Get("host_info")
+		vmId, _     = body.GetString("vm_private_id")
+		diskId, _   = body.GetString("disk_private_id")
+	)
 
 	esxiClient, accessInfo, err := esxi.NewESXiClientFromJson(ctx, hostInfo)
 	if err != nil {

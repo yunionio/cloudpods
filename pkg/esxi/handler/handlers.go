@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/esxi"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -54,18 +58,18 @@ func AgentPrefix(action string) string {
 
 func initESXIHandler(app *appsrv.Application) {
 
-	app.AddHandler("POST", AgentPrefix("upload"), uploadHandler)
-	app.AddHandler("POST", AgentPrefix("deploy"), deployHandler)
-	app.AddHandler("POST", IdAgentPrefix("delete"), deleteHandler)
-	app.AddHandler("POST", IdAgentPrefix("create"), createHandler)
-	app.AddHandler("POST", IdAgentPrefix("save-prepare"), savePrepareHandler)
-	app.AddHandler("POST", IdAgentPrefix("resize"), resizeHandler)
-	app.AddHandler("POST", IdAgentPrefix("clone"), defaultHandler)
-	app.AddHandler("POST", IdAgentPrefix("fetch"), defaultHandler)
-	app.AddHandler("POST", IdAgentPrefix("post-migrate"), defaultHandler)
-	app.AddHandler("POST", IdAgentPrefix("snapshot"), defaultHandler)
-	app.AddHandler("POST", IdAgentPrefix("reset"), defaultHandler)
-	app.AddHandler("POST", IdAgentPrefix("cleanup-snapshots"), defaultHandler)
+	app.AddHandler("POST", AgentPrefix("upload"), auth.Authenticate(uploadHandler))
+	app.AddHandler("POST", AgentPrefix("deploy"), auth.Authenticate(deployHandler))
+	app.AddHandler("POST", IdAgentPrefix("delete"), auth.Authenticate(deleteHandler))
+	app.AddHandler("POST", IdAgentPrefix("create"), auth.Authenticate(createHandler))
+	app.AddHandler("POST", IdAgentPrefix("save-prepare"), auth.Authenticate(savePrepareHandler))
+	app.AddHandler("POST", IdAgentPrefix("resize"), auth.Authenticate(resizeHandler))
+	app.AddHandler("POST", IdAgentPrefix("clone"), auth.Authenticate(defaultHandler))
+	app.AddHandler("POST", IdAgentPrefix("fetch"), auth.Authenticate(defaultHandler))
+	app.AddHandler("POST", IdAgentPrefix("post-migrate"), auth.Authenticate(defaultHandler))
+	app.AddHandler("POST", IdAgentPrefix("snapshot"), auth.Authenticate(defaultHandler))
+	app.AddHandler("POST", IdAgentPrefix("reset"), auth.Authenticate(defaultHandler))
+	app.AddHandler("POST", IdAgentPrefix("cleanup-snapshots"), auth.Authenticate(defaultHandler))
 }
 
 func uploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -75,18 +79,19 @@ func uploadHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		httperrors.InputParameterError(w, "miss disk")
 		return
 	}
-	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.SaveToGlance, disk)
+	DelayTask(ctx, esxi.EsxiAgent.AgentStorage.SaveToGlance, disk)
 	hostutils.ResponseOk(ctx, w)
 }
 
 func deployHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	log.Debugf("enter deployHandler")
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 	disk, err := body.Get("disk")
 	if err != nil {
 		httperrors.InputParameterError(w, "miss disk")
 		return
 	}
-	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.AgentDeployGuest, disk)
+	DelayTask(ctx, esxi.EsxiAgent.AgentStorage.AgentDeployGuest, disk)
 	hostutils.ResponseOk(ctx, w)
 
 }
@@ -107,7 +112,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		}
 		hostutils.ResponseOk(ctx, w)
 		if disk != nil {
-			hostutils.DelayTask(ctx, disk.Delete, nil)
+			DelayTask(ctx, disk.Delete, nil)
 		}
 	}
 }
@@ -117,7 +122,7 @@ func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
-	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.CreateDiskByDiskInfo,
+	DelayTask(ctx, esxi.EsxiAgent.AgentStorage.CreateDiskByDiskInfo,
 		storageman.SDiskCreateByDiskinfo{DiskId: disk.GetId(), Disk: disk, DiskInfo: diskInfo})
 	hostutils.ResponseOk(ctx, w)
 }
@@ -128,7 +133,7 @@ func savePrepareHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
-	hostutils.DelayTask(ctx, disk.PrepareSaveToGlance, storageman.PrepareSaveToGlanceParams{taskId, diskInfo})
+	DelayTask(ctx, disk.PrepareSaveToGlance, storageman.PrepareSaveToGlanceParams{taskId, diskInfo})
 	hostutils.ResponseOk(ctx, w)
 }
 
@@ -137,7 +142,7 @@ func resizeHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
-	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
+	DelayTask(ctx, disk.Resize, diskInfo)
 	hostutils.ResponseOk(ctx, w)
 }
 
@@ -176,4 +181,8 @@ func diskAndDiskInfo(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return nil, nil, httperrors.NewInputParameterError("miss disk")
 	}
 	return disk, diskInfo, nil
+}
+
+func DelayTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
+	hostutils.DelayTask(context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_TASK_ID, ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID)), task, params)
 }

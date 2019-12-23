@@ -17,6 +17,7 @@ package esxi
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,11 +30,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
+	"unicode"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
@@ -43,7 +47,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
 )
 
@@ -85,6 +88,10 @@ func (self *SDatastore) GetName() string {
 		log.Fatalf("datastore get name error %s", err)
 	}
 	return fmt.Sprintf("%s-%s", self.getVolumeType(), volName)
+}
+
+func (self *SDatastore) GetRelName() string {
+	return self.getDatastore().Info.GetDatastoreInfo().Name
 }
 
 func (self *SDatastore) GetCapacityMB() int64 {
@@ -725,67 +732,265 @@ func (self *SDatastore) MoveVmdk(ctx context.Context, srcPath string, dstPath st
 	return task.Wait(ctx)
 }
 
-func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, host *SHost) (*SVirtualMachine, error) {
+// domainName will abandon the rune which should't disapear
+func (self *SDatastore) domainName(name string) string {
+	var b bytes.Buffer
+	for _, r := range name {
+		if b.Len() == 0 {
+			if unicode.IsLetter(r) {
+				b.WriteRune(r)
+			}
+		} else {
+			if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '-' {
+				b.WriteRune(r)
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
 
-	img, err := qemuimg.NewQemuImage(diskFile)
+// ImportVMDK will upload local vmdk 'diskFile' to the 'remotePath' of remote datastore
+func (self *SDatastore) ImportVMDK(ctx context.Context, diskFile, remotePath string, host *SHost) error {
+	name := fmt.Sprintf("yunioncloud.%s%d", self.domainName(remotePath), rand.Int())
+	vm, err := self.ImportVM(ctx, diskFile, name, host)
+	device, err := vm.Device(ctx)
 	if err != nil {
-		return nil, errors.Error(fmt.Sprintf("disk %s not valid", diskFile))
+		return err
 	}
-	ovfFile := filepath.Join(OVF_TEMPLATE_DIR, "ovf_templ.xml")
-	file, err := os.Open(ovfFile)
+
+	device = device.SelectByType((*types.VirtualDisk)(nil))
+
+	err = vm.RemoveDevice(ctx, true, device...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fail to open file %s", ovfFile)
+		return err
 	}
-	ovfContent, err := ioutil.ReadAll(file)
-	file.Close()
+
+	task, err := vm.Destroy(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err = task.Wait(ctx); err != nil {
+		return err
+	}
+
+	fm := self.getDatastoreObj().NewFileManager(self.datacenter.getObjectDatacenter(), true)
+
+	// if image_cache not exist
+	return fm.Move(ctx, fmt.Sprintf("[%s] %s/%s.vmdk", self.GetRelName(), name, name), fmt.Sprintf("[%s] %s",
+		self.GetRelName(), remotePath))
+}
+
+var (
+	ErrInvalidFormat = errors.Error("vmdk: invalid format (must be streamOptimized)")
+)
+
+// info is used to inspect a vmdk and generate an ovf template
+type info struct {
+	Header struct {
+		MagicNumber uint32
+		Version     uint32
+		Flags       uint32
+		Capacity    uint64
+	}
+
+	Capacity   uint64
+	Size       int64
+	Name       string
+	ImportName string
+}
+
+// stat looks at the vmdk header to make sure the format is streamOptimized and
+// extracts the disk capacity required to properly generate the ovf descriptor.
+func stat(name string) (*info, error) {
+	f, err := os.Open(name)
 	if err != nil {
 		return nil, err
 	}
-	ovfContent = bytes.ReplaceAll(ovfContent, []byte("%%VIRTUAL_SIZE_BYTES%%"), []byte(strconv.Itoa(int(img.SizeBytes))))
-	if host == nil {
-		cloudHost, err := self.getLocalHost()
-		if err != nil {
-			return nil, errors.Wrapf(err, "fail to get local host of datastore %s", self.GetUrl())
-		}
-		host = cloudHost.(*SHost)
+
+	var (
+		di  info
+		buf bytes.Buffer
+	)
+
+	_, err = io.CopyN(&buf, f, int64(binary.Size(di.Header)))
+	fi, _ := f.Stat()
+	_ = f.Close()
+	if err != nil {
+		return nil, err
 	}
 
-	dc, err := self.GetDatacenter()
+	err = binary.Read(&buf, binary.LittleEndian, &di.Header)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fail to get datacenter of datastore %s", self.GetUrl())
-	}
-	dc.getDatacenter()
-	//dc.getDatacenter().VmFolder
-	resourcePool, err := host.GetResourcePool()
-	if err != nil {
-		return nil, errors.Wrapf(err, "fail to get resourecePool of host %s", host.GetName())
-	}
-	// check name
-	if len(name) == 0 {
-		name := filepath.Base(diskFile)
-		name = strings.Split(name, ".")[0]
-	}
-	ref := host.getHostSystem().Reference()
-	specParams := types.OvfCreateImportSpecParams{HostSystem: &ref, EntityName: name, DiskProvisioning: "thin"}
-	ovfManager := ovf.NewManager(host.manager.client.Client)
-	spec, err := ovfManager.CreateImportSpec(ctx, string(ovfContent), resourcePool, ref, specParams)
-	if err != nil {
-		return nil, errors.Wrap(err, "ovfManager.CreateImportSpec")
-	}
-	if len(spec.Error) != 0 || len(spec.Warning) != 0 {
-		log.Errorf("%s-%s", spec.Error, spec.Warning)
-		return nil, errors.Error("Fail to create import spec")
+		return nil, err
 	}
 
-	// get vmFloder
-	folders, err := dc.getObjectDatacenter().Folders(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "object.DataCenter.Folders")
+	if di.Header.MagicNumber != 0x564d444b { // SPARSE_MAGICNUMBER
+		return nil, ErrInvalidFormat
 	}
 
-	lease, err := resourcePool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, object.NewHostSystem(host.manager.client.Client, ref))
+	if di.Header.Flags&(1<<16) == 0 { // SPARSEFLAG_COMPRESSED
+		// Needs to be converted, for example:
+		//   vmware-vdiskmanager -r src.vmdk -t 5 dst.vmdk
+		//   qemu-img convert -O vmdk -o subformat=streamOptimized src.vmdk dst.vmdk
+		return nil, ErrInvalidFormat
+	}
+
+	di.Capacity = di.Header.Capacity * 512 // VMDK_SECTOR_SIZE
+	di.Size = fi.Size()
+	di.Name = filepath.Base(name)
+	di.ImportName = strings.TrimSuffix(di.Name, ".vmdk")
+
+	return &di, nil
+}
+
+// ovfenv is the minimal descriptor template required to import a vmdk
+var ovfenv = `<?xml version="1.0" encoding="UTF-8"?>
+<Envelope xmlns="http://schemas.dmtf.org/ovf/envelope/1"
+          xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1"
+          xmlns:cim="http://schemas.dmtf.org/wbem/wscim/1/common"
+          xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData"
+          xmlns:vmw="http://www.vmware.com/schema/ovf"
+          xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <References>
+    <File ovf:href="{{ .Name }}" ovf:id="file1" ovf:size="{{ .Size }}"/>
+  </References>
+  <DiskSection>
+    <Info>Virtual disk information</Info>
+    <Disk ovf:capacity="{{ .Capacity }}" ovf:capacityAllocationUnits="byte" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:populatedSize="0"/>
+  </DiskSection>
+  <VirtualSystem ovf:id="{{ .ImportName }}">
+    <Info>A virtual machine</Info>
+    <Name>{{ .ImportName }}</Name>
+    <OperatingSystemSection ovf:id="100" vmw:osType="other26xLinux64Guest">
+      <Info>The kind of installed guest operating system</Info>
+    </OperatingSystemSection>
+    <VirtualHardwareSection>
+      <Info>Virtual hardware requirements</Info>
+      <System>
+        <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
+        <vssd:InstanceID>0</vssd:InstanceID>
+        <vssd:VirtualSystemIdentifier>{{ .ImportName }}</vssd:VirtualSystemIdentifier>
+        <vssd:VirtualSystemType>vmx-07</vssd:VirtualSystemType>
+      </System>
+      <Item>
+        <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
+        <rasd:Description>Number of Virtual CPUs</rasd:Description>
+        <rasd:ElementName>1 virtual CPU(s)</rasd:ElementName>
+        <rasd:InstanceID>1</rasd:InstanceID>
+        <rasd:ResourceType>3</rasd:ResourceType>
+        <rasd:VirtualQuantity>1</rasd:VirtualQuantity>
+      </Item>
+      <Item>
+        <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
+        <rasd:Description>Memory Size</rasd:Description>
+        <rasd:ElementName>1024MB of memory</rasd:ElementName>
+        <rasd:InstanceID>2</rasd:InstanceID>
+        <rasd:ResourceType>4</rasd:ResourceType>
+        <rasd:VirtualQuantity>1024</rasd:VirtualQuantity>
+      </Item>
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>SCSI Controller</rasd:Description>
+        <rasd:ElementName>SCSI Controller 0</rasd:ElementName>
+        <rasd:InstanceID>3</rasd:InstanceID>
+        <rasd:ResourceSubType>VirtualSCSI</rasd:ResourceSubType>
+        <rasd:ResourceType>6</rasd:ResourceType>
+      </Item>
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:ElementName>Hard Disk 1</rasd:ElementName>
+        <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
+        <rasd:InstanceID>9</rasd:InstanceID>
+        <rasd:Parent>3</rasd:Parent>
+        <rasd:ResourceType>17</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="backing.writeThrough" vmw:value="false"/>
+      </Item>
+    </VirtualHardwareSection>
+  </VirtualSystem>
+</Envelope>`
+
+// ovf returns an expanded descriptor template
+func (di *info) ovf() (string, error) {
+	var buf bytes.Buffer
+
+	tmpl, err := template.New("ovf").Parse(ovfenv)
 	if err != nil {
-		return nil, errors.Wrap(err, "resourecePool.ImportVApp")
+		return "", err
+	}
+
+	err = tmpl.Execute(&buf, di)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+// ImportParams contains the set of optional params to the Import function.
+// Note that "optional" may depend on environment, such as ESX or vCenter.
+type ImportParams struct {
+	Path       string
+	Logger     progress.Sinker
+	Type       types.VirtualDiskType
+	Force      bool
+	Datacenter *object.Datacenter
+	Pool       *object.ResourcePool
+	Folder     *object.Folder
+	Host       *object.HostSystem
+}
+
+// ImportVM will import a vm by uploading a local vmdk
+func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, host *SHost) (*object.VirtualMachine, error) {
+
+	var (
+		c         = self.manager.client.Client
+		datastore = self.getDatastoreObj()
+	)
+
+	m := ovf.NewManager(c)
+
+	disk, err := stat(diskFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "stat")
+	}
+
+	disk.ImportName = name
+
+	// Expand the ovf template
+	descriptor, err := disk.ovf()
+	if err != nil {
+		return nil, errors.Wrap(err, "disk.ovf")
+	}
+
+	folders, err := self.datacenter.getObjectDatacenter().Folders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Folders")
+	}
+	pool, err := host.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "getResourcePool")
+	}
+
+	kind := types.VirtualDiskTypeThin
+
+	params := types.OvfCreateImportSpecParams{
+		DiskProvisioning: string(kind),
+		EntityName:       disk.ImportName,
+	}
+
+	spec, err := m.CreateImportSpec(ctx, descriptor, pool, datastore, params)
+	if err != nil {
+		return nil, err
+	}
+	if spec.Error != nil {
+		return nil, errors.Error(spec.Error[0].LocalizedMessage)
+	}
+
+	lease, err := pool.ImportVApp(ctx, spec.ImportSpec, folders.VmFolder, host.GetoHostSystem())
+	if err != nil {
+		return nil, err
 	}
 
 	info, err := lease.Wait(ctx, spec.FileItem)
@@ -793,60 +998,37 @@ func (self *SDatastore) ImportVM(ctx context.Context, diskFile, name string, hos
 		return nil, err
 	}
 
+	f, err := os.Open(diskFile)
+	if err != nil {
+		return nil, err
+	}
+
+	lr := newLeaseLogger("upload vmdk", 5)
+
+	lr.Log()
+	defer lr.End()
+
+	opts := soap.Upload{
+		ContentLength: disk.Size,
+		Progress:      lr,
+	}
+
 	u := lease.StartUpdater(ctx, info)
 	defer u.Done()
 
-	opts := soap.Upload{ContentLength: img.SizeBytes}
+	item := info.Items[0] // we only have 1 disk to upload
 
-	diskReader, err := os.Open(diskFile)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fail to open file %s", diskFile)
-	}
-	defer diskReader.Close()
-	err = lease.Upload(ctx, info.Items[0], diskReader, opts)
+	err = lease.Upload(ctx, item, f, opts)
+
+	_ = f.Close()
+
 	if err != nil {
 		return nil, errors.Wrap(err, "lease.Upload")
 	}
 
-	err = lease.Complete(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "lease.Compute")
+	if err = lease.Complete(ctx); err != nil {
+		return nil, errors.Wrap(err, "lease.Complete")
 	}
 
-	var moVM mo.VirtualMachine
-	err = host.manager.reference2Object(info.Entity, VIRTUAL_MACHINE_PROPS, &moVM)
-	if err != nil {
-		return nil, err
-	}
-	vm := NewVirtualMachine(host.manager, &moVM, dc)
-
-	return vm, nil
-}
-
-func (self *SDatastore) ImportTemplate(ctx context.Context, diskFile, remotePath string, host *SHost) error {
-	name := fmt.Sprintf("yunioncloud.%s%s", remotePath, rand.Int())
-	vm, err := self.ImportVM(ctx, diskFile, name, host)
-	defer func() {
-		if vm == nil {
-			return
-		}
-		err := vm.DeleteVM(ctx)
-		if err != nil {
-			log.Errorf("fail to delete vm %s after import template", vm.GetName())
-		}
-	}()
-	if err == nil {
-		disks, err := vm.GetIDisks()
-		if err != nil {
-			return errors.Wrap(err, "vm.GetIDisks")
-		}
-		disk_url := self.GetPathUrl(disks[0].GetAccessPath())
-		_, err = self.MakeDir(ctx, remotePath)
-		if err != nil {
-			return errors.Wrap(err, "SDatstore.MakeDir")
-		}
-		dst_url := self.GetPathUrl(remotePath)
-		return self.manager.MoveDisk(ctx, disk_url, dst_url, true)
-	}
-	return nil
+	return object.NewVirtualMachine(c, info.Entity), nil
 }

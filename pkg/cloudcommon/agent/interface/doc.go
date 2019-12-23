@@ -12,8 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package esxi
-
-const (
-	OVF_TEMPLATE_DIR = "/opt/yunion/share/ovf_templates"
-)
+package _interface // import "yunion.io/x/onecloud/pkg/cloudcommon/agent/interface"

@@ -164,11 +164,10 @@ func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, pa
 }
 
 func (self *SVirtualMachine) DoRebuildRoot(ctx context.Context, imagePath string, uuid string) error {
-	disk, err := self.GetIDiskById(uuid)
-	if err != nil {
-		return err
+	if len(self.vdisks) == 0 {
+		return errors.ErrNotFound
 	}
-	return self.rebuildDisk(ctx, disk.(*SVirtualDisk), imagePath)
+	return self.rebuildDisk(ctx, &self.vdisks[0], imagePath)
 }
 
 func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk, imagePath string) error {
@@ -182,7 +181,7 @@ func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk
 	if err != nil {
 		return err
 	}
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "")
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, imagePath, false)
 }
 
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
@@ -837,11 +836,11 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		ctlKey += int32(index / 2)
 	}
 
-	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "")
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "", true)
 }
 
 func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
-	diskKey int32, ctlKey int32, imagePath string) error {
+	diskKey int32, ctlKey int32, imagePath string, check bool) error {
 	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, diskKey, ctlKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
@@ -857,6 +856,9 @@ func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int,
 	err = task.Wait(ctx)
 	if err != nil {
 		return err
+	}
+	if !check {
+		return nil
 	}
 	oldDiskCnt := len(self.vdisks)
 	maxTries := 60
@@ -928,7 +930,7 @@ func (self *SVirtualMachine) DoRename(ctx context.Context, name string) error {
 }
 
 func (self *SVirtualMachine) GetMoid() string {
-	return self.getVmObj().UUID(self.manager.context)
+	return self.getVirtualMachine().Self.Value
 }
 
 func (self *SVirtualMachine) GetToolsVersion() string {
@@ -1060,7 +1062,11 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 		return errors.Error(fmt.Sprintf("No such Device whose index is %d", idx))
 	}
 
-	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{})
+	lr := newLeaseLogger("download vmdk", 5)
+	lr.Log()
+	defer lr.End()
+	log.Debugf("download to %s start...", diskPath)
+	err = lease.DownloadFile(ctx, diskPath, info.Items[idx], soap.Download{Progress: lr})
 	if err != nil {
 		return errors.Wrap(err, "lease.DownloadFile")
 	}
@@ -1069,5 +1075,6 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 	if err != nil {
 		return errors.Wrap(err, "lease.Complete")
 	}
+	log.Debugf("download to %s finish", diskPath)
 	return nil
 }

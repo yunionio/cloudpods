@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -93,7 +94,6 @@ func (as *SAgentStorage) CreateDiskByDiskInfo(ctx context.Context, params interf
 }
 
 func (as *SAgentStorage) agentRebuildRoot(ctx context.Context, data jsonutils.JSONObject) error {
-	//This function do not need to check params
 	host, _, err := as.getHostAndDatastore(ctx, data)
 	if err != nil {
 		return err
@@ -131,16 +131,17 @@ func (as *SAgentStorage) agentCreateGuest(ctx context.Context, data *jsonutils.J
 	if !ok {
 		return hostutils.ParamsError
 	}
-	_, err = host.DoCreateVM(ctx, ds, descDict)
+	vm, err := host.DoCreateVM(ctx, ds, descDict)
 	if err != nil {
 		return errors.Wrap(err, "SHost.DoCreateVM")
 	}
-	id, _ := data.GetString("guest_ext_id")
-	ivm, err := host.GetIVMById(id)
-	if err != nil {
-		return errors.Wrap(err, "SHost.GetIVMById")
-	}
-	vm := ivm.(*esxi.SVirtualMachine)
+	/*
+		id, _ := data.GetString("guest_ext_id")
+		ivm, err := host.GetIVMById(id)
+		if err != nil {
+			return errors.Wrap(err, "SHost.GetIVMById")
+		}
+	*/
 	name, _ := descDict.GetString("name")
 	err = as.tryRenameVm(ctx, vm, name)
 	if err != nil {
@@ -178,10 +179,16 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	dataDict := data.(*jsonutils.JSONDict)
 	action, _ := dataDict.GetString("action")
 	if action == "create" {
-		as.agentCreateGuest(ctx, dataDict)
+		err := as.agentCreateGuest(ctx, dataDict)
+		if err != nil {
+			return nil, errors.Wrap(err, "agentCreateGuest")
+		}
 		init = true
 	} else if action == "rebuild" {
-		as.agentRebuildRoot(ctx, dataDict)
+		err := as.agentRebuildRoot(ctx, dataDict)
+		if err != nil {
+			return nil, errors.Wrap(err, "agentRebuildRoot")
+		}
 	}
 
 	var (
@@ -189,6 +196,11 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		dsInfo, _ = dataDict.Get("datastore")
 	)
 	dc, info, err := esxi.NewESXiClientFromJson(ctx, dsInfo)
+	defer func() {
+		if err != nil {
+			log.Debugf("err in AgentDeployGuest: %s", err)
+		}
+	}()
 	if err != nil {
 		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
 	}
@@ -263,12 +275,15 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		Passwd:   info.Password,
 	}, func(d fsdriver.IRootFsDriver) {
 		if d != nil {
-			deploy, _ = guestfs.DeployGuestFs(d, desc.(*jsonutils.JSONDict), &deployapi.DeployInfo{
+			deploy, err = guestfs.DeployGuestFs(d, desc.(*jsonutils.JSONDict), &deployapi.DeployInfo{
 				PublicKey: &key,
 				Deploys:   deployArray,
 				Password:  passwd,
 				IsInit:    init,
 			})
+			if err != nil {
+				log.Errorf("guestfs.DeployGuestFs: %s", err)
+			}
 		}
 	})
 
@@ -436,6 +451,7 @@ func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (
 		compress     = jsonutils.QueryBoolean(data, "compress", true)
 		format, _    = data.GetString("format")
 	)
+	log.Debugf("image path: %s", imagePath)
 
 	if err := as.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
@@ -466,14 +482,14 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
 		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "DeployClient.SaveToGlance")
 	}
 
 	if compress {
 		origin, err := qemuimg.NewQemuImage(imagePath)
 		if err != nil {
 			log.Errorln(err)
-			return err
+			return errors.Wrap(err, "qemuimg.NewQemuImage")
 		}
 		if len(format) == 0 {
 			format = options.HostOptions.DefaultImageSaveFormat
@@ -523,7 +539,10 @@ func (as *SAgentStorage) saveToGlance(ctx context.Context, imageId, imagePath st
 
 	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, as.agent.GetZoneName()),
 		params, f, size)
-	return err
+	if err != nil {
+		return errors.Wrap(err, "Images.Upload")
+	}
+	return nil
 }
 
 func (as *SAgentStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {

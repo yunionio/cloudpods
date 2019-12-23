@@ -107,14 +107,13 @@ func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SE
 	if err != nil {
 		return nil, SESXiAccessInfo{}, hostutils.ParamsError
 	}
-	passwd := accessInfo.Password
 	if len(accessInfo.VcenterId) > 0 {
-		tmp, err := utils.DescryptAESBase64(accessInfo.VcenterId, passwd)
+		tmp, err := utils.DescryptAESBase64(accessInfo.VcenterId, accessInfo.Password)
 		if err == nil {
-			passwd = tmp
+			accessInfo.Password = tmp
 		}
 	}
-	client, err := NewESXiClient("", "", accessInfo.Host, accessInfo.Port, accessInfo.Account, passwd)
+	client, err := NewESXiClient("", "", accessInfo.Host, accessInfo.Port, accessInfo.Account, accessInfo.Password)
 	if err != nil {
 		return nil, accessInfo, err
 	}

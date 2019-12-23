@@ -22,11 +22,14 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	options_common "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/esxi"
 	"yunion.io/x/onecloud/pkg/esxi/handler"
 	"yunion.io/x/onecloud/pkg/esxi/options"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 )
 
 type SExsiAgentService struct {
@@ -57,9 +60,15 @@ func (s *SExsiAgentService) StartService() {
 		}
 	}
 
+	// init lockman
+	s.InitLockman()
+
 	app_common.InitAuth(&options.Options.CommonOptions, func() {
 		log.Infof("auth complete")
 	})
+
+	fsdriver.Init(nil)
+	deployclient.Init(options.Options.DeployServerSocketPath)
 
 	app := app_common.InitApp(&options.Options.BaseOptions, false)
 	handler.InitHandlers(app)
@@ -76,4 +85,10 @@ func (s *SExsiAgentService) startAgent(app *appsrv.Application) {
 	if err != nil {
 		log.Fatalf("Start agent error: %v", err)
 	}
+}
+
+func (s *SExsiAgentService) InitLockman() {
+	log.Infof("using inmemory lockman")
+	lm := lockman.NewInMemoryLockManager()
+	lockman.Init(lm)
 }

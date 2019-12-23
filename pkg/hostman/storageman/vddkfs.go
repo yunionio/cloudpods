@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -57,8 +58,55 @@ type VDDKDisk struct {
 
 	FUseDir  string
 	PartDirs []string
-	Proc     *exec.Cmd
+	Proc     *Command
 	Pid      int
+}
+
+type Command struct {
+	*exec.Cmd
+	done      chan error
+	stdouterr *bytes.Buffer
+	stdin     io.Writer
+}
+
+func NewCommand(name string, arg ...string) *Command {
+	cmd := Command{
+		Cmd:  exec.Command(name, arg...),
+		done: make(chan error, 1),
+	}
+	cmd.stdouterr = bytes.NewBuffer([]byte{})
+	cmd.Stdout = cmd.stdouterr
+	cmd.Stderr = cmd.stdouterr
+	cmd.stdin, _ = cmd.StdinPipe()
+	return &cmd
+}
+
+func (c *Command) Send(msg []byte) error {
+	_, err := c.stdin.Write(msg)
+	return err
+}
+
+func (c *Command) Start() error {
+	if err := c.Cmd.Start(); err != nil {
+		return err
+	}
+	go func() {
+		c.done <- c.Cmd.Wait()
+	}()
+	return nil
+}
+
+func (c *Command) Exited() bool {
+	return len(c.done) == 1
+}
+
+// Wait will block
+func (c *Command) Wait() error {
+	return <-c.done
+}
+
+func (c *Command) Kill() {
+	c.Process.Kill()
 }
 
 func execpath() string {
@@ -70,7 +118,7 @@ func libdir() string {
 }
 
 func logpath(pid int) string {
-	return fmt.Sprintf("/tmp/vmware-root/vixDiskLib-%d.log", pid)
+	return fmt.Sprintf("%s/vixDiskLib-%d.log", TMPDIR, pid)
 }
 
 func (vd *VDDKDisk) ParsePartitions(buf string) error {
@@ -117,11 +165,11 @@ func (vd *VDDKDisk) Mount() (err error) {
 
 func (vd *VDDKDisk) Unmount() error {
 	if vd.Proc != nil {
-		time.Sleep(time.Second)
-		_, err := vd.Proc.Stdin.Read([]byte{'y'})
+		err := vd.Proc.Send([]byte{'y'})
 		if err != nil {
 			errors.Wrap(err, "send 'y' to VDDKDisk.Proc")
 		}
+		vd.Proc.Wait()
 	}
 	if len(vd.FUseDir) != 0 {
 		for _, p := range append(vd.PartDirs, vd.FUseDir) {
@@ -172,16 +220,16 @@ func (vd *VDDKDisk) ExecProg() error {
 	if err != nil {
 		return errors.Wrapf(err, "Fail contact server %s", vd.Host)
 	}
-	cmd := exec.Command(execpath(), "-info", "-host", vd.Host, "-port", strconv.Itoa(vd.Port), "-user", vd.User,
-		"-password", vd.Passwd, "-mode", "nbd", "-thumb", thumb, "-vm", fmt.Sprintf("moref=%s", vd.VmRef))
+	cmd := NewCommand(execpath(), "-info", "-host", vd.Host, "-port", strconv.Itoa(vd.Port), "-user", vd.User,
+		"-password", vd.Passwd, "-mode", "nbd", "-thumb", thumb, "-vm", fmt.Sprintf("moref=%s", vd.VmRef), vd.DiskPath)
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s", libdir()))
 	cmd.Env = env
-	err = cmd.Start()
-	if err != nil {
-		return errors.Wrap(err, "cmd.Start")
-	}
 	vd.Proc = cmd
+	err = vd.Proc.Start()
+	if err != nil {
+		return errors.Wrap(err, "vd.Proc.Start")
+	}
 	vd.Pid = cmd.Process.Pid
 	return nil
 }
@@ -219,47 +267,39 @@ func (vd *VDDKDisk) getServerCertThumbSha1(addr string) (string, error) {
 }
 
 func (vd *VDDKDisk) WaitMounted() error {
-	var buf bytes.Buffer
 	endStr := []byte("Do you want to procede to unmount the volume")
 	timeout := 30 * time.Second
 	endClock := time.After(timeout)
 	isEnd := false
 
 Loop:
-	for !vd.Proc.ProcessState.Exited() {
+	for !vd.Proc.Exited() {
 		select {
 		case <-endClock:
 			break Loop
 		default:
-			bys := make([]byte, 0, 100)
-			_, err := vd.Proc.Stdout.Write(bys)
-			if err != nil {
-				log.Errorf("Read error: %s", err)
-				break Loop
-			}
-			buf.Write(bys)
-			if bytes.Contains(buf.Bytes(), endStr) {
+			if bytes.Contains(vd.Proc.stdouterr.Bytes(), endStr) {
+				log.Debugf("find the mark")
 				isEnd = true
 				break Loop
 			}
 		}
 	}
 
-	bufStr := buf.String()
-
-	err := vd.ParsePartitions(bufStr)
+	backup := vd.Proc.stdouterr.String()
+	err := vd.ParsePartitions(backup)
 	if err != nil {
 		return errors.Wrap(err, "VDDKDisk.ParsePartitions")
 	}
-	if vd.Proc.ProcessState.Exited() {
+	if vd.Proc.Exited() {
 		retCode := vd.Proc.ProcessState.ExitCode()
 		// ignore the error
-		vd.Proc.Process.Kill()
+		vd.Proc.Kill()
 		vd.Proc = nil
-		return errors.Error(fmt.Sprintf("VDDKDisk prog exit error(%d): %s", retCode, bufStr))
-	} else if isEnd {
+		return errors.Error(fmt.Sprintf("VDDKDisk prog exit error(%d): %s", retCode, backup))
+	} else if !isEnd {
 		// timeout
-		vd.Proc.Process.Kill()
+		vd.Proc.Kill()
 		time.Sleep(time.Second)
 		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
 	}
@@ -271,15 +311,18 @@ type VDDKPartition struct {
 }
 
 func (vp *VDDKPartition) Mount() bool {
-	panic("implement me")
+	log.Debugf("VDDKPartition.Mount not implement")
+	return true
 }
 
 func (vp *VDDKPartition) MountPartReadOnly() bool {
-	panic("implement me")
+	log.Debugf("VDDKPartition.MountPartReadOnly not implement")
+	return true
 }
 
 func (vp *VDDKPartition) Umount() bool {
-	panic("implement me")
+	log.Debugf("VDDKPartition.Umount not implement")
+	return true
 }
 
 func (vp *VDDKPartition) IsReadonly() bool {
@@ -287,16 +330,12 @@ func (vp *VDDKPartition) IsReadonly() bool {
 }
 
 func (vp *VDDKPartition) GetPhysicalPartitionType() string {
-	panic("implement me")
+	log.Debugf("VDDKPartition.GetPhysicalPartitionType not implement")
+	return ""
 }
 
 func newVDDKPartition(mntPath string) *VDDKPartition {
 	return &VDDKPartition{guestfs.NewLocalGuestFS(mntPath)}
-}
-
-func (vp *VDDKPartition) probe() error {
-	// test readonly ??
-	return nil
 }
 
 type sMountVDDKRootfs struct {
@@ -350,10 +389,9 @@ func (mvr *sMountVDDKRootfs) enter() fsdriver.IRootFsDriver {
 		DiskPath: mvr.DiskPath,
 	}
 	mvr.Disk = &disk
-	if err := disk.Mount(); err != nil {
+	if err := disk.Mount(); err == nil {
 		for _, mntPath := range disk.PartDirs {
 			part := newVDDKPartition(mntPath)
-			part.probe()
 			for _, drvcls := range drivers {
 				fs := drvcls(part)
 				if mvr.testRootFs(fs) {
