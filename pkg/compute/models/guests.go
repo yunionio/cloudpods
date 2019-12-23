@@ -1520,11 +1520,6 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		gs.GuestId = guest.Id
 		GuestsecgroupManager.TableSpec().Insert(&gs)
 	}
-	if data.Contains("metadata") {
-		metadata := map[string]interface{}{}
-		data.Unmarshal(&metadata, "metadata")
-		guest.SetAllMetadata(ctx, metadata, userCred)
-	}
 }
 
 func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred mcclient.TokenCredential) {
