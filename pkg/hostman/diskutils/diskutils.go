@@ -96,7 +96,7 @@ func (d *SKVMGuestDisk) connect() bool {
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
 	}
-	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
+	_, err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -134,7 +134,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 }
 
 func (d *SKVMGuestDisk) getImageFormat() string {
-	lines, err := procutils.NewCommand(qemutils.GetQemuImg(), "info", d.imagePath).Output()
+	lines, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuImg(), "info", d.imagePath).Output()
 	if err != nil {
 		return ""
 	}
@@ -278,7 +278,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 }
 
 func (d *SKVMGuestDisk) disconnect() bool {
-	_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
+	_, err := procutils.NewRemoteCommandAsFarAsPossible(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
