@@ -1058,6 +1058,12 @@ func _doCreateItem(
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+	// save generateName
+	if len(generateName) > 0 {
+		if standaloneMode, ok := model.(IStandaloneModel); ok {
+			standaloneMode.SetMetadata(ctx, "generate_name", generateName, userCred)
+		}
+	}
 	// HACK: set data same as dataDict
 	data.(*jsonutils.JSONDict).Update(dataDict)
 	return model, nil
