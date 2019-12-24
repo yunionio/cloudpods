@@ -2076,10 +2076,9 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 	if nm == nil {
 		ret.Set("find_matched", jsonutils.JSONFalse)
 		return ret, nil
-	} else {
-		ret.Set("find_matched", jsonutils.JSONTrue)
-		ret.Set("wire_id", jsonutils.NewString(nm.WireId))
 	}
+	ret.Set("find_matched", jsonutils.JSONTrue)
+	ret.Set("wire_id", jsonutils.NewString(nm.WireId))
 	if !matched {
 		log.Infof("Find same subnet network %s %s/%d", nm.Name, nm.GuestGateway, nm.GuestIpMask)
 		newNetwork := new(SNetwork)
