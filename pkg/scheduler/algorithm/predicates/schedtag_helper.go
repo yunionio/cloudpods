@@ -219,7 +219,7 @@ func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonuti
 
 	tags := []models.SSchedtag{}
 	for _, tag := range dynamicTags {
-		matched, err := conditionparser.Eval(tag.Condition, schedDesc)
+		matched, err := conditionparser.EvalBool(tag.Condition, schedDesc)
 		if err != nil {
 			log.Errorf("Condition parse eval: condition: %q, desc: %s, error: %v", tag.Condition, schedDesc, err)
 			continue
