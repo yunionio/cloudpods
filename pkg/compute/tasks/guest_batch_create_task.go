@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/conditionparser"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -73,6 +74,32 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
+	}
+
+	if conditionparser.IsTemplate(guest.Name) {
+		guestInfo := guest.GetShortDesc(ctx)
+		generateName := guest.GetMetadata("generate_name", self.UserCred)
+		if len(generateName) == 0 {
+			generateName = guest.Name
+		}
+		newGenName, err := conditionparser.EvalTemplate(generateName, guestInfo)
+		if err == nil {
+			newName, err := db.GenerateName2(models.GuestManager,
+				guest.GetOwnerId(), newGenName, guest, 1)
+			if err == nil {
+				_, err = db.Update(guest, func() error {
+					guest.Name = newName
+					return nil
+				})
+				if err != nil {
+					log.Errorf("guest update name fail %s", err)
+				}
+			} else {
+				log.Errorf("db.GenerateName2 fail %s", err)
+			}
+		} else {
+			log.Errorf("conditionparser.EvalTemplate fail %s", err)
+		}
 	}
 
 	host := guest.GetHost()

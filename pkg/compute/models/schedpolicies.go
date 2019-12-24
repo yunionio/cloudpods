@@ -208,7 +208,7 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 
 	log.V(10).Debugf("Schedpolicy evaluate input: %s", params.PrettyString())
 
-	meet, err := conditionparser.Eval(self.Condition, params)
+	meet, err := conditionparser.EvalBool(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func matchResourceSchedPolicy(
 	policy SSchedpolicy,
 	input *jsonutils.JSONDict,
 ) bool {
-	meet, err := conditionparser.Eval(policy.Condition, input)
+	meet, err := conditionparser.EvalBool(policy.Condition, input)
 	if err != nil {
 		log.Errorf("Eval Condition %s error: %v", policy.Condition, err)
 		return false

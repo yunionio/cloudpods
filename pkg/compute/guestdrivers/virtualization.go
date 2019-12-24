@@ -52,7 +52,7 @@ func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Tok
 	return nil, nil
 }
 
-func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection) {
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
 	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	nicConfs := []models.SNicConfig{
 		{
@@ -68,7 +68,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 			Ifname: "",
 		})
 	}
-	return net, nicConfs, api.IPAllocationStepdown
+	return net, nicConfs, api.IPAllocationStepdown, false
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
@@ -147,7 +147,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 		nicConfs = append(nicConfs, nicConf)
 	}
-	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, api.IPAllocationDefault, netConfig.RequireDesignatedIP, nicConfs)
+	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, api.IPAllocationDefault, netConfig.RequireDesignatedIP, false, nicConfs)
 	return gn, err
 }
 

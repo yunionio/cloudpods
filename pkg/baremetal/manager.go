@@ -2199,7 +2199,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 		rootSize, _ := rootDisk.Int("size")
 		err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
 		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create root")
+			return nil, errors.Wrap(err, "Failed to create root")
 		}
 		tool.RetrievePartitionInfo()
 		parts := tool.GetPartitions()

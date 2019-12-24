@@ -1274,9 +1274,9 @@ func (self *SHost) GetBaremetalnetworks() []SHostnetwork {
 	return hns
 }
 
-func (self *SHost) GetAttach2Network(network *SNetwork) *SHostnetwork {
+func (self *SHost) GetAttach2Network(netId string) *SHostnetwork {
 	q := self.GetBaremetalnetworksQuery()
-	q = q.Equals("network_id", network.Id)
+	q = q.Equals("network_id", netId)
 	hn := SHostnetwork{}
 	hn.SetModelManager(HostnetworkManager, &hn)
 
@@ -1289,7 +1289,7 @@ func (self *SHost) GetAttach2Network(network *SNetwork) *SHostnetwork {
 }
 
 func (self *SHost) isAttach2Network(network *SNetwork) bool {
-	hn := self.GetAttach2Network(network)
+	hn := self.GetAttach2Network(network.Id)
 	return hn != nil
 }
 

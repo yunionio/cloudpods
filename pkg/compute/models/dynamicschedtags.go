@@ -271,7 +271,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 
 	log.V(10).Debugf("Dynamicschedtag evaluate input: %s", params.PrettyString())
 
-	meet, err := conditionparser.Eval(self.Condition, params)
+	meet, err := conditionparser.EvalBool(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}

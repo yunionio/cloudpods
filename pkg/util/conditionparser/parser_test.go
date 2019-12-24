@@ -49,7 +49,7 @@ func TestAst(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		result, err := Eval(c.in, input)
+		result, err := EvalBool(c.in, input)
 		if err != nil {
 			t.Errorf("eval expr %s error %s", c.in, err)
 			return
@@ -108,7 +108,7 @@ func TestEval2(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		result, err := Eval(c.in, input)
+		result, err := EvalBool(c.in, input)
 		if err != nil {
 			t.Errorf("eval expr %s error %s", c.in, err)
 			return
@@ -165,7 +165,7 @@ func TestEval3(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		result, err := Eval(c.in, input)
+		result, err := EvalBool(c.in, input)
 		if err != nil {
 			t.Errorf("eval expr %s error %s", c.in, err)
 			return
@@ -174,6 +174,48 @@ func TestEval3(t *testing.T) {
 		if result != c.want {
 			t.Errorf("%s expect %v got %v", c.in, c.want, result)
 			return
+		}
+	}
+}
+
+func TestEvalString(t *testing.T) {
+	input := jsonutils.NewDict()
+	input.Add(jsonutils.NewString("myname"), "name")
+	input.Add(jsonutils.NewString("myhostname"), "host", "name")
+	input.Add(jsonutils.NewString("myproject"), "project", "name")
+	input.Add(jsonutils.NewString("myprojectId"), "project", "id")
+
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "host.name",
+			want:  "myhostname",
+		},
+		{
+			input: "project.id",
+			want:  "myprojectId",
+		},
+		{
+			input: "project.name",
+			want:  "myproject",
+		},
+		{
+			input: "name",
+			want:  "myname",
+		},
+		{
+			input: `name+"/"+project.name`,
+			want:  "myname/myproject",
+		},
+	}
+	for _, c := range cases {
+		got, err := EvalString(c.input, input)
+		if err != nil {
+			t.Errorf("Eval %s fail: %s", c.input, err)
+		} else if got != c.want {
+			t.Errorf("Eval %s want %s got %s", c.input, c.want, got)
 		}
 	}
 }
