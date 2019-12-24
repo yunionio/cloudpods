@@ -839,7 +839,7 @@ yunion.io/x/pkg/util/workqueue
 yunion.io/x/pkg/utils
 # yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20191217082202-5f99691a51c9
+# yunion.io/x/sqlchemy v0.0.0-20191223103213-67358d3737b6
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg

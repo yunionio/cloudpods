@@ -61,14 +61,11 @@ func StartService() {
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
 
-	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
-	}
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	options.InitNameSyncResources()
 
-	err = setInfluxdbRetentionPolicy()
+	err := setInfluxdbRetentionPolicy()
 	if err != nil {
 		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
 	}

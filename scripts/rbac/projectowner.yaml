@@ -3,6 +3,4 @@ roles:
   - project_owner
 scope: project
 policy:
-  *:
-    *:
-      *: allow
+  '*': allow
