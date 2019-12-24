@@ -21,15 +21,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-plus/uuid"
 
-	"yunion.io/x/log"
-
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy" // "yunion.io/x/onecloud/pkg/keystone/keys"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/cas"
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
@@ -76,10 +74,7 @@ func StartService() {
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
-	err := models.MergeServiceConfig(opts)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config: %s", err)
-	}
+	common_options.StartOptionManagerWithSessionDriver(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, "", options.OnOptionsChange, models.NewServiceConfigSession())
 
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)

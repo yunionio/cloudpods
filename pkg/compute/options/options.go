@@ -133,3 +133,13 @@ type SCapabilityOptions struct {
 var (
 	Options ComputeOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*ComputeOptions)
+	newOpts := newO.(*ComputeOptions)
+
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		return true
+	}
+	return false
+}

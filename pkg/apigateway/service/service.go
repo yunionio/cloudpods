@@ -41,10 +41,7 @@ func StartService() {
 		log.Infof("Auth complete.")
 	})
 
-	err := app_common.MergeServiceConfig(opts, api.SERVICE_TYPE, api.SERVICE_VERSION)
-	if err != nil {
-		log.Fatalf("[MERGE CONFIG] Fail to merge service config %s", err)
-	}
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	if opts.DisableModuleApiVersion {
 		mcclient.DisableApiVersionByModule()

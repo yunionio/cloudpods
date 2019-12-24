@@ -27,7 +27,7 @@ type SKeystoneOptions struct {
 
 	TokenExpirationSeconds int    `default:"86400" help:"token expiration seconds" token:"expiration"`
 	FernetKeyRepository    string `help:"fernet key repo directory" token:"key_repository" default:"/etc/yunion/keystone/fernet-keys"`
-	SetupCredentialKeys    bool   `help:"setup standalone fernet keys for credentials" token:"setup_credential_key" default:"false"`
+	SetupCredentialKeys    bool   `help:"setup standalone fernet keys for credentials" token:"setup_credential_key" default:"false" json:",allowfalse"`
 
 	BootstrapAdminUserPassword string `help:"bootstreap sysadmin user password" default:"sysadmin"`
 
@@ -47,3 +47,14 @@ type SKeystoneOptions struct {
 var (
 	Options SKeystoneOptions
 )
+
+func OnOptionsChange(oldOptions, newOptions interface{}) bool {
+	oldOpts := oldOptions.(*SKeystoneOptions)
+	newOpts := newOptions.(*SKeystoneOptions)
+
+	if options.OnBaseOptionsChange(&oldOpts.BaseOptions, &newOpts.BaseOptions) {
+		return true
+	}
+
+	return false
+}

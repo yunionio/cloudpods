@@ -1,8 +1,9 @@
 # rbac for normal user, not allow for delete
 scope: project
 policy:
-  *:
-    *:
-      *: allow
+  '*':
+    '*':
+      '*': allow
       create: deny
+      update: deny
       delete: deny

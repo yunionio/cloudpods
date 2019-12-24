@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package options
 
 import (
 	"context"
@@ -56,46 +56,66 @@ func getServiceConfig(s *mcclient.ClientSession, serviceId string) (jsonutils.JS
 	return defConf, nil
 }
 
-func MergeServiceConfig(opts interface{}, serviceType string, serviceVersion string) error {
+type IServiceConfigSession interface {
+	Merge(opts interface{}, serviceType string, serviceVersion string) bool
+	Upload()
+}
+
+type mcclientServiceConfigSession struct {
+	session   *mcclient.ClientSession
+	serviceId string
+	config    *jsonutils.JSONDict
+}
+
+func newServiceConfigSession() IServiceConfigSession {
+	return &mcclientServiceConfigSession{}
+}
+
+func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType string, serviceVersion string) bool {
 	merged := false
-	conf := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	region, _ := conf.GetString("region")
-	epType, _ := conf.GetString("session_endpoint_type")
-	s := auth.AdminSession(context.Background(), region, "", epType, "")
-	serviceId, _ := getServiceIdByType(s, serviceType, serviceVersion)
-	if len(serviceId) > 0 {
-		serviceConf, err := getServiceConfig(s, serviceId)
+	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+	region, _ := s.config.GetString("region")
+	epType, _ := s.config.GetString("session_endpoint_type")
+	s.session = auth.AdminSession(context.Background(), region, "", epType, "")
+	s.serviceId, _ = getServiceIdByType(s.session, serviceType, serviceVersion)
+	if len(s.serviceId) > 0 {
+		serviceConf, err := getServiceConfig(s.session, s.serviceId)
 		if err != nil {
 			log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
 		} else {
-			conf.Update(serviceConf)
+			s.config.Update(serviceConf)
 			merged = true
 		}
 	}
-	commonServiceId, _ := getServiceIdByType(s, consts.COMMON_SERVICE, "")
+	commonServiceId, _ := getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
 	if len(commonServiceId) > 0 {
-		commonConf, err := getServiceConfig(s, commonServiceId)
+		commonConf, err := getServiceConfig(s.session, commonServiceId)
 		if err != nil {
 			log.Errorf("getServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
 		} else {
-			conf.Update(commonConf)
+			s.config.Update(commonConf)
 			merged = true
 		}
 	}
 	if merged {
-		err := conf.Unmarshal(opts)
-		if err != nil {
-			return errors.Wrap(err, "conf.Unmarshal")
+		err := s.config.Unmarshal(opts)
+		if err == nil {
+			return true
 		}
-		if len(serviceId) > 0 {
-			nconf := jsonutils.NewDict()
-			nconf.Add(conf, "config", "default")
-			_, err := modules.ServicesV3.PerformAction(s, serviceId, "config", nconf)
-			if err != nil {
-				// ignore the error
-				log.Errorf("fail to save config: %s", err)
-			}
+		log.Errorf("s.config.Unmarshal fail %s", err)
+	}
+	return false
+}
+
+func (s *mcclientServiceConfigSession) Upload() {
+	// upload service config
+	if len(s.serviceId) > 0 {
+		nconf := jsonutils.NewDict()
+		nconf.Add(s.config, "config", "default")
+		_, err := modules.ServicesV3.PerformAction(s.session, s.serviceId, "config", nconf)
+		if err != nil {
+			// ignore the error
+			log.Errorf("fail to save config: %s", err)
 		}
 	}
-	return nil
 }

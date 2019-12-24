@@ -37,10 +37,16 @@ func enableDebug() {
 	isDebug = true
 }
 
-var workerManagers []*SWorkerManager
+var (
+	workerManagers []*SWorkerManager
+
+	workerManagerLock *sync.Mutex
+)
 
 func init() {
 	workerManagers = make([]*SWorkerManager, 0)
+
+	workerManagerLock = &sync.Mutex{}
 }
 
 type SWorker struct {
@@ -166,6 +172,9 @@ func NewWorkerManagerIgnoreOverflow(name string, workerCount int, backlog int, d
 		ignoreOverflow: ignoreOverflow,
 	}
 
+	workerManagerLock.Lock()
+	defer workerManagerLock.Unlock()
+
 	workerManagers = append(workerManagers, &manager)
 	return &manager
 }
@@ -250,6 +259,13 @@ type SWorkerManagerStates struct {
 	MaxWorkerCnt    int
 	ActiveWorkerCnt int
 	DetachWorkerCnt int
+}
+
+func (s SWorkerManagerStates) IsBusy() bool {
+	if s.QueueCnt == 0 && s.ActiveWorkerCnt == 0 && s.DetachWorkerCnt == 0 {
+		return false
+	}
+	return true
 }
 
 func (wm *SWorkerManager) getState() SWorkerManagerStates {
