@@ -84,7 +84,6 @@ func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlche
 	if err != nil {
 		return nil, err
 	}
-	log.Errorf("input: %s", jsonutils.Marshal(input).PrettyString())
 	if len(input.Cloudprovider) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, input.Cloudprovider)
 		if err != nil {
@@ -102,6 +101,9 @@ func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.Join(sq, sqlchemy.Equals(q.Field("cloudprovider_id"), sq.Field("id"))).
 			Filter(sqlchemy.In(sq.Field("provider"), input.Providers))
 	}
+	//过滤已删除的cloudprovider日志
+	sq := CloudproviderManager.Query("id").SubQuery()
+	q = q.In("cloudprovider_id", sq)
 	return q, nil
 }
 
@@ -113,11 +115,13 @@ func (self *SCloudevent) GetCloudprovider() (*SCloudprovider, error) {
 	return cloudprovider.(*SCloudprovider), nil
 }
 
-func (self *SCloudevent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
+func (self *SCloudevent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra, _ = self.getMoreDetails(ctx, userCred, query, extra)
+	return extra
+}
+
+func (self *SCloudevent) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	cloudprovider, err := self.GetCloudprovider()
 	if err != nil {
 		return nil, err
@@ -128,6 +132,14 @@ func (self *SCloudevent) GetExtraDetails(ctx context.Context, userCred mcclient.
 	})
 	extra.Update(info)
 	return extra, nil
+}
+
+func (self *SCloudevent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (self *SCloudeventManager) fetchMods(ctx context.Context, userCred mcclient.TokenCredential) {
