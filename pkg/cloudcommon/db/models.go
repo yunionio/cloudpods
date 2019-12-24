@@ -91,7 +91,6 @@ func CheckSync(autoSync bool) bool {
 		}
 	}
 	for modelName, modelMan := range globalTables {
-		log.Infof("check model %s SQL", modelName)
 		tableSpec := modelMan.TableSpec()
 		sqls := tableSpec.SyncSQL()
 		if len(sqls) > 0 {
