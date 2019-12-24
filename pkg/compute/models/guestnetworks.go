@@ -151,9 +151,13 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
-	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
-	allocDir api.IPAllocationDirection, requiredDesignatedIp bool, ifname string, teamWithMac string) (*SGuestnetwork, error) {
-
+	index int8, address string, mac string, driver string, bwLimit int,
+	virtual bool, reserved bool,
+	allocDir api.IPAllocationDirection,
+	requiredDesignatedIp bool,
+	reUseAddr bool,
+	ifname string, teamWithMac string,
+) (*SGuestnetwork, error) {
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager, &gn)
 
@@ -182,16 +186,29 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	}
 	gn.MacAddr = macAddr
 	if !virtual {
-		addrTable := network.GetUsedAddresses()
-		recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
-		ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved)
-		if err != nil {
-			return nil, err
+		if len(address) > 0 && reUseAddr {
+			ipAddr, err := netutils.NewIPV4Addr(address)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Reuse invalid address %s", address)
+			}
+			if !network.IsAddressInRange(ipAddr) {
+				return nil, errors.Wrapf(httperrors.ErrOutOfRange, "%s not in network address range", address)
+			}
+			// if reuse Ip address, no need to check address availability
+			// assign it anyway
+			gn.IpAddr = address
+		} else {
+			addrTable := network.GetUsedAddresses()
+			recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
+			ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved)
+			if err != nil {
+				return nil, err
+			}
+			if len(address) > 0 && ipAddr != address && requiredDesignatedIp {
+				return nil, fmt.Errorf("candidate ip %s is occupied!", address)
+			}
+			gn.IpAddr = ipAddr
 		}
-		if len(address) > 0 && ipAddr != address && requiredDesignatedIp {
-			return nil, fmt.Errorf("candidate ip %s is occupied!", address)
-		}
-		gn.IpAddr = ipAddr
 	}
 	ifname, err = gn.checkOrAllocateIfname(network, ifname)
 	if err != nil {
