@@ -115,13 +115,7 @@ func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, user
 	if userCred != nil {
 		sq := SecurityGroupManager.Query("id")
 		ssq := SecurityGroupManager.FilterByOwner(sq, userCred, scope)
-		switch scope {
-		case rbacutils.ScopeProject:
-			return q.In("secgroup_id", ssq.SubQuery())
-		case rbacutils.ScopeDomain:
-			sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
-			return q.In("secgroup_id", ssq.SubQuery())
-		}
+		return q.In("secgroup_id", ssq.SubQuery())
 	}
 	return q
 }
