@@ -73,7 +73,8 @@ type ComputeOptions struct {
 	DefaultRdsQuota          int `default:"10" help:"Common RDS quota per tenant, default 10"`
 	DefaultCacheQuota        int `default:"10" help:"Common ElasticCache quota per tenant, default 10"`
 
-	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
+	SystemAdminQuotaCheck   bool `help:"Enable quota check for system admin, default False" default:"false"`
+	CloudaccountHealthCheck bool `help:"Enable cloudaccount health status check default True" default:"true"`
 
 	BaremetalPreparePackageUrl string `help:"Baremetal online register package"`
 

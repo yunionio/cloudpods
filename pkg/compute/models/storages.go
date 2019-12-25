@@ -1169,8 +1169,11 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
 			Join(providerTable, sqlchemy.Equals(hostTable.Field("manager_id"), providerTable.Field("id"))).
 			Filter(sqlchemy.IsTrue(providerTable.Field("enabled"))).
-			Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS)).
-			Filter(sqlchemy.In(providerTable.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
+			Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+
+		if options.Options.CloudaccountHealthCheck {
+			sq2 = sq2.Filter(sqlchemy.In(providerTable.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
+		}
 
 		q = q.Filter(
 			sqlchemy.OR(
