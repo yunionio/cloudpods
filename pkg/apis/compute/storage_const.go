@@ -59,6 +59,7 @@ const (
 
 	// openstack
 	STORAGE_OPENSTACK_ISCSI = "iscsi"
+	STORAGE_OPENSTACK_NOVA  = "nova"
 
 	// Ucloud storage type
 	STORAGE_UCLOUD_CLOUD_NORMAL         = "CLOUD_NORMAL"         // 普通云盘
