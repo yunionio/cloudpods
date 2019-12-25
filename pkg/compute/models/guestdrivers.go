@@ -66,7 +66,7 @@ type IGuestDriver interface {
 
 	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params []*api.BaremetalDiskConfig, disks []*api.DiskConfig) ([]*api.DiskConfig, error)
 
-	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection)
+	GetNamedNetworkConfiguration(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig) (*SNetwork, []SNicConfig, api.IPAllocationDirection, bool)
 
 	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error)
 	GetRandomNetworkTypes() []string

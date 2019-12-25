@@ -15,7 +15,7 @@
 package conditionparser
 
 import (
-	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -24,16 +24,16 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 )
 
 var (
-	ErrInvalidOp      = errors.New("invalid operation")
-	ErrFieldNotFound  = errors.New("field not found")
-	ErrOutOfIndex     = errors.New("out of index")
-	ErrFuncArgument   = errors.New("invalid function arguments")
-	ErrMethodNotFound = errors.New("method not found")
+	ErrInvalidOp      = errors.Error("invalid operation")
+	ErrFieldNotFound  = errors.Error("field not found")
+	ErrOutOfIndex     = errors.Error("out of index")
+	ErrFuncArgument   = errors.Error("invalid function arguments")
+	ErrMethodNotFound = errors.Error("method not found")
 )
 
 func IsValid(exprStr string) bool {
@@ -44,22 +44,45 @@ func IsValid(exprStr string) bool {
 	return true
 }
 
-func Eval(exprStr string, input interface{}) (bool, error) {
+func EvalString(exprStr string, input interface{}) (string, error) {
+	if len(exprStr) == 0 {
+		return "", nil
+	}
+	expr, err := parser.ParseExpr(exprStr)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse expr %s error", exprStr)
+	}
+	result, err := eval(expr, input)
+	if err != nil {
+		return "", errors.Wrap(err, "eval")
+	}
+	switch strVal := result.(type) {
+	case string:
+		return strVal, nil
+	case *jsonutils.JSONString:
+		return strVal.GetString()
+	default:
+		return fmt.Sprintf("%s", strVal), nil
+	}
+}
+
+func EvalBool(exprStr string, input interface{}) (bool, error) {
 	if len(exprStr) == 0 {
 		return true, nil
 	}
 	expr, err := parser.ParseExpr(exprStr)
 	if err != nil {
-		log.Errorf("parse expr %s error %s", exprStr, err)
-		return false, err
+		return false, errors.Wrapf(err, "parse expr %s", exprStr)
 	}
 	result, err := eval(expr, input)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "eval")
 	}
-	switch result.(type) {
-	case bool, *jsonutils.JSONBool:
-		return getBool(result), nil
+	switch bVal := result.(type) {
+	case bool:
+		return bVal, nil
+	case *jsonutils.JSONBool:
+		return bVal.Bool()
 	case []interface{}, *jsonutils.JSONArray:
 		arrX := getArray(result)
 		for i := 0; i < len(arrX); i += 1 {
