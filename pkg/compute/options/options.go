@@ -118,6 +118,8 @@ type ComputeOptions struct {
 
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
+	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
+
 	SCapabilityOptions
 	common_options.CommonOptions
 	common_options.DBOptions

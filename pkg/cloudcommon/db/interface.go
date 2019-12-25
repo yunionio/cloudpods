@@ -256,12 +256,23 @@ type IStandaloneModel interface {
 
 	GetIStandaloneModel() IStandaloneModel
 	ClearSchedDescCache() error
+
+	GetMetadata(key string, userCred mcclient.TokenCredential) string
+	GetMetadataJson(key string, userCred mcclient.TokenCredential) jsonutils.JSONObject
+	SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
+	SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetUserMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error
+	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
+	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error
+	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
 }
 
 type IMetadataModel interface {
 	IStandaloneModel
 
-	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
+	// GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
 	GetMetadataHideKeys() []string
 }
 
