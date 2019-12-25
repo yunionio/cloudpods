@@ -129,6 +129,10 @@ func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	result := []cloudprovider.ICloudStorage{}
 
 	for _, istorage := range istorages {
+		if istorage.GetStorageType() == api.STORAGE_OPENSTACK_NOVA {
+			result = append(result, istorage)
+			continue
+		}
 		if storage := istorage.(*SStorage); len(storage.ExtraSpecs.VolumeBackendName) > 0 {
 			for _, pool := range schedulerPools {
 				if strings.HasPrefix(pool.Name, fmt.Sprintf("%s@%s", host.GetName(), storage.ExtraSpecs.VolumeBackendName)) {
@@ -197,34 +201,40 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return nil, err
 	}
 
-	storage, err := host.zone.getStorageByCategory(desc.SysDisk.StorageType)
-	if err != nil {
-		return nil, err
-	}
-
 	sysDiskSizeGB := image.Size / 1024 / 1024 / 1024
 	if desc.SysDisk.SizeGB < sysDiskSizeGB {
 		desc.SysDisk.SizeGB = sysDiskSizeGB
 	}
 
-	_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, storage.Name, "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
-	if err != nil {
-		return nil, err
+	if desc.SysDisk.SizeGB < image.GetMinOsDiskSizeGb() {
+		desc.SysDisk.SizeGB = image.GetMinOsDiskSizeGb()
 	}
 
-	BlockDeviceMappingV2 := []map[string]interface{}{
-		{
+	BlockDeviceMappingV2 := []map[string]interface{}{}
+
+	if desc.SysDisk.StorageType != api.STORAGE_OPENSTACK_NOVA { //新建volume
+		storage, err := host.zone.getStorageByCategory(desc.SysDisk.StorageType)
+		if err != nil {
+			return nil, err
+		}
+
+		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, storage.Name, "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, map[string]interface{}{
 			"boot_index":            0,
 			"uuid":                  _sysDisk.GetGlobalId(),
 			"source_type":           "volume",
 			"destination_type":      "volume",
 			"delete_on_termination": true,
-		},
+		})
 	}
 
 	var _disk *SDisk
 	for _, disk := range desc.DataDisks {
-		storage, err = host.zone.getStorageByCategory(disk.StorageType)
+		storage, err := host.zone.getStorageByCategory(disk.StorageType)
 		if err != nil {
 			break
 		}
