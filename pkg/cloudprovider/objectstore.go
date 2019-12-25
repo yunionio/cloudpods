@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -259,7 +260,7 @@ func GetIBucketByName(region ICloudRegion, name string) (ICloudBucket, error) {
 func GetIBucketStats(bucket ICloudBucket) (SBucketStats, error) {
 	stats := SBucketStats{
 		ObjectCount: -1,
-		SizeBytes: -1,
+		SizeBytes:   -1,
 	}
 	objs, err := bucket.ListObjects("", "", "", 1000)
 	if err != nil {
