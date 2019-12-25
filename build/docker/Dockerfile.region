@@ -1,8 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/region-base:latest
-
-MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
-
-RUN mkdir -p /opt/yunion/bin
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:latest
 
 COPY ./build/region/root/opt/ /opt/
 ADD ./_output/bin/region /opt/yunion/bin/region

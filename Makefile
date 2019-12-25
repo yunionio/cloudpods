@@ -236,6 +236,8 @@ help: export helpText:=$(helpText)
 help:
 	@echo "$$helpText"
 
+.PHONY: help
+
 gen-model-api-check:
 	which model-api-gen || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/model-api-gen)
 

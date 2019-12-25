@@ -34,7 +34,11 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
-    GOOS=linux make cmd/$1
+    if [[ "$1" == "climc" ]]; then
+        GOOS=linux make cmd/$1 cmd/*cli
+    else
+        GOOS=linux make cmd/$1
+    fi
 }
 
 
@@ -66,6 +70,10 @@ COMPONENTS=$@
 
 cd $SRC_DIR
 for component in $COMPONENTS; do
+    if [[ $component == *cli ]]; then
+        echo "Please build image for climc"
+        continue
+    fi
     build_bin $component
     build_bundle_libraries $component
     img_name="$REGISTRY/$component:$TAG"
