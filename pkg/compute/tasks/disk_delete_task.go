@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DiskDeleteTask struct {
@@ -54,7 +55,8 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 	if jsonutils.QueryBoolean(self.Params, "delete_snapshots", false) {
-
+		self.SetStage("OnDiskSnapshotDelete", nil)
+		self.StartDeleteDiskSnapshots(ctx, disk)
 	} else {
 		self.OnDeleteSnapshots(ctx, disk)
 	}
@@ -68,13 +70,23 @@ func (self *DiskDeleteTask) OnDeleteSnapshots(ctx context.Context, disk *models.
 			self.SetStageComplete(ctx, nil)
 			return
 		}
-		if jsonutils.QueryBoolean(self.Params, "delete_sanpshots", false) {
-			disk.SetMetadata(ctx, "__delete_snapshots_on_delete", "true", self.UserCred)
-		}
 		self.startPendingDeleteDisk(ctx, disk)
 	} else {
 		self.startDeleteDisk(ctx, disk)
 	}
+}
+
+func (self *DiskDeleteTask) StartDeleteDiskSnapshots(ctx context.Context, disk *models.SDisk) {
+	disk.DeleteSnapshots(ctx, self.UserCred, self.GetId())
+}
+
+func (self *DiskDeleteTask) OnDiskSnapshotDelete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	self.OnDeleteSnapshots(ctx, disk)
+}
+
+func (self *DiskDeleteTask) OnDiskSnapshotDeleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	log.Errorf("Delete disk snapshots failed %s", data.String())
+	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, data)
 }
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
@@ -169,6 +181,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context,
 	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
 	self.SetStageFailed(ctx, reason.String())
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, disk, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 }
 
 type StorageDeleteRbdDiskTask struct {
