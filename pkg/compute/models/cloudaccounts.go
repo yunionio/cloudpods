@@ -883,6 +883,9 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
 	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
 	extra.Set("cloud_env", jsonutils.NewString(self.getCloudEnv()))
+	if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), self.ProjectId); proj != nil {
+		extra.Add(jsonutils.NewString(proj.Name), "tenant")
+	}
 	return extra
 }
 
