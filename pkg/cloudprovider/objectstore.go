@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type TBucketACLType string
@@ -148,7 +149,6 @@ type ICloudBucket interface {
 	SetAcl(acl TBucketACLType) error
 
 	ListObjects(prefix string, marker string, delimiter string, maxCount int) (SListObjectResult, error)
-	GetIObjects(prefix string, isRecursive bool) ([]ICloudObject, error)
 
 	CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl TBucketACLType, storageClassStr string, meta http.Header) error
 	GetObject(ctx context.Context, key string, rangeOpt *SGetObjectRange) (io.ReadCloser, error)
@@ -257,57 +257,74 @@ func GetIBucketByName(region ICloudRegion, name string) (ICloudBucket, error) {
 }
 
 func GetIBucketStats(bucket ICloudBucket) (SBucketStats, error) {
-	stats := SBucketStats{}
-	objs, err := bucket.GetIObjects("", true)
+	stats := SBucketStats{
+		ObjectCount: -1,
+		SizeBytes: -1,
+	}
+	objs, err := bucket.ListObjects("", "", "", 1000)
 	if err != nil {
-		stats.ObjectCount = -1
-		stats.SizeBytes = -1
 		return stats, errors.Wrap(err, "GetIObjects")
 	}
-	for _, obj := range objs {
+	if objs.IsTruncated {
+		return stats, errors.Wrap(httperrors.ErrTooLarge, "too many objects")
+	}
+	for _, obj := range objs.Objects {
 		stats.SizeBytes += obj.GetSizeBytes()
 		stats.ObjectCount += 1
 	}
 	return stats, nil
 }
 
-func GetIObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]ICloudObject, error) {
+func GetPagedObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool, marker string, maxCount int) ([]ICloudObject, string, error) {
 	delimiter := "/"
 	if isRecursive {
 		delimiter = ""
 	}
+	if maxCount > 1000 || maxCount <= 0 {
+		maxCount = 1000
+	}
+	ret := make([]ICloudObject, 0)
+	result, err := bucket.ListObjects(objectPrefix, marker, delimiter, maxCount)
+	if err != nil {
+		return nil, "", errors.Wrap(err, "bucket.ListObjects")
+	}
+	// Send all common prefixes if any.
+	// NOTE: prefixes are only present if the request is delimited.
+	if len(result.CommonPrefixes) > 0 {
+		ret = append(ret, result.CommonPrefixes...)
+	}
+	// Send all objects
+	for i := range result.Objects {
+		// if delimited, skip the first object
+		if !isRecursive && result.Objects[i].GetKey() == objectPrefix {
+			continue
+		}
+		ret = append(ret, result.Objects[i])
+		marker = result.Objects[i].GetKey()
+	}
+	// If next marker present, save it for next request.
+	if result.NextMarker != "" {
+		marker = result.NextMarker
+	}
+	// If not truncated, no more objects
+	if !result.IsTruncated {
+		marker = ""
+	}
+	return ret, marker, nil
+}
+
+func GetAllObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]ICloudObject, error) {
 	ret := make([]ICloudObject, 0)
 	// Save marker for next request.
 	var marker string
 	for {
 		// Get list of objects a maximum of 1000 per request.
-		result, err := bucket.ListObjects(objectPrefix, marker, delimiter, 1000)
+		result, marker, err := GetPagedObjects(bucket, objectPrefix, isRecursive, marker, 1000)
 		if err != nil {
 			return nil, errors.Wrap(err, "bucket.ListObjects")
 		}
-
-		// Send all objects
-		for i := range result.Objects {
-			if !isRecursive && result.Objects[i].GetKey() == objectPrefix {
-				continue
-			}
-			ret = append(ret, result.Objects[i])
-			marker = result.Objects[i].GetKey()
-		}
-
-		// Send all common prefixes if any.
-		// NOTE: prefixes are only present if the request is delimited.
-		if len(result.CommonPrefixes) > 0 {
-			ret = append(ret, result.CommonPrefixes...)
-		}
-
-		// If next marker present, save it for next request.
-		if result.NextMarker != "" {
-			marker = result.NextMarker
-		}
-
-		// Listing ends result is not truncated, break the loop
-		if !result.IsTruncated {
+		ret = append(ret, result...)
+		if marker == "" {
 			break
 		}
 	}
@@ -411,7 +428,7 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 }
 
 func DeletePrefix(ctx context.Context, bucket ICloudBucket, prefix string) error {
-	objs, err := bucket.GetIObjects(prefix, true)
+	objs, err := GetAllObjects(bucket, prefix, true)
 	if err != nil {
 		return errors.Wrap(err, "bucket.GetIObjects")
 	}
