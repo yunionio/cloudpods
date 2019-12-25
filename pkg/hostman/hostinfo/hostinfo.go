@@ -171,16 +171,26 @@ func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
 	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) {
 		return "", errors.Errorf("found dev %s not a physical device", dev)
 	}
-	bridgeName := "br"
-	index := 0
-	for {
-		if _, err := net.InterfaceByName(bridgeName + strconv.Itoa(index)); err != nil {
-			bridgeName = bridgeName + strconv.Itoa(index)
-			break
-		}
-		index += 1
+
+	var bridgeName string
+	if output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output(); err != nil {
+		return "", errors.Wrap(err, "port to br")
+	} else {
+		bridgeName = strings.TrimSpace(string(output))
 	}
-	log.Infof("new bridge name %s", bridgeName)
+	if len(bridgeName) == 0 {
+		bridgeName = "br"
+		index := 0
+		for {
+			if _, err := net.InterfaceByName(bridgeName + strconv.Itoa(index)); err != nil {
+				bridgeName = bridgeName + strconv.Itoa(index)
+				break
+			}
+			index += 1
+		}
+	}
+
+	log.Infof("bridge name %s", bridgeName)
 	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, ip), nil
 }
 
@@ -195,6 +205,7 @@ func (h *SHostInfo) parseConfig() error {
 		if err != nil {
 			return err
 		}
+		log.Infof("Generate network config %s", netConf)
 		options.HostOptions.Networks = []string{netConf}
 		if len(options.HostOptions.Config) > 0 {
 			if err = fileutils2.FilePutContents(
