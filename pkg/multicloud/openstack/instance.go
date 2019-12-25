@@ -263,12 +263,16 @@ func (instance *SInstance) GetInstanceType() string {
 
 func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := []SDisk{}
+	hasSysDisk := false
 	for i := 0; i < len(instance.VolumesAttached); i++ {
 		disk, err := instance.host.zone.region.GetDisk(instance.VolumesAttached[i].ID)
 		if err != nil {
 			return nil, err
 		}
 		disks = append(disks, *disk)
+		if disk.Bootable {
+			hasSysDisk = true
+		}
 	}
 	iDisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
@@ -279,6 +283,13 @@ func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		disks[i].storage = store
 		iDisks = append(iDisks, &disks[i])
 	}
+
+	if !hasSysDisk {
+		nova := SNovaStorage{zone: instance.host.zone}
+		sysDisk, _ := nova.GetIDiskById(instance.ID)
+		iDisks = append([]cloudprovider.ICloudDisk{sysDisk}, iDisks...)
+	}
+
 	return iDisks, nil
 }
 
@@ -432,11 +443,7 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, username s
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	sysDiskId := ""
-	if len(instance.VolumesAttached) > 0 {
-		sysDiskId = instance.VolumesAttached[0].ID
-	}
-	return sysDiskId, instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
+	return instance.ID, instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
