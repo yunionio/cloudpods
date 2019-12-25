@@ -423,11 +423,13 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
+
 	err = eip.SyncInstanceWithCloudEip(ctx, userCred, extEip)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to sync associated instance of EIP")
 	}
-	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 
@@ -587,8 +589,12 @@ func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mccl
 	if lb.PendingDeleted {
 		return fmt.Errorf("loadbalancer is deleted")
 	}
-	if len(self.AssociateType) > 0 {
-		return fmt.Errorf("EIP has been associated!!")
+	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
+		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_LOADBALANCER && self.AssociateId == lb.Id {
+			return nil
+		} else {
+			return fmt.Errorf("EIP has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = api.EIP_ASSOCIATE_TYPE_LOADBALANCER
@@ -610,8 +616,12 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 	if vm.PendingDeleted || vm.Deleted {
 		return fmt.Errorf("vm is deleted")
 	}
-	if len(self.AssociateType) > 0 {
-		return fmt.Errorf("EIP has been associated!!")
+	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
+		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_SERVER && self.AssociateId == vm.Id {
+			return nil
+		} else {
+			return fmt.Errorf("EIP has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = api.EIP_ASSOCIATE_TYPE_SERVER
@@ -633,8 +643,12 @@ func (self *SElasticip) AssociateNatGateway(ctx context.Context, userCred mcclie
 	if nat.Deleted {
 		return fmt.Errorf("nat gateway is deleted")
 	}
-	if len(self.AssociateType) > 0 {
-		return fmt.Errorf("Eip has been associated!!")
+	if len(self.AssociateType) > 0 && len(self.AssociateId) > 0 {
+		if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY && self.AssociateId == nat.Id {
+			return nil
+		} else {
+			return fmt.Errorf("Eip has been associated!!")
+		}
 	}
 	_, err := db.Update(self, func() error {
 		self.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
