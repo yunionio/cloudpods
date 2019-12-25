@@ -30,6 +30,7 @@ type CloudaccountCreateInput struct {
 	Brand               string
 	IsPublicCloud       bool
 	IsOnPremise         bool
+	Tenant              string
 	TenantId            string
 	EnableAutoSync      bool
 	SyncIntervalSeconds int
