@@ -13,4 +13,4 @@ ENV PATH="/opt/yunion/bin:${PATH}"
 
 RUN mkdir -p /opt/yunion/bin
 
-ADD ./_output/bin/climc /opt/yunion/bin/climc
+ADD ./_output/bin/climc ./_output/bin/*cli /opt/yunion/bin/
