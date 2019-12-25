@@ -7,7 +7,7 @@ ENV TZ Asia/Shanghai
 RUN mkdir -p /opt/yunion/bin
 
 RUN apk update && \
-    apk add --no-cache tzdata ansible && \
+    apk add --no-cache tzdata ca-certificates && \
     rm -rf /var/cache/apk/*
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
