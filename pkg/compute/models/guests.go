@@ -4181,11 +4181,11 @@ func (manager *SGuestManager) DeleteExpiredPostpaidServers(ctx context.Context, 
 }
 
 func (self *SGuest) GetEip() (*SElasticip, error) {
-	return ElasticipManager.getEipForInstance("server", self.Id)
+	return ElasticipManager.getEipForInstance(api.EIP_ASSOCIATE_TYPE_SERVER, self.Id)
 }
 
 func (self *SGuest) GetPublicIp() (*SElasticip, error) {
-	return ElasticipManager.getEip("server", self.Id, api.EIP_MODE_INSTANCE_PUBLICIP)
+	return ElasticipManager.getEip(api.EIP_ASSOCIATE_TYPE_SERVER, self.Id, api.EIP_MODE_INSTANCE_PUBLICIP)
 }
 
 func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
