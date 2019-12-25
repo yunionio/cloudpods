@@ -236,11 +236,13 @@ help: export helpText:=$(helpText)
 help:
 	@echo "$$helpText"
 
+.PHONY: help
+
 gen-model-api-check:
 	which model-api-gen || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/model-api-gen)
 
 gen-model-api: gen-model-api-check
-	./scripts/codegen.py model-api
+	$(ROOT_DIR)/scripts/codegen.py model-api
 
 gen-swagger-check:
 	which swagger || (GO111MODULE=off go get -u github.com/go-swagger/go-swagger/cmd/swagger)
@@ -248,8 +250,22 @@ gen-swagger-check:
 	which swagger-serve || (GO111MODULE=off go get -u yunion.io/x/code-generator/cmd/swagger-serve)
 
 gen-swagger: gen-swagger-check
-	./scripts/codegen.py swagger-code
-	./scripts/codegen.py swagger-yaml
+	$(ROOT_DIR)/scripts/codegen.py swagger-code
+	$(ROOT_DIR)/scripts/codegen.py swagger-yaml
 
 swagger-serve: gen-swagger
-	./scripts/codegen.py swagger-serve
+	$(ROOT_DIR)/scripts/codegen.py swagger-serve
+
+.PHONY: gen-model-api-check gen-model-api gen-swagger-check gen-swagger swagger-serve
+
+REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
+VERSION ?= $(shell git describe --exact-match 2> /dev/null || \
+                git describe --match=$(git rev-parse --short=8 HEAD) --always --dirty --abbrev=8)
+
+image:
+	TAG=$(VERSION) REGISTRY=$(REGISTRY) $(ROOT_DIR)/scripts/docker_push.sh $(filter-out $@,$(MAKECMDGOALS))
+
+.PHONY: image
+
+%:
+	@:

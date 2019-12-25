@@ -5,7 +5,7 @@ MAINTAINER "Yaoqi Wan <wanyaoqi@yunionyun.com>"
 RUN mkdir -p /opt/yunion/bin
 
 RUN apk update && \
-    apk add --no-cache ipmitool ethtool tzdata && \
+    apk add --no-cache ipmitool ethtool tzdata ca-certificates && \
     rm -rf /var/cache/apk/*
 
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
