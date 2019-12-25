@@ -424,6 +424,9 @@ func (host *SHost) GetHostType() string {
 }
 
 func (host *SHost) GetHostStatus() string {
+	if host.Status == "disabled" {
+		return api.HOST_OFFLINE
+	}
 	switch host.State {
 	case "up", "":
 		return api.HOST_ONLINE
