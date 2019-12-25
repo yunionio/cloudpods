@@ -169,10 +169,6 @@ func (b *SBucket) GetStats() cloudprovider.SBucketStats {
 	return stats
 }
 
-func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
 	obscli, err := b.region.getOBSClient()

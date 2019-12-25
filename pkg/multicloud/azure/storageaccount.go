@@ -863,10 +863,6 @@ func (b *SStorageAccount) GetStats() cloudprovider.SBucketStats {
 	return stats
 }
 
-func (b *SStorageAccount) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func getBlobRefMeta(blob *storage.Blob) http.Header {
 	meta := http.Header{}
 	for k, v := range blob.Metadata {
