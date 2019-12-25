@@ -532,6 +532,12 @@ type ServerSecGroupsOptions struct {
 	Secgrp []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
 }
 
+type ServerModifySrcCheckOptions struct {
+	ID          string `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	SrcIpCheck  string `help:"Turn on/off src ip check" choices:"on|off"`
+	SrcMacCheck string `help:"Turn on/off src mac check" choices:"on|off"`
+}
+
 type ServerSendKeyOptions struct {
 	ID   string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	KEYS string `help:"Special keys to send, eg. ctrl, alt, f12, shift, etc, separated by \"-\""`
