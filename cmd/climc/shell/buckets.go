@@ -107,9 +107,11 @@ func init() {
 	})
 
 	type BucketListObjectsOptions struct {
-		ID        string `help:"ID or name of bucket" json:"-"`
-		Prefix    string `help:"List objects with prefix"`
-		Recursive bool   `help:"List objects recursively"`
+		ID           string `help:"ID or name of bucket" json:"-"`
+		Prefix       string `help:"List objects with prefix"`
+		Recursive    bool   `help:"List objects recursively"`
+		Limit        int    `help:"maximal items per request"`
+		PagingMarker string `help:"paging marker"`
 	}
 	R(&BucketListObjectsOptions{}, "bucket-object-list", "List objects in a bucket", func(s *mcclient.ClientSession, args *BucketListObjectsOptions) error {
 		params, err := options.StructToParams(args)
@@ -121,8 +123,11 @@ func init() {
 			return err
 		}
 
-		arrays, _ := result.GetArray("objects")
-		listResult := modulebase.ListResult{Data: arrays}
+		listResult := modulebase.ListResult{}
+		err = result.Unmarshal(&listResult)
+		if err != nil {
+			return err
+		}
 		printList(&listResult, []string{})
 		return nil
 	})
