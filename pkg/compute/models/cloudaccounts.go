@@ -680,6 +680,9 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.AccessUrl = self.AccessUrl
 		newCloudprovider.Enabled = true
 		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
+		if !options.Options.CloudaccountHealthStatusCheck {
+			self.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		}
 		newCloudprovider.HealthStatus = self.HealthStatus
 		newCloudprovider.Name = newName
 		if !self.AutoCreateProject || len(self.ProjectId) > 0 {
@@ -1390,6 +1393,9 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		account.IsOnPremise = factory.IsOnPremise()
 		account.HasObjectStorage = factory.IsSupportObjectStorage()
 		account.Balance = balance
+		if !options.Options.CloudaccountHealthStatusCheck {
+			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		}
 		account.HealthStatus = status
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version

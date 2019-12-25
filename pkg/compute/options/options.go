@@ -67,7 +67,8 @@ type ComputeOptions struct {
 	DefaultObjectGBQuota       int `default:"500" help:"Common object size quota per tenant in GB, default 500GB"`
 	DefaultObjectCntQuota      int `default:"5000" help:"Common object count quota per tenant, default 5000"`
 
-	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
+	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
+	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
 
 	BaremetalPreparePackageUrl string `help:"Baremetal online register package"`
 
