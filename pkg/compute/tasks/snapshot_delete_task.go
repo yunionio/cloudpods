@@ -288,8 +288,6 @@ func (self *DiskDeleteSnapshotsTask) OnSnapshotDelete(ctx context.Context, disk 
 }
 
 func (self *DiskDeleteSnapshotsTask) OnSnapshotDeleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	log.Errorln(data.String())
-	snapshots := make([]models.SSnapshot, 0)
-	self.Params.Unmarshal(&snapshots, "snapshots")
-	self.StartDeleteDiskSnapshots(ctx, disk, snapshots)
+	log.Errorf("Delete disk snapshots failed %s", data.String())
+	self.SetStageFailed(ctx, data.String())
 }
