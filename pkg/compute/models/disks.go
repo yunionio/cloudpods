@@ -1659,14 +1659,23 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	provider := self.GetCloudprovider()
-	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
-		cnt, err := self.GetSnapshotCount()
-		if err != nil {
-			return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
-		}
-		if cnt > 0 {
-			return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+	if !jsonutils.QueryBoolean(query, "delete_snapshots", false) {
+		if provider := self.GetCloudprovider(); provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
+			cnt, err := self.GetSnapshotCount()
+			if err != nil {
+				return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+			}
+			if cnt > 0 {
+				return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+			}
+		} else if storage := self.GetStorage(); storage != nil && storage.StorageType == api.STORAGE_RBD {
+			scnt, err := self.GetSnapshotCount()
+			if err != nil {
+				return err
+			}
+			if scnt > 0 {
+				return httperrors.NewBadRequestError("not allow to delete %s disk with snapshots", storage.StorageType)
+			}
 		}
 	}
 
@@ -2096,6 +2105,16 @@ func (self *SDisk) CleanOverdueSnapshots(ctx context.Context, userCred mcclient.
 
 func (self *SDisk) StartCreateBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskCreateBackupTask", self, userCred, nil, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SDisk) DeleteSnapshots(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "DiskDeleteSnapshotsTask", self, userCred, nil, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
 	} else {
