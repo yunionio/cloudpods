@@ -663,6 +663,8 @@ func (bucket *SBucket) GetDetailsObjects(
 	ret.Add(retArray, "data")
 	if len(nextMarker) > 0 {
 		ret.Add(jsonutils.NewString(nextMarker), "next_marker")
+		ret.Add(jsonutils.NewString("key"), "marker_field")
+		ret.Add(jsonutils.NewString("DESC"), "marker_order")
 	}
 	return ret, nil
 }
