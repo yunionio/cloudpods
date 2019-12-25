@@ -1702,12 +1702,14 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		zones := ZoneManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cons := []sqlchemy.ICondition{}
+		cons = append(cons, sqlchemy.IsTrue(cloudproviders.Field("enabled")))
+		cons = append(cons, sqlchemy.In(cloudproviders.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		if options.Options.CloudaccountHealthCheck {
+			cons = append(cons, sqlchemy.In(cloudproviders.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
+		}
 		providerSQ := cloudproviders.Query(cloudproviders.Field("id")).Filter(
-			sqlchemy.AND(
-				sqlchemy.IsTrue(cloudproviders.Field("enabled")),
-				sqlchemy.In(cloudproviders.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS),
-				sqlchemy.In(cloudproviders.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS),
-			),
+			sqlchemy.AND(cons...),
 		)
 		regions := CloudregionManager.Query().SubQuery()
 
