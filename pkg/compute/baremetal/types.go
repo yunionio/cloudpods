@@ -65,23 +65,23 @@ var (
 )
 
 type BaremetalStorage struct {
-	Size         int64  `json:"size"`
+	Size         int64  `json:"size,allowzero"`
 	Driver       string `json:"driver"`
-	Rotate       bool   `json:"rotate"`
+	Rotate       bool   `json:"rotate,allowfalse"`
 	Dev          string `json:"dev,omitempty"`
 	Sector       int64  `json:"sector,omitempty"`
 	Block        int64  `json:"block,omitempty"`
 	ModuleInfo   string `json:"module,omitempty"`
 	Kernel       string `json:"kernel,omitempty"`
 	PCIClass     string `json:"pci_class,omitempty"`
-	Slot         int    `json:"slot,omitempty"`
+	Slot         int    `json:"slot,allowzero"`
 	Status       string `json:"status,omitempty"`
-	Adapter      int    `json:"adapter,omitempty"`
+	Adapter      int    `json:"adapter,allowzero"`
 	Model        string `json:"model,omitempty"`
-	Enclosure    int    `json:"enclousure,omitempty"`
+	Enclosure    int    `json:"enclousure,allowzero"`
 	MinStripSize int64  `json:"min_strip_size,omitempty"`
 	MaxStripSize int64  `json:"max_strip_size,omitempty"`
-	Index        int64  `json:"index"`
+	Index        int64  `json:"index,allowzero"`
 	Addr         string `json:"addr,omitempty"`
 }
 
