@@ -297,11 +297,20 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		if strings.HasSuffix(args.KEY, "/") {
-			err = cloudprovider.DeletePrefix(context.Background(), bucket, args.KEY)
-		} else {
-			err = bucket.DeleteObject(context.Background(), args.KEY)
+		err = bucket.DeleteObject(context.Background(), args.KEY)
+		if err != nil {
+			return err
 		}
+		fmt.Printf("Delete success\n")
+		return nil
+	})
+
+	shellutils.R(&BucketDeleteObjectOptions{}, "delete-prefix", "Delete object from a bucket", func(cli cloudprovider.ICloudRegion, args *BucketDeleteObjectOptions) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		err = cloudprovider.DeletePrefix(context.Background(), bucket, args.KEY)
 		if err != nil {
 			return err
 		}
