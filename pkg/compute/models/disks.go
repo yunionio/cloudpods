@@ -209,10 +209,13 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	guestId, _ := queryDict.GetString("guest")
 	if len(guestId) != 0 {
-		guest := GuestManager.FetchGuestById(guestId)
-		if guest == nil {
+		iGuest, err := GuestManager.FetchByIdOrName(userCred, guestId)
+		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("guest %q not found", guestId)
+		} else if err != nil {
+			return nil, err
 		}
+		guest := iGuest.(*SGuest)
 		hoststorages := HoststorageManager.Query().SubQuery()
 		q = q.Join(hoststorages, sqlchemy.AND(
 			sqlchemy.Equals(hoststorages.Field("host_id"), guest.HostId),
