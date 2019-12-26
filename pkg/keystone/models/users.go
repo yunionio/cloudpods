@@ -646,12 +646,13 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 		usr.LastLoginSource = authCtx.Source
 		return nil
 	})
-	// ignore operator auth source
-	if authCtx.Source == mcclient.AuthSourceOperator {
+	db.OpsLog.LogEvent(usr, "auth", &s, token)
+	// to reduce auth event, log web console login only
+	if authCtx.Source == mcclient.AuthSourceWeb {
+		logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
 		return
 	}
-	db.OpsLog.LogEvent(usr, "auth", &s, token)
-	logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
+	// ignore any other auth source
 }
 
 type sLoginSession struct {
