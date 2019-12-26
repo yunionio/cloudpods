@@ -610,14 +610,14 @@ func (h *SHostInfo) tryCreateNetworkOnWire() {
 		hostutils.GetComputeSession(context.Background()),
 		"try-create-network", params)
 	if err != nil {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail(fmt.Sprintf("try create network: %v", err))
 	}
 	if !jsonutils.QueryBoolean(ret, "find_matched", false) {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail("try create network: find_matched == false")
 	}
 	wireId, err := ret.GetString("wire_id")
 	if err != nil {
-		h.onFail(fmt.Sprintf("try create network get error %s", err))
+		h.onFail(fmt.Sprintf("try create network: get wire_id: %v", err))
 	}
 	h.onGetWireId(wireId)
 }
