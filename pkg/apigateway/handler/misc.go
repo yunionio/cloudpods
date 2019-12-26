@@ -195,7 +195,7 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	s := FetchSession(ctx, req, "")
 	params := jsonutils.NewDict()
 	params.Set("hosts", jsonutils.NewString(h))
-	resp, err := modules.Hosts.DoBatchRegister(s, paramKeys, params)
+	resp, err := modules.Hosts.BatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
 		httperrors.JsonClientError(w, e)
