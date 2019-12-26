@@ -460,6 +460,19 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerModifySrcCheckOptions{}, "server-modify-src-check", "Modify src ip, mac check settings", func(s *mcclient.ClientSession, opts *options.ServerModifySrcCheckOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Servers.PerformAction(s, opts.ID, "modify-src-check", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 	R(&options.ServerSecGroupsOptions{}, "server-set-secgroup", "Set security groups to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {

@@ -2164,6 +2164,60 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
+func (self *SGuest) AllowPerformModifySrcCheck(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "modify-src-check")
+}
+
+func (self *SGuest) PerformModifySrcCheck(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
+		msg := fmt.Sprintf("Cannot change seting in status %s", self.Status)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+
+	argValue := func(name string, val *bool) error {
+		if !data.Contains(name) {
+			return nil
+		}
+		b, err := data.Bool(name)
+		if err != nil {
+			return errors.Wrapf(err, "fetch arg %s", name)
+		}
+		*val = b
+		return nil
+	}
+	var (
+		srcIpCheck  = self.SrcIpCheck.Bool()
+		srcMacCheck = self.SrcMacCheck.Bool()
+	)
+	if err := argValue("src_ip_check", &srcIpCheck); err != nil {
+		return nil, err
+	}
+	if err := argValue("src_mac_check", &srcMacCheck); err != nil {
+		return nil, err
+	}
+	// default: both check on
+	// switch: mac check off, also implies ip check off
+	// router: mac check on, ip check off
+	if !srcMacCheck && srcIpCheck {
+		srcIpCheck = false
+	}
+
+	if srcIpCheck != self.SrcIpCheck.Bool() || srcMacCheck != self.SrcMacCheck.Bool() {
+		diff, err := db.Update(self, func() error {
+			self.SrcIpCheck = tristate.NewFromBool(srcIpCheck)
+			self.SrcMacCheck = tristate.NewFromBool(srcMacCheck)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_GUEST_SRC_CHECK, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SRC_CHECK, diff, userCred, true)
+		return nil, self.StartSyncTask(ctx, userCred, false, "")
+	}
+	return nil, nil
+}
+
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-config")
 }
