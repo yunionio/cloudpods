@@ -174,25 +174,39 @@ func compareColumnSpec(c1, c2 IColumnSpec) int {
 	return strings.Compare(c1.Name(), c2.Name())
 }
 
-func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []IColumnSpec, []IColumnSpec) {
+type sUpdateColumnSpec struct {
+	oldCol IColumnSpec
+	newCol IColumnSpec
+}
+
+func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []sUpdateColumnSpec, []IColumnSpec) {
 	sort.Slice(cols1, func(i, j int) bool {
 		return compareColumnSpec(cols1[i], cols1[j]) < 0
 	})
 	sort.Slice(cols2, func(i, j int) bool {
 		return compareColumnSpec(cols2[i], cols2[j]) < 0
 	})
+	// for i := range cols1 {
+	// 	log.Debugf("%s %v", cols1[i].DefinitionString(), cols1[i].IsPrimary())
+	// }
+	// for i := range cols2 {
+	// 	log.Debugf("%s %v", cols2[i].DefinitionString(), cols2[i].IsPrimary())
+	// }
 	i := 0
 	j := 0
 	remove := make([]IColumnSpec, 0)
-	update := make([]IColumnSpec, 0)
+	update := make([]sUpdateColumnSpec, 0)
 	add := make([]IColumnSpec, 0)
 	for i < len(cols1) || j < len(cols2) {
 		if i < len(cols1) && j < len(cols2) {
 			comp := compareColumnSpec(cols1[i], cols2[j])
 			if comp == 0 {
-				if cols1[i].DefinitionString() != cols2[j].DefinitionString() {
-					log.Infof("UPDATE %s: %s => %s", tableName, cols1[i].DefinitionString(), cols2[j].DefinitionString())
-					update = append(update, cols2[j])
+				if cols1[i].DefinitionString() != cols2[j].DefinitionString() || cols1[i].IsPrimary() != cols2[j].IsPrimary() {
+					log.Infof("UPDATE %s: %s(primary:%v) => %s(primary:%v)", tableName, cols1[i].DefinitionString(), cols1[i].IsPrimary(), cols2[j].DefinitionString(), cols2[j].IsPrimary())
+					update = append(update, sUpdateColumnSpec{
+						oldCol: cols1[i],
+						newCol: cols2[j],
+					})
 				}
 				i += 1
 				j += 1
@@ -295,19 +309,28 @@ func (ts *STableSpec) SyncSQL() []string {
 			changePrimary = true
 		}
 	}
-	// for _, col := range update {
-	// 	if col.IsPrimary() {
-	// 		changePrimary = true
-	// 	}
-	// }
+	for _, cols := range update {
+		if cols.oldCol.IsPrimary() != cols.newCol.IsPrimary() {
+			changePrimary = true
+		}
+	}
 	for _, col := range add {
 		if col.IsPrimary() {
 			changePrimary = true
 		}
 	}
 	if changePrimary {
-		sql := fmt.Sprintf("DROP PRIMARY KEY")
-		alters = append(alters, sql)
+		oldHasPrimary := false
+		for _, c := range cols {
+			if c.IsPrimary() {
+				oldHasPrimary = true
+				break
+			}
+		}
+		if oldHasPrimary {
+			sql := fmt.Sprintf("DROP PRIMARY KEY")
+			alters = append(alters, sql)
+		}
 	}
 	/* IGNORE DROP STATEMENT */
 	for _, col := range remove {
@@ -315,8 +338,8 @@ func (ts *STableSpec) SyncSQL() []string {
 		// alters = append(alters, sql)
 		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
 	}
-	for _, col := range update {
-		sql := fmt.Sprintf("MODIFY %s", col.DefinitionString())
+	for _, cols := range update {
+		sql := fmt.Sprintf("MODIFY %s", cols.newCol.DefinitionString())
 		alters = append(alters, sql)
 	}
 	for _, col := range add {
@@ -330,8 +353,10 @@ func (ts *STableSpec) SyncSQL() []string {
 				primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
 			}
 		}
-		sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
-		alters = append(alters, sql)
+		if len(primaries) > 0 {
+			sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
+			alters = append(alters, sql)
+		}
 	}
 
 	if len(alters) > 0 {
