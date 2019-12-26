@@ -82,7 +82,22 @@ func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
 }
 
 func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
-	return region.syncFlavor(name, cpu, memoryMb, diskGB)
+	id, err := region.syncFlavor(name, cpu, memoryMb, diskGB)
+	if err != nil {
+		return "", errors.Wrap(err, "syncFlavor")
+	}
+	flavor, err := region.GetFlavor(id)
+	if err != nil {
+		return "", errors.Wrapf(err, "region.GetFlavor(%s)", id)
+	}
+	if flavor.GetCpuCoreCount() != cpu || flavor.GetMemorySizeMB() != memoryMb || flavor.Disk != diskGB {
+		flavor, err = region.CreateFlavor(name, cpu, memoryMb, diskGB)
+		if err != nil {
+			return "", errors.Wrap(err, "CreateFlavor")
+		}
+		return flavor.ID, nil
+	}
+	return id, nil
 }
 
 func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
@@ -97,7 +112,7 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 				return flavor.ID, nil
 			}
 		}
-		flavor, err := region.CreateFlavor(name, cpu, memoryMb, 40)
+		flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
 		if err != nil {
 			return "", errors.Wrap(err, "region.CreateClavor()")
 		}
