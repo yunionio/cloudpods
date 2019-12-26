@@ -43,8 +43,6 @@ func watchdog() {
 }
 
 func do_worker_watchdog() {
-	log.Debugf("worker manager watchdog runing")
-
 	for _, w := range workerManagers {
 		stats := w.getState()
 		busy := stats.IsBusy()
