@@ -85,6 +85,7 @@ type VolumeImageMetadata struct {
 }
 
 type SDisk struct {
+	nova    *SNovaStorage
 	storage *SStorage
 	multicloud.SDisk
 
@@ -168,6 +169,9 @@ func (disk *SDisk) GetId() string {
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
+	if disk.nova != nil {
+		return nil
+	}
 	err := disk.storage.zone.region.DeleteDisk(disk.ID)
 	if err != nil {
 		return err
@@ -195,6 +199,9 @@ func (disk *SDisk) attachInstances(attachments []Attachment) error {
 }
 
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	if disk.nova != nil {
+		return cloudprovider.ErrNotSupported
+	}
 	instanceIds := []string{}
 
 	for _, attachement := range disk.Attachments {
@@ -227,6 +234,9 @@ func (disk *SDisk) IsEmulated() bool {
 }
 
 func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	if disk.nova != nil {
+		return disk.nova, nil
+	}
 	return disk.storage, nil
 }
 
@@ -252,14 +262,20 @@ func (disk *SDisk) GetStatus() string {
 }
 
 func (disk *SDisk) Refresh() error {
-	new, err := disk.storage.zone.region.GetDisk(disk.ID)
+	if disk.nova != nil {
+		return nil
+	}
+	_disk, err := disk.storage.zone.region.GetDisk(disk.ID)
 	if err != nil {
 		return err
 	}
-	return jsonutils.Update(disk, new)
+	return jsonutils.Update(disk, _disk)
 }
 
 func (disk *SDisk) ResizeDisk(sizeMb int64) error {
+	if disk.nova != nil {
+		return cloudprovider.ErrNotSupported
+	}
 	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
 }
 
@@ -394,6 +410,9 @@ func (region *SRegion) ResetDisk(diskId, snapshotId string) error {
 }
 
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
+	if disk.nova != nil {
+		return nil, cloudprovider.ErrNotSupported
+	}
 	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.ID, name, desc)
 	if err != nil {
 		return nil, err
@@ -402,14 +421,23 @@ func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 }
 
 func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	if disk.nova != nil {
+		return nil, cloudprovider.ErrNotFound
+	}
 	return disk.storage.zone.region.GetISnapshotById(snapshotId)
 }
 
 func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	if disk.nova != nil {
+		return []cloudprovider.ICloudSnapshot{}, nil
+	}
 	return disk.storage.zone.region.GetSnapshots(disk.ID)
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	if disk.nova != nil {
+		return "", cloudprovider.ErrNotSupported
+	}
 	return disk.ID, disk.storage.zone.region.ResetDisk(disk.ID, snapshotId)
 }
 

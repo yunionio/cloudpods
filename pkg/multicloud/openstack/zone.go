@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -101,18 +102,26 @@ func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (zone *SZone) fetchSchedulerStatsPool() error {
-	zone.schedulerPools = []SPool{}
-	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		_, resp, err := zone.region.List(service, "/scheduler-stats/get_pools", "", nil)
-		if err == nil {
-			if err := resp.Unmarshal(&zone.schedulerPools, "pools"); err != nil {
-				return err
-			}
-			return nil
-		}
-		log.Warningf("failed to get scheduler-stats pool by service %s error: %v, try another", service, err)
+	var err error = nil
+	zone.schedulerPools, err = zone.region.GetSchedulerStatsPool()
+	if err != nil {
+		return errors.Wrap(err, "GetSchedulerStatsPool")
 	}
-	return fmt.Errorf("failed to find scheduler-stats pool by cinder service")
+	return nil
+}
+
+func (region *SRegion) GetSchedulerStatsPool() ([]SPool, error) {
+	pools := []SPool{}
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		_, resp, err := region.List(service, "/scheduler-stats/get_pools", "", nil)
+		if err == nil {
+			if err := resp.Unmarshal(&pools, "pools"); err != nil {
+				return nil, errors.Wrap(err, "resp.Unmarshal(&pools)")
+			}
+			return pools, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to find scheduler-stats pool by cinder service")
 }
 
 func (zone *SZone) getSchedulerStatsPool() ([]SPool, error) {
@@ -157,10 +166,12 @@ func (zone *SZone) fetchStorages() error {
 				storages[i].zone = zone
 				zone.istorages = append(zone.istorages, &storages[i])
 			}
-			return nil
+			break
 		}
 		log.Debugf("failed to get volume types by service %s error: %v, try another", service, err)
 	}
+	nova := &SNovaStorage{zone: zone}
+	zone.istorages = append(zone.istorages, nova)
 	return fmt.Errorf("failed to find storage types by cinder service")
 }
 
