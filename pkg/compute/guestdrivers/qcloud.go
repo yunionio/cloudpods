@@ -102,7 +102,7 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if disk.DiskType == api.DISK_TYPE_SYS {
 		return fmt.Errorf("Cannot resize system disk")
 	}
-	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
+	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	if disk.DiskSize/1024%10 > 0 {
@@ -130,6 +130,8 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		if sysDisk.SizeMb > 1024*1024 {
 			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
 		}
+	case api.STORAGE_LOCAL_PRO:
+		return nil, fmt.Errorf("storage %s can not be system disk", sysDisk.Backend)
 	}
 
 	for i := 1; i < len(input.Disks); i++ {
@@ -147,6 +149,8 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
+		case api.STORAGE_LOCAL_PRO:
+			return nil, httperrors.NewInputParameterError("storage %s can not be data disk")
 		}
 		if disk.SizeMb/1024%10 > 0 {
 			return nil, httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
@@ -166,7 +170,7 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 			return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
 		}
 		// 腾讯云系统盘为本地存储，不支持调整配置
-		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
+		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO}) {
 			return httperrors.NewUnsupportOperationError("The system disk is locally stored and does not support changing configuration")
 		}
 	}
@@ -185,7 +189,7 @@ func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCr
 			if newDisk.SizeMb < 100*1024 || newDisk.SizeMb > 16000*1024 {
 				return httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", newDisk.Backend)
 			}
-		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD:
+		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD, api.STORAGE_LOCAL_PRO:
 			return httperrors.NewUnsupportOperationError("Not support create local storage disks")
 		case "": //这里Backend为空有可能会导致创建出来还是local storage,依然会出错,需要用户显式指定
 			return httperrors.NewInputParameterError("Please input new disk backend type")

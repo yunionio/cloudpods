@@ -275,6 +275,39 @@ func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
 	return NetworkInterfaceManager.Query().In("id", sq).CountWithError()
 }
 
+func (manager *SNetworkManager) NewClassicNetwork(wire *SWire) (*SNetwork, error) {
+	_network, err := db.FetchByExternalId(manager, wire.Id)
+	if err == nil {
+		return _network.(*SNetwork), nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchByExternalId")
+	}
+	network := SNetwork{
+		GuestIpStart: "0.0.0.0",
+		GuestIpEnd:   "255.255.255.255",
+		GuestIpMask:  0,
+		GuestGateway: "0.0.0.0",
+		WireId:       wire.Id,
+		ServerType:   api.NETWORK_TYPE_GUEST,
+	}
+	network.SetModelManager(manager, &network)
+	network.Name = fmt.Sprintf("emulate network for classic network with wire %s", wire.Id)
+	network.ExternalId = wire.Id
+	network.IsEmulated = true
+	network.IsPublic = true
+	network.PublicScope = "system"
+	admin := auth.AdminCredential()
+	network.DomainId = admin.GetProjectDomainId()
+	network.ProjectId = admin.GetProjectId()
+	network.Status = api.NETWORK_STATUS_UNAVAILABLE
+	err = manager.TableSpec().Insert(&network)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert classic network")
+	}
+	return &network, nil
+}
+
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
 	used := make(map[string]bool)
 
@@ -587,6 +620,10 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
+
+	if self.ExternalId == self.WireId {
+		return nil
+	}
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete

@@ -91,6 +91,10 @@ func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (self *SInstanceNic) InClassicNetwork() bool {
+	return false
+}
+
 func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	region := self.instance.host.zone.region
 	self.Properties.NetworkSecurityGroup = nil

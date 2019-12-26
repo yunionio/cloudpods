@@ -303,6 +303,7 @@ type ICloudVM interface {
 type ICloudNic interface {
 	GetIP() string
 	GetMAC() string
+	InClassicNetwork() bool
 	GetDriver() string
 	GetINetwork() ICloudNetwork
 }

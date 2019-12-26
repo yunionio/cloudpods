@@ -32,4 +32,18 @@ func init() {
 		printList(zones, len(zones), args.Offset, args.Limit, []string{})
 		return nil
 	})
+
+	type ZoneInstanceTypeListOptions struct {
+		ZONE string
+	}
+
+	shellutils.R(&ZoneInstanceTypeListOptions{}, "zone-instance-type-list", "List zone instance type", func(cli *qcloud.SRegion, args *ZoneInstanceTypeListOptions) error {
+		instanceTypes, err := cli.GetZoneInstanceTypes(args.ZONE)
+		if err != nil {
+			return err
+		}
+		printList(instanceTypes, 0, 0, 0, []string{})
+		return nil
+	})
+
 }

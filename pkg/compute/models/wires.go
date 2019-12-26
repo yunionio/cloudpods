@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -160,6 +161,48 @@ func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
 	return wire.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (manager *SWireManager) getWireExternalIdForClassicNetwork(provider string, vpcId string, zoneId string) string {
+	if !utils.IsInStringArray(provider, api.REGIONAL_NETWORK_PROVIDERS) {
+		return fmt.Sprintf("%s-%s", vpcId, zoneId)
+	}
+	return vpcId
+}
+
+func (manager *SWireManager) NewWireForClassicNetwork(vpc *SVpc, zone *SZone) (*SWire, error) {
+	cloudprovider := vpc.GetCloudprovider()
+	if cloudprovider == nil {
+		return nil, fmt.Errorf("failed to found cloudprovider for vpc %s(%s)", vpc.Id, vpc.Id)
+	}
+	externalId := manager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, vpc.Id, zone.Id)
+	name := fmt.Sprintf("emulate for vpc %s classic network", vpc.Id)
+	zoneId := zone.Id
+	if utils.IsInStringArray(cloudprovider.Provider, api.REGIONAL_NETWORK_PROVIDERS) { //reginal network
+		zoneId = ""
+	} else {
+		name = fmt.Sprintf("emulate for zone %s vpc %s classic network", zone.Name, vpc.Id)
+	}
+	_wire, err := db.FetchByExternalId(manager, externalId)
+	if err == nil {
+		return _wire.(*SWire), nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchByExternalId")
+	}
+	wire := &SWire{
+		VpcId:  vpc.Id,
+		ZoneId: zoneId,
+	}
+	wire.SetModelManager(manager, wire)
+	wire.ExternalId = externalId
+	wire.IsEmulated = true
+	wire.Name = name
+	err = manager.TableSpec().Insert(wire)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert wire for classic network")
+	}
+	return wire, nil
+}
+
 func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
 	return HostwireManager.Query().Equals("wire_id", wire.Id)
 }
@@ -277,6 +320,12 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
+
+	vpc := self.getVpc()
+	cloudprovider := vpc.GetCloudprovider()
+	if self.ExternalId == WireManager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, self.VpcId, self.ZoneId) {
+		return nil
+	}
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
