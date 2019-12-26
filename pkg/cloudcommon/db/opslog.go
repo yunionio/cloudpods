@@ -227,6 +227,8 @@ const (
 	ACT_GUEST_SAVE_GUEST_IMAGE            = "guest_save_guest_image"
 	ACT_GUEST_SAVE_GUEST_IMAGE_FAIL       = "guest_save_guest_image_fail"
 
+	ACT_GUEST_SRC_CHECK = "guest_src_check"
+
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
 
 	ACT_RENEW = "renew"
