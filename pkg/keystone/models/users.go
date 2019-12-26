@@ -624,7 +624,12 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 		return nil
 	})
 	db.OpsLog.LogEvent(usr, "auth", &s, token)
-	logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
+	// to reduce auth event, log web console login only
+	if authCtx.Source == mcclient.AuthSourceWeb {
+		logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
+		return
+	}
+	// ignore any other auth source
 }
 
 type sLoginSession struct {
