@@ -124,7 +124,9 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, 
 
 	ret.Update(jsonutils.Marshal(keys))
 	ret.Update(quota.ToJSON(""))
-	ret.Update(usage.ToJSON("usage"))
+	if usage != nil {
+		ret.Update(usage.ToJSON("usage"))
+	}
 	if len(pendings) > 0 {
 		pendingArray := jsonutils.NewArray()
 		for _, q := range pendings {
