@@ -49,6 +49,10 @@ func (nic *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (nic *SInstanceNic) InClassicNetwork() bool {
+	return false
+}
+
 func (nic *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	networks, err := nic.instance.host.zone.region.GetNetworks(nic.instance.host.zone.UUID, "", nic.L3NetworkUUID, "")
 	if err != nil {
