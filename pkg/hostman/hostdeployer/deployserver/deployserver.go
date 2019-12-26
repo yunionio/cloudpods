@@ -249,7 +249,13 @@ func (s *SDeployService) PrepareEnv() error {
 	}
 
 	if !winutils.CheckTool(DeployOption.ChntpwPath) {
-		log.Errorf("Failed to find chntpw tool")
+		if winutils.CheckTool("/usr/bin/chntpw.static") {
+			winutils.SetChntpwPath("/usr/bin/chntpw.static")
+		} else {
+			log.Errorf("Failed to find chntpw tool")
+		}
+	} else {
+		winutils.SetChntpwPath(DeployOption.ChntpwPath)
 	}
 
 	output, err = procutils.NewCommand("pvscan").Output()

@@ -44,6 +44,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -1353,6 +1354,9 @@ func (h *SHostInfo) unregister() {
 func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
 	// TODO: dynamic probe endpoint type
 	defaultEndpointType := options.HostOptions.SessionEndpointType
+	if len(defaultEndpointType) == 0 {
+		defaultEndpointType = auth.PublicEndpointType
+	}
 	if options.HostOptions.ManageNtpConfiguration {
 		ntpd := system_service.GetService("ntpd")
 		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", defaultEndpointType)
