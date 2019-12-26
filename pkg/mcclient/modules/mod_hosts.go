@@ -117,7 +117,7 @@ func parseHosts(titles []string, data string) ([]*jsonutils.JSONDict, string) {
 	return ret, msg
 }
 
-func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, titles []string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	data, err := params.GetString("hosts")
 	if err != nil {
 		return nil, err
@@ -156,6 +156,11 @@ func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, titles []str
 	close(results)
 
 	return modulebase.SubmitResults2JSON(ret), nil
+}
+
+func (this *HostManager) DoBatchRegister(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	titles := []string{"access_mac", "name", "ipmi_ip_addr", "ipmi_username", "ipmi_password"}
+	return this.BatchRegister(s, titles, params)
 }
 
 var (
