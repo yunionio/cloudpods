@@ -2623,6 +2623,18 @@ type sAddGuestnic struct {
 func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
 	vnet := vnic.GetINetwork()
 	if vnet == nil {
+		if vnic.InClassicNetwork() {
+			vpc, err := VpcManager.NewVpcForClassicNetwork(host)
+			if err != nil {
+				return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
+			}
+			zone := host.GetZone()
+			wire, err := WireManager.NewWireForClassicNetwork(vpc, zone)
+			if err != nil {
+				return nil, errors.Wrap(err, "NewWireForClassicNetwork")
+			}
+			return NetworkManager.NewClassicNetwork(wire)
+		}
 		ip := vnic.GetIP()
 		if len(ip) == 0 {
 			if index < len(ipList) {
