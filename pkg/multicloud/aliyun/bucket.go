@@ -179,10 +179,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func metaOpts(opts []oss.Option, meta http.Header) []oss.Option {
 	for k, v := range meta {
 		if len(v) == 0 {

@@ -206,10 +206,6 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
-	return cloudprovider.GetIObjects(b, prefix, isRecursive)
-}
-
 func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	if sizeBytes < 0 {
 		return errors.Error("content length expected")

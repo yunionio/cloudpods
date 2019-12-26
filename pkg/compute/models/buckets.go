@@ -610,7 +610,14 @@ func (bucket *SBucket) GetDetailsObjects(
 	}
 	prefix, _ := query.GetString("prefix")
 	isRecursive := jsonutils.QueryBoolean(query, "recursive", false)
-	objects, err := iBucket.GetIObjects(prefix, isRecursive)
+	marker, _ := query.GetString("paging_marker")
+	limit, _ := query.Int("limit")
+	if limit <= 0 {
+		limit = 50
+	} else if limit > 1000 {
+		limit = 1000
+	}
+	objects, nextMarker, err := cloudprovider.GetPagedObjects(iBucket, prefix, isRecursive, marker, int(limit))
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to get objects: %s", err)
 	}
@@ -619,7 +626,12 @@ func (bucket *SBucket) GetDetailsObjects(
 		retArray.Add(cloudprovider.ICloudObject2JSONObject(objects[i]))
 	}
 	ret := jsonutils.NewDict()
-	ret.Add(retArray, "objects")
+	ret.Add(retArray, "data")
+	if len(nextMarker) > 0 {
+		ret.Add(jsonutils.NewString(nextMarker), "next_marker")
+		ret.Add(jsonutils.NewString("key"), "marker_field")
+		ret.Add(jsonutils.NewString("DESC"), "marker_order")
+	}
 	return ret, nil
 }
 
@@ -1268,7 +1280,7 @@ func (bucket *SBucket) processObjectsActionInput(input api.BucketObjectsActionIn
 	objects := make([]cloudprovider.ICloudObject, 0)
 	for _, key := range input.Key {
 		if strings.HasSuffix(key, "/") {
-			objs, err := cloudprovider.GetIObjects(iBucket, key, true)
+			objs, err := cloudprovider.GetAllObjects(iBucket, key, true)
 			if err != nil {
 				return nil, nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
 			}

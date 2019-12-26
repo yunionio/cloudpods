@@ -191,17 +191,22 @@ func S3Shell() {
 	type BucketListObjectsOptions struct {
 		BUCKET string `help:"name of bucket to list objects"`
 		Prefix string `help:"prefix"`
+		Limit  int    `help:"limit per page request" default:"20"`
+		Marker string `help:"offset marker"`
 	}
 	shellutils.R(&BucketListObjectsOptions{}, "bucket-list-object", "List objects in a bucket", func(cli cloudprovider.ICloudRegion, args *BucketListObjectsOptions) error {
 		bucket, err := cli.GetIBucketById(args.BUCKET)
 		if err != nil {
 			return err
 		}
-		objects, err := bucket.GetIObjects(args.Prefix, true)
+		objects, marker, err := cloudprovider.GetPagedObjects(bucket, args.Prefix, true, args.Marker, args.Limit)
 		if err != nil {
 			return err
 		}
 		printutils.PrintGetterList(objects, []string{"key", "size_bytes"})
+		if len(marker) > 0 {
+			fmt.Println("Next marker:", marker)
+		}
 		return nil
 	})
 
@@ -210,11 +215,14 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		objects, err := bucket.GetIObjects(args.Prefix, false)
+		objects, marker, err := cloudprovider.GetPagedObjects(bucket, args.Prefix, false, args.Marker, args.Limit)
 		if err != nil {
 			return err
 		}
 		printutils.PrintGetterList(objects, []string{"key", "size_bytes"})
+		if len(marker) > 0 {
+			fmt.Println("Next marker:", marker)
+		}
 		return nil
 	})
 
@@ -289,7 +297,11 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		err = bucket.DeleteObject(context.Background(), args.KEY)
+		if strings.HasSuffix(args.KEY, "/") {
+			err = cloudprovider.DeletePrefix(context.Background(), bucket, args.KEY)
+		} else {
+			err = bucket.DeleteObject(context.Background(), args.KEY)
+		}
 		if err != nil {
 			return err
 		}
