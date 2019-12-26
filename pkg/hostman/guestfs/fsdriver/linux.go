@@ -1367,6 +1367,9 @@ func (d *SOpenWrtRootFs) RootSignatures() []string {
 
 func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
 	spath := "/etc/config/system"
+	if !rootFs.Exists(spath, false) {
+		return nil
+	}
 	bcont, err := rootFs.FileGetContents(spath, false)
 	if err != nil {
 		return err
