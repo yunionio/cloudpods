@@ -74,7 +74,7 @@ func init() {
 type SUser struct {
 	SEnabledIdentityBaseResource
 
-	Email  string `width:"64" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	Email  string `width:"64" charset:"utf8" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 	Mobile string `width:"20" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
