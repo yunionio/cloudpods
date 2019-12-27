@@ -43,10 +43,12 @@ import (
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -231,16 +233,34 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			secgrpIds = append(secgrpIds, secgrp.Id)
 		}
 
+		isAdmin := false
+		admin, _ := query.Bool("admin")
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
+				isAdmin = true
+			}
+		} else if userCred.HasSystemAdminPrivilege() && admin {
+			isAdmin = true
+		}
+
+		filters := []sqlchemy.ICondition{}
 		if notIn {
-			filter1 := sqlchemy.NotIn(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
-			filter2 := sqlchemy.NotIn(q.Field("secgrp_id"), secgrpIds)
-			q = q.Filter(sqlchemy.AND(filter1, filter2))
+			filters = append(filters, sqlchemy.NotIn(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery()))
+			filters = append(filters, sqlchemy.NotIn(q.Field("secgrp_id"), secgrpIds))
+			if isAdmin {
+				filters = append(filters, sqlchemy.NotIn(q.Field("admin_secgrp_id"), secgrpIds))
+			}
+			q = q.Filter(sqlchemy.AND(filters...))
 		} else {
-			filter1 := sqlchemy.In(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
-			filter2 := sqlchemy.In(q.Field("secgrp_id"), secgrpIds)
-			q = q.Filter(sqlchemy.OR(filter1, filter2))
+			filters = append(filters, sqlchemy.In(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery()))
+			filters = append(filters, sqlchemy.In(q.Field("secgrp_id"), secgrpIds))
+			if isAdmin {
+				filters = append(filters, sqlchemy.In(q.Field("admin_secgrp_id"), secgrpIds))
+			}
+			q = q.Filter(sqlchemy.OR(filters...))
 		}
 	}
 
