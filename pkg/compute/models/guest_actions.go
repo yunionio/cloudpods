@@ -746,7 +746,7 @@ func (self *SGuest) PerformSuspend(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	err := self.SetStatus(userCred, api.VM_SUSPEND, "do suspend")
+	err := self.SetStatus(userCred, api.VM_START_SUSPEND, "do suspend")
 	if err != nil {
 		return err
 	}
