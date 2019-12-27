@@ -74,15 +74,23 @@ func (manager *SQuotaBaseManager) PostUsageJob(keys IQuotaKeys, usageChan chan I
 	worker.Run(func() {
 		ctx := context.Background()
 
+		usage := manager.newQuota()
+
 		if !isDirty(key) {
+			if usageChan != nil {
+				manager.usageStore.GetQuota(ctx, keys, usage)
+				usageChan <- usage
+			}
 			return
 		}
-		clearDirty(key)
 
-		usage := manager.newQuota()
 		usage.SetKeys(keys)
 		err := usage.FetchUsage(ctx)
 		if err != nil {
+			log.Debugf("usage.FetchUsage fail %s", err)
+			if usageChan != nil {
+				usageChan <- nil
+			}
 			return
 		}
 
