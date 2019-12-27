@@ -15,9 +15,11 @@
 package system_service
 
 import (
+	"fmt"
+
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type ISystemService interface {
@@ -81,13 +83,15 @@ func NewBaseSystemService(name string, urls interface{}) *SBaseSystemService {
 }
 
 func (s *SBaseSystemService) reload(conf, conFile string) error {
-	oldConf, err := fileutils2.FileGetContents(conFile)
-	if err != nil {
-		return err
-	}
+	output, _ := procutils.NewRemoteCommandAsFarAsPossible("cat", conFile).Output()
+	oldConf := string(output)
 	if conf != oldConf {
 		log.Infof("Reload service %s ...", s.name)
-		err := fileutils2.FilePutContents(conFile, conf, false)
+		err := procutils.NewRemoteCommandAsFarAsPossible("rm", "-f", conFile).Run()
+		if err != nil {
+			return nil
+		}
+		err = procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", fmt.Sprintf("echo '%s' > %s", conf, conFile)).Run()
 		if err != nil {
 			return err
 		}
