@@ -309,11 +309,15 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetCreatedAt() time.Time {
-	return self.CreateTime
+	// 2019-12-25 09:00:43  #非UTC时间
+	return self.CreateTime.Add(time.Hour * -8)
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return self.DeadlineTime
+	if self.DeadlineTime.IsZero() {
+		return time.Time{}
+	}
+	return self.DeadlineTime.Add(time.Hour * -8)
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
