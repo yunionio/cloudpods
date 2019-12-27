@@ -162,7 +162,7 @@ func billingRequest(client *common.Client, apiName string, params map[string]str
 }
 
 func monitorRequest(client *common.Client, apiName string, params map[string]string,
-	debug bool) (jsonutils.JSONObject, error){
+	debug bool) (jsonutils.JSONObject, error) {
 	domain := "monitor.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, debug, true)
 }
