@@ -17,7 +17,6 @@ package diskutils
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"runtime/debug"
@@ -29,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -79,15 +77,16 @@ func (d *SKVMGuestDisk) connect() bool {
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
 		//qemu-nbd 连接ceph时 /etc/ceph/ceph.conf 必须存在
 		if strings.HasPrefix(d.imagePath, "rbd:") {
-			if !fileutils2.Exists("/etc/ceph") {
-				if err := os.Mkdir("/etc/ceph", 0755); err != nil {
-					log.Errorf("failed to mkdir /etc/ceph error: %v", err)
-					return false
-				}
+			err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
+			if err != nil {
+				log.Errorf("Failed to mkdir /etc/ceph: %s", err)
+				return false
 			}
-			if !fileutils2.IsFile("/etc/ceph/ceph.conf") {
-				if _, err := os.Create("/etc/ceph/ceph.conf"); err != nil {
-					log.Errorf("failed to create /etc/ceph/ceph.conf error: %v", err)
+			err = procutils.NewRemoteCommandAsFarAsPossible("test", "-f", "/etc/ceph/ceph.conf").Run()
+			if err != nil {
+				err = procutils.NewRemoteCommandAsFarAsPossible("touch", "/etc/ceph/ceph.conf").Run()
+				if err != nil {
+					log.Errorf("failed to create /etc/ceph/ceph.conf: %s", err)
 					return false
 				}
 			}
