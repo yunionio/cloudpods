@@ -77,6 +77,8 @@ type SSecgroupCreateInput struct {
 }
 
 type SSecgroupListFilterInput struct {
+	apis.BaseListInput
+
 	Equals string
 	Server string
 }
