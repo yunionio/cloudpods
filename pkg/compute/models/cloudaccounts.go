@@ -441,7 +441,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	input := cloudprovider.SCloudaccountCredential{}
-	err = data.Unmarshal(input)
+	err = data.Unmarshal(&input)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
 	}
