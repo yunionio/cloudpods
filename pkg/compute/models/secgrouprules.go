@@ -66,6 +66,10 @@ type SSecurityGroupRule struct {
 	SecgroupID  string `width:"128" charset:"ascii" create:"required"`
 }
 
+func (self *SSecurityGroupRule) GetId() string {
+	return self.Id
+}
+
 type SecurityGroupRuleSet []SSecurityGroupRule
 
 func (v SecurityGroupRuleSet) Len() int {
