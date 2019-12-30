@@ -216,7 +216,7 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, 0)
 
-	if utils.IsInStringArray(self.SystemDisk.DiskType, []string{"LOCAL_BASIC", "LOCAL_SSD"}) {
+	if utils.IsInStringArray(self.SystemDisk.DiskType, self.host.zone.localstorages) {
 		storage := SLocalStorage{zone: self.host.zone, storageType: self.SystemDisk.DiskType}
 		disk := SLocalDisk{
 			storage:   &storage,
@@ -229,7 +229,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 
 	for i := 0; i < len(self.DataDisks); i++ {
-		if utils.IsInStringArray(self.DataDisks[i].DiskType, []string{"LOCAL_BASIC", "LOCAL_SSD"}) {
+		if utils.IsInStringArray(self.DataDisks[i].DiskType, self.host.zone.localstorages) {
 			storage := SLocalStorage{zone: self.host.zone, storageType: self.DataDisks[i].DiskType}
 			disk := SLocalDisk{
 				storage:   &storage,
@@ -270,12 +270,16 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
+	classic := false
+	if len(self.VirtualPrivateCloud.VpcId) == 0 {
+		classic = true
+	}
 	for _, ip := range self.VirtualPrivateCloud.PrivateIpAddresses {
 		nic := SInstanceNic{instance: self, ipAddr: ip}
 		nics = append(nics, &nic)
 	}
 	for _, ip := range self.PrivateIpAddresses {
-		nic := SInstanceNic{instance: self, ipAddr: ip}
+		nic := SInstanceNic{instance: self, ipAddr: ip, classic: classic}
 		nics = append(nics, &nic)
 	}
 	return nics, nil

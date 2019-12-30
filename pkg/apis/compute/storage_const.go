@@ -49,6 +49,7 @@ const (
 	// STORAGE_CLOUD_SSD ="cloud_ssd"
 	STORAGE_LOCAL_BASIC   = "local_basic"
 	STORAGE_LOCAL_SSD     = "local_ssd"
+	STORAGE_LOCAL_PRO     = "local_pro"
 	STORAGE_CLOUD_BASIC   = "cloud_basic"
 	STORAGE_CLOUD_PREMIUM = "cloud_premium"
 
