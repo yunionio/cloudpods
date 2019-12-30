@@ -266,7 +266,7 @@ type SNetInterface struct {
 	Mask net.IPMask
 	Mac  string
 
-	// Mtu int
+	Mtu int
 }
 
 var SECRET_PREFIX = "169.254"
@@ -319,6 +319,8 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		return
 	}
 
+	n.Mtu = inter.MTU
+
 	n.Mac = inter.HardwareAddr.String()
 	addrs, err := inter.Addrs()
 	if err == nil {
@@ -337,15 +339,6 @@ func (n *SNetInterface) fetchConfig(expectIp string) {
 		}
 	}
 
-	// mtuStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/mtu", n.name))
-	// if err != nil {
-	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
-	// }
-
-	// n.Mtu, err = strconv.Atoi(mtuStr)
-	// if err != nil {
-	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
-	// }
 }
 
 func (n *SNetInterface) DisableGso() {

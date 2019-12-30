@@ -24,25 +24,13 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-type IAgent interface {
-	GetAgentType() string
-	GetAccessIP() (net.IP, error)
-	GetListenIP() (net.IP, error)
-	GetPort() int
-	GetEnableSsl() bool
-	GetZoneName() string
-	GetAdminSession() *mcclient.ClientSession
-	TuneSystem() error
-	StartService() error
-	StopService() error
-}
 
 type SZoneInfo struct {
 	Name string `json:"name"`
@@ -80,11 +68,11 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 	return ips, nil
 }
 
-func (agent *SBaseAgent) IAgent() IAgent {
-	return agent.GetVirtualObject().(IAgent)
+func (agent *SBaseAgent) IAgent() iagent.IAgent {
+	return agent.GetVirtualObject().(iagent.IAgent)
 }
 
-func (agent *SBaseAgent) Init(iagent IAgent, ifname string, cachePath string) error {
+func (agent *SBaseAgent) Init(iagent iagent.IAgent, ifname string, cachePath string) error {
 	iface, err := net.InterfaceByName(ifname)
 	if err != nil {
 		return err

@@ -308,6 +308,10 @@ func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool 
 	return false
 }
 
+func (d *SKVMGuestDisk) MountRootfs() fsdriver.IRootFsDriver {
+	return d.MountKvmRootfs()
+}
+
 func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
 	return d.mountKvmRootfs(false)
 }
@@ -338,6 +342,10 @@ func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
 	if part := fd.GetPartition(); part != nil {
 		part.Umount()
 	}
+}
+
+func (d *SKVMGuestDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+	d.UmountKvmRootfs(fd)
 }
 
 func (d *SKVMGuestDisk) MakePartition(fs string) error {

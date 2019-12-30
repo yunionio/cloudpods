@@ -162,5 +162,3 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		return nil, fmt.Errorf("Failed to fetch image %s", imageId)
 	}
 }
-
-// TODO: AgentImageCacheManager
