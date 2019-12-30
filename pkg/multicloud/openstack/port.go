@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -149,7 +150,10 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(ports); i++ {
-		if len(ports[i].DeviceID) == 0 || ports[i].DeviceOwner != "compute:nova" {
+		if len(ports[i].DeviceID) == 0 || !utils.IsInStringArray(ports[i].DeviceOwner, []string{
+			"compute:nova",       //instance ip addr
+			"network:floatingip", //float ip addr
+		}) {
 			ports[i].region = region
 			ret = append(ret, &ports[i])
 		}
