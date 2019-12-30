@@ -2294,7 +2294,7 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 func (self *SDisk) GetSnapshotsNotInInstanceSnapshot() ([]SSnapshot, error) {
 	snapshots := make([]SSnapshot, 0)
 	sq := InstanceSnapshotJointManager.Query("snapshot_id").SubQuery()
-	q := SnapshotManager.Query().IsFalse("fake_deleted")
+	q := SnapshotManager.Query().IsFalse("fake_deleted").Equals("disk_id", self.Id)
 	q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("snapshot_id"))).
 		Filter(sqlchemy.IsNull(sq.Field("snapshot_id")))
 	err := db.FetchModelObjects(SnapshotManager, q, &snapshots)

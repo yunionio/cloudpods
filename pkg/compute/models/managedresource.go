@@ -463,6 +463,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 	if provider != nil {
 		info.Manager = provider.GetName()
 		info.ManagerId = provider.GetId()
+		info.Provider = provider.Provider
 
 		if len(provider.ProjectId) > 0 {
 			info.ManagerProjectId = provider.ProjectId
@@ -475,12 +476,12 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 		}
 
 		account := provider.GetCloudaccount()
-		info.Account = account.GetName()
-		info.AccountId = account.GetId()
-
-		info.Provider = provider.Provider
-		info.Brand = account.Brand
-		info.CloudEnv = account.getCloudEnv()
+		if account != nil {
+			info.Account = account.GetName()
+			info.AccountId = account.GetId()
+			info.Brand = account.Brand
+			info.CloudEnv = account.getCloudEnv()
+		}
 
 		if region != nil {
 			info.RegionExternalId = region.ExternalId
