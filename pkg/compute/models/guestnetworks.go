@@ -42,6 +42,9 @@ import (
 
 const (
 	MAX_IFNAME_SIZE = 13
+	MAX_HINT_LEN    = MAX_IFNAME_SIZE - 4          // 9
+	HINT_BASE_LEN   = 6                            // 6
+	HINT_RAND_LEN   = MAX_HINT_LEN - HINT_BASE_LEN // 3
 
 	MAX_GUESTNIC_TO_SAME_NETWORK = 2
 )
