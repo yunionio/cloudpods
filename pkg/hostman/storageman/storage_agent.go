@@ -31,8 +31,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	_interface "yunion.io/x/onecloud/pkg/cloudcommon/agent/interface"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -163,7 +161,7 @@ func (as *SAgentStorage) tryRenameVm(ctx context.Context, vm *esxi.SVirtualMachi
 		if tried < len(cands) {
 			n = cands[tried]
 		} else {
-			n = fmt.Sprint("%s-%d", alterName, tried-len(cands)+1)
+			n = fmt.Sprintf("%s-%d", alterName, tried-len(cands)+1)
 		}
 		tried += 1
 		err = vm.DoRename(ctx, n)
@@ -265,38 +263,45 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	if resetPassword && len(passwd) == 0 {
 		passwd = seclib.RandomPassword(12)
 	}
-	var deploy jsonutils.JSONObject
-	MountVDDKRootfs(MoutVdDDKRootfsParam{
-		Vmref:    vmref,
-		DiskPath: rootPath,
-		Host:     info.Host,
-		Port:     info.Port,
-		User:     info.Account,
-		Passwd:   info.Password,
-	}, func(d fsdriver.IRootFsDriver) {
-		if d != nil {
-			deploy, err = guestfs.DeployGuestFs(d, desc.(*jsonutils.JSONDict), &deployapi.DeployInfo{
-				PublicKey: &key,
-				Deploys:   deployArray,
-				Password:  passwd,
-				IsInit:    init,
-			})
-			if err != nil {
-				log.Errorf("guestfs.DeployGuestFs: %s", err)
-			}
-		}
-	})
 
-	// if deploy fail, try customization
-	if deploy == nil {
-		as.waitVmToolsVersion(ctx, vm)
-		err = vm.DoCustomize(ctx, desc)
+	vddkInfo := deployapi.VDDKConInfo{
+		Host:   info.Host,
+		Port:   int32(info.Port),
+		User:   info.Account,
+		Passwd: info.Password,
+		Vmref:  vmref,
+	}
+	guestDesc := deployapi.GuestDesc{}
+	err = desc.Unmarshal(&guestDesc)
+	if err != nil {
+		return nil, errors.Wrap(err, "jsonutils.Unmarshal")
+	}
+	guestDesc.Hypervisor = api.HYPERVISOR_ESXI
+
+	deploy, err := deployclient.GetDeployClient().DeployGuestFs(ctx, &deployapi.DeployParams{
+		DiskPath:  rootPath,
+		GuestDesc: &guestDesc,
+		DeployInfo: &deployapi.DeployInfo{
+			PublicKey: &key,
+			Deploys:   deployArray,
+			Password:  passwd,
+			IsInit:    init,
+		},
+		VddkInfo: &vddkInfo,
+	})
+	if err != nil {
+		log.Errorf("DeployClient.DeployGuestFs: %s", err)
+		// if deploy fail, try customization
 		if err != nil {
-			return nil, errors.Wrap(err, "VM.DoCustomize")
+			as.waitVmToolsVersion(ctx, vm)
+			err = vm.DoCustomize(ctx, desc)
+			if err != nil {
+				return nil, errors.Wrap(err, "VM.DoCustomize")
+			}
 		}
 	}
 
-	ret := jsonutils.NewArray()
+	array := jsonutils.NewArray()
 	diskArray, _ := desc.GetArray("disks")
 	for idx, d := range disks {
 		disk := d.(*esxi.SVirtualDisk)
@@ -309,14 +314,15 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 		diskDict.Add(jsonutils.NewString(disk.GetCacheMode()), "cache_mode")
 		diskDict.Add(jsonutils.NewString(disk.GetDiskType()), "disk_type")
 		diskDict.Add(jsonutils.NewString(disk.GetDriver()), "driver")
-		ret.Add(diskDict)
+		array.Add(diskDict)
 	}
 	updated := jsonutils.NewDict()
-	updated.Add(ret, "disks")
+	updated.Add(array, "disks")
 	updated.Add(jsonutils.NewString(vm.GetGlobalId()), "uuid")
 	updated.Add(jsonutils.NewString(realHost.GetAccessIp()), "host_ip")
-	deploy.(*jsonutils.JSONDict).Update(updated)
-	return deploy, nil
+	ret := jsonutils.Marshal(deploy)
+	ret.(*jsonutils.JSONDict).Update(updated)
+	return ret, nil
 }
 
 func (as *SAgentStorage) waitVmToolsVersion(ctx context.Context, vm *esxi.SVirtualMachine) {

@@ -6,6 +6,8 @@ ENV TZ Asia/Shanghai
 
 RUN mkdir -p /opt/yunion/bin
 
+COPY ./build/host-deployer/root/opt/ /opt/
+COPY ./build/host-deployer/root/usr/ /usr/
 ADD ./_output/bin/host-deployer /opt/yunion/bin/host-deployer
 ADD ./_output/bin/.host-deployer.bin /opt/yunion/bin/.host-deployer.bin
 ADD ./_output/bin/bundles/host-deployer /opt/yunion/bin/bundles/host-deployer

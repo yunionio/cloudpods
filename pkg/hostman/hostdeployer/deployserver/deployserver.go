@@ -27,6 +27,7 @@ import (
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
@@ -45,19 +46,22 @@ type DeployerServer struct{}
 func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams,
 ) (*deployapi.DeployGuestFsResponse, error) {
 	log.Infof("Deploy guest fs on %s", req.DiskPath)
-	var kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath)
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
-		log.Infof("Failed to connect kvm disk")
+	var disk = diskutils.GetIDisk(req)
+	if len(req.GuestDesc.Hypervisor) == 0 {
+		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
+	}
+	defer disk.Disconnect()
+	if !disk.Connect() {
+		log.Infof("Failed to connect %s disk", req.GuestDesc.Hypervisor)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
 
-	root := kvmDisk.MountKvmRootfs()
+	root := disk.MountRootfs()
 	if root == nil {
-		log.Infof("Failed mounting rootfs for kvm disk")
+		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
 		return new(deployapi.DeployGuestFsResponse), nil
 	}
-	defer kvmDisk.UmountKvmRootfs(root)
+	defer disk.UmountRootfs(root)
 
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {

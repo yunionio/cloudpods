@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storageman
+package diskutils
 
 import (
 	"bytes"
@@ -31,13 +31,12 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 const (
@@ -60,6 +59,17 @@ type VDDKDisk struct {
 	PartDirs []string
 	Proc     *Command
 	Pid      int
+}
+
+func NewVDDKDisk(vddkInfo *apis.VDDKConInfo, diskPath string) *VDDKDisk {
+	return &VDDKDisk{
+		Host:     vddkInfo.Host,
+		Port:     int(vddkInfo.Port),
+		User:     vddkInfo.User,
+		Passwd:   vddkInfo.Passwd,
+		VmRef:    vddkInfo.Vmref,
+		DiskPath: diskPath,
+	}
 }
 
 type Command struct {
@@ -121,6 +131,34 @@ func logpath(pid int) string {
 	return fmt.Sprintf("%s/vixDiskLib-%d.log", TMPDIR, pid)
 }
 
+func (vd *VDDKDisk) Connect() bool {
+	return true
+}
+
+func (vd *VDDKDisk) Disconnect() bool {
+	return true
+}
+
+func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
+	if err := vd.Mount(); err == nil {
+		for _, mntPath := range vd.PartDirs {
+			part := newVDDKPartition(mntPath)
+			if fs := guestfs.DetectRootFs(part); fs != nil {
+				log.Infof("Use rootfs %s", fs)
+				return fs
+			}
+		}
+	}
+	return nil
+}
+
+func (vd *VDDKDisk) UmountRootfs(fd fsdriver.IRootFsDriver) {
+	err := vd.Umount()
+	if err != nil {
+		log.Errorf("VDDKDisk Umount failed: %s", err)
+	}
+}
+
 func (vd *VDDKDisk) ParsePartitions(buf string) error {
 	// Disk flat file mounted under /run/vmware/fuse/7673253059900458465
 	// Mounted Volume 1, Type 1, isMounted 1, symLink /tmp/vmware-root/7673253059900458465_1, numGuestMountPoints 0 (<null>)
@@ -163,7 +201,7 @@ func (vd *VDDKDisk) Mount() (err error) {
 	return nil
 }
 
-func (vd *VDDKDisk) Unmount() error {
+func (vd *VDDKDisk) Umount() error {
 	if vd.Proc != nil {
 		err := vd.Proc.Send([]byte{'y'})
 		if err != nil {
@@ -336,110 +374,4 @@ func (vp *VDDKPartition) GetPhysicalPartitionType() string {
 
 func newVDDKPartition(mntPath string) *VDDKPartition {
 	return &VDDKPartition{guestfs.NewLocalGuestFS(mntPath)}
-}
-
-type sMountVDDKRootfs struct {
-	Passwd   string
-	Host     string
-	Port     int
-	User     string
-	VmRef    string
-	DiskPath string
-	Disk     *VDDKDisk
-}
-
-func newMountVDDKRootfs(vmref, diskPath string, host interface{}, port int, user, passwd string) *sMountVDDKRootfs {
-
-	var realHost string
-
-	if dict, ok := host.(*jsonutils.JSONDict); ok {
-		passwd, _ = dict.GetString("password")
-		realHost, _ = dict.GetString("host")
-		user, _ = dict.GetString("account")
-
-		port1, _ := dict.Int("port")
-		port = int(port1)
-		vcId, _ := dict.GetString("vcenter_id")
-		p, err := seclib2.DecryptBase64(vcId, passwd)
-		if err == nil {
-			passwd = p
-		}
-	} else {
-		realHost = host.(string)
-	}
-	return &sMountVDDKRootfs{
-		Passwd:   passwd,
-		Host:     realHost,
-		Port:     port,
-		User:     user,
-		VmRef:    vmref,
-		DiskPath: diskPath,
-		Disk:     nil,
-	}
-}
-
-func (mvr *sMountVDDKRootfs) enter() fsdriver.IRootFsDriver {
-	drivers := fsdriver.GetRootfsDrivers()
-	disk := VDDKDisk{
-		Host:     mvr.Host,
-		Port:     mvr.Port,
-		User:     mvr.User,
-		Passwd:   mvr.Passwd,
-		VmRef:    mvr.VmRef,
-		DiskPath: mvr.DiskPath,
-	}
-	mvr.Disk = &disk
-	if err := disk.Mount(); err == nil {
-		for _, mntPath := range disk.PartDirs {
-			part := newVDDKPartition(mntPath)
-			for _, drvcls := range drivers {
-				fs := drvcls(part)
-				if mvr.testRootFs(fs) {
-					return fs
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (mvr *sMountVDDKRootfs) exit() {
-	if mvr.Disk != nil {
-		mvr.Disk.Unmount()
-	}
-}
-
-func (mvr *sMountVDDKRootfs) testRootFs(fs fsdriver.IRootFsDriver) bool {
-	caseInsensitive := fs.IsFsCaseInsensitive()
-	for _, rd := range fs.RootSignatures() {
-		if !fs.GetPartition().Exists(rd, caseInsensitive) {
-			log.Infof("[%s]test_root_fs: %s not exists", fs.GetName(), rd)
-			return false
-		}
-	}
-	ex := fs.RootExcludeSignatures()
-	if ex != nil {
-		for _, rd := range ex {
-			if fs.GetPartition().Exists(rd, caseInsensitive) {
-				log.Infof("[%s]test_root_fs: %s exists, test failed", fs.GetName(), rd)
-				return false
-			}
-		}
-	}
-	return true
-}
-
-type MoutVdDDKRootfsParam struct {
-	Vmref    string
-	DiskPath string
-	Host     interface{}
-	Port     int
-	User     string
-	Passwd   string
-}
-
-func MountVDDKRootfs(param MoutVdDDKRootfsParam, dealFunc func(fsdriver.IRootFsDriver)) {
-	mvr := newMountVDDKRootfs(param.Vmref, param.DiskPath, param.Host, param.Port, param.User, param.Passwd)
-	dealFunc(mvr.enter())
-	mvr.exit()
 }
