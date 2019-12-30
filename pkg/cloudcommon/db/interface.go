@@ -39,6 +39,7 @@ type IModelManager interface {
 	lockman.ILockedClass
 	object.IObject
 
+	IsStandaloneManager() bool
 	GetContextManagers() [][]IModelManager
 
 	GetIModelManager() IModelManager

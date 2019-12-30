@@ -68,6 +68,10 @@ func NewStandaloneResourceBaseManager(dt interface{}, tableName string, keyword 
 	return SStandaloneResourceBaseManager{SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural)}
 }
 
+func (manager *SStandaloneResourceBaseManager) IsStandaloneManager() bool {
+	return true
+}
+
 func (manager *SStandaloneResourceBaseManager) GetIStandaloneModelManager() IStandaloneModelManager {
 	return manager.GetVirtualObject().(IStandaloneModelManager)
 }
