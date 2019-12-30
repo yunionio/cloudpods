@@ -16,17 +16,19 @@ package deployserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"google.golang.org/grpc"
 
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	comapi "yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils"
@@ -43,21 +45,35 @@ import (
 type DeployerServer struct{}
 
 func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams,
-) (*deployapi.DeployGuestFsResponse, error) {
+) (res *deployapi.DeployGuestFsResponse, err error) {
+	// There will be some occasional unknown panic, so temporarily capture panic here.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("DeployGuestFs: %s", r)
+			debug.PrintStack()
+			msg := "panic: "
+			if str, ok := r.(fmt.Stringer); ok {
+				msg += str.String()
+			}
+			res, err = nil, errors.Error(msg)
+		}
+	}()
 	log.Infof("Deploy guest fs on %s", req.DiskPath)
-	var kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath)
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
-		log.Infof("Failed to connect kvm disk")
-		return new(deployapi.DeployGuestFsResponse), nil
+	var disk = diskutils.GetIDisk(req)
+	if len(req.GuestDesc.Hypervisor) == 0 {
+		req.GuestDesc.Hypervisor = comapi.HYPERVISOR_KVM
 	}
-
-	root := kvmDisk.MountKvmRootfs()
+	defer disk.Disconnect()
+	if !disk.Connect() {
+		log.Infof("Failed to connect %s disk", req.GuestDesc.Hypervisor)
+		return new(deployapi.DeployGuestFsResponse), errors.Error("disk connect failed")
+	}
+	root := disk.MountRootfs()
 	if root == nil {
-		log.Infof("Failed mounting rootfs for kvm disk")
-		return new(deployapi.DeployGuestFsResponse), nil
+		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
+		return new(deployapi.DeployGuestFsResponse), errors.Error("rootfs mount failed")
 	}
-	defer kvmDisk.UmountKvmRootfs(root)
+	defer disk.UmountRootfs(root)
 
 	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
@@ -75,7 +91,7 @@ func (*DeployerServer) ResizeFs(ctx context.Context, req *deployapi.ResizeFsPara
 	disk := diskutils.NewKVMGuestDisk(req.DiskPath)
 	defer disk.Disconnect()
 	if !disk.Connect() {
-		return new(deployapi.Empty), errors.New("resize fs disk connect failed")
+		return new(deployapi.Empty), errors.Error("resize fs disk connect failed")
 	}
 
 	root := disk.MountKvmRootfs()
@@ -166,7 +182,7 @@ func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeI
 	defer kvmDisk.Disconnect()
 	if !kvmDisk.Connect() {
 		log.Infof("Failed to connect kvm disk")
-		return new(deployapi.ImageInfo), errors.New("Disk connector failed to connect image")
+		return new(deployapi.ImageInfo), errors.Error("Disk connector failed to connect image")
 	}
 
 	// Fsck is executed during mount

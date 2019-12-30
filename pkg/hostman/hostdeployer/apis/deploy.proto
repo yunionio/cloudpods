@@ -10,6 +10,8 @@ message GuestDesc {
   repeated Nic nics = 4;
   repeated Nic nics_standby = 5;
   repeated Disk disks = 6;
+
+  string Hypervisor = 7;
 }
 
 message Disk {
@@ -31,7 +33,6 @@ message Disk {
   string mountpoint = 16;
   string dev = 17;
 }
-
 
 message Nic {
   string mac = 1;
@@ -60,6 +61,14 @@ message Nic {
   bool link_up = 24;
   int64 mtu = 25;
   string name = 26;
+}
+
+message VDDKConInfo {
+  string host = 1;
+  int32 port = 2;
+  string user = 3;
+  string passwd = 4;
+  string vmref = 5;
 }
 
 message DeployInfo {
@@ -103,6 +112,7 @@ message DeployParams {
   string disk_path = 1;
   GuestDesc guest_desc = 2;
   DeployInfo deploy_info = 3;
+  VDDKConInfo vddk_info = 4;
 }
 
 message ResizeFsParams {
