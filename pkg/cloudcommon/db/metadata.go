@@ -61,7 +61,6 @@ type SMetadata struct {
 }
 
 var Metadata *SMetadataManager
-var ResourceMap map[string]*SVirtualResourceBaseManager
 
 func init() {
 	Metadata = &SMetadataManager{
@@ -73,15 +72,6 @@ func init() {
 		),
 	}
 	Metadata.SetVirtualObject(Metadata)
-
-	ResourceMap = map[string]*SVirtualResourceBaseManager{
-		"disk":       {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "disks_tbl", "disk", "disks")},
-		"server":     {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "guests_tbl", "server", "servers")},
-		"eip":        {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "elasticips_tbl", "eip", "eips")},
-		"snapshot":   {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "snapshots_tbl", "snpashot", "snpashots")},
-		"dbinstance": {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "dbinstances_tbl", "dbinstance", "dbinstances")},
-		"host":       {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "hosts_tbl", "host", "hosts")},
-	}
 }
 
 func (m *SMetadata) GetId() string {
@@ -195,28 +185,31 @@ func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mc
 func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	resources := jsonutils.GetQueryStringArray(query, "resources")
 	if len(resources) == 0 {
-		for resource := range ResourceMap {
+		for resource := range globalTables {
 			resources = append(resources, resource)
 		}
 	}
 	conditions := []sqlchemy.ICondition{}
 	for _, resource := range resources {
-		if man, ok := ResourceMap[resource]; ok {
-			resourceView := man.Query().IsFalse("pending_deleted").SubQuery()
-			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
-			field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
-			sq := resourceView.Query(field)
-			ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
-			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "FetchCheckQueryOwnerScope"))
-			}
-			sq = man.FilterByOwner(sq, ownerId, queryScope)
-			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
-			sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
-			conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
-		} else {
+		man, ok := globalTables[resource]
+		if !ok {
 			return nil, httperrors.NewInputParameterError("Not support resource %s tag filter", resource)
 		}
+		if !man.IsStandaloneManager() {
+			continue
+		}
+		resourceView := man.Query().SubQuery()
+		prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
+		field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
+		sq := resourceView.Query(field)
+		ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrap(err, "FetchCheckQueryOwnerScope"))
+		}
+		sq = man.FilterByOwner(sq, ownerId, queryScope)
+		sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
+		sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
+		conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
 	}
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
