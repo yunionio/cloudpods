@@ -204,7 +204,12 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deploy
 	var rec string
 	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	var fstab = fstabutils.FSTabFile(string(fstabcont))
-	fstab = fstab.RemoveDevices(len(disks))
+	if fstab != nil {
+		fstab = fstab.RemoveDevices(len(disks))
+	} else {
+		_fstab := make(fstabutils.FsTab, 0)
+		fstab = &_fstab
+	}
 
 	for i := 1; i < len(disks); i++ {
 		diskId := disks[i].DiskId
@@ -314,8 +319,11 @@ func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	if rootFs.Exists("/etc/fstab", false) {
 		fstabcont, _ := rootFs.FileGetContents("/etc/fstab", false)
 		fstab := fstabutils.FSTabFile(string(fstabcont))
-		fstab = fstab.RemoveDevices(1)
-		cf := fstab.ToConf()
+		var cf string
+		if fstab != nil {
+			fstab = fstab.RemoveDevices(1)
+			cf = fstab.ToConf()
+		}
 		if err := rootFs.FilePutContents("/etc/fstab", cf, false, false); err != nil {
 			return err
 		}
