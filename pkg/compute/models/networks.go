@@ -1127,33 +1127,48 @@ func isValidMaskLen(maskLen int64) bool {
 }
 
 func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
-	r := ""
-	// sanitize hint
-	for _, c := range hint {
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
-			r += string(c)
-		}
+	isa := func(c byte) bool {
+		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 	}
-	newHint := func() (string, error) {
+	isn := func(c byte) bool {
+		return (c >= '0' && c <= '9')
+	}
+	sani := func(r string) string {
+		if r != "" && !isa(r[0]) {
+			return "a" + r
+		}
+		return r
+	}
+	newHint := func(base string) (string, error) {
+		if len(base) > 8 {
+			base = base[:8]
+		}
 		for i := 0; i < 3; i++ {
-			r := rand.String(7)
+			r := base + rand.String(7)
 			cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError()
 			if err == nil && cnt == 0 {
-				return r, nil
+				return sani(r), nil
 			}
 		}
 		return "", fmt.Errorf("failed finding ifname hint after 3 tries")
 	}
-	if len(r) < 3 {
-		return newHint()
+
+	r := ""
+	for i := range hint {
+		c := hint[i]
+		if isa(c) || isn(c) || c == '_' {
+			r += string(c)
+		}
 	}
-	if len(r) > 9 {
-		r = r[:9]
+	r = sani(r)
+
+	if len(r) < 3 {
+		return newHint(r)
 	}
 	if cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError(); err != nil {
 		return "", err
 	} else if cnt > 0 {
-		r, err := newHint()
+		r, err := newHint(r)
 		return r, err
 	}
 	return r, nil
