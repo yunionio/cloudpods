@@ -127,6 +127,12 @@ func init() {
 		return nil
 	})
 
+	R(&HostOpsOptions{}, "host-sync-config", "Synchronize config of a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "sync-config", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
+		return nil
+	})
+
 	R(&HostOpsOptions{}, "host-prepare", "Prepare a host for installation", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
 		results := modules.Hosts.BatchPerformAction(s, args.ID, "prepare", nil)
 		printBatchResults(results, modules.Hosts.GetColumns(s))
@@ -186,6 +192,10 @@ func init() {
 		CpuReserved       int64   `help:"CPU reserved"`
 		HostType          string  `help:"Change host type, CAUTION!!!!" choices:"hypervisor|kubelet|esxi|baremetal"`
 		AccessIp          string  `help:"Change access ip, CAUTION!!!!"`
+
+		IpmiUsername string `help:"IPMI user"`
+		IpmiPassword string `help:"IPMI password"`
+		IpmiIpAddr   string `help:"IPMI ip_addr"`
 	}
 	R(&HostUpdateOptions{}, "host-update", "Update information of a host", func(s *mcclient.ClientSession, args *HostUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -212,6 +222,15 @@ func init() {
 		}
 		if len(args.AccessIp) > 0 {
 			params.Add(jsonutils.NewString(args.AccessIp), "access_ip")
+		}
+		if len(args.IpmiUsername) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiUsername), "ipmi_username")
+		}
+		if len(args.IpmiPassword) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiPassword), "ipmi_password")
+		}
+		if len(args.IpmiIpAddr) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiIpAddr), "ipmi_ip_addr")
 		}
 		if params.Size() == 0 {
 			return fmt.Errorf("Not data to update")
