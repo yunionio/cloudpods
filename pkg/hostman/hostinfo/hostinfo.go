@@ -366,14 +366,7 @@ func (h *SHostInfo) detectHostInfo() error {
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	for _, srv := range []string{"ntpd"} {
-		srvinst := system_service.GetService(srv)
-		if !srvinst.IsInstalled() {
-			return fmt.Errorf("Service %s not installed", srv)
-		}
-	}
-
-	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf"} {
+	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf", "ntpd"} {
 		srvinst := system_service.GetService(srv)
 		if !srvinst.IsInstalled() {
 			log.Warningf("Service %s not installed", srv)
@@ -832,7 +825,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 
 	if len(hostId) == 0 {
-		content.Set("name", jsonutils.NewString(h.fetchHostname()))
+		content.Set("generate_name", jsonutils.NewString(h.fetchHostname()))
 	}
 	content.Set("access_ip", jsonutils.NewString(masterIp))
 	content.Set("access_mac", jsonutils.NewString(h.GetMasterMac()))
