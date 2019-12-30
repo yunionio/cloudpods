@@ -4030,3 +4030,27 @@ func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCre
 func (host *SHost) GetSchedtagJointManager() ISchedtagJointManager {
 	return HostschedtagManager
 }
+
+func (self *SHost) AllowPerformSyncConfig(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "sync-config")
+}
+
+func (self *SHost) PerformSyncConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.HostType != api.HOST_TYPE_BAREMETAL {
+		return nil, httperrors.NewBadRequestError("Cannot sync config a non-baremetal host")
+	}
+	self.SetStatus(userCred, api.BAREMETAL_SYNCING_STATUS, "")
+	return nil, self.StartSyncConfig(ctx, userCred, "")
+}
+
+func (self *SHost) StartSyncConfig(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncConfigTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
