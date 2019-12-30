@@ -180,6 +180,18 @@ var (
 					Action:   PolicyActionCreate,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "services",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "services",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
@@ -451,18 +463,6 @@ var (
 					Service:  identityapi.SERVICE_TYPE,
 					Resource: "domains",
 					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  identityapi.SERVICE_TYPE,
-					Resource: "services",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  identityapi.SERVICE_TYPE,
-					Resource: "services",
-					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
 			},
