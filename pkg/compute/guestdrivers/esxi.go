@@ -284,15 +284,6 @@ func (self *SESXiGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 	return fmt.Errorf("ESXiGuestDriver not support associate eip")
 }
 
-func (self *SESXiGuestDriver) CancelExpireTime(
-	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-	return guest.CancelExpireTime(ctx, userCred)
-}
-
-func (self *SESXiGuestDriver) IsSupportPostpaidExpire() bool {
-	return true
-}
-
 func (self *SESXiGuestDriver) IsSupportCdrom(guest *models.SGuest) (bool, error) {
 	return false, nil
 }
