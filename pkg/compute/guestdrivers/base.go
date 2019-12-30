@@ -251,7 +251,7 @@ func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 }
 
 func (self *SBaseGuestDriver) IsSupportPostpaidExpire() bool {
-	return false
+	return true
 }
 
 func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
@@ -324,6 +324,5 @@ func (self *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, gu
 
 func (self *SBaseGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
-
-	return httperrors.NewBadRequestError("unsupport cancel expire time")
+	return guest.CancelExpireTime(ctx, userCred)
 }
