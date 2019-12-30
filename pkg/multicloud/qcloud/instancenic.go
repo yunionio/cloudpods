@@ -23,6 +23,7 @@ import (
 type SInstanceNic struct {
 	instance *SInstance
 	ipAddr   string
+	classic  bool
 }
 
 func (self *SInstanceNic) GetIP() string {
@@ -36,6 +37,10 @@ func (self *SInstanceNic) GetMAC() string {
 
 func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
+}
+
+func (self *SInstanceNic) InClassicNetwork() bool {
+	return self.classic
 }
 
 func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {

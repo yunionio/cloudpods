@@ -176,6 +176,39 @@ func (self *SVpc) GetWires() []SWire {
 	return wires
 }
 
+func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudproviderId string) string {
+	return fmt.Sprintf("%s-%s", regionId, cloudproviderId)
+}
+
+func (manager *SVpcManager) NewVpcForClassicNetwork(host *SHost) (*SVpc, error) {
+	region := host.GetRegion()
+	cloudprovider := host.GetCloudprovider()
+	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)
+	_vpc, err := db.FetchByExternalId(manager, externalId)
+	if err == nil {
+		return _vpc.(*SVpc), nil
+	}
+	if errors.Cause(err) != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchByExternalId")
+	}
+	vpc := &SVpc{
+		IsDefault:     false,
+		CloudregionId: region.Id,
+	}
+	vpc.SetModelManager(manager, vpc)
+	vpc.Name = fmt.Sprintf("emulated vpc for %s %s classic network", region.Name, cloudprovider.Name)
+	vpc.IsEmulated = true
+	vpc.Enabled = false
+	vpc.Status = api.VPC_STATUS_UNAVAILABLE
+	vpc.ExternalId = externalId
+	vpc.ManagerId = host.ManagerId
+	err = manager.TableSpec().Insert(vpc)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert vpc for classic network")
+	}
+	return vpc, nil
+}
+
 func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
 	q := NetworkManager.Query()
 	wireQ := self.getWireQuery().SubQuery()
@@ -382,6 +415,10 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
+
+	if VpcManager.getVpcExternalIdForClassicNetwork(self.CloudregionId, self.ManagerId) == self.ExternalId { //为经典网络虚拟的vpc
+		return nil
+	}
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete

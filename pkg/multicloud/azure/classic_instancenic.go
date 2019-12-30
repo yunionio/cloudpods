@@ -48,6 +48,10 @@ func (self *SClassicInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (self *SClassicInstanceNic) InClassicNetwork() bool {
+	return true
+}
+
 func (self *SClassicInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	wires, err := self.instance.host.GetIWires()
 	if err != nil {

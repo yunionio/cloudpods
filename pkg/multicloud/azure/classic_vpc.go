@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -200,10 +201,7 @@ func (self *SClassicVpc) GetRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SClassicVpc) GetStatus() string {
-	if strings.ToLower(self.Properties.Status) == "created" {
-		return "available"
-	}
-	return "disabled"
+	return api.VPC_STATUS_UNAVAILABLE
 }
 
 func (self *SClassicVpc) Refresh() error {
