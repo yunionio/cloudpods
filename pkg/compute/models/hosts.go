@@ -1276,6 +1276,13 @@ func (self *SHost) GetBaremetalnetworks() []SHostnetwork {
 
 func (self *SHost) GetAttach2Network(netId string) *SHostnetwork {
 	q := self.GetBaremetalnetworksQuery()
+	netifs := NetInterfaceManager.Query().Equals("baremetal_id", self.Id)
+	netifs = netifs.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(netifs.Field("nic_type")),
+		sqlchemy.NotEquals(netifs.Field("nic_type"), api.NIC_TYPE_IPMI),
+	))
+	netifsSub := netifs.SubQuery()
+	q = q.Join(netifsSub, sqlchemy.Equals(q.Field("mac_addr"), netifsSub.Field("mac")))
 	q = q.Equals("network_id", netId)
 	hn := SHostnetwork{}
 	hn.SetModelManager(HostnetworkManager, &hn)
@@ -1286,11 +1293,6 @@ func (self *SHost) GetAttach2Network(netId string) *SHostnetwork {
 		return nil
 	}
 	return &hn
-}
-
-func (self *SHost) isAttach2Network(network *SNetwork) bool {
-	hn := self.GetAttach2Network(network.Id)
-	return hn != nil
 }
 
 func (self *SHost) GetNetInterfaces() []SNetInterface {
