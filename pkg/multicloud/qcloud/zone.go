@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -175,6 +176,12 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, error) {
+	if len(self.localstorages) == 0 {
+		err := self.fetchStorages()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchStorages")
+		}
+	}
 	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) {
 		return &SLocalStorage{zone: self, storageType: strings.ToUpper(category)}, nil
 	}
@@ -182,6 +189,12 @@ func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, e
 }
 
 func (self *SZone) validateStorageType(category string) error {
+	if len(self.localstorages) == 0 || len(self.cloudstorages) == 0 {
+		err := self.fetchStorages()
+		if err != nil {
+			return errors.Wrap(err, "fetchStorages")
+		}
+	}
 	if utils.IsInStringArray(strings.ToUpper(category), self.localstorages) || utils.IsInStringArray(strings.ToUpper(category), self.cloudstorages) {
 		return nil
 	}
