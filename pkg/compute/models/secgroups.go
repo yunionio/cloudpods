@@ -30,10 +30,12 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -112,12 +114,25 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 			return nil, httperrors.NewGeneralError(err)
 		}
 		serverId := guest.GetId()
-		sq1 := GuestManager.Query("secgrp_id").Equals("id", serverId).SubQuery()
-		sq2 := GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("id"), sq1),
-			sqlchemy.In(q.Field("id"), sq2),
-		))
+		filters := []sqlchemy.ICondition{}
+		filters = append(filters, sqlchemy.In(q.Field("id"), GuestManager.Query("secgrp_id").Equals("id", serverId).SubQuery()))
+		filters = append(filters, sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()))
+
+		isAdmin := false
+		admin, _ := query.Bool("admin")
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
+				isAdmin = true
+			}
+		} else if userCred.HasSystemAdminPrivilege() && admin {
+			isAdmin = true
+		}
+
+		if isAdmin {
+			filters = append(filters, sqlchemy.In(q.Field("id"), GuestManager.Query("admin_secgrp_id").Equals("id", serverId).SubQuery()))
+		}
+		q = q.Filter(sqlchemy.OR(filters...))
 	}
 
 	return q, nil
