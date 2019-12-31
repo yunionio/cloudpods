@@ -137,7 +137,6 @@ func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcc
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
 	pendingUsage quotas.IQuota,
 	parentTaskId string,
 ) error {
@@ -151,13 +150,13 @@ func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(
 }
 
 func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
-	ctx context.Context, ownerId mcclient.IIdentityProvider, guest *SGuest, name string, autoDelete bool,
+	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, name string, autoDelete bool,
 ) (*SInstanceSnapshot, error) {
 	instanceSnapshot := &SInstanceSnapshot{}
 	instanceSnapshot.SetModelManager(manager, instanceSnapshot)
 	instanceSnapshot.Name = name
-	instanceSnapshot.ProjectId = ownerId.GetProjectId()
-	instanceSnapshot.DomainId = ownerId.GetProjectDomainId()
+	instanceSnapshot.ProjectId = userCred.GetProjectId()
+	instanceSnapshot.DomainId = userCred.GetProjectDomainId()
 	instanceSnapshot.GuestId = guest.Id
 	instanceSnapshot.AutoDelete = autoDelete
 	guestSchedInput := guest.ToSchedDesc()
