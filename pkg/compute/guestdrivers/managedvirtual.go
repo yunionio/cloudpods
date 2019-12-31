@@ -1054,6 +1054,8 @@ func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 		status = cloudprovider.CloudVMStatusChangeFlavor
 	case api.VM_DEPLOYING:
 		status = cloudprovider.CloudVMStatusDeploying
+	case api.VM_SUSPEND:
+		status = cloudprovider.CloudVMStatusSuspend
 	default:
 		status = cloudprovider.CloudVMStatusOther
 	}
