@@ -757,7 +757,7 @@ func (self *SGuest) AllowPerformResume(ctx context.Context, userCred mcclient.To
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "resume")
 }
 
-func (self *SGuest) PerformResume(ctx context.Context, userCred mcclient.TokenCredential, query struct{}, data struct{}) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformResume(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerResumeInput) (jsonutils.JSONObject, error) {
 	if self.Status == api.VM_SUSPEND {
 		err := self.StartResumeTask(ctx, userCred, "")
 		return nil, err
