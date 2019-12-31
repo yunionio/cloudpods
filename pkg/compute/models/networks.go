@@ -1024,19 +1024,22 @@ func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	}
 	sani := func(r string) string {
 		if r != "" && !isa(r[0]) {
-			return "a" + r
+			r = "a" + r
+		}
+		if len(r) > MAX_HINT_LEN {
+			r = r[:MAX_HINT_LEN]
 		}
 		return r
 	}
-	newHint := func(base string) (string, error) {
-		if len(base) > 8 {
-			base = base[:8]
+	rand := func(base string) (string, error) {
+		if len(base) > HINT_BASE_LEN {
+			base = base[:HINT_BASE_LEN]
 		}
 		for i := 0; i < 3; i++ {
-			r := base + rand.String(7)
+			r := sani(base + rand.String(HINT_RAND_LEN))
 			cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError()
 			if err == nil && cnt == 0 {
-				return sani(r), nil
+				return r, nil
 			}
 		}
 		return "", fmt.Errorf("failed finding ifname hint after 3 tries")
@@ -1052,13 +1055,12 @@ func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	r = sani(r)
 
 	if len(r) < 3 {
-		return newHint(r)
+		return rand(r)
 	}
 	if cnt, err := manager.Query().Equals("ifname_hint", r).CountWithError(); err != nil {
 		return "", err
 	} else if cnt > 0 {
-		r, err := newHint(r)
-		return r, err
+		return rand(r)
 	}
 	return r, nil
 }
