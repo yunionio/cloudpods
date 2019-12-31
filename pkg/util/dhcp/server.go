@@ -104,7 +104,8 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 	for {
 		pkt, addr, mac, intf, err := s.conn.RecvDHCP()
 		if err != nil {
-			return fmt.Errorf("Receiving DHCP packet: %s", err)
+			log.Errorf("Receiving DHCP packet: %s", err)
+			continue
 		}
 		// if intf == nil {
 		// 	return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
