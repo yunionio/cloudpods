@@ -33,7 +33,7 @@ type GatewayOptions struct {
 }
 
 var (
-	Options GatewayOptions
+	Options *GatewayOptions
 )
 
 func OnOptionsChange(oldO, newO interface{}) bool {
