@@ -501,6 +501,16 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 }
 
 func (this *ImageManager) Update(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.PutInContexts(s, id, params, nil)
+}
+
+func (this *ImageManager) BatchUpdate(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []modulebase.SubmitResult {
+	return modulebase.BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
+		return this.PutInContexts(session, id, params, nil)
+	})
+}
+
+func (this *ImageManager) PutInContexts(s *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctxs []modulebase.ManagerContext) (jsonutils.JSONObject, error) {
 	img, err := this.Get(s, id, nil)
 	if err != nil {
 		return nil, err
