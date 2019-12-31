@@ -191,10 +191,17 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	for _, row := range xlsx.GetRows("hosts")[1:] {
 		h = h + strings.Join(row, ",") + "\n"
 	}
-
-	s := FetchSession(ctx, req, "")
 	params := jsonutils.NewDict()
+	s := FetchSession(ctx, req, "")
 	params.Set("hosts", jsonutils.NewString(h))
+
+	// extra params
+	for k, values := range req.MultipartForm.Value {
+		if len(values) > 0 && k != "action" {
+			params.Set(k, jsonutils.NewString(values[0]))
+		}
+	}
+
 	resp, err := modules.Hosts.BatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
@@ -202,10 +209,12 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		return
 	}
 
+	w.WriteHeader(207)
 	appsrv.SendJSON(w, resp)
 }
 
 func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	adminS := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	s := FetchSession(ctx, req, "")
 	files := req.MultipartForm.File
 
@@ -247,6 +256,10 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		e := httperrors.NewInputParameterError("empty file")
 		httperrors.JsonClientError(w, e)
 		return
+	} else if len(rows) >= 1001 {
+		e := httperrors.NewInputParameterError("beyond limitation.excel file rows must less than 1000")
+		httperrors.JsonClientError(w, e)
+		return
 	}
 
 	users := []jsonutils.JSONObject{}
@@ -261,7 +274,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		}
 
 		if _, ok := names[name]; ok {
-			e := httperrors.NewClientError("duplicate name %s", row[0])
+			e := httperrors.NewClientError("row %d duplicate name %s", i+2, row[0])
 			httperrors.JsonClientError(w, e)
 			return
 		} else {
@@ -274,7 +287,13 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 
 		domainId, ok := domains[row[1]]
 		if !ok {
-			id, err := modules.Domains.GetId(s, row[1], nil)
+			if len(row[1]) == 0 {
+				e := httperrors.NewClientError("row %d domain is empty", i+2)
+				httperrors.JsonClientError(w, e)
+				return
+			}
+
+			id, err := modules.Domains.GetId(adminS, row[1], nil)
 			if err != nil {
 				httperrors.JsonClientError(w, httperrors.NewGeneralError(err))
 				return
@@ -349,7 +368,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 			return
 		}
 	case "BatchUserRegister":
-		records := [][]string{{"用户名（user）", "部门/域（domain）", "是否登录控制台（allow_web_console：true、false）"}}
+		records := [][]string{{"*用户名（user）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")

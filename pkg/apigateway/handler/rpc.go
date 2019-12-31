@@ -116,6 +116,13 @@ func rpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	if reterr.IsNil() {
 		v, ok := retobj.Interface().(jsonutils.JSONObject)
 		if ok {
+			// []SubmitResult
+			if dataV, e := v.Get("data"); e == nil {
+				if _, ok := dataV.(*jsonutils.JSONArray); ok {
+					w.WriteHeader(207)
+				}
+			}
+
 			appsrv.SendJSON(w, v)
 		} else {
 			httperrors.BadGatewayError(w, "recv invalid data")
