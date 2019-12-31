@@ -221,9 +221,9 @@ func init() {
 	})
 
 	type ImageUpdateOptions struct {
-		ID          string `help:"ID or Name of Image"`
-		Name        string `help:"New name of the image"`
-		Description string `help:"Description of image"`
+		ID          []string `help:"ID or Name of Image"`
+		Name        string   `help:"New name of the image"`
+		Description string   `help:"Description of image"`
 		ImageOptionalOptions
 	}
 
@@ -239,11 +239,8 @@ func init() {
 		if err != nil {
 			return err
 		}
-		img, err := modules.Images.Update(s, args.ID, params)
-		if err != nil {
-			return err
-		}
-		printObject(img)
+		result := modules.Images.BatchUpdate(s, args.ID, params)
+		printBatchResults(result, modules.Images.GetColumns(s))
 		return nil
 	})
 
