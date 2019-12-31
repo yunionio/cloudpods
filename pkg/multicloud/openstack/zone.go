@@ -137,8 +137,8 @@ func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
 		return nil, err
 	}
 	for i := 0; i < len(storages); i++ {
-		storage := storages[i].(*SStorage)
-		if strings.ToLower(storage.Name) == strings.ToLower(category) {
+		storage, ok := storages[i].(*SStorage)
+		if ok && strings.ToLower(storage.Name) == strings.ToLower(category) {
 			return storage, nil
 		}
 	}
