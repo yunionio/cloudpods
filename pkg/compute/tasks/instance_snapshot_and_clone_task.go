@@ -82,10 +82,8 @@ func (self *InstanceSnapshotAndCloneTask) OnInit(
 	ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 
 	isp := obj.(*models.SInstanceSnapshot)
-	guest := models.GuestManager.FetchGuestById(isp.GuestId)
-
 	self.SetStage("OnCreateInstanceSnapshot", nil)
-	err := isp.StartCreateInstanceSnapshotTask(ctx, self.UserCred, guest.GetOwnerId(), nil, self.Id)
+	err := isp.StartCreateInstanceSnapshotTask(ctx, self.UserCred, nil, self.Id)
 	if err != nil {
 		self.taskFailed(ctx, isp, err.Error())
 		return
