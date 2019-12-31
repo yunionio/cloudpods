@@ -1052,25 +1052,8 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
 	}
-	/*cnt, err = self.getSnapshotpoliciesCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("getSnapshotpoliciesCount fail %s", err)
-	}
-	if cnt > 0 {
-		return httperrors.NewNotEmptyError("Virtual disk associated with snapshot policies")
-	}*/
 	if !isPurge && self.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
-	}
-	storage := self.GetStorage()
-	if storage != nil && storage.StorageType == api.STORAGE_RBD {
-		scnt, err := self.GetSnapshotCount()
-		if err != nil {
-			return err
-		}
-		if scnt > 0 {
-			return httperrors.NewBadRequestError("not allow to delete %s disk with snapshots", storage.StorageType)
-		}
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
