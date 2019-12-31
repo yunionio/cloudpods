@@ -4194,21 +4194,20 @@ func (self *SGuest) validateCreateInstanceSnapshot(
 func (self *SGuest) PerformInstanceSnapshot(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	ownerId := self.GetOwnerId()
-	lockman.LockClass(ctx, InstanceSnapshotManager, ownerId.GetProjectId())
-	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, ownerId.GetProjectId())
+	lockman.LockClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, InstanceSnapshotManager, userCred.GetProjectId())
 	pendingUsage, err := self.validateCreateInstanceSnapshot(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
 	}
 	name, _ := data.GetString("name")
-	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, ownerId, self, name, false)
+	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(ctx, userCred, self, name, false)
 	if err != nil {
 		quotas.CancelPendingUsage(
 			ctx, userCred, pendingUsage, pendingUsage)
 		return nil, httperrors.NewInternalServerError("create instance snapshot failed: %s", err)
 	}
-	err = self.InstaceCreateSnapshot(ctx, userCred, ownerId, instanceSnapshot, pendingUsage)
+	err = self.InstaceCreateSnapshot(ctx, userCred, instanceSnapshot, pendingUsage)
 	if err != nil {
 		quotas.CancelPendingUsage(
 			ctx, userCred, pendingUsage, pendingUsage)
@@ -4220,12 +4219,11 @@ func (self *SGuest) PerformInstanceSnapshot(
 func (self *SGuest) InstaceCreateSnapshot(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
 	instanceSnapshot *SInstanceSnapshot,
 	pendingUsage *SRegionQuota,
 ) error {
 	self.SetStatus(userCred, api.VM_START_INSTANCE_SNAPSHOT, "instance snapshot")
-	return instanceSnapshot.StartCreateInstanceSnapshotTask(ctx, userCred, ownerId, pendingUsage, "")
+	return instanceSnapshot.StartCreateInstanceSnapshotTask(ctx, userCred, pendingUsage, "")
 }
 
 func (self *SGuest) AllowPerformInstanceSnapshotReset(ctx context.Context,
@@ -4340,7 +4338,7 @@ func (self *SGuest) PerformSnapshotAndClone(
 		return nil, httperrors.NewInternalServerError("Generate snapshot name failed %s", err)
 	}
 	instanceSnapshot, err := InstanceSnapshotManager.CreateInstanceSnapshot(
-		ctx, self.GetOwnerId(), self, instanceSnapshotName,
+		ctx, userCred, self, instanceSnapshotName,
 		jsonutils.QueryBoolean(data, "auto_delete_instance_snapshot", false))
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
