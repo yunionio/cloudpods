@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
@@ -49,6 +50,11 @@ const (
 	HOST_IPMI_USERNAME_OPTIONAL = "IPMI用户名"
 	HOST_IPMI_PASSWORD_OPTIONAL = "IPMI密码"
 	HOST_MNG_IP_ADDR_OPTIONAL   = "管理口IP地址"
+)
+
+const (
+	BATCH_USER_REGISTER_QUANTITY_LIMITATION = 1000
+	BATCH_HOST_REGISTER_QUANTITY_LIMITATION = 1000
 )
 
 func FetchSession(ctx context.Context, r *http.Request, apiVersion string) *mcclient.ClientSession {
@@ -164,7 +170,6 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 		return
 	}
 
-	h := ""
 	paramKeys := []string{}
 	for _, title := range rows[0] {
 		switch title {
@@ -188,24 +193,41 @@ func (mh *MiscHandler) DoBatchHostRegister(ctx context.Context, w http.ResponseW
 	}
 
 	// skipped header row
-	for _, row := range xlsx.GetRows("hosts")[1:] {
-		h = h + strings.Join(row, ",") + "\n"
+	if len(rows) > BATCH_HOST_REGISTER_QUANTITY_LIMITATION {
+		e := httperrors.NewInputParameterError(fmt.Sprintf("beyond limitation. excel file rows must less than %d", BATCH_HOST_REGISTER_QUANTITY_LIMITATION))
+		httperrors.JsonClientError(w, e)
+		return
 	}
 
-	s := FetchSession(ctx, req, "")
+	hosts := bytes.Buffer{}
+	for _, row := range rows[1:] {
+		hosts.WriteString(strings.Join(row, ",") + "\n")
+	}
+
 	params := jsonutils.NewDict()
-	params.Set("hosts", jsonutils.NewString(h))
-	resp, err := modules.Hosts.BatchRegister(s, paramKeys, params)
+	s := FetchSession(ctx, req, "")
+	params.Set("hosts", jsonutils.NewString(hosts.String()))
+
+	// extra params
+	for k, values := range req.MultipartForm.Value {
+		if len(values) > 0 && k != "action" {
+			params.Set(k, jsonutils.NewString(values[0]))
+		}
+	}
+
+	submitResult, err := modules.Hosts.BatchRegister(s, paramKeys, params)
 	if err != nil {
 		e := httperrors.NewGeneralError(err)
 		httperrors.JsonClientError(w, e)
 		return
 	}
 
-	appsrv.SendJSON(w, resp)
+	w.WriteHeader(207)
+	appsrv.SendJSON(w, modulebase.SubmitResults2JSON(submitResult))
 }
 
 func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	adminS := auth.GetAdminSession(ctx, FetchRegion(req), "")
 	s := FetchSession(ctx, req, "")
 	files := req.MultipartForm.File
 
@@ -247,21 +269,30 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		e := httperrors.NewInputParameterError("empty file")
 		httperrors.JsonClientError(w, e)
 		return
+	} else if len(rows) > BATCH_USER_REGISTER_QUANTITY_LIMITATION {
+		e := httperrors.NewInputParameterError(fmt.Sprintf("beyond limitation.excel file rows must less than %d", BATCH_USER_REGISTER_QUANTITY_LIMITATION))
+		httperrors.JsonClientError(w, e)
+		return
 	}
 
 	users := []jsonutils.JSONObject{}
 	names := map[string]bool{}
 	domains := map[string]string{}
 	for i, row := range rows[1:] {
+		rowIdx := i + 2
 		name := row[0]
+		password := row[1]
+		domain := row[2]
+		allowWebConsole := strings.ToLower(row[3])
+
 		if len(name) == 0 {
-			e := httperrors.NewClientError("row %d name is empty", i+2)
+			e := httperrors.NewClientError("row %d name is empty", rowIdx)
 			httperrors.JsonClientError(w, e)
 			return
 		}
 
 		if _, ok := names[name]; ok {
-			e := httperrors.NewClientError("duplicate name %s", row[0])
+			e := httperrors.NewClientError("row %d duplicate name %s", rowIdx, name)
 			httperrors.JsonClientError(w, e)
 			return
 		} else {
@@ -272,23 +303,33 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 			}
 		}
 
-		domainId, ok := domains[row[1]]
+		domainId, ok := domains[domain]
 		if !ok {
-			id, err := modules.Domains.GetId(s, row[1], nil)
+			if len(domain) == 0 {
+				e := httperrors.NewClientError("row %d domain is empty", rowIdx)
+				httperrors.JsonClientError(w, e)
+				return
+			}
+
+			id, err := modules.Domains.GetId(adminS, domain, nil)
 			if err != nil {
 				httperrors.JsonClientError(w, httperrors.NewGeneralError(err))
 				return
 			}
 
 			domainId = id
-			domains[row[1]] = id
+			domains[domain] = id
 		}
 
 		user := jsonutils.NewDict()
 		user.Add(jsonutils.NewString(name), "name")
 		user.Add(jsonutils.NewString(domainId), "domain_id")
-		user.Add(jsonutils.NewString("OneCloud@2019"), "password")
-		if strings.ToLower(row[2]) == "true" || strings.ToLower(row[2]) == "1" {
+		if len(password) > 0 {
+			user.Add(jsonutils.NewString(password), "password")
+			user.Add(jsonutils.JSONTrue, "skip_password_complexity_check")
+		}
+
+		if allowWebConsole == "true" || allowWebConsole == "1" {
 			user.Add(jsonutils.JSONTrue, "allow_web_console")
 		} else {
 			user.Add(jsonutils.JSONFalse, "allow_web_console")
@@ -349,7 +390,7 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 			return
 		}
 	case "BatchUserRegister":
-		records := [][]string{{"用户名（user）", "部门/域（domain）", "是否登录控制台（allow_web_console：true、false）"}}
+		records := [][]string{{"*用户名（user）", "用户密码（password）", "*部门/域（domain）", "*是否登录控制台（allow_web_console：true、false）"}}
 		content, err = writeXlsx("users", records)
 		if err != nil {
 			httperrors.InternalServerError(w, "internal server error")
