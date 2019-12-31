@@ -56,6 +56,10 @@ func NewModelBaseManager(model interface{}, tableName string, keyword string, ke
 	return modelMan
 }
 
+func (manager *SModelBaseManager) IsStandaloneManager() bool {
+	return false
+}
+
 func (manager *SModelBaseManager) GetIModelManager() IModelManager {
 	virt := manager.GetVirtualObject()
 	if virt == nil {
