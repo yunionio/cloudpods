@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/s3"
 
@@ -401,4 +402,19 @@ func (self *SAwsClient) GetCapabilities() []string {
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 	}
 	return caps
+}
+
+func cloudWatchRequest(cli *client.Client, apiName string, params *cloudwatch.GetMetricStatisticsInput, retval interface{}, debug bool) error {
+	op := &request.Operation{
+		Name:       apiName,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	req := cli.NewRequest(op, params, retval)
+	err := req.Send()
+	if err != nil {
+		return err
+	}
+	return nil
 }
