@@ -159,6 +159,8 @@ func init() {
 		Enabled     bool    `help:"Enabled"`
 		Disabled    bool    `help:"Disabled"`
 
+		SkipPasswordComplexityCheck bool `help:"do password complexity check, default is false"`
+
 		// DefaultProject string `help:"Default project"`
 		SystemAccount bool `help:"is a system account?"`
 		NoWebConsole  bool `help:"allow web console access"`
@@ -176,6 +178,9 @@ func init() {
 		}
 		if args.Password != nil {
 			params.Add(jsonutils.NewString(*args.Password), "password")
+			if args.SkipPasswordComplexityCheck {
+				params.Add(jsonutils.JSONTrue, "skip_password_complexity_check")
+			}
 		}
 		if len(args.Displayname) > 0 {
 			params.Add(jsonutils.NewString(args.Displayname), "displayname")
