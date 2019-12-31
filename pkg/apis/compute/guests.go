@@ -102,3 +102,7 @@ func (i ServerRebuildRootInput) GetKeypairName() string {
 	}
 	return ""
 }
+
+type ServerResumeInput struct {
+	apis.Meta
+}
