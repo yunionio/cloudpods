@@ -540,6 +540,31 @@ func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params j
 	return json.Get("image")
 }
 
+func (this *ImageManager) BatchUpdate(
+	session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject,
+) []modulebase.SubmitResult {
+	return modulebase.BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
+		var curParams = params.(*jsonutils.JSONDict).Copy()
+		img, err := this.Get(session, id, nil)
+		if err != nil {
+			return nil, err
+		}
+		properties, _ := img.Get("properties")
+		if properties != nil {
+			propDict := properties.(*jsonutils.JSONDict)
+			propMap, _ := propDict.GetMap()
+			if propMap != nil {
+				for k, val := range propMap {
+					if !curParams.Contains("properties", k) {
+						curParams.Add(val, "properties", k)
+					}
+				}
+			}
+		}
+		return this._update(session, id, curParams, nil)
+	})
+}
+
 func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, int64, error) {
 	query := jsonutils.NewDict()
 	if len(format) > 0 {
