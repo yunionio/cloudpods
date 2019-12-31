@@ -326,6 +326,7 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		user.Add(jsonutils.NewString(domainId), "domain_id")
 		if len(password) > 0 {
 			user.Add(jsonutils.NewString(password), "password")
+			user.Add(jsonutils.JSONTrue, "skip_password_complexity_check")
 		}
 
 		if allowWebConsole == "true" || allowWebConsole == "1" {
