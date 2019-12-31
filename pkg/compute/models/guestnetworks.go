@@ -240,6 +240,23 @@ func (man *SGuestnetworkManager) ifnameUsed(ifname string) bool {
 	if ifname == "" {
 		return true
 	}
+	if len(ifname) > MAX_IFNAME_SIZE {
+		return true
+	}
+	isa := func(c byte) bool {
+		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	}
+	if !isa(ifname[0]) {
+		return true
+	}
+	for i := range ifname[1:] {
+		c := ifname[i]
+		if isa(c) || c >= '0' || c <= '9' || c == '_' || c == '-' {
+			continue
+		}
+		return true
+	}
+
 	count, err := GuestnetworkManager.Query().Equals("ifname", ifname).CountWithError()
 	if err != nil {
 		panic(errors.Wrap(err, "query if ifname is used"))
