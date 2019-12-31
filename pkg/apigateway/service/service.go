@@ -33,7 +33,8 @@ import (
 )
 
 func StartService() {
-	opts := &options.Options
+	options.Options = &options.GatewayOptions{}
+	opts := options.Options
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "apigateway.conf", api.SERVICE_TYPE)
