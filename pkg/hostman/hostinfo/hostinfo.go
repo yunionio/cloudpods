@@ -168,17 +168,21 @@ func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "interface by name")
 	}
-	// not a physical device
-	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) {
-		return "", errors.Errorf("found dev %s not a physical device", dev)
+	// not a physical device or bond device
+	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) &&
+		!fileutils2.Exists(path.Join("/proc/net/bonding", dev)) {
+		return "", errors.Errorf("found dev %s not a physical device or bond device", dev)
 	}
 
+	// test if dev is port of bridge
 	var bridgeName string
-	if output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output(); err != nil {
-		return "", errors.Wrap(err, "port to br")
-	} else {
+	output, err = procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
+	if err != nil && !strings.Contains(string(output), "no port named") {
+		return "", errors.Wrapf(err, "port to br failed %s", output)
+	} else if err == nil {
 		bridgeName = strings.TrimSpace(string(output))
 	}
+
 	if len(bridgeName) == 0 {
 		bridgeName = "br"
 		index := 0
