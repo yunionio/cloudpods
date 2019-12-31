@@ -389,7 +389,7 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 }
 
 func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("password") {
+	if data.Contains("password") && !jsonutils.QueryBoolean(data, "skip_password_complexity_check", false) {
 		passwd, _ := data.GetString("password")
 		err := validatePasswordComplexity(passwd)
 		if err != nil {
