@@ -238,6 +238,9 @@ func (self *SGuestnetwork) getVirtualRand(width int, randomized bool) string {
 }
 
 func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, randomized bool) string {
+	// It may happen that external networks when synced can miss ifname hint
+	network.ensureIfnameHint()
+
 	pattern := regexp.MustCompile(`\W+`)
 	nName := pattern.ReplaceAllString(network.IfnameHint, "")
 	if len(nName) > MAX_IFNAME_SIZE-4 {
@@ -254,6 +257,7 @@ func (self *SGuestnetwork) generateIfname(network *SNetwork, virtual bool, rando
 }
 
 func (man *SGuestnetworkManager) ifnameUsed(ifname string) bool {
+	// inviable names are always used
 	if ifname == "" {
 		return true
 	}
