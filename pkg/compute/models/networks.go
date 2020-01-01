@@ -1015,6 +1015,24 @@ func isValidMaskLen(maskLen int64) bool {
 	}
 }
 
+func (self *SNetwork) ensureIfnameHint() {
+	if self.IfnameHint != "" {
+		return
+	}
+	hint, err := NetworkManager.newIfnameHint(self.Name)
+	if err != nil {
+		panic(fmt.Errorf("ensureIfnameHint: allocate hint: %v", err))
+	}
+	_, err = db.Update(self, func() error {
+		self.IfnameHint = hint
+		return nil
+	})
+	if err != nil {
+		panic(fmt.Errorf("ensureIfnameHint: db update: %v", err))
+	}
+	log.Infof("network %s(%s): initialized ifname hint: %s", self.Name, self.Id, hint)
+}
+
 func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	isa := func(c byte) bool {
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
