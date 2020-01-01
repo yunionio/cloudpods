@@ -29,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 const (
@@ -268,7 +269,7 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 func (region *SRegion) CreateImage(imageName string, osType string, osDist string, minDiskGb int, minRam int) (*SImage, error) {
 	params := map[string]interface{}{
 		"container_format":    "bare",
-		"disk_format":         "vmdk",
+		"disk_format":         string(qemuimg.QCOW2),
 		"name":                imageName,
 		"min_disk":            minDiskGb,
 		"min_ram":             minRam,
