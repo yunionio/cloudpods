@@ -84,6 +84,8 @@ type SRegionQuota struct {
 
 	Rds   int `default:"-1" allow_zero:"true"`
 	Cache int `default:"-1" allow_zero:"true"`
+
+	Loadbalancer int `default:"-1" allow_zero:"true"`
 }
 
 func (self *SRegionQuota) GetKeys() quotas.IQuotaKeys {
@@ -131,6 +133,7 @@ func (self *SRegionQuota) FetchSystemQuota() {
 	self.ObjectCnt = defaultValue(options.Options.DefaultObjectCntQuota)
 	self.Rds = defaultValue(options.Options.DefaultRdsQuota)
 	self.Cache = defaultValue(options.Options.DefaultCacheQuota)
+	self.Loadbalancer = defaultValue(options.Options.DefaultLoadbalancerQuota)
 }
 
 func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
@@ -193,6 +196,8 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	self.Rds, _ = DBInstanceManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 	self.Cache, _ = ElasticcacheManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 
+	self.Loadbalancer, _ = LoadbalancerManager.TotalCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
+
 	return nil
 }
 
@@ -230,6 +235,9 @@ func (self *SRegionQuota) ResetNegative() {
 	if self.Cache < 0 {
 		self.Cache = 0
 	}
+	if self.Loadbalancer < 0 {
+		self.Loadbalancer = 0
+	}
 }
 
 func (self *SRegionQuota) IsEmpty() bool {
@@ -266,6 +274,9 @@ func (self *SRegionQuota) IsEmpty() bool {
 	if self.Cache > 0 {
 		return false
 	}
+	if self.Loadbalancer > 0 {
+		return false
+	}
 	return true
 }
 
@@ -282,6 +293,7 @@ func (self *SRegionQuota) Add(quota quotas.IQuota) {
 	self.ObjectCnt = self.ObjectCnt + quotas.NonNegative(squota.ObjectCnt)
 	self.Rds = self.Rds + quotas.NonNegative(squota.Rds)
 	self.Cache = self.Cache + quotas.NonNegative(squota.Cache)
+	self.Loadbalancer = self.Loadbalancer + quotas.NonNegative(squota.Loadbalancer)
 }
 
 func (self *SRegionQuota) Sub(quota quotas.IQuota) {
@@ -297,6 +309,7 @@ func (self *SRegionQuota) Sub(quota quotas.IQuota) {
 	self.ObjectCnt = nonNegative(self.ObjectCnt - squota.ObjectCnt)
 	self.Rds = nonNegative(self.Rds - squota.Rds)
 	self.Cache = nonNegative(self.Cache - squota.Cache)
+	self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
 }
 
 func (self *SRegionQuota) Update(quota quotas.IQuota) {
@@ -333,6 +346,9 @@ func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Cache > 0 {
 		self.Cache = squota.Cache
+	}
+	if squota.Loadbalancer > 0 {
+		self.Loadbalancer = squota.Loadbalancer
 	}
 }
 
@@ -373,6 +389,9 @@ func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	if quotas.Exceed(used.Cache, sreq.Cache, squota.Cache) {
 		err.Add("cache", squota.Cache, used.Cache, sreq.Cache)
 	}
+	if quotas.Exceed(used.Loadbalancer, sreq.Loadbalancer, squota.Loadbalancer) {
+		err.Add("loadbalancer", squota.Loadbalancer, used.Loadbalancer, sreq.Loadbalancer)
+	}
 	if err.IsError() {
 		return err
 	} else {
@@ -393,5 +412,6 @@ func (self *SRegionQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.ObjectCnt)), keyName(prefix, "object_cnt"))
 	ret.Add(jsonutils.NewInt(int64(self.Rds)), keyName(prefix, "rds"))
 	ret.Add(jsonutils.NewInt(int64(self.Cache)), keyName(prefix, "cache"))
+	ret.Add(jsonutils.NewInt(int64(self.Loadbalancer)), keyName(prefix, "loadbalancer"))
 	return ret
 }
