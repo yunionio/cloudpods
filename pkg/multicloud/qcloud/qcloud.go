@@ -161,6 +161,12 @@ func billingRequest(client *common.Client, apiName string, params map[string]str
 	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
 }
 
+func monitorRequest(client *common.Client, apiName string, params map[string]string,
+	debug bool) (jsonutils.JSONObject, error) {
+	domain := "monitor.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION_METRICS, apiName, params, debug, true)
+}
+
 // ============phpJsonRequest============
 type qcloudResponse interface {
 	tchttp.Response
