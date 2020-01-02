@@ -75,3 +75,8 @@ func cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage I
 		log.Errorf("cancelUsage %s fail: %s", jsonutils.Marshal(usage), err)
 	}
 }
+
+func GetQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {
+	manager := getQuotaManager(request)
+	return manager.getQuotaCount(ctx, request, pendingKeys)
+}
