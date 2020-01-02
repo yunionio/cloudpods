@@ -105,14 +105,6 @@ func (self *SConfigManager) InitializeData() error {
 	}
 
 	// init webconsole's config
-	q = self.Query().Equals("type", "webconsole")
-	n, err = q.CountWithError()
-	if err != nil {
-		return err
-	}
-	if n >= 4 {
-		return nil
-	}
 	sql := fmt.Sprintf("update %s set deleted='1' where type='webconsole'", self.TableSpec().Name())
 	q = sqlchemy.NewRawQuery(sql)
 	q.Row()
