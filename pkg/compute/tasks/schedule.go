@@ -19,11 +19,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -61,34 +59,6 @@ type IScheduleTask interface {
 type SSchedTask struct {
 	taskman.STask
 	input *schedapi.ScheduleInput
-}
-
-func (self *SSchedTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
-	params := self.GetParams()
-	input, err := cmdline.FetchScheduleInputByJSON(params)
-	if err != nil {
-		return nil, fmt.Errorf("Unmarsh to schedule input: %v", err)
-	}
-	return input, err
-}
-
-func (self *SSchedTask) GetDisks() ([]*api.DiskConfig, error) {
-	input, err := self.GetSchedParams()
-	if err != nil {
-		return nil, err
-	}
-	return input.Disks, nil
-}
-
-func (self *SSchedTask) GetFirstDisk() (*api.DiskConfig, error) {
-	disks, err := self.GetDisks()
-	if err != nil {
-		return nil, err
-	}
-	if len(disks) == 0 {
-		return nil, fmt.Errorf("Empty disks to schedule")
-	}
-	return disks[0], nil
 }
 
 func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
@@ -145,6 +115,17 @@ func doScheduleObjects(
 	}
 	//schedInput = models.ApplySchedPolicies(schedInput)
 
+	// fetch pendingUsages
+	computeUsage := models.SQuota{}
+	task.GetPendingUsage(&computeUsage, 0)
+	regionUsage := models.SRegionQuota{}
+	task.GetPendingUsage(&regionUsage, 1)
+
+	schedInput.PendingUsages = []jsonutils.JSONObject{
+		jsonutils.Marshal(&computeUsage),
+		jsonutils.Marshal(&regionUsage),
+	}
+
 	params := jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
 	task.SetStage("OnScheduleComplete", params)
 
@@ -158,7 +139,9 @@ func doScheduleObjects(
 }
 
 func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
-	pendingUsage := models.SQuota{}
+	ClearTaskPendingUsage(ctx, task.(taskman.ITask))
+	ClearTaskPendingRegionUsage(ctx, task.(taskman.ITask))
+	/*pendingUsage := models.SQuota{}
 	err := task.GetPendingUsage(&pendingUsage, 0)
 	if err != nil {
 		log.Errorf("Taks GetPendingUsage fail %s", err)
@@ -172,7 +155,7 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 	}
 
 	pendingRegionUsage := models.SRegionQuota{}
-	err = task.GetPendingUsage(&pendingRegionUsage, 0)
+	err = task.GetPendingUsage(&pendingRegionUsage, 1)
 	if err != nil {
 		log.Errorf("Taks GetRegionPendingUsage fail %s", err)
 		return
@@ -182,7 +165,7 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		if err != nil {
 			log.Errorf("cancelpendingusage error %s", err)
 		}
-	}
+	}*/
 }
 
 func onSchedulerRequestFail(

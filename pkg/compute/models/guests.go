@@ -1467,7 +1467,7 @@ func getGuestResourceRequirements(
 	eBw := 0
 	iBw := 0
 	for _, netConfig := range input.Networks {
-		if isExitNetworkInfo(netConfig) {
+		if IsExitNetworkInfo(netConfig) {
 			eNicCnt += 1
 			eBw += netConfig.BwLimit
 		} else {

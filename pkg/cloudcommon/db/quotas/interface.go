@@ -41,6 +41,7 @@ type IQuota interface {
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
+	Allocable(quota IQuota) int
 	ResetNegative()
 	Exceed(request IQuota, quota IQuota) error
 	// IsEmpty() bool
@@ -68,6 +69,7 @@ type IQuotaManager interface {
 	checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error
 	cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error
 	cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error
+	getQuotaCount(ctx context.Context, request IQuota, pendingKey IQuotaKeys) (int, error)
 
 	FetchIdNames(ctx context.Context, idMap map[string]map[string]string) (map[string]map[string]string, error)
 }

@@ -174,6 +174,10 @@ func (self *SZoneQuota) Sub(quota quotas.IQuota) {
 	// self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
 }
 
+func (self *SZoneQuota) Allocable(request quotas.IQuota) int {
+	return -1
+}
+
 func (self *SZoneQuota) Update(quota quotas.IQuota) {
 	// squota := quota.(*SZoneQuota)
 	// if squota.Loadbalancer > 0 {

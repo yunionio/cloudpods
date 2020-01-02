@@ -922,7 +922,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 	return nil
 }
 
-func isExitNetworkInfo(netConfig *api.NetworkConfig) bool {
+func IsExitNetworkInfo(netConfig *api.NetworkConfig) bool {
 	if len(netConfig.Network) > 0 {
 		netObj, _ := NetworkManager.FetchById(netConfig.Network)
 		net := netObj.(*SNetwork)

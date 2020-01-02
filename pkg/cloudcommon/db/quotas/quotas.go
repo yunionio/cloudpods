@@ -271,3 +271,49 @@ func (manager *SQuotaBaseManager) _checkSetPendingQuota(ctx context.Context, use
 	}
 	return nil
 }
+
+func (manager *SQuotaBaseManager) getQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {
+	quotas, err := manager.GetParentQuotas(ctx, request.GetKeys())
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.getMatchedQuotas")
+	}
+	minCnt := -1
+	for i := len(quotas) - 1; i >= 0; i -= 1 {
+		rel := relation(quotas[i].GetKeys(), pendingKeys)
+		if rel == QuotaKeysContain || rel == QuotaKeysEqual {
+			break
+		}
+		cnt, err := manager.__getQuotaCount(ctx, quotas[i], request)
+		if err != nil {
+			return 0, errors.Wrapf(err, "manager.__getQuotaCount for key %s", QuotaKeyString(quotas[i].GetKeys()))
+		}
+		if minCnt < 0 || minCnt > cnt {
+			minCnt = cnt
+		}
+	}
+	return minCnt, nil
+}
+
+func (manager *SQuotaBaseManager) __getQuotaCount(ctx context.Context, quota IQuota, request IQuota) (int, error) {
+	keys := quota.GetKeys()
+	log.Debugf("__checkQuota for keys: %s", QuotaKeyString(keys))
+	used := manager.newQuota()
+	err := manager.usageStore.GetQuota(ctx, keys, used)
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.usageStore.GetQuotaByKeys")
+	}
+	log.Debugf("__checkQuota usage: %s", jsonutils.Marshal(used))
+	pendings, err := manager.pendingStore.GetChildrenQuotas(ctx, keys)
+	if err != nil {
+		return 0, errors.Wrap(err, "manager.pendingStore.GetChildrenQuotas")
+	}
+	for i := range pendings {
+		if pendings[i].IsEmpty() {
+			continue
+		}
+		log.Debugf("__checkQuota pending %d: %s", i, jsonutils.Marshal(pendings[i]))
+		used.Add(pendings[i])
+	}
+	quota.Sub(used)
+	return quota.Allocable(request), nil
+}
