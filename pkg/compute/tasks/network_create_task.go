@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type NetworkCreateTask struct {
@@ -41,6 +42,7 @@ func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.S
 	log.Errorf("network create task fail on %s: %s", event, err)
 	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, event, self.UserCred, false)
 	self.SetStageFailed(ctx, err.Error())
 }
 
@@ -88,6 +90,6 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 
 	network.ClearSchedDescCache()
-
+	logclient.AddActionLogWithStartable(self, network, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
