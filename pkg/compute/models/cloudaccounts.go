@@ -334,7 +334,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if cnt > 0 {
 			return input, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
 		}
-		data.Set("account_id", jsonutils.NewString(accountId))
+		input.AccountId = accountId
 	}
 
 	if input.SyncIntervalSeconds == 0 {
