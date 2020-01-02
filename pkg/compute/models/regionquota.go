@@ -348,6 +348,9 @@ func (self *SRegionQuota) Allocable(request quotas.IQuota) int {
 	if self.Cache >= 0 && squota.Cache > 0 && (cnt < 0 || cnt > self.Cache/squota.Cache) {
 		cnt = self.Cache / squota.Cache
 	}
+	if self.Loadbalancer >= 0 && squota.Loadbalancer > 0 && (cnt < 0 || cnt > self.Loadbalancer/squota.Loadbalancer) {
+		cnt = self.Loadbalancer / squota.Loadbalancer
+	}
 	return cnt
 }
 
