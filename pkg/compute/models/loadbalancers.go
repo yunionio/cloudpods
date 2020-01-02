@@ -886,10 +886,10 @@ func (man *SLoadbalancerManager) TotalCount(
 }
 
 func (lb *SLoadbalancer) GetQuotaKeys() quotas.IQuotaKeys {
-	return fetchZonalQuotaKeys(
+	return fetchRegionalQuotaKeys(
 		rbacutils.ScopeProject,
 		lb.GetOwnerId(),
-		lb.GetZone(),
+		lb.GetRegion(),
 		lb.GetCloudprovider(),
 	)
 }
@@ -898,7 +898,7 @@ func (lb *SLoadbalancer) GetUsages() []db.IUsage {
 	if lb.PendingDeleted || lb.Deleted {
 		return nil
 	}
-	usage := SZoneQuota{Loadbalancer: 1}
+	usage := SRegionQuota{Loadbalancer: 1}
 	keys := lb.GetQuotaKeys()
 	usage.SetKeys(keys)
 	return []db.IUsage{
