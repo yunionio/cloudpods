@@ -2091,7 +2091,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 		var inicCnt, enicCnt, ibw, ebw int
-		if isExitNetworkInfo(conf) {
+		if IsExitNetworkInfo(conf) {
 			enicCnt = 1
 			ebw = conf.BwLimit
 		} else {

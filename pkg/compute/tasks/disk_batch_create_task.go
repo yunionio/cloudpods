@@ -16,6 +16,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,6 +51,7 @@ func (self *DiskBatchCreateTask) getNeedScheduleDisks(objs []db.IStandaloneModel
 
 func (self *DiskBatchCreateTask) clearPendingUsage(ctx context.Context, disk *models.SDisk) {
 	ClearTaskPendingUsage(ctx, self)
+	ClearTaskPendingRegionUsage(ctx, self)
 }
 
 func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
@@ -80,6 +82,25 @@ func (self *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, erro
 	srvInput := input.ToServerCreateInput()
 	err = srvInput.JSON(srvInput).Unmarshal(ret)
 	return ret, err
+}
+
+func (self *DiskBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := self.GetSchedParams()
+	if err != nil {
+		return nil, err
+	}
+	return input.Disks, nil
+}
+
+func (self *DiskBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks to schedule")
+	}
+	return disks[0], nil
 }
 
 func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {

@@ -16,12 +16,14 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -37,6 +39,34 @@ type GuestBatchCreateTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestBatchCreateTask{})
+}
+
+func (self *GuestBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	params := self.GetParams()
+	input, err := cmdline.FetchScheduleInputByJSON(params)
+	if err != nil {
+		return nil, fmt.Errorf("Unmarsh to schedule input: %v", err)
+	}
+	return input, err
+}
+
+func (self *GuestBatchCreateTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := self.GetSchedParams()
+	if err != nil {
+		return nil, err
+	}
+	return input.Disks, nil
+}
+
+func (self *GuestBatchCreateTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks to schedule")
+	}
+	return disks[0], nil
 }
 
 func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, error) {
