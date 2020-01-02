@@ -66,6 +66,8 @@ type RegionQuotaOptions struct {
 
 	Rds   int64 `help:"Rds count" json:"rds,omitzero"`
 	Cache int64 `help:"redis count" json:"cache,omitzero"`
+
+	Loadbalancer int64 `help:"loadbalancer instance count" json:"loadbalancer,omitzero"`
 }
 
 type ZoneQuotaKeys struct {
@@ -76,8 +78,6 @@ type ZoneQuotaKeys struct {
 
 type ZoneQuotaOptions struct {
 	ZoneQuotaKeys
-
-	Loadbalancer int64 `help:"loadbalancer instance count" json:"loadbalancer,omitzero"`
 }
 
 type ProjectQuotaOptions struct {
