@@ -53,7 +53,7 @@ func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Tok
 }
 
 func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, api.IPAllocationDirection, bool) {
-	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	net, _ := host.GetNetworkWithId(netConfig.Network, netConfig.Reserved)
 	nicConfs := []models.SNicConfig{
 		{
 			Mac:    netConfig.Mac,

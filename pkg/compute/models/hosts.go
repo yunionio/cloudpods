@@ -1983,7 +1983,7 @@ func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mc
 	return nil, nil
 }
 
-func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetwork, error) {
+func (self *SHost) GetNetworkWithId(netId string, reserved bool) (*SNetwork, error) {
 	networks := NetworkManager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
