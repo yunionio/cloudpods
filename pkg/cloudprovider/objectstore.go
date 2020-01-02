@@ -296,8 +296,8 @@ func GetPagedObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool,
 	}
 	// Send all objects
 	for i := range result.Objects {
-		// if delimited, skip the first object
-		if !isRecursive && result.Objects[i].GetKey() == objectPrefix {
+		// if delimited, skip the first object ends with delimiter
+		if !isRecursive && result.Objects[i].GetKey() == objectPrefix && strings.HasSuffix(objectPrefix, delimiter) {
 			continue
 		}
 		ret = append(ret, result.Objects[i])
