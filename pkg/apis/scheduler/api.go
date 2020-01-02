@@ -77,6 +77,8 @@ type ScheduleInput struct {
 	LiveMigrate  bool   `json:"live_migrate"`
 	CpuDesc      string `json:"cpu_desc"`
 	CpuMicrocode string `json:"cpu_microcode"`
+
+	PendingUsages []jsonutils.JSONObject
 }
 
 func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {

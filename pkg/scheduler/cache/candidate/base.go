@@ -35,6 +35,7 @@ type BaseHostDesc struct {
 	Region        *computemodels.SCloudregion              `json:"region"`
 	Zone          *computemodels.SZone                     `json:"zone"`
 	Cloudprovider *computemodels.SCloudprovider            `json:"cloudprovider"`
+	Cloudaccount  *computemodels.SCloudaccount             `json:"cloudaccount"`
 	Networks      []*api.CandidateNetwork                  `json:"networks"`
 	NetInterfaces map[string][]computemodels.SNetInterface `json:"net_interfaces"`
 	Storages      []*api.CandidateStorage                  `json:"storages"`
@@ -197,6 +198,10 @@ func (b baseHostGetter) GetIpmiInfo() types.SIPMIInfo {
 	return b.h.IpmiInfo
 }
 
+func (b baseHostGetter) GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys {
+	return b.h.getQuotaKeys(s)
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault
@@ -292,6 +297,7 @@ func (b BaseHostDesc) GetResourceType() string {
 
 func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
 	b.Cloudprovider = host.GetCloudprovider()
+	b.Cloudaccount = b.Cloudprovider.GetCloudaccount()
 	return nil
 }
 
@@ -415,6 +421,29 @@ func (h *BaseHostDesc) GetHostType() string {
 		return api.HostTypeBaremetal
 	}
 	return h.HostType
+}
+
+func (h *BaseHostDesc) getQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys {
+	computeKeys := computemodels.SComputeResourceKeys{}
+	computeKeys.DomainId = s.Domain
+	computeKeys.ProjectId = s.Project
+	if h.Cloudprovider != nil {
+		computeKeys.Provider = h.Cloudaccount.Provider
+		computeKeys.Brand = h.Cloudaccount.Brand
+		computeKeys.CloudEnv = h.Cloudaccount.GetCloudEnv()
+		computeKeys.AccountId = h.Cloudaccount.Id
+		computeKeys.ManagerId = h.Cloudprovider.Id
+	} else {
+		computeKeys.Provider = computeapi.CLOUD_PROVIDER_ONECLOUD
+		computeKeys.Brand = computeapi.ONECLOUD_BRAND_ONECLOUD
+		computeKeys.CloudEnv = computeapi.CLOUD_ENV_ON_PREMISE
+		computeKeys.AccountId = ""
+		computeKeys.ManagerId = ""
+	}
+	computeKeys.RegionId = h.Region.Id
+	computeKeys.ZoneId = h.Zone.Id
+	computeKeys.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[h.HostType]
+	return computeKeys
 }
 
 func HostsResidentTenantStats(hostIDs []string) (map[string]map[string]interface{}, error) {
