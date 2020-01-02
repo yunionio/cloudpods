@@ -27,6 +27,7 @@ type CloudaccountCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
 	Provider            string
+	AccountId           string
 	Brand               string
 	IsPublicCloud       bool
 	IsOnPremise         bool
