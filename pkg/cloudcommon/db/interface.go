@@ -30,11 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type IUsage interface {
-	FetchUsage(ctx context.Context) error
-	IsEmpty() bool
-}
-
 type IModelManager interface {
 	lockman.ILockedClass
 	object.IObject
@@ -91,7 +86,9 @@ type IModelManager interface {
 	// ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	OnCreateComplete(ctx context.Context, items []IModel, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject)
 	BatchPreValidate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
-		query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) (func(), error)
+		query jsonutils.JSONObject, data *jsonutils.JSONDict, count int) error
+
+	OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error
 
 	// allow perform action
 	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool

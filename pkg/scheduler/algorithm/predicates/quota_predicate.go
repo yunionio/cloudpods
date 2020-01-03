@@ -16,6 +16,7 @@ package predicates
 
 import (
 	"context"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -110,20 +111,18 @@ func (p *SQuotaPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	minCnt := -1
 	if !computePending.IsEmpty() {
 		computeCnt, _ := quotas.GetQuotaCount(ctx, &computeQuota, computePending.GetKeys())
-		if minCnt < 0 || minCnt > computeCnt {
+		if computeCnt >= 0 && (minCnt < 0 || minCnt > computeCnt) {
 			minCnt = computeCnt
 		}
 	}
 	if !regionPending.IsEmpty() {
 		regionCnt, _ := quotas.GetQuotaCount(ctx, &regionQuota, regionPending.GetKeys())
-		if minCnt < 0 || minCnt > regionCnt {
+		if regionCnt >= 0 && (minCnt < 0 || minCnt > regionCnt) {
 			minCnt = regionCnt
 		}
 	}
 
-	if minCnt == 0 {
-		h.Exclude("quota limit")
-	} else if minCnt > 0 {
+	if minCnt >= 0 {
 		h.SetCapacity(int64(minCnt))
 	}
 

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -381,12 +382,22 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 func (manager *SModelBaseManager) BatchPreValidate(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict, count int,
-) (func(), error) {
-	return nil, nil
+) error {
+	return nil
 }
 
 func (manager *SModelBaseManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, nil
+}
+
+func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if CancelPendingUsagesInContext != nil {
+		err := CancelPendingUsagesInContext(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "CancelPendingUsagesInContext")
+		}
+	}
+	return nil
 }
 
 func (model *SModelBase) GetId() string {

@@ -297,7 +297,9 @@ func (b BaseHostDesc) GetResourceType() string {
 
 func (b *BaseHostDesc) fillCloudProvider(host *computemodels.SHost) error {
 	b.Cloudprovider = host.GetCloudprovider()
-	b.Cloudaccount = b.Cloudprovider.GetCloudaccount()
+	if b.Cloudprovider != nil {
+		b.Cloudaccount = b.Cloudprovider.GetCloudaccount()
+	}
 	return nil
 }
 
