@@ -21,6 +21,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -154,17 +155,17 @@ func TestResponseHeaderTimeout(t *testing.T) {
 	cli := GetClient(true, 0)
 	resp, err := cli.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err == nil {
-		t.Errorf("Read shoud error %s", err)
+		t.Errorf("Read shoud error")
 	} else {
-		t.Logf("Read error %s", err)
+		t.Logf("Read error %s %s", err, reflect.TypeOf(err))
 	}
 	CloseResponse(resp)
 	s.Close()
 }
 
-type idleTimeoutHandler struct{}
+type clientTimeoutHandler struct{}
 
-func (h *idleTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *clientTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	for i := 0; i < 4096; i++ {
 		for j := 0; j < 4096; j++ {
@@ -178,6 +179,57 @@ func clientWait(t *testing.T) {
 	t.Logf("wait 2 seconds for server ...")
 	time.Sleep(2 * time.Second)
 	t.Logf("Start client ...")
+}
+
+func TestClientTimeout(t *testing.T) {
+	rand.Seed(time.Now().Unix())
+	port := rand.Intn(1000) + 53000
+	t.Logf("Start serve at %d", port)
+	s := &http.Server{
+		Addr:           fmt.Sprintf(":%d", port),
+		Handler:        &clientTimeoutHandler{},
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   300 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	go func() {
+		s.ListenAndServe()
+	}()
+
+	clientWait(t)
+	cli := GetClient(true, 15*time.Second)
+	resp, err := cli.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
+	if err != nil {
+		t.Errorf("Read error %s", err)
+	} else {
+		buf := make([]byte, 4096)
+		offset := 0
+		for {
+			n, err := resp.Body.Read(buf)
+			if n > 0 {
+				offset += n
+			}
+			if err != nil {
+				t.Logf("read error %s %s", err, reflect.TypeOf(err))
+				break
+			}
+		}
+		t.Logf("read offset %d", offset)
+		CloseResponse(resp)
+	}
+	s.Close()
+}
+
+type idleTimeoutHandler struct{}
+
+func (h *idleTimeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+	for i := 0; i < 4096; i++ {
+		for j := 0; j < 4096; j++ {
+			w.Write([]byte("<html>ABCDEFD</html>\n"))
+		}
+		time.Sleep(15 * time.Second)
+	}
 }
 
 func TestIdleTimeout(t *testing.T) {
@@ -196,24 +248,25 @@ func TestIdleTimeout(t *testing.T) {
 	}()
 
 	clientWait(t)
-	cli := GetClient(true, 15*time.Second)
+	cli := GetClient(true, 0)
 	resp, err := cli.Get(fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err != nil {
 		t.Errorf("Read error %s", err)
-	}
-	buf := make([]byte, 4096)
-	offset := 0
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			offset += n
+	} else {
+		buf := make([]byte, 4096)
+		offset := 0
+		for {
+			n, err := resp.Body.Read(buf)
+			if n > 0 {
+				offset += n
+			}
+			if err != nil {
+				t.Logf("read error %s %s", err, reflect.TypeOf(err))
+				break
+			}
 		}
-		if err != nil {
-			t.Logf("read error %s", err)
-			break
-		}
+		t.Logf("read offset %d", offset)
+		CloseResponse(resp)
 	}
-	t.Logf("read offset %d", offset)
-	CloseResponse(resp)
 	s.Close()
 }

@@ -228,7 +228,7 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	// https_proxy setting
 	// oss use no timeout client so as to send/download large files
 	cliOpts := []oss.ClientOption{
-		oss.HTTPClient(httputils.GetNoTimeoutClient()),
+		oss.HTTPClient(httputils.GetAdaptiveTimeoutClient()),
 	}
 	ep := getOSSExternalDomain(regionId)
 	cli, err := oss.New(ep, client.accessKey, client.secret, cliOpts...)
