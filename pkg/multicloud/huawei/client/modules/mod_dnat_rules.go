@@ -23,7 +23,7 @@ type SNatDRuleManager struct {
 }
 
 func NewNatDManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatDRuleManager {
-	return &SNatDRuleManager{SResourceManager: SResourceManager{
+	man := &SNatDRuleManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameNAT,
 		Region:        regionId,
@@ -34,4 +34,8 @@ func NewNatDManager(regionId string, projectId string, signer auth.Signer, debug
 
 		ResourceKeyword: "dnat_rules",
 	}}
+	if len(projectId) > 0 {
+		man.requestHook = &sProjectHook{projectId}
+	}
+	return man
 }
