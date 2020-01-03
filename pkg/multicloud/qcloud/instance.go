@@ -503,7 +503,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["SecurityGroupIds.0"] = securityGroupId
 	params["Placement.Zone"] = zoneId
 	params["InstanceName"] = name
-	params["Description"] = desc
 
 	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
