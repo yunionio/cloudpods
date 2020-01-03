@@ -145,7 +145,14 @@ func GetAddrPort(urlStr string) (string, int, error) {
 func GetTransport(insecure bool) *http.Transport {
 	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
+		Dial: func(network, addr string) (net.Conn, error) {
+			conn, err := net.DialTimeout(network, addr, 10*time.Second)
+			if err != nil {
+				return nil, err
+			}
+			return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
+		},
+		/*DialContext: (&net.Dialer{
 			// 建立TCP连接超时时间
 			// Timeout is the maximum amount of time a dial will wait for
 			// a connect to complete. If Deadline is also set, it may fail
@@ -169,7 +176,7 @@ func GetTransport(insecure bool) *http.Transport {
 			// not support keep-alives ignore this field.
 			// If negative, keep-alive probes are disabled.
 			KeepAlive: 5 * time.Second, // send keep-alive probe every 5 seconds
-		}).DialContext,
+		}).DialContext,*/
 		// 一个空闲连接保持连接的时间
 		// IdleConnTimeout is the maximum amount of time an idle
 		// (keep-alive) connection will remain idle before closing
@@ -227,7 +234,7 @@ func GetTimeoutClient(timeout time.Duration) *http.Client {
 	return GetClient(true, timeout)
 }
 
-func GetNoTimeoutClient() *http.Client {
+func GetAdaptiveTimeoutClient() *http.Client {
 	return GetClient(true, 0)
 }
 

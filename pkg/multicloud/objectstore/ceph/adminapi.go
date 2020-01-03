@@ -50,7 +50,7 @@ func newCephAdminApi(ak, sk, ep string, debug bool, adminPath string) *SCephAdmi
 		secret:    sk,
 		endpoint:  ep,
 		// ceph use no timeout client so as to download/upload large files
-		client: httputils.GetNoTimeoutClient(),
+		client: httputils.GetAdaptiveTimeoutClient(),
 		debug:  debug,
 	}
 }
