@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/filterclause"
 	"yunion.io/x/pkg/utils"
@@ -41,10 +42,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-)
-
-var (
-	CancelUsages func(ctx context.Context, userCred mcclient.TokenCredential, usages []IUsage)
 )
 
 type DBModelDispatcher struct {
@@ -1104,9 +1101,15 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
+	ctx = InitPendingUsagesInContext(ctx)
+
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
-		log.Errorf("fail to doCreateItem %s", err)
+		// log.Errorf("fail to doCreateItem %s", err)
+		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
+		if failErr != nil {
+			log.Errorf("manager.OnCreateFailed %s", failErr)
+		}
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -1179,41 +1182,61 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	}
 
 	var (
-		multiData         []jsonutils.JSONObject
-		onBatchCreateFail func()
-		validateError     error
+		multiData []jsonutils.JSONObject
+		// onBatchCreateFail func()
+		// validateError error
 	)
+
+	ctx = InitPendingUsagesInContext(ctx)
 
 	createResults, err := func() ([]sCreateResult, error) {
 		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
 		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-		multiData, err = expandMultiCreateParams(data, count)
+		// invoke only Once
+		err = manager.BatchPreValidate(ctx, userCred, ownerId, query, data.(*jsonutils.JSONDict), count)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "manager.BatchPreValidate")
 		}
 
-		ret := make([]sCreateResult, len(multiData))
-		for i, cdata := range multiData {
-			if i == 0 {
-				onBatchCreateFail, validateError = manager.BatchPreValidate(
-					ctx, userCred, ownerId, query, cdata.(*jsonutils.JSONDict), len(multiData))
-				if validateError != nil {
-					return nil, validateError
-				}
-			}
-			model, err := batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, cdata, i)
-			if err != nil && onBatchCreateFail != nil {
-				onBatchCreateFail()
-			}
-			ret[i] = sCreateResult{model: model, err: err}
+		multiData, err = expandMultiCreateParams(data, count)
+		if err != nil {
+			return nil, errors.Wrap(err, "expandMultiCreateParams")
 		}
-		return ret, nil
+
+		// one fail, then all fail
+		ret := make([]sCreateResult, len(multiData))
+		for i := range multiData {
+			var model IModel
+			model, err = batchCreateDoCreateItem(manager, ctx, userCred, ownerId, query, multiData[i], i)
+			if err == nil {
+				ret[i] = sCreateResult{model: model, err: nil}
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			for i := range ret {
+				if ret[i].model != nil {
+					DeleteModel(ctx, userCred, ret[i].model)
+					ret[i].model = nil
+				}
+				ret[i].err = err
+			}
+			return nil, errors.Wrap(err, "batchCreateDoCreateItem")
+		} else {
+			return ret, nil
+		}
 	}()
 
 	if err != nil {
-		return nil, err
+		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
+		if failErr != nil {
+			log.Errorf("manager.OnCreateFailed %s", failErr)
+		}
+		return nil, errors.Wrap(err, "createResults")
 	}
+
 	results := make([]modulebase.SubmitResult, count)
 	models := make([]IModel, 0)
 	for i, res := range createResults {
