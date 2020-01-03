@@ -904,40 +904,18 @@ func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcc
 func (manager *SGuestManager) BatchPreValidate(
 	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject, data *jsonutils.JSONDict, count int,
-) (func(), error) {
+) error {
 	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
 	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "manager.validateCreateData")
 	}
-	if input.IsSystem == nil || *input.IsSystem == false {
-		reqQuota, reqRegionQuota, err := manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, count)
+	if input.IsSystem == nil || !(*input.IsSystem) {
+		err := manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, count)
 		if err != nil {
-			return nil, err
+			return errors.Wrap(err, "manager.checkCreateQuota")
 		}
-		quota := &SQuota{
-			Count:          reqQuota.Count / count,
-			Cpu:            reqQuota.Cpu / count,
-			Memory:         reqQuota.Memory / count,
-			Storage:        reqQuota.Storage / count,
-			IsolatedDevice: reqQuota.IsolatedDevice / count,
-		}
-		regionQuota := &SRegionQuota{
-			Port:  reqRegionQuota.Port / count,
-			Eport: reqRegionQuota.Eport / count,
-			Bw:    reqRegionQuota.Bw / count,
-			Ebw:   reqRegionQuota.Ebw / count,
-			Eip:   reqRegionQuota.Eip / count,
-		}
-		keys := serverCreateInput2ComputeQuotaKeys(*input, ownerId)
-		regionKeys := keys.SRegionalCloudResourceKeys
-		quota.SetKeys(keys)
-		regionQuota.SetKeys(regionKeys)
-		return func() {
-			quotas.CancelPendingUsage(ctx, userCred, quota, quota)
-			quotas.CancelPendingUsage(ctx, userCred, regionQuota, regionQuota)
-		}, nil
 	}
-	return nil, nil
+	return nil
 }
 
 func parseInstanceSnapshot(input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
@@ -1335,7 +1313,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, err
 	}
 	if input.IsSystem == nil || !(*input.IsSystem) {
-		_, _, err = manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, 1)
+		err = manager.checkCreateQuota(ctx, userCred, ownerId, *input, input.Backup, 1)
 		if err != nil {
 			return nil, err
 		}
@@ -1402,17 +1380,20 @@ func (manager *SGuestManager) checkCreateQuota(
 	input api.ServerCreateInput,
 	hasBackup bool,
 	count int,
-) (*SQuota, *SRegionQuota, error) {
+) error {
 	req, regionReq := getGuestResourceRequirements(ctx, userCred, input, ownerId, count, hasBackup)
+	log.Debugf("computeQuota: %s", jsonutils.Marshal(req))
+	log.Debugf("regionQuota: %s", jsonutils.Marshal(regionReq))
+
 	err := quotas.CheckSetPendingQuota(ctx, userCred, &req)
 	if err != nil {
-		return nil, nil, err
+		return errors.Wrap(err, "quotas.CheckSetPendingQuota")
 	}
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &regionReq)
 	if err != nil {
-		return nil, nil, err
+		return errors.Wrap(err, "quotas.CheckSetPendingQuota")
 	}
-	return &req, &regionReq, nil
+	return nil
 }
 
 func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) (quotas.IQuota, error) {
@@ -1467,7 +1448,7 @@ func getGuestResourceRequirements(
 	eBw := 0
 	iBw := 0
 	for _, netConfig := range input.Networks {
-		if isExitNetworkInfo(netConfig) {
+		if IsExitNetworkInfo(netConfig) {
 			eNicCnt += 1
 			eBw += netConfig.BwLimit
 		} else {

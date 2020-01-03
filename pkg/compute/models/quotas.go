@@ -258,6 +258,30 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
 }
 
+func (self *SQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SQuota)
+	cnt := -1
+	if self.Count >= 0 && squota.Count > 0 && (cnt < 0 || cnt > self.Count/squota.Count) {
+		cnt = self.Count / squota.Count
+	}
+	if self.Cpu >= 0 && squota.Cpu > 0 && (cnt < 0 || cnt > self.Cpu/squota.Cpu) {
+		cnt = self.Cpu / squota.Cpu
+	}
+	if self.Memory >= 0 && squota.Memory > 0 && (cnt < 0 || cnt > self.Memory/squota.Memory) {
+		cnt = self.Memory / squota.Memory
+	}
+	if self.Storage >= 0 && squota.Storage > 0 && (cnt < 0 || cnt > self.Storage/squota.Storage) {
+		cnt = self.Storage / squota.Storage
+	}
+	if self.Group >= 0 && squota.Group > 0 && (cnt < 0 || cnt > self.Group/squota.Group) {
+		cnt = self.Group / squota.Group
+	}
+	if self.IsolatedDevice >= 0 && squota.IsolatedDevice > 0 && (cnt < 0 || cnt > self.IsolatedDevice/squota.IsolatedDevice) {
+		cnt = self.IsolatedDevice / squota.IsolatedDevice
+	}
+	return cnt
+}
+
 func (self *SQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
 	if squota.Count > 0 {
@@ -446,7 +470,7 @@ func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 		account := manager.GetCloudaccount()
 		keys.Provider = account.Provider
 		keys.Brand = account.Brand
-		keys.CloudEnv = account.getCloudEnv()
+		keys.CloudEnv = account.GetCloudEnv()
 		keys.AccountId = account.Id
 		keys.ManagerId = manager.Id
 	} else {
