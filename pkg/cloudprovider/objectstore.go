@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -276,6 +277,12 @@ func GetIBucketStats(bucket ICloudBucket) (SBucketStats, error) {
 	return stats, nil
 }
 
+type cloudObjectList []ICloudObject
+
+func (a cloudObjectList) Len() int           { return len(a) }
+func (a cloudObjectList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a cloudObjectList) Less(i, j int) bool { return a[i].GetKey() < a[j].GetKey() }
+
 func GetPagedObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool, marker string, maxCount int) ([]ICloudObject, string, error) {
 	delimiter := "/"
 	if isRecursive {
@@ -289,20 +296,22 @@ func GetPagedObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool,
 	if err != nil {
 		return nil, "", errors.Wrap(err, "bucket.ListObjects")
 	}
-	// Send all common prefixes if any.
-	// NOTE: prefixes are only present if the request is delimited.
-	if len(result.CommonPrefixes) > 0 {
-		ret = append(ret, result.CommonPrefixes...)
-	}
 	// Send all objects
 	for i := range result.Objects {
-		// if delimited, skip the first object
-		if !isRecursive && result.Objects[i].GetKey() == objectPrefix {
+		// if delimited, skip the first object ends with delimiter
+		if !isRecursive && result.Objects[i].GetKey() == objectPrefix && strings.HasSuffix(objectPrefix, delimiter) {
 			continue
 		}
 		ret = append(ret, result.Objects[i])
 		marker = result.Objects[i].GetKey()
 	}
+	// Send all common prefixes if any.
+	// NOTE: prefixes are only present if the request is delimited.
+	if len(result.CommonPrefixes) > 0 {
+		ret = append(ret, result.CommonPrefixes...)
+	}
+	// sort prefix by name in ascending order
+	sort.Sort(cloudObjectList(ret))
 	// If next marker present, save it for next request.
 	if result.NextMarker != "" {
 		marker = result.NextMarker
