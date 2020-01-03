@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/bwutils"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/ovsutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -161,9 +160,6 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	s += "if [ -z \"$OFCTL\" ]; then\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
-	for _, r := range o.GetOfRules(nic) {
-		s += "    " + o.AddFlow(r.cond, r.priority, r.actions)
-	}
 	s += "fi\n"
 	s += "if [ $LIMIT_DOWNLOAD != \"0mbit\" ]; then\n"
 	s += "    tc qdisc del dev $IF root 2>/dev/null\n"
@@ -197,11 +193,6 @@ func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, err
 	s += "fi\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
-	s += "if [ -z \"$OFCTL\" ]; then\n"
-	for _, r := range o.GetOfRules(nic) {
-		s += "    " + o.DelFlow(r.cond)
-	}
-	s += "fi\n"
 	s += "ip link set dev $IF down\n"
 	s += "ovs-vsctl -- --if-exists del-port $SWITCH $IF\n"
 	return s, nil
@@ -213,85 +204,7 @@ type SRule struct {
 	actions  string
 }
 
-func (o *SOVSBridgeDriver) AddFlow(cond string, priority int, actions string) string {
-	s := ""
-	s += fmt.Sprintf("ovs-ofctl add-flow $SWITCH \"%s", cond)
-	s += fmt.Sprintf(" priority=%d", priority)
-	s += fmt.Sprintf(" actions=%s\"\n", actions)
-	return s
-}
-
-func (o *SOVSBridgeDriver) DoAddFlow(cond string, pri int, actions, swt string) error {
-	return procutils.NewCommand("ovs-ofctl", "add-flow", swt,
-		fmt.Sprintf("%s priority=%d actions=%s", cond, pri, actions)).Run()
-}
-
-func (o *SOVSBridgeDriver) DelFlow(cond string) string {
-	return fmt.Sprintf("ovs-ofctl del-flows $SWITCH \"%s\"\n", cond)
-}
-
-func (o *SOVSBridgeDriver) GetOfRules(nic jsonutils.JSONObject) []SRule {
-	rules := []SRule{}
-	metadataPort := o.GetMetadataServerPort()
-	rules = append(rules,
-		SRule{9000, fmt.Sprintf("table=0 in_port=local tcp nw_dst=$IP tp_src=%d", metadataPort),
-			"mod_nw_src=169.254.169.254,mod_tp_src:80,output:$PORT"},
-		SRule{9500, "table=0 in_port=$PORT udp tp_src=68 tp_dst=67", "local"},
-		SRule{8000, "table=0 in_port=$PORT", "resubmit(,1)"},
-	)
-	if vlan, _ := nic.Int("vlan"); vlan != 1 {
-		rules = append(rules,
-			SRule{4901, "table=1 dl_dst=$MAC,dl_vlan=$VLAN_ID", "strip_vlan,output:$PORT"})
-	}
-	rules = append(rules,
-		SRule{4900, "table=1 dl_dst=$MAC", "output:$PORT"})
-	return rules
-}
-
 func (o *SOVSBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
-	if !options.HostOptions.EnableOpenflowController {
-		metadataPort := o.GetMetadataServerPort()
-		if err := o.DoAddFlow("table=0 ipv6", 20000, "drop", o.bridge.String()); err != nil {
-			log.Errorln(err)
-			return err
-		}
-		if err := o.DoAddFlow("table=0 tcp nw_dst=169.254.169.254 tp_dst=80", 10000,
-			fmt.Sprintf("mod_dl_dst:%s,mod_nw_dst:%s,mod_tp_dst:%d,local",
-				mac, ip, metadataPort),
-			o.bridge.String()); err != nil {
-			log.Errorln(err)
-			return err
-		}
-		log.Infof("OVS: metadata server %s:%d", ip, metadataPort)
-
-		k8sCidr := options.HostOptions.K8sClusterCidr
-		if len(k8sCidr) > 0 {
-			addr, mask, err := netutils2.PrefixSplit(k8sCidr)
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-			k8sCidr = fmt.Sprintf("%s/%d", addr, mask)
-			log.Infof("OVS: Kubernetes cluster IP range: %s", k8sCidr)
-			err = o.DoAddFlow(fmt.Sprintf("table=0 ip,nw_dst=%s", k8sCidr),
-				10050, fmt.Sprintf("mod_dl_dst:%s,local", mac), o.bridge.String())
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-		}
-
-		err := o.DoAddFlow("table=0", 0, "resubmit(,1)", o.bridge.String())
-		if err != nil {
-			log.Errorln(err)
-			return err
-		}
-		err = o.DoAddFlow("table=1", 0, "normal", o.bridge.String())
-		if err != nil {
-			log.Errorln(err)
-			return err
-		}
-	}
 	return nil
 }
 
