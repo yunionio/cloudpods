@@ -141,31 +141,6 @@ func doScheduleObjects(
 func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 	ClearTaskPendingUsage(ctx, task.(taskman.ITask))
 	ClearTaskPendingRegionUsage(ctx, task.(taskman.ITask))
-	/*pendingUsage := models.SQuota{}
-	err := task.GetPendingUsage(&pendingUsage, 0)
-	if err != nil {
-		log.Errorf("Taks GetPendingUsage fail %s", err)
-		return
-	}
-	if !pendingUsage.IsEmpty() {
-		err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
-		if err != nil {
-			log.Errorf("cancelpendingusage error %s", err)
-		}
-	}
-
-	pendingRegionUsage := models.SRegionQuota{}
-	err = task.GetPendingUsage(&pendingRegionUsage, 1)
-	if err != nil {
-		log.Errorf("Taks GetRegionPendingUsage fail %s", err)
-		return
-	}
-	if !pendingRegionUsage.IsEmpty() {
-		err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingRegionUsage, &pendingRegionUsage)
-		if err != nil {
-			log.Errorf("cancelpendingusage error %s", err)
-		}
-	}*/
 }
 
 func onSchedulerRequestFail(
