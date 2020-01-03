@@ -109,10 +109,11 @@ func (self *SCloudprovider) AllowDeleteItem(ctx context.Context, userCred mcclie
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
-	account := self.GetCloudaccount()
-	if account != nil && account.EnableAutoSync {
-		return httperrors.NewInvalidStatusError("auto syncing is enabled on account")
-	}
+	// allow delete cloudprovider if it is disabled
+	// account := self.GetCloudaccount()
+	// if account != nil && account.EnableAutoSync {
+	// 	return httperrors.NewInvalidStatusError("auto syncing is enabled on account")
+	// }
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("provider is enabled")
 	}
