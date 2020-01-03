@@ -347,8 +347,15 @@ func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSessi
 	ret := make([]SubmitResult, count)
 	respbody, err := this._post(session, path, body, this.KeywordPlural)
 	if err != nil {
-		for i := 0; i < count; i++ {
-			ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
+		jsonErr, ok := err.(*httputils.JSONClientError)
+		if ok {
+			for i := 0; i < count; i++ {
+				ret[i] = SubmitResult{Status: jsonErr.Code, Data: jsonutils.Marshal(jsonErr)}
+			}
+		} else {
+			for i := 0; i < count; i++ {
+				ret[i] = SubmitResult{Status: 500, Data: jsonutils.NewString(err.Error())}
+			}
 		}
 		return ret
 	}
