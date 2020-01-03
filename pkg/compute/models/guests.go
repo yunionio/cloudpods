@@ -1393,7 +1393,6 @@ func (manager *SGuestManager) checkCreateQuota(
 	if err != nil {
 		return errors.Wrap(err, "quotas.CheckSetPendingQuota")
 	}
-	quotas.SavePendingUsagesInContext(ctx, &req, &regionReq)
 	return nil
 }
 
