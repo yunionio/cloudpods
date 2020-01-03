@@ -57,7 +57,7 @@ func clearPendingUsagesInContext(ctx context.Context) {
 	}
 }
 
-func SavePendingUsagesInContext(ctx context.Context, quotas ...IQuota) {
+func savePendingUsagesInContext(ctx context.Context, quotas ...IQuota) {
 	val := ctx.Value(APP_CONTEXT_KEY_PENDINGUSAGES)
 	if val != nil {
 		quotaList := val.(*list.List)
