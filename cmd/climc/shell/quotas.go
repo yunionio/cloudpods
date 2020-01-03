@@ -24,7 +24,7 @@ import (
 )
 
 type ComputeQuotaKeys struct {
-	RegionQuotaKeys
+	ZoneQuotaKeys
 
 	Hypervisor string `help:"hypervisor" choices:"kvm|baremetal"`
 }
