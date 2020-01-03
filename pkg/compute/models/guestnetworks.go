@@ -540,6 +540,7 @@ func totalGuestNicCount(
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 	guestnics := GuestnetworkManager.Query().SubQuery()
+
 	q := guestnics.Query()
 	q = q.Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
 	q = q.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))

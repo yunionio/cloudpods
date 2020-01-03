@@ -33,6 +33,8 @@ func init() {
 	quotaManagerTable = make(map[reflect.Type]IQuotaManager)
 
 	db.CancelUsages = CancelUsages
+	db.CancelPendingUsagesInContext = cancelPendingUsagesInContext
+	db.InitPendingUsagesInContext = initPendingUsagesInContext
 }
 
 func Register(manager IQuotaManager) {
