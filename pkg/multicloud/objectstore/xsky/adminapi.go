@@ -47,7 +47,7 @@ func newXskyAdminApi(user, passwd, ep string, debug bool) *SXskyAdminApi {
 		username: user,
 		password: passwd,
 		// xsky use notimeout client so as to download/upload large files
-		client: httputils.GetNoTimeoutClient(),
+		client: httputils.GetAdaptiveTimeoutClient(),
 		debug:  debug,
 	}
 }
