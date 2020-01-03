@@ -17,7 +17,6 @@ package objectstore
 import (
 	"net/url"
 	"os"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -80,7 +79,7 @@ func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoi
 		return nil, errors.Wrap(err, "minio.New")
 	}
 
-	tr := httputils.GetTransport(true, time.Second*5)
+	tr := httputils.GetTransport(true)
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
