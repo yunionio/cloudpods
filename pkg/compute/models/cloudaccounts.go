@@ -142,6 +142,18 @@ func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
 	return self.getCloudprovidersInternal(tristate.None)
 }
 
+func (self *SCloudaccount) IsAvailable() bool {
+	if !self.Enabled {
+		return false
+	}
+
+	if self.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
+		return false
+	}
+
+	return true
+}
+
 func (self *SCloudaccount) GetEnabledCloudproviders() []SCloudprovider {
 	return self.getCloudprovidersInternal(tristate.True)
 }
