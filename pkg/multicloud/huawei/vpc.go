@@ -206,7 +206,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 }
 
 func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
-	nats, err := self.region.GetNatGateways(self.GetId())
+	nats, err := self.region.GetNatGateways(self.GetId(), "")
 	if err != nil {
 		return nil, err
 	}
