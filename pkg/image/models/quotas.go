@@ -155,6 +155,15 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Image = quotas.NonNegative(self.Image - squota.Image)
 }
 
+func (self *SQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SQuota)
+	cnt := -1
+	if self.Image >= 0 && squota.Image > 0 && (cnt < 0 || cnt > self.Image/squota.Image) {
+		cnt = self.Image / squota.Image
+	}
+	return cnt
+}
+
 func (self *SQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SQuota)
 	if squota.Image > 0 {

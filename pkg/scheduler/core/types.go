@@ -92,6 +92,8 @@ type CandidatePropertyGetter interface {
 	GetFreeGroupCount(groupId string) (int, error)
 
 	GetIpmiInfo() types.SIPMIInfo
+
+	GetQuotaKeys(s *api.SchedInfo) computemodels.SComputeResourceKeys
 }
 
 // Candidater replace host Candidate resource info

@@ -855,7 +855,7 @@ func (self *SCloudaccount) getProjectIds() []string {
 	return ret
 }
 
-func (self *SCloudaccount) getCloudEnv() string {
+func (self *SCloudaccount) GetCloudEnv() string {
 	if self.IsOnPremise {
 		return api.CLOUD_ENV_ON_PREMISE
 	} else if self.IsPublicCloud.IsTrue() {
@@ -885,7 +885,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(projects, "projects")
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
 	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
-	extra.Set("cloud_env", jsonutils.NewString(self.getCloudEnv()))
+	extra.Set("cloud_env", jsonutils.NewString(self.GetCloudEnv()))
 	if len(self.ProjectId) > 0 {
 		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), self.ProjectId); proj != nil {
 			extra.Add(jsonutils.NewString(proj.Name), "tenant")

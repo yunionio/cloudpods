@@ -31,7 +31,13 @@ func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
 	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
-		return errors.Wrap(err, "task.GetPendingUsage")
+		// ignore error
+		// return errors.Wrap(err, "task.GetPendingUsage")
+		return nil
+	}
+
+	if pendingUsage.IsEmpty() {
+		return nil
 	}
 
 	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
@@ -55,7 +61,13 @@ func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error 
 	err := task.GetPendingUsage(&pendingUsage, index)
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
-		return errors.Wrap(err, "task.GetPendingUsage")
+		// ignore error
+		// return errors.Wrap(err, "task.GetPendingUsage")
+		return nil
+	}
+
+	if pendingUsage.IsEmpty() {
+		return nil
 	}
 
 	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
