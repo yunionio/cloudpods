@@ -141,6 +141,15 @@ func (self *SProjectQuota) Sub(quota quotas.IQuota) {
 	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
 }
 
+func (self *SProjectQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SProjectQuota)
+	cnt := -1
+	if self.Secgroup >= 0 && squota.Secgroup > 0 && (cnt < 0 || cnt > self.Secgroup/squota.Secgroup) {
+		cnt = self.Secgroup / squota.Secgroup
+	}
+	return cnt
+}
+
 func (self *SProjectQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SProjectQuota)
 	if squota.Secgroup > 0 {

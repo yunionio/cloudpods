@@ -312,6 +312,48 @@ func (self *SRegionQuota) Sub(quota quotas.IQuota) {
 	self.Loadbalancer = nonNegative(self.Loadbalancer - squota.Loadbalancer)
 }
 
+func (self *SRegionQuota) Allocable(request quotas.IQuota) int {
+	squota := request.(*SRegionQuota)
+	cnt := -1
+	if self.Port >= 0 && squota.Port > 0 && (cnt < 0 || cnt > self.Port/squota.Port) {
+		cnt = self.Port / squota.Port
+	}
+	if self.Eip >= 0 && squota.Eip > 0 && (cnt < 0 || cnt > self.Eip/squota.Eip) {
+		cnt = self.Eip / squota.Eip
+	}
+	if self.Eport >= 0 && squota.Eport > 0 && (cnt < 0 || cnt > self.Eport/squota.Eport) {
+		cnt = self.Eport / squota.Eport
+	}
+	if self.Bw >= 0 && squota.Bw > 0 && (cnt < 0 || cnt > self.Bw/squota.Bw) {
+		cnt = self.Bw / squota.Bw
+	}
+	if self.Ebw >= 0 && squota.Ebw > 0 && (cnt < 0 || cnt > self.Ebw/squota.Ebw) {
+		cnt = self.Ebw / squota.Ebw
+	}
+	if self.Snapshot >= 0 && squota.Snapshot > 0 && (cnt < 0 || cnt > self.Snapshot/squota.Snapshot) {
+		cnt = self.Snapshot / squota.Snapshot
+	}
+	if self.Bucket >= 0 && squota.Bucket > 0 && (cnt < 0 || cnt > self.Bucket/squota.Bucket) {
+		cnt = self.Bucket / squota.Bucket
+	}
+	if self.ObjectGB >= 0 && squota.ObjectGB > 0 && (cnt < 0 || cnt > self.ObjectGB/squota.ObjectGB) {
+		cnt = self.ObjectGB / squota.ObjectGB
+	}
+	if self.ObjectCnt >= 0 && squota.ObjectCnt > 0 && (cnt < 0 || cnt > self.ObjectCnt/squota.ObjectCnt) {
+		cnt = self.ObjectCnt / squota.ObjectCnt
+	}
+	if self.Rds >= 0 && squota.Rds > 0 && (cnt < 0 || cnt > self.Rds/squota.Rds) {
+		cnt = self.Rds / squota.Rds
+	}
+	if self.Cache >= 0 && squota.Cache > 0 && (cnt < 0 || cnt > self.Cache/squota.Cache) {
+		cnt = self.Cache / squota.Cache
+	}
+	if self.Loadbalancer >= 0 && squota.Loadbalancer > 0 && (cnt < 0 || cnt > self.Loadbalancer/squota.Loadbalancer) {
+		cnt = self.Loadbalancer / squota.Loadbalancer
+	}
+	return cnt
+}
+
 func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	squota := quota.(*SRegionQuota)
 	if squota.Port > 0 {

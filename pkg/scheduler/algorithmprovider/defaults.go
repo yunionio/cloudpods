@@ -47,6 +47,7 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("o-GuestNetschedtagFilter", &predicates.NetworkSchedtagPredicate{}),
 		factory.RegisterFitPredicate("p-GuestForcedDispersionFilter", &predicates.SForcedGroupPredicate{}),
 		factory.RegisterFitPredicate("p-GuestUnForcedDispersionFilter", &predicates.SUnForcedGroupPredicate{}),
+		factory.RegisterFitPredicate("z-QuotaFilter", &predicates.SQuotaPredicate{}),
 	)
 }
 
