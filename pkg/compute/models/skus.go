@@ -551,6 +551,7 @@ func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
 	// 过滤出network usable的sku
 	if public_cloud {
 		iconditions := NetworkUsableZoneQueries(q.Field("zone_id"), true, true)
+		iconditions = append(iconditions, sqlchemy.IsNullOrEmpty(q.Field("zone_id"))) //Azure的zone_id可能为空
 		q = q.Filter(sqlchemy.OR(iconditions...))
 	} else {
 		// 本地IDC sku 只定义到region层级, zone id 为空.因此只能按region查询
@@ -1173,7 +1174,11 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 
 func (manager *SServerSkuManager) initializeSkuProvider() error {
 	skus := []SServerSku{}
-	q := manager.Query().In("provider", CloudproviderManager.GetPrivateProviderProvidersQuery())
+	q := manager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()),
+		sqlchemy.IsNullOrEmpty(q.Field("provider")),
+	))
 	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
 		return errors.Wrapf(err, "initializeSkuProvider.FetchModelObjects")
@@ -1181,6 +1186,8 @@ func (manager *SServerSkuManager) initializeSkuProvider() error {
 	for _, sku := range skus {
 		_, err = db.Update(&sku, func() error {
 			sku.Provider = api.CLOUD_PROVIDER_ONECLOUD
+			sku.CloudregionId = api.DEFAULT_REGION_ID
+			sku.ZoneId = ""
 			return nil
 		})
 		if err != nil {
