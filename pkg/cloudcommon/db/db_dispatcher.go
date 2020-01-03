@@ -39,7 +39,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1242,14 +1241,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	for i, res := range createResults {
 		result := modulebase.SubmitResult{}
 		if res.err != nil {
-			jsonErr, ok := res.err.(*httputils.JSONClientError)
-			if ok {
-				result.Status = jsonErr.Code
-				result.Data = jsonutils.Marshal(jsonErr)
-			} else {
-				result.Status = 500
-				result.Data = jsonutils.NewString(res.err.Error())
-			}
+			jsonErr := httperrors.NewGeneralError(res.err)
+			result.Status = jsonErr.Code
+			result.Data = jsonutils.Marshal(jsonErr)
 		} else {
 			lockman.LockObject(ctx, res.model)
 			defer lockman.ReleaseObject(ctx, res.model)
