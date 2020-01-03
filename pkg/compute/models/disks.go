@@ -1059,6 +1059,16 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 }
 
 func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	provider := self.GetCloudprovider()
+	if provider != nil && !provider.IsAvailable() {
+		return false
+	}
+
+	account := provider.GetCloudaccount()
+	if account != nil && !account.IsAvailable() {
+		return false
+	}
+
 	overridePendingDelete := false
 	purge := false
 	if query != nil {
