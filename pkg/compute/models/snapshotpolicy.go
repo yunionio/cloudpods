@@ -287,7 +287,7 @@ func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mccli
 }
 
 func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
-JSONObject, data jsonutils.JSONObject) error {
+	JSONObject, data jsonutils.JSONObject) error {
 
 	// check if sp bind to some disks
 	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
@@ -674,7 +674,7 @@ func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(inpu
 }
 
 func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.
-SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
+	SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
 	return nil
 }
 
