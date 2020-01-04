@@ -130,40 +130,20 @@ func GetAddrPort(urlStr string) (string, int, error) {
 }
 
 func GetTransport(insecure bool) *http.Transport {
-	return &http.Transport{
+	return getTransport(insecure, false)
+}
+
+func adptiveDial(network, addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout(network, addr, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
+}
+
+func getTransport(insecure bool, adaptive bool) *http.Transport {
+	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		Dial: func(network, addr string) (net.Conn, error) {
-			conn, err := net.DialTimeout(network, addr, 10*time.Second)
-			if err != nil {
-				return nil, err
-			}
-			return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
-		},
-		/*DialContext: (&net.Dialer{
-			// 建立TCP连接超时时间
-			// Timeout is the maximum amount of time a dial will wait for
-			// a connect to complete. If Deadline is also set, it may fail
-			// earlier.
-			//
-			// The default is no timeout.
-			//
-			// When using TCP and dialing a host name with multiple IP
-			// addresses, the timeout may be divided between them.
-			//
-			// With or without a timeout, the operating system may impose
-			// its own earlier timeout. For instance, TCP timeouts are
-			// often around 3 minutes.
-			Timeout: 10 * time.Second,
-			//
-			// KeepAlive specifies the interval between keep-alive
-			// probes for an active network connection.
-			// If zero, keep-alive probes are sent with a default value
-			// (currently 15 seconds), if supported by the protocol and operating
-			// system. Network protocols or operating systems that do
-			// not support keep-alives ignore this field.
-			// If negative, keep-alive probes are disabled.
-			KeepAlive: 5 * time.Second, // send keep-alive probe every 5 seconds
-		}).DialContext,*/
 		// 一个空闲连接保持连接的时间
 		// IdleConnTimeout is the maximum amount of time an idle
 		// (keep-alive) connection will remain idle before closing
@@ -191,10 +171,44 @@ func GetTransport(insecure bool) *http.Transport {
 		ExpectContinueTimeout: 5 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
 	}
+	if adaptive {
+		tr.Dial = adptiveDial
+	} else {
+		tr.DialContext = (&net.Dialer{
+			// 建立TCP连接超时时间
+			// Timeout is the maximum amount of time a dial will wait for
+			// a connect to complete. If Deadline is also set, it may fail
+			// earlier.
+			//
+			// The default is no timeout.
+			//
+			// When using TCP and dialing a host name with multiple IP
+			// addresses, the timeout may be divided between them.
+			//
+			// With or without a timeout, the operating system may impose
+			// its own earlier timeout. For instance, TCP timeouts are
+			// often around 3 minutes.
+			Timeout: 10 * time.Second,
+			//
+			// KeepAlive specifies the interval between keep-alive
+			// probes for an active network connection.
+			// If zero, keep-alive probes are sent with a default value
+			// (currently 15 seconds), if supported by the protocol and operating
+			// system. Network protocols or operating systems that do
+			// not support keep-alives ignore this field.
+			// If negative, keep-alive probes are disabled.
+			KeepAlive: 5 * time.Second, // send keep-alive probe every 5 seconds
+		}).DialContext
+	}
+	return tr
 }
 
 func GetClient(insecure bool, timeout time.Duration) *http.Client {
-	tr := GetTransport(insecure)
+	adaptive := false
+	if timeout == 0 {
+		adaptive = true
+	}
+	tr := getTransport(insecure, adaptive)
 	return &http.Client{
 		Transport: tr,
 		// 一个完整http request的超时时间
