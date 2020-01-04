@@ -63,7 +63,7 @@ func (self *InstanceSnapshotCreateTask) taskFail(
 	guest.SetStatus(self.UserCred, compute.VM_INSTANCE_SNAPSHOT_FAILED, reason)
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, false, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(isp.GetId(), isp.Name, compute.INSTANCE_SNAPSHOT_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -79,7 +79,7 @@ func (self *InstanceSnapshotCreateTask) taskComplete(
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 
 	db.OpsLog.LogEvent(isp, db.ACT_ALLOCATE, "instance snapshot create success", self.UserCred)
-	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, false, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, isp, logclient.ACT_CREATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
