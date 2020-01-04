@@ -45,8 +45,8 @@ type SCapabilities struct {
 	ObjectStorageBrands         []string `json:",allowempty"`
 	DisabledObjectStorageBrands []string `json:",allowempty"`
 	ResourceTypes               []string `json:",allowempty"`
-	StorageTypes                []string `json:",allowempty"`
-	DataStorageTypes            []string `json:",allowempty"`
+	StorageTypes                []string `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes            []string `json:",allowempty"` // going to remove on 2.14
 	GPUModels                   []string `json:",allowempty"`
 	MinNicCount                 int
 	MaxNicCount                 int
