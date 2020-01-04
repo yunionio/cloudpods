@@ -524,3 +524,15 @@ func (cli *SObjectStoreClient) GetIBucketById(name string) (cloudprovider.ICloud
 func (cli *SObjectStoreClient) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return cli.GetIBucketById(name)
 }
+
+func (self *SObjectStoreClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		// cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+	}
+	return caps
+}

@@ -158,3 +158,7 @@ func (self *SCtyunProvider) GetStorageClasses(regionId string) []string {
 func (self *SCtyunProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }
+
+func (self *SCtyunProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
