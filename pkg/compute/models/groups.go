@@ -91,7 +91,8 @@ func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.
 	query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := group.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	ret, _ := group.getMoreDetails(ctx, userCred, extra)
-	return ret.JSON(ret)
+	extra.Update(ret.JSON(ret))
+	return extra
 }
 
 func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
