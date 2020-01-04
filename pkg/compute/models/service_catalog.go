@@ -103,15 +103,15 @@ func (scm *SServiceCatalogManager) ValidateCreateData(ctx context.Context, userC
 		return nil, err
 	}
 	/*
-	gt := model.(*SGuestTemplate)
-	//scope := rbacutils.String2Scope(gt.PublicScope)
-	//if !gt.IsPublic || scope != rbacutils.ScopeSystem {
-	//	return nil, httperrors.NewForbiddenError("guest template must be public in scope system")
-	//}
-	if userCred.GetProjectId() != gt.ProjectId {
-		return nil, httperrors.NewForbiddenError("guest template must has same project id with the request")
-	}
-	 */
+		gt := model.(*SGuestTemplate)
+		//scope := rbacutils.String2Scope(gt.PublicScope)
+		//if !gt.IsPublic || scope != rbacutils.ScopeSystem {
+		//	return nil, httperrors.NewForbiddenError("guest template must be public in scope system")
+		//}
+		if userCred.GetProjectId() != gt.ProjectId {
+			return nil, httperrors.NewForbiddenError("guest template must has same project id with the request")
+		}
+	*/
 
 	data := input.JSON(input)
 	data.Remove("guest_template")
