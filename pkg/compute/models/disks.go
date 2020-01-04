@@ -2476,3 +2476,96 @@ func (disk *SDisk) GetUsages() []db.IUsage {
 		&usage,
 	}
 }
+
+func (disk *SDisk) AllowPerformBindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+
+	return disk.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, disk, "bind-snapshotpolicy")
+}
+
+func (disk *SDisk) PerformBindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	spIden, err := data.GetString("snapshotpolicy")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("miss snapshotpolicy")
+	}
+	// check snapshotpolicy
+	imodel, err := db.FetchByIdOrName(SnapshotPolicyManager, userCred, spIden)
+	if errors.Cause(err) == sql.ErrNoRows {
+		return nil, httperrors.NewInputParameterError("no such snapshotpolicy %s", spIden)
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchByIdOrName")
+	}
+	snapshotpolicy := imodel.(*SSnapshotPolicy)
+
+	// try to bind
+	spd, err := SnapshotPolicyDiskManager.newSnapshotpolicyDisk(ctx, userCred, snapshotpolicy, disk)
+
+	if errors.Cause(err) == ErrExistSD {
+		if spd.Status != api.SNAPSHOT_POLICY_DISK_INIT {
+			return nil, nil
+		}
+	} else if err != nil {
+		return nil, errors.Wrap(err, "SnapshotPolicyDiskManager.newSnapshotpolicyDisk")
+	}
+
+	// start up SnapshotPolicyApplyTask
+	taskData := jsonutils.NewDict()
+	taskData.Add(jsonutils.Marshal(spd), "snapshotPolicyDisk")
+	taskData.Add(jsonutils.Marshal(snapshotpolicy), "snapshotPolicy")
+	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyApplyTask", disk, userCred, nil, "", "",
+		nil); err != nil {
+		return nil, errors.Wrap(err, "fail to start up SnapshotPolicyApplyTask")
+	} else {
+		task.ScheduleRun(taskData)
+	}
+	return nil, nil
+}
+
+func (disk *SDisk) AllowPerformUnbindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject) bool {
+
+	return disk.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, disk, "unbind-snapshotpolicy")
+}
+
+func (disk *SDisk) PerformUnbindSnapshotpolicy(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	spIden, err := data.GetString("snapshotpolicy")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("miss snapshotpolicy")
+	}
+	// check snapshotpolicy
+	imodel, err := db.FetchByIdOrName(SnapshotPolicyManager, userCred, spIden)
+	if errors.Cause(err) == sql.ErrNoRows {
+		return nil, httperrors.NewInputParameterError("no such snapshotpolicy %s", spIden)
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchByIdOrName")
+	}
+	snapshotpolicy := imodel.(*SSnapshotPolicy)
+
+	spd, err := SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk(snapshotpolicy.GetId(), disk.GetId())
+	if err != nil {
+		return nil, errors.Wrap(err, "SnapshotPolicyDiskManager.FetchBySnapshotPolicyDisk")
+	}
+	if spd == nil {
+		// has been detach
+		return nil, nil
+	}
+
+	// start up SnapshotPolicyCancelTask
+	taskdata := jsonutils.NewDict()
+	taskdata.Add(jsonutils.NewString(snapshotpolicy.Id), "snapshot_policy_id")
+	taskdata.Add(jsonutils.Marshal(spd), "snapshotPolicyDisk")
+	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyCancelTask", disk, userCred, nil, "", "",
+		nil); err != nil {
+		return nil, errors.Wrap(err, "fail to start up SnapshotPolicyCancelTask")
+	} else {
+		spd.SetStatus(userCred, api.SNAPSHOT_POLICY_DISK_DELETING, "")
+		task.ScheduleRun(taskdata)
+	}
+	return nil, nil
+}
