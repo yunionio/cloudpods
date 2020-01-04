@@ -139,7 +139,7 @@ func (this *HostManager) BatchRegister(s *mcclient.ClientSession, titles []strin
 			if e != nil {
 				ecls, ok := e.(*httputils.JSONClientError)
 				if ok {
-					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.NewString(ecls.Details)}
+					results <- modulebase.SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
 				} else {
 					results <- modulebase.SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 				}
