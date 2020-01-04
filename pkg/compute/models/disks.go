@@ -1037,6 +1037,16 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SDisk) ValidateDeleteCondition(ctx context.Context) error {
+	provider := self.GetCloudprovider()
+	if provider != nil && !provider.IsAvailable() {
+		return httperrors.NewNotSufficientPrivilegeError("cloud provider %s is not available", provider.GetName())
+	}
+
+	account := provider.GetCloudaccount()
+	if account != nil && !account.IsAvailable() {
+		return httperrors.NewNotSufficientPrivilegeError("cloud account %s is not available", account.GetName())
+	}
+
 	return self.validateDeleteCondition(ctx, false)
 }
 
