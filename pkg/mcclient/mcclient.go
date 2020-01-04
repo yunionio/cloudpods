@@ -57,7 +57,7 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	}
 	tlsConf.InsecureSkipVerify = insecure
 
-	tr := httputils.GetTransport(insecure, 5*time.Second)
+	tr := httputils.GetTransport(insecure)
 	tr.TLSClientConfig = tlsConf
 	tr.IdleConnTimeout = 5 * time.Second
 	tr.TLSHandshakeTimeout = 10 * time.Second

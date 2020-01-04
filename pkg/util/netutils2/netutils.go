@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -130,7 +129,7 @@ func GetMainNicFromDeployApi(nics []*types.SServerNic) (*types.SServerNic, error
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -172,7 +171,7 @@ func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func Netlen2Mask(netmasklen int) string {
