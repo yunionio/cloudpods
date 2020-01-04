@@ -55,6 +55,7 @@ type GuesttemplateConfigInfo struct {
 	Secgroup             string                 `json:"secgroup"`
 	IsolatedDeviceConfig []IsolatedDeviceConfig `json:"isolated_device_config"`
 	Image                string                 `json:"image"`
+	ResetPassword        bool                   `json:"reset_password"`
 }
 
 type GuesttemplateDisk struct {
