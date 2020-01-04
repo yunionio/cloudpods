@@ -161,6 +161,15 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	return ret, nil
 }
 
+func (region *SRegion) GetPort(portId string) (*SPort, error) {
+	_, resp, err := region.Get("network", "/v2.0/ports/"+portId, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	port := &SPort{}
+	return port, resp.Unmarshal(port, "port")
+}
+
 func (region *SRegion) GetPorts(macAddress string) ([]SPort, error) {
 	base := fmt.Sprintf("/v2.0/ports")
 	params := url.Values{}

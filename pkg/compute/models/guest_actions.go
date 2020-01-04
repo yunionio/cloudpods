@@ -2808,6 +2808,18 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
 	}
 
+	if len(eip.NetworkId) > 0 {
+		gns, err := self.GetNetworks("")
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrap(err, "GetNetworks"))
+		}
+		for _, gn := range gns {
+			if gn.NetworkId == eip.NetworkId {
+				return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+			}
+		}
+	}
+
 	eipZone := eip.GetZone()
 	if eipZone != nil {
 		insZone := self.getZone()
