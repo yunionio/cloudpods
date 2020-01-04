@@ -142,6 +142,18 @@ func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
 	return self.getCloudprovidersInternal(tristate.None)
 }
 
+func (self *SCloudaccount) IsAvailable() bool {
+	if !self.Enabled {
+		return false
+	}
+
+	if !utils.IsInStringArray(self.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
+		return false
+	}
+
+	return true
+}
+
 func (self *SCloudaccount) GetEnabledCloudproviders() []SCloudprovider {
 	return self.getCloudprovidersInternal(tristate.True)
 }
@@ -334,7 +346,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if cnt > 0 {
 			return input, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
 		}
-		data.Set("account_id", jsonutils.NewString(accountId))
+		input.AccountId = accountId
 	}
 
 	if input.SyncIntervalSeconds == 0 {
