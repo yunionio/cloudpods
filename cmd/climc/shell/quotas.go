@@ -53,8 +53,8 @@ type RegionQuotaOptions struct {
 
 	Port  int64 `help:"Internal NIC count" json:"port,omitzero"`
 	Eport int64 `help:"External NIC count" json:"eport,omitzero"`
-	Bw    int64 `help:"Internal bandwidth in Mbps" json:"bw,omitzero"`
-	Ebw   int64 `help:"External bandwidth in Mbps" json:"ebw,omitzero"`
+	// Bw    int64 `help:"Internal bandwidth in Mbps" json:"bw,omitzero"`
+	// Ebw   int64 `help:"External bandwidth in Mbps" json:"ebw,omitzero"`
 
 	Eip int64 `help:"Elastic IP count" json:"eip,omitzero"`
 
