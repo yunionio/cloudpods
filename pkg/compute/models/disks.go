@@ -216,14 +216,11 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			return nil, err
 		}
 		guest := iGuest.(*SGuest)
-		hoststorages := HoststorageManager.Query().SubQuery()
-		q = q.Join(hoststorages, sqlchemy.AND(
-			sqlchemy.Equals(hoststorages.Field("host_id"), guest.HostId),
-			sqlchemy.IsFalse(hoststorages.Field("deleted")))).
-			Join(storages, sqlchemy.AND(
-				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-				sqlchemy.IsFalse(storages.Field("deleted")))).
-			Filter(sqlchemy.Equals(storages.Field("id"), q.Field("storage_id")))
+		guestDisks := GuestdiskManager.Query().SubQuery()
+		q = q.Join(guestDisks, sqlchemy.AND(
+			sqlchemy.Equals(guestDisks.Field("disk_id"), q.Field("id")),
+			sqlchemy.Equals(guestDisks.Field("guest_id"), guest.Id),
+		))
 	}
 
 	storageStr := jsonutils.GetAnyString(queryDict, []string{"storage", "storage_id"})
