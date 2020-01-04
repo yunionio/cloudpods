@@ -40,6 +40,10 @@ func (manager *SQuotaBaseManager) newQuota() IQuota {
 	return model.(IQuota)
 }
 
+func (manager *SQuotaBaseManager) getQuotaFields() []string {
+	return manager.newQuota().GetKeys().Fields()
+}
+
 func (manager *SQuotaBaseManager) cleanPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, keys IQuotaKeys) error {
 	LockQuotaKeys(ctx, manager, keys)
 	defer ReleaseQuotaKeys(ctx, manager, keys)
