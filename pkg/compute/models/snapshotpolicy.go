@@ -189,6 +189,14 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	return data, nil
 }
 
+func (manager *SSnapshotPolicyManager) OnCreateComplete(ctx context.Context, items []db.IModel,
+	userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	for i := range items {
+		sp := items[i].(*SSnapshotPolicy)
+		sp.SetStatus(userCred, api.SNAPSHOT_POLICY_READY, "create complete")
+	}
+}
+
 // ==================================================== update =========================================================
 
 func (sp *SSnapshotPolicy) AllowPerformUpdate(ctx context.Context, userCred mcclient.TokenCredential,
@@ -279,7 +287,7 @@ func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mccli
 }
 
 func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
-	JSONObject, data jsonutils.JSONObject) error {
+JSONObject, data jsonutils.JSONObject) error {
 
 	// check if sp bind to some disks
 	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
@@ -666,7 +674,7 @@ func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(inpu
 }
 
 func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.
-	SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
+SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
 	return nil
 }
 
