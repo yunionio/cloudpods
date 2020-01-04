@@ -65,6 +65,8 @@ func (w *SWorkManager) delayTask(ctx context.Context, task DelayTaskFunc, params
 		w.delayTaskWithoutReqctx(ctx, task, params, worker)
 		return
 	} else {
+		// delayTask should have a new context.Context with value 'taskid'
+		ctx = context.WithValue(context.Background(), appctx.APP_CONTEXT_KEY_TASK_ID, ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID))
 		w.add()
 		worker.Run(func() {
 			defer w.done()
@@ -109,6 +111,8 @@ func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTas
 func (w *SWorkManager) delayTaskWithoutReqctx(
 	ctx context.Context, task DelayTaskFunc, params interface{}, worker *appsrv.SWorkerManager,
 ) {
+	// delayTaskWithReqctx should have a new context.Context
+	ctx = context.Background()
 	w.add()
 	w.worker.Run(func() {
 		defer w.done()

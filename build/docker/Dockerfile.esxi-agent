@@ -1,0 +1,4 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:latest
+
+COPY ./build/esxi-agent/root/opt/ /opt/
+ADD ./_output/bin/esxi-agent /opt/yunion/bin/esxi-agent

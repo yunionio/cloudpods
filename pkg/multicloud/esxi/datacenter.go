@@ -175,7 +175,8 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 		}
 	}
 
-	retVms := make([]cloudprovider.ICloudVM, 0)
+	// avoid applying new memory and copying
+	retVms := make([]cloudprovider.ICloudVM, 0, len(vms))
 	for i := 0; i < len(vms); i += 1 {
 		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
 			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
@@ -185,6 +186,22 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 		}
 	}
 	return retVms, nil
+}
+
+func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {
+	var dss []mo.Datastore
+	if datastoreRefs != nil {
+		err := dc.manager.references2Objects(datastoreRefs, DATASTORE_PROPS, &dss)
+		if err != nil {
+			return nil, errors.Wrap(err, "dc.manager.references2Objects")
+		}
+	}
+
+	retDatastores := make([]cloudprovider.ICloudStorage, 0, len(dss))
+	for i := range dss {
+		retDatastores = append(retDatastores, NewDatastore(dc.manager, &dss[i], dc))
+	}
+	return retDatastores, nil
 }
 
 func (dc *SDatacenter) scanNetworks() error {
