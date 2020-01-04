@@ -129,30 +129,114 @@ func GetAddrPort(urlStr string) (string, int, error) {
 	}
 }
 
-func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
-	return &http.Transport{
+func GetTransport(insecure bool) *http.Transport {
+	return getTransport(insecure, false)
+}
+
+func adptiveDial(network, addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout(network, addr, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return getConnDelegate(conn, 10*time.Second, 20*time.Second), nil
+}
+
+func getTransport(insecure bool, adaptive bool) *http.Transport {
+	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   timeout,
-			KeepAlive: timeout,
-		}).DialContext,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		// 一个空闲连接保持连接的时间
+		// IdleConnTimeout is the maximum amount of time an idle
+		// (keep-alive) connection will remain idle before closing
+		// itself.
+		// Zero means no limit.
+		IdleConnTimeout: 60 * time.Second,
+		// 建立TCP连接后，等待TLS握手的超时时间
+		// TLSHandshakeTimeout specifies the maximum amount of time waiting to
+		// wait for a TLS handshake. Zero means no timeout.
+		TLSHandshakeTimeout: 10 * time.Second,
+		// 发送请求后，等待服务端http响应的超时时间
+		// ResponseHeaderTimeout, if non-zero, specifies the amount of
+		// time to wait for a server's response headers after fully
+		// writing the request (including its body, if any). This
+		// time does not include the time to read the response body.
+		ResponseHeaderTimeout: 10 * time.Second,
+		// 当请求携带Expect: 100-continue时，等待服务端100响应的超时时间
+		// ExpectContinueTimeout, if non-zero, specifies the amount of
+		// time to wait for a server's first response headers after fully
+		// writing the request headers if the request has an
+		// "Expect: 100-continue" header. Zero means no timeout and
+		// causes the body to be sent immediately, without
+		// waiting for the server to approve.
+		// This time does not include the time to send the request header.
+		ExpectContinueTimeout: 5 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
 	}
+	if adaptive {
+		tr.Dial = adptiveDial
+	} else {
+		tr.DialContext = (&net.Dialer{
+			// 建立TCP连接超时时间
+			// Timeout is the maximum amount of time a dial will wait for
+			// a connect to complete. If Deadline is also set, it may fail
+			// earlier.
+			//
+			// The default is no timeout.
+			//
+			// When using TCP and dialing a host name with multiple IP
+			// addresses, the timeout may be divided between them.
+			//
+			// With or without a timeout, the operating system may impose
+			// its own earlier timeout. For instance, TCP timeouts are
+			// often around 3 minutes.
+			Timeout: 10 * time.Second,
+			//
+			// KeepAlive specifies the interval between keep-alive
+			// probes for an active network connection.
+			// If zero, keep-alive probes are sent with a default value
+			// (currently 15 seconds), if supported by the protocol and operating
+			// system. Network protocols or operating systems that do
+			// not support keep-alives ignore this field.
+			// If negative, keep-alive probes are disabled.
+			KeepAlive: 5 * time.Second, // send keep-alive probe every 5 seconds
+		}).DialContext
+	}
+	return tr
 }
 
 func GetClient(insecure bool, timeout time.Duration) *http.Client {
-	tr := GetTransport(insecure, timeout)
+	adaptive := false
+	if timeout == 0 {
+		adaptive = true
+	}
+	tr := getTransport(insecure, adaptive)
 	return &http.Client{
 		Transport: tr,
-		Timeout:   timeout,
+		// 一个完整http request的超时时间
+		// Timeout specifies a time limit for requests made by this
+		// Client. The timeout includes connection time, any
+		// redirects, and reading the response body. The timer remains
+		// running after Get, Head, Post, or Do return and will
+		// interrupt reading of the Response.Body.
+		//
+		// A Timeout of zero means no timeout.
+		//
+		// The Client cancels requests to the underlying Transport
+		// as if the Request's Context ended.
+		//
+		// For compatibility, the Client will also use the deprecated
+		// CancelRequest method on Transport if found. New
+		// RoundTripper implementations should use the Request's Context
+		// for cancellation instead of implementing CancelRequest.
+		Timeout: timeout,
 	}
 }
 
 func GetTimeoutClient(timeout time.Duration) *http.Client {
 	return GetClient(true, timeout)
+}
+
+func GetAdaptiveTimeoutClient() *http.Client {
+	return GetClient(true, 0)
 }
 
 var defaultHttpClient *http.Client
