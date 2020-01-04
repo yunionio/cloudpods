@@ -1153,7 +1153,7 @@ func (self *SCloudprovider) IsAvailable() bool {
 	if !utils.IsInStringArray(self.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
 		return false
 	}
-	if self.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
+	if !utils.IsInStringArray(self.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
 		return false
 	}
 	return true

@@ -147,7 +147,7 @@ func (self *SCloudaccount) IsAvailable() bool {
 		return false
 	}
 
-	if self.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
+	if !utils.IsInStringArray(self.HealthStatus, api.CLOUD_PROVIDER_VALID_HEALTH_STATUS) {
 		return false
 	}
 
