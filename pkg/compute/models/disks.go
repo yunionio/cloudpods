@@ -1035,13 +1035,15 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 
 func (self *SDisk) ValidateDeleteCondition(ctx context.Context) error {
 	provider := self.GetCloudprovider()
-	if provider != nil && !provider.IsAvailable() {
-		return httperrors.NewNotSufficientPrivilegeError("cloud provider %s is not available", provider.GetName())
-	}
+	if provider != nil {
+		if !provider.IsAvailable() {
+			return httperrors.NewNotSufficientPrivilegeError("cloud provider %s is not available", provider.GetName())
+		}
 
-	account := provider.GetCloudaccount()
-	if account != nil && !account.IsAvailable() {
-		return httperrors.NewNotSufficientPrivilegeError("cloud account %s is not available", account.GetName())
+		account := provider.GetCloudaccount()
+		if account != nil && !account.IsAvailable() {
+			return httperrors.NewNotSufficientPrivilegeError("cloud account %s is not available", account.GetName())
+		}
 	}
 
 	return self.validateDeleteCondition(ctx, false)
@@ -1067,13 +1069,15 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 
 func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	provider := self.GetCloudprovider()
-	if provider != nil && !provider.IsAvailable() {
-		return false
-	}
+	if provider != nil {
+		if !provider.IsAvailable() {
+			return false
+		}
 
-	account := provider.GetCloudaccount()
-	if account != nil && !account.IsAvailable() {
-		return false
+		account := provider.GetCloudaccount()
+		if account != nil && !account.IsAvailable() {
+			return false
+		}
 	}
 
 	overridePendingDelete := false

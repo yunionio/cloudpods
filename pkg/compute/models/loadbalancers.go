@@ -692,7 +692,7 @@ func (self *SLoadbalancer) DeleteEip(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SLoadbalancer) GetEip() (*SElasticip, error) {
-	return ElasticipManager.getEipForInstance(api.EIP_ASSOCIATE_TYPE_LOADBALANCER, self.Id)
+	return ElasticipManager.getEip(api.EIP_ASSOCIATE_TYPE_LOADBALANCER, self.Id, "")
 }
 
 func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP) compare.SyncResult {
