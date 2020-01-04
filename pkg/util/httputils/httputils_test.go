@@ -291,16 +291,3 @@ func TestDialTimeout(t *testing.T) {
 	}
 	CloseResponse(resp)
 }
-
-func TestResolveTimeout(t *testing.T) {
-	cli := GetAdaptiveTimeoutClient()
-	resp, err := cli.Get(fmt.Sprintf("http://www.yunion.xyz:48481"))
-	if err == nil {
-		t.Errorf("Read shoud error")
-	} else if !err.(*url.Error).Timeout() {
-		t.Errorf("Read error %s %s, should be url.Error.Timeout", err, reflect.TypeOf(err))
-	} else {
-		t.Logf("Read error %s %s", err, reflect.TypeOf(err))
-	}
-	CloseResponse(resp)
-}
