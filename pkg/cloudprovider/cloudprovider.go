@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -115,6 +116,32 @@ type ICloudProvider interface {
 	GetCloudRegionExternalIdPrefix() string
 
 	GetStorageClasses(regionId string) []string
+
+	GetCapabilities() []string
+}
+
+func IsSupportProject(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_PROJECT, prod.GetCapabilities())
+}
+
+func IsSupportCompute(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_COMPUTE, prod.GetCapabilities())
+}
+
+func IsSupportLoadbalancer(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_LOADBALANCER, prod.GetCapabilities())
+}
+
+func IsSupportObjectstore(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_OBJECTSTORE, prod.GetCapabilities())
+}
+
+func IsSupportRds(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_RDS, prod.GetCapabilities())
+}
+
+func IsSupportElasticCache(prod ICloudProvider) bool {
+	return utils.IsInStringArray(CLOUD_CAPABILITY_CACHE, prod.GetCapabilities())
 }
 
 var providerTable map[string]ICloudProviderFactory

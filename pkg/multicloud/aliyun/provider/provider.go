@@ -151,3 +151,7 @@ func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
 		"Standard", "IA", "Archive",
 	}
 }
+
+func (self *SAliyunProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
