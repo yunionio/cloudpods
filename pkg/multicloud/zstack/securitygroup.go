@@ -225,7 +225,7 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 		} else {
 			if protocol != "ALL" {
 				// TCP UDP端口不能为-1
-				if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP &&
+				if (rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP) &&
 					(rule.PortStart <= 0 && rule.PortEnd <= 0) {
 					rule.PortStart = 0
 					rule.PortEnd = 65535
