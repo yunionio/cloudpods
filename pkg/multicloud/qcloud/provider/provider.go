@@ -189,3 +189,7 @@ func (self *SQcloudProvider) GetStorageClasses(regionId string) []string {
 		"STANDARD", "STANDARD_IA", "ARCHIVE",
 	}
 }
+
+func (self *SQcloudProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

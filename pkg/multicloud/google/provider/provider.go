@@ -184,3 +184,7 @@ func (self *SGoogleProvider) GetStorageClasses(regionId string) []string {
 		"Standard", "IA", "Archive",
 	}
 }
+
+func (self *SGoogleProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
