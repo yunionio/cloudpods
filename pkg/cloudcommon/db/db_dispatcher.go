@@ -1100,7 +1100,9 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	ctx = InitPendingUsagesInContext(ctx)
+	if InitPendingUsagesInContext != nil {
+		ctx = InitPendingUsagesInContext(ctx)
+	}
 
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
@@ -1186,7 +1188,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		// validateError error
 	)
 
-	ctx = InitPendingUsagesInContext(ctx)
+	if InitPendingUsagesInContext != nil {
+		ctx = InitPendingUsagesInContext(ctx)
+	}
 
 	createResults, err := func() ([]sCreateResult, error) {
 		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
