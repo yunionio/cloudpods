@@ -135,11 +135,30 @@ func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
+func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
+	sq := NetworkinterfacenetworkManager.Query().SubQuery()
+	q := NetworkInterfaceManager.Query()
+	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("networkinterface_id"))).
+		Filter(sqlchemy.Equals(sq.Field("network_id"), self.Id))
+	networkinterfaces := []SNetworkInterface{}
+	err := db.FetchModelObjects(NetworkInterfaceManager, q, &networkinterfaces)
+	if err != nil {
+		return nil, err
+	}
+	return networkinterfaces, nil
+}
+
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.GetTotalNicCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetTotalNicCount fail %s", err)
 	}
+	// 弹性网卡
+	nicnt, err := self.GetNetworkInterfacesCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetNetworkInterfacesCount fail %v", err)
+	}
+	cnt -= nicnt
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("not an empty network")
 	}
@@ -1598,6 +1617,16 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
 	self.ClearSchedDescCache()
+	networkinterfaces, err := self.GetNetworkInterfaces()
+	if err != nil {
+		return errors.Wrap(err, "GetNetworkInterfaces")
+	}
+	for i := range networkinterfaces {
+		err = networkinterfaces[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "networkinterface.purge %s(%s)", networkinterfaces[i].Name, networkinterfaces[i].Id)
+		}
+	}
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
