@@ -110,6 +110,7 @@ func init() {
 		Project string `help:"Tenant name or ID" json:"tenant"`
 		Domain  string `help:"Domain name or ID" json:"domain"`
 		Refresh bool   `help:"refresh" json:"refresh,omitfalse"`
+		Primary bool   `help:"get primary quota ONLY" json:"primary,omitfalse"`
 	}
 	R(&QuotaOptions{}, "quota", "Show quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
 		params := jsonutils.Marshal(args)
@@ -239,6 +240,8 @@ func init() {
 
 	type QuotaListOptions struct {
 		ProjectDomain string `help:"domain name or ID to query project quotas"`
+		Refresh       bool   `help:"refresh" json:"refresh,omitfalse"`
+		Primary       bool   `help:"list primary quota ONLY" json:"primary,omitfalse"`
 	}
 	R(&QuotaListOptions{}, "quota-list", "List quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
 		params := jsonutils.Marshal(args)

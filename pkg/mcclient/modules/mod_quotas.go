@@ -54,6 +54,10 @@ func (this *QuotaManager) getURL2(params jsonutils.JSONObject, extra string) str
 		if refresh {
 			query.Add(jsonutils.JSONTrue, "refresh")
 		}
+		primary := jsonutils.QueryBoolean(params, "primary", false)
+		if primary {
+			query.Add(jsonutils.JSONTrue, "primary")
+		}
 	}
 	if len(extra) > 0 {
 		url = httputils.JoinPath(url, extra)
@@ -85,12 +89,27 @@ func (this *QuotaManager) DoCleanPendingUsage(s *mcclient.ClientSession, params 
 
 func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var reqUrl string
+	query := jsonutils.NewDict()
+
 	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain", "domain_id", "project_domain_id"})
 	if len(domainId) > 0 {
-		reqUrl = fmt.Sprintf("%s/projects?project_domain=%s", this.URLPath(), domainId)
+		query.Add(jsonutils.NewString(domainId), "project_domain")
+		reqUrl = fmt.Sprintf("%s/projects", this.URLPath())
 	} else {
 		reqUrl = fmt.Sprintf("%s/domains", this.URLPath())
 	}
+	refresh := jsonutils.QueryBoolean(params, "refresh", false)
+	if refresh {
+		query.Add(jsonutils.JSONTrue, "refresh")
+	}
+	primary := jsonutils.QueryBoolean(params, "primary", false)
+	if primary {
+		query.Add(jsonutils.JSONTrue, "primary")
+	}
+	if query.Size() > 0 {
+		reqUrl += "?" + query.QueryString()
+	}
+
 	computeQuotaList, err := modulebase.List(this.ResourceManager, s, reqUrl, this.KeywordPlural)
 	if err != nil {
 		return nil, err
