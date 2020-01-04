@@ -103,13 +103,8 @@ func (ucm *SUserCacheManager) FetchUserLikeName(ctx context.Context, name string
 		// todo
 		return nil, fmt.Errorf("FetchUserLikeName with check Not Implement")
 	}
-	q := ucm.Query().Like("name", "%"+name+"%")
-	users := make([]SUser, 0)
-	err := db.FetchModelObjects(ucm, q, &users)
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
+	q := ucm.Query().Contains("name", name)
+	return ucm.FetchUserFromLoaclCache(ctx, q)
 }
 
 func (ucm *SUserCacheManager) FetchUserFromLoaclCache(ctx context.Context, q *sqlchemy.SQuery) ([]SUser, error) {
