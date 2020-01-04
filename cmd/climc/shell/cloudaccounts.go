@@ -87,6 +87,16 @@ func init() {
 	R(&options.SAliyunCloudAccountCreateOptions{}, "cloud-account-create-aliyun", "Create an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountCreateOptions) error {
 		params := jsonutils.Marshal(args)
 		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Aliyun"), "provider")
+		options := jsonutils.NewDict()
+		if len(args.OptionsBillingReportBucket) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
+		}
+		if len(args.OptionsBillingBucketAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
+		}
+		if options.Size() > 0 {
+			params.(*jsonutils.JSONDict).Add(options, "options")
+		}
 		result, err := modules.Cloudaccounts.Create(s, params)
 		if err != nil {
 			return err
@@ -122,6 +132,12 @@ func init() {
 		options := jsonutils.NewDict()
 		if len(args.OptionsBillingReportBucket) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
+		}
+		if len(args.OptionsBillingBucketAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
+		}
+		if len(args.OptionsBillingFileAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFileAccount), "billing_file_account")
 		}
 		if options.Size() > 0 {
 			params.Add(options, "options")
@@ -245,6 +261,28 @@ func init() {
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
+
+		options := jsonutils.NewDict()
+		if len(args.OptionsBillingReportBucket) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
+		}
+		if len(args.OptionsBillingBucketAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
+		}
+		if options.Size() > 0 {
+			params.Add(options, "options")
+		}
+		removeOptions := make([]string, 0)
+		if args.RemoveOptionsBillingReportBucket {
+			removeOptions = append(removeOptions, "billing_report_bucket")
+		}
+		if args.RemoveOptionsBillingBucketAccount {
+			removeOptions = append(removeOptions, "billing_bucket_account")
+		}
+		if len(removeOptions) > 0 {
+			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+		}
+
 		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
 		if err != nil {
 			return err
@@ -302,12 +340,24 @@ func init() {
 		if len(args.OptionsBillingReportBucket) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
 		}
+		if len(args.OptionsBillingBucketAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
+		}
+		if len(args.OptionsBillingFileAccount) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFileAccount), "billing_file_account")
+		}
 		if options.Size() > 0 {
 			params.Add(options, "options")
 		}
 		removeOptions := make([]string, 0)
 		if args.RemoveOptionsBillingReportBucket {
 			removeOptions = append(removeOptions, "billing_report_bucket")
+		}
+		if args.RemoveOptionsBillingBucketAccount {
+			removeOptions = append(removeOptions, "billing_bucket_account")
+		}
+		if args.RemoveOptionsBillingFileAccount {
+			removeOptions = append(removeOptions, "billing_file_account")
 		}
 		if len(removeOptions) > 0 {
 			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
