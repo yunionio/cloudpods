@@ -396,3 +396,15 @@ func (region *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	// body, err := region.ecsRequest("ListResourceGroups", params)
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SAliyunClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
+	}
+	return caps
+}

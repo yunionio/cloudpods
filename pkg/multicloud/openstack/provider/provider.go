@@ -192,3 +192,7 @@ func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, e
 func (self *SOpenStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
+
+func (self *SOpenStackProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

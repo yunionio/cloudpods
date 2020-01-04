@@ -185,3 +185,7 @@ func (self *SHuaweiProvider) GetStorageClasses(regionId string) []string {
 		"STANDARD", "WARM", "COLD",
 	}
 }
+
+func (self *SHuaweiProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
