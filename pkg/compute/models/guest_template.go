@@ -329,6 +329,13 @@ func (gt *SGuestTemplate) getMoreDetailsV2(ctx context.Context, userCred mcclien
 		// no arrivals
 	}
 
+	// reset_password
+	if input.ResetPassword == nil {
+		configInfo.ResetPassword = false
+	} else {
+		configInfo.ResetPassword = *input.ResetPassword
+	}
+
 	out.ConfigInfo = configInfo
 	return
 }
