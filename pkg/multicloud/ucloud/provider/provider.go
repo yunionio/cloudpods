@@ -169,3 +169,7 @@ func (self *SUcloudProvider) GetStorageClasses(regionId string) []string {
 		"STANDARD", "IA", "ARCHIVE",
 	}
 }
+
+func (self *SUcloudProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

@@ -995,7 +995,9 @@ func syncPublicCloudProviderInfo(
 
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
-	syncProjects(ctx, userCred, syncResults, driver, provider)
+	if cloudprovider.IsSupportProject(driver) {
+		syncProjects(ctx, userCred, syncResults, driver, provider)
+	}
 
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 
@@ -1008,45 +1010,57 @@ func syncPublicCloudProviderInfo(
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
 
-	syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
-
-	// 需要先同步vpc，避免私有云eip找不到network
-	syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-
-	syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-	// sync snapshot policies before sync disks
-	syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-
-	for j := 0; j < len(localZones); j += 1 {
-
-		if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
-			continue
-		}
-		// no need to lock zone as public cloud zone is read-only
-
-		newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-		if len(newPairs) > 0 {
-			storageCachePairs = append(storageCachePairs, newPairs...)
-		}
-		newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
-		if len(newPairs) > 0 {
-			storageCachePairs = append(storageCachePairs, newPairs...)
-		}
+	if cloudprovider.IsSupportObjectstore(driver) {
+		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 	}
 
-	// sync snapshots after sync disks
-	syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	if cloudprovider.IsSupportCompute(driver) {
+		// 需要先同步vpc，避免私有云eip找不到network
+		syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-	syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-	syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-	syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		// sync snapshot policies before sync disks
+		syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-	syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		for j := 0; j < len(localZones); j += 1 {
 
-	syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-	syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
+				continue
+			}
+			// no need to lock zone as public cloud zone is read-only
 
-	syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+			newPairs := syncZoneStorages(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+			if len(newPairs) > 0 {
+				storageCachePairs = append(storageCachePairs, newPairs...)
+			}
+			newPairs = syncZoneHosts(ctx, userCred, syncResults, provider, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+			if len(newPairs) > 0 {
+				storageCachePairs = append(storageCachePairs, newPairs...)
+			}
+		}
+
+		// sync snapshots after sync disks
+		syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
+
+	if cloudprovider.IsSupportLoadbalancer(driver) {
+		syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
+
+	if cloudprovider.IsSupportCompute(driver) {
+		syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
+
+	if cloudprovider.IsSupportRds(driver) {
+		syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+		syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
+
+	if cloudprovider.IsSupportElasticCache(driver) {
+		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	}
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
@@ -1074,7 +1088,9 @@ func syncOnPremiseCloudProviderInfo(
 ) error {
 	log.Debugf("Start sync on-premise provider %s(%s)", provider.Name, provider.Provider)
 
-	syncProjects(ctx, userCred, syncResults, driver, provider)
+	if cloudprovider.IsSupportProject(driver) {
+		syncProjects(ctx, userCred, syncResults, driver, provider)
+	}
 
 	iregion, err := driver.GetOnPremiseIRegion()
 	if err != nil {
@@ -1084,41 +1100,39 @@ func syncOnPremiseCloudProviderInfo(
 	}
 
 	localRegion := CloudregionManager.FetchDefaultRegion()
-	syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion)
 
-	ihosts, err := iregion.GetIHosts()
-	if err != nil {
-		msg := fmt.Sprintf("GetIHosts for provider %s failed %s", provider.GetName(), err)
-		log.Errorf(msg)
-		return err
+	if cloudprovider.IsSupportObjectstore(driver) {
+		syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion)
 	}
 
-	localHosts, remoteHosts, result := HostManager.SyncHosts(ctx, userCred, provider, nil, ihosts)
-
-	syncResults.Add(HostManager, result)
-
-	msg := result.Result()
-	notes := fmt.Sprintf("SyncHosts for provider %s result: %s", provider.Name, msg)
-	log.Infof(notes)
-	//if result.IsError() {
-	//	logSyncFailed(provider, task, msg)
-	// return
-	//}
-	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
-
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+	if cloudprovider.IsSupportCompute(driver) {
+		ihosts, err := iregion.GetIHosts()
+		if err != nil {
+			msg := fmt.Sprintf("GetIHosts for provider %s failed %s", provider.GetName(), err)
+			log.Errorf(msg)
+			return err
+		}
 
-	for i := 0; i < len(localHosts); i += 1 {
-		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
-			continue
+		localHosts, remoteHosts, result := HostManager.SyncHosts(ctx, userCred, provider, nil, ihosts)
+
+		syncResults.Add(HostManager, result)
+
+		msg := result.Result()
+		notes := fmt.Sprintf("SyncHosts for provider %s result: %s", provider.Name, msg)
+		log.Infof(notes)
+
+		for i := 0; i < len(localHosts); i += 1 {
+			if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
+				continue
+			}
+			newCachePairs := syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs)
+			if len(newCachePairs) > 0 {
+				storageCachePairs = append(storageCachePairs, newCachePairs...)
+			}
+			syncHostNics(ctx, userCred, provider, &localHosts[i], remoteHosts[i])
+			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 		}
-		newCachePairs := syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs)
-		if len(newCachePairs) > 0 {
-			storageCachePairs = append(storageCachePairs, newCachePairs...)
-		}
-		syncHostNics(ctx, userCred, provider, &localHosts[i], remoteHosts[i])
-		syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
@@ -1131,6 +1145,7 @@ func syncOnPremiseCloudProviderInfo(
 		log.Infof("syncCloudImages result: %s", msg)
 		// }
 	}
+
 	return nil
 }
 

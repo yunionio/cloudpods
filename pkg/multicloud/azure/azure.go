@@ -963,3 +963,16 @@ func (self *SAzureClient) GetAccessEnv() string {
 		return api.CLOUD_ACCESS_ENV_AZURE_CHINA
 	}
 }
+
+func (self *SAzureClient) GetCapabilities() []string {
+	caps := []string{
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_EVENT,
+	}
+	return caps
+}
