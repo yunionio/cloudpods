@@ -875,6 +875,18 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
 	}
 
+	if len(self.NetworkId) > 0 {
+		gns, err := server.GetNetworks("")
+		if err != nil {
+			return nil, httperrors.NewGeneralError(errors.Wrap(err, "GetNetworks"))
+		}
+		for _, gn := range gns {
+			if gn.NetworkId == self.NetworkId {
+				return nil, httperrors.NewInputParameterError("cannot associate eip with same network")
+			}
+		}
+	}
+
 	serverRegion := server.getRegion()
 	if serverRegion == nil {
 		return nil, httperrors.NewInputParameterError("server region is not found???")

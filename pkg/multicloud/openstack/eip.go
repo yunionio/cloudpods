@@ -179,7 +179,18 @@ func (eip *SEipAddress) GetAssociationType() string {
 }
 
 func (eip *SEipAddress) GetAssociationExternalId() string {
-	return eip.PortDetails.DeviceId
+	if len(eip.PortDetails.DeviceId) > 0 {
+		return eip.PortDetails.DeviceId
+	}
+	if len(eip.PortId) > 0 {
+		port, err := eip.region.GetPort(eip.PortId)
+		if err != nil {
+			log.Errorf("failed to get eip port %s info", port.DeviceID)
+			return ""
+		}
+		return port.DeviceID
+	}
+	return ""
 }
 
 func (eip *SEipAddress) GetBillingType() string {
