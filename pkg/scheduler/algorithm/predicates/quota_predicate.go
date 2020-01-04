@@ -57,16 +57,12 @@ func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, compu
 
 	eNicCnt := 0
 	iNicCnt := 0
-	eBw := 0
-	iBw := 0
 
 	for _, netConfig := range s.Networks {
 		if computemodels.IsExitNetworkInfo(netConfig) {
 			eNicCnt += 1
-			eBw += netConfig.BwLimit
 		} else {
 			iNicCnt += 1
-			iBw += netConfig.BwLimit
 		}
 	}
 
@@ -80,8 +76,6 @@ func fetchGuestUsageFromSchedInfo(s *api.SchedInfo) (computemodels.SQuota, compu
 	regionReq := computemodels.SRegionQuota{
 		Port:  iNicCnt,
 		Eport: eNicCnt,
-		Bw:    iBw,
-		Ebw:   eBw,
 	}
 	return req, regionReq
 }
