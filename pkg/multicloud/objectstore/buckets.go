@@ -297,7 +297,7 @@ func (bucket *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket
 		return errors.Wrap(err, "GetIObject")
 	}
 	err = obj.SetAcl(cannedAcl)
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotImplemented {
 		return errors.Wrap(err, "obj.SetAcl")
 	}
 	return nil
