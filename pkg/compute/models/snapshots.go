@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -222,22 +221,27 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	input api.SSnapshotCreateInput,
-) (api.SSnapshotCreateInput, error) {
-	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-
-	diskV := validators.NewModelIdOrNameValidator("disk", "disk", ownerId)
-	err := diskV.Validate(data)
-	if err != nil {
-		return input, err
+	input api.SnapshotCreateInput,
+) (*jsonutils.JSONDict, error) {
+	for _, disk := range []string{input.Disk, input.DiskId} {
+		if len(disk) > 0 {
+			input.Disk = disk
+			break
+		}
+	}
+	if len(input.Disk) == 0 {
+		return nil, httperrors.NewMissingParameterError("disk")
 	}
 
-	err = data.Unmarshal(&input)
+	_disk, err := DiskManager.FetchByIdOrName(userCred, input.Disk)
 	if err != nil {
-		return input, httperrors.NewInputParameterError("failed to unmarshal input params: %v", err)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found disk %s", input.Disk)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "DiskManager.FetchByIdOrName"))
 	}
-
-	disk := diskV.Model.(*SDisk)
+	disk := _disk.(*SDisk)
+	input.DiskId = disk.Id
 	input.DiskType = disk.DiskType
 	input.Size = disk.DiskSize
 
@@ -248,33 +252,38 @@ func (manager *SSnapshotManager) ValidateCreateData(
 	input.ManagerId = storage.ManagerId
 	region := storage.GetRegion()
 	if region == nil {
-		return input, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
+		return nil, httperrors.NewInputParameterError("failed to found region for disk's storage %s(%s)", storage.Name, storage.Id)
 	}
 	input.CloudregionId = region.Id
 
 	driver, err := storage.GetRegionDriver()
 	if err != nil {
-		return input, err
+		return nil, errors.Wrap(err, "storage.GetRegionDriver")
 	}
 	input.OutOfChain = driver.SnapshotIsOutOfChain(disk)
 
 	err = driver.ValidateCreateSnapshotData(ctx, userCred, disk, storage, &input)
 	if err != nil {
-		return input, err
+		return nil, errors.Wrap(err, "driver.ValidateCreateSnapshotData")
+	}
+
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
 	}
 
 	pendingUsage := &SRegionQuota{Snapshot: 1}
 	keys, err := disk.GetQuotaKeys()
 	if err != nil {
-		return input, err
+		return nil, err
 	}
 	pendingUsage.SetKeys(keys.(SComputeResourceKeys).SRegionalCloudResourceKeys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
 	if err != nil {
-		return input, err
+		return nil, err
 	}
 
-	return input, nil
+	return input.JSON(input), nil
 }
 
 func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

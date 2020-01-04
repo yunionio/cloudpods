@@ -153,7 +153,8 @@ func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	return q, nil
 }
 
-func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (*jsonutils.JSONDict, error) {
+	data := input.JSON(input)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	secgroupV := validators.NewModelIdOrNameValidator("secgroup", "secgroup", ownerId)
@@ -177,7 +178,6 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	input := &api.SDBInstanceCreateInput{}
 	err := data.Unmarshal(input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal input failed: %v", err)
@@ -221,13 +221,13 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	if duration, _ := data.GetString("duration"); len(duration) > 0 {
-		billingCycle, err := billing.ParseBillingCycle(duration)
+	if len(input.Duration) > 0 {
+		billingCycle, err := billing.ParseBillingCycle(input.Duration)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid duration %s", duration)
+			return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 		}
 		if !region.GetDriver().IsSupportedBillingCycle(billingCycle, man.KeywordPlural()) {
-			return nil, httperrors.NewInputParameterError("unsupported duration %s", duration)
+			return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 		}
 		input.BillingType = billing_api.BILLING_TYPE_PREPAID
 		input.BillingCycle = billingCycle.String()
@@ -303,6 +303,11 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	if len(input.InstanceType) > 0 { //设置下cpu和内存的大小
 		input.VcpuCount = skus[0].VcpuCount
 		input.VmemSizeMb = skus[0].VmemSizeMb
+	}
+
+	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	if err != nil {
+		return nil, err
 	}
 
 	input, err = region.GetDriver().ValidateCreateDBInstanceData(ctx, userCred, ownerId, input, skus, network)

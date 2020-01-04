@@ -14,18 +14,18 @@
 
 package compute
 
-type RegionalResourceCreateInput struct {
-	Cloudregion   string `json:"cloudregion"`
-	CloudregionId string `json:"cloudregion_id"`
-}
+import "yunion.io/x/onecloud/pkg/apis"
 
-type ManagedResourceCreateInput struct {
-	Manager   string `json:"manager"`
-	ManagerId string `json:"manager_id"`
-}
+type ZoneCreateInput struct {
+	apis.StatusStandaloneResourceCreateInput
 
-type DeletePreventableCreateInput struct {
-	//删除保护,创建的资源默认不允许删除
-	//default: true
-	DisableDelete *bool `json:"disable_delete"`
+	// 区域名称或Id,建议使用Id
+	Cloudregion string
+
+	// swagger:ignore
+	Region string
+	// swagger:ignore
+	RegionId string
+	// swagger:ignore
+	CloudregionId string
 }

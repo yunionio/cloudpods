@@ -14,18 +14,29 @@
 
 package compute
 
-type RegionalResourceCreateInput struct {
-	Cloudregion   string `json:"cloudregion"`
-	CloudregionId string `json:"cloudregion_id"`
+import "yunion.io/x/onecloud/pkg/apis"
+
+var KEYPAIR_SCHEMAS = []string{
+	KEYPAIRE_SCHEME_RSA,
 }
 
-type ManagedResourceCreateInput struct {
-	Manager   string `json:"manager"`
-	ManagerId string `json:"manager_id"`
-}
+type KeypairCreateInput struct {
+	apis.StandaloneResourceCreateInput
 
-type DeletePreventableCreateInput struct {
-	//删除保护,创建的资源默认不允许删除
-	//default: true
-	DisableDelete *bool `json:"disable_delete"`
+	// 公钥内容,若为空则自动生成公钥
+	PublicKey string `json:"public_key"`
+
+	// swagger:ignore
+	PrivateKey string
+
+	// swagger:ignore
+	Fingerprint string
+
+	// swagger:ignore
+	OwnerId string
+
+	// 秘钥类型
+	// enum: RSA
+	// default: RSA
+	Scheme string `json:"scheme"`
 }

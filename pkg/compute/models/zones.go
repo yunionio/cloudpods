@@ -24,7 +24,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -669,34 +668,31 @@ func (self *SZone) getMaxDataDiskCount() int {
 	return options.Options.MaxDataDiskCount
 }
 
-func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
-	var regionId string
-	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("Query region %s fail %s", regionStr, err)
-			}
+func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ZoneCreateInput) (*jsonutils.JSONDict, error) {
+	for _, cloudregion := range []string{input.Cloudregion, input.Region, input.RegionId, input.CloudregionId, "default"} {
+		if len(cloudregion) > 0 {
+			input.Cloudregion = cloudregion
+			break
 		}
-		regionId = regionObj.GetId()
-	} else {
-		regionId = "default"
 	}
-	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
-	data.Set("status", jsonutils.NewString(api.ZONE_ENABLE))
-
-	input := apis.StatusStandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	_region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StatusStandaloneResourceCreateInput fail %s", err)
+		if err != sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found cloudregion %s", input.Cloudregion)
+		}
+		return nil, httperrors.NewGeneralError(err)
 	}
-	input, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	region := _region.(*SCloudregion)
+	input.CloudregionId = region.Id
+	input.Status = api.ZONE_ENABLE
+	if region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
+		return nil, httperrors.NewNotSupportedError("not support create %s zone", region.Provider)
+	}
+
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input.JSON(input), nil
 }

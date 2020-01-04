@@ -20,11 +20,11 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -144,59 +144,44 @@ func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
 	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
-func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	publicKey, _ := data.GetString("public_key")
-	if len(publicKey) == 0 {
-		scheme, _ := data.GetString("scheme")
-		if len(scheme) > 0 {
-			if !utils.IsInStringArray(scheme, []string{"RSA", "DSA"}) {
-				return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
-			}
-		} else {
-			scheme = "RSA"
+func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.KeypairCreateInput) (*jsonutils.JSONDict, error) {
+	if len(input.PublicKey) == 0 {
+		if len(input.Scheme) == 0 {
+			input.Scheme = api.KEYPAIRE_SCHEME_RSA
 		}
-		var privKey, pubKey string
+		if !utils.IsInStringArray(input.Scheme, api.KEYPAIR_SCHEMAS) {
+			return nil, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
+		}
+
 		var err error
-		if scheme == "RSA" {
-			privKey, pubKey, err = seclib2.GenerateRSASSHKeypair()
+		if input.Scheme == api.KEYPAIRE_SCHEME_RSA {
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateRSASSHKeypair()
 		} else {
-			privKey, pubKey, err = seclib2.GenerateDSASSHKeypair()
+			input.PrivateKey, input.PublicKey, err = seclib2.GenerateDSASSHKeypair()
 		}
 		if err != nil {
-			log.Errorf("fail to generate ssh keypair %s", err)
-			return nil, httperrors.NewGeneralError(err)
+			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "Generate%sSSHKeypair", input.Scheme))
 		}
-		publicKey = pubKey
-		data.Set("public_key", jsonutils.NewString(pubKey))
-		data.Set("private_key", jsonutils.NewString(privKey))
 	}
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(input.PublicKey))
 	if err != nil {
-		log.Errorf("invalid public key %s", err)
-		return nil, httperrors.NewInputParameterError("invalid public")
+		return nil, httperrors.NewInputParameterError("invalid public error: %v", err)
 	}
 
 	// 只允许上传RSA格式密钥。PS: AWS只支持RSA格式。
 	scheme := seclib2.GetPublicKeyScheme(pubKey)
-	if scheme != "RSA" {
+	if scheme != api.KEYPAIRE_SCHEME_RSA {
 		return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
 	}
 
-	data.Set("fingerprint", jsonutils.NewString(ssh.FingerprintLegacyMD5(pubKey)))
-	data.Set("scheme", jsonutils.NewString(scheme))
-	data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
+	input.Fingerprint = ssh.FingerprintLegacyMD5(pubKey)
+	input.OwnerId = userCred.GetUserId()
 
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneRes  ourceCreateInput fail %s", err)
-	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input.JSON(input), nil
 }
 
 func (self *SKeypair) ValidateDeleteCondition(ctx context.Context) error {

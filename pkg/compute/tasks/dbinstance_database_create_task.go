@@ -103,7 +103,7 @@ func (self *DBInstanceDatabaseCreateTask) CreateDBInstanceDatabase(ctx context.C
 
 	db.SetExternalId(database, self.UserCred, iDatabase.GetGlobalId())
 
-	input := api.SDBInstanceDatabaseCreateInput{}
+	input := api.DBInstanceDatabaseCreateInput{}
 	self.GetParams().Unmarshal(&input)
 	if len(input.Accounts) == 0 {
 		database.SetStatus(self.UserCred, api.DBINSTANCE_DATABASE_RUNNING, "")

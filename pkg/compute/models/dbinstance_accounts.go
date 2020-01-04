@@ -194,17 +194,7 @@ func (manager *SDBInstanceAccountManager) FilterByParentId(q *sqlchemy.SQuery, p
 	return q
 }
 
-func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := &api.SDBInstanceAccountCreateInput{}
-	instanceV := validators.NewModelIdOrNameValidator("dbinstance", "dbinstance", userCred)
-	err := instanceV.Validate(data)
-	if err != nil {
-		return nil, err
-	}
-	err = data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Unmarshal input params error: %v", err)
-	}
+func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceAccountCreateInput) (*jsonutils.JSONDict, error) {
 	if len(input.Password) > 0 {
 		if !seclib2.MeetComplxity(input.Password) {
 			return nil, httperrors.NewWeakPasswordError()
@@ -212,7 +202,25 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	} else {
 		input.Password = seclib2.RandomPassword2(12)
 	}
-	instance := instanceV.Model.(*SDBInstance)
+
+	for _, instance := range []string{input.DBInstance, input.DBInstanceId} {
+		if len(instance) > 0 {
+			input.DBInstance = instance
+			break
+		}
+	}
+	if len(input.DBInstance) == 0 {
+		return nil, httperrors.NewMissingParameterError("dbinstance")
+	}
+	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "DBInstanceManager.FetchByIdOrName"))
+	}
+	instance := _instance.(*SDBInstance)
+	input.DBInstanceId = instance.Id
 	if instance.Status != api.DBINSTANCE_RUNNING {
 		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
 	}
@@ -231,6 +239,12 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+
+	input.StatusStandaloneResourceCreateInput, err = manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
+	if err != nil {
+		return nil, err
+	}
+
 	return input.JSON(input), nil
 }
 
@@ -257,7 +271,7 @@ func (self *SDBInstanceAccount) GetPassword() (string, error) {
 
 func (self *SDBInstanceAccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	input := &api.SDBInstanceAccountCreateInput{}
+	input := &api.DBInstanceAccountCreateInput{}
 	data.Unmarshal(input)
 	self.savePassword(input.Password)
 	self.StartDBInstanceAccountCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), "")

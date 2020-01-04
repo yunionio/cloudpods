@@ -2117,21 +2117,21 @@ func (self *SHuaWeiRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
-		return nil, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
+		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)
 	}
 
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return nil, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei dbinstance name length shoud be 4~64 characters")
 	}
 
 	if input.DiskSizeGB < 40 || input.DiskSizeGB > 4000 {
-		return nil, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
+		return input, httperrors.NewInputParameterError("%s require disk size must in 40 ~ 4000 GB", self.GetProvider())
 	}
 
 	if input.DiskSizeGB%10 > 0 {
-		return nil, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
+		return input, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
 	}
 
 	return input, nil
@@ -2174,9 +2174,9 @@ func (self *SHuaWeiRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycl
 	return false
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return nil, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
 	}
 	if len(input.Name) == len(input.Password) {
 		for i := range input.Name {
@@ -2184,25 +2184,25 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 				return input, nil
 			}
 		}
-		return nil, httperrors.NewInputParameterError("Huawei rds password cannot be in the same reverse order as the account")
+		return input, httperrors.NewInputParameterError("Huawei rds password cannot be in the same reverse order as the account")
 	}
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
-		return nil, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
+		return input, httperrors.NewInputParameterError("Not support create database for huawei cloud %s instance", instance.Engine)
 	}
 	return input, nil
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
 	if len(input.Name) < 4 || len(input.Name) > 64 {
-		return nil, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
+		return input, httperrors.NewInputParameterError("Huawei DBInstance backup name length shoud be 4~64 characters")
 	}
 
 	if len(input.Databases) > 0 && instance.Engine != api.DBINSTANCE_TYPE_SQLSERVER {
-		return nil, httperrors.NewInputParameterError("Huawei only supports specified databases with %s", api.DBINSTANCE_TYPE_SQLSERVER)
+		return input, httperrors.NewInputParameterError("Huawei only supports specified databases with %s", api.DBINSTANCE_TYPE_SQLSERVER)
 	}
 
 	return input, nil
