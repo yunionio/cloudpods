@@ -236,8 +236,9 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	// The ClientOption Proxy, AuthProxy lacks the feature NO_PROXY has
 	// which can be used to whitelist ips, domains from http_proxy,
 	// https_proxy setting
+	// oss use no timeout client so as to send/download large files
 	cliOpts := []oss.ClientOption{
-		oss.HTTPClient(httputils.GetDefaultClient()),
+		oss.HTTPClient(httputils.GetAdaptiveTimeoutClient()),
 	}
 	ep := getOSSExternalDomain(regionId)
 	cli, err := oss.New(ep, client.accessKey, client.secret, cliOpts...)
