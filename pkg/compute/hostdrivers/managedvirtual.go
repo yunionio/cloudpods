@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -70,28 +71,27 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 
 		cachedImage := scimg.GetCachedimage()
 		if cachedImage == nil {
-			return nil, fmt.Errorf("cached image not found???")
+			return nil, errors.Wrap(httperrors.ErrImageNotFound, "cached image not found???")
 		}
 
 		iStorageCache, err := storageCache.GetIStorageCache()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "storageCache.GetIStorageCache")
 		}
 
 		image.ExternalId = scimg.ExternalId
 		if cachedImage.ImageType == cloudprovider.CachedImageTypeCustomized {
 			image.ExternalId, err = iStorageCache.UploadImage(ctx, userCred, image, isForce)
+			if err != nil {
+				return nil, errors.Wrap(err, "iStorageCache.UploadImage")
+			}
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {
 				log.Errorf("remote image fetch error %s", err)
-				return nil, err
+				return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
 			}
 			image.ExternalId = cachedImage.ExternalId
-		}
-
-		if err != nil {
-			return nil, err
 		}
 
 		// should record the externalId immediately

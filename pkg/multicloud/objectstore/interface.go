@@ -39,4 +39,6 @@ type IBucketProvider interface {
 	SetObjectAcl(bucket, key string, cannedAcl cloudprovider.TBucketACLType) error
 	GetIBucketAcl(name string) (cloudprovider.TBucketACLType, error)
 	SetIBucketAcl(name string, cannedAcl cloudprovider.TBucketACLType) error
+
+	GetCapabilities() []string
 }
