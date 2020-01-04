@@ -367,7 +367,7 @@ func (sd *SSnapshotPolicyDisk) DetachBySnapshotpolicy(ctx context.Context, userC
 
 // ==================================================== create =========================================================
 
-var ErrExistSD = fmt.Errorf("snapshotpolicy disk has been exist")
+const ErrExistSD = errors.Error("snapshotpolicy disk has been exist")
 
 func (self *SSnapshotPolicyDiskManager) newSnapshotpolicyDisk(ctx context.Context, userCred mcclient.TokenCredential,
 	sp *SSnapshotPolicy, disk *SDisk) (*SSnapshotPolicyDisk, error) {
