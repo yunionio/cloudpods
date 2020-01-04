@@ -268,3 +268,15 @@ func (self *SGoogleClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 	}
 	return iprojects, nil
 }
+
+func (self *SGoogleClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+	}
+	return caps
+}

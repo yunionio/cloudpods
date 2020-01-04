@@ -193,3 +193,7 @@ func (self *SAzureProvider) GetStorageClasses(regionId string) []string {
 func (self *SAzureProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetAccessEnv() + "/"
 }
+
+func (self *SAzureProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
