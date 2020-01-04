@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -218,10 +219,13 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) GetImage(imageId string) (SImage, error) {
-	image := SImage{}
-	err := DoGet(self.ecsClient.Images.Get, imageId, nil, &image)
-	return image, err
+func (self *SRegion) GetImage(imageId string) (*SImage, error) {
+	image := &SImage{}
+	err := DoGet(self.ecsClient.Images.Get, imageId, nil, image)
+	if err != nil {
+		return nil, errors.Wrap(err, "DoGet")
+	}
+	return image, nil
 }
 
 func excludeImage(image SImage) bool {
