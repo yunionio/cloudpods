@@ -137,17 +137,17 @@ func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Co
 
 		iImage, err := iStorageCache.GetIImageById(scimg.ExternalId)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			log.Errorf("GetIImageById fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "iStorageCache.GetIImageById")
 		}
 
 		err = iImage.Delete(ctx)
 		if err != nil {
 			log.Errorf("iImage Delete fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "iImage.Delete")
 		}
 
 		return nil, nil
