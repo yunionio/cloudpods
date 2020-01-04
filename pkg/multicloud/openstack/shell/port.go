@@ -32,4 +32,17 @@ func init() {
 		return nil
 	})
 
+	type PortIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&PortIdOptions{}, "port-show", "Show port", func(cli *openstack.SRegion, args *PortIdOptions) error {
+		port, err := cli.GetPort(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(port)
+		return nil
+	})
+
 }
