@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -140,6 +141,24 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 
 		fileds := jsonutils.NewDict()
 		fileds.Set("region", jsonutils.NewString(regions[cloudregionId]))
+		if region, err := db.FetchById(CloudregionManager, cloudregionId); err == nil {
+			fileds.Set("region_external_id", jsonutils.NewString(region.(*SCloudregion).ExternalId))
+			segs := strings.Split(region.(*SCloudregion).ExternalId, "/")
+			if len(segs) >= 2 {
+				fileds.Set("region_ext_id", jsonutils.NewString(segs[1]))
+			}
+		}
+
+		zoneId := objs[i].(*SElasticcacheSku).ZoneId
+		if len(zoneId) > 0 {
+			if zone, err := db.FetchById(ZoneManager, zoneId); err == nil {
+				fileds.Set("zone_external_id", jsonutils.NewString(zone.(*SZone).ExternalId))
+				segs := strings.Split(zone.(*SZone).ExternalId, "/")
+				if len(segs) >= 3 {
+					fileds.Set("zone_ext_id", jsonutils.NewString(segs[2]))
+				}
+			}
+		}
 
 		ret = append(ret, fileds)
 	}
