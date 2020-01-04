@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -43,6 +42,19 @@ var PRIVATE_PREFIXES = []string{
 	"10.0.0.0/8",
 	"172.16.0.0/12",
 	"192.168.0.0/16",
+}
+
+func GetFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 func IsTcpPortUsed(addr string, port int) bool {
@@ -117,7 +129,7 @@ func GetMainNicFromDeployApi(nics []*types.SServerNic) (*types.SServerNic, error
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -159,7 +171,7 @@ func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if mainNic != nil {
 		return mainNic, nil
 	}
-	return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid nic")
+	return nil, errors.Wrap(errors.ErrInvalidStatus, "no valid nic")
 }
 
 func Netlen2Mask(netmasklen int) string {

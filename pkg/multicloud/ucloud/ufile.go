@@ -191,7 +191,8 @@ func (self *SFile) SetMeta(ctx context.Context, meta http.Header) error {
 }
 
 func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
-	res, err := httputils.GetDefaultClient().Do(req)
+	// ufile request use no timeout client so as to download/upload large files
+	res, err := httputils.GetAdaptiveTimeoutClient().Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "httpclient Do")
 	}
