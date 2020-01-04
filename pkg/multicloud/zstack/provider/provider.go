@@ -145,3 +145,7 @@ func (self *SZStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, erro
 func (self *SZStackProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
+
+func (self *SZStackProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

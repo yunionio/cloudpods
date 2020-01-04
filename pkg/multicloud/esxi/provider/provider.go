@@ -188,3 +188,7 @@ func (self *SESXiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error)
 func (self *SESXiProvider) GetStorageClasses(regionId string) []string {
 	return nil
 }
+
+func (self *SESXiProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

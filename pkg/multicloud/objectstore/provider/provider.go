@@ -152,3 +152,7 @@ func (self *SObjectStoreProvider) GetAccountId() string {
 func (self *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
 	return []string{}
 }
+
+func (self *SObjectStoreProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}

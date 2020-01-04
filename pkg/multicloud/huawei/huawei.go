@@ -414,3 +414,18 @@ func (self *SHuaweiClient) GetAccessEnv() string {
 		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
 	}
 }
+
+func (self *SHuaweiClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
+	}
+	if self.isMainProject {
+		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	}
+	return caps
+}

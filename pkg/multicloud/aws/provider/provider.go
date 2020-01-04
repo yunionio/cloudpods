@@ -155,3 +155,7 @@ func (self *SAwsProvider) GetStorageClasses(regionId string) []string {
 func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetAccessEnv() + "/"
 }
+
+func (self *SAwsProvider) GetCapabilities() []string {
+	return self.client.GetCapabilities()
+}
