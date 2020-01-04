@@ -233,6 +233,12 @@ func (manager *SElasticcacheAccountManager) ValidateCreateData(ctx context.Conte
 	}
 	data.Update(jsonutils.Marshal(input))
 
+	passwd, _ := data.GetString("password")
+	if reset, _ := data.Bool("reset_password"); reset && len(passwd) == 0 {
+		passwd = seclib2.RandomPassword2(12)
+		data.Set("password", jsonutils.NewString(passwd))
+	}
+
 	return region.GetDriver().ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
 }
 
