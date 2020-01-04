@@ -45,8 +45,8 @@ type SCapabilities struct {
 	ObjectStorageBrands         []string `json:",allowempty"`
 	DisabledObjectStorageBrands []string `json:",allowempty"`
 	ResourceTypes               []string `json:",allowempty"`
-	StorageTypes                []string `json:",allowempty"`
-	DataStorageTypes            []string `json:",allowempty"`
+	StorageTypes                []string `json:",allowempty"` // going to remove on 2.14
+	DataStorageTypes            []string `json:",allowempty"` // going to remove on 2.14
 	GPUModels                   []string `json:",allowempty"`
 	MinNicCount                 int
 	MaxNicCount                 int
@@ -57,6 +57,9 @@ type SCapabilities struct {
 	PublicNetworkCount          int
 	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
 	Specs                       jsonutils.JSONObject
+
+	StorageTypes2     map[string][]string `json:",allowempty"`
+	DataStorageTypes2 map[string][]string `json:",allowempty"`
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -88,8 +91,10 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
-	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
-	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
+	capa.StorageTypes = getStorageTypes(region, zone, true, domainId, "")
+	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId, "")
+	capa.StorageTypes2 = getStorageTypes2(region, zone, true, domainId, capa.Hypervisors)
+	capa.DataStorageTypes2 = getStorageTypes2(region, zone, false, domainId, capa.Hypervisors)
 	capa.GPUModels = getGPUs(region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
@@ -379,7 +384,16 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 	return resourceTypes
 }
 
-func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string) []string {
+func getStorageTypes2(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hypervisors []string) map[string][]string {
+	ret := make(map[string][]string)
+	for _, hypervisor := range hypervisors {
+		hostType := api.HYPERVISOR_HOSTTYPE[hypervisor]
+		ret[hypervisor] = getStorageTypes(region, zone, isSysDisk, domainId, hostType)
+	}
+	return ret
+}
+
+func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hostType string) []string {
 	storages := StorageManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -406,6 +420,9 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 			sqlchemy.In(hosts.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
+	}
+	if len(hostType) > 0 {
+		q = q.Filter(sqlchemy.Equals(hosts.Field("host_type"), hostType))
 	}
 	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))

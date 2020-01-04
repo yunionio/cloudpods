@@ -946,7 +946,8 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range iBuckets {
-		if iBuckets[i].GetLocation() == region.GetId() && region.client.isMainProject {
+		// huawei OBS is shared across projects
+		if iBuckets[i].GetLocation() == region.GetId() {
 			ret = append(ret, iBuckets[i])
 		}
 	}
