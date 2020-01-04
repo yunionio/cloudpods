@@ -73,8 +73,8 @@ type SRegionQuota struct {
 	Eip   int `default:"-1" allow_zero:"true"`
 	Port  int `default:"-1" allow_zero:"true"`
 	Eport int `default:"-1" allow_zero:"true"`
-	Bw    int `default:"-1" allow_zero:"true"`
-	Ebw   int `default:"-1" allow_zero:"true"`
+	// Bw    int `default:"-1" allow_zero:"true"`
+	// Ebw   int `default:"-1" allow_zero:"true"`
 
 	Snapshot int `default:"-1" allow_zero:"true"`
 
@@ -125,8 +125,8 @@ func (self *SRegionQuota) FetchSystemQuota() {
 	self.Eip = defaultValue(options.Options.DefaultEipQuota)
 	self.Port = defaultValue(options.Options.DefaultPortQuota)
 	self.Eport = defaultValue(options.Options.DefaultEportQuota)
-	self.Bw = defaultValue(options.Options.DefaultBwQuota)
-	self.Ebw = defaultValue(options.Options.DefaultEbwQuota)
+	// self.Bw = defaultValue(options.Options.DefaultBwQuota)
+	// self.Ebw = defaultValue(options.Options.DefaultEbwQuota)
 	self.Snapshot = defaultValue(options.Options.DefaultSnapshotQuota)
 	self.Bucket = defaultValue(options.Options.DefaultBucketQuota)
 	self.ObjectGB = defaultValue(options.Options.DefaultObjectGBQuota)
@@ -182,8 +182,8 @@ func (self *SRegionQuota) FetchUsage(ctx context.Context) error {
 	self.Eip = eipUsage.Total()
 	self.Port = net.InternalNicCount + net.InternalVirtualNicCount + lbnic
 	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
-	self.Bw = net.InternalBandwidth
-	self.Ebw = net.ExternalBandwidth
+	// self.Bw = net.InternalBandwidth
+	// self.Ebw = net.ExternalBandwidth
 
 	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, rangeObjs, providers, brands, regionKeys.CloudEnv)
 	self.Snapshot = snapshotCount
@@ -211,12 +211,12 @@ func (self *SRegionQuota) ResetNegative() {
 	if self.Eport < 0 {
 		self.Eport = 0
 	}
-	if self.Bw < 0 {
-		self.Bw = 0
-	}
-	if self.Ebw < 0 {
-		self.Ebw = 0
-	}
+	// if self.Bw < 0 {
+	//	self.Bw = 0
+	// }
+	// if self.Ebw < 0 {
+	// 	self.Ebw = 0
+	// }
 	if self.Snapshot < 0 {
 		self.Snapshot = 0
 	}
@@ -250,12 +250,12 @@ func (self *SRegionQuota) IsEmpty() bool {
 	if self.Eport > 0 {
 		return false
 	}
-	if self.Bw > 0 {
-		return false
-	}
-	if self.Ebw > 0 {
-		return false
-	}
+	// if self.Bw > 0 {
+	//	return false
+	// }
+	// if self.Ebw > 0 {
+	// 	return false
+	// }
 	if self.Snapshot > 0 {
 		return false
 	}
@@ -285,8 +285,8 @@ func (self *SRegionQuota) Add(quota quotas.IQuota) {
 	self.Port = self.Port + quotas.NonNegative(squota.Port)
 	self.Eip = self.Eip + quotas.NonNegative(squota.Eip)
 	self.Eport = self.Eport + quotas.NonNegative(squota.Eport)
-	self.Bw = self.Bw + quotas.NonNegative(squota.Bw)
-	self.Ebw = self.Ebw + quotas.NonNegative(squota.Ebw)
+	// self.Bw = self.Bw + quotas.NonNegative(squota.Bw)
+	// self.Ebw = self.Ebw + quotas.NonNegative(squota.Ebw)
 	self.Snapshot = self.Snapshot + quotas.NonNegative(squota.Snapshot)
 	self.Bucket = self.Bucket + quotas.NonNegative(squota.Bucket)
 	self.ObjectGB = self.ObjectGB + quotas.NonNegative(squota.ObjectGB)
@@ -301,8 +301,8 @@ func (self *SRegionQuota) Sub(quota quotas.IQuota) {
 	self.Port = nonNegative(self.Port - squota.Port)
 	self.Eip = nonNegative(self.Eip - squota.Eip)
 	self.Eport = nonNegative(self.Eport - squota.Eport)
-	self.Bw = nonNegative(self.Bw - squota.Bw)
-	self.Ebw = nonNegative(self.Ebw - squota.Ebw)
+	// self.Bw = nonNegative(self.Bw - squota.Bw)
+	// self.Ebw = nonNegative(self.Ebw - squota.Ebw)
 	self.Snapshot = nonNegative(self.Snapshot - squota.Snapshot)
 	self.Bucket = nonNegative(self.Bucket - squota.Bucket)
 	self.ObjectGB = nonNegative(self.ObjectGB - squota.ObjectGB)
@@ -324,12 +324,12 @@ func (self *SRegionQuota) Allocable(request quotas.IQuota) int {
 	if self.Eport >= 0 && squota.Eport > 0 && (cnt < 0 || cnt > self.Eport/squota.Eport) {
 		cnt = self.Eport / squota.Eport
 	}
-	if self.Bw >= 0 && squota.Bw > 0 && (cnt < 0 || cnt > self.Bw/squota.Bw) {
-		cnt = self.Bw / squota.Bw
-	}
-	if self.Ebw >= 0 && squota.Ebw > 0 && (cnt < 0 || cnt > self.Ebw/squota.Ebw) {
-		cnt = self.Ebw / squota.Ebw
-	}
+	//if self.Bw >= 0 && squota.Bw > 0 && (cnt < 0 || cnt > self.Bw/squota.Bw) {
+	//	cnt = self.Bw / squota.Bw
+	//}
+	//if self.Ebw >= 0 && squota.Ebw > 0 && (cnt < 0 || cnt > self.Ebw/squota.Ebw) {
+	//	cnt = self.Ebw / squota.Ebw
+	//}
 	if self.Snapshot >= 0 && squota.Snapshot > 0 && (cnt < 0 || cnt > self.Snapshot/squota.Snapshot) {
 		cnt = self.Snapshot / squota.Snapshot
 	}
@@ -365,12 +365,12 @@ func (self *SRegionQuota) Update(quota quotas.IQuota) {
 	if squota.Eport > 0 {
 		self.Eport = squota.Eport
 	}
-	if squota.Bw > 0 {
-		self.Bw = squota.Bw
-	}
-	if squota.Ebw > 0 {
-		self.Ebw = squota.Ebw
-	}
+	//if squota.Bw > 0 {
+	//	self.Bw = squota.Bw
+	//}
+	//if squota.Ebw > 0 {
+	//	self.Ebw = squota.Ebw
+	//}
 	if squota.Snapshot > 0 {
 		self.Snapshot = squota.Snapshot
 	}
@@ -407,12 +407,12 @@ func (used *SRegionQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) err
 	if quotas.Exceed(used.Eport, sreq.Eport, squota.Eport) {
 		err.Add("eport", squota.Eport, used.Eport, sreq.Eport)
 	}
-	if quotas.Exceed(used.Bw, sreq.Bw, squota.Bw) {
-		err.Add("bw", squota.Bw, used.Bw, sreq.Bw)
-	}
-	if quotas.Exceed(used.Bw, sreq.Ebw, squota.Ebw) {
-		err.Add("ebw", squota.Ebw, used.Ebw, sreq.Ebw)
-	}
+	//if quotas.Exceed(used.Bw, sreq.Bw, squota.Bw) {
+	//	err.Add("bw", squota.Bw, used.Bw, sreq.Bw)
+	//}
+	//if quotas.Exceed(used.Bw, sreq.Ebw, squota.Ebw) {
+	//	err.Add("ebw", squota.Ebw, used.Ebw, sreq.Ebw)
+	//}
 	if quotas.Exceed(used.Snapshot, sreq.Snapshot, squota.Snapshot) {
 		err.Add("snapshot", squota.Snapshot, used.Snapshot, sreq.Snapshot)
 	}
@@ -446,8 +446,8 @@ func (self *SRegionQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.Port)), keyName(prefix, "port"))
 	ret.Add(jsonutils.NewInt(int64(self.Eip)), keyName(prefix, "eip"))
 	ret.Add(jsonutils.NewInt(int64(self.Eport)), keyName(prefix, "eport"))
-	ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
-	ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
+	//ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
+	//ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
 	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
 	ret.Add(jsonutils.NewInt(int64(self.Bucket)), keyName(prefix, "bucket"))
 	ret.Add(jsonutils.NewInt(int64(self.ObjectGB)), keyName(prefix, "object_gb"))
