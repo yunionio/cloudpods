@@ -23,7 +23,7 @@ import (
 
 var (
 	ElasticCache          ElasticCacheManager
-	ElasticCacheAccount   modulebase.ResourceManager
+	ElasticCacheAccount   ElasticCacheAccountManager
 	ElasticCacheBackup    modulebase.ResourceManager
 	ElasticCacheAcl       modulebase.ResourceManager
 	ElasticCacheParameter modulebase.ResourceManager
@@ -33,14 +33,18 @@ type ElasticCacheManager struct {
 	modulebase.ResourceManager
 }
 
+type ElasticCacheAccountManager struct {
+	modulebase.ResourceManager
+}
+
 func init() {
 	ElasticCache = ElasticCacheManager{NewComputeManager("elasticcache", "elasticcaches",
 		[]string{"ID", "Name", "Cloudregion_Id", "Status", "InstanceType", "CapacityMB", "Engine", "EngineVersion"},
 		[]string{})}
 
-	ElasticCacheAccount = NewComputeManager("elasticcacheaccount", "elasticcacheaccounts",
+	ElasticCacheAccount = ElasticCacheAccountManager{NewComputeManager("elasticcacheaccount", "elasticcacheaccounts",
 		[]string{},
-		[]string{})
+		[]string{})}
 
 	ElasticCacheBackup = NewComputeManager("elasticcachebackup", "elasticcachebackups",
 		[]string{},
@@ -62,5 +66,9 @@ func init() {
 }
 
 func (self *ElasticCacheManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return self.GetSpecific(s, id, "login-info", params)
+}
+
+func (self *ElasticCacheAccountManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.GetSpecific(s, id, "login-info", params)
 }
