@@ -58,8 +58,8 @@ func getServerAttrs(ID string, s *mcclient.ClientSession) (map[string]string, er
 
 func getInfluxdbURL() (string, error) {
 
-	s := auth.GetAdminSession(nil, "", "")
-	url, err := s.GetServiceURL("influxdb", "")
+	s := auth.GetAdminSessionWithPublic(nil, "", "")
+	url, err := s.GetServiceURL("influxdb", auth.PublicEndpointType)
 
 	if err != nil {
 		log.Errorf("get influxdb Endpoint error %s", err)
