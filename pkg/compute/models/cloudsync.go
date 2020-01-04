@@ -1121,12 +1121,6 @@ func syncOnPremiseCloudProviderInfo(
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncHosts for provider %s result: %s", provider.Name, msg)
 		log.Infof(notes)
-		//if result.IsError() {
-		//	logSyncFailed(provider, task, msg)
-		// return
-		//}
-		// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
-		// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 
 		for i := 0; i < len(localHosts); i += 1 {
 			if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
