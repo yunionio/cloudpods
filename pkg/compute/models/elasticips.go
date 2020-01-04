@@ -437,7 +437,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 }
 
 func (manager *SElasticipManager) getEipForInstance(instanceType string, instanceId string) (*SElasticip, error) {
-	return manager.getEip(instanceType, instanceId, "")
+	return manager.getEip(instanceType, instanceId, api.EIP_MODE_STANDALONE_EIP)
 }
 
 func (manager *SElasticipManager) getEip(instanceType string, instanceId string, eipMode string) (*SElasticip, error) {
