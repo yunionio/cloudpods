@@ -107,8 +107,11 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
 	image, err := self.region.GetImage(extId)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.GetImage")
+	}
 	image.storageCache = self
-	return &image, err
+	return image, nil
 }
 
 func (self *SStoragecache) GetPath() string {
@@ -126,7 +129,7 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	} else {
 		image.storageCache = self
 		iimage := make([]cloudprovider.ICloudImage, 1)
-		iimage[0] = &image
+		iimage[0] = image
 		if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
