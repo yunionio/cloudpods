@@ -2090,19 +2090,19 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return nil, err
 		}
-		var inicCnt, enicCnt, ibw, ebw int
+		var inicCnt, enicCnt int
 		if IsExitNetworkInfo(conf) {
 			enicCnt = 1
-			ebw = conf.BwLimit
+			// ebw = conf.BwLimit
 		} else {
 			inicCnt = 1
-			ibw = conf.BwLimit
+			// ibw = conf.BwLimit
 		}
 		pendingUsage := &SRegionQuota{
 			Port:  inicCnt,
 			Eport: enicCnt,
-			Bw:    ibw,
-			Ebw:   ebw,
+			//Bw:    ibw,
+			//Ebw:   ebw,
 		}
 		keys, err := self.GetQuotaKeys()
 		if err != nil {

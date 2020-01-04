@@ -1478,9 +1478,9 @@ func getGuestResourceRequirements(
 	regionReq := SRegionQuota{
 		Port:  iNicCnt * count,
 		Eport: eNicCnt * count,
-		Bw:    iBw * count,
-		Ebw:   eBw * count,
-		Eip:   eipCnt * count,
+		//Bw:    iBw * count,
+		//Ebw:   eBw * count,
+		Eip: eipCnt * count,
 	}
 	keys := serverCreateInput2ComputeQuotaKeys(input, ownerId)
 	req.SetKeys(keys)
@@ -2590,10 +2590,10 @@ func (self *SGuest) attach2NetworkOnce(
 		cancelUsage := SRegionQuota{}
 		if network.IsExitNetwork() {
 			cancelUsage.Eport = 1
-			cancelUsage.Ebw = bwLimit
+			// cancelUsage.Ebw = bwLimit
 		} else {
 			cancelUsage.Port = 1
-			cancelUsage.Bw = bwLimit
+			// cancelUsage.Bw = bwLimit
 		}
 		keys, err := self.GetRegionalQuotaKeys()
 		if err != nil {
@@ -4967,7 +4967,7 @@ func (self *SGuest) getGuestUsage(guestCount int) (SQuota, SRegionQuota, error) 
 		return usage, regionUsage, err
 	}
 	regionUsage.Port = netCount
-	regionUsage.Bw = self.getBandwidth(false)
+	// regionUsage.Bw = self.getBandwidth(false)
 	eip, err := self.GetEip()
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
 		return usage, regionUsage, err
