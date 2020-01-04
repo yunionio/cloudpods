@@ -264,7 +264,7 @@ func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred
 type sMetadataChange struct {
 	Key    string
 	OValue string
-	NValue string
+	NValue string `json:",allowempty"`
 }
 
 func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, userCred mcclient.TokenCredential) error {
