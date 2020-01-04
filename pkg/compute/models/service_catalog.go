@@ -102,6 +102,7 @@ func (scm *SServiceCatalogManager) ValidateCreateData(ctx context.Context, userC
 	if err != nil {
 		return nil, err
 	}
+	/*
 	gt := model.(*SGuestTemplate)
 	//scope := rbacutils.String2Scope(gt.PublicScope)
 	//if !gt.IsPublic || scope != rbacutils.ScopeSystem {
@@ -110,6 +111,7 @@ func (scm *SServiceCatalogManager) ValidateCreateData(ctx context.Context, userC
 	if userCred.GetProjectId() != gt.ProjectId {
 		return nil, httperrors.NewForbiddenError("guest template must has same project id with the request")
 	}
+	 */
 
 	data := input.JSON(input)
 	data.Remove("guest_template")
