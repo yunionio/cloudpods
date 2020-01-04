@@ -342,3 +342,15 @@ func (self *SUcloudClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (self *SUcloudClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		// cloudprovider.CLOUD_CAPABILITY_CACHE,
+	}
+	return caps
+}

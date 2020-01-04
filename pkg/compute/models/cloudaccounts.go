@@ -863,7 +863,9 @@ func (self *SCloudaccount) getProjectIds() []string {
 		if err != nil {
 			return nil
 		}
-		ret = append(ret, projId)
+		if len(projId) > 0 && utils.IsInStringArray(projId, ret) {
+			ret = append(ret, projId)
+		}
 	}
 	return ret
 }

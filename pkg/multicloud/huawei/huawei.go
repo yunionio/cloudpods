@@ -414,3 +414,22 @@ func (self *SHuaweiClient) GetAccessEnv() string {
 		return api.CLOUD_ACCESS_ENV_HUAWEI_GLOBAL
 	}
 }
+
+func (self *SHuaweiClient) GetCapabilities() []string {
+	caps := []string{
+		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
+		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
+		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_CACHE,
+		cloudprovider.CLOUD_CAPABILITY_EVENT,
+	}
+	// huawei objectstore is shared across projects(subscriptions)
+	// to avoid multiple project access the same bucket
+	// only main project is allow to access objectstore bucket
+	if self.isMainProject {
+		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	}
+	return caps
+}

@@ -176,7 +176,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Images.Download")
 	}
 	log.Debugf("Images meta data %s", meta)
 
@@ -191,7 +191,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
-		return "", errors.Wrap(err, "GetIBucketByName")
+		return "", errors.Wrapf(err, "GetIBucketByName %s", bucketName)
 	}
 
 	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", nil, false)
