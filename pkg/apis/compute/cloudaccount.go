@@ -26,17 +26,58 @@ import (
 type CloudaccountCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 
-	Provider            string
-	AccountId           string
-	Brand               string
-	IsPublicCloud       bool
-	IsOnPremise         bool
-	Tenant              string
-	TenantId            string
-	EnableAutoSync      bool
-	SyncIntervalSeconds int
-	AutoCreateProject   bool
-	Options             *jsonutils.JSONObject
+	// 指定云平台
+	// Qcloud: 腾讯云
+	// Ctyun: 天翼云
+	// enum: VMware, Aliyun, Qcloud, Azure, Aws, Huawei, OpenStack, Ucloud, ZStack, Google, Ctyun
+	Provider string `json:"provider"`
+	// swagger:ignore
+	AccountId string
+
+	// 指定云平台品牌, 此参数默认和provider相同
+	// requried: false
+	//
+	//
+	//
+	// | provider | 支持的参数 |
+	// | -------- | ---------- |
+	// | VMware | VMware |
+	// | Aliyun | Aliyun |
+	// | Qcloud | Qcloud |
+	// | Azure | Azure |
+	// | Aws | Aws |
+	// | Huawei | Huawei |
+	// | OpenStack | OpenStack |
+	// | Ucloud | Ucloud |
+	// | ZStack | ZStack, DStack |
+	// | Google | Google |
+	// | Ctyun | Ctyun |
+	Brand string `json:"brand"`
+
+	// swagger:ignore
+	IsPublicCloud bool
+	// swagger:ignore
+	IsOnPremise bool
+
+	// 指定云账号所属的项目
+	Tenant string `json:"tenant"`
+
+	// swagger:ignore
+	TenantId string
+
+	// 启用自动同步
+	// default: false
+	EnableAutoSync bool `json:"enable_auto_sync"`
+
+	// 自动同步间隔时间
+	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+
+	// 自动根据云上项目或订阅创建本地项目
+	// default: false
+	AutoCreateProject bool `json:"auto_create_project"`
+
+	// 额外信息,例如账单的access key
+	Options *jsonutils.JSONObject `json:"options"`
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential

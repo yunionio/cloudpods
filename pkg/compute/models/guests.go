@@ -1308,8 +1308,8 @@ func (manager *SGuestManager) BatchCreateValidateCreateData(ctx context.Context,
 }
 
 // 创建虚拟机实例
-func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, data)
+func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, oinput api.ServerCreateInput) (*jsonutils.JSONDict, error) {
+	input, err := manager.validateCreateData(ctx, userCred, ownerId, query, oinput.JSON(oinput))
 	if err != nil {
 		return nil, err
 	}

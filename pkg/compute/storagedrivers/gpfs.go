@@ -42,8 +42,8 @@ func (self *SGpfsStorageDriver) GetStorageType() string {
 	return api.STORAGE_GPFS
 }
 
-func (self *SGpfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SGpfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	return nil
 }
 
 func (self *SGpfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {

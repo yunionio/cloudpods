@@ -78,7 +78,7 @@ type StandaloneResourceCreateInput struct {
 
 	// description: resource name, required if generated_name is not given
 	// unique: true
-	// required: false
+	// required: true
 	// example: test-network
 	Name string `json:"name"`
 
@@ -96,6 +96,10 @@ type StandaloneResourceCreateInput struct {
 	// description: the resource is an emulated resource
 	// required: false
 	IsEmulated *bool `json:"is_emulated"`
+
+	// 标签列表,最多支持20个
+	// example: { "user:rd": "op" }
+	Metadata map[string]string `json:"__meta__"`
 }
 
 type JoinResourceBaseCreateInput struct {

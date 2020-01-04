@@ -16,11 +16,11 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -51,24 +51,30 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ct
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
 }
 
-func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	networkV := validators.NewModelIdOrNameValidator("network", "network", nil)
-	err := networkV.Validate(data)
-	if err != nil {
-		return nil, err
+func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	if len(input.Network) == 0 {
+		return httperrors.NewMissingParameterError("network")
 	}
-	network := networkV.Model.(*models.SNetwork)
+	_network, err := models.NetworkManager.FetchByIdOrName(userCred, input.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewResourceNotFoundError("failed to found network %s", input.Network)
+		}
+		return httperrors.NewGeneralError(err)
+	}
+	network := _network.(*models.SNetwork)
+	input.NetworkId = network.Id
 
 	vpc := network.GetVpc()
 	if vpc == nil {
-		return nil, httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
+		return httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
 	}
 	region, err := vpc.GetRegion()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if region.GetDriver().GetProvider() != self.GetProvider() {
-		return nil, httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
+		return httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
 	}
-	return data, nil
+	return nil
 }

@@ -102,7 +102,7 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 
 	db.SetExternalId(account, self.UserCred, iAccount.GetGlobalId())
 
-	input := api.SDBInstanceAccountCreateInput{}
+	input := api.DBInstanceAccountCreateInput{}
 	self.GetParams().Unmarshal(&input)
 	if len(input.Privileges) == 0 {
 		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")

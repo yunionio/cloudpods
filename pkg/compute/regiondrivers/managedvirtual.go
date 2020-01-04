@@ -1097,8 +1097,8 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx contex
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	return nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestUpdateSnapshotPolicy(ctx context.Context, userCred mcclient.
@@ -1209,7 +1209,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshot(ctx contex
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return nil
 }
 

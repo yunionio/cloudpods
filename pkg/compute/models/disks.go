@@ -35,7 +35,6 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -434,13 +433,10 @@ func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclien
 	return keys
 }
 
-func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input, err := cmdline.FetchDiskCreateInputByJSON(data)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("parse disk input: %v", err)
-	}
+func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, oinput api.DiskCreateInput) (*jsonutils.JSONDict, error) {
+	input := &oinput
 	diskConfig := input.DiskConfig
-	diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
+	diskConfig, err := parseDiskInfo(ctx, userCred, diskConfig)
 	if err != nil {
 		return nil, err
 	}
