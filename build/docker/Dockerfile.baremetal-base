@@ -27,3 +27,8 @@ COPY ./opt/cloud/yunion/baremetal/libutil.c32 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/lpxelinux.0 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/menu.c32 /opt/cloud/yunion/baremetal
 COPY ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
+
+# add mkisofs with bundles libraries
+ADD ./mkisofs /bin/mkisofs
+ADD ./.mkisofs.bin /bin/.mkisofs.bin
+ADD ./bundles/mkisofs /bin/bundles/mkisofs

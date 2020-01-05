@@ -41,6 +41,7 @@ type SHostImageOptions struct {
 	common_options.CommonOptions
 	LocalImagePath    []string `help:"Local Image Paths"`
 	SnapshotDirSuffix string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
+	CommonConfigFile  string   `help:"common config file for container"`
 }
 
 var HostImageOptions SHostImageOptions
@@ -48,6 +49,14 @@ var HostImageOptions SHostImageOptions
 func StartService() {
 	consts.SetServiceType("host-image")
 	common_options.ParseOptions(&HostImageOptions, os.Args, "host.conf", "host-image")
+	if len(HostImageOptions.CommonConfigFile) > 0 {
+		baseOpt := HostImageOptions.BaseOptions.BaseOptions
+		commonCfg := new(common_options.CommonOptions)
+		commonCfg.Config = HostImageOptions.CommonConfigFile
+		common_options.ParseOptions(commonCfg, []string{"host"}, "common.conf", "host")
+		HostImageOptions.CommonOptions = *commonCfg
+		HostImageOptions.BaseOptions.BaseOptions = baseOpt
+	}
 	HostImageOptions.EnableSsl = false
 	HostImageOptions.Port += 40000
 	app_common.InitAuth(&HostImageOptions.CommonOptions, func() {
