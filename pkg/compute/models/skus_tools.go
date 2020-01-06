@@ -318,34 +318,46 @@ func SyncElasticCacheSkus(ctx context.Context, userCred mcclient.TokenCredential
 		}
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		log.Errorf("SyncElasticCacheSkus.fetchSkuResourcesMeta %s", err)
+		log.Errorf("SyncElasticCacheSkus.FetchSkuResourcesMeta %s", err)
 		return
 	}
 
 	cloudregions := fetchSkuSyncCloudregions()
 	for i := range cloudregions {
 		region := &cloudregions[i]
-		meta.SetRegionFilter(region)
-		result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
-		notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
-		log.Infof(notes)
+
+		if region.GetDriver().IsSupportedElasticcache() {
+			meta.SetRegionFilter(region)
+			result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
+			log.Infof(notes)
+		} else {
+			notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
+			log.Infof(notes)
+		}
 	}
 }
 
 // 同步Region elasticcache sku列表.
-func syncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) {
-	meta, err := fetchSkuResourcesMeta()
+func SyncElasticCacheSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+	if region.GetDriver().IsSupportedElasticcache() {
+		notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s not support elasticcache", region.Name)
+		log.Infof(notes)
+		return nil
+	}
+
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		log.Errorf("syncElasticCacheSkusByRegion.fetchSkuResourcesMeta %s", err)
-		return
+		return errors.Wrap(err, "SyncElasticCacheSkusByRegion.FetchSkuResourcesMeta")
 	}
 
 	meta.SetRegionFilter(region)
-	result := ElasticcacheSkuManager.syncElasticcacheSkus(ctx, userCred, region, meta)
-	notes := fmt.Sprintf("syncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
+	result := ElasticcacheSkuManager.SyncElasticcacheSkus(ctx, userCred, region, meta)
+	notes := fmt.Sprintf("SyncElasticCacheSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
+	return nil
 }
 
 // 全量同步sku列表.
@@ -362,9 +374,9 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 		}
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		log.Errorf("SyncServerSkus.fetchSkuResourcesMeta %s", err)
+		log.Errorf("SyncServerSkus.FetchSkuResourcesMeta %s", err)
 		return
 	}
 
@@ -372,7 +384,7 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 	for i := range cloudregions {
 		region := &cloudregions[i]
 		meta.SetRegionFilter(region)
-		result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
+		result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
 		notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 		log.Infof(notes)
 	}
@@ -383,19 +395,19 @@ func SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, isSt
 }
 
 // 同步指定region sku列表
-func syncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
-	meta, err := fetchSkuResourcesMeta()
+func SyncServerSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion) error {
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
-		return errors.Wrap(err, "syncServerSkusByRegion.fetchSkuResourcesMeta")
+		return errors.Wrap(err, "SyncServerSkusByRegion.FetchSkuResourcesMeta")
 	}
 
-	result := ServerSkuManager.syncServerSkus(ctx, userCred, region, meta)
-	notes := fmt.Sprintf("syncServerSkusByRegion %s result: %s", region.Name, result.Result())
+	result := ServerSkuManager.SyncServerSkus(ctx, userCred, region, meta)
+	notes := fmt.Sprintf("SyncServerSkusByRegion %s result: %s", region.Name, result.Result())
 	log.Infof(notes)
 	return nil
 }
 
-func fetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
+func FetchSkuResourcesMeta() (*SSkuResourcesMeta, error) {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	meta, err := modules.OfflineCloudmeta.GetSkuSourcesMeta(s)
 	if err != nil {
