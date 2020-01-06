@@ -120,7 +120,7 @@ func (self *Client) initManagers() {
 		self.Snapshots = modules.NewSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.OsSnapshots = modules.NewOsSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Images = modules.NewImageManager(self.regionId, self.projectId, self.signer, self.debug)
-		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.signer, self.debug)
+		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Projects = modules.NewProjectManager(self.signer, self.debug)
 		self.Regions = modules.NewRegionManager(self.signer, self.debug)
 		self.Zones = modules.NewZoneManager(self.regionId, self.projectId, self.signer, self.debug)
