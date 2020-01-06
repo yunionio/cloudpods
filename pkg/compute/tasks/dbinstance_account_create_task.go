@@ -73,14 +73,6 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		return
 	}
 
-	input := api.SDBInstanceAccountCreateInput{}
-	self.GetParams().Unmarshal(&input)
-	if len(input.Privileges) == 0 {
-		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
-		self.SetStageComplete(ctx, nil)
-		return
-	}
-
 	iAccounts, err := iRds.GetIDBInstanceAccounts()
 	if err != nil {
 		msg := fmt.Sprintf("failed to found accounts from cloud dbinstance error: %v", err)
@@ -103,6 +95,16 @@ func (self *DBInstanceAccountCreateTask) CreateDBInstanceAccount(ctx context.Con
 		msg := fmt.Sprintf("failed to found account %s from cloud dbinstance", account.Name)
 		db.OpsLog.LogEvent(account, db.ACT_GRANT_PRIVILEGE, msg, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, account, logclient.ACT_GRANT_PRIVILEGE, msg, self.UserCred, false)
+		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
+	db.SetExternalId(account, self.UserCred, iAccount.GetGlobalId())
+
+	input := api.SDBInstanceAccountCreateInput{}
+	self.GetParams().Unmarshal(&input)
+	if len(input.Privileges) == 0 {
 		account.SetStatus(self.UserCred, api.DBINSTANCE_USER_AVAILABLE, "")
 		self.SetStageComplete(ctx, nil)
 		return
