@@ -56,10 +56,11 @@ func init() {
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	HealthStatus  string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
-	SyncStatus    string
-	LastSync      time.Time
-	LastSyncEndAt time.Time
+	HealthStatus   string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
+	SyncStatus     string
+	LastSync       time.Time
+	LastSyncEndAt  time.Time
+	LastSyncTimeAt time.Time
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain"`
 	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain"`
@@ -182,6 +183,18 @@ func (self *SCloudprovider) MarkEndSync(userCred mcclient.TokenCredential) error
 	return nil
 }
 
+func (self *SCloudprovider) SetLastSyncTimeAt(userCred mcclient.TokenCredential, last time.Time) error {
+	_, err := db.Update(self, func() error {
+		self.LastSyncTimeAt = last
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Failed to SetLastSyncTimeAt error: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (manager *SCloudproviderManager) newFromRegionProvider(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider SCloudprovider) error {
 	cloudprovider.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 	return manager.TableSpec().Insert(&cloudprovider)
@@ -226,19 +239,23 @@ func (self *SCloudprovider) GetNextTimeRange() (time.Time, time.Time, error) {
 	if err != nil {
 		return start, end, errors.Wrap(err, "q.CountWithError")
 	}
-	if count == 0 {
+	if !self.LastSyncTimeAt.IsZero() {
+		start = self.LastSyncTimeAt
+	} else if count == 0 {
 		start = time.Now().AddDate(0, 0, -1*factory.GetMaxCloudEventKeepDays())
 	} else {
-		provider := SCloudprovider{}
-		err = q.First(&provider)
+		event := &SCloudevent{}
+		err = q.First(event)
 		if err != nil {
 			return start, end, errors.Wrap(err, "q.First")
 		}
-		start = provider.CreatedAt
-		if start.Before(time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)) {
-			start = time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)
-		}
+		start = event.CreatedAt
 	}
+	// 避免cloudevent过长时间未运行，再次运行时记录的最后一条时间距离现在间隔太长
+	if start.Before(time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)) {
+		start = time.Now().AddDate(0, 0, factory.GetMaxCloudEventKeepDays()*-1)
+	}
+
 	if options.Options.OneSyncForHours > factory.GetMaxCloudEventSyncDays()*24 {
 		end = start.Add(time.Duration(factory.GetMaxCloudEventSyncDays()*24) * time.Hour)
 	} else {
