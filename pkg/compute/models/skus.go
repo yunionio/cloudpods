@@ -1125,6 +1125,7 @@ func (self *SServerSku) PerformDisable(ctx context.Context, userCred mcclient.To
 
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
 	_, err := db.Update(self, func() error {
+		self.ZoneId = extSku.ZoneId
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
 		return nil
@@ -1155,7 +1156,7 @@ func (manager *SServerSkuManager) FetchSkusByRegion(regionID string) ([]SServerS
 	return skus, nil
 }
 
-func (manager *SServerSkuManager) syncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
+func (manager *SServerSkuManager) SyncServerSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, extSkuMeta *SSkuResourcesMeta) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
