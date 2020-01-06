@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -180,6 +181,12 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	err := data.Unmarshal(input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal input failed: %v", err)
+	}
+
+	if len(input.Password) > 0 {
+		if !seclib2.MeetComplxity(input.Password) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
 	}
 
 	network := networkV.Model.(*SNetwork)
