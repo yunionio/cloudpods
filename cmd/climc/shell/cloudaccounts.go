@@ -777,4 +777,34 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type CloudaccountSyncSkusOptions struct {
+		ID       string `help:"ID or Name of cloud account"`
+		RESOURCE string `help:"Resource of skus" choices:"serversku|elasticcachesku|dbinstance_sku"`
+		Force    bool   `help:"Force sync no matter what"`
+		Provider string `help:"provider to sync"`
+		Region   string `help:"region to sync"`
+	}
+	R(&CloudaccountSyncSkusOptions{}, "cloud-account-sync-skus", "Sync skus of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountSyncSkusOptions) error {
+		params := jsonutils.NewDict()
+		params.Set("resource", jsonutils.NewString(args.RESOURCE))
+		if args.Force {
+			params.Add(jsonutils.JSONTrue, "force")
+		}
+
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "cloudprovider")
+		}
+
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "cloudregion")
+		}
+
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "sync-skus", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
