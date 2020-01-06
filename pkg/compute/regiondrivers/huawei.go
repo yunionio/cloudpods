@@ -2178,6 +2178,14 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 	if utils.IsInStringArray(instance.Engine, []string{api.DBINSTANCE_TYPE_POSTGRESQL, api.DBINSTANCE_TYPE_SQLSERVER}) {
 		return nil, httperrors.NewInputParameterError("Not support create account for huawei cloud %s instance", instance.Engine)
 	}
+	if len(input.Name) == len(input.Password) {
+		for i := range input.Name {
+			if input.Name[i] != input.Password[len(input.Password)-i-1] {
+				return input, nil
+			}
+		}
+		return nil, httperrors.NewInputParameterError("Huawei rds password cannot be in the same reverse order as the account")
+	}
 	return input, nil
 }
 
