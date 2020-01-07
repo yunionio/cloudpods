@@ -81,8 +81,8 @@ for component in $COMPONENTS; do
         echo "Please build image for climc"
         continue
     fi
-    build_bin $component
-    build_bundle_libraries $component
+    #build_bin $component
+    #build_bundle_libraries $component
     img_name="$REGISTRY/$component:$TAG"
     build_image $img_name $DOCKER_DIR/Dockerfile.$component $SRC_DIR
     push_image "$img_name"

@@ -309,7 +309,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	if err == nil {
 		return nil
 	}
-	return errors.Error("invalid password")
+	return errors.Error(fmt.Sprintf("invalid password: %v", err))
 }
 
 // 用户列表

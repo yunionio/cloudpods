@@ -35,6 +35,7 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell/cloudnet"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/etcd"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
