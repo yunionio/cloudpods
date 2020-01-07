@@ -1125,6 +1125,7 @@ func (self *SServerSku) PerformDisable(ctx context.Context, userCred mcclient.To
 
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku SServerSku) error {
 	_, err := db.Update(self, func() error {
+		self.ZoneId = extSku.ZoneId
 		self.PrepaidStatus = extSku.PrepaidStatus
 		self.PostpaidStatus = extSku.PostpaidStatus
 		return nil
