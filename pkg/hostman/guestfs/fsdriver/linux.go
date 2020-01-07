@@ -1395,6 +1395,51 @@ exit 0
 	return rootFs.FilePutContents(spath, cont, false, false)
 }
 
+func (d *SOpenWrtRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
+	if d.featureBoardConfig(rootFs) {
+		macs := ""
+		for _, nic := range nics {
+			macs = "," + nic.Mac
+		}
+		f := "/etc/board.d/00-01-onecloud-network"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+[ -d /sys/class/net ] || exit 0
+
+board_config_update
+macs='%s'
+i=0
+
+oc_set_ifname() {
+	local net="$1"; shift
+	local ifname="$1"; shift
+
+	if type ucidef_set_interface &>/dev/null; then
+		ucidef_set_interface "$net" ifname "$ifname" protocol dhcp
+	elif type ucidef_set_interface_raw &>/dev/null; then
+		ucidef_set_interface_raw "$net" "$ifname" "dhcp"
+	else
+		echo "no ucidef function to do network ifname config" >&2
+		exit 0
+	fi
+}
+
+for ifname in $(ls /sys/class/net/); do
+	p="/sys/class/net/$ifname"
+	mac="$(cat "$p/address")"
+	if [ "${macs#*,$mac}" != "$macs" ]; then
+		oc_set_ifname "lan$i" "$ifname"
+		i="$(($i + 1))"
+	fi
+done
+
+board_config_flush
+exit 0
+`, macs)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+	return nil
+}
+
 func (d *SOpenWrtRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
 	ver, _ := rootFs.FileGetContents("/etc/openwrt_version", false)
 	return &deployapi.ReleaseInfo{
