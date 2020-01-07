@@ -574,10 +574,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 		nextMarker := ""
 		if int64(len(retList)) > limit {
-			markerObj, _ := retList[limit].Get(pagingConf.MarkerField)
-			if markerObj != nil {
-				nextMarker = fmt.Sprintf("%s", markerObj)
-			}
+			nextMarker, _ = retList[limit].GetString(pagingConf.MarkerField)
 			retList = retList[:limit]
 		}
 		retResult := modulebase.ListResult{
