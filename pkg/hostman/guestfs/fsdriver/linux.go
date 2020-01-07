@@ -1338,7 +1338,35 @@ func (d *SOpenWrtRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc/", "/lib", "/sbin", "/overlay", "/etc/openwrt_release", "/etc/openwrt_version"}
 }
 
+func (d *SOpenWrtRootFs) featureBoardConfig(rootFs IDiskPartition) bool {
+	if rootFs.Exists("/etc/board.d", false) {
+		return true
+	}
+	return false
+}
+
+func (d *SOpenWrtRootFs) putBoardConfig(rootFs IDiskPartition, f, c string) error {
+	if err := rootFs.FilePutContents(f, c, false, false); err != nil {
+		return err
+	}
+	if err := rootFs.Chmod(f, 0755, false); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	if d.featureBoardConfig(rootFs) {
+		f := "/etc/board.d/00-00-onecloud-hostname"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+board_config_update
+ucidef_set_hostname '%s'
+board_config_flush
+exit 0
+`, hn)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+
 	spath := "/etc/config/system"
 	if !rootFs.Exists(spath, false) {
 		return nil
