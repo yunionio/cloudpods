@@ -1709,3 +1709,42 @@ func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcc
 	}
 	return q
 }
+
+func (manager *SCloudaccountManager) getBrandsOfProvider(provider string) ([]string, error) {
+	q := manager.Query().Equals("provider", provider)
+	cloudaccounts := make([]SCloudaccount, 0)
+	err := db.FetchModelObjects(manager, q, &cloudaccounts)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	ret := make([]string, 0)
+	for i := range cloudaccounts {
+		if cloudaccounts[i].IsAvailable() && !utils.IsInStringArray(cloudaccounts[i].Brand, ret) {
+			ret = append(ret, cloudaccounts[i].Brand)
+		}
+	}
+	return ret, nil
+}
+
+func guessBrandForHypervisor(hypervisor string) string {
+	driver := GetDriver(hypervisor)
+	if driver == nil {
+		log.Errorf("guestBrandFromHypervisor: fail to find driver for hypervisor %s", hypervisor)
+		return ""
+	}
+	provider := driver.GetProvider()
+	if len(provider) == 0 {
+		log.Errorf("guestBrandFromHypervisor: fail to find provider for hypervisor %s", hypervisor)
+		return ""
+	}
+	brands, err := CloudaccountManager.getBrandsOfProvider(provider)
+	if err != nil {
+		log.Errorf("guestBrandFromHypervisor: fail to find brands for hypervisor %s", hypervisor)
+		return ""
+	}
+	if len(brands) != 1 {
+		log.Errorf("guestBrandFromHypervisor: find mistached number of brands for hypervisor %s %s", hypervisor, brands)
+		return ""
+	}
+	return brands[0]
+}

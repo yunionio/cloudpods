@@ -404,10 +404,11 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 
 func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
 	// input.Hypervisor must be set
+	brand := guessBrandForHypervisor(input.Hypervisor)
 	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
 		rbacutils.ScopeProject,
 		ownerId,
-		"",
+		brand,
 	)
 	if len(input.PreferHost) > 0 {
 		hostObj, _ := HostManager.FetchById(input.PreferHost)
