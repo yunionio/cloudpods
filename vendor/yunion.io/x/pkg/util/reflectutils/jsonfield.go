@@ -249,6 +249,30 @@ func (set SStructFieldValueSet) GetStructFieldIndex(name string) int {
 	return -1
 }
 
+func (set SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+	ret := make([]int, 0)
+	for i := 0; i < len(set); i += 1 {
+		jsonInfo := set[i].Info
+		if jsonInfo.MarshalName() == name {
+			ret = append(ret, i)
+			continue
+		}
+		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == name {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == utils.Capitalize(name) {
+			ret = append(ret, i)
+			continue
+		}
+	}
+	return ret
+}
+
 func (set SStructFieldValueSet) GetValue(name string) (reflect.Value, bool) {
 	idx := set.GetStructFieldIndex(name)
 	if idx < 0 {

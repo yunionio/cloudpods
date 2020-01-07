@@ -1,0 +1,60 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package monitor
+
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
+const (
+	MeterAlertTypeBalance     = "balance"
+	MeterAlertTypeDailyResFee = "resFee"
+	MeterAlertTypeMonthResFee = "monthFee"
+)
+
+type MeterAlertCreateInput struct {
+	ResourceAlertV1CreateInput
+
+	// 监控资源类型, 比如: balance, resFree, monthFee
+	Type string `json:"type"`
+	// 云平台类型
+	Provider string `json:"provider"`
+	// 云账号 Id
+	AccountId string `json:"account_id"`
+	// 项目 Id string
+	ProjectId string `json:"project_id"`
+}
+
+type MeterAlertListInput struct {
+	apis.VirtualResourceListInput
+
+	// 监控资源类型, 比如: balance, resFree, monthFee
+	Type string `json:"type"`
+	// 云平台类型
+	Provider string `json:"provider"`
+	// 云账号 Id
+	AccountId string `json:"account_id"`
+	// 项目 Id string
+	ProjectId string `json:"project_id"`
+}
+
+type MeterAlertDetails struct {
+	AlertV1Details
+
+	Type      string `json:"type"`
+	ProjectId string `json:"project_id"`
+	AccountId string `json:"account_id"`
+	Provider  string `json:"provider"`
+}
