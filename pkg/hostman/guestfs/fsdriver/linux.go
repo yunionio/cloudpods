@@ -1372,7 +1372,6 @@ func (d *SOpenWrtRootFs) String() string {
 func (d *SOpenWrtRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc/", "/lib", "/sbin", "/overlay", "/etc/openwrt_release", "/etc/openwrt_version"}
 }
-
 func (d *SOpenWrtRootFs) featureBoardConfig(rootFs IDiskPartition) bool {
 	if rootFs.Exists("/etc/board.d", false) {
 		return true
@@ -1388,6 +1387,19 @@ func (d *SOpenWrtRootFs) putBoardConfig(rootFs IDiskPartition, f, c string) erro
 		return err
 	}
 	return nil
+}
+
+func (d *SOpenWrtRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *deployapi.SSHKeys) error {
+	if selUsr == "root" && rootFs.Exists("/etc/dropbear", false) {
+		var (
+			authFile = "/etc/dropbear/authorized_keys"
+			uid      = 0
+			gid      = 0
+			replace  = false
+		)
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
+	}
+	return d.sLinuxRootFs.DeployPublicKey(rootFs, selUsr, pubkeys)
 }
 
 func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
