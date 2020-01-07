@@ -41,6 +41,7 @@ const (
 	OS_NAME_ANDROID = "Android"
 	OS_NAME_VMWARE  = "VMWare"
 	OS_NAME_CIRROS  = "Cirros"
+	OS_NAME_OPENWRT = "OpenWrt"
 
 	MODE_READLINE = "readline"
 	MODE_CONTROL  = "control"
@@ -472,7 +473,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	if s.getOsDistribution() != OS_NAME_CIRROS {
+	if utils.IsInStringArray(s.getOsDistribution(), []string{OS_NAME_OPENWRT, OS_NAME_CIRROS}) {
 		cmd += " -device usb-kbd"
 	}
 	// # if osname == self.OS_NAME_ANDROID:
