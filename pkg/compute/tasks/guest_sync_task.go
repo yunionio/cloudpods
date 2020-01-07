@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestSyncConfTask struct {
@@ -74,7 +75,7 @@ func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *mo
 func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
-	log.Errorf("Guest sync config failed: %v", data.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -83,7 +84,7 @@ func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.
 	if !jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
 		guest.SetStatus(self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
 	}
-	log.Errorf("Guest sync config failed: %v", data.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_SYNC_CONF, data, self.UserCred, false)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
 	self.SetStageFailed(ctx, data.String())
 }
