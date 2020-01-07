@@ -29,6 +29,7 @@ type Application struct {
 	CSRFResourceHandler  handler.IHandler
 	RPCHandler           handler.IHandler
 	InfluxdbProxyHandler handler.IHandler
+	File2JsonHandler     handler.IHandler
 }
 
 func NewApp(app *appsrv.Application) *Application {
@@ -47,6 +48,9 @@ func (app *Application) InitHandlers() *Application {
 
 	// bind k8s resource handlers
 	app.K8sHandler = handler.NewK8sResourceHandler("/api/v1/_raw")
+
+	// bind file2json handler
+	app.File2JsonHandler = handler.NewFile2JsonHandler("/api/v1/")
 
 	// bind restful resource handlers
 	app.ResourceHandler = handler.NewResourceHandlers("/api").
@@ -78,6 +82,7 @@ func (app *Application) Bind() {
 		app.RPCHandler,
 		app.ResourceHandler,
 		app.CSRFResourceHandler,
+		app.File2JsonHandler,
 	} {
 		h.Bind(app.Application)
 	}
