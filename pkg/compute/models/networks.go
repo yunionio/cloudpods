@@ -1479,9 +1479,13 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerId.GetProjectId() == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
+	if db.IsDomainAllowCreate(userCred, self.GetModelManager()) && ownerId.GetProjectId() == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
 		self.IsPublic = true
-		self.PublicScope = string(rbacutils.ScopeDomain)
+		if options.Options.NonDefaultDomainProjects {
+			self.PublicScope = string(rbacutils.ScopeDomain)
+		} else {
+			self.PublicScope = string(rbacutils.ScopeSystem)
+		}
 	} else {
 		self.IsPublic = false
 		self.PublicScope = string(rbacutils.ScopeNone)
