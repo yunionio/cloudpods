@@ -1341,7 +1341,7 @@ func NewOpenWrtRootFs(part IDiskPartition) IRootFsDriver {
 }
 
 func (d *SOpenWrtRootFs) GetName() string {
-	return "OpenWRT"
+	return "OpenWrt"
 }
 
 func (d *SOpenWrtRootFs) String() string {
@@ -1370,7 +1370,7 @@ func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string
 func (d *SOpenWrtRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
 	ver, _ := rootFs.FileGetContents("/etc/openwrt_version", false)
 	return &deployapi.ReleaseInfo{
-		Distro:  "OpenWRT",
+		Distro:  "OpenWrt",
 		Version: string(ver),
 		Arch:    d.GetArch(rootFs),
 	}
