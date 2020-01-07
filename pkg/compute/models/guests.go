@@ -872,10 +872,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 
 func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
 	// input.Hypervisor must be set
+	brand := guessBrandForHypervisor(input.Hypervisor)
 	keys := GetDriver(input.Hypervisor).GetComputeQuotaKeys(
 		rbacutils.ScopeProject,
 		ownerId,
-		"",
+		brand,
 	)
 	if len(input.PreferHost) > 0 {
 		hostObj, _ := HostManager.FetchById(input.PreferHost)
