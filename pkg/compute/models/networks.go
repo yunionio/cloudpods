@@ -1225,6 +1225,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		startIp = iprange.StartIp().StepUp()
 		endIp = iprange.EndIp().StepDown()
 		maskLen64 = int64(prefix.MaskLen)
+		// 根据掩码得到合法的GuestIpPrefix
+		data.Set("guest_ip_prefix", jsonutils.NewString(prefix.String()))
 	} else {
 		ipStartStr, _ := data.GetString("guest_ip_start")
 		ipEndStr, _ := data.GetString("guest_ip_end")
