@@ -16,7 +16,9 @@ package shell
 
 import (
 	"fmt"
-	"time"
+
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -24,14 +26,22 @@ import (
 
 func init() {
 	type EventListOptions struct {
-		Start     time.Time
-		End       time.Time
+		START     string
+		END       string
 		Token     string
 		EventRW   string `choices:"Read|Write|All"`
 		RequestId string
 	}
 	shellutils.R(&EventListOptions{}, "event-list", "List event", func(cli *aliyun.SRegion, args *EventListOptions) error {
-		events, token, err := cli.GetEvents(args.Start, args.End, args.Token, args.EventRW, args.RequestId)
+		start, err := timeutils.ParseTimeStr(args.START)
+		if err != nil {
+			return errors.Wrap(err, "timeutils.ParseTimeStr.Start")
+		}
+		end, err := timeutils.ParseTimeStr(args.END)
+		if err != nil {
+			return errors.Wrap(err, "timeutils.ParseTimeStr.End")
+		}
+		events, token, err := cli.GetEvents(start, end, args.Token, args.EventRW, args.RequestId)
 		if err != nil {
 			return err
 		}
