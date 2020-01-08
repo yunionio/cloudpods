@@ -65,8 +65,8 @@ func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ow
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_VMWARE
-	// ignore brand
-	// ignore hypervisor keys.Hypervisor = api.HYPERVISOR_ESXI
+	keys.Brand = api.CLOUD_PROVIDER_VMWARE
+	keys.Hypervisor = api.HYPERVISOR_ESXI
 	return keys
 }
 

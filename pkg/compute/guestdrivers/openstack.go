@@ -69,6 +69,7 @@ func (self *SOpenStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScop
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_OPENSTACK
 	keys.Brand = brand
+	keys.Hypervisor = api.HYPERVISOR_OPENSTACK
 	return keys
 }
 
