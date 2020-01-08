@@ -1262,6 +1262,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		startIp = iprange.StartIp().StepUp()
 		endIp = iprange.EndIp().StepDown()
 		input.GuestIpMask = int64(prefix.MaskLen)
+		// 根据掩码得到合法的GuestIpPrefix
+		input.GuestIpPrefix = prefix.String()
 	} else {
 		startIp, err = netutils.NewIPV4Addr(input.GuestIpStart)
 		if err != nil {
