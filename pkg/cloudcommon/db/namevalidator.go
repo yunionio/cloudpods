@@ -46,7 +46,7 @@ func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider,
 		return err
 	}
 	if !uniq {
-		return httperrors.NewDuplicateNameError("name", name)
+		return httperrors.NewDuplicateNameError(manager.Keyword(), name)
 	}
 	return nil
 }
