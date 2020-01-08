@@ -96,13 +96,16 @@ func detectiveKVMModuleSupport() string {
 func ModprobeKvmModule(name string, remove, nest bool) bool {
 	var params = []string{"modprobe"}
 	if remove {
-		params = append(params, "-r")
+		if err := procutils.NewCommand("rmmod", name).Run(); err != nil {
+			log.Errorf("rmmod failed %s: %s", name, err)
+		}
 	}
 	params = append(params, name)
 	if nest {
 		params = append(params, "nested=1")
 	}
 	if err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
+		log.Errorf("Modprobe kvm %v failed: %s", params, err)
 		return false
 	}
 	return true
