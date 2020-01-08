@@ -934,7 +934,7 @@ func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) erro
 
 	err := ImageSubformatManager.TableSpec().Insert(subformat)
 	if err != nil {
-		log.Errorf("fail to make subformat %s", format)
+		log.Errorf("fail to make subformat %s: %s", format, err)
 		return err
 	}
 	return nil
