@@ -52,8 +52,6 @@ func init() {
 			"wires",
 		),
 	}
-	WireManager.NameLength = 9
-	WireManager.NameRequireAscii = true
 	WireManager.SetVirtualObject(WireManager)
 }
 
