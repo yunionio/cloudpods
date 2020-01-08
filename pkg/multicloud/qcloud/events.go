@@ -83,7 +83,7 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) IsSuccess() bool {
-	return event.ErrorCode > 0
+	return event.ErrorCode == 0
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
