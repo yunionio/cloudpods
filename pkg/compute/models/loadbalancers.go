@@ -147,6 +147,8 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
+	data.Set("cloudregion_id", jsonutils.NewString(region.Id))
+
 	input := apis.VirtualResourceCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
