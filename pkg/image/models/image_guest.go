@@ -97,6 +97,8 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 
 	kwargs := data.(*jsonutils.JSONDict)
+	// get image number
+	imageNumber, _ := kwargs.Int("image_number")
 	// deal public params
 	kwargs.Remove("size")
 	kwargs.Remove("image_number")
@@ -144,7 +146,6 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	imageNumber, _ := data.Int("image_number")
 	pendingUsage := SQuota{Image: int(imageNumber)}
 	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
 
@@ -152,6 +153,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
 	}
 
+	gi.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "")
 	// HACK
 	tmp := query.(*jsonutils.JSONDict)
 	tmp.Add(imageIds, "image_ids")
