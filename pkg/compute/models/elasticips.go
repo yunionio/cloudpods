@@ -1115,7 +1115,13 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
 
-	err := manager.TableSpec().Insert(&eip)
+	var err error
+	eip.Name, err = db.GenerateName(manager, userCred, eip.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.GenerateName")
+	}
+
+	err = manager.TableSpec().Insert(&eip)
 	if err != nil {
 		log.Errorf("create EIP record fail %s", err)
 		return nil, err
