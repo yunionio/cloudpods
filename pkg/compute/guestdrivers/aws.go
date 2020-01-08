@@ -99,7 +99,8 @@ func (self *SAwsGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, own
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_AWS
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_AWS
+	keys.Hypervisor = api.HYPERVISOR_AWS
 	return keys
 }
 
