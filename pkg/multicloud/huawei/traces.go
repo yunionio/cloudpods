@@ -88,7 +88,7 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) IsSuccess() bool {
-	return strings.HasPrefix(event.Code, "2")
+	return strings.HasPrefix(event.Code, "2") || len(event.Code) == 0
 }
 
 func (event *SEvent) GetCreatedAt() time.Time {
