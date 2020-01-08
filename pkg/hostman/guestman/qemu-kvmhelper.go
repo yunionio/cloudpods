@@ -41,7 +41,7 @@ const (
 	OS_NAME_ANDROID = "Android"
 	OS_NAME_VMWARE  = "VMWare"
 	OS_NAME_CIRROS  = "Cirros"
-	OS_NAME_OPENWRT = "OpenWRT"
+	OS_NAME_OPENWRT = "OpenWrt"
 
 	MODE_READLINE = "readline"
 	MODE_CONTROL  = "control"

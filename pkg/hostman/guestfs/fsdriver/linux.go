@@ -1362,7 +1362,7 @@ func NewOpenWrtRootFs(part IDiskPartition) IRootFsDriver {
 }
 
 func (d *SOpenWrtRootFs) GetName() string {
-	return "OpenWRT"
+	return "OpenWrt"
 }
 
 func (d *SOpenWrtRootFs) String() string {
@@ -1372,8 +1372,48 @@ func (d *SOpenWrtRootFs) String() string {
 func (d *SOpenWrtRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc/", "/lib", "/sbin", "/overlay", "/etc/openwrt_release", "/etc/openwrt_version"}
 }
+func (d *SOpenWrtRootFs) featureBoardConfig(rootFs IDiskPartition) bool {
+	if rootFs.Exists("/etc/board.d", false) {
+		return true
+	}
+	return false
+}
+
+func (d *SOpenWrtRootFs) putBoardConfig(rootFs IDiskPartition, f, c string) error {
+	if err := rootFs.FilePutContents(f, c, false, false); err != nil {
+		return err
+	}
+	if err := rootFs.Chmod(f, 0755, false); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *SOpenWrtRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *deployapi.SSHKeys) error {
+	if selUsr == "root" && rootFs.Exists("/etc/dropbear", false) {
+		var (
+			authFile = "/etc/dropbear/authorized_keys"
+			uid      = 0
+			gid      = 0
+			replace  = false
+		)
+		return deployAuthorizedKeys(rootFs, authFile, uid, gid, pubkeys, replace)
+	}
+	return d.sLinuxRootFs.DeployPublicKey(rootFs, selUsr, pubkeys)
+}
 
 func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	if d.featureBoardConfig(rootFs) {
+		f := "/etc/board.d/00-00-onecloud-hostname"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+board_config_update
+ucidef_set_hostname '%s'
+board_config_flush
+exit 0
+`, hn)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+
 	spath := "/etc/config/system"
 	if !rootFs.Exists(spath, false) {
 		return nil
@@ -1388,10 +1428,55 @@ func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string
 	return rootFs.FilePutContents(spath, cont, false, false)
 }
 
+func (d *SOpenWrtRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
+	if d.featureBoardConfig(rootFs) {
+		macs := ""
+		for _, nic := range nics {
+			macs = "," + nic.Mac
+		}
+		f := "/etc/board.d/00-01-onecloud-network"
+		c := fmt.Sprintf(`. /lib/functions/uci-defaults.sh
+[ -d /sys/class/net ] || exit 0
+
+board_config_update
+macs='%s'
+i=0
+
+oc_set_ifname() {
+	local net="$1"; shift
+	local ifname="$1"; shift
+
+	if type ucidef_set_interface &>/dev/null; then
+		ucidef_set_interface "$net" ifname "$ifname" protocol dhcp
+	elif type ucidef_set_interface_raw &>/dev/null; then
+		ucidef_set_interface_raw "$net" "$ifname" "dhcp"
+	else
+		echo "no ucidef function to do network ifname config" >&2
+		exit 0
+	fi
+}
+
+for ifname in $(ls /sys/class/net/); do
+	p="/sys/class/net/$ifname"
+	mac="$(cat "$p/address")"
+	if [ "${macs#*,$mac}" != "$macs" ]; then
+		oc_set_ifname "lan$i" "$ifname"
+		i="$(($i + 1))"
+	fi
+done
+
+board_config_flush
+exit 0
+`, macs)
+		return d.putBoardConfig(rootFs, f, c)
+	}
+	return nil
+}
+
 func (d *SOpenWrtRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseInfo {
 	ver, _ := rootFs.FileGetContents("/etc/openwrt_version", false)
 	return &deployapi.ReleaseInfo{
-		Distro:  "OpenWRT",
+		Distro:  "OpenWrt",
 		Version: string(ver),
 		Arch:    d.GetArch(rootFs),
 	}
