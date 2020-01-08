@@ -611,7 +611,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	if data.Contains("os_name") {
 		osName, _ = data.GetString("os_name")
 	}
-	datastorePath := fmt.Sprintf("[%s] %s", ds.GetRelName(), name)
+	datastorePath := fmt.Sprintf("[%s] ", ds.GetRelName())
 	if data.Contains("mem") {
 		memoryMB, _ = data.Int("mem")
 	}
