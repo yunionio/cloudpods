@@ -61,7 +61,7 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	var cmd = []string{fetcherfsPath, "-s", "-o", opts, mntpath}
 	log.Infof("%s", strings.Join(cmd, " "))
-	err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
+	err := procutils.NewRemoteCommandAsFarAsPossible(cmd[0], cmd[1:]...).Run()
 	if err != nil {
 		log.Errorf("Mount fetcherfs filed: %s", err)
 		procutils.NewCommand("umount", mntpath).Run()
