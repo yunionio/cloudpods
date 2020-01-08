@@ -287,6 +287,12 @@ func (manager *SSnapshotManager) ValidateCreateData(
 }
 
 func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	// use disk's ownerId instead of default ownerId
+	diskObj, err := DiskManager.FetchById(self.DiskId)
+	if err != nil {
+		return errors.Wrap(err, "DiskManager.FetchById")
+	}
+	ownerId = diskObj.(*SDisk).GetOwnerId()
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
