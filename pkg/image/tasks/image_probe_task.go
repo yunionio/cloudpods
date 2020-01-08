@@ -171,7 +171,10 @@ func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SIm
 
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
 		self.SetStage("OnConvertComplete", nil)
-		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
+		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
+			self.SetStageFailed(ctx, err.Error())
+		}
 	} else {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageFailed(ctx, reason)
@@ -186,7 +189,10 @@ func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SI
 
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
 		self.SetStage("OnConvertComplete", nil)
-		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
+		if err := image.StartImageConvertTask(ctx, self.UserCred, self.GetId()); err != nil {
+			image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
+			self.SetStageFailed(ctx, err.Error())
+		}
 	} else {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, "")
 		self.SetStageComplete(ctx, nil)
