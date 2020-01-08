@@ -43,6 +43,7 @@ const (
 const (
 	CLOUD_CAPABILITY_PROJECT      = "project"
 	CLOUD_CAPABILITY_COMPUTE      = "compute"
+	CLOUD_CAPABILITY_NETWORK      = "network"
 	CLOUD_CAPABILITY_LOADBALANCER = "loadbalancer"
 	CLOUD_CAPABILITY_OBJECTSTORE  = "objectstore"
 	CLOUD_CAPABILITY_RDS          = "rds"

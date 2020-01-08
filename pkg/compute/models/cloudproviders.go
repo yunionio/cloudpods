@@ -870,6 +870,10 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
 	}
 	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
+	capabilities, _ := CloudproviderCapabilityManager.getCapabilities(self.Id)
+	if len(capabilities) > 0 {
+		extra.Add(jsonutils.NewStringArray(capabilities), "capabilities")
+	}
 	return extra
 }
 
@@ -963,11 +967,9 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	return manager.TableSpec().Insert(&cp)
 }
 
-func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	accountStr, _ := query.GetString("account")
+func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderListInput) (*sqlchemy.SQuery, error) {
+	accountStr := query.CloudaccountStr()
 	if len(accountStr) > 0 {
-		queryDict := query.(*jsonutils.JSONDict)
-		queryDict.Remove("account")
 		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -979,7 +981,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Equals("cloudaccount_id", accountObj.GetId())
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	if query.Usable != nil && *query.Usable {
 		providers := CloudproviderManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
@@ -1009,11 +1011,11 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		))
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	managerStr, _ := query.GetString("manager")
+	managerStr := query.CloudproviderStr()
 	if len(managerStr) > 0 {
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
@@ -1026,37 +1028,32 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Equals("id", providerObj.GetId())
 	}
 
-	cloudEnvStr, _ := query.GetString("cloud_env")
-	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	cloudEnvStr := query.CloudEnvStr()
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_public_cloud")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_on_premise")))
 	}
 
-	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_on_premise")))
 	}
 
-	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
 		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_on_premise")))
 	}
 
-	if query.Contains("has_object_storage") {
-		hasObjectStorage, _ := query.Bool("has_object_storage")
-		cloudaccounts := CloudaccountManager.Query().SubQuery()
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
-		if hasObjectStorage {
-			q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("has_object_storage")))
-		} else {
-			q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("has_object_storage")))
-		}
+	capabilities := query.CapabilityList()
+	if len(capabilities) > 0 {
+		subq := CloudproviderCapabilityManager.Query("cloudprovider_id").In("capability", capabilities).Distinct().SubQuery()
+		q = q.In("id", subq)
 	}
 
 	return q, nil
@@ -1092,7 +1089,11 @@ func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userC
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
 	driver, err := provider.GetProvider()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "provider.GetProvider")
+	}
+	err = CloudproviderCapabilityManager.setCapabilities(ctx, userCred, provider.Id, driver.GetCapabilities())
+	if err != nil {
+		return nil, errors.Wrap(err, "CloudproviderCapabilityManager.setCapabilities")
 	}
 	if driver.GetFactory().IsOnPremise() {
 		cpr := CloudproviderRegionManager.FetchByIdsOrCreate(provider.Id, api.DEFAULT_REGION_ID)
@@ -1198,6 +1199,8 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		}
 		log.Debugf("%s purgeall success!", manager.Keyword())
 	}
+
+	CloudproviderCapabilityManager.removeCapabilities(ctx, userCred, self.Id)
 
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }

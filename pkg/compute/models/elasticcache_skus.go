@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -166,20 +165,19 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 	return ret
 }
 
-func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	data := query.(*jsonutils.JSONDict)
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, data)
+func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheSkuListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	if usable, _ := query.Bool("usable"); usable {
+	if query.Usable != nil && *query.Usable {
 		q = usableFilter(q, true)
 		sq := sqlchemy.OR(sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable), sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable))
 		q = q.Filter(sq)
 	}
 
-	if b, _ := query.GetString("billing_type"); len(b) > 0 {
+	if b := query.BillingType; len(b) > 0 {
 		switch b {
 		case billing.BILLING_TYPE_POSTPAID:
 			q = q.Equals("postpaid_status", api.SkuStatusAvailable)
@@ -188,33 +186,27 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		}
 	}
 
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
 	q = listItemDomainFilter(q, data)
 
-	city, _ := query.GetString("city")
-	if len(city) > 0 {
-		regionTable := CloudregionManager.Query().SubQuery()
-		q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id"))).Filter(sqlchemy.Equals(regionTable.Field("city"), city))
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
-	memSizeMB, _ := query.Int("memory_size_mb")
+	memSizeMB := query.MemorySizeMb
 	if memSizeMB > 0 {
 		s, e := intervalMem(int(memSizeMB))
 		q.GT("memory_size_mb", s)
 		q.LE("memory_size_mb", e)
-		queryDict := query.(*jsonutils.JSONDict)
-		queryDict.Remove("memory_size_mb")
 	}
 
-	return q, err
+	return q, nil
 }
 
 // 获取region下所有Available状态的sku id
@@ -319,12 +311,17 @@ func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Con
 	q := manager.Query("memory_size_mb")
 	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "db.ListItemQueryFilters")
 	}
 
-	q, err = manager.ListItemFilter(ctx, q, userCred, query)
+	listQuery := api.ElasticcacheSkuListInput{}
+	err = query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = manager.ListItemFilter(ctx, q, userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	q = q.GroupBy(q.Field("memory_size_mb")).Asc(q.Field("memory_size_mb")).Distinct()
@@ -332,10 +329,10 @@ func (manager *SElasticcacheSkuManager) GetPropertyInstanceSpecs(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	mems := map[int]bool{}
 	mems_mb := jsonutils.NewArray()
-	defer rows.Close()
 	for rows.Next() {
 		var ms int
 		err := rows.Scan(&ms)
@@ -365,12 +362,17 @@ func (manager *SElasticcacheSkuManager) GetPropertyCapability(ctx context.Contex
 	q := manager.Query("engine", "engine_version", "local_category", "node_type", "performance_type")
 	q, err := db.ListItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "db.ListItemQueryFilters")
 	}
 
-	q, err = manager.ListItemFilter(ctx, q, userCred, query)
+	listQuery := api.ElasticcacheSkuListInput{}
+	err = query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = manager.ListItemFilter(ctx, q, userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	f1 := q.Field("engine")

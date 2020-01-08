@@ -135,20 +135,18 @@ func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient
 	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	input := &apis.StandaloneResourceListInput{}
-	err := query.Unmarshal(input)
+func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ResourceBaseListInput)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input error: %v", err)
+		return q, errors.Wrap(err, "SResourceBaseManager.ListItemFilte")
 	}
 
-	return manager.ListItemFilterV2(ctx, q, userCred, input)
-}
+	if len(input.Names) > 0 {
+		q = q.In("name", input.Names)
+	}
 
-func (manager *SStandaloneResourceBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilterV2(ctx, q, userCred, &input.ModelBaseListInput)
-	if err != nil {
-		return q, err
+	if len(input.Ids) > 0 {
+		q = q.In("id", input.Ids)
 	}
 
 	tags := map[string][]string{}

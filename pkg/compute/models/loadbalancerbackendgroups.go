@@ -75,13 +75,13 @@ func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Conte
 	}
 }
 
-func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerBackendGroupListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	// userProjId := userCred.GetProjectId()
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
 		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
@@ -91,7 +91,7 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context,
 		return nil, err
 	}
 
-	if noRef, _ := data.Bool("no_ref"); noRef {
+	if query.NoRef != nil && *query.NoRef {
 		q, err = man.FilterZeroRefBackendGroup(q)
 		if err != nil {
 			log.Errorf("SLoadbalancerBackendGroupManager ListItemFilter %s", err)

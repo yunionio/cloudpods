@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	VPC_STATUS_PENDING       = "pending"
 	VPC_STATUS_AVAILABLE     = "available"
@@ -32,3 +36,32 @@ const (
 	DEFAULT_VPC_ID = "default"
 	NORMAL_VPC_ID  = "normal" // 没有关联VPC的安全组，统一使用normal
 )
+
+type UsableResourceListInput struct {
+	// filter by network usability of the resource
+	Usable *bool `json:"usable"`
+}
+
+type VpcListInput struct {
+	apis.StatusStandaloneResourceListInput
+	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
+	UsableResourceListInput
+
+	// filter by globalvpc
+	Globalvpc string `json:"globalvpc"`
+}
+
+type WireListInput struct {
+	apis.StandaloneResourceListInput
+	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
+	VpcResourceListInput
+	HostResourceListInput
+}
+
+type GlobalVpcListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+}

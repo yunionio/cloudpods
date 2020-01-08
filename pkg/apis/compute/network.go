@@ -18,33 +18,79 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type NetworkListInput struct {
-	apis.BaseListInput
+type VpcResourceListInput struct {
+	// filter by vpc
+	// 过滤关联此Vpc的资源
+	Vpc string `json:"vpc"`
+	// swagger: ignore
+	// Deprecated
+	// filter by vpc Id
+	VpcId string `json:"vpc_id"`
+}
 
+func (input VpcResourceListInput) VpcStr() string {
+	if len(input.Vpc) > 0 {
+		return input.Vpc
+	}
+	if len(input.VpcId) > 0 {
+		return input.VpcId
+	}
+	return ""
+}
+
+type WireResourceListInput struct {
+	VpcResourceListInput
+	// filter by wire
+	// 过滤连接此二层网络的资源
+	Wire string `json:"wire"`
+	// swagger: ignore
+	// Deprecated
+	// fitler by wire id
+	WireId string `json:"wire_id"`
+}
+
+func (input WireResourceListInput) WireStr() string {
+	if len(input.Wire) > 0 {
+		return input.Wire
+	}
+	if len(input.WireId) > 0 {
+		return input.WireId
+	}
+	return ""
+}
+
+type NetworkResourceListInput struct {
+	WireResourceListInput
+
+	// filter by network
+	// 过滤关联此网络的资源
+	Network string `json:"network"`
+	// swagger: ignore
+	// Deprecated
+	// filter by networkId
+	NetworkId string `json:"network"`
+}
+
+func (input NetworkResourceListInput) NetworkStr() string {
+	if len(input.Network) > 0 {
+		return input.Network
+	}
+	if len(input.NetworkId) > 0 {
+		return input.NetworkId
+	}
+	return ""
+}
+
+type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	CloudaccountListInput
-	CloudTypeListInput
+	HostResourceListInput
 
-	Zone  string   `json:"zone"`
-	Zones []string `json:"zones"`
+	ManagedResourceListInput
 
-	Vpc string `json:"vpc"`
+	UsableResourceListInput
 
-	Cloudregion string `json:"cloudregion"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	CloudregionId string `json:"cloudregion_id"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	Region string `json:"region"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	RegionId string `json:"region_id"`
-
-	Usable bool   `json:"usable"`
-	Host   string `json:"host"`
-	City   string `json:"city"`
+	VpcResourceListInput
 }
 
 type NetworkCreateInput struct {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -335,12 +336,12 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 	return data, nil
 }
 
-func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.EndpointListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	svcStr := jsonutils.GetAnyString(query, []string{"service", "service_id"})
+	svcStr := query.ServiceStr()
 	if len(svcStr) > 0 {
 		svcObj, err := ServiceManager.FetchByIdOrName(userCred, svcStr)
 		if err != nil {

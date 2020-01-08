@@ -88,84 +88,54 @@ func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mccli
 	return true
 }
 
-func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SnapshotListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	if jsonutils.QueryBoolean(query, "fake_deleted", false) {
-		q = q.Equals("fake_deleted", true)
+	if query.FakeDeleted != nil && *query.FakeDeleted {
+		q = q.IsTrue("fake_deleted")
 	} else {
-		q = q.Equals("fake_deleted", false)
+		q = q.IsFalse("fake_deleted")
 	}
 
-	if jsonutils.QueryBoolean(query, "local", false) {
+	if query.Local != nil && *query.Local {
 		storages := StorageManager.Query().SubQuery()
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), api.STORAGE_LOCAL))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
 	// Public cloud snapshot doesn't have storage id
-	if jsonutils.QueryBoolean(query, "share", false) {
+	if query.Share != nil && *query.Share {
 		storages := StorageManager.Query().SubQuery()
 		sq := storages.Query(storages.Field("id")).NotEquals("storage_type", "local")
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("storage_id")),
 			sqlchemy.In(q.Field("storage_id"), sq)))
 	}
 
-	if diskType, err := query.GetString("disk_type"); err == nil {
+	if len(query.DiskType) > 0 {
 		diskTbl := DiskManager.Query().SubQuery()
-		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
+		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", query.DiskType).SubQuery()
 		q = q.In("disk_id", sq)
 	}
 
-	if isInstanceSnapshot, err := query.Bool("is_instance_snapshot"); err == nil {
+	if query.IsInstanceSnapshot != nil {
 		insjsq := InstanceSnapshotJointManager.Query().SubQuery()
-		if !isInstanceSnapshot {
+		if !*query.IsInstanceSnapshot {
 			q = q.LeftJoin(insjsq, sqlchemy.Equals(q.Field("id"), insjsq.Field("snapshot_id"))).
 				Filter(sqlchemy.IsNull(insjsq.Field("snapshot_id")))
 		} else {
 			q = q.Join(insjsq, sqlchemy.Equals(q.Field("id"), insjsq.Field("snapshot_id")))
 		}
 	}
-
-	/*if provider, err := query.GetString("provider"); err == nil {
-		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
-		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
-		q = q.In("manager_id", sq)
-	}*/
-
-	/*if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("manager %s not found", managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Equals("manager_id", managerObj.GetId())
-	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}*/
 
 	return q, nil
 }

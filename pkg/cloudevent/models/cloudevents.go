@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
@@ -75,11 +76,24 @@ func (self *SCloudevent) AllowUpdateItem(ctx context.Context, userCred mcclient.
 	return false
 }
 
-func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *api.CloudeventListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, input.JSON(input))
+func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.CloudeventListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, input.ModelBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+
+	/* input.Cloudprovider = input.CloudproviderStr()
+	if len(input.Cloudprovider) > 0 {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, input.Cloudprovider)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), input.Cloudprovider)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("cloudprovider_id", providerObj.GetId())
+	}*/
 
 	if len(input.Providers) > 0 {
 		q = q.In("provider", input.Providers)

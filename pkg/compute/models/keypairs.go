@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -61,13 +62,13 @@ type SKeypair struct {
 	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"` // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
 
-func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.KeypairListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(query, "admin", false) && db.IsAdminAllowList(userCred, manager) {
-		user, _ := query.GetString("user")
+	if query.Admin != nil && *query.Admin && db.IsAdminAllowList(userCred, manager) {
+		user := query.UserStr()
 		if len(user) > 0 {
 			uc, _ := db.UserCacheManager.FetchUserByIdOrName(ctx, user)
 			if uc == nil {

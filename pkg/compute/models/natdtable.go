@@ -64,12 +64,12 @@ type SNatDEntry struct {
 	IpProtocol   string `width:"8" charset:"ascii" list:"user" create:"required"`
 }
 
-func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query)
+func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatDEntryListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SNatEntryManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "natgateway", ModelKeyword: "natgateway", OwnerId: userCred},
 	})

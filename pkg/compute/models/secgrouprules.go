@@ -157,21 +157,26 @@ func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr s
 	return q.Equals("id", idStr)
 }
 
-func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (sql *sqlchemy.SQuery, err error) {
-	if sql, err = manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query); err != nil {
-		return nil, err
+func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupRuleListInput) (*sqlchemy.SQuery, error) {
+	sql, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
-	if defsecgroup, _ := query.GetString("secgroup"); len(defsecgroup) > 0 {
+	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
 		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
 			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
 		}
 	}
-	for _, field := range []string{"direction", "action", "protocol"} {
-		if key, _ := query.GetString(field); len(key) > 0 {
-			sql = sql.Equals(field, key)
-		}
+	if len(query.Direction) > 0 {
+		sql = sql.Equals("direction", query.Direction)
+	}
+	if len(query.Action) > 0 {
+		sql = sql.Equals("action", query.Action)
+	}
+	if len(query.Protocol) > 0 {
+		sql = sql.Equals("protocol", query.Protocol)
 	}
 	return sql, err
 }

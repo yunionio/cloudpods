@@ -17,3 +17,17 @@ package apis
 type VirtualResourceDetails struct {
 	ModelBaseDetails
 }
+
+type VirtualResourceListInput struct {
+	StatusStandaloneResourceListInput
+
+	ProjectizedResourceListInput
+
+	// Show system resource
+	System *bool `json:"system"`
+	// Show only pending deleted resource
+	PendingDelete *bool `json:"pending_delete"`
+	// Show all resources including pending deleted
+	// TODO: fix this???
+	PendingDeleteAll *bool `json:"-"`
+}

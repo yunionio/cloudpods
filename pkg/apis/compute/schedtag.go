@@ -38,3 +38,43 @@ type SchedtagCreateInput struct {
 	// default: hosts
 	ResourceType string `json:"resource_type"`
 }
+
+type SchedtagResourceListInput struct {
+	// filter by schedtag
+	Schedtag string `json:"schedtag"`
+	// swagger: ignore
+	// Deprecated
+	// filter by schedtag_id
+	SchedtagId string `json:"schedtag_id"`
+}
+
+func (input SchedtagResourceListInput) SchedtagStr() string {
+	if len(input.Schedtag) > 0 {
+		return input.Schedtag
+	}
+	if len(input.SchedtagId) > 0 {
+		return input.SchedtagId
+	}
+	return ""
+}
+
+type SchedtagListInput struct {
+	apis.StandaloneResourceListInput
+
+	// fitler by resource_type
+	ResourceType string `json:"resource_type"`
+	// swagger: ignore
+	// Deprecated
+	// filter by type, alias for resource_type
+	Type string `json:"type"`
+}
+
+func (input SchedtagListInput) ResourceTypeStr() string {
+	if len(input.ResourceType) > 0 {
+		return input.ResourceType
+	}
+	if len(input.Type) > 0 {
+		return input.Type
+	}
+	return ""
+}

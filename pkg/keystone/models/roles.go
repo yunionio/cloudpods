@@ -222,14 +222,14 @@ func roleExtra(role *SRole, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	return extra
 }
 
-func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RoleListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
 
 	var projectId string
-	projectStr := jsonutils.GetAnyString(query, []string{"project_id"})
+	projectStr := query.ProjectId
 	if len(projectStr) > 0 {
 		project, err := ProjectManager.FetchProjectById(projectStr)
 		if err != nil {
@@ -242,7 +242,7 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		projectId = project.Id
 	}
 
-	userStr := jsonutils.GetAnyString(query, []string{"user_id"})
+	userStr := query.UserId
 	if len(projectId) > 0 && len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -256,7 +256,7 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	groupStr := jsonutils.GetAnyString(query, []string{"group_id"})
+	groupStr := query.GroupId
 	if len(projectId) > 0 && len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

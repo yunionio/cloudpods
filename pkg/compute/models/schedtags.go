@@ -132,11 +132,11 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 	return true
 }
 
-func (manager *SSchedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	if resType := jsonutils.GetAnyString(query, []string{"type", "resource_type"}); resType != "" {
+func (manager *SSchedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SchedtagListInput) (*sqlchemy.SQuery, error) {
+	if resType := query.ResourceTypeStr(); resType != "" {
 		q = q.Equals("resource_type", resType)
 	}
-	return manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 }
 
 func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

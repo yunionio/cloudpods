@@ -27,8 +27,33 @@ type STag struct {
 }
 
 type StandaloneResourceListInput struct {
-	ModelBaseListInput
+	ResourceBaseListInput
 
-	Tags            []STag `json:"tags"`
-	WithoutUserMeta bool   `json:"without_user_meta"`
+	// filter by tags
+	Tags []STag `json:"tags"`
+	// Piggyback user metadata information
+	WithoutUserMeta bool `json:"without_user_meta"`
+	// Piggyback metadata information
+	WithMeta *bool `json:"with_meta"`
+	// Show all resources including the emulated resources
+	ShowEmulated *bool `json:"show_emulated"`
+
+	// filter by resource name
+	Names []string `json:"name"`
+	// filter by resource ID
+	Ids []string `json:"id"`
+}
+
+type StatusStandaloneResourceListInput struct {
+	StandaloneResourceListInput
+
+	// filter by resource status
+	Status []string `json:"status"`
+}
+
+type EnabledStatusStandaloneResourceListInput struct {
+	StatusStandaloneResourceListInput
+
+	// filter by enable/disabled status
+	Enabled *bool `json:"enabled"`
 }

@@ -16,13 +16,13 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -136,23 +136,26 @@ func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mccli
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IsolatedDeviceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query, "host_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "host_id", func() *sqlchemy.SQuery {
 		return HostManager.Query("id")
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+	}
 
-	if jsonutils.QueryBoolean(query, "gpu", false) {
+	if query.Gpu != nil && *query.Gpu {
 		q = q.Startswith("dev_type", "GPU")
 	}
-	if jsonutils.QueryBoolean(query, "usb", false) {
+	if query.Usb != nil && *query.Usb {
 		q = q.Equals("dev_type", "USB")
 	}
-	hostStr, _ := query.GetString("host")
+	hostStr := query.Host
 	var sq *sqlchemy.SSubQuery
 	if len(hostStr) > 0 {
 		hosts := HostManager.Query().SubQuery()
@@ -163,32 +166,29 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if sq != nil {
 		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
 	}
-	if jsonutils.QueryBoolean(query, "unused", false) {
+	if query.Unused != nil && *query.Unused {
 		q = q.IsEmpty("guest_id")
 	}
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
-	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
+
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
-		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
-		q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
+		zones := ZoneManager.Query().SubQuery()
+
+		q := hosts.Query(hosts.Field("id"))
+		q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+		return q
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
-		}
-		hosts := HostManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.GetId()))
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
+
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "host_id", func() *sqlchemy.SQuery {
+		return HostManager.Query("id")
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
+
 	return q, nil
 }
 

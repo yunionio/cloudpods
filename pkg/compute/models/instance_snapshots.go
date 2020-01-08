@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,7 +24,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -72,14 +71,25 @@ func (manager *SInstanceSnapshotManager) AllowCreateItem(
 	return false
 }
 
-func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict, ok := query.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("invalid querystring format")
+func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.InstanceSnapshotListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	if guestId, _ := queryDict.GetString("guest_id"); len(guestId) > 0 {
-		q = q.Equals("guest_id", guestId)
+
+	guestStr := query.GuestStr()
+	if len(guestStr) > 0 {
+		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("guests", guestStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("guest_id", guestObj.GetId())
 	}
+
 	return q, nil
 }
 
@@ -102,7 +112,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 	snapshots, _ := self.GetSnapshots()
 	snapshotsDesc := jsonutils.NewArray()
 	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].DiskType == compute.DISK_TYPE_SYS {
+		if snapshots[i].DiskType == api.DISK_TYPE_SYS {
 			osType = snapshots[i].OsType
 		}
 		jsonDict := jsonutils.Marshal(&snapshots[i]).(*jsonutils.JSONDict)
@@ -221,7 +231,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 }
 
 func (self *SInstanceSnapshot) ToInstanceCreateInput(
-	sourceInput *compute.ServerCreateInput) (*compute.ServerCreateInput, error) {
+	sourceInput *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 
 	serverConfig := new(schedapi.ServerConfig)
 	if err := self.ServerConfig.Unmarshal(serverConfig); err != nil {
@@ -286,7 +296,7 @@ func (self *SInstanceSnapshot) GetInstanceSnapshotJointAt(diskIndex int) (*SInst
 }
 
 func (self *SInstanceSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if self.Status == compute.INSTANCE_SNAPSHOT_START_DELETE {
+	if self.Status == api.INSTANCE_SNAPSHOT_START_DELETE {
 		return httperrors.NewBadRequestError("can't delete snapshot in deleting")
 	}
 	return nil
@@ -308,7 +318,7 @@ func (self *SInstanceSnapshot) StartInstanceSnapshotDeleteTask(
 		log.Errorf("%s", err)
 		return err
 	}
-	self.SetStatus(userCred, compute.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
+	self.SetStatus(userCred, api.INSTANCE_SNAPSHOT_START_DELETE, "InstanceSnapshotDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }

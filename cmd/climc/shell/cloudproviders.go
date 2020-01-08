@@ -31,8 +31,9 @@ func init() {
 
 		Usable bool `help:"Vpc & Network usable"`
 
-		HasObjectStorage bool `help:"filter cloudproviders that has object storage"`
-		NoObjectStorage  bool `help:"filter cloudproviders that has no object storage"`
+		HasObjectStorage bool     `help:"filter cloudproviders that has object storage"`
+		NoObjectStorage  bool     `help:"filter cloudproviders that has no object storage"`
+		Capability       []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 	}
 	R(&CloudproviderListOptions{}, "cloud-provider-list", "List cloud providers", func(s *mcclient.ClientSession, args *CloudproviderListOptions) error {
 		var params *jsonutils.JSONDict
@@ -51,6 +52,10 @@ func init() {
 				params.Add(jsonutils.JSONTrue, "has_object_storage")
 			} else if args.NoObjectStorage {
 				params.Add(jsonutils.JSONFalse, "has_object_storage")
+			}
+
+			if len(args.Capability) > 0 {
+				params.Add(jsonutils.NewStringArray(args.Capability), "capability")
 			}
 		}
 		result, err := modules.Cloudproviders.List(s, params)

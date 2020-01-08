@@ -568,3 +568,11 @@ func (manager *SVirtualResourceBaseManager) OrderByExtraFields(ctx context.Conte
 
 	return q, nil
 }
+
+func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.VirtualResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

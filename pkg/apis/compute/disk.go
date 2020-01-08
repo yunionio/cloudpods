@@ -80,3 +80,49 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 	input.Domain = req.Domain
 	return &input
 }
+
+type DiskListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	BillingResourceListInput
+
+	StorageResourceListInput
+	StorageShareListInput
+
+	// filter disk by whether it is being used
+	Unused *bool `json:"unused"`
+	// filter disks attached to a guest
+	Guest string `json:"guest"`
+	// deprecated: true
+	// filter by disk type
+	Type string `json:"type"`
+	// filter by disk type
+	DiskType string `json:"disk_type"`
+	// filter disk by snapshotpolicy
+	Snapshotpolicy string `json:"snapshotpolicy"`
+	// swagger: ignore
+	// Deprecated
+	// filter disk by snapshotpolicy_id
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
+}
+
+func (input DiskListInput) DiskTypeStr() string {
+	if len(input.DiskType) > 0 {
+		return input.DiskType
+	}
+	if len(input.Type) > 0 {
+		return input.Type
+	}
+	return ""
+}
+
+func (input DiskListInput) SnapshotpolicyStr() string {
+	if len(input.Snapshotpolicy) > 0 {
+		return input.Snapshotpolicy
+	}
+	if len(input.SnapshotpolicyId) > 0 {
+		return input.SnapshotpolicyId
+	}
+	return ""
+}

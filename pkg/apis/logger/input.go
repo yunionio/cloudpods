@@ -12,24 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package logger
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"time"
 
-type InstanceGroupListInput struct {
-	apis.VirtualResourceListInput
-	ZonalResourceListInput
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
-	// Filter by service type
-	ServiceType string `json:"service_type"`
-	// Filter by parent id
-	ParentId string `json:"parent_id"`
-	// Filter by guest id or name
-	Server string `json:"server"`
-}
+type BaremetalEventListInput struct {
+	apis.ModelBaseListInput
 
-type InstanceGroupDetail struct {
-	apis.Meta
-	SGroup
-	GuestCount int64 `json:"guest_count"`
+	// since
+	Since time.Time `json:"since"`
+	// until
+	Until time.Time `json:"until"`
 }

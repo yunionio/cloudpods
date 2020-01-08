@@ -14,6 +14,13 @@
 
 package compute
 
+import (
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
 type CloudproviderDetails struct {
 	Provider         string `json:"provider,omitempty"`
 	Brand            string `json:"brand,omitempty"`
@@ -36,30 +43,35 @@ type CloudproviderDetails struct {
 	CloudEnv         string `json:"cloud_env,omitempty"`
 }
 
-type CloudaccountListInput struct {
+type ManagedResourceListInput struct {
 	// List objects belonging to the cloud provider
 	Cloudprovider string `json:"cloudprovider"`
-
 	// List objects belonging to the cloud provider
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	Manager string `json:"manager"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	ManagerId string `json:"manager_id"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudproviderId string `json:"cloudprovider_id"`
 
 	// List objects belonging to the cloud account
 	Cloudaccount string `json:"cloudaccount"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudaccountId string `json:"cloudaccount_id"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	Account string `json:"account"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	AccountId string `json:"account_id"`
 
@@ -68,31 +80,108 @@ type CloudaccountListInput struct {
 
 	// List objects belonging to brands
 	Brands []string `json:"brand"`
-}
 
-type CloudTypeListInput struct {
-	// enum: public_cloud,private_cloud,on_premise
+	// enum: public,private,onpremise
 	CloudEnv string `json:"cloud_env"`
 
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	PublicCloud bool `json:"public_cloud"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsPublic bool `json:"is_public"`
 
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	PrivateCloud bool `json:"private_cloud"`
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsPrivate bool `json:"is_private"`
 
-	// deprecate:true
+	// swagger: ignore
+	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsOnPremise bool `json:"is_on_premise"`
 
 	// List objects managed by external providers
 	// default: false
 	IsManaged bool `json:"is_managed"`
+}
+
+func (input ManagedResourceListInput) CloudaccountStr() string {
+	if len(input.Cloudaccount) > 0 {
+		return input.Cloudaccount
+	}
+	if len(input.CloudaccountId) > 0 {
+		return input.CloudaccountId
+	}
+	if len(input.Account) > 0 {
+		return input.Account
+	}
+	if len(input.AccountId) > 0 {
+		return input.AccountId
+	}
+	return ""
+}
+
+func (input ManagedResourceListInput) CloudproviderStr() string {
+	if len(input.Cloudprovider) > 0 {
+		return input.Cloudprovider
+	}
+	if len(input.CloudproviderId) > 0 {
+		return input.CloudproviderId
+	}
+	if len(input.Manager) > 0 {
+		return input.Manager
+	}
+	if len(input.ManagerId) > 0 {
+		return input.ManagerId
+	}
+	return ""
+}
+
+func (input ManagedResourceListInput) CloudEnvStr() string {
+	if len(input.CloudEnv) > 0 {
+		return input.CloudEnv
+	}
+	if input.PublicCloud || input.IsPublic {
+		return CLOUD_ENV_PUBLIC_CLOUD
+	}
+	if input.PrivateCloud || input.IsPrivate {
+		return CLOUD_ENV_PRIVATE_CLOUD
+	}
+	if input.IsOnPremise {
+		return CLOUD_ENV_ON_PREMISE
+	}
+	return ""
+}
+
+type CapabilityListInput struct {
+	// filter by cloudprovider capability
+	Capability []string `json:"capability"`
+	// swagger: ignore
+	// Deprecated
+	// filter by HasObjectStorage
+	HasObjectStorage *bool `json:"has_object_storage"`
+}
+
+type CloudproviderListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+
+	ManagedResourceListInput
+
+	UsableResourceListInput
+
+	CapabilityListInput
+}
+
+func (input CapabilityListInput) CapabilityList() []string {
+	if input.HasObjectStorage != nil && *input.HasObjectStorage && !utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE, input.Capability) {
+		input.Capability = append(input.Capability, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+	}
+	return input.Capability
 }

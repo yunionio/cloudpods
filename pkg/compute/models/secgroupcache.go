@@ -74,12 +74,12 @@ func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred m
 	return false
 }
 
-func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupCacheListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	if defsecgroup, _ := query.GetString("secgroup"); len(defsecgroup) > 0 {
+	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
 		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
 		if err != nil {
 			if err == sql.ErrNoRows {

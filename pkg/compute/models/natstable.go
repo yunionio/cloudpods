@@ -74,12 +74,12 @@ func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
 	return _network.(*SNetwork), nil
 }
 
-func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query)
+func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatSEntryListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SNatEntryManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "network", ModelKeyword: "network", OwnerId: userCred},
 		{Key: "natgateway", ModelKeyword: "natgateway", OwnerId: userCred},

@@ -75,13 +75,13 @@ func (manager *SGroupManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GroupListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, err
 	}
 
-	userIdStr := jsonutils.GetAnyString(query, []string{"user_id"})
+	userIdStr := query.UserId
 	if len(userIdStr) > 0 {
 		user, err := UserManager.FetchById(userIdStr)
 		if err != nil {
@@ -95,7 +95,7 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projIdStr := jsonutils.GetAnyString(query, []string{"project_id", "tenant_id"})
+	projIdStr := query.ProjectIdStr()
 	if len(projIdStr) > 0 {
 		proj, err := ProjectManager.FetchProjectById(projIdStr)
 		if err != nil {
