@@ -484,15 +484,19 @@ func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityP
 func fetchRegionalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, region *SCloudregion, manager *SCloudprovider) quotas.SRegionalCloudResourceKeys {
 	keys := quotas.SRegionalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
-	keys.RegionId = region.Id
+	if region != nil {
+		keys.RegionId = region.Id
+	}
 	return keys
 }
 
 func fetchZonalQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, zone *SZone, manager *SCloudprovider) quotas.SZonalCloudResourceKeys {
 	keys := quotas.SZonalCloudResourceKeys{}
 	keys.SCloudResourceKeys = fetchCloudQuotaKeys(scope, ownerId, manager)
-	keys.RegionId = zone.CloudregionId
-	keys.ZoneId = zone.Id
+	if zone != nil {
+		keys.RegionId = zone.CloudregionId
+		keys.ZoneId = zone.Id
+	}
 	return keys
 }
 
