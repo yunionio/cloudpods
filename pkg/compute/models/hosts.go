@@ -1639,6 +1639,11 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	for i := 0; i < len(removed); i += 1 {
 		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
 		err := self.syncRemoveCloudHostStorage(ctx, userCred, &removed[i])
+		if errors.Cause(err) == ErrStorageInUse && removed[i].StorageType == api.STORAGE_LOCAL {
+			removed[i].SetStatus(userCred, api.STORAGE_OFFLINE, "the only host used this local storage has detached")
+			// prevent generating a delete error for syncResult
+			continue
+		}
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
