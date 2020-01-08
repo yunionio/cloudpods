@@ -30,3 +30,83 @@ const (
 	DeployMethodYum  = "yum"
 	DeployMethodCopy = "copy"
 )
+
+type LoadbalancerListenerListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	RegionalResourceListInput
+
+	// filter by loadbalancer
+	Loadbalancer string `json:"loadbalancer"`
+	// filter by backend_group
+	BackendGroup string `json:"backend_group"`
+	// filter by acl
+	Acl string `json:"acl"`
+}
+
+type LoadbalancerListenerRuleListInput struct {
+	apis.VirtualResourceListInput
+
+	// filter by listener
+	Listener string `json:"listener"`
+	// filter by backend_group
+	BackendGroup string `json:"backend_group"`
+}
+
+type LoadbalancerListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	ZonalResourceListInput
+	NetworkResourceListInput
+
+	// filter by cluster
+	Cluster string `json:"cluster"`
+}
+
+type LoadbalancerAgentListInput struct {
+	apis.StandaloneResourceListInput
+
+	// filter by loadbalancercluster
+	Cluster string `json:"cluster"`
+}
+
+type LoadbalancerCertificateListInput struct {
+	apis.VirtualResourceListInput
+
+	UsableResourceListInput
+	RegionalResourceListInput
+	ManagedResourceListInput
+}
+
+type LoadbalancerBackendListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	RegionalResourceListInput
+
+	// filter by backend server
+	Backend string `json:"backend"`
+	// filter by backend group
+	BackendGroup string `json:"backend_group"`
+}
+
+type LoadbalancerBackendGroupListInput struct {
+	apis.VirtualResourceListInput
+
+	RegionalResourceListInput
+	ManagedResourceListInput
+
+	// filter by loadbalancer
+	Loadbalancer string `json:"loadbalancer"`
+	// filter LoadbalancerBackendGroup with no reference
+	NoRef *bool `json:"no_ref"`
+}
+
+type LoadbalancerClusterListInput struct {
+	apis.StandaloneResourceListInput
+
+	ZonalResourceListInput
+	WireResourceListInput
+}

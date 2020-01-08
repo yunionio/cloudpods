@@ -14,6 +14,11 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/choices"
+)
+
 const (
 	SkuCategoryGeneralPurpose      = "general_purpose"      // 通用型
 	SkuCategoryBurstable           = "burstable"            // 突发性能型
@@ -56,4 +61,33 @@ var SKU_FAMILIES = []string{
 	SkuCategoryHardwareAccelerated,
 	SkuCategoryHighStorage,
 	SkuCategoryHighMemory,
+}
+
+type ServerSkuListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	ManagedResourceListInput
+	ZonalResourceListInput
+
+	UsableResourceListInput
+
+	// filter sku by memory size in MB
+	MemorySizeMb int `json:"memory_size_mb"`
+}
+
+type ElasticcacheSkuListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	UsableResourceListInput
+	BillingResourceListInput
+	ZonalResourceListInput
+
+	// filter sku by memory size in MB
+	MemorySizeMb int `json:"memory_size_mb"`
+}
+
+type DBInstanceSkuListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+
+	RegionalResourceListInput
 }

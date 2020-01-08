@@ -20,9 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -274,17 +276,17 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 	return nil, nil
 }
 
-func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ExternalProjectListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
 	return q, nil

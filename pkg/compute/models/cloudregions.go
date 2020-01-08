@@ -579,36 +579,34 @@ func queryCloudregionIdsByProviders(providerField string, providerStrs []string)
 	return q
 }
 
-func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
+func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudregionListInput) (*sqlchemy.SQuery, error) {
+	providerStrs := query.Providers
 	if len(providerStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("provider")
 		subq := queryCloudregionIdsByProviders("provider", providerStrs)
 		q = q.In("id", subq.SubQuery())
 	}
 
-	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
+	brandStrs := query.Brands
 	if len(brandStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("brand")
 		subq := queryCloudregionIdsByProviders("brand", brandStrs)
 		q = q.In("id", subq.SubQuery())
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	cloudEnvStr, _ := query.GetString("cloud_env")
-	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	cloudEnvStr := query.CloudEnvStr()
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		q = q.In("provider", cloudprovider.GetPublicProviders())
 	}
 
-	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		q = q.In("provider", cloudprovider.GetPrivateProviders())
 	}
 
-	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
 			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
@@ -623,34 +621,33 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		))
 	}
 
-	if jsonutils.QueryBoolean(query, "is_managed", false) {
+	if query.IsManaged {
 		q = q.IsNotEmpty("external_id")
 	}
 
-	managerStr, _ := query.GetString("manager")
+	managerStr := query.CloudproviderStr()
 	if len(managerStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("id", subq)
 	}
-	accountStr, _ := query.GetString("account")
+	accountStr := query.CloudaccountStr()
 	if len(accountStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("id", subq)
 	}
 
-	domainId, err := db.FetchQueryDomain(ctx, userCred, query)
+	domainId, err := db.FetchQueryDomain(ctx, userCred, jsonutils.Marshal(query))
 	if len(domainId) > 0 {
 		q = q.In("id", getCloudRegionIdByDomainId(domainId))
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
+	usableNet := (query.Usable != nil && *query.Usable)
+	usableVpc := (query.UsableVpc != nil && *query.UsableVpc)
+	if usableNet || usableVpc {
 		providers := CloudproviderManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
-
-		usableNet := jsonutils.QueryBoolean(query, "usable", false)
-		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
 
 		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
 		if usableNet {
@@ -684,7 +681,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
 		))
 
-		service, _ := query.GetString("service")
+		service := query.Service
 		switch service {
 		case DBInstanceManager.KeywordPlural():
 			skusSQ := DBInstanceSkuManager.Query("cloudregion_id").Equals("status", api.DBINSTANCE_SKU_AVAILABLE).IsTrue("enabled").SubQuery()
@@ -699,10 +696,11 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 	}
 
-	cityStr, _ := query.GetString("city")
+	cityStr := query.City
 	if cityStr == "Other" {
 		q = q.IsNullOrEmpty("city")
-		query.(*jsonutils.JSONDict).Remove("city")
+	} else if len(cityStr) > 0 {
+		q = q.Equals("city", cityStr)
 	}
 	return q, nil
 }

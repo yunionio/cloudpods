@@ -19,18 +19,15 @@ import (
 )
 
 type ServerListInput struct {
-	apis.BaseListInput
+	apis.VirtualResourceListInput
 
-	// 过滤可用区底下的资源
-	Zone string `json:"zone"`
-	// 过滤连接此二层网络的资源
-	Wire string `json:"wire"`
-	// 过滤关联此网络的资源
-	Network string `json:"network"`
+	ManagedResourceListInput
+	HostResourceListInput
+	NetworkResourceListInput
+	BillingResourceListInput
+
 	// Disk ID or Name
 	Disk string `json:"disk"`
-	// Host ID or Name
-	Host string `json:"host"`
 	// Show baremetal servers
 	Baremetal *bool `json:"baremetal"`
 	// Show gpu servers
@@ -40,9 +37,7 @@ type ServerListInput struct {
 	// AdminSecgroup ID or Name
 	AdminSecgroup string `json:"admin_security"`
 	// Show server of hypervisor choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack"`
-	Hypervisor string `json:"hypervisor"`
-	// Show servers in cloudregion
-	Region string `json:"region"`
+	Hypervisor []string `json:"hypervisor"`
 	// Show Servers with EIP
 	WithEip *bool `json:"with_eip"`
 	// Show Servers without EIP
@@ -61,10 +56,34 @@ type ServerListInput struct {
 	WithoutUserMeta *bool `json:"without_user_meta"`
 	// Instance Group ID or Name
 	Group string `json:"group"`
+	// deprecated: true
+	// Filter by instance group Id
+	GroupId string `json:"group_id"`
 	// Resource type choices:"shared|prepaid|dedicated"
 	ResourceType string `json:"resource_type"`
-	// Billing type choices:"postpaid|prepaid"
-	BillingType string `json:"billing_type"`
+	// return backup guests on a host
+	GetBackupGuestsOnHost *bool `json:"get_backup_guests_on_host"`
+}
+
+func (input ServerListInput) HypervisorList() []string {
+	ret := make([]string, 0)
+	if input.Baremetal != nil && *input.Baremetal {
+		ret = append(ret, HYPERVISOR_BAREMETAL)
+	}
+	if len(input.Hypervisor) > 0 {
+		ret = append(ret, input.Hypervisor...)
+	}
+	return ret
+}
+
+func (input ServerListInput) GroupStr() string {
+	if len(input.Group) > 0 {
+		return input.Group
+	}
+	if len(input.GroupId) > 0 {
+		return input.GroupId
+	}
+	return ""
 }
 
 type ServerRebuildRootInput struct {

@@ -170,25 +170,21 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.HostListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	queryDict := query.(*jsonutils.JSONDict)
-
-	resType, _ := query.GetString("resource_type")
+	resType := query.ResourceType
 	if len(resType) > 0 {
-		queryDict.Remove("resource_type")
-
 		switch resType {
 		case api.HostResourceTypeShared:
 			q = q.Filter(
@@ -202,12 +198,12 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	anyMac, _ := query.GetString("any_mac")
+	anyMac := query.AnyMac
 	if len(anyMac) > 0 {
 		anyMac := netutils.FormatMacAddr(anyMac)
 		if len(anyMac) == 0 {
@@ -222,7 +218,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	// var scopeQuery *sqlchemy.SSubQuery
 
-	schedTagStr := jsonutils.GetAnyString(query, []string{"schedtag", "schedtag_id"})
+	schedTagStr := query.SchedtagStr()
 	if len(schedTagStr) > 0 {
 		schedTag, _ := SchedtagManager.FetchByIdOrName(nil, schedTagStr)
 		if schedTag == nil {
@@ -233,7 +229,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", scopeQuery)
 	}
 
-	wireStr := jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
+	wireStr := query.WireStr()
 	if len(wireStr) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireStr)
 		if wire == nil {
@@ -244,8 +240,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", scopeQuery)
 	}
 
-	storageStr := jsonutils.GetAnyString(query, []string{"storage", "storage_id"})
-	notAttached := jsonutils.QueryBoolean(query, "storage_not_attached", false)
+	storageStr := query.StorageStr()
 	if len(storageStr) > 0 {
 		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
 		if storage == nil {
@@ -253,6 +248,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 		hoststorages := HoststorageManager.Query().SubQuery()
 		scopeQuery := hoststorages.Query(hoststorages.Field("host_id")).Equals("storage_id", storage.GetId()).SubQuery()
+		notAttached := (query.StorageNotAttached != nil && *query.StorageNotAttached)
 		if !notAttached {
 			q = q.In("id", scopeQuery)
 		} else {
@@ -260,39 +256,19 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	q, err = managedResourceFilterByZone(q, query, "", nil)
-	/*zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if len(zoneStr) > 0 {
-		zone, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zone.GetId()))
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
 
-		queryDict.Remove("zone_id")
-	}*/
-
-	q, err = managedResourceFilterByRegion(q, query, "zone_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "zone_id", func() *sqlchemy.SQuery {
 		return ZoneManager.Query("id")
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+	}
 
-	/*regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
-	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
-	}*/
-
-	hypervisorStr := jsonutils.GetAnyString(query, []string{"hypervisor"})
+	hypervisorStr := query.Hypervisor
 	if len(hypervisorStr) > 0 {
 		hostType, ok := api.HYPERVISOR_HOSTTYPE[hypervisorStr]
 		if !ok {
@@ -301,7 +277,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.Equals(q.Field("host_type"), hostType))
 	}
 
-	usable := jsonutils.QueryBoolean(query, "usable", false)
+	usable := (query.Usable != nil && *query.Usable)
 	if usable {
 		hosts := HostManager.Query().SubQuery()
 		hostwires := HostwireManager.Query().SubQuery()
@@ -347,8 +323,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		)
 	}
 
-	if query.Contains("is_empty") {
-		isEmpty := jsonutils.QueryBoolean(query, "is_empty", false)
+	if query.IsEmpty != nil {
+		isEmpty := *query.IsEmpty
 		sq := GuestManager.Query("host_id").IsNotEmpty("host_id").GroupBy("host_id").SubQuery()
 		if isEmpty {
 			q = q.NotIn("id", sq)
@@ -357,8 +333,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	if query.Contains("baremetal") {
-		isBaremetal := jsonutils.QueryBoolean(query, "baremetal", false)
+	if query.Baremetal != nil {
+		isBaremetal := *query.Baremetal
 		if isBaremetal {
 			q = q.Equals("host_type", api.HOST_TYPE_BAREMETAL)
 		} else {

@@ -30,6 +30,7 @@ func init() {
 
 	type CloudaccountListOptions struct {
 		options.BaseListOptions
+		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 	}
 	R(&CloudaccountListOptions{}, "cloud-account-list", "List cloud accounts", func(s *mcclient.ClientSession, args *CloudaccountListOptions) error {
 		var params *jsonutils.JSONDict
@@ -38,6 +39,9 @@ func init() {
 			params, err = args.BaseListOptions.Params()
 			if err != nil {
 				return err
+			}
+			if len(args.Capability) > 0 {
+				params.Add(jsonutils.NewStringArray(args.Capability), "capability")
 			}
 		}
 		result, err := modules.Cloudaccounts.List(s, params)

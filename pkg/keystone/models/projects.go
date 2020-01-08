@@ -203,13 +203,13 @@ func (proj *SProject) FetchExtend() (*SProjectExtended, error) {
 	return &ext, nil
 }
 
-func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ProjectListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, err
 	}
 
-	userStr := jsonutils.GetAnyString(query, []string{"user_id"})
+	userStr := query.UserId
 	if len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -223,7 +223,7 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("id", subq.SubQuery())
 	}
 
-	groupStr := jsonutils.GetAnyString(query, []string{"group_id"})
+	groupStr := query.GroupId
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

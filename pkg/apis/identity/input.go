@@ -30,6 +30,145 @@ type EnabledIdentityBaseResourceCreateInput struct {
 	Enabled *bool `json:"enabled"`
 }
 
+type IdentityBaseResourceListInput struct {
+	apis.StandaloneResourceListInput
+	apis.DomainizedResourceListInput
+}
+
+type EnabledIdentityBaseResourceListInput struct {
+	IdentityBaseResourceListInput
+
+	// filter by enabled status
+	Enabled *bool `json:"enabled"`
+}
+
+type RoleListInput struct {
+	IdentityBaseResourceListInput
+
+	// filter by project_id
+	ProjectId string `json:"project_id"`
+	// filter by user_id
+	UserId string `json:"user_id"`
+	// filter by group_id
+	GroupId string `json:"group_id"`
+}
+
+type GroupListInput struct {
+	IdentityBaseResourceListInput
+
+	// filter by user_id
+	UserId string `json:"user_id"`
+	// filter by project_id
+	ProjectId string `json:"project_id"`
+	// deprecated: true
+	// filter by tenant_id
+	TenantId string `json:"tenant_id"`
+}
+
+func (input GroupListInput) ProjectIdStr() string {
+	if len(input.ProjectId) > 0 {
+		return input.ProjectId
+	}
+	if len(input.TenantId) > 0 {
+		return input.TenantId
+	}
+	return ""
+}
+
+type ProjectListInput struct {
+	IdentityBaseResourceListInput
+
+	// filter by user_id
+	UserId string `json:"user_id"`
+	// filter by group_id
+	GroupId string `json:"group_id"`
+}
+
+type DomainListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type UserListInput struct {
+	EnabledIdentityBaseResourceListInput
+
+	// filter by group_id
+	GroupId string `json:"group_id"`
+	// deprecated: true
+	// filter by group
+	Group string `json:"group"`
+
+	// filter by project
+	Project string `json:"project"`
+	// filter by project_id
+	ProjectId string `json:"project_id"`
+	// filter by tenant
+	Tenant string `json:"tenant"`
+	// filter by tenant_id
+	TenantId string `json:"tenant_id"`
+
+	// filter by role
+	Role string `json:"role"`
+	// deprecated: true
+	// filter by role_id
+	RoleId string `json:"role_id"`
+}
+
+func (input UserListInput) GroupStr() string {
+	if len(input.GroupId) > 0 {
+		return input.GroupId
+	}
+	if len(input.Group) > 0 {
+		return input.Group
+	}
+	return ""
+}
+
+func (input UserListInput) ProjectStr() string {
+	if len(input.Project) > 0 {
+		return input.Project
+	}
+	if len(input.ProjectId) > 0 {
+		return input.ProjectId
+	}
+	if len(input.Tenant) > 0 {
+		return input.Tenant
+	}
+	if len(input.TenantId) > 0 {
+		return input.TenantId
+	}
+	return ""
+}
+
+func (input UserListInput) RoleStr() string {
+	if len(input.Role) > 0 {
+		return input.Role
+	}
+	if len(input.RoleId) > 0 {
+		return input.RoleId
+	}
+	return ""
+}
+
+type EndpointListInput struct {
+	apis.StandaloneResourceListInput
+
+	// filter by service, either id or name
+	Service string `json:"service"`
+	// deprecated: true
+	// filter by service_id
+	ServiceId string `json:"service_id"`
+}
+
+func (input EndpointListInput) ServiceStr() string {
+	if len(input.Service) > 0 {
+		return input.Service
+	}
+	if len(input.ServiceId) > 0 {
+		return input.ServiceId
+	}
+	return ""
+}
+
 type SJoinProjectsInput struct {
 	Projects []string
 	Roles    []string

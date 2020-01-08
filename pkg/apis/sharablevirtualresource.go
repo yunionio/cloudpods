@@ -25,5 +25,11 @@ type SharableVirtualResourceDetails struct {
 }
 
 type SharableVirtualResourceListInput struct {
-	StandaloneResourceListInput
+	VirtualResourceListInput
+
+	// filter by is_public status
+	IsPublic *bool `json:"is_public"`
+	// filter by public_scope
+	// possible value is system, domain, project
+	PublicScope string `json:"public_scope"`
 }

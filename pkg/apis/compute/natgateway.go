@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	NAT_STAUTS_AVAILABLE     = "available"     //可用
 	NAT_STATUS_ALLOCATE      = "allocate"      //创建中
@@ -33,3 +37,33 @@ const (
 	QCLOUD_NAT_SPEC_MIDDLE = "middle"
 	QCLOUD_NAT_SPEC_LARGE  = "large"
 )
+
+type NatGetewayListInput struct {
+	apis.StandaloneResourceListInput
+
+	VpcResourceListInput
+	RegionalResourceListInput
+	ManagedResourceListInput
+}
+
+type NatEntryListInput struct {
+	apis.StandaloneResourceListInput
+
+	ManagedResourceListInput
+}
+
+type NatDEntryListInput struct {
+	NatEntryListInput
+
+	// filter by natgateway
+	Natgateway string `json:"natgateway"`
+}
+
+type NatSEntryListInput struct {
+	NatEntryListInput
+
+	// filter by natgateway
+	Natgateway string `json:"natgateway"`
+	// filter by network
+	Network string `json:"network"`
+}

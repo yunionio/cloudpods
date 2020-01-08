@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -116,10 +117,25 @@ func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.I
 	return db.FetchByIdOrName(manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
-func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IdentityBaseResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.EnabledIdentityBaseResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
+	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
 	}
 	return q, nil
 }

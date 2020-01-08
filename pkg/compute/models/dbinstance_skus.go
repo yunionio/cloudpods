@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -108,12 +109,13 @@ func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, regio
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceSkuListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 
 	q = listItemDomainFilter(q, data)
 
@@ -146,9 +148,14 @@ func (manager *SDBInstanceSkuManager) AllowGetPropertyInstanceSpecs(ctx context.
 }
 
 func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, query)
+	listQuery := api.DBInstanceSkuListInput{}
+	err := query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	input := &SDBInstanceSku{}

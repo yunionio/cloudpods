@@ -827,38 +827,38 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 	}
 }
 
-func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.WireListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "vpc_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
 		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "vpc_id", func() *sqlchemy.SQuery {
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
 		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
 		return subq
 	})
 
-	q, err = managedResourceFilterByDomain(q, query, "vpc_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
 		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	vpcStr := jsonutils.GetAnyString(query, []string{"vpc_id", "vpc"})
+	vpcStr := query.VpcStr()
 	if len(vpcStr) > 0 {
 		vpc, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
@@ -871,21 +871,19 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Equals("vpc_id", vpc.GetId())
 	}
 
-	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
-	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("region %s not found", regionStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("region %s query fail %s", regionStr, err)
-			}
-		}
-		sq := VpcManager.Query("id").Equals("cloudregion_id", region.GetId())
-		q = q.In("vpc_id", sq.SubQuery())
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
+		return VpcManager.Query("id")
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	hostStr, _ := query.GetString("host")
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
+
+	hostStr := query.Host
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {
@@ -895,50 +893,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
 
-	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		sq := VpcManager.Query("id").Equals("manager_id", provider.GetId())
-		q = q.In("vpc_id", sq.SubQuery())
-	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := vpcs.Query(vpcs.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
-		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := vpcs.Query(vpcs.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
-
-		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
-	}*/
-
-	return q, err
+	return q, nil
 }
 
 func (self *SWire) getRegion() *SCloudregion {

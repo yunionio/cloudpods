@@ -1112,42 +1112,44 @@ func (manager *SStorageManager) IsStorageTypeExist(storageType string) (string, 
 	return storages[0].StorageType, true
 }
 
-func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.StorageListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	regionStr, _ := query.GetString("region")
-	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
-		if err != nil {
-			return nil, httperrors.NewNotFoundError("Region %s not found: %s", regionStr, err)
-		}
-		sq := ZoneManager.Query("id").Equals("cloudregion_id", regionObj.GetId())
-		q = q.Filter(sqlchemy.In(q.Field("zone_id"), sq.SubQuery()))
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "zone_id", func() *sqlchemy.SQuery {
+		return ZoneManager.Query("id")
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	if jsonutils.QueryBoolean(query, "share", false) {
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
+
+	if query.Share != nil && *query.Share {
 		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
-	if jsonutils.QueryBoolean(query, "local", false) {
+	if query.Local != nil && *query.Local {
 		q = q.Filter(sqlchemy.In(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	if query.Usable != nil && *query.Usable {
 		hostStorageTable := HoststorageManager.Query().SubQuery()
 		hostTable := HostManager.Query().SubQuery()
 		sq1 := hostStorageTable.Query(hostStorageTable.Field("storage_id")).
@@ -1172,37 +1174,6 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
 			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
-
-	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
-	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}*/
 
 	return q, err
 }

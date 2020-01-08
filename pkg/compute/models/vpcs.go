@@ -785,25 +785,25 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 	return nil, err
 }
 
-func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.VpcListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+	}
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
+
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+	}
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
 
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	if query.Usable != nil && *query.Usable {
 		regions := CloudregionManager.Query().SubQuery()
 		cloudproviders := CloudproviderManager.Query().SubQuery()
 		providerSQ := cloudproviders.Query(cloudproviders.Field("id")).Filter(
@@ -833,7 +833,7 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		q = q.In("id", sq.SubQuery())
 	}
 
-	globalVpcStr, _ := query.GetString("globalvpc")
+	globalVpcStr := query.Globalvpc
 	if len(globalVpcStr) > 0 {
 		globalVpc, err := GlobalVpcManager.FetchByIdOrName(userCred, globalVpcStr)
 		if err != nil {

@@ -322,3 +322,11 @@ func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx conte
 	}
 	return input, nil
 }
+
+func (manager *SSharableVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.SharableVirtualResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

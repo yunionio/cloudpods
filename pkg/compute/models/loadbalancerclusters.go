@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -73,12 +74,12 @@ func (lbc *SLoadbalancerCluster) AllowDeleteItem(ctx context.Context, userCred m
 	return db.IsAdminAllowDelete(userCred, lbc)
 }
 
-func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerClusterListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
 		{Key: "wire", ModelKeyword: "wire", OwnerId: userCred},

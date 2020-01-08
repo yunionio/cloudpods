@@ -98,3 +98,11 @@ func (i CloudaccountShareModeInput) Validate() error {
 	}
 	return nil
 }
+
+type CloudaccountListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+
+	ManagedResourceListInput
+
+	CapabilityListInput
+}

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -202,116 +202,23 @@ func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]
 
 // set all brands, compute engine brands, network manage brands, object storage brands
 func getBrands(region *SCloudregion, zone *SZone, domainId string, capa *SCapabilities) {
-	q := CloudaccountManager.Query()
-	providers := CloudproviderManager.Query().SubQuery()
-	q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
-	if zone != nil {
-		region = zone.GetRegion()
-	}
-	if region != nil {
-		providerregions := CloudproviderRegionManager.Query().SubQuery()
-		q = q.Join(providerregions, sqlchemy.Equals(providers.Field("id"), providerregions.Field("cloudprovider_id")))
-		q = q.Filter(sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id))
-	}
-	if len(domainId) > 0 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
-				sqlchemy.Equals(q.Field("domain_id"), domainId),
-			),
-			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
-			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
-				sqlchemy.Equals(providers.Field("domain_id"), domainId),
-			),
-		))
-	}
-	cloudAccounts := make([]SCloudaccount, 0)
-	err := q.All(&cloudAccounts)
-	if err != nil {
-		log.Errorf("get brands failed %s", err)
-		return
-	}
+	capa.Brands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, "")
+	capa.ComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.NetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_NETWORK)
+	capa.ObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.True, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 
-	enabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
-	disabledBrandAccountMap := make(map[string]*SCloudaccount, 0)
-	for i := 0; i < len(cloudAccounts); i++ {
-		if _, ok := enabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
-			continue
-		} else if _, ok := disabledBrandAccountMap[cloudAccounts[i].Brand]; ok {
-			if cloudAccounts[i].Enabled {
-				delete(disabledBrandAccountMap, cloudAccounts[i].Brand)
-				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			}
-			continue
-		} else {
-			if cloudAccounts[i].Enabled {
-				enabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			} else {
-				disabledBrandAccountMap[cloudAccounts[i].Brand] = &cloudAccounts[i]
-			}
-		}
+	if utils.IsInStringArray(api.HYPERVISOR_KVM, capa.Hypervisors) || utils.IsInStringArray(api.HYPERVISOR_BAREMETAL, capa.Hypervisors) {
+		capa.Brands = append(capa.Brands, api.ONECLOUD_BRAND_ONECLOUD)
+		capa.ComputeEngineBrands = append(capa.ComputeEngineBrands, api.ONECLOUD_BRAND_ONECLOUD)
 	}
-	b, c, n, o := getBrandsFromBrandAccountMap(enabledBrandAccountMap, capa.Hypervisors, true)
-	capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = b, c, n, o
-	b, c, n, o = getBrandsFromBrandAccountMap(disabledBrandAccountMap, capa.Hypervisors, false)
-	capa.DisabledBrands, capa.DisabledComputeEngineBrands, capa.DisabledNetworkManageBrands, capa.DisabledObjectStorageBrands = b, c, n, o
+	capa.NetworkManageBrands = append(capa.NetworkManageBrands, api.ONECLOUD_BRAND_ONECLOUD)
+
+	capa.DisabledBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, "")
+	capa.DisabledComputeEngineBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_COMPUTE)
+	capa.DisabledNetworkManageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_NETWORK)
+	capa.DisabledObjectStorageBrands, _ = CloudaccountManager.getBrandsOfCapability(region, zone, domainId, tristate.False, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
+
 	return
-}
-
-func getBrandsFromBrandAccountMap(bam map[string]*SCloudaccount, hypervisors []string, enabled bool,
-) ([]string, []string, []string, []string) {
-	var (
-		brands              []string = make([]string, 0)
-		computeEngineBrands []string
-		networkManageBrands []string
-		objectStorageBrands []string
-	)
-	for brand, cloudAccount := range bam {
-		brands = append(brands, brand)
-		factory, err := cloudAccount.GetProviderFactory()
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
-		if factory.IsSupportComputeEngine() {
-			if computeEngineBrands == nil {
-				computeEngineBrands = make([]string, 0)
-			}
-			computeEngineBrands = append(computeEngineBrands, brand)
-		}
-		if factory.IsSupportNetworkManage() {
-			if networkManageBrands == nil {
-				networkManageBrands = make([]string, 0)
-			}
-			networkManageBrands = append(networkManageBrands, brand)
-		}
-		if factory.IsSupportObjectStorage() {
-			if objectStorageBrands == nil {
-				objectStorageBrands = make([]string, 0)
-			}
-			objectStorageBrands = append(objectStorageBrands, brand)
-		}
-	}
-
-	if enabled {
-		for _, hyper := range api.ONECLOUD_HYPERVISORS {
-			if utils.IsInStringArray(hyper, hypervisors) {
-				brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
-				if computeEngineBrands == nil {
-					computeEngineBrands = make([]string, 0)
-				}
-				computeEngineBrands = append(computeEngineBrands, api.CLOUD_PROVIDER_ONECLOUD)
-				if networkManageBrands == nil {
-					networkManageBrands = make([]string, 0)
-				}
-				networkManageBrands = append(networkManageBrands, api.CLOUD_PROVIDER_ONECLOUD)
-				break
-			}
-		}
-	}
-
-	return brands, computeEngineBrands, networkManageBrands, objectStorageBrands
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {

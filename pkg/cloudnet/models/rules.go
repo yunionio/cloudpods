@@ -213,9 +213,14 @@ func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclie
 }
 
 func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	input := apis.StandaloneResourceListInput{}
+	err := query.Unmarshal(&input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{

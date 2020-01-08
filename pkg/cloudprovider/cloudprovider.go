@@ -158,10 +158,6 @@ type ICloudProviderFactory interface {
 	IsSupportPrepaidResources() bool
 	NeedSyncSkuFromCloud() bool
 
-	IsSupportObjectStorage() bool
-	IsSupportComputeEngine() bool
-	IsSupportNetworkManage() bool
-
 	IsCloudeventRegional() bool
 	GetMaxCloudEventSyncDays() int
 	GetMaxCloudEventKeepDays() int
@@ -375,19 +371,7 @@ func (factory *SPremiseBaseProviderFactory) IsOnPremise() bool {
 	return true
 }
 
-func (factory *SPremiseBaseProviderFactory) IsSupportObjectStorage() bool {
-	return false
-}
-
 func (factory *SPremiseBaseProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
-}
-
-func (factory *SPremiseBaseProviderFactory) IsSupportComputeEngine() bool {
-	return true
-}
-
-func (factory *SPremiseBaseProviderFactory) IsSupportNetworkManage() bool {
 	return false
 }
 
@@ -403,20 +387,8 @@ func (factory *SPublicCloudBaseProviderFactor) IsSupportPrepaidResources() bool 
 	return true
 }
 
-func (factory *SPublicCloudBaseProviderFactor) IsSupportObjectStorage() bool {
-	return true
-}
-
 func (factory *SPublicCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
 	return false
-}
-
-func (factory *SPublicCloudBaseProviderFactor) IsSupportComputeEngine() bool {
-	return true
-}
-
-func (factory *SPublicCloudBaseProviderFactor) IsSupportNetworkManage() bool {
-	return true
 }
 
 type SPrivateCloudBaseProviderFactor struct {
@@ -431,18 +403,6 @@ func (factory *SPrivateCloudBaseProviderFactor) IsSupportPrepaidResources() bool
 	return false
 }
 
-func (factory *SPrivateCloudBaseProviderFactor) IsSupportObjectStorage() bool {
-	return false
-}
-
 func (factory *SPrivateCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
-	return true
-}
-
-func (factory *SPrivateCloudBaseProviderFactor) IsSupportComputeEngine() bool {
-	return true
-}
-
-func (factory *SPrivateCloudBaseProviderFactor) IsSupportNetworkManage() bool {
 	return true
 }

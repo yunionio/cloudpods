@@ -26,4 +26,37 @@ type ModelBaseShortDescDetail struct {
 }
 
 type ModelBaseListInput struct {
+	Meta
+
+	// 查询限制量
+	// default: 20
+	Limit *int `json:"limit"`
+	// 查询偏移量
+	// default: 0
+	Offset *int `json:"offset"`
+	// Name of the field to be ordered by
+	OrderBy []string `json:"order_by"`
+	// List Order
+	// example: desc|asc
+	Order string
+	// Show more details
+	Details *bool `json:"details"`
+	// Filter results by a simple keyword search
+	Search string `json:"search"`
+	// Filters
+	Filter []string `json:"filters"`
+	// Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)
+	JointFilter []string `json:"joint_filter"`
+	// If true, match if any of the filters matches; otherwise, match if all of the filters match
+	FilterAny *bool `json:"filter_any"`
+	// Show only specified fields
+	Field []string `json:"field"`
+	// Export field keys
+	ExportKeys string `json:"export_keys"`
+}
+
+type IncrementalListInput struct {
+	// 增量加载的标记
+	// Marker for streamed pagination
+	PagingMarker string `json:"paging_marker"`
 }

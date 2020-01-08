@@ -576,23 +576,23 @@ func (bucket *SBucket) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, nil, provider)
 }
 
-func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
 	return q, nil

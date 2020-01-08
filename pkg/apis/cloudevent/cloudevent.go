@@ -16,14 +16,11 @@ package cloudevent
 
 import (
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type CloudeventListInput struct {
-	apis.BaseListInput
+	apis.VirtualResourceListInput
 
-	apis.SharableVirtualResourceListInput
-
-	Cloudprovider string `json:"cloudprovider"`
-
-	Providers []string `json:"providers"`
+	compute.ManagedResourceListInput
 }

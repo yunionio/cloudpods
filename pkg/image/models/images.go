@@ -1093,17 +1093,16 @@ func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.
 	return jsonutils.Marshal(ret), nil
 }
 
-func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ImageListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	fmtJsonArray, _ := query.GetArray("disk_formats")
+	fmtJsonArray := query.DiskFormats
 	if len(fmtJsonArray) > 0 {
-		fmtArray := jsonutils.JSONArray2StringArray(fmtJsonArray)
-		q = q.In("disk_format", fmtArray)
+		q = q.In("disk_format", fmtJsonArray)
 	}
-	if jsonutils.QueryBoolean(query, "uefi", false) {
+	if query.Uefi != nil && *query.Uefi {
 		imagePropertyQ := ImagePropertyManager.Query().
 			Equals("name", api.IMAGE_UEFI_SUPPORT).Equals("value", "true").SubQuery()
 		q = q.Join(imagePropertyQ, sqlchemy.Equals(q.Field("id"), imagePropertyQ.Field("image_id")))

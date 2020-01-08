@@ -124,32 +124,39 @@ func (self *SDBInstance) AllowDeleteItem(ctx context.Context, userCred mcclient.
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
 	}
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
+	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+	}
+
+	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
 	return q, nil
 }
 

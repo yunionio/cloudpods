@@ -71,12 +71,12 @@ func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string)
 }
 
 func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := spcm.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	query api.SnapshotPolicyCacheListInput) (*sqlchemy.SQuery, error) {
+	q, err := spcm.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
-	if snapshotpolicyIden, _ := query.GetString("snapshotpolicy"); len(snapshotpolicyIden) > 0 {
+	if snapshotpolicyIden := query.Snapshotpolicy; len(snapshotpolicyIden) > 0 {
 		snapshotpolicy, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyIden)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {

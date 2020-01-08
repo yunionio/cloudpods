@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -145,10 +146,9 @@ func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
 }
 
-func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	domainStr, key := jsonutils.GetAnyString2(query, []string{"domain_id", "project_domain", "project_domain_id"})
+func managedResourceFilterByDomain(q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	domainStr := query.DomainStr()
 	if len(domainStr) > 0 {
-		query.(*jsonutils.JSONDict).Remove(key)
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -231,7 +231,7 @@ func filterByProviderStrs(q *sqlchemy.SQuery, filterField string, subqFunc func(
 	return q
 }
 
-func managedResourceFilterByAccountV2(q *sqlchemy.SQuery, input *api.CloudaccountListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	// deprecate at 3.0
 	for _, provider := range []string{input.Cloudprovider, input.Manager, input.ManagerId, input.CloudproviderId} {
 		if len(provider) > 0 {
@@ -293,75 +293,9 @@ func managedResourceFilterByAccountV2(q *sqlchemy.SQuery, input *api.Cloudaccoun
 	return q, nil
 }
 
-func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	queryDict := query.(*jsonutils.JSONDict)
-
-	managerStr, key := jsonutils.GetAnyString2(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		queryDict.Remove("manager")
-		queryDict.Remove(key)
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
-			queryDict.Remove("manager_id")
-		} else {
-			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.GetId()))
-			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-			queryDict.Remove(filterField)
-		}
-	}
-
-	accountStr, key := jsonutils.GetAnyString2(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		queryDict.Remove("account")
-		queryDict.Remove(key)
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-			queryDict.Remove("manager_id")
-		} else {
-			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
-			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-			queryDict.Remove(filterField)
-		}
-	}
-
-	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
-	if len(providerStrs) > 0 {
-		q = filterByProviderStrs(q, filterField, subqFunc, "provider", providerStrs)
-		queryDict.Remove(filterField)
-		queryDict.Remove("provider")
-	}
-
-	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
-	if len(brandStrs) > 0 {
-		q = filterByProviderStrs(q, filterField, subqFunc, "brand", brandStrs)
-		queryDict.Remove(filterField)
-		queryDict.Remove("brand")
-	}
-
-	return q, nil
-}
-
-func managedResourceFilterByZone(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	zoneStr, key := jsonutils.GetAnyString2(query, []string{"zone", "zone_id"})
+func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	zoneStr := query.ZoneStr()
 	if len(zoneStr) > 0 {
-		query.(*jsonutils.JSONDict).Remove(key)
 		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -381,10 +315,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query jsonutils.JSONObject,
 	return q, nil
 }
 
-func managedResourceFilterByRegion(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	regionStr, key := jsonutils.GetAnyString2(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	regionStr := query.CloudregionStr()
 	if len(regionStr) > 0 {
-		query.(*jsonutils.JSONDict).Remove(key)
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -394,23 +327,27 @@ func managedResourceFilterByRegion(q *sqlchemy.SQuery, query jsonutils.JSONObjec
 			}
 		}
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), regionObj.GetId()))
+			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("cloudregion_id"), regionObj.GetId()))
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("cloudregion_id"), regionObj.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+	if len(query.City) > 0 {
+		subq := CloudregionManager.Query("id").Equals("city", query.City).SubQuery()
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("cloudregion_id"), subq))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
 	return q, nil
 }
 
-func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
-	input := &api.CloudTypeListInput{}
-	query.Unmarshal(input)
-	return managedResourceFilterByCloudTypeV2(q, input, filterField, subqFunc)
-}
-
-func managedResourceFilterByCloudTypeV2(q *sqlchemy.SQuery, input *api.CloudTypeListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
+func managedResourceFilterByCloudType(q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
 	if input.CloudEnv == api.CLOUD_ENV_PUBLIC_CLOUD || input.PublicCloud || input.IsPublic {
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))

@@ -17,8 +17,7 @@ package compute
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -130,9 +129,29 @@ type SSecgroupCreateInput struct {
 	Rules []SSecgroupRuleCreateInput `json:"rules"`
 }
 
-type SSecgroupListFilterInput struct {
-	apis.BaseListInput
+type SecgroupListInput struct {
+	apis.SharableVirtualResourceListInput
 
 	Equals string
 	Server string
+}
+
+type SecurityGroupCacheListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	// filter by security group
+	Secgroup string `json:"secgroup"`
+}
+
+type SecurityGroupRuleListInput struct {
+	apis.ResourceBaseListInput
+
+	// filter by Security group
+	Secgroup string `json:"secgroup"`
+	// filter by direction
+	Direction string `json:"direction"`
+	// filter by action
+	Action string `json:"action"`
+	// filter by protocol
+	Protocol string `json:"protocol"`
 }
