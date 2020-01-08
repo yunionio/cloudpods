@@ -200,7 +200,12 @@ func (self *SElasticcache) GetArchType() string {
 }
 
 func (self *SElasticcache) GetNodeType() string {
-	return ""
+	// single（单副本） | double（双副本)
+	if strings.Contains(self.ResourceSpecCode, "single") {
+		return "single"
+	} else {
+		return "double"
+	}
 }
 
 func (self *SElasticcache) GetEngine() string {
