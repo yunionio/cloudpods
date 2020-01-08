@@ -52,8 +52,8 @@ func (self *SQcloudGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, 
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_QCLOUD
-	// ignore brand keys.Brand = brand
-	// ignore hypervisor
+	keys.Brand = api.CLOUD_PROVIDER_QCLOUD
+	keys.Hypervisor = api.HYPERVISOR_QCLOUD
 	return keys
 }
 

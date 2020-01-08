@@ -44,7 +44,8 @@ func (self *SCtyunGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, o
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_CTYUN
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_CTYUN
+	keys.Hypervisor = api.HYPERVISOR_CTYUN
 	return keys
 }
 
