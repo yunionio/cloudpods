@@ -97,6 +97,7 @@ func (self *CloudeventSyncTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 		log.Infof("Sync %d events for %s(%s) from %s(%d) hours", _count, provider.Name, provider.Id, start.Format("2006-01-02T15:04:05Z"), duration/time.Hour)
 		count += _count
 
+		provider.SetLastSyncTimeAt(self.UserCred, end)
 		if time.Now().Sub(end) < duration {
 			break
 		}
