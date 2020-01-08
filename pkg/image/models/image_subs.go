@@ -56,13 +56,13 @@ type SImageSubformat struct {
 
 	Format string `width:"20" charset:"ascii" nullable:"true"`
 
-	Size     int64  `nullable:"false"`
-	Location string `nullable:"false"`
+	Size     int64  `nullable:"true"`
+	Location string `nullable:"true"`
 	Checksum string `width:"32" charset:"ascii" nullable:"true"`
 	FastHash string `width:"32" charset:"ascii" nullable:"true"`
 	Status   string `nullable:"false"`
 
-	TorrentSize     int64  `nullable:"false"`
+	TorrentSize     int64  `nullable:"true"`
 	TorrentLocation string `nullable:"true"`
 	TorrentChecksum string `width:"32" charset:"ascii" nullable:"true"`
 	TorrentStatus   string `nullable:"false"`
