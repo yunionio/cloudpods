@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -60,6 +61,35 @@ func (self *DBInstanceCreateTask) CreateDBInstance(ctx context.Context, dbinstan
 func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	dbinstance := obj.(*models.SDBInstance)
 	logclient.AddActionLogWithStartable(self, dbinstance, logclient.ACT_CREATE, nil, self.UserCred, true)
+
+	accounts, err := dbinstance.GetDBInstanceAccounts()
+	if err != nil {
+		log.Errorf("failed to get dbinstance %s account error: %v", dbinstance.Name, err)
+	}
+
+	if len(accounts) > 0 {
+		iRds, err := dbinstance.GetIDBInstance()
+		if err != nil {
+			log.Errorf("failed to found dbinstance %s error: %v", dbinstance.Name, err)
+		} else {
+			iAccounts, err := iRds.GetIDBInstanceAccounts()
+			if err != nil {
+				log.Errorf("failed to get accounts from cloud dbinstance %s error: %v", dbinstance.Name, err)
+			}
+			externalIds := map[string]string{}
+			for _, iAccount := range iAccounts {
+				externalIds[iAccount.GetName()] = iAccount.GetGlobalId()
+			}
+			for i := range accounts {
+				externalId, ok := externalIds[accounts[i].Name]
+				if !ok {
+					log.Errorf("failed to get dbinstance account %s from cloud dbinstance for set externalId", accounts[i].Name)
+				} else {
+					db.SetExternalId(&accounts[i], self.UserCred, externalId)
+				}
+			}
+		}
+	}
 
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
 	dbinstance.StartDBInstanceSyncStatusTask(ctx, self.UserCred, nil, self.GetTaskId())
