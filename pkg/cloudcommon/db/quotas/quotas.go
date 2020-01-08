@@ -86,12 +86,12 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	}
 	//
 	if localUsage != nil {
-		localUsage.Sub(cancelUsage)
+		localUsage.Sub(pendingUsage)
 	}
 
-	log.Debugf("cancelUsage: %s localUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage))
+	log.Debugf("cancelUsage: %s localUsage: %s pendingUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage), jsonutils.Marshal(pendingUsage))
 
-	err = manager.changeUsage(ctx, userCred, cancelUsage, true)
+	err = manager.changeUsage(ctx, userCred, pendingUsage, true)
 	if err != nil {
 		return errors.Wrap(err, "manager.changelUsage")
 	}

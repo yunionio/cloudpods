@@ -2104,7 +2104,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			//Bw:    ibw,
 			//Ebw:   ebw,
 		}
-		keys, err := self.GetQuotaKeys()
+		keys, err := self.GetRegionalQuotaKeys()
 		if err != nil {
 			return nil, err
 		}
