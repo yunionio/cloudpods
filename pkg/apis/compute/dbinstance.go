@@ -16,38 +16,131 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type SDBInstanceCreateInput struct {
-	apis.Meta
+type DBInstanceCreateInput struct {
+	apis.VirtualResourceCreateInput
+	DeletePreventableCreateInput
 
-	Name              string
-	Description       string
-	DisableDelete     *bool
-	NetworkId         string
-	Address           string
-	MasterInstanceId  string
-	SecgroupId        string
-	Zone1             string
-	Zone2             string
-	Zone3             string
-	ZoneId            string
-	CloudregionId     string
-	Cloudregion       string
-	VpcId             string
-	ManagerId         string
+	// Ip子网名称或Id,建议使用Id
+	// required: true
+	Network string `json:"network"`
+	// swagger:ignore
+	NetworkId string
+
+	// Ip子网内的地址,不填则按照ip子网的地址分配策略分配一个ip
+	// required: false
+	Address string `json:"address"`
+
+	// rds实例名称或Id,建议使用Id
+	// 创建只读实例时此参数必传
+	MasterInstance string `json:"master_instance"`
+	// swagger:ignore
+	MasterInstanceId string
+
+	// 安全组名称或Id
+	// default: default
+	Secgroup string `json:"secgroup"`
+	// swagger:ignore
+	SecgroupId string
+
+	// 主可用区名称或Id, 此参数从指定的套餐所在的可用区获取
+	Zone1 string `json:"zone1"`
+
+	// 次可用区名称或Id, 此参数从指定的套餐所在的可用区获取
+	Zone2 string `json:"zone2"`
+
+	// 三节点可用区名称或Id,, 此参数从指定的套餐所在的可用区获取
+	Zone3 string `json:"zone3"`
+
+	// swagger:ignore
+	ZoneId string
+
+	// 区域名称或Id，建议使用Id
+	// swagger:ignore
+	Cloudregion string `json:"cloudregion"`
+
+	// swagger:ignore
+	CloudregionId string
+
+	// swagger:ignore
+	VpcId string
+
+	// swagger:ignore
+	ManagerId string
+
+	// swagger:ignore
 	NetworkExternalId string
-	BillingType       string
-	BillingCycle      string
-	InstanceType      string
-	Engine            string
-	EngineVersion     string
-	Category          string
-	StorageType       string
-	DiskSizeGB        int
-	Password          string
 
-	VcpuCount  int
-	VmemSizeMb int
-	Provider   string
+	// 包年包月时间周期
+	Duration string `json:"duration"`
+
+	// swagger:ignore
+	BillingType string
+	// swagger:ignore
+	BillingCycle string
+
+	// 套餐名称, 若此参数不填, 则必须有vmem_size_mb及vcpu_count参数
+	// 套餐列表可以通过 dbinstancesku 获取
+	InstanceType string `json:"instance_type"`
+
+	// rds引擎
+	// enum: MySQL, SQLServer, PostgreSQL, MariaDB, Oracle, PPAS
+	// required: true
+	Engine string `json:"instance_type"`
+
+	// rds引擎版本
+	// 根据各个引擎版本各不相同
+	// required: true
+	EngineVersion string `json:"engine_version"`
+
+	// rds类型
+	//
+	//
+	//
+	// | 平台		| 支持类型	|
+	// | -----		| ------	|
+	// | 华为云		|ha, single, replica|
+	// | 阿里云		|basic, high_availability, always_on, finance|
+	// 翻译:
+	// basic: 基础版
+	// high_availability: 高可用
+	// always_on: 集群版
+	// finance: 金融版, 三节点
+	// ha: 高可用
+	// single: 单机
+	// replica: 只读
+	// required: true
+	Category string `json:"category"`
+
+	// rds存储类型
+	//
+	//
+	//
+	// | 平台	| 支持类型	|
+	// | 华为云	|SSD, SAS, SATA|
+	// | 阿里云	|local_ssd, cloud_essd, cloud_ssd|
+	// required: true
+	StorageType string `json:"storage_type"`
+
+	// rds存储大小
+	// 可参考rds套餐的大小范围和步长情况
+	// required: true
+	DiskSizeGB int `json:"disk_size_gb"`
+
+	// rds初始化密码
+	// 阿里云不需要此参数
+	// 华为云会默认创建一个用户,若不传此参数, 则为随机密码
+	Password string `json:"password"`
+
+	// rds实例cpu大小
+	// 若指定实例套餐，此参数将根据套餐设置
+	VcpuCount int `json:"vcpu_count"`
+
+	// rds实例内存大小
+	// 若指定实例套餐，此参数将根据套餐设置
+	VmemSizeMb int `json:"vmem_size_mb"`
+
+	// swagger:ignore
+	Provider string
 }
 
 type SDBInstanceChangeConfigInput struct {

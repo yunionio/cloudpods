@@ -33,7 +33,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -302,96 +301,78 @@ func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred 
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
-func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	enabledV := validators.NewBoolValidator("enabled")
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	cpuV := validators.NewRangeValidator("cpu_core_count", 1, 256)
-	memV := validators.NewRangeValidator("memory_size_mb", 512, 1024*512)
-	categoryV := validators.NewStringChoicesValidator("instance_type_category", api.SKU_FAMILIES)
-	keyV := map[string]validators.IValidator{
-		"enabled":                enabledV.Default(true),
-		"region":                 regionV.Optional(true),
-		"zone":                   zoneV.Optional(true),
-		"cpu_core_count":         cpuV,
-		"memory_size_mb":         memV,
-		"instance_type_category": categoryV.Default(api.SkuCategoryGeneralPurpose),
+func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ServerSkuCreateInput) (*jsonutils.JSONDict, error) {
+	if len(input.Cloudregion) == 0 {
+		input.Cloudregion = api.DEFAULT_REGION_ID
 	}
-
-	for _, v := range keyV {
-		err := v.Validate(data)
-		if err != nil {
-			return nil, err
+	region, err := CloudregionManager.FetchByIdOrName(nil, input.Cloudregion)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found cloudregion %s", input.Cloudregion)
 		}
+		return nil, httperrors.NewGeneralError(err)
 	}
+	input.CloudregionId = region.GetId()
 
-	provider, _ := data.GetString("provider")
-	brand, _ := data.GetString("brand")
-	if (len(provider) == 0 && len(brand) == 0) || provider == api.CLOUD_PROVIDER_ONECLOUD || brand == api.ONECLOUD_BRAND_ONECLOUD {
-		provider = api.CLOUD_PROVIDER_ONECLOUD
-		brand = api.ONECLOUD_BRAND_ONECLOUD
-	} else if len(brand) > 0 {
-		q := CloudaccountManager.Query().Equals("brand", brand).IsFalse("is_public_cloud").IsFalse("is_on_premise")
-		cloudaccounts := []SCloudaccount{}
-		err := db.FetchModelObjects(CloudaccountManager, q, &cloudaccounts)
+	if len(input.Zone) > 0 {
+		zone, err := ZoneManager.FetchByIdOrName(nil, input.Zone)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("failed to found zone %s", input.Zone)
+			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		if len(cloudaccounts) == 0 {
-			return nil, httperrors.NewInputParameterError("Not support brand %s or not import %s cloudaccount", brand, brand)
-		}
-		if len(provider) > 0 && provider != cloudaccounts[0].Provider {
-			return nil, httperrors.NewInputParameterError("")
-		}
-		provider = cloudaccounts[0].Provider
-	} else if len(provider) > 0 {
-		q := CloudaccountManager.Query().Equals("provider", provider).IsFalse("is_public_cloud").IsFalse("is_on_premise")
-		cloudaccounts := []SCloudaccount{}
-		err := db.FetchModelObjects(CloudaccountManager, q, &cloudaccounts)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
-		if len(cloudaccounts) == 0 {
-			return nil, httperrors.NewInputParameterError("Not support provider %s or not import %s cloudaccount", provider, provider)
-		}
-		brand = provider
+		input.ZoneId = zone.GetId()
 	}
-	data.Set("provider", jsonutils.NewString(provider))
-	data.Set("brand", jsonutils.NewString(brand))
-	data.Set("status", jsonutils.NewString(api.SkuStatusReady))
 
-	family := api.InstanceFamilies[categoryV.Value]
-	data.Add(jsonutils.NewString(categoryV.Value), "local_category")
-	data.Set("instance_type_family", jsonutils.NewString(family))
+	if input.CpuCoreCount < 1 || input.CpuCoreCount > 256 {
+		return nil, httperrors.NewOutOfRangeError("cpu_core_count should be range of 1~256")
+	}
 
-	if !data.Contains("name") {
+	if input.MemorySizeMB < 512 || input.MemorySizeMB > 1024*512 {
+		return nil, httperrors.NewOutOfRangeError("memory_size_mb, shoud be range of 512~%d", 1024*512)
+	}
+
+	if len(input.InstanceTypeCategory) == 0 {
+		input.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
+	}
+
+	if !utils.IsInStringArray(input.InstanceTypeCategory, api.SKU_FAMILIES) {
+		return nil, httperrors.NewInputParameterError("instance_type_category shoud be one of %s", api.SKU_FAMILIES)
+	}
+
+	if input.Enabled == nil {
+		enabled := true
+		input.Enabled = &enabled
+	}
+
+	input.Provider = api.CLOUD_PROVIDER_ONECLOUD
+	input.Status = api.SkuStatusReady
+
+	input.LocalCategory = input.InstanceTypeCategory
+	input.InstanceTypeFamily = api.InstanceFamilies[input.InstanceTypeCategory]
+
+	if len(input.Name) == 0 {
 		// 格式 ecs.g1.c1m1
-		name, err := genInstanceType(family, cpuV.Value, memV.Value)
+		input.Name, err = genInstanceType(input.InstanceTypeFamily, input.CpuCoreCount, input.MemorySizeMB)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError(err.Error())
 		}
-		q := self.Query().Equals("name", name)
+		q := self.Query().Equals("name", input.Name)
 		count, err := q.CountWithError()
 		if err != nil {
 			return nil, httperrors.NewGeneralError(fmt.Errorf("checkout server sku name duplicate error: %v", err))
 		}
 		if count > 0 {
-			return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
+			return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", input.Name)
 		}
-		data.Set("name", jsonutils.NewString(name))
 	}
 
-	input := apis.StatusStandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StatusStandaloneResourceCreateInput fail %s", err)
-	}
-	input, err = self.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StatusStandaloneResourceCreateInput, err = self.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input.JSON(input), nil
 }
 
 func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

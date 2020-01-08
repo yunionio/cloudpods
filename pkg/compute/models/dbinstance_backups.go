@@ -122,32 +122,45 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *
 	})
 }
 
-func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	instanceV := validators.NewModelIdOrNameValidator("dbinstance", "dbinstance", userCred)
-	err := instanceV.Validate(data)
-	if err != nil {
-		return nil, err
+func (manager *SDBInstanceBackupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceBackupCreateInput) (*jsonutils.JSONDict, error) {
+	for _, instance := range []string{input.DBInstance, input.DBInstanceId} {
+		if len(instance) > 0 {
+			input.DBInstance = instance
+			break
+		}
 	}
-	input := &api.SDBInstanceBackupCreateInput{}
-	err = data.Unmarshal(input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Failed to unmarshal input params: %v", err)
+	if len(input.DBInstance) == 0 {
+		return nil, httperrors.NewMissingParameterError("dbinstance")
 	}
+	_instance, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found dbinstance %s", input.DBInstance)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "DBInstanceManager.FetchByIdOrName"))
+	}
+	instance := _instance.(*SDBInstance)
+	input.DBInstanceId = instance.Id
 	input.BackupMode = api.BACKUP_MODE_MANUAL
 	input.DBNames = strings.Join(input.Databases, ",")
-	instance := instanceV.Model.(*SDBInstance)
-	if instance.Status != api.DBINSTANCE_RUNNING {
-		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
-	}
 	input.Engine = instance.Engine
 	input.EngineVersion = instance.EngineVersion
 	input.ManagerId = instance.ManagerId
+
+	if instance.Status != api.DBINSTANCE_RUNNING {
+		return nil, httperrors.NewInputParameterError("DBInstance %s(%s) status is %s require status is %s", instance.Name, instance.Id, instance.Status, api.DBINSTANCE_RUNNING)
+	}
 	region := instance.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewInputParameterError("failed to found region for dbinstance %s(%s)", instance.Name, instance.Id)
 	}
 	input.CloudregionId = region.Id
 	input, err = region.GetDriver().ValidateCreateDBInstanceBackupData(ctx, userCred, ownerId, instance, input)
+	if err != nil {
+		return nil, err
+	}
+
+	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}

@@ -20,3 +20,21 @@ type SchedtagShortDescDetails struct {
 	*apis.StandaloneResourceShortDescDetail
 	Default string `json:"default"`
 }
+
+type ScopedResourceCreateInput struct {
+	Scope string `json:"scope"`
+}
+
+type SchedtagCreateInput struct {
+	apis.StandaloneResourceCreateInput
+	ScopedResourceCreateInput
+
+	// 动态标签策略
+	// enum: exclude, prefer, avoid
+	DefaultStrategy string `json:"default_strategy"`
+
+	// 资源类型
+	// enum: servers, hosts, .....
+	// default: hosts
+	ResourceType string `json:"resource_type"`
+}

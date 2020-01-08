@@ -157,7 +157,7 @@ func (self *SBaseRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsh
 	return fmt.Errorf("Not Implement RequestDeleteSnapshot")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SBaseRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	return fmt.Errorf("Not Implement ValidateCreateSnapshotData")
 }
 
@@ -235,7 +235,7 @@ func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, use
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	return input, nil
 }
 
@@ -267,16 +267,16 @@ func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context
 	return fmt.Errorf("Not Implement RequestChangeDBInstanceConfig")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
-	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceAccountData")
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
+	return input, fmt.Errorf("Not Implement ValidateCreateDBInstanceAccountData")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
-	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceDatabaseData")
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
+	return input, fmt.Errorf("Not Implement ValidateCreateDBInstanceDatabaseData")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
-	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceBackupData")
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
+	return input, fmt.Errorf("Not Implement ValidateCreateDBInstanceBackupData")
 }
 
 func (self *SBaseRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {

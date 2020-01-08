@@ -14,18 +14,30 @@
 
 package compute
 
-type RegionalResourceCreateInput struct {
-	Cloudregion   string `json:"cloudregion"`
-	CloudregionId string `json:"cloudregion_id"`
-}
+import "yunion.io/x/onecloud/pkg/apis"
 
-type ManagedResourceCreateInput struct {
-	Manager   string `json:"manager"`
-	ManagerId string `json:"manager_id"`
-}
+type WireCreateInput struct {
+	apis.StandaloneResourceCreateInput
 
-type DeletePreventableCreateInput struct {
-	//删除保护,创建的资源默认不允许删除
-	//default: true
-	DisableDelete *bool `json:"disable_delete"`
+	// 带宽大小,单位: Mbps
+	// default: 0
+	Bandwidth int `json:"bandwidth"`
+
+	// mtu
+	// minimum: 0
+	// maximum: 1000000
+	// default: 0
+	Mtu int `json:"mtu"`
+
+	// vpc名称或Id
+	// required: true
+	Vpc string `json:"vpc"`
+	// swagger:ignore
+	VpcId string
+
+	// 可用区名称或Id
+	// required: true
+	Zone string `json:"zone"`
+	// swagger:ignore
+	ZoneId string
 }

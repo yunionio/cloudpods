@@ -35,8 +35,8 @@ import (
 type SBaseStorageDriver struct {
 }
 
-func (self *SBaseStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, fmt.Errorf("Not Implement ValidateCreateData")
+func (self *SBaseStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.StorageCreateInput) error {
+	return fmt.Errorf("Not Implement ValidateCreateData")
 }
 
 func (self *SBaseStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
@@ -66,7 +66,7 @@ func (self *SBaseStorageDriver) ValidateSnapshotDelete(ctx context.Context, snap
 	return nil
 }
 
-func (self *SBaseStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SSnapshotCreateInput) error {
+func (self *SBaseStorageDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, input *api.SnapshotCreateInput) error {
 	guests := disk.GetGuests()
 	if len(guests) != 1 {
 		return httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)

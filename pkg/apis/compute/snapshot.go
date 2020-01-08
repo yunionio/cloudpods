@@ -16,22 +16,31 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type SSnapshotCreateInput struct {
-	apis.Meta
+type SnapshotCreateInput struct {
+	apis.VirtualResourceCreateInput
 
-	Name        string `json:"name"`
-	Description string `json:"description"`
-
-	Disk          string `json:"disk"`
-	DiskId        string `json:"disk_id"`
-	StorageId     string `json:"storage_id"`
-	CreatedBy     string `json:"created_by"`
-	Location      string `json:"location"`
-	Size          int    `json:"size"`
-	DiskType      string `json:"disk_type"`
+	// 磁盘名称或Id,建议使用Id
+	// 目前仅VMware平台不支持创建快照,其余平台磁盘均支持创建快照
+	// required: true
+	Disk string `json:"disk"`
+	// swagger:ignore
+	DiskId string `json:"disk_id"`
+	// swagger:ignore
+	StorageId string `json:"storage_id"`
+	// swagger:ignore
+	CreatedBy string `json:"created_by"`
+	// swagger:ignore
+	Location string `json:"location"`
+	// swagger:ignore
+	Size int `json:"size"`
+	// swagger:ignore
+	DiskType string `json:"disk_type"`
+	// swagger:ignore
 	CloudregionId string `json:"cloudregion_id"`
-	OutOfChain    bool   `json:"out_of_chain"`
-	ManagerId     string `json:"manager_id"`
+	// swagger:ignore
+	OutOfChain bool `json:"out_of_chain"`
+	// swagger:ignore
+	ManagerId string `json:"manager_id"`
 }
 
 type SSnapshotPolicyCreateInput struct {

@@ -51,9 +51,10 @@ func init() {
 	})
 
 	type KeypairCreate struct {
-		NAME   string `help:"Name of keypair to be created"`
-		Scheme string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA" default:"RSA"`
-		Desc   string `help:"Short description of keypair"`
+		NAME      string `help:"Name of keypair to be created"`
+		Scheme    string `help:"Scheme of keypair, default is RSA" choices:"RSA" default:"RSA"`
+		PublicKey string `help:"Publickey of keypair"`
+		Desc      string `help:"Short description of keypair"`
 	}
 
 	R(&KeypairCreate{}, "keypair-create", "Create a new keypair", func(s *mcclient.ClientSession, args *KeypairCreate) error {
@@ -61,6 +62,10 @@ func init() {
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		if len(args.Scheme) > 0 {
 			params.Add(jsonutils.NewString(args.Scheme), "scheme")
+		}
+
+		if len(args.PublicKey) > 0 {
+			params.Add(jsonutils.NewString(args.PublicKey), "public_key")
 		}
 
 		if len(args.Desc) > 0 {
