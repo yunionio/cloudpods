@@ -52,7 +52,8 @@ func (self *SAliyunGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, 
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_ALIYUN
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_ALIYUN
+	keys.Hypervisor = api.HYPERVISOR_ALIYUN
 	return keys
 }
 

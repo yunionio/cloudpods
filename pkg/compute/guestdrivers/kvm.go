@@ -59,7 +59,7 @@ func (self *SKVMGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, own
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
-	// ignore brand keys.Brand = brand
+	keys.Brand = api.ONECLOUD_BRAND_ONECLOUD
 	keys.Hypervisor = api.HYPERVISOR_KVM
 	return keys
 }

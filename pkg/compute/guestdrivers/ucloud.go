@@ -44,8 +44,8 @@ func (self *SUCloudGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, 
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_UCLOUD
-	// ignore brand
-	// ignore hypervisor
+	keys.Brand = api.CLOUD_PROVIDER_UCLOUD
+	keys.Hypervisor = api.HYPERVISOR_UCLOUD
 	return keys
 }
 
