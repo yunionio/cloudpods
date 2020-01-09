@@ -62,7 +62,7 @@ func (self *SZStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, 
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_ZSTACK
 	keys.Brand = brand
-	// ignore hypervisor
+	keys.Hypervisor = api.HYPERVISOR_ZSTACK
 	return keys
 }
 

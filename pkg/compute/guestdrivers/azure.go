@@ -53,7 +53,8 @@ func (self *SAzureGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, o
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_AZURE
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_AZURE
+	keys.Hypervisor = api.HYPERVISOR_AZURE
 	return keys
 }
 

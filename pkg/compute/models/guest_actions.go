@@ -2943,6 +2943,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 
 	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, self, host, int(bw), chargeType, eipPendingUsage)
 	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
