@@ -44,7 +44,7 @@ func (s *SExsiAgentService) StartService() {
 	options_common.ParseOptions(&options.Options, os.Args, "esxiagent.conf", "esxiagent")
 
 	if len(options.Options.ImageCachePath) == 0 {
-		options.Options.ImageCachePath = filepath.Join(filepath.Dir(options.Options.EsxiAgentPath), "image_cache")
+		options.Options.ImageCachePath = filepath.Join(options.Options.EsxiAgentPath, "image_cache")
 		log.Infof("No cachepath, use default %s", options.Options.ImageCachePath)
 		err := os.MkdirAll(options.Options.ImageCachePath, 0760)
 		if err != nil {
@@ -52,7 +52,7 @@ func (s *SExsiAgentService) StartService() {
 		}
 	}
 	if len(options.Options.AgentTempPath) == 0 {
-		options.Options.AgentTempPath = filepath.Join(filepath.Dir(options.Options.EsxiAgentPath), "agent_tmp")
+		options.Options.AgentTempPath = filepath.Join(options.Options.EsxiAgentPath, "agent_tmp")
 		log.Infof("No agent temp path, use default %s", options.Options.AgentTempPath)
 		err := os.MkdirAll(options.Options.AgentTempPath, 0760)
 		if err != nil {
