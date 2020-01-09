@@ -162,7 +162,7 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q 
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
-	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
+	if defsecgroup := query.SecgroupStr(); len(defsecgroup) > 0 {
 		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {

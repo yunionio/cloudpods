@@ -81,30 +81,45 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 	return &input
 }
 
+type SnapshotPolicyFilterListInput struct {
+	// filter disk by snapshotpolicy
+	Snapshotpolicy string `json:"snapshotpolicy"`
+	// swagger:ignore
+	// Deprecated
+	// filter disk by snapshotpolicy_id
+	SnapshotpolicyId string `json:"snapshotpolicy_id"`
+}
+
+func (input SnapshotPolicyFilterListInput) SnapshotpolicyStr() string {
+	if len(input.Snapshotpolicy) > 0 {
+		return input.Snapshotpolicy
+	}
+	if len(input.SnapshotpolicyId) > 0 {
+		return input.SnapshotpolicyId
+	}
+	return ""
+}
+
 type DiskListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	BillingResourceListInput
 
-	StorageResourceListInput
-	StorageShareListInput
+	BillingFilterListInput
+	StorageFilterListInput
+	StorageShareFilterListInput
+	SnapshotPolicyFilterListInput
+	ServerFilterListInput
 
 	// filter disk by whether it is being used
 	Unused *bool `json:"unused"`
-	// filter disks attached to a guest
-	Guest string `json:"guest"`
-	// deprecated: true
+
+	// swagger:ignore
+	// Deprecated
 	// filter by disk type
 	Type string `json:"type"`
 	// filter by disk type
 	DiskType string `json:"disk_type"`
-	// filter disk by snapshotpolicy
-	Snapshotpolicy string `json:"snapshotpolicy"`
-	// swagger: ignore
-	// Deprecated
-	// filter disk by snapshotpolicy_id
-	SnapshotpolicyId string `json:"snapshotpolicy_id"`
 }
 
 func (input DiskListInput) DiskTypeStr() string {
@@ -117,12 +132,21 @@ func (input DiskListInput) DiskTypeStr() string {
 	return ""
 }
 
-func (input DiskListInput) SnapshotpolicyStr() string {
-	if len(input.Snapshotpolicy) > 0 {
-		return input.Snapshotpolicy
+type DiskFilterListInput struct {
+	// filter by disk, id or name
+	Disk string `json:"disk"`
+	// swagger:ignore
+	// Deprecated
+	// filter by disk_id
+	DiskId string `json:"disk_id"`
+}
+
+func (input DiskFilterListInput) DiskStr() string {
+	if len(input.Disk) > 0 {
+		return input.Disk
 	}
-	if len(input.SnapshotpolicyId) > 0 {
-		return input.SnapshotpolicyId
+	if len(input.DiskId) > 0 {
+		return input.DiskId
 	}
 	return ""
 }

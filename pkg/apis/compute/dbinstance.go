@@ -165,19 +165,18 @@ type SDBInstanceRecoveryConfigInput struct {
 type DBInstanceListInput struct {
 	apis.VirtualResourceListInput
 
-	ZonalResourceListInput
+	ZonalFilterListInput
 	ManagedResourceListInput
-	VpcResourceListInput
+	VpcFilterListInput
 }
 
 type DBInstanceBackupListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	RegionalResourceListInput
+	RegionalFilterListInput
 
-	// filter by dbinstance
-	Dbinstance string `json:"dbinstance"`
+	DbinstanceFilterListInput
 }
 
 type DBInstancePrivilegeListInput struct {
@@ -192,20 +191,36 @@ type DBInstancePrivilegeListInput struct {
 type DBInstanceParameterListInput struct {
 	apis.StandaloneResourceListInput
 
-	// filter by dbinstance
-	Dbinstance string `json:"dbinstance"`
+	DbinstanceFilterListInput
 }
 
 type DBInstanceDatabaseListInput struct {
 	apis.StatusStandaloneResourceListInput
 
-	// filter by dbinstance
-	Dbinstance string `json:"dbinstance"`
+	DbinstanceFilterListInput
 }
 
 type DBInstanceAccountListInput struct {
 	apis.StatusStandaloneResourceListInput
 
+	DbinstanceFilterListInput
+}
+
+type DbinstanceFilterListInput struct {
 	// filter by dbinstance
 	Dbinstance string `json:"dbinstance"`
+	// swagger:ignore
+	// Deprecated
+	// filter by dbinstance_id
+	DbinstanceId string `json:"dbinstance_id"`
+}
+
+func (input DbinstanceFilterListInput) DbinstanceStr() string {
+	if len(input.Dbinstance) > 0 {
+		return input.Dbinstance
+	}
+	if len(input.DbinstanceId) > 0 {
+		return input.DbinstanceId
+	}
+	return ""
 }

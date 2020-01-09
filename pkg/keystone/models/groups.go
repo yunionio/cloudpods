@@ -81,7 +81,7 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		return nil, err
 	}
 
-	userIdStr := query.UserId
+	userIdStr := query.UserStr()
 	if len(userIdStr) > 0 {
 		user, err := UserManager.FetchById(userIdStr)
 		if err != nil {
@@ -95,7 +95,7 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projIdStr := query.ProjectIdStr()
+	projIdStr := query.ProjectStr()
 	if len(projIdStr) > 0 {
 		proj, err := ProjectManager.FetchProjectById(projIdStr)
 		if err != nil {

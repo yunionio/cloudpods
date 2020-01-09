@@ -141,19 +141,17 @@ func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
-
 	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}

@@ -235,3 +235,11 @@ func (self *SElasticcacheParameter) StartUpdateElasticcacheParameterTask(ctx con
 func (self *SElasticcacheParameter) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
+
+func (manager *SElasticcacheParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheParameterListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

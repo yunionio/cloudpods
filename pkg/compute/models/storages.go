@@ -1118,7 +1118,7 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
+
 	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
@@ -1129,14 +1129,14 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "zone_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "zone_id", func() *sqlchemy.SQuery {
 		return ZoneManager.Query("id")
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}

@@ -838,12 +838,6 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
-		vpcs := VpcManager.Query().SubQuery()
-		subq := vpcs.Query(vpcs.Field("id"))
-		return subq
-	})
-
 	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
 		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
@@ -871,19 +865,19 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Equals("vpc_id", vpc.GetId())
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "vpc_id", func() *sqlchemy.SQuery {
 		return VpcManager.Query("id")
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
-	hostStr := query.Host
+	hostStr := query.HostStr()
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {

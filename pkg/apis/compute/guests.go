@@ -18,22 +18,54 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+type ServerFilterListInput struct {
+	// Filter by guest id or name
+	Server string `json:"server"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by guest Id
+	ServerId string `json:"server_id"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by guest Id
+	Guest string `json:"guest"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by guest Id
+	GuestId string `json:"guest_id"`
+}
+
+func (input ServerFilterListInput) ServerStr() string {
+	if len(input.Server) > 0 {
+		return input.Server
+	}
+	if len(input.ServerId) > 0 {
+		return input.ServerId
+	}
+	if len(input.Guest) > 0 {
+		return input.Guest
+	}
+	if len(input.GuestId) > 0 {
+		return input.GuestId
+	}
+	return ""
+}
+
 type ServerListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	HostResourceListInput
-	NetworkResourceListInput
-	BillingResourceListInput
+	HostFilterListInput
+	NetworkFilterListInput
+	BillingFilterListInput
+	GroupFilterListInput
+	SecgroupFilterListInput
+	DiskFilterListInput
 
-	// Disk ID or Name
-	Disk string `json:"disk"`
 	// Show baremetal servers
 	Baremetal *bool `json:"baremetal"`
 	// Show gpu servers
 	Gpu *bool `json:"gpu"`
-	// Secgroup ID or Name
-	Secgroup string `json:"secgroup"`
 	// AdminSecgroup ID or Name
 	AdminSecgroup string `json:"admin_security"`
 	// Show server of hypervisor choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack"`
@@ -48,17 +80,11 @@ type ServerListInput struct {
 	OrderByDisk string `json:"order_by_disk"`
 	// Order by host name choices:"asc|desc"
 	OrderByHost string `json:"order_by_host"`
-	// Vpc id or name
-	Vpc string `json:"vpc"`
 	// Eip id or name
 	UsableServerForEip string `json:"usable_server_for_eip"`
 	// Show Servers without user metadata
 	WithoutUserMeta *bool `json:"without_user_meta"`
-	// Instance Group ID or Name
-	Group string `json:"group"`
-	// deprecated: true
-	// Filter by instance group Id
-	GroupId string `json:"group_id"`
+
 	// Resource type choices:"shared|prepaid|dedicated"
 	ResourceType string `json:"resource_type"`
 	// return backup guests on a host
@@ -74,16 +100,6 @@ func (input ServerListInput) HypervisorList() []string {
 		ret = append(ret, input.Hypervisor...)
 	}
 	return ret
-}
-
-func (input ServerListInput) GroupStr() string {
-	if len(input.Group) > 0 {
-		return input.Group
-	}
-	if len(input.GroupId) > 0 {
-		return input.GroupId
-	}
-	return ""
 }
 
 type ServerRebuildRootInput struct {

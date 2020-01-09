@@ -141,10 +141,6 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "host_id", func() *sqlchemy.SQuery {
-		hosts := HostManager.Query().SubQuery()
-		return hosts.Query(hosts.Field("id"))
-	})
 
 	billingTypeStr := query.BillingType
 	if len(billingTypeStr) > 0 {
@@ -188,7 +184,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", subq.SubQuery())
 	}
 
-	hostFilter := query.Host
+	hostFilter := query.HostStr()
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
 		if host == nil {
@@ -202,7 +198,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	secgrpFilter := query.Secgroup
+	secgrpFilter := query.SecgroupStr()
 	if len(secgrpFilter) > 0 {
 		var notIn = false
 		// HACK FOR NOT IN SECGROUP
@@ -301,7 +297,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	wireFilter := query.Wire
+	wireFilter := query.WireStr()
 	if len(wireFilter) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireFilter)
 		if wire == nil {
@@ -313,7 +309,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	networkFilter := query.Network
+	networkFilter := query.NetworkStr()
 	if len(networkFilter) > 0 {
 		netI, _ := NetworkManager.FetchByIdOrName(userCred, networkFilter)
 		if netI == nil {
@@ -327,7 +323,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	vpcFilter := query.Vpc
+	vpcFilter := query.VpcStr()
 	if len(vpcFilter) > 0 {
 		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
 		if err != nil {
@@ -344,7 +340,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", sq)
 	}
 
-	diskFilter := query.Disk
+	diskFilter := query.DiskStr()
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {

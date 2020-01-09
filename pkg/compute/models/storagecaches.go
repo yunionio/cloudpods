@@ -409,7 +409,6 @@ func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
 	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/sqlchemy"
 )
 
 type SBaremetalagentManager struct {
@@ -273,4 +274,8 @@ func (agent *SBaremetalagent) setStoragecacheId(cacheId string) error {
 		return nil
 	})
 	return err
+}
+
+func (manager *SBaremetalagentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BaremetalagentListInput) (*sqlchemy.SQuery, error) {
+	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 }

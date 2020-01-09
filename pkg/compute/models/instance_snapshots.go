@@ -77,7 +77,7 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	guestStr := query.GuestStr()
+	guestStr := query.ServerStr()
 	if len(guestStr) > 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestStr)
 		if err != nil {

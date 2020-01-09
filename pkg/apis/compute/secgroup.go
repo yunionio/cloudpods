@@ -132,26 +132,45 @@ type SSecgroupCreateInput struct {
 type SecgroupListInput struct {
 	apis.SharableVirtualResourceListInput
 
+	// equals
 	Equals string
-	Server string
+
+	ServerFilterListInput
 }
 
 type SecurityGroupCacheListInput struct {
 	apis.StatusStandaloneResourceListInput
 
-	// filter by security group
-	Secgroup string `json:"secgroup"`
+	SecgroupFilterListInput
 }
 
 type SecurityGroupRuleListInput struct {
 	apis.ResourceBaseListInput
+	SecgroupFilterListInput
 
-	// filter by Security group
-	Secgroup string `json:"secgroup"`
 	// filter by direction
 	Direction string `json:"direction"`
 	// filter by action
 	Action string `json:"action"`
 	// filter by protocol
 	Protocol string `json:"protocol"`
+}
+
+type SecgroupFilterListInput struct {
+	// filter by Security group
+	Secgroup string `json:"secgroup"`
+	// swagger:ignore
+	// Deprecated
+	// filter by secgroup_id
+	SecgroupId string `json:"secgroup_id"`
+}
+
+func (input SecgroupFilterListInput) SecgroupStr() string {
+	if len(input.Secgroup) > 0 {
+		return input.Secgroup
+	}
+	if len(input.SecgroupId) > 0 {
+		return input.SecgroupId
+	}
+	return ""
 }

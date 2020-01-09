@@ -57,7 +57,7 @@ type ElasticipListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	RegionalResourceListInput
+	RegionalFilterListInput
 	UsableResourceListInput
 
 	// filter usable eip for given associate type

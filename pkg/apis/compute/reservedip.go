@@ -31,7 +31,7 @@ const (
 type ReservedipListInput struct {
 	apis.ResourceBaseListInput
 
-	NetworkResourceListInput
+	NetworkFilterListInput
 
 	// list all reserved ips, including expired ones
 	All *bool `json:"all"`

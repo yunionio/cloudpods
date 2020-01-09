@@ -38,13 +38,13 @@ type ModelBaseListInput struct {
 	OrderBy []string `json:"order_by"`
 	// List Order
 	// example: desc|asc
-	Order string
+	Order string `json:"order"`
 	// Show more details
 	Details *bool `json:"details"`
 	// Filter results by a simple keyword search
 	Search string `json:"search"`
 	// Filters
-	Filter []string `json:"filters"`
+	Filter []string `json:"filter"`
 	// Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)
 	JointFilter []string `json:"joint_filter"`
 	// If true, match if any of the filters matches; otherwise, match if all of the filters match

@@ -138,16 +138,16 @@ var (
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD}
 )
 
-type StorageResourceListInput struct {
+type StorageFilterListInput struct {
 	// filter by storage
 	Storage string `json:"storage"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by storage_id
 	StorageId string `json:"storage_id"`
 }
 
-func (input StorageResourceListInput) StorageStr() string {
+func (input StorageFilterListInput) StorageStr() string {
 	if len(input.Storage) > 0 {
 		return input.Storage
 	}
@@ -157,7 +157,7 @@ func (input StorageResourceListInput) StorageStr() string {
 	return ""
 }
 
-type StorageShareListInput struct {
+type StorageShareFilterListInput struct {
 	// filter shared storage
 	Share *bool `json:"share"`
 	// filter local storage
@@ -169,9 +169,9 @@ type StorageListInput struct {
 	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput
-	ZonalResourceListInput
+	ZonalFilterListInput
 	UsableResourceListInput
-	StorageShareListInput
+	StorageShareFilterListInput
 }
 
 type StoragecacheListInput struct {

@@ -18,27 +18,27 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type RegionalResourceListInput struct {
+type RegionalFilterListInput struct {
 	// filter by city
 	City string `json:"city"`
 
 	// filter by cloudregion
 	Cloudregion string `json:"cloudregion"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudregionId string `json:"cloudregion_id"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	Region string `json:"region"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	RegionId string `json:"region_id"`
 }
 
-func (input RegionalResourceListInput) CloudregionStr() string {
+func (input RegionalFilterListInput) CloudregionStr() string {
 	if len(input.Cloudregion) > 0 {
 		return input.Cloudregion
 	}
@@ -54,12 +54,12 @@ func (input RegionalResourceListInput) CloudregionStr() string {
 	return ""
 }
 
-type ZonalResourceListInput struct {
-	RegionalResourceListInput
+type ZonalFilterListInput struct {
+	RegionalFilterListInput
 
 	// filter by zone
 	Zone string `json:"zone"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by zone_id
 	ZoneId string `json:"zone_id"`
@@ -67,7 +67,7 @@ type ZonalResourceListInput struct {
 	Zones []string `json:"zones"`
 }
 
-func (input ZonalResourceListInput) ZoneStr() string {
+func (input ZonalFilterListInput) ZoneStr() string {
 	if len(input.Zone) > 0 {
 		return input.Zone
 	}
@@ -77,7 +77,7 @@ func (input ZonalResourceListInput) ZoneStr() string {
 	return ""
 }
 
-func (input ZonalResourceListInput) ZoneList() []string {
+func (input ZonalFilterListInput) ZoneList() []string {
 	zoneStr := input.ZoneStr()
 	if len(zoneStr) > 0 {
 		input.Zones = append(input.Zones, zoneStr)
@@ -85,18 +85,18 @@ func (input ZonalResourceListInput) ZoneList() []string {
 	return input.Zones
 }
 
-type HostResourceListInput struct {
-	ZonalResourceListInput
+type HostFilterListInput struct {
+	ZonalFilterListInput
 
 	// filter by host
 	Host string `json:"host"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by host_id
 	HostId string `json:"host_id"`
 }
 
-func (input HostResourceListInput) HostStr() string {
+func (input HostFilterListInput) HostStr() string {
 	if len(input.Host) > 0 {
 		return input.Host
 	}
@@ -112,11 +112,10 @@ type CloudregionListInput struct {
 
 	ManagedResourceListInput
 	UsableResourceListInput
+	UsableVpcResourceListInput
 
 	// filter by city
 	City string `json:"city"`
-	// filter by vpc usability
-	UsableVpc *bool `json:"usable_vpc"`
 	// filter by service???
 	Service string `json:"service"`
 }
@@ -127,12 +126,11 @@ type ZoneListInput struct {
 
 	ManagedResourceListInput
 
-	RegionalResourceListInput
+	RegionalFilterListInput
 
 	UsableResourceListInput
+	UsableVpcResourceListInput
 
-	// filter by vpc usability
-	UsableVpc *bool `json:"usable_vpc"`
 	// filter by service
 	Service string `json:"service"`
 }

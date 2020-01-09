@@ -103,11 +103,12 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		}
 		q = q.In("id", secgroupIds)
 	}
-	if len(input.Server) > 0 {
-		guest, err := GuestManager.FetchByIdOrName(userCred, input.Server)
+	serverStr := input.ServerStr()
+	if len(serverStr) > 0 {
+		guest, err := GuestManager.FetchByIdOrName(userCred, serverStr)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("failed to found server %s", input.Server)
+				return nil, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), serverStr)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}

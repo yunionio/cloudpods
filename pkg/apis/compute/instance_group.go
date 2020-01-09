@@ -18,18 +18,36 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type InstanceGroupListInput struct {
 	apis.VirtualResourceListInput
-	ZonalResourceListInput
+	ZonalFilterListInput
+	ServerFilterListInput
 
 	// Filter by service type
 	ServiceType string `json:"service_type"`
 	// Filter by parent id
 	ParentId string `json:"parent_id"`
-	// Filter by guest id or name
-	Server string `json:"server"`
 }
 
 type InstanceGroupDetail struct {
 	apis.Meta
 	SGroup
 	GuestCount int64 `json:"guest_count"`
+}
+
+type GroupFilterListInput struct {
+	// Instance Group ID or Name
+	Group string `json:"group"`
+	// swagger:ignore
+	// deprecated: true
+	// Filter by instance group Id
+	GroupId string `json:"group_id"`
+}
+
+func (input GroupFilterListInput) GroupStr() string {
+	if len(input.Group) > 0 {
+		return input.Group
+	}
+	if len(input.GroupId) > 0 {
+		return input.GroupId
+	}
+	return ""
 }

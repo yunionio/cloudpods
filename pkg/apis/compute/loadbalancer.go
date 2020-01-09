@@ -35,7 +35,7 @@ type LoadbalancerListenerListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	RegionalResourceListInput
+	RegionalFilterListInput
 
 	// filter by loadbalancer
 	Loadbalancer string `json:"loadbalancer"`
@@ -58,8 +58,8 @@ type LoadbalancerListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	ZonalResourceListInput
-	NetworkResourceListInput
+	ZonalFilterListInput
+	NetworkFilterListInput
 
 	// filter by cluster
 	Cluster string `json:"cluster"`
@@ -76,7 +76,7 @@ type LoadbalancerCertificateListInput struct {
 	apis.VirtualResourceListInput
 
 	UsableResourceListInput
-	RegionalResourceListInput
+	RegionalFilterListInput
 	ManagedResourceListInput
 }
 
@@ -84,7 +84,7 @@ type LoadbalancerBackendListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	RegionalResourceListInput
+	RegionalFilterListInput
 
 	// filter by backend server
 	Backend string `json:"backend"`
@@ -95,7 +95,7 @@ type LoadbalancerBackendListInput struct {
 type LoadbalancerBackendGroupListInput struct {
 	apis.VirtualResourceListInput
 
-	RegionalResourceListInput
+	RegionalFilterListInput
 	ManagedResourceListInput
 
 	// filter by loadbalancer
@@ -107,6 +107,10 @@ type LoadbalancerBackendGroupListInput struct {
 type LoadbalancerClusterListInput struct {
 	apis.StandaloneResourceListInput
 
-	ZonalResourceListInput
-	WireResourceListInput
+	ZonalFilterListInput
+	WireFilterListInput
+}
+
+type LoadbalancerAclListInput struct {
+	apis.SharableVirtualResourceListInput
 }
