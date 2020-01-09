@@ -42,6 +42,7 @@ type SRouteEntry struct {
 	NextHops             SNextHops
 }
 
+// Custom：自定义路由。 System：系统路由。
 func (route *SRouteEntry) GetType() string {
 	return route.Type
 }
@@ -118,6 +119,7 @@ func (self *SRouteTable) GetRegionId() string {
 	return self.region.RegionId
 }
 
+// VRouter：VPC路由器。 VBR：边界路由器。
 func (self *SRouteTable) GetType() string {
 	return self.RouteTableType
 }

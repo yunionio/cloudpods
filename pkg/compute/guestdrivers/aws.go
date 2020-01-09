@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -147,6 +148,20 @@ func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
 }
 
 func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		if len(input.Networks) > 0 {
+			inetwork, err := db.FetchByIdOrName(models.NetworkManager, userCred, input.Networks[0].Network)
+			if err != nil {
+				return nil, err
+			}
+
+			support_eip := inetwork.(*models.SNetwork).GetMetadataJson("support_eip", nil)
+			if ok, _ := support_eip.Bool(); !ok {
+				return nil, httperrors.NewInputParameterError("network %s associated route table has no internet gateway attached.", inetwork.GetName())
+			}
+		}
+	}
+
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 }
 
