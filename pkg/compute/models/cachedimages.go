@@ -336,6 +336,26 @@ func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.
 	return jsonutils.Marshal(img), nil
 }
 
+func (self *SCachedimage) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "uncache-image")
+}
+
+// 清除镜像缓存
+func (self *SCachedimage) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CachedImageUncacheImageInput) (jsonutils.JSONObject, error) {
+	if len(input.StoragecacheId) == 0 {
+		return nil, httperrors.NewMissingParameterError("storagecache_id")
+	}
+	_storagecache, err := StoragecacheManager.FetchById(input.StoragecacheId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found storagecache %s", input.StoragecacheId)
+		}
+		return nil, errors.Wrap(err, "StoragecacheManager.FetchById")
+	}
+	storagecache := _storagecache.(*SStoragecache)
+	return storagecache.PerformUncacheImage(ctx, userCred, query, jsonutils.Marshal(map[string]interface{}{"image": self.Id, "is_force": input.IsForce}))
+}
+
 func (self *SCachedimage) addRefCount() {
 	if self.GetStatus() != "active" {
 		return
