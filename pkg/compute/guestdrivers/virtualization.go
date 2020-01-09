@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -75,6 +76,19 @@ func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{api.NETWORK_TYPE_GUEST}
 }
 
+func (self *SVirtualizedGuestDriver) wireAvaiableForGuest(guest *models.SGuest, wire *models.SWire) (bool, error) {
+	if guest.BackupHostId == "" {
+		return true, nil
+	} else {
+		backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
+		count, err := backupHost.GetWiresQuery().Equals("wire_id", wire.Id).CountWithError()
+		if err != nil {
+			return false, errors.Wrap(err, "query host wire")
+		}
+		return count > 0, nil
+	}
+}
+
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
@@ -89,6 +103,11 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
+		if ok, err := self.wireAvaiableForGuest(guest, wire); err != nil {
+			return nil, err
+		} else if !ok {
+			continue
+		}
 
 		if wire == nil {
 			log.Errorf("host wire is nil?????")
@@ -167,7 +186,11 @@ func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Con
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopTask", guest, userCred, params, parentTaskId, "", nil)
+	taskName := "GuestStopTask"
+	if guest.BackupHostId != "" {
+		taskName = "HAGuestStopTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}

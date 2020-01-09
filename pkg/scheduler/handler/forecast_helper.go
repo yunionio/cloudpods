@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/log"
 
-	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -72,7 +71,7 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 		}
 	}
 
-	items := make([]*core.SchedResultItem, 0)
+	items := make(core.SchedResultItems, 0)
 	for _, item := range result.Data {
 		hostType := item.Candidater.Getter().HostType()
 		if schedData.Hypervisor == hostType {
@@ -84,15 +83,11 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 		addInfos(result.Unit.LogManager.FailedLogs(), item)
 	}
 
-	var output *schedapi.ScheduleOutput
-	sid := schedData.SessionId
-	if schedData.Backup {
-		output = transToBackupSchedResult(result, schedData.PreferHost, schedData.PreferBackupHost, int64(schedData.Count), sid)
-	} else {
-		output = transToRegionSchedResult(result.Data, int64(schedData.Count), sid)
-	}
+	var (
+		output     = transToSchedResult(result, schedData)
+		readyCount int64
+	)
 
-	var readyCount int64
 	for _, candi := range output.Candidates {
 		if len(candi.Error) != 0 {
 			info, exist := getOrNewFilter("select_candidate")

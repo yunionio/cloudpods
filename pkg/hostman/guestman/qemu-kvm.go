@@ -510,6 +510,18 @@ func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
 	}
 }
 
+func (s *SKVMGuestInstance) OnSlaveStartedWithNbdServer(nbdServerPort int64) {
+	params := jsonutils.NewDict()
+	params.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
+	_, err := modules.Servers.PerformAction(
+		hostutils.GetComputeSession(context.Background()),
+		s.GetId(), "slave-started", params,
+	)
+	if err != nil {
+		log.Errorf("Server %s perform resume guest got error %s", s.GetId(), err)
+	}
+}
+
 func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	log.Infof("Monitor connected ...")
 	s.Monitor.GetVersion(func(v string) {
@@ -525,11 +537,9 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		body := jsonutils.NewDict()
 		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
-	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
-			s.startQemuBuiltInNbdServer(ctx)
-		}
-	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
+	} else if s.IsSlave() {
+		s.startQemuBuiltInNbdServer(ctx)
+	} else if s.IsMaster() {
 		s.startDiskBackupMirror(ctx)
 		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
 			s.DoResumeTask(ctx)
@@ -582,19 +592,19 @@ func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
-	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		return
-	}
-
 	nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
 	var onNbdServerStarted = func(res string) {
-		if len(res) > 0 {
-			log.Errorf("Start Qemu Builtin nbd server error %s", res)
-			hostutils.TaskFailed(ctx, res)
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
+			if len(res) > 0 {
+				log.Errorf("Start Qemu Builtin nbd server error %s", res)
+				hostutils.TaskFailed(ctx, res)
+			} else {
+				res := jsonutils.NewDict()
+				res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
+				hostutils.TaskComplete(ctx, res)
+			}
 		} else {
-			res := jsonutils.NewDict()
-			res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
-			hostutils.TaskComplete(ctx, res)
+			s.OnSlaveStartedWithNbdServer(int64(nbdServerPort))
 		}
 	}
 	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)

@@ -84,6 +84,9 @@ func (m *SHostPendingUsageManager) SetPendingUsage(req *api.SchedInfo, candidate
 		sessionUsage.StartTimer()
 	}
 	m.addSessionUsage(candidate.HostId, sessionUsage)
+	if candidate.BackupCandidate != nil {
+		m.SetPendingUsage(req, candidate.BackupCandidate)
+	}
 }
 
 func (m *SHostPendingUsageManager) addSessionUsage(hostId string, usage *SessionPendingUsage) {

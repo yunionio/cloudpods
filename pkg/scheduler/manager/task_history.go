@@ -178,6 +178,10 @@ func (m *HistoryManager) CancelCandidatesPendingUsage(hosts []*expireHost) {
 			continue
 		}
 		cancelUsage := m.GetCancelUsage(sid, hostId)
+		if cancelUsage == nil {
+			log.Errorf("failed find pending usage for session: %s, host: %s", sid, hostId)
+			continue
+		}
 		if err := models.HostPendingUsageManager.CancelPendingUsage(hostId, cancelUsage); err != nil {
 			log.Errorf("Cancel host %s usage %#v: %v", hostId, cancelUsage, err)
 		} else {

@@ -193,6 +193,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred)
 	guest.SetStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
 	self.SetStageComplete(ctx, nil)
 }
@@ -350,4 +351,21 @@ func init() {
 	taskman.RegisterTask(GuestSwitchToBackupTask{})
 	taskman.RegisterTask(GuestStartAndSyncToBackupTask{})
 	taskman.RegisterTask(GuestCreateBackupTask{})
+	taskman.RegisterTask(GuestReSyncToBackup{})
+}
+
+type GuestReSyncToBackup struct {
+	GuestStartAndSyncToBackupTask
+}
+
+func (self *GuestReSyncToBackup) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.StartSyncToBackup(ctx, guest)
+}
+
+func (self *GuestReSyncToBackup) StartSyncToBackup(ctx context.Context, guest *models.SGuest) {
+	data := jsonutils.NewDict()
+	nbdServerPort, _ := self.Params.Int("nbd_server_port")
+	data.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
+	self.OnStartBackupGuest(ctx, guest, data)
 }

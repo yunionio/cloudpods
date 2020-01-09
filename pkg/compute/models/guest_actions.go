@@ -798,13 +798,21 @@ func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
-func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict, action string, parentTaskId string) error {
+func (self *SGuest) StartGuestDeployTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	kwargs *jsonutils.JSONDict, action string, parentTaskId string,
+) error {
 	self.SetStatus(userCred, api.VM_START_DEPLOY, "")
 	if kwargs == nil {
 		kwargs = jsonutils.NewDict()
 	}
 	kwargs.Add(jsonutils.NewString(action), "deploy_action")
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeployTask", self, userCred, kwargs, parentTaskId, "", nil)
+
+	taskName := "GuestDeployTask"
+	if self.BackupHostId != "" {
+		taskName = "HAGuestDeployTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -1019,7 +1027,11 @@ func (self *SGuest) GuestNonSchedStartTask(
 	data *jsonutils.JSONDict, parentTaskId string,
 ) error {
 	self.SetStatus(userCred, api.VM_START_START, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestStartTask", self, userCred, data, parentTaskId, "", nil)
+	taskName := "GuestStartTask"
+	if self.BackupHostId != "" {
+		taskName = "HAGuestStartTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -3166,6 +3178,34 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
 	}
 	return nil, nil
+}
+
+func (self *SGuest) AllowPerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "slave-started")
+}
+
+func (self *SGuest) PerformSlaveStarted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.GetMetadata("__mirror_job_status", userCred) == "failed" {
+		if port, err := data.Int("nbd_server_port"); err != nil {
+			return nil, httperrors.NewMissingParameterError("nbd_server_port")
+		} else {
+			self.StartMirrorJob(ctx, userCred, port, "")
+		}
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartMirrorJob(ctx context.Context, userCred mcclient.TokenCredential, nbdServerPort int64, parentTaskId string) error {
+	taskData := jsonutils.NewDict()
+	taskData.Set("nbd_server_port", jsonutils.NewInt(nbdServerPort))
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestReSyncToBackup", self, userCred, taskData, parentTaskId, "", nil); err != nil {
+		log.Errorln(err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (manager *SGuestManager) AllowPerformDirtyServerStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

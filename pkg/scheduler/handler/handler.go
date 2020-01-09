@@ -124,7 +124,7 @@ func doSchedulerTest(c *gin.Context) {
 func transToSchedTestResult(result *core.SchedResultItemList, limit int64) interface{} {
 	return &api.SchedTestResult{
 		Data:   result.Data,
-		Total:  int64(result.Len()),
+		Total:  int64(result.Data.Len()),
 		Limit:  limit,
 		Offset: 0,
 	}
@@ -283,15 +283,7 @@ func doSyncSchedule(c *gin.Context) {
 		return
 	}
 
-	count := int64(schedInfo.Count)
-	var resp *schedapi.ScheduleOutput
-	sid := schedInfo.SessionId
-	if schedInfo.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.PreferHost, schedInfo.PreferBackupHost, count, sid)
-	} else {
-		resp = transToRegionSchedResult(result.Data, count, sid)
-	}
-
+	resp := transToSchedResult(result, schedInfo)
 	driver := result.Unit.GetHypervisorDriver()
 	if err := setSchedPendingUsage(driver, schedInfo, resp); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -314,7 +306,16 @@ func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo,
 	return nil
 }
 
-func transToRegionSchedResult(result []*core.SchedResultItem, count int64, sid string) *schedapi.ScheduleOutput {
+func transToSchedResult(result *core.SchedResultItemList, schedInfo *api.SchedInfo) *schedapi.ScheduleOutput {
+	if schedInfo.Backup {
+		return transToBackupSchedResult(result,
+			schedInfo.PreferHost, schedInfo.PreferBackupHost, int64(schedInfo.Count), schedInfo.SessionId)
+	} else {
+		return transToRegionSchedResult(result.Data, int64(schedInfo.Count), schedInfo.SessionId)
+	}
+}
+
+func transToRegionSchedResult(result core.SchedResultItems, count int64, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0
 	for _, nr := range result {

@@ -559,7 +559,12 @@ func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.To
 	if len(snapshot) > 0 {
 		kwargs.Add(jsonutils.NewString(snapshot), "snapshot")
 	}
-	if task, err := taskman.TaskManager.NewTask(ctx, "DiskCreateTask", self, userCred, kwargs, parentTaskId, "", nil); err != nil {
+
+	taskName := "DiskCreateTask"
+	if self.BackupStorageId != "" {
+		taskName = "HADiskCreateTask"
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, taskName, self, userCred, kwargs, parentTaskId, "", nil); err != nil {
 		return err
 	} else {
 		task.ScheduleRun(nil)
