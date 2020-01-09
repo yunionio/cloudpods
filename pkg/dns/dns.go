@@ -334,6 +334,16 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 	if rec == nil {
 		return
 	}
+	if req.state.QType() != dns.TypeCNAME && rec.IsCNAME() {
+		name = rec.GetCNAME()
+		recs = append(recs, msg.Service{
+			Host: name,
+			TTL:  getTtl(rec.Ttl),
+		})
+		// github.com/coredns/coredns/plugin.{A,AAAA} will call
+		// Services again later for these CNAME
+		return recs
+	}
 
 	var (
 		qtype   = req.Type()
