@@ -375,6 +375,26 @@ func (man *SDnsRecordManager) QueryDnsIps(projectId, name, kind string) []*DnsIp
 	return dnsIps
 }
 
+func (rec *SDnsRecord) IsCNAME() bool {
+	return strings.HasPrefix(rec.Records, "CNAME:")
+}
+
+func (rec *SDnsRecord) HasRecordType(typ string) bool {
+	for _, r := range rec.GetInfo() {
+		if strings.HasPrefix(r, typ+":") {
+			return true
+		}
+	}
+	return false
+}
+
+func (rec *SDnsRecord) GetCNAME() string {
+	if !rec.IsCNAME() {
+		panic("not a cname record: " + rec.Records)
+	}
+	return rec.Records[len("CNAME:"):]
+}
+
 func (rec *SDnsRecord) GetInfo() []string {
 	return strings.Split(rec.Records, DNS_RECORDS_SEPARATOR)
 }
