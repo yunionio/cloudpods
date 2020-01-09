@@ -462,3 +462,11 @@ func (self *SElasticcacheAccount) GetDetailsLoginInfo(ctx context.Context, userC
 func (self *SElasticcacheAccount) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
+
+func (manager *SElasticcacheAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheAccountListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

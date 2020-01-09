@@ -613,7 +613,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 
 	return q, nil
 }

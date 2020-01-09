@@ -42,88 +42,24 @@ type EnabledIdentityBaseResourceListInput struct {
 	Enabled *bool `json:"enabled"`
 }
 
-type RoleListInput struct {
-	IdentityBaseResourceListInput
-
-	// filter by project_id
-	ProjectId string `json:"project_id"`
-	// filter by user_id
-	UserId string `json:"user_id"`
-	// filter by group_id
-	GroupId string `json:"group_id"`
-}
-
-type GroupListInput struct {
-	IdentityBaseResourceListInput
-
-	// filter by user_id
-	UserId string `json:"user_id"`
-	// filter by project_id
-	ProjectId string `json:"project_id"`
-	// deprecated: true
-	// filter by tenant_id
-	TenantId string `json:"tenant_id"`
-}
-
-func (input GroupListInput) ProjectIdStr() string {
-	if len(input.ProjectId) > 0 {
-		return input.ProjectId
-	}
-	if len(input.TenantId) > 0 {
-		return input.TenantId
-	}
-	return ""
-}
-
-type ProjectListInput struct {
-	IdentityBaseResourceListInput
-
-	// filter by user_id
-	UserId string `json:"user_id"`
-	// filter by group_id
-	GroupId string `json:"group_id"`
-}
-
-type DomainListInput struct {
-	apis.StandaloneResourceListInput
-}
-
-type UserListInput struct {
-	EnabledIdentityBaseResourceListInput
-
-	// filter by group_id
-	GroupId string `json:"group_id"`
-	// deprecated: true
-	// filter by group
-	Group string `json:"group"`
-
+type ProjectFilterListInput struct {
 	// filter by project
 	Project string `json:"project"`
+	// swagger:ignore
+	// Deprecated
 	// filter by project_id
 	ProjectId string `json:"project_id"`
+	// swagger:ignore
+	// Deprecated
 	// filter by tenant
 	Tenant string `json:"tenant"`
+	// swagger:ignore
+	// Deprecated
 	// filter by tenant_id
 	TenantId string `json:"tenant_id"`
-
-	// filter by role
-	Role string `json:"role"`
-	// deprecated: true
-	// filter by role_id
-	RoleId string `json:"role_id"`
 }
 
-func (input UserListInput) GroupStr() string {
-	if len(input.GroupId) > 0 {
-		return input.GroupId
-	}
-	if len(input.Group) > 0 {
-		return input.Group
-	}
-	return ""
-}
-
-func (input UserListInput) ProjectStr() string {
+func (input ProjectFilterListInput) ProjectStr() string {
 	if len(input.Project) > 0 {
 		return input.Project
 	}
@@ -139,7 +75,54 @@ func (input UserListInput) ProjectStr() string {
 	return ""
 }
 
-func (input UserListInput) RoleStr() string {
+type UserFilterListInput struct {
+	// filter by user
+	User string `json:"user"`
+	// swagger:ignore
+	// Deprecated
+	// filter by user_id
+	UserId string `json:"user_id"`
+}
+
+func (input UserFilterListInput) UserStr() string {
+	if len(input.User) > 0 {
+		return input.User
+	}
+	if len(input.UserId) > 0 {
+		return input.UserId
+	}
+	return ""
+}
+
+type GroupFilterListInput struct {
+	// filter by group
+	Group string `json:"group"`
+	// swagger:ignore
+	// Deprecated
+	// filter by group_id
+	GroupId string `json:"group_id"`
+}
+
+func (input GroupFilterListInput) GroupStr() string {
+	if len(input.Group) > 0 {
+		return input.Group
+	}
+	if len(input.GroupId) > 0 {
+		return input.GroupId
+	}
+	return ""
+}
+
+type RoleFilterListInput struct {
+	// filter by role
+	Role string `json:"role"`
+	// swagger:ignore
+	// Deprecated
+	// filter by role_id
+	RoleId string `json:"role_id"`
+}
+
+func (input RoleFilterListInput) RoleStr() string {
 	if len(input.Role) > 0 {
 		return input.Role
 	}
@@ -149,17 +132,16 @@ func (input UserListInput) RoleStr() string {
 	return ""
 }
 
-type EndpointListInput struct {
-	apis.StandaloneResourceListInput
-
+type ServiceFilterListInput struct {
 	// filter by service, either id or name
 	Service string `json:"service"`
-	// deprecated: true
+	// swagger:ignore
+	// Deprecated
 	// filter by service_id
 	ServiceId string `json:"service_id"`
 }
 
-func (input EndpointListInput) ServiceStr() string {
+func (input ServiceFilterListInput) ServiceStr() string {
 	if len(input.Service) > 0 {
 		return input.Service
 	}
@@ -167,6 +149,46 @@ func (input EndpointListInput) ServiceStr() string {
 		return input.ServiceId
 	}
 	return ""
+}
+
+type RoleListInput struct {
+	IdentityBaseResourceListInput
+
+	ProjectFilterListInput
+	UserFilterListInput
+	GroupFilterListInput
+}
+
+type GroupListInput struct {
+	IdentityBaseResourceListInput
+
+	UserFilterListInput
+	ProjectFilterListInput
+}
+
+type ProjectListInput struct {
+	IdentityBaseResourceListInput
+
+	UserFilterListInput
+	GroupFilterListInput
+}
+
+type DomainListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type UserListInput struct {
+	EnabledIdentityBaseResourceListInput
+
+	GroupFilterListInput
+	ProjectFilterListInput
+	RoleFilterListInput
+}
+
+type EndpointListInput struct {
+	apis.StandaloneResourceListInput
+
+	ServiceFilterListInput
 }
 
 type SJoinProjectsInput struct {

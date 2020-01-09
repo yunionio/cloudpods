@@ -604,23 +604,12 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "id", func() *sqlchemy.SQuery {
-		cachedImages := CachedimageManager.Query().SubQuery()
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
-
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		return subq
-	})
-
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
 		storages := StorageManager.Query().SubQuery()
@@ -637,7 +626,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
 		storages := StorageManager.Query().SubQuery()

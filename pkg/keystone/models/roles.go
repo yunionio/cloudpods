@@ -229,7 +229,7 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	var projectId string
-	projectStr := query.ProjectId
+	projectStr := query.ProjectStr()
 	if len(projectStr) > 0 {
 		project, err := ProjectManager.FetchProjectById(projectStr)
 		if err != nil {
@@ -242,7 +242,7 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		projectId = project.Id
 	}
 
-	userStr := query.UserId
+	userStr := query.UserStr()
 	if len(projectId) > 0 && len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -256,7 +256,7 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	groupStr := query.GroupId
+	groupStr := query.GroupStr()
 	if len(projectId) > 0 && len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

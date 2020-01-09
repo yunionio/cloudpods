@@ -583,7 +583,6 @@ func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
 	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {

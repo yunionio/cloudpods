@@ -155,7 +155,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if query.Usb != nil && *query.Usb {
 		q = q.Equals("dev_type", "USB")
 	}
-	hostStr := query.Host
+	hostStr := query.HostStr()
 	var sq *sqlchemy.SSubQuery
 	if len(hostStr) > 0 {
 		hosts := HostManager.Query().SubQuery()
@@ -170,7 +170,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 		q = q.IsEmpty("guest_id")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "host_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		zones := ZoneManager.Query().SubQuery()
 
@@ -182,7 +182,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "host_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "host_id", func() *sqlchemy.SQuery {
 		return HostManager.Query("id")
 	})
 	if err != nil {

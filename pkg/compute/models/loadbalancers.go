@@ -98,19 +98,18 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
 	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}

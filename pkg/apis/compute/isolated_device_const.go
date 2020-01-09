@@ -47,7 +47,7 @@ type IsolatedDeviceListInput struct {
 	apis.StandaloneResourceListInput
 	apis.DomainizedResourceListInput
 
-	HostResourceListInput
+	HostFilterListInput
 
 	// filter by GPU type
 	Gpu *bool `json:"gpu"`

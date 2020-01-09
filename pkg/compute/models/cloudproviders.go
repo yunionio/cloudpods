@@ -139,6 +139,10 @@ func (manager *SCloudproviderManager) GetOnPremiseProviderIdsQuery() *sqlchemy.S
 	return manager.GetProviderIdsQuery(tristate.None, tristate.True, nil, nil)
 }
 
+func (manager *SCloudproviderManager) GetPrivateOrOnPremiseProviderIdsQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderIdsQuery(tristate.False, tristate.None, nil, nil)
+}
+
 func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState, providers []string, brands []string) *sqlchemy.SSubQuery {
 	return manager.GetProviderFieldQuery("id", isPublic, isOnPremise, providers, brands)
 }

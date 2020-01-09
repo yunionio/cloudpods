@@ -793,7 +793,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 			q = q.Equals("zone_id", zone.Id)
 		}
 	} else if len(regionStr) > 0 {
-		q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+		q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 		}

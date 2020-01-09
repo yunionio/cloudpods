@@ -67,8 +67,9 @@ type ServerSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
 
 	ManagedResourceListInput
-	ZonalResourceListInput
 
+	ZonalFilterListInput
+	BillingFilterListInput
 	UsableResourceListInput
 
 	// filter sku by memory size in MB
@@ -79,8 +80,8 @@ type ElasticcacheSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
 
 	UsableResourceListInput
-	BillingResourceListInput
-	ZonalResourceListInput
+	BillingFilterListInput
+	ZonalFilterListInput
 
 	// filter sku by memory size in MB
 	MemorySizeMb int `json:"memory_size_mb"`
@@ -89,5 +90,6 @@ type ElasticcacheSkuListInput struct {
 type DBInstanceSkuListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
-	RegionalResourceListInput
+	RegionalFilterListInput
+	BillingFilterListInput
 }

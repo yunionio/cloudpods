@@ -186,14 +186,14 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		}
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalResourceListInput, "", nil)
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
 	q = listItemDomainFilter(q, data)
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}

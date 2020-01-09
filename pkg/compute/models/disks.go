@@ -122,9 +122,6 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "storage_id", func() *sqlchemy.SQuery {
-		return storages.Query(storages.Field("id"))
-	})
 
 	billingTypeStr := query.BillingType
 	if len(billingTypeStr) > 0 {
@@ -165,7 +162,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
-	guestId := query.Guest
+	guestId := query.ServerStr()
 	if len(guestId) > 0 {
 		iGuest, err := GuestManager.FetchByIdOrName(userCred, guestId)
 		if err == sql.ErrNoRows {

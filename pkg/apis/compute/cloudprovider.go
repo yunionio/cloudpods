@@ -47,30 +47,30 @@ type ManagedResourceListInput struct {
 	// List objects belonging to the cloud provider
 	Cloudprovider string `json:"cloudprovider"`
 	// List objects belonging to the cloud provider
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	Manager string `json:"manager"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	ManagerId string `json:"manager_id"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudproviderId string `json:"cloudprovider_id"`
 
 	// List objects belonging to the cloud account
 	Cloudaccount string `json:"cloudaccount"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudaccountId string `json:"cloudaccount_id"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	Account string `json:"account"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	AccountId string `json:"account_id"`
@@ -84,25 +84,25 @@ type ManagedResourceListInput struct {
 	// enum: public,private,onpremise
 	CloudEnv string `json:"cloud_env"`
 
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	PublicCloud bool `json:"public_cloud"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsPublic bool `json:"is_public"`
 
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	PrivateCloud bool `json:"private_cloud"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsPrivate bool `json:"is_private"`
 
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	IsOnPremise bool `json:"is_on_premise"`
@@ -163,7 +163,7 @@ func (input ManagedResourceListInput) CloudEnvStr() string {
 type CapabilityListInput struct {
 	// filter by cloudprovider capability
 	Capability []string `json:"capability"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by HasObjectStorage
 	HasObjectStorage *bool `json:"has_object_storage"`

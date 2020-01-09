@@ -79,7 +79,7 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
+	if defsecgroup := query.SecgroupStr(); len(defsecgroup) > 0 {
 		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
 		if err != nil {
 			if err == sql.ErrNoRows {

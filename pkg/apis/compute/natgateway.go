@@ -41,8 +41,8 @@ const (
 type NatGetewayListInput struct {
 	apis.StandaloneResourceListInput
 
-	VpcResourceListInput
-	RegionalResourceListInput
+	VpcFilterListInput
+	RegionalFilterListInput
 	ManagedResourceListInput
 }
 

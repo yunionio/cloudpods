@@ -18,17 +18,17 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type VpcResourceListInput struct {
+type VpcFilterListInput struct {
 	// filter by vpc
 	// 过滤关联此Vpc的资源
 	Vpc string `json:"vpc"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
 	VpcId string `json:"vpc_id"`
 }
 
-func (input VpcResourceListInput) VpcStr() string {
+func (input VpcFilterListInput) VpcStr() string {
 	if len(input.Vpc) > 0 {
 		return input.Vpc
 	}
@@ -38,18 +38,18 @@ func (input VpcResourceListInput) VpcStr() string {
 	return ""
 }
 
-type WireResourceListInput struct {
-	VpcResourceListInput
+type WireFilterListInput struct {
+	VpcFilterListInput
 	// filter by wire
 	// 过滤连接此二层网络的资源
 	Wire string `json:"wire"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
 	WireId string `json:"wire_id"`
 }
 
-func (input WireResourceListInput) WireStr() string {
+func (input WireFilterListInput) WireStr() string {
 	if len(input.Wire) > 0 {
 		return input.Wire
 	}
@@ -59,19 +59,19 @@ func (input WireResourceListInput) WireStr() string {
 	return ""
 }
 
-type NetworkResourceListInput struct {
-	WireResourceListInput
+type NetworkFilterListInput struct {
+	WireFilterListInput
 
 	// filter by network
 	// 过滤关联此网络的资源
 	Network string `json:"network"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by networkId
 	NetworkId string `json:"network"`
 }
 
-func (input NetworkResourceListInput) NetworkStr() string {
+func (input NetworkFilterListInput) NetworkStr() string {
 	if len(input.Network) > 0 {
 		return input.Network
 	}
@@ -84,13 +84,13 @@ func (input NetworkResourceListInput) NetworkStr() string {
 type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	HostResourceListInput
+	HostFilterListInput
 
 	ManagedResourceListInput
 
 	UsableResourceListInput
 
-	VpcResourceListInput
+	WireFilterListInput
 }
 
 type NetworkCreateInput struct {

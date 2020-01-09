@@ -39,16 +39,16 @@ type SchedtagCreateInput struct {
 	ResourceType string `json:"resource_type"`
 }
 
-type SchedtagResourceListInput struct {
+type SchedtagFilterListInput struct {
 	// filter by schedtag
 	Schedtag string `json:"schedtag"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by schedtag_id
 	SchedtagId string `json:"schedtag_id"`
 }
 
-func (input SchedtagResourceListInput) SchedtagStr() string {
+func (input SchedtagFilterListInput) SchedtagStr() string {
 	if len(input.Schedtag) > 0 {
 		return input.Schedtag
 	}
@@ -63,7 +63,7 @@ type SchedtagListInput struct {
 
 	// fitler by resource_type
 	ResourceType string `json:"resource_type"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// filter by type, alias for resource_type
 	Type string `json:"type"`

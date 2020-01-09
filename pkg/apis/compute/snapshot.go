@@ -71,7 +71,7 @@ type SnapshotListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	StorageShareListInput
+	StorageShareFilterListInput
 
 	// filter snapshot that is fake deleted
 	FakeDeleted *bool `json:"fake_deleted"`
@@ -81,24 +81,8 @@ type SnapshotListInput struct {
 	IsInstanceSnapshot *bool `json:"is_instance_snapshot"`
 }
 
-
 type InstanceSnapshotListInput struct {
 	apis.VirtualResourceListInput
 
-	// filter by guest
-	Guest string `json:"guest"`
-	// swagger: ignore
-	// Deprecated
-	// filter by guest id
-	GuestId string `json:"guest_id"`
-}
-
-func (input InstanceSnapshotListInput) GuestStr() string {
-	if len(input.Guest) > 0 {
-		return input.Guest
-	}
-	if len(input.GuestId) > 0 {
-		return input.GuestId
-	}
-	return ""
+	ServerFilterListInput
 }

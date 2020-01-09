@@ -47,7 +47,7 @@ type CachedimageListInput struct {
 	apis.StandaloneResourceListInput
 
 	ManagedResourceListInput
-	ZonalResourceListInput
+	ZonalFilterListInput
 }
 
 type ExternalProjectListInput struct {
@@ -60,8 +60,8 @@ type RouteTableListInput struct {
 	apis.VirtualResourceListInput
 
 	ManagedResourceListInput
-	RegionalResourceListInput
-	VpcResourceListInput
+	RegionalFilterListInput
+	VpcFilterListInput
 }
 
 type SnapshotPolicyCacheListInput struct {
@@ -71,7 +71,7 @@ type SnapshotPolicyCacheListInput struct {
 	Snapshotpolicy string `json:"snapshotpolicy"`
 }
 
-type BillingResourceListInput struct {
+type BillingFilterListInput struct {
 	// filter by billing_type
 	BillingType string `json:"billing_type"`
 }
@@ -80,4 +80,16 @@ type NetworkInterfaceListInput struct {
 	apis.StatusStandaloneResourceListInput
 
 	ManagedResourceListInput
+}
+
+type BaremetalagentListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type DnsRecordListInput struct {
+	apis.AdminSharableVirtualResourceListInput
+}
+
+type DynamicschedtagListInput struct {
+	apis.StandaloneResourceListInput
 }

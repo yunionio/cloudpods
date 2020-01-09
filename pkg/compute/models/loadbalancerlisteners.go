@@ -204,7 +204,7 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q, err = managedResourceFilterByRegion(q, query.RegionalResourceListInput, "", nil)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}

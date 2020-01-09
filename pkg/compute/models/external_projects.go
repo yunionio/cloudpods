@@ -282,7 +282,6 @@ func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *s
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query.ManagedResourceListInput, "", nil)
 
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

@@ -42,6 +42,11 @@ type UsableResourceListInput struct {
 	Usable *bool `json:"usable"`
 }
 
+type UsableVpcResourceListInput struct {
+	// filter by Vpc usability of the resource
+	UsableVpc *bool `json:"usable_vpc"`
+}
+
 type VpcListInput struct {
 	apis.StatusStandaloneResourceListInput
 	apis.DomainizedResourceListInput
@@ -58,8 +63,8 @@ type WireListInput struct {
 	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput
-	VpcResourceListInput
-	HostResourceListInput
+	VpcFilterListInput
+	HostFilterListInput
 }
 
 type GlobalVpcListInput struct {

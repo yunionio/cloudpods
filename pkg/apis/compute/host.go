@@ -49,11 +49,11 @@ type HostListInput struct {
 	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput
-	ZonalResourceListInput
-	WireResourceListInput
-	SchedtagResourceListInput
+	ZonalFilterListInput
+	WireFilterListInput
+	SchedtagFilterListInput
 
-	StorageResourceListInput
+	StorageFilterListInput
 	UsableResourceListInput
 
 	// filter by ResourceType

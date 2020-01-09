@@ -33,3 +33,7 @@ type SharableVirtualResourceListInput struct {
 	// possible value is system, domain, project
 	PublicScope string `json:"public_scope"`
 }
+
+type AdminSharableVirtualResourceListInput struct {
+	SharableVirtualResourceListInput
+}

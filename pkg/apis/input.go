@@ -15,19 +15,23 @@
 package apis
 
 type DomainizedResourceListInput struct {
+	// swagger:ignore
 	// Is an admin call? equivalent to scope=system
 	// Deprecated
 	Admin *bool `json:"admin"`
+
 	// Specify query scope, either project, domain or system
+	// 指定查询的权限范围，可能值为project, domain or system
 	Scope string `json:"scope"`
 
 	// Project domain filter, either by Id or Name
+	// 指定查询的项目，ID or Name
 	ProjectDomain string `json:"project_domain"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
 	ProjectDomainId string `json:"project_domain_id"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Domain Id filter, alias for project_domain
 	DomainId string `json:"domain_id"`
@@ -61,15 +65,15 @@ type ProjectizedResourceListInput struct {
 
 	// Filter by project, either ID or Name
 	Project string `json:"project"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Filter by project_id, alias for project
 	ProjectId string `json:"project_id"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Filter by tenant ID or Name, alias for project
 	Tenant string `json:"tenant"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Filter by tenant_id, alias for project
 	TenantId string `json:"tenant_id"`
@@ -106,7 +110,7 @@ type ProjectizedResourceCreateInput struct {
 type UserResourceListInput struct {
 	// User ID or Name
 	User string `json:"user"`
-	// swagger: ignore
+	// swagger:ignore
 	// Deprecated
 	// Filter by userId
 	UserId string `json:"user_id"`
