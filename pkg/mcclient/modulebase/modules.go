@@ -249,6 +249,11 @@ func _getModule(session *mcclient.ClientSession, name string) (BaseManagerInterf
 	if !ok {
 		return nil, fmt.Errorf("No such module %s for version %s", name, session.GetApiVersion())
 	}
+
+	if len(mods) == 1 {
+		return mods[0], nil
+	}
+
 	for _, mod := range mods {
 		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
 		if e != nil {
