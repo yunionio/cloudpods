@@ -325,6 +325,7 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		propJson.Add(jsonutils.NewString(v), k)
 	}
 	extra.Add(propJson, "properties")
+	extra.Set("disable_delete", jsonutils.NewBool(self.Protected.Bool()))
 	return extra
 }
 
