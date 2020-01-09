@@ -50,7 +50,8 @@ func (self *SHuaweiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, 
 	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_HUAWEI
-	// ignore brand
+	keys.Brand = api.CLOUD_PROVIDER_HUAWEI
+	keys.Hypervisor = api.HYPERVISOR_HUAWEI
 	return keys
 }
 
