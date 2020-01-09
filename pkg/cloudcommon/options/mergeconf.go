@@ -82,9 +82,12 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 		serviceConf, err := getServiceConfig(s.session, s.serviceId)
 		if err != nil {
 			log.Errorf("getServiceConfig for %s failed: %s", serviceType, err)
-		} else {
+		} else if serviceConf != nil {
 			s.config.Update(serviceConf)
 			merged = true
+		} else {
+			// not initialized
+			s.Upload()
 		}
 	}
 	commonServiceId, _ := getServiceIdByType(s.session, consts.COMMON_SERVICE, "")
@@ -92,9 +95,11 @@ func (s *mcclientServiceConfigSession) Merge(opts interface{}, serviceType strin
 		commonConf, err := getServiceConfig(s.session, commonServiceId)
 		if err != nil {
 			log.Errorf("getServiceConfig for %s failed: %s", consts.COMMON_SERVICE, err)
-		} else {
+		} else if commonConf != nil {
 			s.config.Update(commonConf)
 			merged = true
+		} else {
+			// common not initialized
 		}
 	}
 	if merged {
