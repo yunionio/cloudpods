@@ -12,8 +12,8 @@ type SRouteTable struct {
 	RouteTableID    string        `json:"RouteTableId"`
 	Routes          []SRoute      `json:"Routes"`
 	Tags            map[string]string
-	VpcID           string        `json:"VpcId"`
-	OwnerID         string        `json:"OwnerId"`
+	VpcID           string `json:"VpcId"`
+	OwnerID         string `json:"OwnerId"`
 }
 
 type Association struct {
@@ -70,4 +70,3 @@ func (self *SRouteTable) GetType() string {
 func (self *SRouteTable) GetIRoutes() ([]cloudprovider.ICloudRoute, error) {
 	panic("implement me")
 }
-
