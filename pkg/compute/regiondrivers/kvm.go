@@ -281,7 +281,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
-	domainV := validators.NewDomainNameValidator("domain")
+	domainV := validators.NewHostPortValidator("domain").OptionalPort(true)
 	pathV := validators.NewURLPathValidator("path")
 	keyV := map[string]validators.IValidator{
 		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
@@ -321,7 +321,12 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 
 func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	lbr := ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
+	domainV := validators.NewHostPortValidator("domain").OptionalPort(true)
+	pathV := validators.NewURLPathValidator("path")
 	keyV := map[string]validators.IValidator{
+		"domain": domainV.AllowEmpty(true).Default(lbr.Domain),
+		"path":   pathV.Default(lbr.Path),
+
 		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
 	}
