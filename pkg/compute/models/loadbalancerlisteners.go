@@ -355,7 +355,10 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lblis.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	lblis.StartLoadBalancerListenerSyncTask(ctx, userCred, data, "")
+
+	if account := lblis.GetCloudaccount(); account != nil && account.IsPublicCloud.IsTrue() {
+		lblis.StartLoadBalancerListenerSyncTask(ctx, userCred, data, "")
+	}
 }
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, parentTaskId string) error {
