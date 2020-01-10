@@ -803,7 +803,7 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20200110114224-cf1b538ba071
+# yunion.io/x/jsonutils v0.0.0-20200110113153-490130d977cf
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
