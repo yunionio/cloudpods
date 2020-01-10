@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -30,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
+
+const ErrStorageInUse = errors.Error("StorageInUse")
 
 type SHoststorageManager struct {
 	SHostJointsManager
@@ -257,7 +260,7 @@ func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("guest on the host are using disks on this storage")
+		return errors.Wrap(ErrStorageInUse, "guest on the host are using disks on this storage")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)
 }
