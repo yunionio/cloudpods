@@ -20,6 +20,9 @@ type LoadbalancerListenerRuleCreateOptions struct {
 	BackendGroup string
 	Domain       string
 	Path         string
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerRuleListOptions struct {
@@ -36,6 +39,9 @@ type LoadbalancerListenerRuleUpdateOptions struct {
 	Name string
 
 	BackendGroup string
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerRuleGetOptions struct {
