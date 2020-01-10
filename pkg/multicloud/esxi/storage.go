@@ -766,7 +766,7 @@ func (self *SDatastore) domainName(name string) string {
 
 // ImportVMDK will upload local vmdk 'diskFile' to the 'remotePath' of remote datastore
 func (self *SDatastore) ImportVMDK(ctx context.Context, diskFile, remotePath string, host *SHost) error {
-	name := fmt.Sprintf("yunioncloud.%s%d", self.domainName(remotePath), rand.Int())
+	name := fmt.Sprintf("yunioncloud.%s%d", self.domainName(remotePath)[:20], rand.Int())
 	vm, err := self.ImportVM(ctx, diskFile, name, host)
 	if err != nil {
 		return errors.Wrap(err, "SDatastore.ImportVM")
