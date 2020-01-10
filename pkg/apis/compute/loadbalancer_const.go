@@ -276,6 +276,38 @@ var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
 )
 
 const (
+	LB_REDIRECT_OFF = "off"
+	LB_REDIRECT_RAW = "raw"
+)
+
+var LB_REDIRECT_TYPES = choices.NewChoices(
+	LB_REDIRECT_OFF,
+	LB_REDIRECT_RAW,
+)
+
+const (
+	LB_REDIRECT_CODE_301 = int64(301) // Moved Permanently
+	LB_REDIRECT_CODE_302 = int64(302) // Found
+	LB_REDIRECT_CODE_307 = int64(307) // Temporary Redirect
+)
+
+var LB_REDIRECT_CODES = []int64{
+	LB_REDIRECT_CODE_301,
+	LB_REDIRECT_CODE_302,
+	LB_REDIRECT_CODE_307,
+}
+
+const (
+	LB_REDIRECT_SCHEME_HTTP  = "http"
+	LB_REDIRECT_SCHEME_HTTPS = "https"
+)
+
+var LB_REDIRECT_SCHEMES = choices.NewChoices(
+	LB_REDIRECT_SCHEME_HTTP,
+	LB_REDIRECT_SCHEME_HTTPS,
+)
+
+const (
 	LB_BOOL_ON  = "on"
 	LB_BOOL_OFF = "off"
 )
