@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -1747,4 +1748,42 @@ func guessBrandForHypervisor(hypervisor string) string {
 		return ""
 	}
 	return brands[0]
+}
+
+func (account *SCloudaccount) AllowPerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "sync-skus")
+}
+
+func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !account.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Account disabled")
+	}
+
+	dataDict := data.(*jsonutils.JSONDict)
+	resourceV := validators.NewStringChoicesValidator("resource", choices.NewChoices(ServerSkuManager.Keyword(), ElasticcacheSkuManager.Keyword(), DBInstanceSkuManager.Keyword()))
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", account.GetOwnerId())
+	providerV := validators.NewModelIdOrNameValidator("cloudprovider", "cloudprovider", account.GetOwnerId())
+	keyV := map[string]validators.IValidator{
+		"resource":      resourceV,
+		"cloudregion":   regionV.Optional(true),
+		"cloudprovider": providerV.Optional(true),
+	}
+
+	for _, v := range keyV {
+		if err := v.Validate(dataDict); err != nil {
+			return nil, err
+		}
+	}
+
+	force, _ := data.Bool("force")
+	if account.CanSync() || force {
+		task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncSkusTask", account, userCred, dataDict, "", "", nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "CloudAccountSyncSkusTask")
+		}
+
+		task.ScheduleRun(nil)
+	}
+
+	return nil, nil
 }
