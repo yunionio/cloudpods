@@ -155,7 +155,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if query.Usb != nil && *query.Usb {
 		q = q.Equals("dev_type", "USB")
 	}
-	hostStr := query.HostStr()
+	hostStr := query.Host
 	var sq *sqlchemy.SSubQuery
 	if len(hostStr) > 0 {
 		hosts := HostManager.Query().SubQuery()

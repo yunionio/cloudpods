@@ -87,17 +87,7 @@ type SnapshotPolicyFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter disk by snapshotpolicy_id
-	SnapshotpolicyId string `json:"snapshotpolicy_id"`
-}
-
-func (input SnapshotPolicyFilterListInput) SnapshotpolicyStr() string {
-	if len(input.Snapshotpolicy) > 0 {
-		return input.Snapshotpolicy
-	}
-	if len(input.SnapshotpolicyId) > 0 {
-		return input.SnapshotpolicyId
-	}
-	return ""
+	SnapshotpolicyId string `json:"snapshotpolicy_id" deprecated-by:"snapshotpolicy"`
 }
 
 type DiskListInput struct {
@@ -117,36 +107,24 @@ type DiskListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by disk type
-	Type string `json:"type"`
-	// filter by disk type
+	Type string `json:"type" deprecated-by:"disk_type"`
+	// 过滤指定disk_type的磁盘列表，可能的值为：sys, data, swap. volume
+	//
+	// | disk_type值 | 说明 |
+	// |-------------|----------|
+	// | sys         | 虚拟机系统盘    |
+	// | data        | 虚拟机数据盘    |
+	// | swap        | 虚拟机内存交换盘 |
+	// | volume      | 容器volumn盘   |
+	//
 	DiskType string `json:"disk_type"`
 }
 
-func (input DiskListInput) DiskTypeStr() string {
-	if len(input.DiskType) > 0 {
-		return input.DiskType
-	}
-	if len(input.Type) > 0 {
-		return input.Type
-	}
-	return ""
-}
-
 type DiskFilterListInput struct {
-	// filter by disk, id or name
+	// 以指定虚拟磁盘（ID或Name）过滤列表结果
 	Disk string `json:"disk"`
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
-	DiskId string `json:"disk_id"`
-}
-
-func (input DiskFilterListInput) DiskStr() string {
-	if len(input.Disk) > 0 {
-		return input.Disk
-	}
-	if len(input.DiskId) > 0 {
-		return input.DiskId
-	}
-	return ""
+	DiskId string `json:"disk_id" deprecated-by:"disk"`
 }

@@ -133,7 +133,7 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 }
 
 func (manager *SSchedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SchedtagListInput) (*sqlchemy.SQuery, error) {
-	if resType := query.ResourceTypeStr(); resType != "" {
+	if resType := query.ResourceType; resType != "" {
 		q = q.Equals("resource_type", resType)
 	}
 	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)

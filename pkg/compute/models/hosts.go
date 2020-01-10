@@ -217,7 +217,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	// var scopeQuery *sqlchemy.SSubQuery
 
-	schedTagStr := query.SchedtagStr()
+	schedTagStr := query.Schedtag
 	if len(schedTagStr) > 0 {
 		schedTag, _ := SchedtagManager.FetchByIdOrName(nil, schedTagStr)
 		if schedTag == nil {
@@ -228,7 +228,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", scopeQuery)
 	}
 
-	wireStr := query.WireStr()
+	wireStr := query.Wire
 	if len(wireStr) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireStr)
 		if wire == nil {
@@ -239,7 +239,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", scopeQuery)
 	}
 
-	storageStr := query.StorageStr()
+	storageStr := query.Storage
 	if len(storageStr) > 0 {
 		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
 		if storage == nil {

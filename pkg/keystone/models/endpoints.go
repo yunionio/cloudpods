@@ -341,7 +341,7 @@ func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	svcStr := query.ServiceStr()
+	svcStr := query.Service
 	if len(svcStr) > 0 {
 		svcObj, err := ServiceManager.FetchByIdOrName(userCred, svcStr)
 		if err != nil {

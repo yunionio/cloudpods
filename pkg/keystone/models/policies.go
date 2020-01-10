@@ -19,6 +19,8 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -202,4 +204,36 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInvalidStatusError("cannot delete enabled policy")
 	}
 	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
+
+func (manager *SPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ListItemFilter")
+	}
+	if query.IsPublic != nil {
+		if *query.IsPublic {
+			q = q.IsTrue("is_public")
+		} else {
+			q = q.IsFalse("is_public")
+		}
+	}
+	return q, nil
+}
+
+func (policy *SPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := policy.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
+	return policyExtra(policy, extra)
+}
+
+func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return policyExtra(policy, extra), nil
+}
+
+func policyExtra(policy *SPolicy, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	return extra
 }

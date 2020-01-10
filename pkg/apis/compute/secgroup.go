@@ -148,29 +148,19 @@ type SecurityGroupRuleListInput struct {
 	apis.ResourceBaseListInput
 	SecgroupFilterListInput
 
-	// filter by direction
+	// 以direction字段过滤安全组规则
 	Direction string `json:"direction"`
-	// filter by action
+	// 以action字段过滤安全组规则
 	Action string `json:"action"`
-	// filter by protocol
+	// 以protocol字段过滤安全组规则
 	Protocol string `json:"protocol"`
 }
 
 type SecgroupFilterListInput struct {
-	// filter by Security group
+	// 过滤关联指定安全组（ID或Name）的列表结果
 	Secgroup string `json:"secgroup"`
 	// swagger:ignore
 	// Deprecated
 	// filter by secgroup_id
-	SecgroupId string `json:"secgroup_id"`
-}
-
-func (input SecgroupFilterListInput) SecgroupStr() string {
-	if len(input.Secgroup) > 0 {
-		return input.Secgroup
-	}
-	if len(input.SecgroupId) > 0 {
-		return input.SecgroupId
-	}
-	return ""
+	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
 }

@@ -44,43 +44,52 @@ type CloudproviderDetails struct {
 }
 
 type ManagedResourceListInput struct {
-	// List objects belonging to the cloud provider
+	// 列出关联指定云订阅(ID或Name)的资源
 	Cloudprovider string `json:"cloudprovider"`
 	// List objects belonging to the cloud provider
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Manager string `json:"manager"`
+	Manager string `json:"manager" deprecated-by:"cloudprovider"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	ManagerId string `json:"manager_id"`
+	ManagerId string `json:"manager_id" deprecated-by:"cloudprovider"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudproviderId string `json:"cloudprovider_id"`
+	CloudproviderId string `json:"cloudprovider_id" deprecated-by:"cloudprovider"`
 
-	// List objects belonging to the cloud account
+	// 列出关联指定云账号(ID或Name)的资源
 	Cloudaccount string `json:"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudaccountId string `json:"cloudaccount_id"`
+	CloudaccountId string `json:"cloudaccount_id" deprecated-by:"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Account string `json:"account"`
+	Account string `json:"account" deprecated-by:"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	AccountId string `json:"account_id"`
+	AccountId string `json:"account_id" deprecated-by:"cloudaccount"`
 
-	// List objects from the providers, choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|OpenStack|Ucloud|ZStack|Google"
+	// 列出指定云平台的资源，支持的云平台如下
+	// enum: OneCloud,VMware,Aliyun,Qcloud,Azure,Aws,Huawei,OpenStack,Ucloud,ZStack,Google,Ctyun,S3,Ceph,Xsky"
 	Providers []string `json:"provider"`
 
-	// List objects belonging to brands
+	// 列出指定云平台品牌的资源
 	Brands []string `json:"brand"`
 
+	// 列出指定云环境的资源，支持云环境如下：
+	//
+	// | CloudEnv  | 说明   |
+	// |-----------|--------|
+	// | public    | 公有云  |
+	// | private   | 私有云  |
+	// | onpremise | 本地IDC |
+	//
 	// enum: public,private,onpremise
 	CloudEnv string `json:"cloud_env"`
 
@@ -107,61 +116,26 @@ type ManagedResourceListInput struct {
 	// description: this param will be deprecate at 3.0
 	IsOnPremise bool `json:"is_on_premise"`
 
-	// List objects managed by external providers
+	// 过滤资源，是否为非OneCloud内置私有云管理的资源
 	// default: false
 	IsManaged bool `json:"is_managed"`
 }
 
-func (input ManagedResourceListInput) CloudaccountStr() string {
-	if len(input.Cloudaccount) > 0 {
-		return input.Cloudaccount
-	}
-	if len(input.CloudaccountId) > 0 {
-		return input.CloudaccountId
-	}
-	if len(input.Account) > 0 {
-		return input.Account
-	}
-	if len(input.AccountId) > 0 {
-		return input.AccountId
-	}
-	return ""
-}
-
-func (input ManagedResourceListInput) CloudproviderStr() string {
-	if len(input.Cloudprovider) > 0 {
-		return input.Cloudprovider
-	}
-	if len(input.CloudproviderId) > 0 {
-		return input.CloudproviderId
-	}
-	if len(input.Manager) > 0 {
-		return input.Manager
-	}
-	if len(input.ManagerId) > 0 {
-		return input.ManagerId
-	}
-	return ""
-}
-
-func (input ManagedResourceListInput) CloudEnvStr() string {
+func (input *ManagedResourceListInput) AfterUnmarshal() {
 	if len(input.CloudEnv) > 0 {
-		return input.CloudEnv
+		return
 	}
 	if input.PublicCloud || input.IsPublic {
-		return CLOUD_ENV_PUBLIC_CLOUD
+		input.CloudEnv = CLOUD_ENV_PUBLIC_CLOUD
+	} else if input.PrivateCloud || input.IsPrivate {
+		input.CloudEnv = CLOUD_ENV_PRIVATE_CLOUD
+	} else if input.IsOnPremise {
+		input.CloudEnv = CLOUD_ENV_ON_PREMISE
 	}
-	if input.PrivateCloud || input.IsPrivate {
-		return CLOUD_ENV_PRIVATE_CLOUD
-	}
-	if input.IsOnPremise {
-		return CLOUD_ENV_ON_PREMISE
-	}
-	return ""
 }
 
 type CapabilityListInput struct {
-	// filter by cloudprovider capability
+	// 根据该云平台的功能对云账号或云订阅进行过滤
 	Capability []string `json:"capability"`
 	// swagger:ignore
 	// Deprecated
@@ -179,9 +153,8 @@ type CloudproviderListInput struct {
 	CapabilityListInput
 }
 
-func (input CapabilityListInput) CapabilityList() []string {
+func (input *CapabilityListInput) AfterUnmarshal() {
 	if input.HasObjectStorage != nil && *input.HasObjectStorage && !utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE, input.Capability) {
 		input.Capability = append(input.Capability, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	}
-	return input.Capability
 }

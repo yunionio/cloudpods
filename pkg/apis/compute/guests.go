@@ -24,31 +24,15 @@ type ServerFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	ServerId string `json:"server_id"`
+	ServerId string `json:"server_id" deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	Guest string `json:"guest"`
+	Guest string `json:"guest" deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	GuestId string `json:"guest_id"`
-}
-
-func (input ServerFilterListInput) ServerStr() string {
-	if len(input.Server) > 0 {
-		return input.Server
-	}
-	if len(input.ServerId) > 0 {
-		return input.ServerId
-	}
-	if len(input.Guest) > 0 {
-		return input.Guest
-	}
-	if len(input.GuestId) > 0 {
-		return input.GuestId
-	}
-	return ""
+	GuestId string `json:"guest_id" deprecated-by:"server"`
 }
 
 type ServerListInput struct {
@@ -91,15 +75,10 @@ type ServerListInput struct {
 	GetBackupGuestsOnHost *bool `json:"get_backup_guests_on_host"`
 }
 
-func (input ServerListInput) HypervisorList() []string {
-	ret := make([]string, 0)
+func (input *ServerListInput) AfterUnmarshal() {
 	if input.Baremetal != nil && *input.Baremetal {
-		ret = append(ret, HYPERVISOR_BAREMETAL)
+		input.Hypervisor = append(input.Hypervisor, HYPERVISOR_BAREMETAL)
 	}
-	if len(input.Hypervisor) > 0 {
-		ret = append(ret, input.Hypervisor...)
-	}
-	return ret
 }
 
 type ServerRebuildRootInput struct {

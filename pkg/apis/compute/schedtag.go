@@ -40,22 +40,12 @@ type SchedtagCreateInput struct {
 }
 
 type SchedtagFilterListInput struct {
-	// filter by schedtag
+	// 以关联的调度标签（ID或Name）过滤列表
 	Schedtag string `json:"schedtag"`
 	// swagger:ignore
 	// Deprecated
 	// filter by schedtag_id
-	SchedtagId string `json:"schedtag_id"`
-}
-
-func (input SchedtagFilterListInput) SchedtagStr() string {
-	if len(input.Schedtag) > 0 {
-		return input.Schedtag
-	}
-	if len(input.SchedtagId) > 0 {
-		return input.SchedtagId
-	}
-	return ""
+	SchedtagId string `json:"schedtag_id" deprecated-by:"schedtag"`
 }
 
 type SchedtagListInput struct {
@@ -66,15 +56,5 @@ type SchedtagListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by type, alias for resource_type
-	Type string `json:"type"`
-}
-
-func (input SchedtagListInput) ResourceTypeStr() string {
-	if len(input.ResourceType) > 0 {
-		return input.ResourceType
-	}
-	if len(input.Type) > 0 {
-		return input.Type
-	}
-	return ""
+	Type string `json:"type" deprecated-by:"resource_type"`
 }

@@ -162,7 +162,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
-	guestId := query.ServerStr()
+	guestId := query.Server
 	if len(guestId) > 0 {
 		iGuest, err := GuestManager.FetchByIdOrName(userCred, guestId)
 		if err == sql.ErrNoRows {
@@ -178,7 +178,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 	}
 
-	storageStr := query.StorageStr()
+	storageStr := query.Storage
 	if len(storageStr) > 0 {
 		storageObj, err := StorageManager.FetchByIdOrName(userCred, storageStr)
 		if err != nil {
@@ -187,12 +187,12 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.Equals(q.Field("storage_id"), storageObj.GetId()))
 	}
 
-	if diskType := query.DiskTypeStr(); diskType != "" {
+	if diskType := query.DiskType; diskType != "" {
 		q = q.Filter(sqlchemy.Equals(q.Field("disk_type"), diskType))
 	}
 
 	// for snapshotpolicy_id
-	snapshotpolicyStr := query.SnapshotpolicyStr()
+	snapshotpolicyStr := query.Snapshotpolicy
 	if len(snapshotpolicyStr) > 0 {
 		snapshotpolicyObj, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyStr)
 		if err != nil {

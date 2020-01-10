@@ -160,7 +160,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	hypervisorList := query.HypervisorList()
+
+	hypervisorList := query.Hypervisor
 	if len(hypervisorList) > 0 {
 		q = q.In("hypervisor", hypervisorList)
 	}
@@ -184,7 +185,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", subq.SubQuery())
 	}
 
-	hostFilter := query.HostStr()
+	hostFilter := query.Host
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
 		if host == nil {
@@ -198,7 +199,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	secgrpFilter := query.SecgroupStr()
+	secgrpFilter := query.Secgroup
 	if len(secgrpFilter) > 0 {
 		var notIn = false
 		// HACK FOR NOT IN SECGROUP
@@ -284,20 +285,26 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	zoneFilter := query.ZoneStr()
-	if len(zoneFilter) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneFilter)
-		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError("zone %s not found", zoneFilter)
-		}
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
 		hostTable := HostManager.Query().SubQuery()
 		zoneTable := ZoneManager.Query().SubQuery()
-		sq := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
-			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
-		q = q.In("host_id", sq)
+		sq := hostTable.Query(hostTable.Field("id"))
+		sq = sq.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id")))
+		return sq
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	wireFilter := query.WireStr()
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "host_id", func() *sqlchemy.SQuery {
+		hostTable := HostManager.Query().SubQuery()
+		return hostTable.Query(hostTable.Field("id"))
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
+
+	wireFilter := query.Wire
 	if len(wireFilter) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireFilter)
 		if wire == nil {
@@ -309,7 +316,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	networkFilter := query.NetworkStr()
+	networkFilter := query.Network
 	if len(networkFilter) > 0 {
 		netI, _ := NetworkManager.FetchByIdOrName(userCred, networkFilter)
 		if netI == nil {
@@ -323,7 +330,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	vpcFilter := query.VpcStr()
+	vpcFilter := query.Vpc
 	if len(vpcFilter) > 0 {
 		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
 		if err != nil {
@@ -340,7 +347,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", sq)
 	}
 
-	diskFilter := query.DiskStr()
+	diskFilter := query.Disk
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {
@@ -365,24 +372,6 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
-	}
-
-	regionFilter := query.CloudregionStr()
-	if len(regionFilter) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		hosts := HostManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id"))
-		sq = sq.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
-		sq = sq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId()))
-		q = q.In("host_id", sq)
 	}
 
 	withEip := (query.WithEip != nil && *query.WithEip)
@@ -412,7 +401,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Filter(cond(q.Field("id"), sgq))
 	}
 
-	groupFilter := query.GroupStr()
+	groupFilter := query.Group
 	if len(groupFilter) != 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupFilter)
 		if err != nil {

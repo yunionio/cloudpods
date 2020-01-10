@@ -191,7 +191,7 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
 		))
 	}
-	network := query.NetworkStr()
+	network := query.Network
 	if len(network) > 0 {
 		netObj, _ := NetworkManager.FetchByIdOrName(userCred, network)
 		if netObj == nil {

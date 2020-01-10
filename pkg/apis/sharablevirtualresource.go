@@ -24,13 +24,15 @@ type SharableVirtualResourceDetails struct {
 	VirtualResourceDetails
 }
 
+type SharableResourceListInput struct {
+	// 根据资源是否共享过滤列表
+	IsPublic *bool `json:"is_public"`
+}
+
 type SharableVirtualResourceListInput struct {
 	VirtualResourceListInput
 
-	// filter by is_public status
-	IsPublic *bool `json:"is_public"`
-	// filter by public_scope
-	// possible value is system, domain, project
+	// 根据资源的共享范围过滤列表，可能值为：system, domain, project
 	PublicScope string `json:"public_scope"`
 }
 

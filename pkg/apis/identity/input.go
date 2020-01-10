@@ -43,36 +43,20 @@ type EnabledIdentityBaseResourceListInput struct {
 }
 
 type ProjectFilterListInput struct {
-	// filter by project
+	// 以项目（ID或Name）过滤列表结果
 	Project string `json:"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by project_id
-	ProjectId string `json:"project_id"`
+	ProjectId string `json:"project_id" deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant
-	Tenant string `json:"tenant"`
+	Tenant string `json:"tenant" deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant_id
-	TenantId string `json:"tenant_id"`
-}
-
-func (input ProjectFilterListInput) ProjectStr() string {
-	if len(input.Project) > 0 {
-		return input.Project
-	}
-	if len(input.ProjectId) > 0 {
-		return input.ProjectId
-	}
-	if len(input.Tenant) > 0 {
-		return input.Tenant
-	}
-	if len(input.TenantId) > 0 {
-		return input.TenantId
-	}
-	return ""
+	TenantId string `json:"tenant_id" deprecated-by:"project"`
 }
 
 type UserFilterListInput struct {
@@ -81,17 +65,7 @@ type UserFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by user_id
-	UserId string `json:"user_id"`
-}
-
-func (input UserFilterListInput) UserStr() string {
-	if len(input.User) > 0 {
-		return input.User
-	}
-	if len(input.UserId) > 0 {
-		return input.UserId
-	}
-	return ""
+	UserId string `json:"user_id" deprecated-by:"user"`
 }
 
 type GroupFilterListInput struct {
@@ -100,17 +74,7 @@ type GroupFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by group_id
-	GroupId string `json:"group_id"`
-}
-
-func (input GroupFilterListInput) GroupStr() string {
-	if len(input.Group) > 0 {
-		return input.Group
-	}
-	if len(input.GroupId) > 0 {
-		return input.GroupId
-	}
-	return ""
+	GroupId string `json:"group_id" deprecated-by:"group"`
 }
 
 type RoleFilterListInput struct {
@@ -119,17 +83,7 @@ type RoleFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by role_id
-	RoleId string `json:"role_id"`
-}
-
-func (input RoleFilterListInput) RoleStr() string {
-	if len(input.Role) > 0 {
-		return input.Role
-	}
-	if len(input.RoleId) > 0 {
-		return input.RoleId
-	}
-	return ""
+	RoleId string `json:"role_id" deprecated-by:"role"`
 }
 
 type ServiceFilterListInput struct {
@@ -138,17 +92,7 @@ type ServiceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by service_id
-	ServiceId string `json:"service_id"`
-}
-
-func (input ServiceFilterListInput) ServiceStr() string {
-	if len(input.Service) > 0 {
-		return input.Service
-	}
-	if len(input.ServiceId) > 0 {
-		return input.ServiceId
-	}
-	return ""
+	ServiceId string `json:"service_id" deprecated-by:"service"`
 }
 
 type RoleListInput struct {
@@ -280,4 +224,25 @@ func (input SProjectRemoveUserGroupInput) Validate() error {
 		}
 	}
 	return nil
+}
+
+type IdentityProviderListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+}
+
+type CredentialListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type PolicyListInput struct {
+	EnabledIdentityBaseResourceListInput
+	apis.SharableResourceListInput
+}
+
+type RegionListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type ServiceListInput struct {
+	apis.StandaloneResourceListInput
 }

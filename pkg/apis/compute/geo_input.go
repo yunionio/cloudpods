@@ -19,66 +19,40 @@ import (
 )
 
 type RegionalFilterListInput struct {
-	// filter by city
+	// 过滤位于指定城市区域的资源
 	City string `json:"city"`
 
-	// filter by cloudregion
+	// 过滤处于指定区域内的资源
 	Cloudregion string `json:"cloudregion"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudregionId string `json:"cloudregion_id"`
+	CloudregionId string `json:"cloudregion_id" deprecated-by:"cloudregion"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Region string `json:"region"`
+	Region string `json:"region" deprecated-by:"cloudregion"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	RegionId string `json:"region_id"`
-}
-
-func (input RegionalFilterListInput) CloudregionStr() string {
-	if len(input.Cloudregion) > 0 {
-		return input.Cloudregion
-	}
-	if len(input.CloudregionId) > 0 {
-		return input.CloudregionId
-	}
-	if len(input.Region) > 0 {
-		return input.Region
-	}
-	if len(input.RegionId) > 0 {
-		return input.RegionId
-	}
-	return ""
+	RegionId string `json:"region_id" deprecated-by:"cloudregion"`
 }
 
 type ZonalFilterListInput struct {
 	RegionalFilterListInput
 
-	// filter by zone
+	// 过滤处于指定可用区内的资源
 	Zone string `json:"zone"`
 	// swagger:ignore
 	// Deprecated
 	// filter by zone_id
-	ZoneId string `json:"zone_id"`
-	// filter by an array of zone
+	ZoneId string `json:"zone_id" deprecated-by:"zone"`
+	// 过滤处于多个指定可用区内的资源
 	Zones []string `json:"zones"`
 }
 
-func (input ZonalFilterListInput) ZoneStr() string {
-	if len(input.Zone) > 0 {
-		return input.Zone
-	}
-	if len(input.ZoneId) > 0 {
-		return input.ZoneId
-	}
-	return ""
-}
-
 func (input ZonalFilterListInput) ZoneList() []string {
-	zoneStr := input.ZoneStr()
+	zoneStr := input.Zone
 	if len(zoneStr) > 0 {
 		input.Zones = append(input.Zones, zoneStr)
 	}
@@ -88,22 +62,12 @@ func (input ZonalFilterListInput) ZoneList() []string {
 type HostFilterListInput struct {
 	ZonalFilterListInput
 
-	// filter by host
+	// 过滤关联指定宿主机（ID或Name）的列表结果
 	Host string `json:"host"`
 	// swagger:ignore
 	// Deprecated
 	// filter by host_id
-	HostId string `json:"host_id"`
-}
-
-func (input HostFilterListInput) HostStr() string {
-	if len(input.Host) > 0 {
-		return input.Host
-	}
-	if len(input.HostId) > 0 {
-		return input.HostId
-	}
-	return ""
+	HostId string `json:"host_id" deprecated-by:"host"`
 }
 
 type CloudregionListInput struct {
@@ -114,9 +78,9 @@ type CloudregionListInput struct {
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
-	// filter by city
+	// 过滤位于指定城市的区域
 	City string `json:"city"`
-	// filter by service???
+	// 过滤提供特定服务的区域
 	Service string `json:"service"`
 }
 
@@ -131,6 +95,6 @@ type ZoneListInput struct {
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
-	// filter by service
+	// 过滤提供特定服务的可用区
 	Service string `json:"service"`
 }

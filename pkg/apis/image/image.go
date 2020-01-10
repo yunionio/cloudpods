@@ -21,8 +21,12 @@ import (
 type ImageListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	// filter by disk_formats
+	// 以镜像的格式过滤，可能值为：qcow2, iso, vmdk, vhd, raw等
 	DiskFormats []string `json:"disk_formats"`
-	// filter by uefi
+	// 列出是否支持UEFI启动的镜像
 	Uefi *bool `json:"uefi"`
+}
+
+type GuestImageListInput struct {
+	apis.SharableVirtualResourceListInput
 }

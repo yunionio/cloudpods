@@ -18,11 +18,14 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/errors"
 )
 
 type SRegionManager struct {
@@ -145,4 +148,12 @@ func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	idStr, _ := data.GetString("id")
 	region.Id = idStr
 	return nil
+}
+
+func (manager *SRegionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RegionListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }
