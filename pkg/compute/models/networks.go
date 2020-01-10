@@ -1800,7 +1800,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("wire_id", sq.SubQuery())
 	}
 
-	vpcStr := input.VpcStr()
+	vpcStr := input.Vpc
 	if len(vpcStr) > 0 {
 		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
@@ -1848,7 +1848,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("wire_id", sq.SubQuery()).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
-	hostStr := input.HostStr()
+	hostStr := input.Host
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {

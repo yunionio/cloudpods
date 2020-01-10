@@ -852,7 +852,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	vpcStr := query.VpcStr()
+	vpcStr := query.Vpc
 	if len(vpcStr) > 0 {
 		vpc, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
@@ -877,7 +877,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
-	hostStr := query.HostStr()
+	hostStr := query.Host
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {

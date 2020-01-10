@@ -209,7 +209,7 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return nil, err
 	}
 
-	userStr := query.UserStr()
+	userStr := query.User
 	if len(userStr) > 0 {
 		userObj, err := UserManager.FetchById(userStr)
 		if err != nil {
@@ -223,7 +223,7 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("id", subq.SubQuery())
 	}
 
-	groupStr := query.GroupStr()
+	groupStr := query.Group
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchById(groupStr)
 		if err != nil {

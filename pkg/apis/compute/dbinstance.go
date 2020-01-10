@@ -159,7 +159,7 @@ type SDBInstanceRecoveryConfigInput struct {
 
 	DBInstancebackup   string
 	DBInstancebackupId string            `json:"dbinstancebackup_id"`
-	Databases          map[string]string `json:"allowempty"`
+	Databases          map[string]string `json:"databases,allowempty"`
 }
 
 type DBInstanceListInput struct {
@@ -212,15 +212,5 @@ type DbinstanceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by dbinstance_id
-	DbinstanceId string `json:"dbinstance_id"`
-}
-
-func (input DbinstanceFilterListInput) DbinstanceStr() string {
-	if len(input.Dbinstance) > 0 {
-		return input.Dbinstance
-	}
-	if len(input.DbinstanceId) > 0 {
-		return input.DbinstanceId
-	}
-	return ""
+	DbinstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
 }

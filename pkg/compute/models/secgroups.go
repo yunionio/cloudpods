@@ -103,7 +103,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		}
 		q = q.In("id", secgroupIds)
 	}
-	serverStr := input.ServerStr()
+	serverStr := input.Server
 	if len(serverStr) > 0 {
 		guest, err := GuestManager.FetchByIdOrName(userCred, serverStr)
 		if err != nil {

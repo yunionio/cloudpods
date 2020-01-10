@@ -720,7 +720,7 @@ func listItemDomainFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) *sqlchem
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerSkuListInput) (*sqlchemy.SQuery, error) {
 	publicCloud := false
 
-	cloudEnvStr := query.CloudEnvStr()
+	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		publicCloud = true
 		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPublicProviderProvidersQuery()))
@@ -771,8 +771,8 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.IsTrue("enabled")
 	}
 
-	zoneStr := query.ZoneStr()
-	regionStr := query.CloudregionStr()
+	zoneStr := query.Zone
+	regionStr := query.Cloudregion
 	if len(zoneStr) > 0 {
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {

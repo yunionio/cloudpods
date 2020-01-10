@@ -20,34 +20,19 @@ type DomainizedResourceListInput struct {
 	// Deprecated
 	Admin *bool `json:"admin"`
 
-	// Specify query scope, either project, domain or system
 	// 指定查询的权限范围，可能值为project, domain or system
 	Scope string `json:"scope"`
 
-	// Project domain filter, either by Id or Name
-	// 指定查询的项目，ID or Name
+	// 查询指定的域（ID或名称）拥有的资源
 	ProjectDomain string `json:"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
-	ProjectDomainId string `json:"project_domain_id"`
+	ProjectDomainId string `json:"project_domain_id" deprecated-by:"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Domain Id filter, alias for project_domain
-	DomainId string `json:"domain_id"`
-}
-
-func (input DomainizedResourceListInput) DomainStr() string {
-	if len(input.ProjectDomain) > 0 {
-		return input.ProjectDomain
-	}
-	if len(input.ProjectDomainId) > 0 {
-		return input.ProjectDomainId
-	}
-	if len(input.DomainId) > 0 {
-		return input.DomainId
-	}
-	return ""
+	DomainId string `json:"domain_id" deprecated-by:"project_domain"`
 }
 
 type DomainizedResourceCreateInput struct {
@@ -63,36 +48,20 @@ type DomainizedResourceCreateInput struct {
 type ProjectizedResourceListInput struct {
 	DomainizedResourceListInput
 
-	// Filter by project, either ID or Name
+	// 查询指定的项目（ID或名称）拥有的资源
 	Project string `json:"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by project_id, alias for project
-	ProjectId string `json:"project_id"`
+	ProjectId string `json:"project_id" deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant ID or Name, alias for project
-	Tenant string `json:"tenant"`
+	Tenant string `json:"tenant" deprecated-by:"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant_id, alias for project
-	TenantId string `json:"tenant_id"`
-}
-
-func (input ProjectizedResourceListInput) ProjectStr() string {
-	if len(input.Project) > 0 {
-		return input.Project
-	}
-	if len(input.ProjectId) > 0 {
-		return input.ProjectId
-	}
-	if len(input.Tenant) > 0 {
-		return input.Tenant
-	}
-	if len(input.TenantId) > 0 {
-		return input.TenantId
-	}
-	return ""
+	TenantId string `json:"tenant_id" deprecated-by:"project"`
 }
 
 type ProjectizedResourceCreateInput struct {
@@ -108,12 +77,12 @@ type ProjectizedResourceCreateInput struct {
 }
 
 type UserResourceListInput struct {
-	// User ID or Name
+	// 查询指定的用户（ID或名称）拥有的资源
 	User string `json:"user"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	UserId string `json:"user_id"`
+	UserId string `json:"user_id" deprecated-by:"user"`
 }
 
 func (input UserResourceListInput) UserStr() string {

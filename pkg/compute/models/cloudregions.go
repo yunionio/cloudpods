@@ -597,7 +597,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	cloudEnvStr := query.CloudEnvStr()
+	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		q = q.In("provider", cloudprovider.GetPublicProviders())
 	}
@@ -625,12 +625,12 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.IsNotEmpty("external_id")
 	}
 
-	managerStr := query.CloudproviderStr()
+	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("id", subq)
 	}
-	accountStr := query.CloudaccountStr()
+	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("id", subq)

@@ -19,66 +19,34 @@ import (
 )
 
 type VpcFilterListInput struct {
-	// filter by vpc
-	// 过滤关联此Vpc的资源
+	// 过滤关联此VPC(ID或Name)的资源
 	Vpc string `json:"vpc"`
 	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
-	VpcId string `json:"vpc_id"`
-}
-
-func (input VpcFilterListInput) VpcStr() string {
-	if len(input.Vpc) > 0 {
-		return input.Vpc
-	}
-	if len(input.VpcId) > 0 {
-		return input.VpcId
-	}
-	return ""
+	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
 }
 
 type WireFilterListInput struct {
 	VpcFilterListInput
-	// filter by wire
-	// 过滤连接此二层网络的资源
+
+	// 过滤连接此二层网络(ID或Name)的资源
 	Wire string `json:"wire"`
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
-	WireId string `json:"wire_id"`
-}
-
-func (input WireFilterListInput) WireStr() string {
-	if len(input.Wire) > 0 {
-		return input.Wire
-	}
-	if len(input.WireId) > 0 {
-		return input.WireId
-	}
-	return ""
+	WireId string `json:"wire_id" deprecated-by:"wire"`
 }
 
 type NetworkFilterListInput struct {
 	WireFilterListInput
 
-	// filter by network
-	// 过滤关联此网络的资源
+	// 过滤关联此网络（ID或Name）的资源
 	Network string `json:"network"`
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
-	NetworkId string `json:"network"`
-}
-
-func (input NetworkFilterListInput) NetworkStr() string {
-	if len(input.Network) > 0 {
-		return input.Network
-	}
-	if len(input.NetworkId) > 0 {
-		return input.NetworkId
-	}
-	return ""
+	NetworkId string `json:"network_id" deprecated-by:"network"`
 }
 
 type NetworkListInput struct {

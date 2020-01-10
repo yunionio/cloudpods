@@ -139,22 +139,12 @@ var (
 )
 
 type StorageFilterListInput struct {
-	// filter by storage
+	// 过滤关联此存储（ID或Name）的列表结果
 	Storage string `json:"storage"`
 	// swagger:ignore
 	// Deprecated
 	// filter by storage_id
-	StorageId string `json:"storage_id"`
-}
-
-func (input StorageFilterListInput) StorageStr() string {
-	if len(input.Storage) > 0 {
-		return input.Storage
-	}
-	if len(input.StorageId) > 0 {
-		return input.StorageId
-	}
-	return ""
+	StorageId string `json:"storage_id" deprecated-by:"storage"`
 }
 
 type StorageShareFilterListInput struct {

@@ -529,7 +529,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	cloudEnvStr := query.CloudEnvStr()
+	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
@@ -590,12 +590,12 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	managerStr := query.CloudproviderStr()
+	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
-	accountStr := query.CloudaccountStr()
+	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("cloudregion_id", subq)

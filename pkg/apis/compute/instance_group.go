@@ -21,9 +21,9 @@ type InstanceGroupListInput struct {
 	ZonalFilterListInput
 	ServerFilterListInput
 
-	// Filter by service type
+	// 以service_type过滤列表结果
 	ServiceType string `json:"service_type"`
-	// Filter by parent id
+	// 以parent_id过滤列表结果
 	ParentId string `json:"parent_id"`
 }
 
@@ -34,20 +34,10 @@ type InstanceGroupDetail struct {
 }
 
 type GroupFilterListInput struct {
-	// Instance Group ID or Name
+	// 以指定实例组（ID或Name）过滤列表结果
 	Group string `json:"group"`
 	// swagger:ignore
 	// deprecated: true
 	// Filter by instance group Id
-	GroupId string `json:"group_id"`
-}
-
-func (input GroupFilterListInput) GroupStr() string {
-	if len(input.Group) > 0 {
-		return input.Group
-	}
-	if len(input.GroupId) > 0 {
-		return input.GroupId
-	}
-	return ""
+	GroupId string `json:"group_id" deprecated-by:"group"`
 }

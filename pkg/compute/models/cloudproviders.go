@@ -972,7 +972,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 }
 
 func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderListInput) (*sqlchemy.SQuery, error) {
-	accountStr := query.CloudaccountStr()
+	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
 		if err != nil {
@@ -1019,7 +1019,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 	if err != nil {
 		return nil, err
 	}
-	managerStr := query.CloudproviderStr()
+	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
@@ -1032,7 +1032,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Equals("id", providerObj.GetId())
 	}
 
-	cloudEnvStr := query.CloudEnvStr()
+	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
@@ -1054,7 +1054,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_on_premise")))
 	}
 
-	capabilities := query.CapabilityList()
+	capabilities := query.Capability
 	if len(capabilities) > 0 {
 		subq := CloudproviderCapabilityManager.Query("cloudprovider_id").In("capability", capabilities).Distinct().SubQuery()
 		q = q.In("id", subq)

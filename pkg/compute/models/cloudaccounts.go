@@ -1140,7 +1140,7 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 }
 
 func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudaccountListInput) (*sqlchemy.SQuery, error) {
-	accountStr := query.CloudaccountStr()
+	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
 		if err != nil {
@@ -1157,7 +1157,7 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager")
 	}
-	managerStr := query.CloudproviderStr()
+	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
@@ -1171,7 +1171,7 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		q = q.Equals("id", provider.CloudaccountId)
 	}
 
-	cloudEnvStr := query.CloudEnvStr()
+	cloudEnvStr := query.CloudEnv
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		q = q.IsTrue("is_public_cloud").IsFalse("is_on_premise")
 	}
@@ -1184,7 +1184,7 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		q = q.IsTrue("is_on_premise").IsFalse("is_public_cloud")
 	}
 
-	capabilities := query.CapabilityList()
+	capabilities := query.Capability
 	if len(capabilities) > 0 {
 		cloudproviders := CloudproviderManager.Query().SubQuery()
 		cloudprovidercapabilities := CloudproviderCapabilityManager.Query().SubQuery()
