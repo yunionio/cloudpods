@@ -304,6 +304,9 @@ func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
 		}
 		opts = append(opts, opts2...)
 	}
+	if len(opts) == 0 {
+		return nil, nil
+	}
 	return config2map(opts), nil
 }
 
@@ -357,10 +360,13 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 		serviceConf, err := GetConfigs(s.service, false)
 		if err != nil {
 			log.Errorf("GetConfigs for %s fail: %s", serviceType, err)
-		} else {
+		} else if serviceConf != nil {
 			serviceConfJson := jsonutils.Marshal(serviceConf["default"])
 			s.config.Update(serviceConfJson)
 			merged = true
+		} else {
+			// not initialized
+			uploadConfig(s.service, s.config)
 		}
 	}
 	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
@@ -368,10 +374,13 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 		commonConf, err := GetConfigs(commonService, false)
 		if err != nil {
 			log.Errorf("GetConfigs for %s fail: %s", consts.COMMON_SERVICE, err)
-		} else {
+		} else if commonConf != nil {
 			commonConfJson := jsonutils.Marshal(commonConf["default"])
 			s.config.Update(commonConfJson)
 			merged = true
+		} else {
+			// common not initialized
+			uploadConfig(commonService, s.config)
 		}
 	}
 	if merged {
@@ -388,15 +397,23 @@ func (s *dbServiceConfigSession) Upload() {
 	if s.service == nil {
 		return
 	}
+	uploadConfig(s.service, s.config)
+}
+
+func uploadConfig(service *SService, config jsonutils.JSONObject) {
 	nconf := jsonutils.NewDict()
-	nconf.Add(s.config, "default")
+	nconf.Add(config, "default")
 	tconf := api.TConfigs{}
 	err := nconf.Unmarshal(tconf)
 	if err != nil {
 		log.Errorf("nconf.Unmarshal fail %s", err)
 		return
 	}
-	err = saveConfigs("", s.service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
+	if service.isCommonService() {
+		err = saveConfigs("", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
+	} else {
+		err = saveConfigs("", service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
+	}
 	if err != nil {
 		log.Errorf("saveConfigs fail %s", err)
 		return
