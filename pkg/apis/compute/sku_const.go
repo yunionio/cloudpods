@@ -16,7 +16,6 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
 const (
@@ -65,6 +64,7 @@ var SKU_FAMILIES = []string{
 
 type ServerSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput
 
@@ -78,6 +78,7 @@ type ServerSkuListInput struct {
 
 type ElasticcacheSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.DomainizedResourceListInput
 
 	UsableResourceListInput
 	BillingFilterListInput
@@ -89,6 +90,7 @@ type ElasticcacheSkuListInput struct {
 
 type DBInstanceSkuListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
+	apis.DomainizedResourceListInput
 
 	RegionalFilterListInput
 	BillingFilterListInput
