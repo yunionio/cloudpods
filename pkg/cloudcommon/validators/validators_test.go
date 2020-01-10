@@ -161,6 +161,73 @@ func TestStringChoicesValidator(t *testing.T) {
 	}
 }
 
+func TestIntChoicesValidator(t *testing.T) {
+	choices := []int64{-1, 0, 100}
+	cases := []*C{
+		{
+			Name:      "missing non-optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Optional:  false,
+			Err:       ERR_MISSING_KEY,
+			ValueWant: int64(0),
+		},
+		{
+			Name:      "missing optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Optional:  true,
+			ValueWant: int64(0),
+		},
+		{
+			Name:      "missing with default",
+			In:        `{}`,
+			Out:       `{s: -1}`,
+			Default:   int64(-1),
+			ValueWant: int64(-1),
+		},
+		{
+			Name:      "stringified",
+			In:        `{"s": "100"}`,
+			Out:       `{s: 100}`,
+			ValueWant: int64(100),
+		},
+		{
+			Name:      "stringified invalid choice",
+			In:        `{"s": "101"}`,
+			Out:       `{"s": "101"}`,
+			Err:       ERR_INVALID_CHOICE,
+			ValueWant: int64(0),
+		},
+		{
+			Name:      "good choice",
+			In:        `{"s": 0}`,
+			Out:       `{"s": 0}`,
+			ValueWant: int64(0),
+		},
+		{
+			Name:      "bad choice",
+			In:        `{"s": 101}`,
+			Out:       `{"s": 101}`,
+			Err:       ERR_INVALID_CHOICE,
+			ValueWant: int64(0),
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			v := NewIntChoicesValidator("s", choices)
+			if c.Default != nil {
+				s := c.Default.(int64)
+				v.Default(s)
+			}
+			if c.Optional {
+				v.Optional(true)
+			}
+			testS(t, v, c)
+		})
+	}
+}
+
 func TestStringMultiChoicesValidator(t *testing.T) {
 	type MultiChoicesC struct {
 		*C

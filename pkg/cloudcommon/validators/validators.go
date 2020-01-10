@@ -158,6 +158,60 @@ func (v *ValidatorIPv4Prefix) Validate(data *jsonutils.JSONDict) error {
 	return nil
 }
 
+type ValidatorIntChoices struct {
+	Validator
+	choices []int64
+
+	Value int64
+}
+
+func NewIntChoicesValidator(key string, choices []int64) *ValidatorIntChoices {
+	v := &ValidatorIntChoices{
+		Validator: Validator{Key: key},
+		choices:   choices,
+	}
+	v.SetParent(v)
+	return v
+}
+
+func (v *ValidatorIntChoices) has(i int64) bool {
+	for _, c := range v.choices {
+		if c == i {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *ValidatorIntChoices) Default(i int64) IValidator {
+	if v.has(i) {
+		v.Validator.Default(i)
+		return v
+	}
+	panic("invalid default for " + v.Key)
+}
+
+func (v *ValidatorIntChoices) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorIntChoices) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	i, err := v.value.Int()
+	if err != nil {
+		return newGeneralError(v.Key, err)
+	}
+	if !v.has(i) {
+		return newInvalidIntChoiceError(v.Key, v.choices, i)
+	}
+	// in case it's stringified from v.value
+	data.Set(v.Key, jsonutils.NewInt(i))
+	v.Value = i
+	return nil
+}
+
 type ValidatorStringChoices struct {
 	Validator
 	Choices choices.Choices
