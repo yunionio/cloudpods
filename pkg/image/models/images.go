@@ -247,6 +247,7 @@ func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenC
 		ossChksum = self.Checksum
 	}
 	extra.Set("oss_checksum", jsonutils.NewString(ossChksum))
+	extra.Set("disable_delete", jsonutils.NewBool(self.Protected.Bool()))
 	return extra
 }
 
