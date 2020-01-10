@@ -160,9 +160,8 @@ func (v *ValidatorIPv4Prefix) Validate(data *jsonutils.JSONDict) error {
 
 type ValidatorStringChoices struct {
 	Validator
-	Choices    choices.Choices
-	defaultVal string
-	Value      string
+	Choices choices.Choices
+	Value   string
 }
 
 func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorStringChoices {
@@ -176,7 +175,8 @@ func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorSt
 
 func (v *ValidatorStringChoices) Default(s string) IValidator {
 	if v.Choices.Has(s) {
-		return v.Validator.Default(s)
+		v.Validator.Default(s)
+		return v
 	}
 	panic("invalid default for " + v.Key)
 }
@@ -204,11 +204,10 @@ func (v *ValidatorStringChoices) Validate(data *jsonutils.JSONDict) error {
 
 type ValidatorStringMultiChoices struct {
 	Validator
-	Choices    choices.Choices
-	defaultVal string
-	Value      string
-	sep        string
-	keepDup    bool
+	Choices choices.Choices
+	Value   string
+	sep     string
+	keepDup bool
 }
 
 func NewStringMultiChoicesValidator(key string, choices choices.Choices) *ValidatorStringMultiChoices {
