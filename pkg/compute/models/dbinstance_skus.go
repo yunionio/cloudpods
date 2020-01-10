@@ -331,7 +331,7 @@ func (manager *SDBInstanceSkuManager) GetDBInstanceSkus(provider, cloudregionId,
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) syncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, meta *SSkuResourcesMeta) compare.SyncResult {
+func (manager *SDBInstanceSkuManager) SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, meta *SSkuResourcesMeta) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -451,7 +451,7 @@ func (manager *SDBInstanceSkuManager) newFromCloudSku(ctx context.Context, userC
 	return manager.TableSpec().Insert(sku)
 }
 
-func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {
+func SyncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, regionId string, isStart bool) {
 	if isStart {
 		q := DBInstanceSkuManager.Query()
 		if len(regionId) > 0 {
@@ -480,7 +480,7 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 
-	meta, err := fetchSkuResourcesMeta()
+	meta, err := FetchSkuResourcesMeta()
 	if err != nil {
 		log.Errorf("failed to fetch sku resource meta: %v", err)
 		return
@@ -491,7 +491,7 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 			log.Infof("region %s(%s) not support dbinstance, skip sync", region.Name, region.Id)
 			continue
 		}
-		result := DBInstanceSkuManager.syncDBInstanceSkus(ctx, userCred, &region, meta)
+		result := DBInstanceSkuManager.SyncDBInstanceSkus(ctx, userCred, &region, meta)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncDBInstanceSkus for region %s result: %s", region.Name, msg)
 		log.Infof(notes)
@@ -500,5 +500,5 @@ func syncRegionDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func SyncDBInstanceSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	syncRegionDBInstanceSkus(ctx, userCred, "", isStart)
+	SyncRegionDBInstanceSkus(ctx, userCred, "", isStart)
 }
