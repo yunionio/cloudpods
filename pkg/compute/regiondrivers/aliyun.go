@@ -845,7 +845,7 @@ func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context
 	return nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SAliyunRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	if strings.HasPrefix(input.Name, "auto") || strings.HasPrefix(input.Name, "http://") || strings.HasPrefix(input.Name, "https://") {
 		return httperrors.NewBadRequestError(
 			"Snapshot for %s name can't start with auto, http:// or https://", self.GetProvider())
@@ -968,18 +968,18 @@ func (self *SAliyunRegionDriver) IsSecurityGroupBelongVpc() bool {
 	return true
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if input.BillingType == billing_api.BILLING_TYPE_PREPAID && len(input.MasterInstanceId) > 0 {
-		return nil, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
+		return input, httperrors.NewInputParameterError("slave dbinstance not support prepaid billing type")
 	}
 
 	wire := network.GetWire()
 	if wire == nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
+		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found wire for network %s(%s)", network.Name, network.Id))
 	}
 	zone := wire.GetZone()
 	if zone == nil {
-		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
+		return input, httperrors.NewGeneralError(fmt.Errorf("failed to found zone for wire %s(%s)", wire.Name, wire.Id))
 	}
 
 	match := false
@@ -991,7 +991,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 	}
 
 	if !match {
-		return nil, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
+		return input, httperrors.NewInputParameterError("failed to match any skus in the network %s(%s) zone %s(%s)", network.Name, network.Id, zone.Name, zone.Id)
 	}
 
 	var master *models.SDBInstance
@@ -1002,7 +1002,7 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		master = _master.(*models.SDBInstance)
 		slaves, err = master.GetSlaveDBInstances()
 		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
+			return input, httperrors.NewGeneralError(err)
 		}
 
 		switch master.Engine {
@@ -1012,49 +1012,49 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 				break
 			case "5.7", "8.0":
 				if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_HA {
-					return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s", master.EngineVersion, master.Category)
+					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s", master.EngineVersion, master.Category)
 				}
 				if master.StorageType != api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD {
-					return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s", master.EngineVersion, master.Category, master.StorageType, api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD)
+					return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s %s with storage type %s, only support %s", master.EngineVersion, master.Category, master.StorageType, api.ALIYUN_DBINSTANCE_STORAGE_TYPE_LOCAL_SSD)
 				}
 			default:
-				return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s", master.EngineVersion)
+				return input, httperrors.NewInputParameterError("Not support create readonly dbinstance for MySQL %s", master.EngineVersion)
 			}
 		case api.DBINSTANCE_TYPE_SQLSERVER:
 			if master.Category != api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON || master.EngineVersion != "2017_ent" {
-				return nil, httperrors.NewInputParameterError("SQL Server only support create readonly dbinstance for 2017_ent")
+				return input, httperrors.NewInputParameterError("SQL Server only support create readonly dbinstance for 2017_ent")
 			}
 			if len(slaves) >= 7 {
-				return nil, httperrors.NewInputParameterError("SQL Server cannot have more than seven read-only dbinstances")
+				return input, httperrors.NewInputParameterError("SQL Server cannot have more than seven read-only dbinstances")
 			}
 		default:
-			return nil, httperrors.NewInputParameterError("Not support create readonly dbinstance which master dbinstance engine is", master.Engine)
+			return input, httperrors.NewInputParameterError("Not support create readonly dbinstance which master dbinstance engine is", master.Engine)
 		}
 	}
 
 	switch input.Engine {
 	case api.DBINSTANCE_TYPE_MYSQL:
 		if input.VmemSizeMb/1024 >= 64 && len(slaves) >= 10 {
-			return nil, httperrors.NewInputParameterError("Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created")
+			return input, httperrors.NewInputParameterError("Master dbinstance memory ≥64GB, up to 10 read-only instances are allowed to be created")
 		} else if input.VmemSizeMb/1024 < 64 && len(slaves) >= 5 {
-			return nil, httperrors.NewInputParameterError("Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created")
+			return input, httperrors.NewInputParameterError("Master dbinstance memory <64GB, up to 5 read-only instances are allowed to be created")
 		}
 	case api.DBINSTANCE_TYPE_SQLSERVER:
 		if input.Category == api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON {
 			vpc := network.GetVpc()
 			count, err := vpc.GetNetworkCount()
 			if err != nil {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 			if count < 2 {
-				return nil, httperrors.NewInputParameterError("At least two networks are required under vpc %s(%s) whith aliyun %s(%s)", vpc.Name, vpc.Id, input.Engine, input.Category)
+				return input, httperrors.NewInputParameterError("At least two networks are required under vpc %s(%s) whith aliyun %s(%s)", vpc.Name, vpc.Id, input.Engine, input.Category)
 			}
 		}
 	}
 
 	if len(input.Name) > 0 {
 		if strings.HasPrefix(input.Description, "http://") || strings.HasPrefix(input.Description, "https://") {
-			return nil, httperrors.NewInputParameterError("Description can not start with http:// or https://")
+			return input, httperrors.NewInputParameterError("Description can not start with http:// or https://")
 		}
 	}
 
@@ -1103,9 +1103,9 @@ func (self *SAliyunRegionDriver) RequestCreateDBInstanceBackup(ctx context.Conte
 	return nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
 	if len(input.Name) < 2 || len(input.Name) > 16 {
-		return nil, httperrors.NewInputParameterError("Aliyun DBInstance account name length shoud be 2~16 characters")
+		return input, httperrors.NewInputParameterError("Aliyun DBInstance account name length shoud be 2~16 characters")
 	}
 
 	DENY_KEY := map[string][]string{
@@ -1114,44 +1114,44 @@ func (self *SAliyunRegionDriver) ValidateCreateDBInstanceAccountData(ctx context
 	}
 
 	if keys, ok := DENY_KEY[instance.Engine]; ok && utils.IsInStringArray(input.Name, keys) {
-		return nil, httperrors.NewInputParameterError("%s is reserved for aliyun %s, please use another", input.Name, instance.Engine)
+		return input, httperrors.NewInputParameterError("%s is reserved for aliyun %s, please use another", input.Name, instance.Engine)
 	}
 
 	for i, s := range input.Name {
 		if !unicode.IsLetter(s) && !unicode.IsDigit(s) && s != '_' {
-			return nil, httperrors.NewInputParameterError("invalid character %s for account name", s)
+			return input, httperrors.NewInputParameterError("invalid character %s for account name", s)
 		}
 		if s == '_' && (i == 0 || i == len(input.Name)) {
-			return nil, httperrors.NewInputParameterError("account name can not start or end with _")
+			return input, httperrors.NewInputParameterError("account name can not start or end with _")
 		}
 	}
 
 	for _, privilege := range input.Privileges {
 		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, input.Name, privilege.Privilege)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 
 	return input, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
 	if len(input.CharacterSet) == 0 {
-		return nil, httperrors.NewMissingParameterError("character_set")
+		return input, httperrors.NewMissingParameterError("character_set")
 	}
 
 	for _, account := range input.Accounts {
 		err := self.ValidateDBInstanceAccountPrivilege(ctx, userCred, instance, account.Account, account.Privilege)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 
 	return input, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+func (self *SAliyunRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
 	return input, nil
 }
 

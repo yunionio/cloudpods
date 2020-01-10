@@ -14,18 +14,7 @@
 
 package compute
 
-type RegionalResourceCreateInput struct {
-	Cloudregion   string `json:"cloudregion"`
-	CloudregionId string `json:"cloudregion_id"`
-}
-
-type ManagedResourceCreateInput struct {
-	Manager   string `json:"manager"`
-	ManagerId string `json:"manager_id"`
-}
-
-type DeletePreventableCreateInput struct {
-	//删除保护,创建的资源默认不允许删除
-	//default: true
-	DisableDelete *bool `json:"disable_delete"`
-}
+const (
+	KEYPAIRE_SCHEME_RSA = "RSA"
+	KEYPAIRE_SCHEME_DSA = "DSA"
+)

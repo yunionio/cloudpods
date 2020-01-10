@@ -14,8 +14,6 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/util/choices"
-
 const (
 	SkuCategoryGeneralPurpose      = "general_purpose"      // 通用型
 	SkuCategoryBurstable           = "burstable"            // 突发性能型
@@ -49,7 +47,7 @@ var InstanceFamilies = map[string]string{
 	SkuCategoryHighMemory:          "hr1",
 }
 
-var SKU_FAMILIES = choices.NewChoices(
+var SKU_FAMILIES = []string{
 	SkuCategoryGeneralPurpose,
 	SkuCategoryBurstable,
 	SkuCategoryComputeOptimized,
@@ -58,4 +56,4 @@ var SKU_FAMILIES = choices.NewChoices(
 	SkuCategoryHardwareAccelerated,
 	SkuCategoryHighStorage,
 	SkuCategoryHighMemory,
-)
+}

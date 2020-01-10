@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -96,45 +95,65 @@ func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	keysV := []validators.IValidator{
-		validators.NewNonNegativeValidator("bandwidth"),
-		validators.NewRangeValidator("mtu", 1, 1000000).Optional(true),
+func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.WireCreateInput) (*jsonutils.JSONDict, error) {
+	if input.Bandwidth < 0 {
+		return nil, httperrors.NewOutOfRangeError("bandwidth must be greater than 0")
 	}
-	for _, v := range keysV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
+
+	if input.Mtu < 0 || input.Mtu > 1000000 {
+		return nil, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
+	}
+
+	for _, vpc := range []string{input.Vpc, input.VpcId} {
+		if len(vpc) > 0 {
+			input.Vpc = vpc
+			break
 		}
 	}
-
-	vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
-	if len(vpcStr) == 0 {
-		return nil, httperrors.NewMissingParameterError("vpc_id")
+	if len(input.Vpc) == 0 {
+		return nil, httperrors.NewMissingParameterError("vpc")
 	}
 
-	if len(vpcStr) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("Vpc %s not found", vpcStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("Fetch Vpc %s error %s", vpcStr, err)
-			}
-		}
-		data.Add(jsonutils.NewString(vpcObj.GetId()), "vpc_id")
-	}
-
-	input := apis.StandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("Vpc %s not found", input.Vpc)
+		} else {
+			return nil, httperrors.NewInternalServerError("Fetch Vpc %s error %s", input.Vpc, err)
+		}
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	vpc := _vpc.(*SVpc)
+	input.VpcId = vpc.Id
+	if len(vpc.ManagerId) > 0 {
+		return nil, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")
+	}
+
+	for _, zone := range []string{input.Zone, input.ZoneId} {
+		if len(zone) > 0 {
+			input.Zone = zone
+			break
+		}
+	}
+
+	if len(input.Zone) == 0 {
+		return nil, httperrors.NewMissingParameterError("zone")
+	}
+
+	zone, err := ZoneManager.FetchByIdOrName(nil, input.Zone)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("Zone %s not found", input.Vpc)
+		} else {
+			return nil, httperrors.NewInternalServerError("Fetch Zone %s error %s", input.Vpc, err)
+		}
+	}
+	input.ZoneId = zone.GetId()
+
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input.JSON(input), nil
 }
 
 func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -50,19 +51,18 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	return q
 }
 
-func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	scope, _ := data.GetString("scope")
-	if scope == "" {
-		scope = string(rbacutils.ScopeSystem)
+func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ScopedResourceCreateInput) (api.ScopedResourceCreateInput, error) {
+	if input.Scope == "" {
+		input.Scope = string(rbacutils.ScopeSystem)
 	}
-	if !utils.IsInStringArray(scope, []string{
+	if !utils.IsInStringArray(input.Scope, []string{
 		string(rbacutils.ScopeSystem),
 		string(rbacutils.ScopeDomain),
 		string(rbacutils.ScopeProject)}) {
-		return nil, httperrors.NewInputParameterError("invalid scope %s", scope)
+		return input, httperrors.NewInputParameterError("invalid scope %s", input.Scope)
 	}
 	var allowCreate bool
-	switch rbacutils.TRbacScope(scope) {
+	switch rbacutils.TRbacScope(input.Scope) {
 	case rbacutils.ScopeSystem:
 		allowCreate = IsAdminAllowCreate(userCred, man)
 	case rbacutils.ScopeDomain:
@@ -71,10 +71,9 @@ func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManag
 		allowCreate = IsProjectAllowCreate(userCred, man)
 	}
 	if !allowCreate {
-		return nil, httperrors.NewForbiddenError("not allow create %s in scope %s", man.ResourceScope(), scope)
+		return input, httperrors.NewForbiddenError("not allow create %s in scope %s", man.ResourceScope(), input.Scope)
 	}
-	data.Set("scope", jsonutils.NewString(scope))
-	return data, nil
+	return input, nil
 }
 
 func getScopedResourceScope(domainId, projectId string) rbacutils.TRbacScope {

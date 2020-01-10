@@ -725,8 +725,8 @@ func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCre
 	return data, nil
 }
 
-func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implement EIP")
+func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
+	return httperrors.NewNotImplementedError("Not Implement EIP")
 }
 
 func (self *SKVMRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
@@ -745,7 +745,7 @@ func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapsho
 	return models.GetStorageDriver(storage.StorageType).RequestDeleteSnapshot(ctx, snapshot, task)
 }
 
-func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SSnapshotCreateInput) error {
+func (self *SKVMRegionDriver) ValidateCreateSnapshotData(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, storage *models.SStorage, input *api.SnapshotCreateInput) error {
 	host := storage.GetMasterHost()
 	if host == nil {
 		return fmt.Errorf("failed to get master host, maybe the host is offline")

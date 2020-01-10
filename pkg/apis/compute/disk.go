@@ -23,15 +23,25 @@ type DiskCreateInput struct {
 
 	*DiskConfig
 
-	// prefer options
+	// 此参数仅适用于未指定storage时进行调度到指定区域创建磁盘
+	// required: false
 	PreferRegion string `json:"prefer_region_id"`
-	PreferZone   string `json:"prefer_zone_id"`
-	PreferWire   string `json:"prefer_wire_id"`
-	PreferHost   string `json:"prefer_host_id"`
 
+	// 此参数仅适用于未指定storage时进行调度到指定可用区区创建磁盘
+	// required: false
+	PreferZone string `json:"prefer_zone_id"`
+
+	// swagger:ignore
+	PreferWire string `json:"prefer_wire_id"`
+
+	// 此参数仅适用于未指定storage时进行调度到指定可用区区创建磁盘
+	// required: false
+	PreferHost string `json:"prefer_host_id"`
+
+	// 此参数仅适用于未指定storage时进行调度到指定平台创建磁盘
+	// default: kvm
+	// enum: kvm, openstack, esxi, aliyun, aws, qcloud, azure, huawei, openstack, ucloud, zstack google, ctyun
 	Hypervisor string `json:"hypervisor"`
-	// Project    string `json:"project"`
-	// Domain     string `json:"domain_id"`
 }
 
 // ToServerCreateInput used by disk schedule

@@ -28,17 +28,69 @@ import (
 type SSecgroupRuleCreateInput struct {
 	apis.ResourceBaseCreateInput
 
-	Priority    int
-	Protocol    string
-	Ports       string
-	PortStart   int
-	PortEnd     int
-	Direction   string
-	CIDR        string
-	Action      string
-	Description string
-	Secgroup    string
-	SecgroupId  string
+	// 优先级, 数字越大优先级越高
+	// minimum: 1
+	// maximum: 100
+	// required: true
+	Priority int `json:"priority"`
+
+	// 协议
+	// required: true
+	//
+	//
+	//
+	// | protocol | name	|
+	// | -------- | ----	|
+	// | any	  | 所有协议|
+	// | tcp	  | TCP		|
+	// | icmp	  | ICMP	|
+	// | udp	  | UDP 	|
+	// enum: any, tcp, udp, icmp
+	Protocol string `json:"protocol"`
+
+	// 端口列表, 参数为空代表任意端口
+	// 此参数仅对protocol是tcp, udp时生效
+	// 支持格式:
+	// | 格式类型 | 举例	|
+	// | -------- | ----	|
+	// | 单端口	  | 22		|
+	// | 端口范围 | 100-200	|
+	// | 不连续端口| 80,443	|
+	// requried: false
+	Ports string `json:"ports"`
+
+	// swagger:ignore
+	PortStart int
+	// swagger:ignore
+	PortEnd int
+
+	// 方向
+	// enum: in, out
+	// required: true
+	Direction string `json:"direction"`
+
+	// ip或cidr地址
+	// example: 192.168.222.121
+	CIDR string `json:"cidr"`
+
+	// 行为
+	// deny: 拒绝
+	// allow: 允许
+	// enum: deny, allow
+	// required: true
+	Action string `json:"action"`
+
+	// 规则描述信息
+	// requried: false
+	// example: test to create rule
+	Description string `json:"description"`
+
+	// 仅单独创建安全组规则时需要指定安全组
+	// required: true
+	Secgroup string `json:"secgroup"`
+
+	// swagger:ignore
+	SecgroupId string
 }
 
 func (input *SSecgroupRuleCreateInput) Check() error {
@@ -73,6 +125,8 @@ func (input *SSecgroupRuleCreateInput) Check() error {
 type SSecgroupCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
 
+	// 规则列表
+	// required: false
 	Rules []SSecgroupRuleCreateInput `json:"rules"`
 }
 

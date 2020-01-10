@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -173,47 +172,40 @@ func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]st
 	return storages, nil
 }
 
-func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	storageType, _ := data.GetString("storage_type")
-	mediumType, _ := data.GetString("medium_type")
-
-	if !utils.IsInStringArray(storageType, api.STORAGE_TYPES) {
-		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
+func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.StorageCreateInput) (*jsonutils.JSONDict, error) {
+	if !utils.IsInStringArray(input.StorageType, api.STORAGE_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
 	}
-	if !utils.IsInStringArray(mediumType, api.DISK_TYPES) {
-		return nil, httperrors.NewInputParameterError("Invalid medium type %s", mediumType)
+	if !utils.IsInStringArray(input.MediumType, api.DISK_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid medium type %s", input.MediumType)
 	}
-	zoneId, err := data.GetString("zone")
-	if err != nil {
+	if len(input.Zone) == 0 {
 		return nil, httperrors.NewMissingParameterError("zone")
 	}
-	zone, _ := ZoneManager.FetchByIdOrName(userCred, zoneId)
-	if zone == nil {
-		return nil, httperrors.NewResourceNotFoundError("zone %s", zoneId)
+	zone, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to found zone %s", input.Zone)
+		}
+		return nil, httperrors.NewGeneralError(errors.Wrap(err, "ZoneManager.FetchByIdOrName"))
 	}
-	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+	input.ZoneId = zone.GetId()
 
-	storageDirver := GetStorageDriver(storageType)
+	storageDirver := GetStorageDriver(input.StorageType)
 	if storageDirver == nil {
-		return nil, httperrors.NewUnsupportOperationError("Not support create %s storage", storageType)
+		return nil, httperrors.NewUnsupportOperationError("Not support create %s storage", input.StorageType)
 	}
 
-	data, err = storageDirver.ValidateCreateData(ctx, userCred, data)
+	err = storageDirver.ValidateCreateData(ctx, userCred, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
-	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input.JSON(input), nil
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
