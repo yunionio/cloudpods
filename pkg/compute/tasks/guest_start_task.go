@@ -137,8 +137,8 @@ func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	} else {
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "", self.UserCred, true)
+		self.taskComplete(ctx, guest)
 	}
-	// self.taskComplete(ctx, guest)
 }
 
 func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
