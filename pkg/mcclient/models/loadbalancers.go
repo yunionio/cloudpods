@@ -62,6 +62,13 @@ type LoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int
 }
 
+type LoadbalancerHTTPRedirect struct {
+	Redirect       string
+	RedirectCode   int
+	RedirectScheme string
+	RedirectHost   string
+	RedirectPath   string
+}
 type LoadbalancerListener struct {
 	VirtualResource
 	ManagedResource
@@ -109,6 +116,7 @@ type LoadbalancerListener struct {
 	LoadbalancerHTTPSListener
 
 	LoadbalancerHTTPRateLimiter
+	LoadbalancerHTTPRedirect
 }
 
 type LoadbalancerListenerRule struct {
@@ -123,6 +131,7 @@ type LoadbalancerListenerRule struct {
 	Path   string
 
 	LoadbalancerHTTPRateLimiter
+	LoadbalancerHTTPRedirect
 }
 
 type LoadbalancerBackendGroup struct {
