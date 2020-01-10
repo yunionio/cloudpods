@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/version"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -234,7 +235,9 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 	if err != nil {
 		return err
 	}
-	params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
+	if agent.IAgent().GetAgentType() != string(api.AgentTypeEsxi) {
+		params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
+	}
 	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {
