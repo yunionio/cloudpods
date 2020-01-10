@@ -26,6 +26,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -640,6 +641,76 @@ func NewDomainNameValidator(key string) *ValidatorDomainName {
 	}
 	v.SetParent(v)
 	return v
+}
+
+type ValidatorHostPort struct {
+	ValidatorRegexp
+
+	optionalPort bool
+	Domain       string
+	Port         int
+	Value        string
+}
+
+var regHostPort *regexp.Regexp
+
+func init() {
+	// guard against surprise
+	exp := regutils.DOMAINNAME_REG.String()
+	if exp != "" && exp[len(exp)-1] == '$' {
+		exp = exp[:len(exp)-1]
+	}
+	exp += "(?::[0-9]{1,5})?"
+	regHostPort = regexp.MustCompile(exp)
+}
+
+func NewHostPortValidator(key string) *ValidatorHostPort {
+	v := &ValidatorHostPort{
+		ValidatorRegexp: *NewRegexpValidator(key, regHostPort),
+	}
+	v.SetParent(v)
+	return v
+}
+
+func (v *ValidatorHostPort) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorHostPort) OptionalPort(optionalPort bool) *ValidatorHostPort {
+	v.optionalPort = optionalPort
+	return v
+}
+
+func (v *ValidatorHostPort) Validate(data *jsonutils.JSONDict) error {
+	err := v.ValidatorRegexp.Validate(data)
+	if err != nil {
+		return err
+	}
+	hostPort := v.ValidatorRegexp.Value
+	if hostPort == "" && (v.optional || v.allowEmpty) {
+		return nil
+	}
+	i := strings.IndexRune(hostPort, ':')
+	if i < 0 {
+		if v.optionalPort {
+			v.Value = hostPort
+			v.Domain = hostPort
+			return nil
+		}
+		return newInvalidValueError(v.Key, "port missing")
+	}
+	portStr := hostPort[i+1:]
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return newInvalidValueError(v.Key, "bad port integer: "+err.Error())
+	}
+	if port <= 0 {
+		return newInvalidValueError(v.Key, "negative port")
+	}
+	v.Value = hostPort
+	v.Domain = hostPort[:i]
+	v.Port = int(port)
+	return nil
 }
 
 type ValidatorURLPath struct {
