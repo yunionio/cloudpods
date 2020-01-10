@@ -319,27 +319,52 @@ func (r *SRegionDNS) Name() string {
 }
 
 func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Service) {
-	ips := models.DnsRecordManager.QueryDnsIps(req.ProjectId(), req.Name(), req.Type())
-	if len(ips) == 0 {
+	var (
+		projId = req.ProjectId()
+		name   = req.Name()
+		getTtl = func(ttl int) uint32 {
+			if ttl == 0 {
+				return defaultTTL
+			}
+			return uint32(ttl)
+		}
+		rec = models.DnsRecordManager.QueryDns(projId, name)
+	)
+
+	if rec == nil {
 		return
 	}
+	if req.state.QType() != dns.TypeCNAME && rec.IsCNAME() {
+		name = rec.GetCNAME()
+		recs = append(recs, msg.Service{
+			Host: name,
+			TTL:  getTtl(rec.Ttl),
+		})
+		// github.com/coredns/coredns/plugin.{A,AAAA} will call
+		// Services again later for these CNAME
+		return recs
+	}
 
-	for _, ip := range ips {
-		var s = msg.Service{}
-		var ttl uint32 = uint32(ip.Ttl)
-		if ttl == 0 {
-			ttl = defaultTTL
+	var (
+		qtype   = req.Type()
+		pref    = qtype + ":"
+		prefLen = len(pref)
+	)
+	for _, recStr := range rec.GetInfo() {
+		if !strings.HasPrefix(recStr, pref) {
+			continue
 		}
+		val := recStr[prefLen:]
 		if req.IsSRV() {
-			parts := strings.SplitN(ip.Addr, ":", 4)
+			parts := strings.SplitN(val, ":", 4)
 			if len(parts) < 2 {
-				ylog.Errorf("Invalid SRV records: %q", ip.Addr)
+				ylog.Errorf("Invalid SRV records: %q", val)
 				continue
 			}
 			host := parts[0]
 			port, err := strconv.Atoi(parts[1])
 			if err != nil {
-				ylog.Errorf("SRV: invalid port: %s", ip.Addr)
+				ylog.Errorf("SRV: invalid port: %s", val)
 				continue
 			}
 			priority := 0
@@ -348,22 +373,30 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 				var err error
 				weight, err = strconv.Atoi(parts[2])
 				if err != nil {
-					ylog.Errorf("SRV: invalid weight: %s", ip.Addr)
+					ylog.Errorf("SRV: invalid weight: %s", val)
 					continue
 				}
 				if len(parts) >= 4 {
 					priority, err = strconv.Atoi(parts[3])
 					if err != nil {
-						ylog.Errorf("SRV: invalid priority: %s", ip.Addr)
+						ylog.Errorf("SRV: invalid priority: %s", val)
 						continue
 					}
 				}
 			}
-			s = msg.Service{Host: host, Port: port, Weight: weight, Priority: priority, TTL: ttl}
+			recs = append(recs, msg.Service{
+				Host:     host,
+				Port:     port,
+				Weight:   weight,
+				Priority: priority,
+				TTL:      getTtl(rec.Ttl),
+			})
 		} else {
-			s = msg.Service{Host: ip.Addr, TTL: ttl}
+			recs = append(recs, msg.Service{
+				Host: val,
+				TTL:  getTtl(rec.Ttl),
+			})
 		}
-		recs = append(recs, s)
 	}
 	return
 }
