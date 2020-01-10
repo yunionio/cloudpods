@@ -128,11 +128,11 @@ func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 	return ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
 }
 
-func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
+func domainManagerFiledFilter(domainId, filed string) *sqlchemy.SSubQuery {
 	providers := CloudproviderManager.Query().SubQuery()
 	accounts := CloudaccountManager.Query().SubQuery()
 
-	q := providers.Query(providers.Field("id"))
+	q := providers.Query(providers.Field(filed))
 	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.AND(
@@ -149,6 +149,14 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
 
 	return q.SubQuery()
+}
+
+func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
+	return domainManagerFiledFilter(domainId, "id")
+}
+
+func getDomainManagerProviderSubq(domainId string) *sqlchemy.SSubQuery {
+	return domainManagerFiledFilter(domainId, "provider")
 }
 
 func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]map[string][]string {
