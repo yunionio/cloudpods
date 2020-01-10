@@ -285,6 +285,12 @@ func (mh *MiscHandler) DoBatchUserRegister(ctx context.Context, w http.ResponseW
 		domain := row[2]
 		allowWebConsole := strings.ToLower(row[3])
 
+		// 忽略空白行
+		rowStr := strings.Join(row, "")
+		if len(strings.TrimSpace(rowStr)) == 0 {
+			continue
+		}
+
 		if len(name) == 0 {
 			e := httperrors.NewClientError("row %d name is empty", rowIdx)
 			httperrors.JsonClientError(w, e)
