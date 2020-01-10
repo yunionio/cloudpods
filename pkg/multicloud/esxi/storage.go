@@ -259,7 +259,8 @@ func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
 	if len(vms) == 0 {
 		return nil, nil
 	}
-	return dc.fetchVms(vms, false)
+	ret, _, err := dc.fetchVms(vms, false)
+	return ret, err
 }
 
 func (self *SDatastore) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {

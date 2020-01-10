@@ -83,18 +83,14 @@ type SHost struct {
 	multicloud.SHostBase
 	SManagedObject
 
-	nicInfo     []SHostNicInfo
-	storageInfo []SHostStorageInfo
-
-	datastores []cloudprovider.ICloudStorage
-
+	nicInfo      []SHostNicInfo
+	storageInfo  []SHostStorageInfo
+	datastores   []cloudprovider.ICloudStorage
 	storageCache *SDatastoreImageCache
-
-	vms []cloudprovider.ICloudVM
-
-	parent *mo.ComputeResource
-
-	networks []SNetwork
+	vms          []cloudprovider.ICloudVM
+	parent       *mo.ComputeResource
+	networks     []SNetwork
+	tempalteVMs  []*SVirtualMachine
 }
 
 func NewHost(manager *SESXiClient, host *mo.HostSystem, dc *SDatacenter) *SHost {
@@ -189,7 +185,7 @@ func (self *SHost) fetchVMs(all bool) error {
 			return nil
 		}
 
-		vms, err := dc.fetchVms(hostVms, all)
+		vms, templatevms, err := dc.fetchVms(hostVms, all)
 		if err != nil {
 			log.Errorf("dc.fetchVms fail %s", err)
 			time.Sleep(time.Second)
@@ -197,6 +193,7 @@ func (self *SHost) fetchVMs(all bool) error {
 			continue
 		}
 		self.vms = vms
+		self.tempalteVMs = templatevms
 	}
 	return nil
 }
@@ -209,12 +206,34 @@ func (self *SHost) GetIVMs2() ([]cloudprovider.ICloudVM, error) {
 	return self.vms, nil
 }
 
+func (self *SHost) GetTemplateVMs() ([]*SVirtualMachine, error) {
+	err := self.fetchVMs(false)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.fetchVMs")
+	}
+	return self.tempalteVMs, nil
+}
+
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 	err := self.fetchVMs(false)
 	if err != nil {
 		return nil, err
 	}
 	return self.vms, nil
+}
+
+func (self *SHost) GetTemplateVMById(id string) (*SVirtualMachine, error) {
+	id = self.manager.getPrivateId(id)
+	temVms, err := self.GetTemplateVMs()
+	if err != nil {
+		return nil, err
+	}
+	for i := range temVms {
+		if temVms[i].GetGlobalId() == id {
+			return temVms[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
@@ -593,47 +612,72 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonutils.JSONDict) (*SVirtualMachine, error) {
-	var (
-		deviceChange = make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
-		name         string
-		osName             = "Linux"
-		memoryMB     int64 = 2048
-		numCPUs      int32 = 2
-		bios         string
-	)
+type SCreateVMParam struct {
+	Name   string
+	Uuid   string
+	OsName string
+	Cpu    int
+	Mem    int
+	Bios   string
+	Cdrom  jsonutils.JSONObject
+	Disks  []SDiskInfo
+	Nics   []jsonutils.JSONObject
+}
 
-	if data.Contains("uuid") {
-		name, _ = data.GetString("uuid")
-	} else {
-		name, _ = data.GetString("name")
+type SDiskInfo struct {
+	ImagePath string
+	Size      int64
+	DiskId    string
+	Driver    string
+	ImageInfo SEsxiImageInfo
+}
+
+type SEsxiImageInfo struct {
+	ImageType          string
+	ImageExternalId    string
+	StorageCacheHostIp string
+}
+
+func (self *SHost) CreateVM2(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+	if len(params.Disks) == 0 {
+		return self.DoCreateVM(ctx, ds, params)
 	}
-	if data.Contains("os_name") {
-		osName, _ = data.GetString("os_name")
+	imageInfo := params.Disks[0].ImageInfo
+	if imageInfo.ImageType != cloudprovider.CachedImageTypeSystem {
+		return self.DoCreateVM(ctx, ds, params)
+	}
+	// get host
+	imgHost, err := self.manager.FindHostByIp(imageInfo.StorageCacheHostIp)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEsxiClient.FindHostByIp")
+	}
+	temvm, err := imgHost.GetTemplateVMById(imageInfo.ImageExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.GetTemplateVMById")
+	}
+	return self.CloneVM(ctx, temvm, ds, params)
+}
+
+func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreateVMParam) (*SVirtualMachine, error) {
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
+
+	// name first
+	if len(params.Name) == 0 {
+		params.Name = params.Uuid
 	}
 	datastorePath := fmt.Sprintf("[%s] ", ds.GetRelName())
-	if data.Contains("mem") {
-		memoryMB, _ = data.Int("mem")
-	}
-	if data.Contains("cpu") {
-		cpunum, _ := data.Int("cpu")
-		numCPUs = int32(cpunum)
-	}
 
 	firmware := ""
-	if data.Contains("bios") {
-		bios, _ = data.GetString("bios")
-	}
-	if len(bios) != 0 {
-		if bios == "BIOS" {
+	if len(params.Bios) != 0 {
+		if params.Bios == "BIOS" {
 			firmware = "bios"
-		} else if bios == "UEFI" {
+		} else if params.Bios == "UEFI" {
 			firmware = "efi"
 		}
 	}
 
 	guestId := "rhel6_64Guest"
-	if osName == "Windows" {
+	if params.OsName == "Windows" {
 		guestId = "windows7Server64Guest"
 	}
 
@@ -642,15 +686,13 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		version = "vmx-08"
 	}
 
-	uuid, _ := data.GetString("uuid")
-
 	spec := types.VirtualMachineConfigSpec{
-		Name:     name,
+		Name:     params.Name,
 		Version:  version,
-		Uuid:     uuid,
+		Uuid:     params.Uuid,
 		GuestId:  guestId,
-		NumCPUs:  numCPUs,
-		MemoryMB: memoryMB,
+		NumCPUs:  int32(params.Cpu),
+		MemoryMB: int64(params.Mem),
 		Firmware: firmware,
 	}
 	spec.Files = &types.VirtualMachineFileInfo{
@@ -660,10 +702,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 0)))
 	deviceChange = append(deviceChange, addDevSpec(NewIDEDev(200, 1)))
 	deviceChange = append(deviceChange, addDevSpec(NewSVGADev(500, 100)))
-	disks, _ := data.GetArray("disks")
-	driver := "scsi"
+	disks, driver := params.Disks, "scsi"
 	if len(disks) > 0 {
-		driver, _ = disks[0].GetString("driver")
+		driver = disks[0].Driver
 	}
 	if driver == "scsi" || driver == "pvscsi" {
 		if self.isVersion50() {
@@ -672,9 +713,8 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(1000, 100, driver)))
 	}
 	cdromPath := ""
-	if data.Contains("cdrom") {
-		tmp, _ := data.Get("cdrom")
-		cdromPath, _ = tmp.GetString("path")
+	if params.Cdrom != nil {
+		cdromPath, _ = params.Cdrom.GetString("path")
 	}
 	var err error
 	if len(cdromPath) != 0 && !strings.HasPrefix(cdromPath, "[") {
@@ -692,10 +732,10 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		ctrlKey = 0
 	)
 	for _, disk := range disks {
-		imagePath, _ := disk.GetString("image_path")
+		imagePath := disk.ImagePath
 		var size int64 = 0
 		if len(imagePath) == 0 {
-			size, _ = disk.Int("size")
+			size = disk.Size
 			if size == 0 {
 				size = 30 * 1024
 			}
@@ -705,10 +745,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
 			}
 		}
-		uuid, _ := disk.GetString("disk_id")
-		driver := "scsi"
-		if disk.Contains("driver") {
-			driver, _ = disk.GetString("driver")
+		uuid, driver := disk.DiskId, "scsi"
+		if len(disk.Driver) > 0 {
+			driver = disk.Driver
 		}
 		if driver == "scsi" || driver == "pvscsi" {
 			if self.isVersion50() {
@@ -728,7 +767,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		deviceChange = append(deviceChange, spec)
 	}
 
-	nics, _ := data.GetArray("nics")
+	nics := params.Nics
 	for _, nic := range nics {
 		index, _ := nic.Int("index")
 		mac, _ := nic.GetString("mac")
@@ -782,6 +821,187 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	}
 
 	return NewVirtualMachine(self.manager, &moVM, self.datacenter), nil
+}
+
+func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SDatastore,
+	params SCreateVMParam) (*SVirtualMachine, error) {
+	ovm := from.getVmObj()
+
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 5)
+
+	// change nic if set
+	if params.Nics != nil && len(params.Nics) > 0 {
+		// get origin nics
+		originNics := make([]types.BaseVirtualDevice, 0, 1)
+		for _, nic := range from.vnics {
+			originNics = append(originNics, nic.getVirtualEthernetCard())
+		}
+		nicIndex := 0
+		nics := params.Nics
+		for _, nic := range nics {
+			index, _ := nic.Int("index")
+			mac, _ := nic.GetString("mac")
+			driver := "e1000"
+			if nic.Contains("driver") {
+				driver, _ = nic.GetString("driver")
+			}
+			if host.isVersion50() {
+				driver = "e1000"
+			}
+			var vlanId int64 = 1
+			if nic.Contains("vlan") {
+				vlanId, _ = nic.Int("vlan")
+			}
+			dev, err := NewVNICDev(host, mac, driver, int32(vlanId), 4000, 100, int32(index))
+			if err != nil {
+				return nil, errors.Wrap(err, "NewVNICDev")
+			}
+			op := types.VirtualDeviceConfigSpecOperationAdd
+			if nicIndex < len(originNics) {
+				// edit
+				op = types.VirtualDeviceConfigSpecOperationEdit
+				host.changeNic(originNics[nicIndex], dev)
+				dev = originNics[nicIndex]
+			}
+			deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
+				Operation: op,
+				Device:    dev,
+			})
+		}
+	}
+
+	// check scsi controller
+	var ctlKey int32
+
+	scsiDevs, err := from.FindController(ctx, "scsi")
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualMachine.FindController")
+	}
+	if len(scsiDevs) == 0 {
+		key := from.FindMinDiffKey(1000)
+		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, "scsi")))
+		ctlKey = key
+	} else {
+		ctlKey = minDevKey(scsiDevs)
+	}
+	// change disk if set
+	if params.Disks != nil && len(params.Disks) > 0 {
+		var (
+			i    int
+			disk SDiskInfo
+		)
+
+		// resize existed disk
+		for i, disk = range params.Disks {
+			if i == len(from.vdisks) {
+				break
+			}
+			size := disk.Size
+			if size == 0 {
+				continue
+			}
+			dev := from.vdisks[i].getVirtualDisk()
+			dev.CapacityInKB = size * 1024
+
+			deviceChange = append(deviceChange, &types.VirtualDeviceConfigSpec{
+				Operation: types.VirtualDeviceConfigSpecOperationEdit,
+				Device:    dev,
+			})
+		}
+
+		// create new disk
+		if i == len(from.vdisks) {
+			// find same disk
+			var index int32
+			var key int32 = 2000
+			sameDisk := from.FindDiskByDriver("scsi")
+			index += int32(len(sameDisk))
+			if len(sameDisk) > 0 {
+				key = minDiskKey(sameDisk)
+			}
+			for ; i < len(params.Disks); i++ {
+				size := params.Disks[i].Size
+				if size == 0 {
+					size = 30 * 1024
+				}
+				uuid := params.Disks[i].DiskId
+				spec := addDevSpec(NewDiskDev(size, "", uuid, index, key, ctlKey))
+				spec.FileOperation = "create"
+				deviceChange = append(deviceChange, spec)
+			}
+		}
+	}
+	dc, err := host.GetDatacenter()
+	if err != nil {
+		return nil, errors.Wrapf(err, "SHost.GetDatacenter for host '%s'", host.GetId())
+	}
+	// get vmFloder
+	folders, err := dc.getObjectDatacenter().Folders(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "object.DataCenter.Folders")
+	}
+	resourcePool, err := host.GetResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "SHost.GetResourcePool")
+	}
+
+	folderref := folders.VmFolder.Reference()
+	poolref := resourcePool.Reference()
+	hostref := host.GetoHostSystem().Reference()
+	dsref := ds.getDatastoreObj().Reference()
+	relocateSpec := types.VirtualMachineRelocateSpec{
+		DeviceChange: deviceChange,
+		Folder:       &folderref,
+		Pool:         &poolref,
+		Host:         &hostref,
+		Datastore:    &dsref,
+	}
+	cloneSpec := &types.VirtualMachineCloneSpec{
+		PowerOn:  false,
+		Template: false,
+		Location: relocateSpec,
+	}
+
+	if len(params.Name) == 0 {
+		params.Name = params.Uuid
+	}
+	spec := types.VirtualMachineConfigSpec{
+		Name:     params.Name,
+		Uuid:     params.Uuid,
+		NumCPUs:  int32(params.Cpu),
+		MemoryMB: int64(params.Mem),
+	}
+	cloneSpec.Config = &spec
+	task, err := ovm.Clone(ctx, folders.VmFolder, params.Name, *cloneSpec)
+	if err != nil {
+		return nil, errors.Wrap(err, "object.VirtualMachine.Clone")
+	}
+	info, err := task.WaitForResult(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Task.WaitForResult")
+	}
+
+	var moVM mo.VirtualMachine
+	err = host.manager.reference2Object(info.Result.(types.ManagedObjectReference), VIRTUAL_MACHINE_PROPS, &moVM)
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to fetch virtual machine just created")
+	}
+
+	return NewVirtualMachine(host.manager, &moVM, host.datacenter), nil
+	return nil, nil
+}
+
+func (host *SHost) changeNic(device types.BaseVirtualDevice, update types.BaseVirtualDevice) {
+	current := device.(types.BaseVirtualEthernetCard).GetVirtualEthernetCard()
+	changed := update.(types.BaseVirtualEthernetCard).GetVirtualEthernetCard()
+
+	current.Backing = changed.Backing
+	if changed.MacAddress != "" {
+		current.MacAddress = changed.MacAddress
+	}
+	if changed.AddressType != "" {
+		current.AddressType = changed.AddressType
+	}
 }
 
 func (host *SHost) isVersion50() bool {

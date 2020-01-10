@@ -40,16 +40,19 @@ func NewAgentImageCacheManager(manger IImageCacheManger) *SAgentImageCacheManage
 }
 
 type sImageCacheData struct {
-	ImageId        string
-	HostId         string
-	HostIp         string
-	SrcHostIp      string
-	SrcPath        string
-	SrcDatastore   models.SVCenterAccessInfo
-	Datastore      models.SVCenterAccessInfo
-	Format         string
-	IsForce        bool
-	StoragecacheId string
+	ImageId            string
+	HostId             string
+	HostIp             string
+	SrcHostIp          string
+	SrcPath            string
+	SrcDatastore       models.SVCenterAccessInfo
+	Datastore          models.SVCenterAccessInfo
+	Format             string
+	IsForce            bool
+	StoragecacheId     string
+	ImageType          string
+	ImageExternalId    string
+	StorageCacheHostIp string
 }
 
 func (c *SAgentImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
@@ -64,6 +67,9 @@ func (c *SAgentImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	}
 	lockman.LockRawObject(ctx, idata.HostId, idata.ImageId)
 	defer lockman.ReleaseRawObject(ctx, idata.HostId, idata.ImageId)
+	if idata.ImageType == cloudprovider.CachedImageTypeSystem {
+		return c.perfetchTemplateVMImageCache(ctx, idata)
+	}
 	if len(idata.SrcHostIp) != 0 {
 		return c.prefetchImageCacheByCopy(ctx, idata)
 	}
@@ -202,6 +208,26 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 	}
 	log.Debugf("prefetchImageCacheByUpload over")
 	return remoteImg, nil
+}
+
+func (c *SAgentImageCacheManager) perfetchTemplateVMImageCache(ctx context.Context, data *sImageCacheData) (jsonutils.JSONObject, error) {
+
+	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &data.Datastore)
+	if err != nil {
+		return nil, errors.Wrap(err, "esxi.NewESXiClientFromJson")
+	}
+	// data.StorageCacheExternalId is Host Ip associated with the StorageCache in where CachedImage stored
+	host, err := client.FindHostByIp(data.StorageCacheHostIp)
+	if err != nil {
+		return nil, err
+	}
+	_, err = host.GetTemplateVMById(data.ImageExternalId)
+	if err != nil {
+		return nil, err
+	}
+	res := jsonutils.NewDict()
+	res.Add(jsonutils.NewString(data.ImageId), "image_id")
+	return res, nil
 }
 
 func (c *SAgentImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
