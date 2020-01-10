@@ -52,6 +52,18 @@ func TestURLPathRegexp(t *testing.T) {
 	}
 }
 
+func TestRegHostPort(t *testing.T) {
+	inputs := []string{
+		"www.yunion.cn",
+		"www.yunion.cn:9000",
+	}
+	for _, in := range inputs {
+		if !regHostPort.Match([]byte(in)) {
+			t.Errorf("should match: %q", in)
+		}
+	}
+}
+
 type C struct {
 	Name      string
 	In        string
@@ -545,6 +557,134 @@ func TestRegexValidator(t *testing.T) {
 			}
 			if c.Optional {
 				v.Optional(true)
+			}
+			if c.AllowEmpty {
+				v.AllowEmpty(true)
+			}
+			testS(t, v, c.C)
+		})
+	}
+}
+
+func TestHostPortValidator(t *testing.T) {
+	type HostPortC struct {
+		*C
+		AllowEmpty   bool
+		OptionalPort bool
+	}
+	cases := []*HostPortC{
+		{
+			C: &C{
+				Name:      "missing non-optional",
+				In:        `{}`,
+				Out:       `{}`,
+				Err:       ERR_MISSING_KEY,
+				ValueWant: "",
+			},
+		},
+		{
+			C: &C{
+				Name:      "missing optional",
+				In:        `{}`,
+				Out:       `{}`,
+				Optional:  true,
+				ValueWant: "",
+			},
+		},
+		{
+			C: &C{
+				Name:      "missing with default",
+				In:        `{}`,
+				Out:       `{s: "example.com"}`,
+				Default:   "example.com",
+				ValueWant: "example.com",
+			},
+			OptionalPort: true,
+		},
+		{
+			C: &C{
+				Name:      "missing with default (has port)",
+				In:        `{}`,
+				Out:       `{s: "example.com:9000"}`,
+				Default:   "example.com:9000",
+				ValueWant: "example.com:9000",
+			},
+		},
+		{
+			C: &C{
+				Name:      "valid",
+				In:        `{s: "a.example.com"}`,
+				Out:       `{s: "a.example.com"}`,
+				ValueWant: "a.example.com",
+			},
+			OptionalPort: true,
+		},
+		{
+			C: &C{
+				Name:      "valid (has port)",
+				In:        `{s: "a.example.com:9000"}`,
+				Out:       `{s: "a.example.com:9000"}`,
+				ValueWant: "a.example.com:9000",
+			},
+		},
+		{
+			C: &C{
+				Name:      "valid (allow empty)",
+				In:        `{s: ""}`,
+				Out:       `{s: ""}`,
+				ValueWant: "",
+			},
+			AllowEmpty: true,
+		},
+		{
+			C: &C{
+				Name:      "invalid (domain)",
+				In:        `{s: "/.example.com:9000"}`,
+				Out:       `{s: "/.example.com:9000"}`,
+				ValueWant: "",
+				Err:       ERR_INVALID_VALUE,
+			},
+		},
+		{
+			C: &C{
+				Name:      "invalid (port)",
+				In:        `{s: "/.example.com:65536"}`,
+				Out:       `{s: "/.example.com:65536"}`,
+				ValueWant: "",
+				Err:       ERR_INVALID_VALUE,
+			},
+		},
+		{
+			C: &C{
+				Name:      "invalid (no port)",
+				In:        `{s: "a.example.com"}`,
+				Out:       `{s: "a.example.com"}`,
+				ValueWant: "",
+				Err:       ERR_INVALID_VALUE,
+			},
+		},
+		{
+			C: &C{
+				Name:      "invalid (disallow empty)",
+				In:        `{s: ""}`,
+				Out:       `{s: ""}`,
+				ValueWant: "",
+				Err:       ERR_INVALID_VALUE,
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			v := NewHostPortValidator("s")
+			if c.Default != nil {
+				i := c.Default.(string)
+				v.Default(i)
+			}
+			if c.Optional {
+				v.Optional(true)
+			}
+			if c.OptionalPort {
+				v.OptionalPort(true)
 			}
 			if c.AllowEmpty {
 				v.AllowEmpty(true)
