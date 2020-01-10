@@ -468,7 +468,7 @@ func (self *NotifyModelDispatcher) UpdateTemplate(ctx context.Context, ctype str
 
 	q := models.TemplateManager.Query().Equals("contact_type", ctype).In("topic", topics.List())
 	templateModels := make([]models.STemplate, 0, 1)
-	err := db.FetchModelObjects(models.ContactManager, q, &templateModels)
+	err := db.FetchModelObjects(models.TemplateManager, q, &templateModels)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects sql: %s", q.String())
 		return errors.Wrap(err, "db.FetchModelObjects")
