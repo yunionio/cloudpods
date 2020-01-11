@@ -178,7 +178,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		}
 	}
 
-	err := data.Unmarshal(input)
+	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unmarshal input failed: %v", err)
 	}
