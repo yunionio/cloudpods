@@ -23,11 +23,21 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
+// SStructFieldInfo describes struct field, especially behavior for (json)
+// marshal
 type SStructFieldInfo struct {
-	Ignore      bool
-	OmitEmpty   bool
-	OmitFalse   bool
-	OmitZero    bool
+	// True if the field has json tag `json:"-"`
+	Ignore    bool
+	OmitEmpty bool
+	OmitFalse bool
+	OmitZero  bool
+
+	// Name can take the following values, in descreasing preference
+	//
+	//  1. value of "name" tag, e.g. `name:"a-name"`
+	//  2. name of "json" tag, when it's not for ignoration
+	//  3. kebab form of FieldName concatenated with "_" when Ignore is false
+	//  4. empty string
 	Name        string
 	FieldName   string
 	ForceString bool
@@ -97,14 +107,19 @@ func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
 	if val, ok := info.Tags["name"]; ok {
 		info.Name = val
 	}
-	if len(info.Name) == 0 {
+	if !info.Ignore && len(info.Name) == 0 {
 		info.Name = utils.CamelSplit(info.FieldName, "_")
 	}
 	return info
 }
 
+// MarshalName returns Name when it's not empty, otherwise it returns kebab
+// form of the field name concatenated with "_"
 func (info *SStructFieldInfo) MarshalName() string {
-	return info.Name
+	if len(info.Name) > 0 {
+		return info.Name
+	}
+	return utils.CamelSplit(info.FieldName, "_")
 }
 
 type SStructFieldValue struct {

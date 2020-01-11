@@ -133,9 +133,9 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
 	yunion.io/x/executor v0.0.0-20191202093616-92e2e6119257
-	yunion.io/x/jsonutils v0.0.0-20191220095028-7fef3b75f64d
+	yunion.io/x/jsonutils v0.0.0-20200110114224-cf1b538ba071
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20191221094533-5097f12f41ac
+	yunion.io/x/pkg v0.0.0-20200103043034-27c6f82160fa
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20191226074733-6eb73845bfb7
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
