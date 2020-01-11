@@ -11,5 +11,5 @@ require (
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 	yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b
-	yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf
+	yunion.io/x/pkg v0.0.0-20200103043034-27c6f82160fa
 )
