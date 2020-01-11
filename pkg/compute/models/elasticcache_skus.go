@@ -196,10 +196,7 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		return nil, err
 	}
 
-	if domian_id, _ := data.GetString("domain_id"); len(domian_id) > 0 {
-		data.Remove("domain_id")
-		q = q.In("provider", getDomainManagerProviderSubq(domian_id))
-	}
+	q = listItemDomainFilter(q, data)
 
 	city, _ := query.GetString("city")
 	if len(city) > 0 {
