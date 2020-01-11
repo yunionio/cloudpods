@@ -14,6 +14,10 @@
 
 package options
 
+import (
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+)
+
 func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	oldOpts := oOpts.(*BaseOptions)
 	newOpts := nOpts.(*BaseOptions)
@@ -23,6 +27,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	}
 	if oldOpts.TimeZone != newOpts.TimeZone {
 		return true
+	}
+	if oldOpts.NonDefaultDomainProjects != newOpts.NonDefaultDomainProjects {
+		consts.SetNonDefaultDomainProjects(newOpts.NonDefaultDomainProjects)
 	}
 	return false
 }
