@@ -126,7 +126,7 @@ func (manager *SGuestManager) FetchCustomizeColumns(ctx context.Context, userCre
 			for i := range rows {
 				if gdev, ok := gdevs[objs[i].GetId()]; ok {
 					if len(fields) == 0 || fields.Contains("isolated_devices") {
-						rows[i].Add(jsonutils.NewString(getIsolatedDeviceDetails(gdev)), "isolated_devices")
+						rows[i].Add(jsonutils.Marshal(getIsolatedDeviceDetails(gdev)), "isolated_devices")
 					}
 					if len(fields) == 0 || fields.Contains("is_gpu") {
 						if len(gdev) > 0 {
@@ -424,13 +424,28 @@ func fetchGuestIsolatedDevices(guestIds []string) map[string][]SIsolatedDevice {
 	return ret
 }
 
-func getIsolatedDeviceDetails(devs []SIsolatedDevice) string {
-	var buf strings.Builder
-	for _, dev := range devs {
-		buf.WriteString(dev.getDetailedString())
-		buf.WriteString("\n")
+type isolatedDeviceInfo struct {
+	Id             string
+	HostId         string
+	Model          string
+	DevType        string
+	Addr           string
+	VendorDeviceId string
+}
+
+func getIsolatedDeviceDetails(devs []SIsolatedDevice) []isolatedDeviceInfo {
+	var res = make([]isolatedDeviceInfo, len(devs))
+	for i, dev := range devs {
+		res[i] = isolatedDeviceInfo{
+			Id:             dev.Id,
+			HostId:         dev.HostId,
+			Model:          dev.Model,
+			DevType:        dev.DevType,
+			Addr:           dev.Addr,
+			VendorDeviceId: dev.VendorDeviceId,
+		}
 	}
-	return buf.String()
+	return res
 }
 
 func fetchGuestCdroms(guestIds []string) map[string]SGuestcdrom {
