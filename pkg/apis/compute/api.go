@@ -273,6 +273,11 @@ type ServerConfigs struct {
 	// 公有云使用各自的套餐
 	InstanceType string `json:"instance_type"`
 
+	// swagger:ignore
+	// Deprecated
+	// alias for InstanceType
+	Sku string `json:"sku" deprecated-by:"instance_type"`
+
 	// 虚拟机高可用(创建备机)
 	// default: false
 	// requried: false

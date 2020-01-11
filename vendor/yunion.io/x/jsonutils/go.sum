@@ -37,3 +37,5 @@ yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b h1:Z9z+7iegu0HXuL+S8taVWRd1P4
 yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b/go.mod h1:+gauLs73omeJAPlsXcevLsJLKixV+sR/E7WSYTSx1fE=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf h1:OsKC+2ghZHwp+Ztm/MwKlLKKRiE7QcPG8eTp0GmsHbg=
 yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
+yunion.io/x/pkg v0.0.0-20200103043034-27c6f82160fa h1:+7zYi8MhaOW/53/7FOERnhQqAU4UhgaOVIS+AMzTKNU=
+yunion.io/x/pkg v0.0.0-20200103043034-27c6f82160fa/go.mod h1:t6rEGG2sQ4J7DhFxSZVOTjNd0YO/KlfWQyK1W4tog+E=
