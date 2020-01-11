@@ -115,10 +115,7 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sql
 	}
 	data := query.(*jsonutils.JSONDict)
 
-	if domian_id, _ := data.GetString("domain_id"); len(domian_id) > 0 {
-		data.Remove("domain_id")
-		q = q.In("provider", getDomainManagerProviderSubq(domian_id))
-	}
+	q = listItemDomainFilter(q, data)
 
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},

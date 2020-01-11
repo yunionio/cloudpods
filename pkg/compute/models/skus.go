@@ -689,6 +689,18 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 	return zone.GetExternalId(), nil
 }
 
+func listItemDomainFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) *sqlchemy.SQuery {
+	provider, _ := data.GetString("provider")
+	// CLOUD_PROVIDER_ONECLOUD 没有对应的cloudaccount
+	if domian_id := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain"}); provider != api.CLOUD_PROVIDER_ONECLOUD && len(domian_id) > 0 {
+		q = q.In("provider", getDomainManagerProviderSubq(domian_id))
+		data.Remove("domain_id")
+		data.Remove("project_domain")
+	}
+
+	return q
+}
+
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	publicCloud := false
 
@@ -717,6 +729,9 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	data := query.(*jsonutils.JSONDict)
+
+	q = listItemDomainFilter(q, data)
+
 	providers := jsonutils.GetQueryStringArray(query, "provider")
 	if len(providers) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("provider"), providers))
@@ -740,11 +755,6 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, publicCloud)
 		q = q.IsTrue("enabled")
-	}
-
-	if domian_id, _ := data.GetString("domain_id"); len(domian_id) > 0 {
-		data.Remove("domain_id")
-		q = q.In("provider", getDomainManagerProviderSubq(domian_id))
 	}
 
 	if data.Contains("zone") {
