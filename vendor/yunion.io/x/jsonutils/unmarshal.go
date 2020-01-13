@@ -61,10 +61,6 @@ func jsonUnmarshal(jo JSONObject, o interface{}, keys []string) error {
 	if err != nil {
 		return errors.Wrap(err, "jo.unmarshalValue")
 	}
-	afterMarshalFunc := value.MethodByName("AfterUnmarshal")
-	if afterMarshalFunc.IsValid() && !afterMarshalFunc.IsNil() {
-		afterMarshalFunc.Call([]reflect.Value{})
-	}
 	return nil
 }
 
@@ -557,5 +553,26 @@ func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
 			return errors.Wrapf(err, "setStructFieldAt %s: %s", k, v)
 		}
 	}
+	callStructAfterUnmarshal(val)
 	return nil
+}
+
+func callStructAfterUnmarshal(val reflect.Value) {
+	switch val.Kind() {
+	case reflect.Struct:
+		structType := val.Type()
+		for i := 0; i < val.NumField(); i++ {
+			fieldType := structType.Field(i)
+			if fieldType.Anonymous {
+				callStructAfterUnmarshal(val.Field(i))
+			}
+		}
+		valPtr := val.Addr()
+		afterMarshalFunc := valPtr.MethodByName("AfterUnmarshal")
+		if afterMarshalFunc.IsValid() && !afterMarshalFunc.IsNil() {
+			afterMarshalFunc.Call([]reflect.Value{})
+		}
+	case reflect.Ptr:
+		callStructAfterUnmarshal(val.Elem())
+	}
 }
