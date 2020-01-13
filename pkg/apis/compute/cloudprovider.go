@@ -77,10 +77,16 @@ type ManagedResourceListInput struct {
 
 	// 列出指定云平台的资源，支持的云平台如下
 	// enum: OneCloud,VMware,Aliyun,Qcloud,Azure,Aws,Huawei,OpenStack,Ucloud,ZStack,Google,Ctyun,S3,Ceph,Xsky"
-	Providers []string `json:"provider"`
+	Providers []string `json:"providers"`
+	// swagger:ignore
+	// Deprecated
+	Provider []string `json:"provider" deprecated-by:"providers"`
 
 	// 列出指定云平台品牌的资源
-	Brands []string `json:"brand"`
+	Brands []string `json:"brands"`
+	// swagger:ignore
+	// Deprecated
+	Brand []string `json:"brand" deprecated-by:"brands"`
 
 	// 列出指定云环境的资源，支持云环境如下：
 	//

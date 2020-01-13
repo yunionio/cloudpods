@@ -694,26 +694,21 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 	return zone.GetExternalId(), nil
 }
 
-func listItemDomainFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) *sqlchemy.SQuery {
-	providers := jsonutils.GetQueryStringArray(data, "provider")
+func listItemDomainFilter(q *sqlchemy.SQuery, providers []string, domainId string) *sqlchemy.SQuery {
 	// CLOUD_PROVIDER_ONECLOUD 没有对应的cloudaccount
-	if domian_id := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain"}); len(domian_id) > 0 {
+	if len(domainId) > 0 {
 		if len(providers) >= 1 && !utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
 			// 明确指定只查询公有云provider的情况，只查询公有云skus
-			q = q.In("provider", getDomainManagerProviderSubq(domian_id))
+			q = q.In("provider", getDomainManagerProviderSubq(domainId))
 		} else if len(providers) == 1 && utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
 			// 明确指定只查询私有云provider的情况
 		} else {
 			// 公有云skus & 私有云skus 混合查询
-			publicSkusQ := sqlchemy.In(q.Field("provider"), getDomainManagerProviderSubq(domian_id))
+			publicSkusQ := sqlchemy.In(q.Field("provider"), getDomainManagerProviderSubq(domainId))
 			privateSkusQ := sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD)
 			q = q.Filter(sqlchemy.OR(publicSkusQ, privateSkusQ))
 		}
-
-		data.Remove("domain_id")
-		data.Remove("project_domain")
 	}
-
 	return q
 }
 
@@ -744,9 +739,17 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		)
 	}
 
-	data := query.(*jsonutils.JSONDict)
-
-	q = listItemDomainFilter(q, data)
+	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		query.ProjectDomain = domain.GetId()
+	}
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
 
 	providers := query.Providers
 	if len(providers) > 0 {

@@ -122,10 +122,11 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sql
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		q = q.In("provider", getDomainManagerProviderSubq(domain.GetId()))
+		query.ProjectDomain = domain.GetId()
 	}
 
-	q = listItemDomainFilter(q, data)
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
+
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")

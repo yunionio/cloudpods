@@ -194,7 +194,17 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
-	q = listItemDomainFilter(q, data)
+	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		query.ProjectDomain = domain.GetId()
+	}
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
 
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 	if err != nil {
