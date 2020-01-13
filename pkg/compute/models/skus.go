@@ -690,10 +690,21 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 }
 
 func listItemDomainFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) *sqlchemy.SQuery {
-	provider, _ := data.GetString("provider")
+	providers := jsonutils.GetQueryStringArray(data, "provider")
 	// CLOUD_PROVIDER_ONECLOUD 没有对应的cloudaccount
-	if domian_id := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain"}); provider != api.CLOUD_PROVIDER_ONECLOUD && len(domian_id) > 0 {
-		q = q.In("provider", getDomainManagerProviderSubq(domian_id))
+	if domian_id := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain"}); len(domian_id) > 0 {
+		if len(providers) >= 1 && !utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
+			// 明确指定只查询公有云provider的情况，只查询公有云skus
+			q = q.In("provider", getDomainManagerProviderSubq(domian_id))
+		} else if len(providers) == 1 && utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
+			// 明确指定只查询私有云provider的情况
+		} else {
+			// 公有云skus & 私有云skus 混合查询
+			publicSkusQ := sqlchemy.In(q.Field("provider"), getDomainManagerProviderSubq(domian_id))
+			privateSkusQ := sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD)
+			q = q.Filter(sqlchemy.OR(publicSkusQ, privateSkusQ))
+		}
+
 		data.Remove("domain_id")
 		data.Remove("project_domain")
 	}
