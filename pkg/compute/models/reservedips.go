@@ -180,20 +180,18 @@ func (self *SReservedip) GetCustomizeColumns(ctx context.Context, userCred mccli
 	return extra
 }
 
-func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ReservedipListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {
-		log.Errorf("ListItemFilter %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
-	isAll := jsonutils.QueryBoolean(query, "all", false)
-	if !isAll {
+	if query.All == nil || *query.All == false {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
 			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
 		))
 	}
-	network, _ := query.GetString("network")
+	network := query.Network
 	if len(network) > 0 {
 		netObj, _ := NetworkManager.FetchByIdOrName(userCred, network)
 		if netObj == nil {

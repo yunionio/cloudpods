@@ -30,6 +30,111 @@ type EnabledIdentityBaseResourceCreateInput struct {
 	Enabled *bool `json:"enabled"`
 }
 
+type IdentityBaseResourceListInput struct {
+	apis.StandaloneResourceListInput
+	apis.DomainizedResourceListInput
+}
+
+type EnabledIdentityBaseResourceListInput struct {
+	IdentityBaseResourceListInput
+
+	// filter by enabled status
+	Enabled *bool `json:"enabled"`
+}
+
+type ProjectFilterListInput struct {
+	// 以项目（ID或Name）过滤列表结果
+	Project string `json:"project"`
+	// swagger:ignore
+	// Deprecated
+	// filter by project_id
+	ProjectId string `json:"project_id" deprecated-by:"project"`
+	// swagger:ignore
+	// Deprecated
+	// filter by tenant
+	Tenant string `json:"tenant" deprecated-by:"project"`
+	// swagger:ignore
+	// Deprecated
+	// filter by tenant_id
+	TenantId string `json:"tenant_id" deprecated-by:"project"`
+}
+
+type UserFilterListInput struct {
+	// filter by user
+	User string `json:"user"`
+	// swagger:ignore
+	// Deprecated
+	// filter by user_id
+	UserId string `json:"user_id" deprecated-by:"user"`
+}
+
+type GroupFilterListInput struct {
+	// filter by group
+	Group string `json:"group"`
+	// swagger:ignore
+	// Deprecated
+	// filter by group_id
+	GroupId string `json:"group_id" deprecated-by:"group"`
+}
+
+type RoleFilterListInput struct {
+	// filter by role
+	Role string `json:"role"`
+	// swagger:ignore
+	// Deprecated
+	// filter by role_id
+	RoleId string `json:"role_id" deprecated-by:"role"`
+}
+
+type ServiceFilterListInput struct {
+	// filter by service, either id or name
+	Service string `json:"service"`
+	// swagger:ignore
+	// Deprecated
+	// filter by service_id
+	ServiceId string `json:"service_id" deprecated-by:"service"`
+}
+
+type RoleListInput struct {
+	IdentityBaseResourceListInput
+
+	ProjectFilterListInput
+	UserFilterListInput
+	GroupFilterListInput
+}
+
+type GroupListInput struct {
+	IdentityBaseResourceListInput
+
+	UserFilterListInput
+	ProjectFilterListInput
+}
+
+type ProjectListInput struct {
+	IdentityBaseResourceListInput
+
+	UserFilterListInput
+	GroupFilterListInput
+}
+
+type DomainListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type UserListInput struct {
+	EnabledIdentityBaseResourceListInput
+
+	GroupFilterListInput
+	ProjectFilterListInput
+	RoleFilterListInput
+}
+
+type EndpointListInput struct {
+	apis.StandaloneResourceListInput
+
+	ServiceFilterListInput
+}
+
 type SJoinProjectsInput struct {
 	Projects []string
 	Roles    []string
@@ -119,4 +224,25 @@ func (input SProjectRemoveUserGroupInput) Validate() error {
 		}
 	}
 	return nil
+}
+
+type IdentityProviderListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+}
+
+type CredentialListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type PolicyListInput struct {
+	EnabledIdentityBaseResourceListInput
+	apis.SharableResourceListInput
+}
+
+type RegionListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type ServiceListInput struct {
+	apis.StandaloneResourceListInput
 }

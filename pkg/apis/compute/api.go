@@ -424,9 +424,6 @@ type ServerCreateInput struct {
 	// swagger:ignore
 	AutoPrepaidRecycle bool `json:"auto_prepaid_recycle,omitfalse"`
 
-	// 安全组Id, 此参数会和secgroups参数合并
-	SecgroupId string `json:"secgrp_id"`
-
 	// 弹性公网IP带宽
 	// 指定此参数后会创建新的弹性公网IP并绑定到新建的虚拟机
 	// 私有云不支持此参数
@@ -445,6 +442,8 @@ type ServerCreateInput struct {
 	// required: false
 	InstanceSnapshotId string `json:"instance_snapshot_id,omitempty"`
 
+	// 安全组Id, 此参数会和secgroups参数合并
+	SecgroupId string `json:"secgrp_id"`
 	// 安全组Id列表
 	Secgroups []string `json:"secgroups"`
 
@@ -458,7 +457,8 @@ type ServerCreateInput struct {
 	// swagger:ignore
 	BillingCycle string `json:"billing_cycle"`
 
-	// DEPRECATE
+	// swagger:ignore
+	// Deprecated
 	// 此参数等同于 hypervisor=baremetal
 	Baremetal bool `json:"baremetal"`
 
@@ -469,8 +469,14 @@ type ServerCreateInput struct {
 	// swagger:ignore
 	DefaultStorageType string `json:"default_storage_type,omitempty"`
 
-	// Guest Image ID
-	GuestImageID string
+	// 指定用于新建主机的主机镜像ID
+	GuestImageID string `json:"guest_image_id"`
+}
+
+func (input *ServerCreateInput) AfterUnmarshal() {
+	if input.Baremetal {
+		input.Hypervisor = HYPERVISOR_BAREMETAL
+	}
 }
 
 type ServerCloneInput struct {

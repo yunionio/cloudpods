@@ -66,3 +66,23 @@ type SSnapshotPolicyCreateInternalInput struct {
 	RepeatWeekdays uint8
 	TimePoints     uint32
 }
+
+type SnapshotListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	StorageShareFilterListInput
+
+	// filter snapshot that is fake deleted
+	FakeDeleted *bool `json:"fake_deleted"`
+	// filter by disk type
+	DiskType string `json:"disk_type"`
+	// filter instance snapshot
+	IsInstanceSnapshot *bool `json:"is_instance_snapshot"`
+}
+
+type InstanceSnapshotListInput struct {
+	apis.VirtualResourceListInput
+
+	ServerFilterListInput
+}

@@ -366,3 +366,11 @@ func (self *SElasticcacheBackup) ValidateDeleteCondition(ctx context.Context) er
 func (self *SElasticcacheBackup) ValidatePurgeCondition(ctx context.Context) error {
 	return nil
 }
+
+func (manager *SElasticcacheBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheBackupListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

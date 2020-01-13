@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -522,26 +523,26 @@ func NetworkUsableZoneQueries(field sqlchemy.IQueryField, usableNet, usableVpc b
 	return iconditions
 }
 
-func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ZoneListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	cloudEnvStr, _ := query.GetString("cloud_env")
-	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	cloudEnvStr := query.CloudEnv
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPublicProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
@@ -560,24 +561,24 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_managed", false) {
+	if query.IsManaged {
 		q = q.IsNotEmpty("external_id")
 	}
 
-	domainId, err := db.FetchQueryDomain(ctx, userCred, query)
+	data := jsonutils.Marshal(query.DomainizedResourceListInput)
+	domainId, err := db.FetchQueryDomain(ctx, userCred, data)
 	if len(domainId) > 0 {
 		q = q.In("cloudregion_id", getCloudRegionIdByDomainId(domainId))
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
-		usableNet := jsonutils.QueryBoolean(query, "usable", false)
-		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc",
-			false)
+	usableNet := (query.Usable != nil && *query.Usable)
+	usableVpc := (query.UsableVpc != nil && *query.UsableVpc)
+	if usableNet || usableVpc {
 		iconditions := NetworkUsableZoneQueries(q.Field("id"), usableNet, usableVpc)
 		q = q.Filter(sqlchemy.OR(iconditions...))
 		q = q.Equals("status", api.ZONE_ENABLE)
 
-		service, _ := query.GetString("service")
+		service := query.Service
 		switch service {
 		case ElasticcacheManager.KeywordPlural():
 			q2 := ElasticcacheSkuManager.Query("zone_id").Distinct()
@@ -589,36 +590,30 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	managerStr, _ := query.GetString("manager")
+	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
-	accountStr, _ := query.GetString("account")
+	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("cloudregion_id", subq)
 	}
 
-	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
+	providerStrs := query.Providers
 	if len(providerStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("provider")
 		subq := queryCloudregionIdsByProviders("provider", providerStrs)
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
+	brandStrs := query.Brands
 	if len(brandStrs) > 0 {
-		query.(*jsonutils.JSONDict).Remove("brand")
 		subq := queryCloudregionIdsByProviders("brand", brandStrs)
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
-	city, _ := query.GetString("city")
-	if len(city) > 0 {
-		subq := CloudregionManager.Query("id").Equals("city", city).SubQuery()
-		q = q.In("cloudregion_id", subq)
-	}
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 
 	return q, nil
 }

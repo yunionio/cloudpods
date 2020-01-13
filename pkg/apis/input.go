@@ -14,6 +14,27 @@
 
 package apis
 
+type DomainizedResourceListInput struct {
+	// swagger:ignore
+	// Is an admin call? equivalent to scope=system
+	// Deprecated
+	Admin *bool `json:"admin"`
+
+	// 指定查询的权限范围，可能值为project, domain or system
+	Scope string `json:"scope"`
+
+	// 查询指定的域（ID或名称）拥有的资源
+	ProjectDomain string `json:"project_domain"`
+	// swagger:ignore
+	// Deprecated
+	// Project domain Id filter, alias for project_domain
+	ProjectDomainId string `json:"project_domain_id" deprecated-by:"project_domain"`
+	// swagger:ignore
+	// Deprecated
+	// Domain Id filter, alias for project_domain
+	DomainId string `json:"domain_id" deprecated-by:"project_domain"`
+}
+
 type DomainizedResourceCreateInput struct {
 	// description: the owner domain name or id
 	// required: false
@@ -22,6 +43,25 @@ type DomainizedResourceCreateInput struct {
 	// description: the owner domain name or id, alias field of domain
 	// required: false
 	DomainId string `json:"domain_id"`
+}
+
+type ProjectizedResourceListInput struct {
+	DomainizedResourceListInput
+
+	// 查询指定的项目（ID或名称）拥有的资源
+	Project string `json:"project"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by project_id, alias for project
+	ProjectId string `json:"project_id" deprecated-by:"project"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by tenant ID or Name, alias for project
+	Tenant string `json:"tenant" deprecated-by:"project"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by tenant_id, alias for project
+	TenantId string `json:"tenant_id" deprecated-by:"project"`
 }
 
 type ProjectizedResourceCreateInput struct {
@@ -34,6 +74,25 @@ type ProjectizedResourceCreateInput struct {
 	// description: the owner project name or id, alias field of project
 	// required: false
 	ProjectId string `json:"project_id"`
+}
+
+type UserResourceListInput struct {
+	// 查询指定的用户（ID或名称）拥有的资源
+	User string `json:"user"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by userId
+	UserId string `json:"user_id" deprecated-by:"user"`
+}
+
+func (input UserResourceListInput) UserStr() string {
+	if len(input.User) > 0 {
+		return input.User
+	}
+	if len(input.UserId) > 0 {
+		return input.UserId
+	}
+	return ""
 }
 
 type SharableVirtualResourceCreateInput struct {

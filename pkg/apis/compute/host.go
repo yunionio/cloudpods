@@ -43,3 +43,29 @@ type DiskSpec struct {
 	EndIndex   int    `json:"end_index"`
 	Count      int    `json:"count"`
 }
+
+type HostListInput struct {
+	apis.EnabledStatusStandaloneResourceListInput
+	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
+	ZonalFilterListInput
+	WireFilterListInput
+	SchedtagFilterListInput
+
+	StorageFilterListInput
+	UsableResourceListInput
+
+	// filter by ResourceType
+	ResourceType string `json:"resource_type"`
+	// filter by mac of any network interface
+	AnyMac string `json:"any_mac"`
+	// filter storages not attached to this host
+	StorageNotAttached *bool `json:"storage_not_attached"`
+	// filter by Hypervisor
+	Hypervisor string `json:"hypervisor"`
+	// filter host that is empty
+	IsEmpty *bool `json:"is_empty"`
+	// filter host that is baremetal
+	Baremetal *bool `json:"baremetal"`
+}

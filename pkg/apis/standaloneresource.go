@@ -22,13 +22,40 @@ type StandaloneResourceShortDescDetail struct {
 }
 
 type STag struct {
-	Key   string
+	// 标签key
+	Key string
+	// 标签Value
 	Value string
 }
 
 type StandaloneResourceListInput struct {
-	ModelBaseListInput
+	ResourceBaseListInput
 
-	Tags            []STag `json:"tags"`
-	WithoutUserMeta bool   `json:"without_user_meta"`
+	// 通过标签过滤
+	Tags []STag `json:"tags"`
+	// 返回资源的标签不包含特定的用户标签
+	WithoutUserMeta bool `json:"without_user_meta"`
+	// 返回列表数据中包含资源的标签数据（Metadata）
+	WithMeta *bool `json:"with_meta"`
+	// 显示所有的资源，包括模拟的资源
+	ShowEmulated *bool `json:"show_emulated"`
+
+	// 以资源名称过滤列表
+	Names []string `json:"name"`
+	// 以资源ID过滤列表
+	Ids []string `json:"id"`
+}
+
+type StatusStandaloneResourceListInput struct {
+	StandaloneResourceListInput
+
+	// 以资源的状态过滤列表
+	Status []string `json:"status"`
+}
+
+type EnabledStatusStandaloneResourceListInput struct {
+	StatusStandaloneResourceListInput
+
+	// 以资源是否启用/禁用过滤列表
+	Enabled *bool `json:"enabled"`
 }

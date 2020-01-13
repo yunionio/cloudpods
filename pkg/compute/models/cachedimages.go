@@ -587,10 +587,10 @@ func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 	return cloudprovider, nil
 }
 
-func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CachedimageListInput) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = managedResourceFilterByAccount(q, query, "id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "id", func() *sqlchemy.SQuery {
 		cachedImages := CachedimageManager.Query().SubQuery()
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
@@ -601,26 +601,15 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "id", func() *sqlchemy.SQuery {
-		cachedImages := CachedimageManager.Query().SubQuery()
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
-
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		return subq
-	})
-
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query, "id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
 		storages := StorageManager.Query().SubQuery()
@@ -634,10 +623,10 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	q, err = managedResourceFilterByZone(q, query, "id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
 		storages := StorageManager.Query().SubQuery()
@@ -649,58 +638,8 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
-
-	/*regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
-	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		cachedImages := CachedimageManager.Query().SubQuery()
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
-		storages := StorageManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
-
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
-		subq = subq.Join(zones, sqlchemy.Equals(storages.Field("zone_id"), zones.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
-
-		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}*/
-
-	/* zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		cachedImages := CachedimageManager.Query().SubQuery()
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
-		storages := StorageManager.Query().SubQuery()
-
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
-		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
-
-		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}*/
 
 	return q, nil
 }

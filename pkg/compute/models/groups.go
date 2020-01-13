@@ -74,7 +74,7 @@ type SGroup struct {
 }
 
 func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	input *api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
+	input api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
 	guestFilter := input.Server
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
@@ -83,6 +83,12 @@ func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 		}
 		ggSub := GroupguestManager.Query("group_id").Equals("guest_id", guestObj.GetId()).SubQuery()
 		q = q.Join(ggSub, sqlchemy.Equals(ggSub.Field("group_id"), q.Field("id")))
+	}
+	if len(input.ParentId) > 0 {
+		q = q.Equals("parent_id", input.ParentId)
+	}
+	if len(input.ServiceType) > 0 {
+		q = q.Equals("service_type", input.ServiceType)
 	}
 	return q, nil
 }

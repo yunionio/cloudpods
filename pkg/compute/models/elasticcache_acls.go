@@ -342,3 +342,11 @@ func (self *SElasticcacheAcl) StartDeleteElasticcacheAclTask(ctx context.Context
 func (self *SElasticcacheAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
 }
+
+func (manager *SElasticcacheAclManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheAclListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

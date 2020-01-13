@@ -89,3 +89,9 @@ func (input *BucketMetadataInput) Validate() error {
 	}
 	return nil
 }
+
+type BucketListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+}

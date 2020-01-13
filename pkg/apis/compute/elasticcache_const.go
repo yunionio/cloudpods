@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	ELASTIC_CACHE_STATUS_RUNNING               = "running"               //（正常）
 	ELASTIC_CACHE_STATUS_RESTARTING            = "restarting"            //（重启中）
@@ -102,3 +106,28 @@ const (
 	ELASTIC_CACHE_ARCH_TYPE_CLUSTER = "cluster" // 集群
 	ELASTIC_CACHE_ARCH_TYPE_RWSPLIT = "rwsplit" // 读写分离
 )
+
+type ElasticcacheListInput struct {
+	apis.VirtualResourceListInput
+
+	ZonalFilterListInput
+	VpcFilterListInput
+
+	ManagedResourceListInput
+}
+
+type ElasticcacheAccountListInput struct {
+	apis.StatusStandaloneResourceListInput
+}
+
+type ElasticcacheAclListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type ElasticcacheBackupListInput struct {
+	apis.StatusStandaloneResourceListInput
+}
+
+type ElasticcacheParameterListInput struct {
+	apis.StandaloneResourceListInput
+}

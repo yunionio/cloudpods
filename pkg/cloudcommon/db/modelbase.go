@@ -123,11 +123,7 @@ func (manager *SModelBaseManager) ValidateListConditions(ctx context.Context, us
 	return query, nil
 }
 
-func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	return q, nil
-}
-
-func (manager *SModelBaseManager) ListItemFilterV2(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *apis.ModelBaseListInput) (*sqlchemy.SQuery, error) {
+func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.ModelBaseListInput) (*sqlchemy.SQuery, error) {
 	return q, nil
 }
 

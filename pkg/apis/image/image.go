@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
+package image
 
-type VirtualResourceDetails struct {
-	ModelBaseDetails
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
+type ImageListInput struct {
+	apis.SharableVirtualResourceListInput
+
+	// 以镜像的格式过滤，可能值为：qcow2, iso, vmdk, vhd, raw等
+	DiskFormats []string `json:"disk_formats"`
+	// 列出是否支持UEFI启动的镜像
+	Uefi *bool `json:"uefi"`
 }
 
-type VirtualResourceListInput struct {
-	StatusStandaloneResourceListInput
-
-	ProjectizedResourceListInput
-
-	// 列表中包含标记为"系统资源"的资源
-	System *bool `json:"system"`
-	// 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
-	PendingDelete *bool `json:"pending_delete"`
-	// 是否显示所有资源，包括回收站和不再回收站的资源
-	// TODO: fix this???
-	PendingDeleteAll *bool `json:"-"`
+type GuestImageListInput struct {
+	apis.SharableVirtualResourceListInput
 }

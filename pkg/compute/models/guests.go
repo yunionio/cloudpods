@@ -132,26 +132,17 @@ func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mccli
 }
 
 // 按指定条件列出云主机实例
-func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict, ok := query.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("invalid querystring format")
-	}
-
+func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "host_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		return hosts.Query(hosts.Field("id"))
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "host_id", func() *sqlchemy.SQuery {
-		hosts := HostManager.Query().SubQuery()
-		return hosts.Query(hosts.Field("id"))
-	})
 
-	billingTypeStr, _ := queryDict.GetString("billing_type")
+	billingTypeStr := query.BillingType
 	if len(billingTypeStr) > 0 {
 		if billingTypeStr == billing_api.BILLING_TYPE_POSTPAID {
 			q = q.Filter(
@@ -163,24 +154,19 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		} else {
 			q = q.Equals("billing_type", billingTypeStr)
 		}
-		queryDict.Remove("billing_type")
 	}
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
-	}
-	isBMstr, _ := queryDict.GetString("baremetal")
-	if len(isBMstr) > 0 && utils.ToBool(isBMstr) {
-		queryDict.Add(jsonutils.NewString(api.HYPERVISOR_BAREMETAL), "hypervisor")
-		queryDict.Remove("baremetal")
-	}
-	hypervisor, _ := queryDict.GetString("hypervisor")
-	if len(hypervisor) > 0 {
-		q = q.Equals("hypervisor", hypervisor)
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	resourceTypeStr := jsonutils.GetAnyString(queryDict, []string{"resource_type"})
+	hypervisorList := query.Hypervisor
+	if len(hypervisorList) > 0 {
+		q = q.In("hypervisor", hypervisorList)
+	}
+
+	resourceTypeStr := query.ResourceType
 	if len(resourceTypeStr) > 0 {
 		hosts := HostManager.Query().SubQuery()
 		subq := hosts.Query(hosts.Field("id"))
@@ -199,13 +185,13 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", subq.SubQuery())
 	}
 
-	hostFilter, _ := queryDict.GetString("host")
+	hostFilter := query.Host
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
 		if host == nil {
 			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
-		if jsonutils.QueryBoolean(queryDict, "get_backup_guests_on_host", false) {
+		if query.GetBackupGuestsOnHost != nil && *query.GetBackupGuestsOnHost {
 			q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), host.GetId()),
 				sqlchemy.Equals(q.Field("backup_host_id"), host.GetId())))
 		} else {
@@ -213,7 +199,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	secgrpFilter, _ := queryDict.GetString("secgroup")
+	secgrpFilter := query.Secgroup
 	if len(secgrpFilter) > 0 {
 		var notIn = false
 		// HACK FOR NOT IN SECGROUP
@@ -237,7 +223,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 
 		isAdmin := false
-		admin, _ := query.Bool("admin")
+		admin := (query.Admin != nil && *query.Admin)
 		if consts.IsRbacEnabled() {
 			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
@@ -267,7 +253,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	usableServerForEipFilter, _ := queryDict.GetString("usable_server_for_eip")
+	usableServerForEipFilter := query.UsableServerForEip
 	if len(usableServerForEipFilter) > 0 {
 		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableServerForEipFilter)
 		if err != nil {
@@ -299,20 +285,26 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	zoneFilter, _ := queryDict.GetString("zone")
-	if len(zoneFilter) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneFilter)
-		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError("zone %s not found", zoneFilter)
-		}
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
 		hostTable := HostManager.Query().SubQuery()
 		zoneTable := ZoneManager.Query().SubQuery()
-		sq := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
-			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
-		q = q.In("host_id", sq)
+		sq := hostTable.Query(hostTable.Field("id"))
+		sq = sq.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id")))
+		return sq
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	wireFilter, _ := queryDict.GetString("wire")
+	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "host_id", func() *sqlchemy.SQuery {
+		hostTable := HostManager.Query().SubQuery()
+		return hostTable.Query(hostTable.Field("id"))
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+	}
+
+	wireFilter := query.Wire
 	if len(wireFilter) > 0 {
 		wire, _ := WireManager.FetchByIdOrName(nil, wireFilter)
 		if wire == nil {
@@ -324,7 +316,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	networkFilter, _ := queryDict.GetString("network")
+	networkFilter := query.Network
 	if len(networkFilter) > 0 {
 		netI, _ := NetworkManager.FetchByIdOrName(userCred, networkFilter)
 		if netI == nil {
@@ -338,8 +330,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	vpcFilter, err := queryDict.GetString("vpc")
-	if err == nil {
+	vpcFilter := query.Vpc
+	if len(vpcFilter) > 0 {
 		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Vpc %s not found", vpcFilter)
@@ -355,7 +347,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("id", sq)
 	}
 
-	diskFilter, _ := queryDict.GetString("disk")
+	diskFilter := query.Disk
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {
@@ -382,65 +374,45 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	regionFilter, _ := queryDict.GetString("region")
-	if len(regionFilter) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		hosts := HostManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id"))
-		sq = sq.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
-		sq = sq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId()))
-		q = q.In("host_id", sq)
-	}
-
-	withEip, _ := queryDict.GetString("with_eip")
-	withoutEip, _ := queryDict.GetString("without_eip")
-	if len(withEip) > 0 || len(withoutEip) > 0 {
+	withEip := (query.WithEip != nil && *query.WithEip)
+	withoutEip := (query.WithoutEip != nil && *query.WithoutEip)
+	if withEip || withoutEip {
 		eips := ElasticipManager.Query().SubQuery()
 		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
 		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
 
-		if utils.ToBool(withEip) {
+		if withEip {
 			q = q.In("id", sq)
-		} else if utils.ToBool(withoutEip) {
+		} else if withoutEip {
 			q = q.NotIn("id", sq)
 		}
 	}
 
-	gpu, _ := queryDict.GetString("gpu")
-	if len(gpu) != 0 {
+	if query.Gpu != nil {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
 				sqlchemy.IsNotNull(isodev.Field("guest_id")),
 				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
-		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
-		if showGpu {
+		if *query.Gpu {
 			cond = sqlchemy.In
 		}
 		q = q.Filter(cond(q.Field("id"), sgq))
 	}
 
-	groupFilter := jsonutils.GetAnyString(queryDict, []string{"group", "group_id"})
+	groupFilter := query.Group
 	if len(groupFilter) != 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupFilter)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("group %s not found", groupFilter)
 		}
-		queryDict.Add(jsonutils.NewString(groupObj.GetId()), "group")
+		// queryDict.Add(jsonutils.NewString(groupObj.GetId()), "group")
 		ggSub := GroupguestManager.Query("guest_id").Equals("group_id", groupObj.GetId()).SubQuery()
 		q = q.Join(ggSub, sqlchemy.Equals(ggSub.Field("guest_id"), q.Field("id")))
 	}
 
-	orderByDisk, _ := queryDict.GetString("order_by_disk")
+	orderByDisk := query.OrderByDisk
 	if orderByDisk == "asc" || orderByDisk == "desc" {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		disks := DiskManager.Query().SubQuery()
@@ -461,7 +433,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	orderByHost, _ := queryDict.GetString("order_by_host")
+	orderByHost := query.OrderByHost
 	if orderByHost == "asc" {
 		hosts := HostManager.Query().SubQuery()
 		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).

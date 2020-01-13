@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 type RegionalResourceCreateInput struct {
 	Cloudregion   string `json:"cloudregion"`
 	CloudregionId string `json:"cloudregion_id"`
@@ -28,4 +32,64 @@ type DeletePreventableCreateInput struct {
 	//删除保护,创建的资源默认不允许删除
 	//default: true
 	DisableDelete *bool `json:"disable_delete"`
+}
+
+type KeypairListInput struct {
+	apis.StandaloneResourceListInput
+
+	apis.UserResourceListInput
+
+	// list in admin mode
+	Admin *bool `json:"admin"`
+}
+
+type CachedimageListInput struct {
+	apis.StandaloneResourceListInput
+
+	ManagedResourceListInput
+	ZonalFilterListInput
+}
+
+type ExternalProjectListInput struct {
+	apis.StandaloneResourceListInput
+
+	ManagedResourceListInput
+}
+
+type RouteTableListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	RegionalFilterListInput
+	VpcFilterListInput
+}
+
+type SnapshotPolicyCacheListInput struct {
+	apis.ResourceBaseListInput
+
+	// filter by snapshotpolicy Id or Name
+	Snapshotpolicy string `json:"snapshotpolicy"`
+}
+
+type BillingFilterListInput struct {
+	// filter by billing_type
+	BillingType string `json:"billing_type"`
+}
+
+type NetworkInterfaceListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	ManagedResourceListInput
+}
+
+type BaremetalagentListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type DnsRecordListInput struct {
+	apis.AdminSharableVirtualResourceListInput
+}
+
+type DynamicschedtagListInput struct {
+	apis.StandaloneResourceListInput
 }

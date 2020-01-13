@@ -17,8 +17,7 @@ package compute
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -130,9 +129,38 @@ type SSecgroupCreateInput struct {
 	Rules []SSecgroupRuleCreateInput `json:"rules"`
 }
 
-type SSecgroupListFilterInput struct {
-	apis.BaseListInput
+type SecgroupListInput struct {
+	apis.SharableVirtualResourceListInput
 
+	// equals
 	Equals string
-	Server string
+
+	ServerFilterListInput
+}
+
+type SecurityGroupCacheListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	SecgroupFilterListInput
+}
+
+type SecurityGroupRuleListInput struct {
+	apis.ResourceBaseListInput
+	SecgroupFilterListInput
+
+	// 以direction字段过滤安全组规则
+	Direction string `json:"direction"`
+	// 以action字段过滤安全组规则
+	Action string `json:"action"`
+	// 以protocol字段过滤安全组规则
+	Protocol string `json:"protocol"`
+}
+
+type SecgroupFilterListInput struct {
+	// 过滤关联指定安全组（ID或Name）的列表结果
+	Secgroup string `json:"secgroup"`
+	// swagger:ignore
+	// Deprecated
+	// filter by secgroup_id
+	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
 }

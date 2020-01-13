@@ -19,8 +19,11 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -160,4 +163,12 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 
 func (model *SAdminSharableVirtualResourceBase) GetIAdminSharableVirtualModel() IAdminSharableVirtualModel {
 	return model.GetVirtualObject().(IAdminSharableVirtualModel)
+}
+
+func (manager *SAdminSharableVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.AdminSharableVirtualResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }
