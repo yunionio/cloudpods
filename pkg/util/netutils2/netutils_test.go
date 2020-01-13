@@ -177,3 +177,24 @@ func TestNewNetInterface(t *testing.T) {
 	n := NewNetInterface("br0")
 	t.Logf("NetInterface: %s %s %s %s", n.name, n.Addr, n.Mask.String(), n.Mac)
 }
+
+func TestMyDefault(t *testing.T) {
+	myip, err := MyIP()
+	if err != nil {
+		// Skip if it's no route to host
+		t.Fatalf("MyIP: %v", err)
+	}
+
+	if myip != "" {
+		srcIp, ifname, err := DefaultSrcIpDev()
+		if err != nil {
+			t.Fatalf("default srcip dev: %v", err)
+		}
+		if srcIp.String() != myip {
+			t.Errorf("myip: %s, srcip: %s", myip, srcIp.String())
+		}
+		if ifname == "" {
+			t.Errorf("empty ifname")
+		}
+	}
+}
