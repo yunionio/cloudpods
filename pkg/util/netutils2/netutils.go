@@ -24,6 +24,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/vishvananda/netlink"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -79,6 +81,38 @@ func MyIP() (ip string, err error) {
 		return
 	}
 	ip = addr.IP.String()
+	return
+}
+
+func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
+	destIp := net.ParseIP("114.114.114.114")
+	routes, err := netlink.RouteGet(destIp)
+	if err != nil {
+		err = errors.Wrap(err, "get route")
+		return
+	}
+	if len(routes) == 0 {
+		err = fmt.Errorf("no route")
+		return
+	}
+	var errs []error
+	for i := range routes {
+		route := &routes[i]
+		ip4 := route.Src.To4()
+		if len(ip4) != 4 || ip4.Equal(net.IPv4zero) {
+			errs = append(errs, fmt.Errorf("bad src ipv4 address: %s", ip4))
+			continue
+		}
+		link, err2 := netlink.LinkByIndex(route.LinkIndex)
+		if err2 != nil {
+			errs = append(errs, errors.Wrap(err2, "link by index"))
+			continue
+		}
+		srcIp = ip4
+		ifname = link.Attrs().Name
+		return
+	}
+	err = errors.NewAggregate(errs)
 	return
 }
 
