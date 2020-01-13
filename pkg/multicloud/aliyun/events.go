@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/apis/cloudevent"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -102,12 +101,7 @@ func (event *SEvent) GetAccount() string {
 }
 
 func (event *SEvent) GetService() string {
-	switch event.ServiceName {
-	case "Ecs":
-		return cloudevent.CLOUD_EVENT_SERVICE_COMPUTE
-	default:
-		return cloudevent.CLOUD_EVENT_SERVICE_UNKNOWN
-	}
+	return event.ServiceName
 }
 
 func (event *SEvent) IsSuccess() bool {
