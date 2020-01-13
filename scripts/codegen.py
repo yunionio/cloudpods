@@ -41,6 +41,7 @@ def run_swagger_serve(output_dir):
     yamls = [pjoin(output_dir, x) for x in os.listdir(output_dir) if is_swagger_yaml(x)]
     cmd = ['swagger-serve', 'generate']
     cmd.extend(['-i', ','.join(yamls), '-o', output_dir])
+    cmd.extend(['-p', "40900"])
     cmd.append('--serve')
     run_cmd(cmd)
 
