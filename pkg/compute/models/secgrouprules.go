@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -256,6 +257,9 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		return nil, err
 	}
 
+	// 更新操作日志: 对比可以知道改了原有规则哪些内容
+	data.Add(jsonutils.Marshal(self), "origin")
+
 	return self.SResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -302,6 +306,7 @@ func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclien
 
 	log.Debugf("POST Create %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
+		logclient.AddSimpleActionLog(secgroup, logclient.ACT_ALLOCATE, data, userCred, true)
 		secgroup.DoSync(ctx, userCred)
 	}
 }
@@ -310,6 +315,7 @@ func (self *SSecurityGroupRule) PreDelete(ctx context.Context, userCred mcclient
 	self.SResourceBase.PreDelete(ctx, userCred)
 
 	if secgroup := self.GetSecGroup(); secgroup != nil {
+		logclient.AddSimpleActionLog(secgroup, logclient.ACT_DELETE, jsonutils.Marshal(self), userCred, true)
 		secgroup.DoSync(ctx, userCred)
 	}
 }
@@ -319,6 +325,7 @@ func (self *SSecurityGroupRule) PostUpdate(ctx context.Context, userCred mcclien
 
 	log.Debugf("POST Update %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
+		logclient.AddSimpleActionLog(secgroup, logclient.ACT_UPDATE, data, userCred, true)
 		secgroup.DoSync(ctx, userCred)
 	}
 }
