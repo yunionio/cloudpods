@@ -85,7 +85,7 @@ type DBInstanceCreateInput struct {
 	// rds引擎
 	// enum: MySQL, SQLServer, PostgreSQL, MariaDB, Oracle, PPAS
 	// required: true
-	Engine string `json:"instance_type"`
+	Engine string `json:"engine"`
 
 	// rds引擎版本
 	// 根据各个引擎版本各不相同
