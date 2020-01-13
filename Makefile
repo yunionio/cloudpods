@@ -83,6 +83,9 @@ test:
 vet:
 	go vet ./...
 
+cmd/esxi-agent: prepare_dir
+	CGO_ENABLED=0 $(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
+
 cmd/%: prepare_dir
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
