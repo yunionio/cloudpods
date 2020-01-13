@@ -1093,6 +1093,7 @@ func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.
 	return jsonutils.Marshal(ret), nil
 }
 
+// 磁盘镜像列表
 func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ImageListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {

@@ -305,6 +305,7 @@ func FetchDynamicResourceObject(man IDynamicResourceManager, userCred mcclient.T
 	return res, nil
 }
 
+// 动态调度标签列表
 func (manager *SDynamicschedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.DynamicschedtagListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {

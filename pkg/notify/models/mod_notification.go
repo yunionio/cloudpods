@@ -258,6 +258,7 @@ func (self *SNotificationManager) syncDatabase(ids []string) error {
 	return err
 }
 
+// 通知消息列表
 func (self *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 

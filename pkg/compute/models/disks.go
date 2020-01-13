@@ -113,6 +113,7 @@ func (manager *SDiskManager) FetchDiskById(diskId string) *SDisk {
 	return disk.(*SDisk)
 }
 
+// 磁盘列表
 func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DiskListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	storages := StorageManager.Query().SubQuery()

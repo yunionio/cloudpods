@@ -70,6 +70,7 @@ func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string)
 	}
 }
 
+// 快照策略缓存列表
 func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	query api.SnapshotPolicyCacheListInput) (*sqlchemy.SQuery, error) {
 	q, err := spcm.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/sqlchemy"
 
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -450,4 +451,13 @@ func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0].Name)
 	}
 	return nil
+}
+
+// 主机模板列表
+func (manager *SGuestTemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input computeapis.GuestTemplateListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }

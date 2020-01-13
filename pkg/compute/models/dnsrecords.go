@@ -488,6 +488,7 @@ func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.Tok
 	return nil, nil
 }
 
+// 域名记录列表
 func (manager *SDnsRecordManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DnsRecordListInput) (*sqlchemy.SQuery, error) {
 	return manager.SAdminSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.AdminSharableVirtualResourceListInput)
 }

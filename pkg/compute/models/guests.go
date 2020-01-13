@@ -131,7 +131,7 @@ func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mccli
 	return manager.SVirtualResourceBaseManager.AllowListItems(ctx, userCred, query)
 }
 
-// 按指定条件列出云主机实例
+// 云主机实例列表
 func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "host_id", func() *sqlchemy.SQuery {

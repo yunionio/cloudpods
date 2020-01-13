@@ -64,6 +64,7 @@ type SNatDEntry struct {
 	IpProtocol   string `width:"8" charset:"ascii" list:"user" create:"required"`
 }
 
+// NAT网关的目的地址转换规则列表
 func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatDEntryListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {

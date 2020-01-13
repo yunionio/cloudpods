@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -166,4 +167,13 @@ func (sc *SServiceCatalog) PerformDeploy(ctx context.Context, userCred mcclient.
 		return nil, errors.Wrap(err, "fail to create guest")
 	}
 	return nil, err
+}
+
+// 服务目录列表
+func (manager *SServiceCatalogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input computeapis.ServiceCatalogListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }

@@ -971,6 +971,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	return manager.TableSpec().Insert(&cp)
 }
 
+// 云订阅列表
 func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderListInput) (*sqlchemy.SQuery, error) {
 	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {

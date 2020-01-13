@@ -150,6 +150,7 @@ func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
+// 区域列表
 func (manager *SRegionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RegionListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

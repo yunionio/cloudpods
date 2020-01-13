@@ -312,6 +312,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	return errors.Error("invalid password")
 }
 
+// 用户列表
 func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.UserListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {

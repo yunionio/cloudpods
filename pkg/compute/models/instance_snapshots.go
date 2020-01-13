@@ -71,6 +71,7 @@ func (manager *SInstanceSnapshotManager) AllowCreateItem(
 	return false
 }
 
+// 主机快照列表
 func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.InstanceSnapshotListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {

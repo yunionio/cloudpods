@@ -276,6 +276,7 @@ func (agent *SBaremetalagent) setStoragecacheId(cacheId string) error {
 	return err
 }
 
+// 管理代理服务列表
 func (manager *SBaremetalagentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BaremetalagentListInput) (*sqlchemy.SQuery, error) {
 	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 }

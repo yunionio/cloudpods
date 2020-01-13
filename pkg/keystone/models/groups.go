@@ -75,6 +75,7 @@ func (manager *SGroupManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
+// 用户组列表
 func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GroupListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {

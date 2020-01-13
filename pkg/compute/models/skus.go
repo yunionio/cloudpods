@@ -712,6 +712,7 @@ func listItemDomainFilter(q *sqlchemy.SQuery, providers []string, domainId strin
 	return q
 }
 
+// 主机套餐规格列表
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerSkuListInput) (*sqlchemy.SQuery, error) {
 	publicCloud := false
 

@@ -587,6 +587,7 @@ func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 	return cloudprovider, nil
 }
 
+// 缓存镜像列表
 func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CachedimageListInput) (*sqlchemy.SQuery, error) {
 	var err error
 

@@ -168,6 +168,7 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 	return obj.(*SDomain), err
 }
 
+// 域列表
 func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DomainListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

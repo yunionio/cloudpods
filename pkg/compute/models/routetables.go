@@ -127,6 +127,7 @@ type SRouteTable struct {
 	Routes        *SRoutes `list:"user" update:"user" create:"required"`
 }
 
+// VPC虚拟路由表列表
 func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RouteTableListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

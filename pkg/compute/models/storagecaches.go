@@ -403,6 +403,7 @@ func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache,
 	return istorage.GetIStoragecache(), nil
 }
 
+// 镜像缓存存储列表
 func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.StoragecacheListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

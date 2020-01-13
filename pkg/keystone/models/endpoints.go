@@ -336,6 +336,7 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 	return data, nil
 }
 
+// 服务地址列表
 func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.EndpointListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

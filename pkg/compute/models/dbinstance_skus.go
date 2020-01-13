@@ -108,6 +108,7 @@ func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, regio
 	return skus, nil
 }
 
+// RDS套餐类型列表
 func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceSkuListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {

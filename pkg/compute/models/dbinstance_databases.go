@@ -131,6 +131,7 @@ func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred m
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+// RDS数据库列表
 func (manager *SDBInstanceDatabaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceDatabaseListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {

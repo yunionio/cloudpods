@@ -222,6 +222,7 @@ func roleExtra(role *SRole, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	return extra
 }
 
+// 角色列表
 func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RoleListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {

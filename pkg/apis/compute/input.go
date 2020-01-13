@@ -93,3 +93,19 @@ type DnsRecordListInput struct {
 type DynamicschedtagListInput struct {
 	apis.StandaloneResourceListInput
 }
+
+type GuestTemplateListInput struct {
+	apis.SharableVirtualResourceListInput
+}
+
+type SchedpolicyListInput struct {
+	apis.StandaloneResourceListInput
+}
+
+type ServiceCatalogListInput struct {
+	apis.SharableVirtualResourceListInput
+}
+
+type SnapshotPolicyListInput struct {
+	apis.VirtualResourceListInput
+}

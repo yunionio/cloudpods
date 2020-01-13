@@ -182,6 +182,7 @@ func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mc
 	return true
 }
 
+// 元数据(标签)列表
 func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	resources := jsonutils.GetQueryStringArray(query, "resources")
 	if len(resources) == 0 {

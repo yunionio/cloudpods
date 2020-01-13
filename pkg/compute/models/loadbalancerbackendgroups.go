@@ -75,6 +75,7 @@ func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Conte
 	}
 }
 
+// 负载均衡后端服务器组列表
 func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerBackendGroupListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
