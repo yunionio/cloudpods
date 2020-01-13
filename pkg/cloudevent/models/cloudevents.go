@@ -49,6 +49,7 @@ func init() {
 type SCloudevent struct {
 	db.SModelBase
 
+	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Service      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	ResourceType string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	Action       string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
@@ -96,6 +97,7 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 	count := 0
 	for _, iEvent := range iEvents {
 		event := &SCloudevent{
+			Name:            iEvent.GetName(),
 			Service:         iEvent.GetService(),
 			ResourceType:    iEvent.GetResourceType(),
 			Action:          iEvent.GetAction(),
