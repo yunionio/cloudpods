@@ -19,7 +19,7 @@ import (
 )
 
 type ServerFilterListInput struct {
-	// Filter by guest id or name
+	// 以关联主机（ID或Name）过滤列表
 	Server string `json:"server"`
 	// swagger:ignore
 	// Deprecated
@@ -46,32 +46,35 @@ type ServerListInput struct {
 	SecgroupFilterListInput
 	DiskFilterListInput
 
-	// Show baremetal servers
+	// 只列出裸金属主机
 	Baremetal *bool `json:"baremetal"`
-	// Show gpu servers
+	// 只列出GPU主机
 	Gpu *bool `json:"gpu"`
-	// AdminSecgroup ID or Name
+	// 列出管理安全组为指定安全组的主机
 	AdminSecgroup string `json:"admin_security"`
-	// Show server of hypervisor choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud|zstack|openstack"`
+	// 列出Hypervisor为指定值的主机
+	// enum: kvm,esxi,baremetal,aliyun,azure,aws,huawei,ucloud,zstack,openstack,google,ctyun"`
 	Hypervisor []string `json:"hypervisor"`
-	// Show Servers with EIP
+	// 列出绑定了弹性IP（EIP）的主机
 	WithEip *bool `json:"with_eip"`
-	// Show Servers without EIP
+	// 列出未绑定弹性IP（EIO）的主机
 	WithoutEip *bool `json:"without_eip"`
-	// OS Type choices:"linux|windows|vmware"`
+	// 列出操作系统为指定值的主机
+	// enum: linux,windows,vmware
 	OsType string `json:"os_type"`
-	// Order by disk size choices:"asc|desc"
+	// 对列表结果按照磁盘进行排序
+	// enum: asc,desc
 	OrderByDisk string `json:"order_by_disk"`
-	// Order by host name choices:"asc|desc"
+	// 对主机列表结果按照宿主机名称进行排序
+	// enum: asc,desc
 	OrderByHost string `json:"order_by_host"`
-	// Eip id or name
+	// 列出可以挂载指定EIP的主机
 	UsableServerForEip string `json:"usable_server_for_eip"`
-	// Show Servers without user metadata
-	WithoutUserMeta *bool `json:"without_user_meta"`
 
-	// Resource type choices:"shared|prepaid|dedicated"
+	// 按主机资源类型进行排序
+	// enum: shared,prepaid,dedicated
 	ResourceType string `json:"resource_type"`
-	// return backup guests on a host
+	// 返回开启主备机功能的主机
 	GetBackupGuestsOnHost *bool `json:"get_backup_guests_on_host"`
 }
 

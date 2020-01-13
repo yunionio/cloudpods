@@ -250,6 +250,7 @@ func (manager *SElasticcacheManager) GetOwnerIdByElasticcacheId(elasticcacheId s
 	return ec.(*SElasticcache).GetOwnerId()
 }
 
+// 列出弹性缓存（redis等）
 func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {

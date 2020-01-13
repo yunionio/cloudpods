@@ -785,6 +785,7 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 	return nil, err
 }
 
+// 列出VPC
 func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.VpcListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
