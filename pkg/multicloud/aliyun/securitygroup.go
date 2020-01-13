@@ -349,6 +349,12 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 	} else {
 		params["Policy"] = "drop"
 	}
+
+	// 忽略地址为0.0.0.0/32这样的阿里云规则
+	if rule.IPNet.IP.String() == "0.0.0.0" && rule.IPNet.String() != "0.0.0.0/0" {
+		return nil
+	}
+
 	params["Priority"] = fmt.Sprintf("%d", 101-rule.Priority)
 	if rule.Direction == secrules.SecurityRuleIngress {
 		if rule.IPNet != nil {
