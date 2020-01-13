@@ -32,3 +32,8 @@ COPY ./opt/cloud/yunion/baremetal/pxelinux.0 /opt/cloud/yunion/baremetal
 ADD ./mkisofs /bin/mkisofs
 ADD ./.mkisofs.bin /bin/.mkisofs.bin
 ADD ./bundles/mkisofs /bin/bundles/mkisofs
+# use GNU timeout command replace busybox timeout command
+RUN rm /usr/bin/timeout
+ADD ./timeout /bin/timeout
+ADD ./.timeout.bin /bin/.timeout.bin
+ADD ./bundles/timeout /bin/bundles/timeout
