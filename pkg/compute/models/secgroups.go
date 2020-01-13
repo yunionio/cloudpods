@@ -74,9 +74,7 @@ type SSecurityGroup struct {
 	IsDirty bool `nullable:"false" default:"false"` // Column(Boolean, nullable=False, default=False)
 }
 
-func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	input := api.SSecgroupListFilterInput{}
-	query.Unmarshal(&input)
+func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SecgroupListInput) (*sqlchemy.SQuery, error) {
 	if len(input.Equals) > 0 {
 		_secgroup, err := manager.FetchByIdOrName(userCred, input.Equals)
 		if err != nil {
@@ -105,11 +103,12 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		}
 		q = q.In("id", secgroupIds)
 	}
-	if len(input.Server) > 0 {
-		guest, err := GuestManager.FetchByIdOrName(userCred, input.Server)
+	serverStr := input.Server
+	if len(serverStr) > 0 {
+		guest, err := GuestManager.FetchByIdOrName(userCred, serverStr)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("failed to found server %s", input.Server)
+				return nil, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), serverStr)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -119,7 +118,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		filters = append(filters, sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()))
 
 		isAdmin := false
-		admin, _ := query.Bool("admin")
+		admin := (input.Admin != nil && *input.Admin)
 		if consts.IsRbacEnabled() {
 			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {

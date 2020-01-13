@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -99,4 +100,15 @@ func (manager *SStatusStandaloneResourceBaseManager) ValidateCreateData(ctx cont
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
 	return input, nil
+}
+
+func (manager *SStatusStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.StatusStandaloneResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+	return q, nil
 }

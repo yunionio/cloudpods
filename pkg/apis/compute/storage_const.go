@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
 const (
 	STORAGE_LOCAL     = "local"
 	STORAGE_BAREMETAL = "baremetal"
@@ -133,3 +137,36 @@ var (
 	// 目前来说只支持这些
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD}
 )
+
+type StorageFilterListInput struct {
+	// 过滤关联此存储（ID或Name）的列表结果
+	Storage string `json:"storage"`
+	// swagger:ignore
+	// Deprecated
+	// filter by storage_id
+	StorageId string `json:"storage_id" deprecated-by:"storage"`
+}
+
+type StorageShareFilterListInput struct {
+	// filter shared storage
+	Share *bool `json:"share"`
+	// filter local storage
+	Local *bool `json:"local"`
+}
+
+type StorageListInput struct {
+	apis.StandaloneResourceListInput
+	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
+	ZonalFilterListInput
+	UsableResourceListInput
+	StorageShareFilterListInput
+}
+
+type StoragecacheListInput struct {
+	apis.StandaloneResourceListInput
+	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
+}

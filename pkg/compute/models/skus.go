@@ -560,9 +560,14 @@ func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
 }
 
 func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, query)
+	listQuery := api.ServerSkuListInput{}
+	err := query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	skus := make([]SServerSku, 0)
@@ -689,41 +694,36 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 	return zone.GetExternalId(), nil
 }
 
-func listItemDomainFilter(q *sqlchemy.SQuery, data *jsonutils.JSONDict) *sqlchemy.SQuery {
-	providers := jsonutils.GetQueryStringArray(data, "provider")
+func listItemDomainFilter(q *sqlchemy.SQuery, providers []string, domainId string) *sqlchemy.SQuery {
 	// CLOUD_PROVIDER_ONECLOUD 没有对应的cloudaccount
-	if domian_id := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain"}); len(domian_id) > 0 {
+	if len(domainId) > 0 {
 		if len(providers) >= 1 && !utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
 			// 明确指定只查询公有云provider的情况，只查询公有云skus
-			q = q.In("provider", getDomainManagerProviderSubq(domian_id))
+			q = q.In("provider", getDomainManagerProviderSubq(domainId))
 		} else if len(providers) == 1 && utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
 			// 明确指定只查询私有云provider的情况
 		} else {
 			// 公有云skus & 私有云skus 混合查询
-			publicSkusQ := sqlchemy.In(q.Field("provider"), getDomainManagerProviderSubq(domian_id))
+			publicSkusQ := sqlchemy.In(q.Field("provider"), getDomainManagerProviderSubq(domainId))
 			privateSkusQ := sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD)
 			q = q.Filter(sqlchemy.OR(publicSkusQ, privateSkusQ))
 		}
-
-		data.Remove("domain_id")
-		data.Remove("project_domain")
 	}
-
 	return q
 }
 
-func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerSkuListInput) (*sqlchemy.SQuery, error) {
 	publicCloud := false
 
-	cloudEnvStr, _ := query.GetString("cloud_env")
-	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
+	cloudEnvStr := query.CloudEnv
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD {
 		publicCloud = true
 		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPublicProviderProvidersQuery()))
 	}
-	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD {
 		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()))
 	}
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE {
 		q = q.Filter(
 			sqlchemy.OR(
 				sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
@@ -739,37 +739,44 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		)
 	}
 
-	data := query.(*jsonutils.JSONDict)
+	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		query.ProjectDomain = domain.GetId()
+	}
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
 
-	q = listItemDomainFilter(q, data)
-
-	providers := jsonutils.GetQueryStringArray(query, "provider")
+	providers := query.Providers
 	if len(providers) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("provider"), providers))
 		if len(providers) == 1 && utils.IsInStringArray(providers[0], cloudprovider.GetPublicProviders()) {
 			publicCloud = true
 		}
-		data.Remove("provider")
 	}
 
-	brands := jsonutils.GetQueryStringArray(query, "brand")
+	brands := query.Brands
 	if len(brands) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("brand"), brands))
-		data.Remove("brand")
 	}
 
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, data)
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	if usable, _ := query.Bool("usable"); usable {
+	if query.Usable != nil && *query.Usable {
 		q = usableFilter(q, publicCloud)
 		q = q.IsTrue("enabled")
 	}
 
-	if data.Contains("zone") {
-		zoneStr, _ := data.GetString("zone")
+	zoneStr := query.Zone
+	regionStr := query.Cloudregion
+	if len(zoneStr) > 0 {
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -788,29 +795,19 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		} else {
 			q = q.Equals("zone_id", zone.Id)
 		}
-	} else {
-		q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-			{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-		})
+	} else if len(regionStr) > 0 {
+		q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 		}
 	}
 
-	city, _ := query.GetString("city")
-	if len(city) > 0 {
-		regionTable := CloudregionManager.Query().SubQuery()
-		q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id"))).Filter(sqlchemy.Equals(regionTable.Field("city"), city))
-	}
-
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
-	memSizeMB, _ := query.Int("memory_size_mb")
+	memSizeMB := query.MemorySizeMb
 	if memSizeMB > 0 {
 		s, e := intervalMem(int(memSizeMB))
 		q.GT("memory_size_mb", s)
 		q.LE("memory_size_mb", e)
-		queryDict := query.(*jsonutils.JSONDict)
-		queryDict.Remove("memory_size_mb")
 	}
 
 	return q, err

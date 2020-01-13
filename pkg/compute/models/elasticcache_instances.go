@@ -250,12 +250,13 @@ func (manager *SElasticcacheManager) GetOwnerIdByElasticcacheId(elasticcacheId s
 	return ec.(*SElasticcache).GetOwnerId()
 }
 
-func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+// 列出弹性缓存（redis等）
+func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
 		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
@@ -264,9 +265,9 @@ func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlc
 	if err != nil {
 		return nil, err
 	}
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 	return q, nil
 }

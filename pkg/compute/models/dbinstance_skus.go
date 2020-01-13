@@ -27,9 +27,9 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -108,18 +108,31 @@ func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, regio
 	return skus, nil
 }
 
-func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceSkuListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := query.(*jsonutils.JSONDict)
 
-	q = listItemDomainFilter(q, data)
+	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		query.ProjectDomain = domain.GetId()
+	}
 
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
+
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+	}
+
+	return q, nil
 }
 
 func (manager *SDBInstanceSkuManager) GetDBStringArray(q *sqlchemy.SQuery) ([]string, error) {
@@ -146,9 +159,14 @@ func (manager *SDBInstanceSkuManager) AllowGetPropertyInstanceSpecs(ctx context.
 }
 
 func (manager *SDBInstanceSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, query)
+	listQuery := api.DBInstanceSkuListInput{}
+	err := query.Unmarshal(&listQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.ListItemFilter")
 	}
 
 	input := &SDBInstanceSku{}

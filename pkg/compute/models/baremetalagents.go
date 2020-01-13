@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -273,4 +274,8 @@ func (agent *SBaremetalagent) setStoragecacheId(cacheId string) error {
 		return nil
 	})
 	return err
+}
+
+func (manager *SBaremetalagentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BaremetalagentListInput) (*sqlchemy.SQuery, error) {
+	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 }

@@ -38,3 +38,23 @@ type SchedtagCreateInput struct {
 	// default: hosts
 	ResourceType string `json:"resource_type"`
 }
+
+type SchedtagFilterListInput struct {
+	// 以关联的调度标签（ID或Name）过滤列表
+	Schedtag string `json:"schedtag"`
+	// swagger:ignore
+	// Deprecated
+	// filter by schedtag_id
+	SchedtagId string `json:"schedtag_id" deprecated-by:"schedtag"`
+}
+
+type SchedtagListInput struct {
+	apis.StandaloneResourceListInput
+
+	// fitler by resource_type
+	ResourceType string `json:"resource_type"`
+	// swagger:ignore
+	// Deprecated
+	// filter by type, alias for resource_type
+	Type string `json:"type" deprecated-by:"resource_type"`
+}

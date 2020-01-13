@@ -207,3 +207,11 @@ func (manager *SServiceManager) fetchServiceByType(typeStr string) (*SService, e
 	}
 	return srvObj.(*SService), nil
 }
+
+func (manager *SServiceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RegionListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

@@ -18,33 +18,47 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type NetworkListInput struct {
-	apis.BaseListInput
+type VpcFilterListInput struct {
+	// 过滤关联此VPC(ID或Name)的资源
+	Vpc string `json:"vpc"`
+	// swagger:ignore
+	// Deprecated
+	// filter by vpc Id
+	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
+}
 
+type WireFilterListInput struct {
+	VpcFilterListInput
+
+	// 过滤连接此二层网络(ID或Name)的资源
+	Wire string `json:"wire"`
+	// swagger:ignore
+	// Deprecated
+	// fitler by wire id
+	WireId string `json:"wire_id" deprecated-by:"wire"`
+}
+
+type NetworkFilterListInput struct {
+	WireFilterListInput
+
+	// 过滤关联此网络（ID或Name）的资源
+	Network string `json:"network"`
+	// swagger:ignore
+	// Deprecated
+	// filter by networkId
+	NetworkId string `json:"network_id" deprecated-by:"network"`
+}
+
+type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
 
-	CloudaccountListInput
-	CloudTypeListInput
+	HostFilterListInput
 
-	Zone  string   `json:"zone"`
-	Zones []string `json:"zones"`
+	ManagedResourceListInput
 
-	Vpc string `json:"vpc"`
+	UsableResourceListInput
 
-	Cloudregion string `json:"cloudregion"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	CloudregionId string `json:"cloudregion_id"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	Region string `json:"region"`
-	// deprecate:true
-	// description: this param will be deprecate at 3.0
-	RegionId string `json:"region_id"`
-
-	Usable bool   `json:"usable"`
-	Host   string `json:"host"`
-	City   string `json:"city"`
+	WireFilterListInput
 }
 
 type NetworkCreateInput struct {

@@ -159,5 +159,58 @@ type SDBInstanceRecoveryConfigInput struct {
 
 	DBInstancebackup   string
 	DBInstancebackupId string            `json:"dbinstancebackup_id"`
-	Databases          map[string]string `json:"allowempty"`
+	Databases          map[string]string `json:"databases,allowempty"`
+}
+
+type DBInstanceListInput struct {
+	apis.VirtualResourceListInput
+
+	ZonalFilterListInput
+	ManagedResourceListInput
+	VpcFilterListInput
+}
+
+type DBInstanceBackupListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+	RegionalFilterListInput
+
+	DbinstanceFilterListInput
+}
+
+type DBInstancePrivilegeListInput struct {
+	apis.ResourceBaseListInput
+
+	// filter by dbinstanceaccount
+	Dbinstanceaccount string `json:"dbinstanceaccount"`
+	// filter by dbinstancedatabase
+	Dbinstancedatabase string `json:"dbinstancedatabase"`
+}
+
+type DBInstanceParameterListInput struct {
+	apis.StandaloneResourceListInput
+
+	DbinstanceFilterListInput
+}
+
+type DBInstanceDatabaseListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	DbinstanceFilterListInput
+}
+
+type DBInstanceAccountListInput struct {
+	apis.StatusStandaloneResourceListInput
+
+	DbinstanceFilterListInput
+}
+
+type DbinstanceFilterListInput struct {
+	// filter by dbinstance
+	Dbinstance string `json:"dbinstance"`
+	// swagger:ignore
+	// Deprecated
+	// filter by dbinstance_id
+	DbinstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
 }

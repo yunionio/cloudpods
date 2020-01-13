@@ -1731,10 +1731,10 @@ func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlc
 	return filters, nil
 }
 
-func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input *api.NetworkListInput) (*sqlchemy.SQuery, error) {
+func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.NetworkListInput) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = managedResourceFilterByAccountV2(q, &input.CloudaccountListInput, "wire_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, input.ManagedResourceListInput, "wire_id", func() *sqlchemy.SQuery {
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 
@@ -1743,35 +1743,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return subq
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudTypeV2(q, &input.CloudTypeListInput, "wire_id", func() *sqlchemy.SQuery {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		return subq
-	})
-
-	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilterV2(ctx, q, userCred, &input.StandaloneResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	if len(input.Zone) > 0 {
-		input.Zones = append(input.Zones, input.Zone)
-	}
-
-	if len(input.Zones) > 0 {
+	zoneList := input.ZoneList()
+	if len(zoneList) > 0 {
 		zq := ZoneManager.Query().SubQuery()
 		regions := CloudregionManager.Query().SubQuery()
 		zoneQ := zq.Query(zq.Field("id"), regions.Field("id"), regions.Field("provider")).
 			Join(regions, sqlchemy.Equals(zq.Field("cloudregion_id"), regions.Field("id"))).
 			Filter(
 				sqlchemy.OR(
-					sqlchemy.In(zq.Field("id"), input.Zones),
-					sqlchemy.In(zq.Field("name"), input.Zones),
+					sqlchemy.In(zq.Field("id"), zoneList),
+					sqlchemy.In(zq.Field("name"), zoneList),
 				),
 			)
 		rows, err := zoneQ.Rows()
@@ -1811,42 +1800,25 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("wire_id", sq.SubQuery())
 	}
 
-	if len(input.Vpc) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	vpcStr := input.Vpc
+	if len(vpcStr) > 0 {
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
-			return nil, httperrors.NewNotFoundError("VPC %s not found", input.Vpc)
+			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
 		}
 		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
-	// deprecate at 3.0
-	for _, region := range []string{input.Cloudregion, input.CloudregionId, input.Region, input.RegionId} {
-		if len(region) > 0 {
-			input.Cloudregion = region
-			break
-		}
-	}
-
-	if len(input.Cloudregion) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred, input.Cloudregion)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", input.Cloudregion)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
+	q, err = managedResourceFilterByRegion(q, input.RegionalFilterListInput, "wire_id", func() *sqlchemy.SQuery {
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		sq := wires.Query(wires.Field("id")).
-			Join(vpcs, sqlchemy.AND(
-				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
-				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
-	}
+			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		return sq
+	})
 
-	if input.Usable {
+	if input.Usable != nil && *input.Usable {
 		wires := WireManager.Query().SubQuery()
 		zones := ZoneManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
@@ -1876,23 +1848,13 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.In("wire_id", sq.SubQuery()).Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	}
 
-	if len(input.Host) > 0 {
-		hostObj, err := HostManager.FetchByIdOrName(userCred, input.Host)
+	hostStr := input.Host
+	if len(hostStr) > 0 {
+		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), input.Host)
+			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
 		}
 		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
-	}
-
-	if len(input.City) > 0 {
-		regions := CloudregionManager.Query().SubQuery()
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		sq := wires.Query(wires.Field("id")).
-			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-			Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id"))).
-			Filter(sqlchemy.Equals(regions.Field("city"), input.City))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
@@ -2223,13 +2185,22 @@ func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, use
 	)
 
 	q := NetworkManager.Query().Equals("server_type", input.ServerType).Equals("guest_ip_mask", input.Mask)
-	q = managedResourceFilterByCloudType(q, query, "wire_id", func() *sqlchemy.SQuery {
+
+	listQuery := api.NetworkListInput{}
+	err = query.Unmarshal(&listQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "query.Unmarshal")
+	}
+	q, err = managedResourceFilterByAccount(q, listQuery.ManagedResourceListInput, "wire_id", func() *sqlchemy.SQuery {
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		subq := wires.Query(wires.Field("id"))
 		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		return subq
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+	}
 
 	rows, err := q.Rows()
 	if err != nil {

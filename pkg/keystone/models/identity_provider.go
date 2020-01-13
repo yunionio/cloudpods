@@ -807,3 +807,7 @@ func (manager *SIdentityProviderManager) FetchPasswordProtectedIdpIdsQuery() *sq
 	q := manager.Query("id").In("driver", api.PASSWORD_PROTECTED_IDPS)
 	return q.SubQuery()
 }
+
+func (manager *SIdentityProviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IdentityProviderListInput) (*sqlchemy.SQuery, error) {
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+}

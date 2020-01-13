@@ -83,41 +83,33 @@ type SElasticip struct {
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+// 列出弹性公网IP
+func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticipListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	regionFilter, _ := query.GetString("region")
-	if len(regionFilter) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("cloudregion_id", regionObj.GetId())
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
-	associateType, _ := query.GetString("usable_eip_for_associate_type")
-	associateId, _ := query.GetString("usable_eip_for_associate_id")
+	associateType := query.UsableEipForAssociateType
+	associateId := query.UsableEipForAssociateId
 	if len(associateType) > 0 && len(associateId) > 0 {
 		switch associateType {
 		case api.EIP_ASSOCIATE_TYPE_SERVER:
 			serverObj, err := GuestManager.FetchByIdOrName(userCred, associateId)
 			if err != nil {
 				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError("server %s not found", regionFilter)
+					return nil, httperrors.NewResourceNotFoundError("server %s not found", associateId)
 				}
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -141,12 +133,9 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		}
 	}
 
-	if query.Contains("usable") {
-		usable := jsonutils.QueryBoolean(query, "usable", false)
-		if usable {
-			q = q.Equals("status", api.EIP_STATUS_READY)
-			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
-		}
+	if query.Usable != nil && *query.Usable {
+		q = q.Equals("status", api.EIP_STATUS_READY)
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
 	}
 
 	return q, nil

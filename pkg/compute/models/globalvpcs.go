@@ -96,8 +96,8 @@ func (self *SGlobalVpc) ValidateUpdateData(ctx context.Context, userCred mcclien
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SGlobalVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SGlobalVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GlobalVpcListInput) (*sqlchemy.SQuery, error) {
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 }
 
 func (self *SGlobalVpc) ValidateUpdateCondition(ctx context.Context) error {

@@ -539,3 +539,11 @@ func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.T
 	}
 	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, data)
 }
+
+func (manager *SGuestImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GuestImageListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

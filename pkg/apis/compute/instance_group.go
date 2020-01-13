@@ -17,20 +17,27 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type InstanceGroupListInput struct {
-	apis.BaseListInput
+	apis.VirtualResourceListInput
+	ZonalFilterListInput
+	ServerFilterListInput
 
-	// Filter by service type
+	// 以service_type过滤列表结果
 	ServiceType string `json:"service_type"`
-	// Filter by parent id
+	// 以parent_id过滤列表结果
 	ParentId string `json:"parent_id"`
-	// Filter by zone id
-	ZoneId string `json:"zone_id"`
-	// Filter by guest id or name
-	Server string `json:"server"`
 }
 
 type InstanceGroupDetail struct {
 	apis.Meta
 	SGroup
 	GuestCount int64 `json:"guest_count"`
+}
+
+type GroupFilterListInput struct {
+	// 以指定实例组（ID或Name）过滤列表结果
+	Group string `json:"group"`
+	// swagger:ignore
+	// deprecated: true
+	// Filter by instance group Id
+	GroupId string `json:"group_id" deprecated-by:"group"`
 }

@@ -80,3 +80,51 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 	input.Domain = req.Domain
 	return &input
 }
+
+type SnapshotPolicyFilterListInput struct {
+	// filter disk by snapshotpolicy
+	Snapshotpolicy string `json:"snapshotpolicy"`
+	// swagger:ignore
+	// Deprecated
+	// filter disk by snapshotpolicy_id
+	SnapshotpolicyId string `json:"snapshotpolicy_id" deprecated-by:"snapshotpolicy"`
+}
+
+type DiskListInput struct {
+	apis.VirtualResourceListInput
+
+	ManagedResourceListInput
+
+	BillingFilterListInput
+	StorageFilterListInput
+	StorageShareFilterListInput
+	SnapshotPolicyFilterListInput
+	ServerFilterListInput
+
+	// filter disk by whether it is being used
+	Unused *bool `json:"unused"`
+
+	// swagger:ignore
+	// Deprecated
+	// filter by disk type
+	Type string `json:"type" deprecated-by:"disk_type"`
+	// 过滤指定disk_type的磁盘列表，可能的值为：sys, data, swap. volume
+	//
+	// | disk_type值 | 说明 |
+	// |-------------|----------|
+	// | sys         | 虚拟机系统盘    |
+	// | data        | 虚拟机数据盘    |
+	// | swap        | 虚拟机内存交换盘 |
+	// | volume      | 容器volumn盘   |
+	//
+	DiskType string `json:"disk_type"`
+}
+
+type DiskFilterListInput struct {
+	// 以指定虚拟磁盘（ID或Name）过滤列表结果
+	Disk string `json:"disk"`
+	// swagger:ignore
+	// Deprecated
+	// filter by disk_id
+	DiskId string `json:"disk_id" deprecated-by:"disk"`
+}

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -485,4 +486,8 @@ func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.Tok
 		logclient.AddActionLogWithContext(ctx, rec, logclient.ACT_DISABLE, diff, userCred, true)
 	}
 	return nil, nil
+}
+
+func (manager *SDnsRecordManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DnsRecordListInput) (*sqlchemy.SQuery, error) {
+	return manager.SAdminSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.AdminSharableVirtualResourceListInput)
 }

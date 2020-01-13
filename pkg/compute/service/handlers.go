@@ -72,6 +72,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ProjectPendingUsageManager,
 
 		models.GroupguestManager,
+
+		models.CloudproviderCapabilityManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

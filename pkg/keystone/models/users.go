@@ -312,13 +312,13 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	return errors.Error("invalid password")
 }
 
-func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.UserListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {
 		return nil, err
 	}
 
-	groupStr := jsonutils.GetAnyString(query, []string{"group", "group_id"})
+	groupStr := query.Group
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupStr)
 		if err != nil {
@@ -332,7 +332,7 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projectStr := jsonutils.GetAnyString(query, []string{"project", "project_id", "tenant", "tenant_id"})
+	projectStr := query.Project
 	if len(projectStr) > 0 {
 		project, err := ProjectManager.FetchByIdOrName(userCred, projectStr)
 		if err != nil {
@@ -346,7 +346,7 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	roleStr := jsonutils.GetAnyString(query, []string{"role", "role_id"})
+	roleStr := query.Role
 	if len(roleStr) > 0 {
 		role, err := RoleManager.FetchByIdOrName(userCred, roleStr)
 		if err != nil {

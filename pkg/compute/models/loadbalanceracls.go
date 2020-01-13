@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -412,4 +413,12 @@ func (manager *SLoadbalancerAclManager) InitializeData() error {
 	}
 
 	return nil
+}
+
+func (manager *SLoadbalancerAclManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.LoadbalancerAclListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
 }

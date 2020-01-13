@@ -39,14 +39,6 @@ func (self *SObjectStoreProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
-func (factory *SObjectStoreProviderFactory) IsSupportObjectStorage() bool {
-	return true
-}
-
-func (factory *SObjectStoreProviderFactory) IsSupportComputeEngine() bool {
-	return false
-}
-
 func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {

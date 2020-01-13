@@ -120,3 +120,11 @@ func (manager *SResourceBaseManager) ValidateCreateData(ctx context.Context, use
 	}
 	return input, nil
 }
+
+func (manager *SResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.ResourceBaseListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

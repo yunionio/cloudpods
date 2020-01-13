@@ -97,28 +97,30 @@ func (self *SDBInstanceBackup) AllowDeleteItem(ctx context.Context, userCred mcc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceBackupListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
 	}
 
-	q = managedResourceFilterByCloudType(q, query, "", nil)
-
-	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
 
-	data := query.(*jsonutils.JSONDict)
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+	}
+
+	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
 	})
 }
 
