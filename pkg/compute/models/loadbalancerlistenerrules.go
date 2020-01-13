@@ -72,6 +72,7 @@ type SLoadbalancerListenerRule struct {
 
 	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
+	SLoadbalancerHTTPRedirect
 }
 
 func ValidateListenerRuleConditions(condition string) error {
@@ -409,22 +410,23 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	data.Update(jsonutils.Marshal(input))
 
 	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	keyV := map[string]validators.IValidator{
-		"listener":      listenerV,
-		"backend_group": backendGroupV,
-	}
-
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
+	if err := listenerV.Validate(data); err != nil {
+		return nil, err
 	}
 
 	listener := listenerV.Model.(*SLoadbalancerListener)
 	region := listener.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", listener.Name)
+	}
+
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
+	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+		// backend group can be empty if you support redirect in rule
+		backendGroupV.Optional(true)
+	}
+	if err := backendGroupV.Validate(data); err != nil {
+		return nil, err
 	}
 
 	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, data, backendGroupV.Model)

@@ -96,6 +96,14 @@ type SLoadbalancerHTTPListener struct {
 	Gzip          bool `nullable:"true" list:"user" create:"optional" update:"user"` // Gzip数据压缩
 }
 
+type SLoadbalancerHTTPRedirect struct {
+	Redirect       string `nullable:"true" list:"user" create:"optional" update:"user" default:"off"` // 跳转类型
+	RedirectCode   int    `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转HTTP code
+	RedirectScheme string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
+	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转时变更Host
+	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转时变更Path
+}
+
 // TODO
 //
 //  - CACertificate string
@@ -145,6 +153,7 @@ type SLoadbalancerListener struct {
 
 	SLoadbalancerHealthCheck
 	SLoadbalancerHTTPRateLimiter
+	SLoadbalancerHTTPRedirect
 }
 
 func (man *SLoadbalancerListenerManager) CheckListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
