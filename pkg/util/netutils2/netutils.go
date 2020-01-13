@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -423,25 +424,22 @@ func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
 	return res
 }
 
-func (n *SNetInterface) getAddresses(output []string) [][]string {
-	var addrs = make([][]string, 0)
-	re := regexp.MustCompile(`inet (?P<addr>[0-9.]+)/(?P<mask>[0-9]+) `)
-	for _, line := range output {
-		m := regutils2.GetParams(re, line)
-		if len(m) > 0 {
-			addrs = append(addrs, []string{m["addr"], m["mask"]})
-		}
-	}
-	return addrs
-}
-
 func (n *SNetInterface) GetAddresses() [][]string {
-	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Output()
+	ipnets, err := iproute2.NewAddress(n.name).List4()
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("list address %s: %v", n.name, err)
 		return nil
 	}
-	return n.getAddresses(strings.Split(string(output), "\n"))
+	r := make([][]string, len(ipnets))
+	for i, ipnet := range ipnets {
+		ip := ipnet.IP
+		masklen, _ := ipnet.Mask.Size()
+		r[i] = []string{
+			ip.String(),
+			fmt.Sprintf("%d", masklen),
+		}
+	}
+	return r
 }
 
 func (n *SNetInterface) GetSlaveAddresses() [][]string {
