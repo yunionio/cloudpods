@@ -80,6 +80,8 @@ type ElasticcacheSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
 	apis.DomainizedResourceListInput
 
+	ManagedResourceListInput
+
 	UsableResourceListInput
 	BillingFilterListInput
 	ZonalFilterListInput
@@ -91,6 +93,8 @@ type ElasticcacheSkuListInput struct {
 type DBInstanceSkuListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 	apis.DomainizedResourceListInput
+
+	ManagedResourceListInput
 
 	RegionalFilterListInput
 	BillingFilterListInput
