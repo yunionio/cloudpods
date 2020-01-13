@@ -267,7 +267,7 @@ func (self *SBaseGuestDriver) RequestAssociateEip(ctx context.Context, userCred 
 }
 
 func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return true
+	return false
 }
 
 func (self *SBaseGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
