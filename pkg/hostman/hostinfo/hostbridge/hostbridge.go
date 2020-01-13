@@ -105,7 +105,7 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 	for _, inf := range infs {
 		cmd := []string{"ifconfig", inf.String(), "up"}
 		if options.HostOptions.TunnelPaddingBytes > 0 {
-			cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes))
+			cmd = append(cmd, "mtu", fmt.Sprintf("%d", 1500+options.HostOptions.TunnelPaddingBytes))
 		}
 		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 			return err
