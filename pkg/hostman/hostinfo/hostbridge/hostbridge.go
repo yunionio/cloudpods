@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
@@ -103,11 +104,13 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 		infs = append(infs, d.inter)
 	}
 	for _, inf := range infs {
-		cmd := []string{"ifconfig", inf.String(), "up"}
+		l := iproute2.NewLink(inf.String())
+		l.Up()
 		if options.HostOptions.TunnelPaddingBytes > 0 {
-			cmd = append(cmd, "mtu", fmt.Sprintf("%d", 1500+options.HostOptions.TunnelPaddingBytes))
+			mtu := int(1500 + options.HostOptions.TunnelPaddingBytes)
+			l.MTU(mtu)
 		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
+		if err := l.Err(); err != nil {
 			return err
 		}
 	}
@@ -115,12 +118,6 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 }
 
 func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
-	// This serve as a preflight check for existence of ifconfig command
-	output, err := procutils.NewCommand("ifconfig").Output()
-	if err != nil {
-		return false, errors.Wrapf(err, "exec ifconfig %s", output)
-	}
-
 	exist, err := d.drv.Exists()
 	if err != nil {
 		return false, err
@@ -179,24 +176,32 @@ func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
 }
 
 func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
-	var addr string
-	if len(d.ip) == 0 {
-		addr, mask = netutils2.GetSecretInterfaceAddress()
-	} else {
-		addr = d.ip
+	br := d.bridge.String()
+	{
+		var (
+			addr    string
+			masklen int
+		)
+		if len(d.ip) == 0 {
+			addr, masklen = netutils2.GetSecretInterfaceAddress()
+		} else {
+			masklen, _ = mask.Size()
+		}
+		addrStr := fmt.Sprintf("%s/%d", addr, masklen)
+		if err := iproute2.NewAddress(br, addrStr).Exact().Err(); err != nil {
+			return errors.Wrapf(err, "set bridge %s address", br)
+		}
 	}
-	cmd := []string{"ifconfig", d.bridge.String(), addr, "netmask", netutils2.NetBytes2Mask(mask)}
 	if options.HostOptions.TunnelPaddingBytes > 0 {
-		cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes+1500))
-	}
-	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-		log.Errorln(err)
-		return fmt.Errorf("Failed to bring up bridge %s", d.bridge)
+		mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
+		if err := iproute2.NewLink(br).MTU(mtu).Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s mtu %d", br, mtu)
+		}
 	}
 	if d.inter != nil {
-		if _, err := procutils.NewCommand("ifconfig", d.inter.String(), "0", "up").Output(); err != nil {
-			log.Errorln(err)
-			return fmt.Errorf("Failed to bring up interface %s", d.inter)
+		ifname := d.inter.String()
+		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
 		}
 	}
 	return nil
@@ -204,16 +209,12 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 
 func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 	for _, slaveAddr := range slaveAddrs {
-		cmd := []string{"ip", "address", "del",
-			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			log.Errorf("Failed to remove slave address from interface %s: %s", d.inter, err)
+		if err := iproute2.NewAddress(d.inter.String()).Exact().Err(); err != nil {
+			return errors.Wrap(err, "remove address on slave interface")
 		}
-
-		cmd = []string{"ip", "address", "add",
-			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.bridge.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			return fmt.Errorf("Failed to remove slave address from interface %s: %s", d.bridge, err)
+		addr := fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+		if err := iproute2.NewAddress(d.bridge.String(), addr).Add().Err(); err != nil {
+			return errors.Wrap(err, "move address to bridge interface")
 		}
 	}
 	return nil
