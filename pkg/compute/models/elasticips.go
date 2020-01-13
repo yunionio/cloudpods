@@ -83,6 +83,7 @@ type SElasticip struct {
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
+// 列出弹性公网IP
 func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticipListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

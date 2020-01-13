@@ -576,6 +576,7 @@ func (bucket *SBucket) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, nil, provider)
 }
 
+// 列出对象存储的存储桶
 func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
 	var err error
 

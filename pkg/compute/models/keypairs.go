@@ -61,6 +61,7 @@ type SKeypair struct {
 	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"` // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
 
+// 列出ssh密钥对
 func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.KeypairListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
