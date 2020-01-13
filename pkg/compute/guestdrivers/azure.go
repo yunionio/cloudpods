@@ -152,7 +152,3 @@ func (self *SAzureGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (stri
 func (self *SAzureGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
 }
-
-func (self *SAzureGuestDriver) NeedStopForChangeSpec(guest *models.SGuest, cpuChanged, memChanged bool) bool {
-	return false
-}
