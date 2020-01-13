@@ -113,6 +113,7 @@ func (event *SEvent) IsSuccess() bool {
 func (event *SEvent) GetCreatedAt() time.Time {
 	return event.EventTimestamp
 }
+
 func (region *SRegion) GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]cloudprovider.ICloudEvent, error) {
 	events, err := region.GetEvents(start, end)
 	if err != nil {
