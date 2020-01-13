@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DiskCreateTask struct {
@@ -98,11 +99,13 @@ func (self *DiskCreateTask) OnMasterStorageCreateDiskComplete(ctx context.Contex
 
 func (self *DiskCreateTask) OnBackupAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(self.UserCred, api.DISK_BACKUP_ALLOC_FAILED, data.String())
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *DiskCreateTask) OnStartAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, data.String())
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -137,6 +140,7 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 
 func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, data.String())
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	self.SetStageFailed(ctx, data.String())
 }
 
