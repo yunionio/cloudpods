@@ -303,9 +303,12 @@ type SNetInterface struct {
 	Mtu int
 }
 
-var SECRET_PREFIX = "169.254"
-var SECRET_MASK = []byte{255, 255, 255, 255}
-var secretInterfaceIndex = 254
+var (
+	SECRET_PREFIX        = "169.254"
+	SECRET_MASK          = []byte{255, 255, 255, 255}
+	SECRET_MASK_LEN      = 32
+	secretInterfaceIndex = 254
+)
 
 func NewNetInterface(name string) *SNetInterface {
 	n := new(SNetInterface)
@@ -396,10 +399,10 @@ func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	}
 }
 
-func GetSecretInterfaceAddress() (string, []byte) {
+func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
 	secretInterfaceIndex -= 1
-	return addr, SECRET_MASK
+	return addr, SECRET_MASK_LEN
 }
 
 func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
