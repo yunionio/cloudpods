@@ -318,16 +318,74 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
-					// quotas for any services
-					// Service:  "compute",
+					Service:  "compute",
 					Resource: "quotas",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 				{
-					// quotas for any services
-					// Service:  "compute",
+					Service:  "compute",
 					Resource: "quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "region_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "region_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "zone_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "zone_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "project_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "project_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "domain_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "domain_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "image",
+					Resource: "image_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "image",
+					Resource: "image_quotas",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
