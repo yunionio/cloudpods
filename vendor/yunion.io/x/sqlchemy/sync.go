@@ -336,6 +336,15 @@ func (ts *STableSpec) SyncSQL() []string {
 	for _, col := range remove {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
 		// alters = append(alters, sql)
+		// ignore drop statement
+		// but if the column is not nullable but no default
+		// then need to drop the not-nullable attribute
+		if !col.IsNullable() && col.Default() == "" {
+			col.SetNullable(true)
+			sql := fmt.Sprintf("MODIFY %s", col.DefinitionString())
+			alters = append(alters, sql)
+			log.Errorf("column %s is not nullable but no default, drop not nullable attribute", col.Name())
+		}
 		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
 	}
 	for _, cols := range update {
