@@ -267,9 +267,9 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 
 func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
-		"weight":     validators.NewRangeValidator("weight", 1, 256).Optional(true),
-		"port":       validators.NewPortValidator("port").Optional(true),
-		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
+		"weight":     validators.NewRangeValidator("weight", 1, 256),
+		"port":       validators.NewPortValidator("port"),
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
 	}
 
 	if err := RunValidators(keyV, data, true); err != nil {
