@@ -114,6 +114,7 @@ func (man *SRouteManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return data, nil
 }
 
+// 虚拟路由器路由列表
 func (man *SRouteManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	input := apis.StandaloneResourceListInput{}
 	err := query.Unmarshal(&input)

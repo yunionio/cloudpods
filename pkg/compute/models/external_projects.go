@@ -276,6 +276,7 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 	return nil, nil
 }
 
+// 云平台导入项目列表
 func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ExternalProjectListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

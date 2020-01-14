@@ -261,6 +261,7 @@ func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonut
 	return nil, nil
 }
 
+// 用户信用凭证列表
 func (manager *SCredentialManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CredentialListInput) (*sqlchemy.SQuery, error) {
 	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 }

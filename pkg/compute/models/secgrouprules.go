@@ -158,6 +158,7 @@ func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr s
 	return q.Equals("id", idStr)
 }
 
+// 安全组规则列表
 func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupRuleListInput) (*sqlchemy.SQuery, error) {
 	sql, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {

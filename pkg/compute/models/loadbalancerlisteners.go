@@ -204,6 +204,7 @@ func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, 
 	}
 }
 
+// 负载均衡监听器Listener列表
 func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerListenerListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {

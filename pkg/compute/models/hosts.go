@@ -170,6 +170,7 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+// 宿主机/物理机列表
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.HostListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

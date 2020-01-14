@@ -171,6 +171,7 @@ func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mc
 	return self.getMoreDetails(ctx, userCred, extra)
 }
 
+// RDS账号列表
 func (manager *SDBInstanceAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceAccountListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {

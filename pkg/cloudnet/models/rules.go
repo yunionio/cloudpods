@@ -212,6 +212,7 @@ func (man *SRuleManager) ValidateCreateData(ctx context.Context, userCred mcclie
 	return data, nil
 }
 
+// 虚拟路由器路由规则列表
 func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	input := apis.StandaloneResourceListInput{}
 	err := query.Unmarshal(&input)

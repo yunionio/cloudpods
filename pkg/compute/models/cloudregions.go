@@ -579,6 +579,7 @@ func queryCloudregionIdsByProviders(providerField string, providerStrs []string)
 	return q
 }
 
+// 云平台区域列表
 func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudregionListInput) (*sqlchemy.SQuery, error) {
 	providerStrs := query.Providers
 	if len(providerStrs) > 0 {

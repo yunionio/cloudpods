@@ -88,6 +88,7 @@ func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mccli
 	return true
 }
 
+// 快照列表
 func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SnapshotListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

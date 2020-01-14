@@ -49,10 +49,10 @@ type IsolatedDeviceListInput struct {
 
 	HostFilterListInput
 
-	// filter by GPU type
+	// 只列出GPU直通设备
 	Gpu *bool `json:"gpu"`
-	// filter by USB type
+	// 只列出USB直通设备
 	Usb *bool `json:"usb"`
-	// filter unused devices
+	// 只列出未使用的直通设备
 	Unused *bool `json:"unused"`
 }

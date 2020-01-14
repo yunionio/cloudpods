@@ -1112,6 +1112,7 @@ func (manager *SStorageManager) IsStorageTypeExist(storageType string) (string, 
 	return storages[0].StorageType, true
 }
 
+// 块存储列表
 func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.StorageListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

@@ -78,6 +78,7 @@ func (man *SIfaceManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return nil, errors.New("manually adding interface is currently not supported")
 }
 
+// 虚拟路由器接口列表
 func (man *SIfaceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	input := apis.StandaloneResourceListInput{}
 	err := query.Unmarshal(&input)

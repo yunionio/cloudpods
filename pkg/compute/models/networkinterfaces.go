@@ -85,6 +85,7 @@ func (self *SNetworkInterface) AllowDeleteItem(ctx context.Context, userCred mcc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+// 虚拟网卡列表
 func (manager *SNetworkInterfaceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NetworkInterfaceListInput) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)

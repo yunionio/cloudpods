@@ -74,6 +74,7 @@ type SSecurityGroup struct {
 	IsDirty bool `nullable:"false" default:"false"` // Column(Boolean, nullable=False, default=False)
 }
 
+// 安全组列表
 func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SecgroupListInput) (*sqlchemy.SQuery, error) {
 	if len(input.Equals) > 0 {
 		_secgroup, err := manager.FetchByIdOrName(userCred, input.Equals)

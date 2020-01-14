@@ -206,6 +206,7 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
+// 权限策略列表
 func (manager *SPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {

@@ -168,6 +168,7 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 	return ret
 }
 
+// 弹性缓存套餐规格列表
 func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheSkuListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {

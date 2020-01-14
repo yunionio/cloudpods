@@ -74,6 +74,7 @@ func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
 	return _network.(*SNetwork), nil
 }
 
+// NAT网关的源地址转换规则列表
 func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatSEntryListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {

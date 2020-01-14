@@ -523,6 +523,7 @@ func NetworkUsableZoneQueries(field sqlchemy.IQueryField, usableNet, usableVpc b
 	return iconditions
 }
 
+// 可用区列表
 func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ZoneListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {

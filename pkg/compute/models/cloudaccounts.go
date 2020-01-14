@@ -1139,6 +1139,7 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 	return providers[0].PerformChangeProject(ctx, userCred, query, data)
 }
 
+// 云账号列表
 func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudaccountListInput) (*sqlchemy.SQuery, error) {
 	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {

@@ -180,6 +180,7 @@ func (self *SReservedip) GetCustomizeColumns(ctx context.Context, userCred mccli
 	return extra
 }
 
+// 预留IP地址列表
 func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ReservedipListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {

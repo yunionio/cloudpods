@@ -380,6 +380,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 	return data, nil
 }
 
+// 负载均衡Agent列表
 func (man *SLoadbalancerAgentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerAgentListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

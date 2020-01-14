@@ -74,6 +74,7 @@ func (lbc *SLoadbalancerCluster) AllowDeleteItem(ctx context.Context, userCred m
 	return db.IsAdminAllowDelete(userCred, lbc)
 }
 
+// 负载均衡集群列表
 func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerClusterListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

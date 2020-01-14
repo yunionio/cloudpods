@@ -77,6 +77,7 @@ func (self *SCloudevent) AllowUpdateItem(ctx context.Context, userCred mcclient.
 	return false
 }
 
+// 云平台操作日志列表
 func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.CloudeventListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, input.ModelBaseListInput)
 	if err != nil {

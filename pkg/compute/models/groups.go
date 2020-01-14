@@ -73,6 +73,7 @@ type SGroup struct {
 	Enabled         tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
 
+// 主机组列表
 func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
 	input api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
 	guestFilter := input.Server

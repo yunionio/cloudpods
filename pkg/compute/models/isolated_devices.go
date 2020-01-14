@@ -136,6 +136,7 @@ func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mccli
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
+// 直通设备（GPU等）列表
 func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IsolatedDeviceListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

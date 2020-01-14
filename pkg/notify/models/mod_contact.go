@@ -228,6 +228,7 @@ func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.Toke
 	return self.getMoreDetail(ctx, userCred, extra)
 }
 
+// 联系方式列表
 func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	queryDict := query.(*jsonutils.JSONDict)
 	if queryDict.Contains("uid") {

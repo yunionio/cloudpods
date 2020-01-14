@@ -242,6 +242,7 @@ func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q.Equals("name", name)
 }
 
+// 配置参数列表
 func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	if db.IsAdminAllowList(userCred, manager) {
 		if id, _ := query.GetString("namespace_id"); len(id) > 0 {

@@ -429,6 +429,7 @@ func (manager *SOpsLogManager) LogDetachEvent(ctx context.Context, m1, m2 IModel
 	manager.logJoinEvent(ctx, m1, m2, ACT_DETACH, userCred, notes)
 }
 
+// 操作日志列表
 func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	userStrs := jsonutils.GetQueryStringArray(query, "user")
 	if len(userStrs) > 0 {

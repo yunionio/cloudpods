@@ -845,3 +845,12 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(ctx context.Context, userCred mccl
 	}
 	return nil, nil
 }
+
+// 快照策略列表
+func (manager *SSnapshotPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SnapshotPolicyListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}

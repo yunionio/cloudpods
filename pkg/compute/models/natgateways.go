@@ -89,6 +89,7 @@ func (self *SNatGateway) AllowDeleteItem(ctx context.Context, userCred mcclient.
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+// NAT网关列表
 func (man *SNatGetewayManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatGetewayListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
@@ -596,6 +597,7 @@ func (self *SNatEntry) GetNatgateway() (*SNatGateway, error) {
 	return model.(*SNatGateway), nil
 }
 
+// NAT网关转发规则列表
 func (man *SNatEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatEntryListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {

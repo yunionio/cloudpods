@@ -85,6 +85,7 @@ func (manager *SBaremetalEventManager) GetPagingConfig() *db.SPagingConfig {
 	}
 }
 
+// 物理机日志列表
 func (manager *SBaremetalEventManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BaremetalEventListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
 	if err != nil {

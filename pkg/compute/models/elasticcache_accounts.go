@@ -463,6 +463,7 @@ func (self *SElasticcacheAccount) ValidatePurgeCondition(ctx context.Context) er
 	return nil
 }
 
+// 弹性缓存账号列表
 func (manager *SElasticcacheAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheAccountListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {

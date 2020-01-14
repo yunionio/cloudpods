@@ -74,6 +74,7 @@ func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred m
 	return false
 }
 
+// 安全组缓存列表
 func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupCacheListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {

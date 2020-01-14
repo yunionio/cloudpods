@@ -343,6 +343,7 @@ func (self *SElasticcacheAcl) Delete(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
+// 弹性缓存ACL规则列表
 func (manager *SElasticcacheAclManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheAclListInput) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
