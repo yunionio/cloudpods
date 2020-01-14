@@ -391,12 +391,12 @@ func (h *SHostInfo) detectiveStorageSystem() {
 
 func (h *SHostInfo) fixPathEnv() error {
 	var paths = []string{
+		"/usr/bin", // usr bin at first for host container deploy
+		"/usr/sbin",
 		"/usr/local/sbin",
 		"/usr/local/bin",
 		"/sbin",
 		"/bin",
-		"/usr/sbin",
-		"/usr/bin",
 	}
 	return os.Setenv("PATH", strings.Join(paths, ":"))
 }
