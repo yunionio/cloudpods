@@ -256,8 +256,10 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	switch listener.BackendGroupType {
 	case api.LB_BACKENDGROUP_TYPE_NORMAL:
 		params["VServerGroupId"] = listener.BackendGroupID
+		params["VServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
+		params["MasterSlaveServerGroup"] = "on"
 	case api.LB_BACKENDGROUP_TYPE_DEFAULT:
 		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
 	}
