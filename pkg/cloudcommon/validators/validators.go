@@ -443,6 +443,7 @@ type ValidatorModelIdOrName struct {
 
 	modelIdKey       string
 	noPendingDeleted bool
+	allowEmpty       bool
 }
 
 func (v *ValidatorModelIdOrName) GetProjectId() string {
@@ -512,6 +513,11 @@ func (v *ValidatorModelIdOrName) AllowPendingDeleted(b bool) *ValidatorModelIdOr
 	return v
 }
 
+func (v *ValidatorModelIdOrName) AllowEmpty(b bool) *ValidatorModelIdOrName {
+	v.allowEmpty = b
+	return v
+}
+
 func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	if !data.Contains(v.Key) && data.Contains(v.modelIdKey) {
 		// a hack when validator is used solely for fetching model
@@ -533,6 +539,9 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	modelIdOrName, err := v.value.GetString()
 	if err != nil {
 		return err
+	}
+	if modelIdOrName == "" && v.allowEmpty {
+		return nil
 	}
 
 	modelManager := db.GetModelManager(v.ModelKeyword)
@@ -562,11 +571,13 @@ func (v *ValidatorModelIdOrName) Validate(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
+	var val string
 	if v.Model != nil {
-		if len(v.modelIdKey) > 0 {
-			data.Remove(v.Key)
-			data.Set(v.modelIdKey, jsonutils.NewString(v.Model.GetId()))
-		}
+		val = v.Model.GetId()
+	}
+	if len(v.modelIdKey) > 0 && data.Contains(v.Key) {
+		data.Remove(v.Key)
+		data.Set(v.modelIdKey, jsonutils.NewString(val))
 	}
 	return nil
 }
