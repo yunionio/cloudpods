@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
@@ -44,11 +43,16 @@ var (
 type SStandaloneResourceBase struct {
 	SResourceBase
 
-	Id   string `width:"128" charset:"ascii" primary:"true" list:"user"`
+	// 资源UUID
+	Id string `width:"128" charset:"ascii" primary:"true" list:"user"`
+	// 资源名称
 	Name string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
 
+	// 资源描述信息
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
 
+	// 是否是模拟资源, 部分从公有云上同步的资源并不真实存在, 例如宿主机
+	// list 接口默认不会返回这类资源，除非显示指定 is_emulate=true 过滤参数
 	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
@@ -235,6 +239,16 @@ func (model *SStandaloneResourceBase) GetShortDescV2(ctx context.Context) *apis.
 	return desc
 }
 
+func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.StandaloneResourceDetails, error) {
+	var err error
+	out := apis.StandaloneResourceDetails{}
+	out.ModelBaseDetails, err = model.SResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 /*
  * userCred: optional
  */
@@ -356,20 +370,6 @@ func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context
 	}
 	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
 	return nil, err
-}
-
-func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	withMeta, _ := query.GetString("with_meta")
-	if utils.ToBool(withMeta) {
-		jsonMeta, err := Metadata.GetAll(model, nil, userCred)
-		if err == nil {
-			extra.Add(jsonutils.Marshal(jsonMeta), "metadata")
-		} else {
-			log.Errorf("metadata GetAll fail: %s", err)
-		}
-	}
-	return extra
 }
 
 func (model *SStandaloneResourceBase) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {

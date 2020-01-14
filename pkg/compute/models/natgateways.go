@@ -243,41 +243,35 @@ func (self *SNatGateway) GetDTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy
 	return q.CountWithError()
 }
 
-func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatgatewayDetails, error) {
+	var err error
+	out := api.NatgatewayDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, extra)
-}
+	if isList {
+		region := self.GetRegion()
+		provider := self.GetCloudprovider()
+		out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
 
-func (self *SNatGateway) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
+		vpc, err := self.GetVpc()
+		if err != nil {
+			log.Errorf("failed to found vpc info for nat gateway %s(%s) error: %v", self.Name, self.Id, err)
+			return out, err
+		}
+		out.Vpc = vpc.Name
 	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	vpc, err := self.GetVpc()
-	if err != nil {
-		log.Errorf("failed to found vpc info for nat gateway %s(%s) error: %v", self.Name, self.Id, err)
-		return extra
-	}
-	extra.Add(jsonutils.NewString(vpc.Name), "vpc")
-	extra, _ = self.getMoreDetails(ctx, userCred, extra)
-	return extra
+
+	return self.getMoreDetails(ctx, userCred, out)
 }
 
 func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	out api.NatgatewayDetails) (api.NatgatewayDetails, error) {
 
-	spec := self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
-	extra.Add(jsonutils.NewString(spec), "nat_spec")
+	out.NatSpec = self.GetRegion().GetDriver().DealNatGatewaySpec(self.NatSpec)
 
-	return extra, nil
+	return out, nil
 }
 
 func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {

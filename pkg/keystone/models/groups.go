@@ -144,25 +144,20 @@ func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredenti
 	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := group.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return groupExtra(group, extra)
-}
-
-func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GroupDetails, error) {
+	var err error
+	out := api.GroupDetails{}
+	out.StandaloneResourceDetails, err = group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return groupExtra(group, extra), nil
+	return groupExtra(group, out), nil
 }
 
-func groupExtra(group *SGroup, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	usrCnt, _ := group.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	prjCnt, _ := group.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	return extra
+func groupExtra(group *SGroup, out api.GroupDetails) api.GroupDetails {
+	out.UserCount, _ = group.GetUserCount()
+	out.ProjectCount, _ = group.GetProjectCount()
+	return out
 }
 
 func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId string, domainId string, groupId string, groupName string) (*SGroup, error) {

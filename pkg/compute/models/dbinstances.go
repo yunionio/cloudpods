@@ -72,29 +72,59 @@ type SDBInstance struct {
 	SCloudregionResourceBase
 	SDeletePreventableResourceBase
 
+	// 主实例Id
 	MasterInstanceId string `width:"128" charset:"ascii" list:"user" create:"optional"`
-	VcpuCount        int    `nullable:"false" default:"1" list:"user" create:"optional"`
-	VmemSizeMb       int    `nullable:"false" list:"user" create:"required"`
-	StorageType      string `nullable:"false" list:"user" create:"required"` //存储类型
-	DiskSizeGB       int    `nullable:"false" list:"user" create:"required"`
-	Port             int    `nullable:"false" list:"user" create:"optional"`
-	Category         string `nullable:"false" list:"user" create:"optional"` //实例类别，单机，高可用，只读
+	// CPU数量
+	// example: 1
+	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
+	// 内存大小
+	// example: 1024
+	VmemSizeMb int `nullable:"false" list:"user" create:"required"`
+	// 存储类型
+	// example: local_ssd
+	StorageType string `nullable:"false" list:"user" create:"required"`
+	// 存储大小
+	// example: 10240
+	DiskSizeGB int `nullable:"false" list:"user" create:"required"`
+	// 端口
+	// example: 3306
+	Port int `nullable:"false" list:"user" create:"optional"`
+	// 实例类型
+	// example: ha
+	Category string `nullable:"false" list:"user" create:"optional"`
 
-	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 引擎
+	// example: MySQL
+	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 引擎版本
+	// example: 5.7
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	InstanceType  string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 套餐名称
+	// example: mysql.x4.large.2c
+	InstanceType string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
+	// 维护时间
 	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	SecgroupId            string `width:"128" charset:"ascii" list:"user" default:"default" create:"optional"`
-	VpcId                 string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ConnectionStr         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 安全组Id
+	// example: default
+	SecgroupId string `width:"128" charset:"ascii" list:"user" default:"default" create:"optional"`
+	// 虚拟私有网络Id
+	// example: ed20d84e-3158-41b1-870c-1725e412e8b6
+	VpcId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 外部连接地址
+	ConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 内部连接地址
 	InternalConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
+	// 可用区1
 	Zone1 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+	// 可用区2
 	Zone2 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
+	// 可用区3
 	Zone3 string `width:"36" charset:"ascii" nullable:"false" create:"optional" list:"user"`
 
+	// 可用区Id(对应公有云的可用区Id)
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" create:"optional"`
 }
 
@@ -335,12 +365,14 @@ func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.Token
 	task.ScheduleRun(nil)
 }
 
-func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DBInstanceDetails, error) {
+	var err error
+	out := api.DBInstanceDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+	return self.getMoreDetails(ctx, userCred, query, out), nil
 }
 
 func (self *SDBInstance) GetVpc() (*SVpc, error) {
@@ -446,39 +478,35 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(ctx context.Context, us
 	return rows
 }
 
-func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
+func (self *SDBInstance) getProviderInfo() api.CloudproviderInfo {
+	provider := self.GetCloudprovider()
+	region := self.GetRegion()
+	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.DBInstanceDetails) api.DBInstanceDetails {
+	out.CloudproviderInfo = self.getProviderInfo()
 	vpc, _ := self.GetVpc()
 	if vpc != nil {
-		extra.Add(jsonutils.NewString(vpc.Name), "vpc")
+		out.Vpc = vpc.Name
 	}
 	if len(self.SecgroupId) > 0 {
 		if secgroup, _ := self.GetSecgroup(); secgroup != nil {
-			extra.Add(jsonutils.NewString(secgroup.Name), "secgroup")
+			out.Secgroup = secgroup.Name
 		}
 	}
 
 	if skus, _ := self.GetDBInstanceSkus(); len(skus) > 0 {
-		extra.Add(jsonutils.NewInt(int64(skus[0].IOPS)), "iops")
+		out.Iops = skus[0].IOPS
 	}
 
 	network, _ := self.GetNetwork()
 	if network != nil {
-		extra.Add(jsonutils.NewString(network.Name), "network")
+		out.Network = network.Name
 	}
 
-	if metaData, err := self.GetAllMetadata(userCred); err == nil {
-		extra.Add(jsonutils.Marshal(metaData), "metadata")
-	}
-
-	return extra
+	out.Metadata, _ = self.GetAllMetadata(userCred)
+	return out
 }
 
 func (self *SDBInstance) GetSecgroup() (*SSecurityGroup, error) {
@@ -825,11 +853,6 @@ func (self *SDBInstance) StartDBInstanceSyncStatusTask(ctx context.Context, user
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstance) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (manager *SDBInstanceManager) getDBInstancesByProviderId(providerId string) ([]SDBInstance, error) {

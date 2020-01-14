@@ -202,22 +202,18 @@ func (lbacl *SCachedLoadbalancerAcl) GetListener() (*SLoadbalancerListener, erro
 	return listener.(*SLoadbalancerListener), nil
 }
 
-func (lbacl *SCachedLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := lbacl.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
+func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedLoadbalancerAclDetails, error) {
+	var err error
+	out := api.CachedLoadbalancerAclDetails{}
+	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
-	regionInfo := lbacl.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
-}
+	provider := lbacl.GetCloudprovider()
+	region := lbacl.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
 
-func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbacl.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return out, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {

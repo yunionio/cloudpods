@@ -62,15 +62,20 @@ func init() {
 type SGroup struct {
 	db.SVirtualResourceBase
 
-	ServiceType   string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	ParentId      string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	ZoneId        string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`            // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
+	// 服务类型
+	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	ParentId    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// 可用区Id
+	// example: zone1
+	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// 调度策略
+	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"`
 
 	// the upper limit number of guests with this group in a host
 	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1"`
 	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true"`
-	Enabled         tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	// 是否启用
+	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
 
 // 主机组列表
@@ -94,30 +99,22 @@ func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	return q, nil
 }
 
-func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := group.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, _ := group.getMoreDetails(ctx, userCred, extra)
-	extra.Update(ret.JSON(ret))
-	return extra
-}
-
 func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*api.InstanceGroupDetail, error) {
-	extra, err := group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	query jsonutils.JSONObject, details bool) (api.InstanceGroupDetail, error) {
+	var err error
+	out := api.InstanceGroupDetail{}
+	out.VirtualResourceDetails, err = group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return group.getMoreDetails(ctx, userCred, extra)
+	return group.getMoreDetails(ctx, userCred, out)
 }
 
 func (group *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	data jsonutils.JSONObject) (*api.InstanceGroupDetail, error) {
+	out api.InstanceGroupDetail) (api.InstanceGroupDetail, error) {
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
-	count, _ := q.CountWithError()
-	output := new(api.InstanceGroupDetail)
-	output.GuestCount = int64(count)
-	return output, nil
+	out.GuestCount, _ = q.CountWithError()
+	return out, nil
 }
 
 func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {

@@ -91,34 +91,49 @@ type SGuest struct {
 	SBillingResourceBase
 	SDeletePreventableResourceBase
 
-	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
-	VmemSize  int `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
+	// CPU大小
+	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
+	// 内存大小, 单位Mb
+	VmemSize int `nullable:"false" list:"user" create:"required"`
 
-	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"` // Column(VARCHAR(8, charset='ascii'), nullable=True, default='cdn')
+	// 启动顺序
+	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"`
 
-	ShutdownBehavior string `width:"16" charset:"ascii" default:"stop" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), default=SHUTDOWN_STOP)
+	// 关机操作类型
+	// example: stop
+	ShutdownBehavior string `width:"16" charset:"ascii" default:"stop" list:"user" update:"user" create:"optional"`
 
-	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	// 秘钥对Id
+	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	HostId       string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	// 宿主机Id
+	HostId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
+	// 备份机所在宿主机Id
 	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
 
-	Vga     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	Vdi     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	Machine string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	Bios    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	OsType  string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	Vga     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	Vdi     string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	Machine string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	Bios    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// 操作系统类型
+	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
-	FlavorId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	FlavorId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	SecgrpId      string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
-	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`                  // Column(VARCHAR(36, charset='ascii'), nullable=True)
+	// 安全组Id
+	// example: default
+	SecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"`
+	// 管理员可见安全组Id
+	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`
 
 	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 
-	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default=HYPERVISOR_DEFAULT)
+	// 虚拟化技术
+	// example: kvm
+	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"`
 
+	// 套餐名称
 	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
@@ -1588,38 +1603,18 @@ func (self *SGuest) getExtBandwidth() int {
 	return self.getBandwidth(true)
 }
 
-func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	fields := stringutils2.NewSortedStrings(jsonutils.GetQueryStringArray(query, "field"))
-
-	if query.Contains("group") {
-		groupId, _ := query.GetString("group")
-		q := GroupguestManager.Query().Equals("group_id", groupId).Equals("guest_id", self.Id)
-		var groupGuest SGroupguest
-		err := q.First(&groupGuest)
-		if err == nil {
-			extra.Add(jsonutils.NewTimeString(groupGuest.CreatedAt), "attach_time")
-		}
-	}
-	return self.moreExtraInfo(extra, fields)
-}
-
-func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2.SSortedStrings) *jsonutils.JSONDict {
+func (self *SGuest) moreExtraInfo(out api.ServerDetails, fields stringutils2.SSortedStrings) api.ServerDetails {
 	// extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
 
-	if self.IsPrepaidRecycle() {
-		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
-	}
+	out.IsPrepaidRecycle = self.IsPrepaidRecycle()
 
 	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		if len(fields) == 0 || fields.Contains("backup_host_name") {
-			extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
+			out.BackupHostName = backupHost.Name
 		}
 		if len(fields) == 0 || fields.Contains("backup_host_status") {
-			extra.Set("backup_host_status", jsonutils.NewString(backupHost.HostStatus))
+			out.BackupHostStatus = backupHost.HostStatus
 		}
 	}
 
@@ -1627,50 +1622,41 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 		host := self.GetHost()
 		if host != nil {
 			if len(fields) == 0 || fields.Contains("host") {
-				extra.Add(jsonutils.NewString(host.Name), "host")
+				out.Host = host.Name
 			}
 			if len(fields) == 0 || fields.ContainsAny(providerInfoFields...) {
 				info := host.getCloudProviderInfo()
 				if len(fields) == 0 {
-					extra.Update(jsonutils.Marshal(&info))
+					out.CloudproviderInfo = info
 				} else {
-					extra.Update(jsonutils.Marshal(&info).(*jsonutils.JSONDict).CopyIncludes([]string(fields)...))
+					jsonutils.Update(&out, jsonutils.Marshal(&info).(*jsonutils.JSONDict).CopyIncludes([]string(fields)...))
 				}
 			}
 			if len(fields) == 0 || fields.Contains("host_sn") {
-				extra.Add(jsonutils.NewString(host.SN), "host_sn")
+				out.HostSN = host.SN
 			}
 		}
 	}
 
 	if len(fields) == 0 || fields.Contains("can_recycle") {
 		err := self.CanPerformPrepaidRecycle()
-		if err != nil {
-			extra.Add(jsonutils.JSONFalse, "can_recycle")
-		} else {
-			extra.Add(jsonutils.JSONTrue, "can_recycle")
+		if err == nil {
+			out.CanRecycle = true
 		}
 	}
 
 	if len(fields) == 0 || fields.Contains("auto_delete_at") {
 		if self.PendingDeleted {
 			pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-			extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
+			out.AutoDeleteAt = pendingDeletedAt
 		}
 	}
 
-	if metaData, err := db.GetVisiableMetadata(self, nil); err == nil {
-		extra.Add(jsonutils.Marshal(metaData), "metadata")
-	}
+	out.Metadata, _ = db.GetVisiableMetadata(self, nil)
+	out.DiskCount = self.GetDisksQuery().Count()
+	out.CdromSupport, _ = self.GetDriver().IsSupportCdrom(self)
 
-	q := self.GetDisksQuery()
-	count, _ := q.CountWithError()
-	extra.Add(jsonutils.NewInt(int64(count)), "disk_count")
-
-	cdromSupport, _ := self.GetDriver().IsSupportCdrom(self)
-	extra.Set("cdrom_support", jsonutils.NewBool(cdromSupport))
-
-	return extra
+	return out
 }
 
 func (self *SGuest) GetMetadataHideKeys() []string {
@@ -1679,32 +1665,46 @@ func (self *SGuest) GetMetadataHideKeys() []string {
 	}
 }
 
-func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServerDetails, error) {
+	var err error
+	out := api.ServerDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
-	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
-	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
-	extra.Add(self.getDisksInfoDetails(), "disks_info")
-
-	extra.Add(jsonutils.NewString(strings.Join(self.getVirtualIPs(), ",")), "virtual_ips")
-	extra.Add(jsonutils.NewString(self.getSecurityGroupsRules()), "security_rules")
-
-	osName := self.GetOS()
-	if len(osName) > 0 {
-		extra.Add(jsonutils.NewString(osName), "os_name")
-		if len(self.OsType) == 0 {
-			extra.Add(jsonutils.NewString(osName), "os_type")
+	var fields stringutils2.SSortedStrings
+	if isList {
+		fields = stringutils2.NewSortedStrings(jsonutils.GetQueryStringArray(query, "field"))
+		if query.Contains("group") {
+			groupId, _ := query.GetString("group")
+			q := GroupguestManager.Query().Equals("group_id", groupId).Equals("guest_id", self.Id)
+			var groupGuest SGroupguest
+			err := q.First(&groupGuest)
+			if err == nil {
+				out.AttachTime = groupGuest.CreatedAt
+			}
 		}
-	}
+	} else {
+		out.Networks = self.getNetworksDetails()
+		out.DisksInfo = self.getDisksInfoDetails()
+		out.VirtualIps = strings.Join(self.getVirtualIPs(), ",")
+		out.SecurityRules = self.getSecurityGroupsRules()
 
-	if db.IsAdminAllowGet(userCred, self) {
-		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
-	}
+		osName := self.GetOS()
+		if len(osName) > 0 {
+			out.OsName = osName
+			if len(self.OsType) == 0 {
+				out.OsType = osName
+			}
+		}
 
-	return self.moreExtraInfo(extra, nil), nil
+		if userCred.HasSystemAdminPrivilege() {
+			out.AdminSecurityRules = self.getAdminSecurityRules()
+		}
+
+	}
+	return self.moreExtraInfo(out, fields), nil
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -4020,7 +4020,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	if host != nil {
 		desc.Set("host", jsonutils.NewString(host.Name))
 		desc.Set("host_id", jsonutils.NewString(host.Id))
-		billingInfo.SCloudProviderInfo = host.getCloudProviderInfo()
+		billingInfo.CloudproviderInfo = host.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {

@@ -451,36 +451,13 @@ func (model *SModelBase) GetShortDescV2(ctx context.Context) *apis.ModelBaseShor
 	return &apis.ModelBaseShortDescDetail{ResName: model.Keyword()}
 }
 
-// list hooks
-func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := jsonutils.NewDict()
-	return getModelExtraDetails(model.GetIModel(), ctx, extra)
-}
-
 // get hooks
 func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
 }
 
-func (model *SModelBase) GetExtraDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out *apis.ModelBaseDetails) error {
-	out.CanDelete = true
-	out.CanUpdate = true
-	err := model.GetIModel().ValidateDeleteCondition(ctx)
-	if err != nil {
-		out.CanDelete = false
-		out.DeleteFailReason = err.Error()
-	}
-	err = model.GetIModel().ValidateUpdateCondition(ctx)
-	if err != nil {
-		out.CanUpdate = false
-		out.UpdateFailReason = err.Error()
-	}
-	return nil
-}
-
-func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := jsonutils.NewDict()
-	return getModelExtraDetails(model.GetIModel(), ctx, extra), nil
+func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.ModelBaseDetails, error) {
+	return getModelExtraDetails(model.GetIModel(), ctx), nil
 }
 
 func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {

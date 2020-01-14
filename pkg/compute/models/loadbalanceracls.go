@@ -252,14 +252,11 @@ func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient
 	lbacl.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
 }
 
-func (lbacl *SLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return extra
-}
-
-func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbacl.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerAclDetails, error) {
+	var err error
+	out := api.LoadbalancerAclDetails{}
+	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	return out, err
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {

@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -60,10 +59,6 @@ type SHuaweiCachedLb struct {
 	BackendServerId      string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 后端服务器 实例ID
 	BackendId            string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // 本地loadbalancebackend id
 	CachedBackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-}
-
-func (lbb *SHuaweiCachedLb) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
 }
 
 func (man *SHuaweiCachedLbManager) GetBackendsByLocalBackendId(backendId string) ([]SHuaweiCachedLb, error) {

@@ -29,3 +29,52 @@ type ZoneCreateInput struct {
 	// swagger:ignore
 	CloudregionId string
 }
+
+type ZoneDetails struct {
+	apis.StandaloneResourceDetails
+	SZone
+
+	// 区域名称
+	Cloudregion string `json:"cloudregion"`
+	// 平台
+	// example: OneCloud
+	Provider string `json:"provider"`
+
+	// 可用区底下的宿主机数量
+	// example: 3
+	Hosts int `json:"hosts"`
+
+	// 可用区底下启用的宿主机数量
+	// example: 2
+	HostsEnabled int `json:"host_enabled"`
+
+	// 可用区底下的裸金属服务器数量
+	// example: 1
+	Baremetals int `json:"baremetals"`
+
+	// 可用区底下启用的裸金属服务器数量
+	// example: 1
+	BaremetalsEnabled int `json:"baremetals_enabled"`
+
+	// 可用区底下的二层网络数量
+	// example: 3
+	Wires int `json:"wires"`
+
+	// 可用区底下的子网数量
+	// example: 1
+	Networks int `json:"networks"`
+
+	// 可用区底下的块存储数量
+	// example: 1
+	Storages int `json:"storages"`
+}
+
+type ZoneInfo struct {
+	// 可用区名称
+	// example: zone1
+	Zone string `json:"zone"`
+
+	// 纳管云的zoneId
+	ZoneExtId string `json:"zone_ext_id"`
+	CloudregionInfo
+}

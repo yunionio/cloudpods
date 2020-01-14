@@ -75,40 +75,73 @@ type SCloudaccount struct {
 	db.SDomainizedResourceBase
 	SSyncableBaseResource
 
+	// 上此同步时间
 	LastAutoSync time.Time `list:"domain"`
 
+	// 项目Id
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"domain_optional"`
 
+	// 云环境连接地址
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret  string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`  // Google需要秘钥认证,需要此字段比较长
+	// 云账号
+	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 
-	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	// 云账号密码
+	Secret string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 
+	// 云环境唯一标识
 	AccountId string `width:"128" charset:"utf8" nullable:"true" list:"domain" create:"domain_optional"`
 
+	// 是否是公有云账号
+	// example: true
 	IsPublicCloud tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
-	IsOnPremise   bool              `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
 
+	// 是否是本地IDC账号
+	// example: false
+	IsOnPremise bool `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+
+	// 云平台类型
+	// example: google
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 
-	EnableAutoSync      bool `default:"false" create:"domain_optional" list:"domain"`
-	SyncIntervalSeconds int  `create:"domain_optional" list:"domain" update:"domain"`
+	// 是否启用自动同步
+	// example: false
+	EnableAutoSync bool `default:"false" create:"domain_optional" list:"domain"`
 
-	Balance      float64   `list:"domain"`
-	ProbeAt      time.Time `list:"domain"`
-	HealthStatus string    `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
+	// 自动同步周期
+	// example: 300
+	SyncIntervalSeconds int `create:"domain_optional" list:"domain" update:"domain"`
 
+	// 账户余额
+	// example: 124.2
+	Balance float64 `list:"domain"`
+
+	// 上次账号探测时间
+	ProbeAt time.Time `list:"domain"`
+
+	// 账号健康状态
+	// example: normal
+	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
+
+	// 账号探测异常错误次数
 	ErrorCount int `list:"domain"`
 
+	// 是否根据云上项目自动在本地创建对应项目
+	// example: false
 	AutoCreateProject bool `list:"domain" create:"domain_optional"`
 
-	Version string               `width:"32" charset:"ascii" nullable:"true" list:"domain"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	Sysinfo jsonutils.JSONObject `get:"domain"`                                             // Column(JSONEncodedDict, nullable=True)
+	// 云API版本
+	Version string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
 
+	// 云系统信息
+	Sysinfo jsonutils.JSONObject `get:"domain"`
+
+	// 品牌信息, 一般和provider相同
+	// example: DStack
 	Brand string `width:"64" charset:"utf8" nullable:"true" list:"domain" create:"optional"`
 
+	// 额外信息
 	Options *jsonutils.JSONDict `get:"domain" create:"domain_optional" update:"domain"`
 
 	// for backward compatiblity, keep is_public field, but not usable
@@ -867,46 +900,46 @@ func (self *SCloudaccount) GetCloudEnv() string {
 	}
 }
 
-func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra = db.FetchModelExtraCountProperties(self, extra)
-	// cnt, _ := self.getProviderCount()
-	// int64(cnt)), "provider_count")
-	// extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
-	// extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
-	// extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
-	// extra.Add(jsonutils.NewString(self.getVersion()), "version")
-	projects := jsonutils.NewArray()
+func (self *SCloudaccount) getMoreDetails(out api.CloudaccountDetail) api.CloudaccountDetail {
+	out.EipCount, _ = self.GetEipCount()
+	out.VpcCount, _ = self.GetVpcCount()
+	out.DiskCount, _ = self.GetDiskCount()
+	out.HostCount, _ = self.GetHostCount()
+	out.GuestCount, _ = self.GetGuestCount()
+	out.StorageCount, _ = self.GetStorageCount()
+	out.ProviderCount, _ = self.GetProviderCount()
+	out.RoutetableCount, _ = self.GetRoutetableCount()
+	out.StoragecacheCount, _ = self.GetStoragecacheCount()
+
+	out.Projects = []api.ProviderProject{}
 	for _, projectId := range self.getProjectIds() {
 		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
-			projJson := jsonutils.NewDict()
-			projJson.Add(jsonutils.NewString(proj.Name), "tenant")
-			projJson.Add(jsonutils.NewString(proj.Id), "tenant_id")
-			projects.Add(projJson)
+			project := api.ProviderProject{
+				Tenant:   proj.Name,
+				TenantId: proj.Id,
+			}
+			out.Projects = append(out.Projects, project)
 		}
 	}
-	extra.Add(projects, "projects")
-	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
-	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
-	extra.Set("cloud_env", jsonutils.NewString(self.GetCloudEnv()))
+	out.SyncIntervalSeconds = self.getSyncIntervalSeconds()
+	out.SyncStatus2 = self.getSyncStatus2()
+	out.CloudEnv = self.GetCloudEnv()
 	if len(self.ProjectId) > 0 {
 		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), self.ProjectId); proj != nil {
-			extra.Add(jsonutils.NewString(proj.Name), "tenant")
+			out.Tenant = proj.Name
 		}
 	}
-	return extra
+	return out
 }
 
-func (self *SCloudaccount) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CloudaccountDetail, error) {
+	var err error
+	out := api.CloudaccountDetail{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {

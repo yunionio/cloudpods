@@ -82,54 +82,82 @@ type SHost struct {
 	SManagedResourceBase
 	SBillingResourceBase
 
-	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// 机架
+	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
 
-	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=False, index=True)
+	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin"`
 
-	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// Ip地址
+	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"`
 
-	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(256, charset='ascii'), nullable=True)
+	// 管理地址
+	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`              // Column(JSONEncodedDict, nullable=True)
-	SN      string               `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
+	// 系统信息
+	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`
+	// SN信息
+	SN string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	CpuCount        int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True) # cpu count
-	NodeCount       int8    `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True)
-	CpuDesc         string  `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	CpuMhz          int     `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # cpu MHz
-	CpuCache        int     `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # cpu Cache in KB
-	CpuReserved     int     `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`               // Column(TINYINT, nullable=True, default=0)
-	CpuCmtbound     float32 `nullable:"true" default:"8" list:"admin" update:"admin" create:"admin_optional"`               // = Column(Float, nullable=True)
-	CpuMicrocode    string  `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
-	CpuArchitecture string  `width:"16" charset:"ascii" nullable:"true" get:"user" update:"admin" create:"admin_optional"`
+	// CPU大小
+	CpuCount int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 物理CPU颗数
+	NodeCount int8 `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// CPU描述信息
+	CpuDesc string `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// CPU频率
+	CpuMhz int `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// CPU缓存大小,单位KB
+	CpuCache int `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// 预留CPU大小
+	CpuReserved int `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`
+	// CPU超分比
+	CpuCmtbound float32 `nullable:"true" default:"8" list:"admin" update:"admin" create:"admin_optional"`
+	// CPUMicrocode
+	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// CPU架构
+	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"admin" create:"admin_optional"`
 
-	MemSize     int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`             // Column(Integer, nullable=True) # memory size in MB
-	MemReserved int     `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"` // Column(Integer, nullable=True, default=0) # memory reserved in MB
-	MemCmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin" create:"admin_optional"` // = Column(Float, nullable=True)
+	// 内存大小,单位Mb
+	MemSize int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 预留内存大小
+	MemReserved int `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`
+	// 内存超分比
+	MemCmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin" create:"admin_optional"`
 
-	StorageSize   int                  `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # storage size in MB
-	StorageType   string               `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(20, charset='ascii'), nullable=True)
-	StorageDriver string               `width:"20" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`  // Column(VARCHAR(20, charset='ascii'), nullable=True)
-	StorageInfo   jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                             // Column(JSONEncodedDict, nullable=True)
+	// 存储大小,单位Mb
+	StorageSize int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 存储类型
+	StorageType string `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 存储驱动类型
+	StorageDriver string `width:"20" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// 存储详情
+	StorageInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
 
-	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// IPMI地址
+	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"`
 
-	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(JSONEncodedDict, nullable=True)
+	// IPMI详情
+	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
 
-	// Status  string = Column(VARCHAR(16, charset='ascii'), nullable=False, default=baremetalstatus.INIT) # status
-	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, server_default=HOST_OFFLINE, default=HOST_OFFLINE)
+	// 宿主机状态
+	// example: online
+	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"`
 
+	// 可用区Id
+	// example: zone1
 	ZoneId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	// 宿主机类型
+	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
-	Version    string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
+	Version    string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
 	OvnVersion string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
 
-	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
+	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`
 
-	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
+	// 是否处于维护状态
+	IsMaintenance bool `nullable:"true" default:"false" list:"admin"`
 
 	LastPingAt time.Time ``
 
@@ -2322,16 +2350,15 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	return &stat
 }
 
-func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
+func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.HostDetails {
+	out.CloudproviderInfo = self.getCloudProviderInfo()
 
 	server := self.GetBaremetalServer()
 	if server != nil {
-		extra.Add(jsonutils.NewString(server.Id), "server_id")
-		extra.Add(jsonutils.NewString(server.Name), "server")
+		out.ServerId = server.Id
+		out.Server = server.Name
 		if self.HostType == api.HOST_TYPE_BAREMETAL {
-			extra.Add(jsonutils.NewString(strings.Join(server.GetRealIPs(), ",")), "server_ips")
+			out.ServerIps = strings.Join(server.GetRealIPs(), ",")
 		}
 	}
 	netifs := self.GetNetInterfaces()
@@ -2345,10 +2372,10 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 			}
 			nicInfos = append(nicInfos, nicInfo)
 		}
-		extra.Add(jsonutils.NewInt(int64(len(nicInfos))), "nic_count")
-		extra.Add(jsonutils.NewArray(nicInfos...), "nic_info")
+		out.NicCount = len(nicInfos)
+		out.NicInfo = nicInfos
 	}
-	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
+	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
 	var usage *SHostGuestResourceUsage
 	if options.Options.IgnoreNonrunningGuests {
 		usage = self.getGuestsResource(api.VM_RUNNING)
@@ -2356,70 +2383,65 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		usage = self.getGuestsResource("")
 	}
 	if usage != nil {
-		extra.Add(jsonutils.NewInt(int64(usage.GuestVcpuCount)), "cpu_commit")
-		extra.Add(jsonutils.NewInt(int64(usage.GuestVmemSize)), "mem_commit")
+		out.CpuCommit = usage.GuestVcpuCount
+		out.MemCommit = usage.GuestVmemSize
 	}
 	containerCount, _ := self.GetContainerCount(nil)
 	runningContainerCount, _ := self.GetContainerCount(api.VM_RUNNING_STATUS)
 	guestCount, _ := self.GetGuestCount()
 	nonesysGuestCnt, _ := self.GetNonsystemGuestCount()
 	runningGuestCnt, _ := self.GetRunningGuestCount()
-	extra.Add(jsonutils.NewInt(int64(guestCount-containerCount)), "guests")
-	extra.Add(jsonutils.NewInt(int64(nonesysGuestCnt-containerCount)), "nonsystem_guests")
-	extra.Add(jsonutils.NewInt(int64(runningGuestCnt-runningContainerCount)), "running_guests")
+	out.Guests = guestCount - containerCount
+	out.NonsystemGuests = nonesysGuestCnt - containerCount
+	out.RunningGuests = runningGuestCnt - runningContainerCount
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
 		cpuCommitRate = float64(usage.GuestVcpuCount) * 1.0 / float64(totalCpu)
 	}
-	extra.Add(jsonutils.NewFloat(cpuCommitRate), "cpu_commit_rate")
+	out.CpuCommitRate = cpuCommitRate
 	totalMem := self.GetMemSize()
 	memCommitRate := 0.0
 	if totalMem > 0 && usage.GuestVmemSize > 0 {
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
-	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
+	out.MemCommitRate = memCommitRate
 	capa := self.GetAttachedLocalStorageCapacity()
-	extra.Add(jsonutils.NewInt(int64(capa.Capacity)), "storage")
-	extra.Add(jsonutils.NewInt(int64(capa.Used)), "storage_used")
-	extra.Add(jsonutils.NewInt(int64(capa.Wasted)), "storage_waste")
-	extra.Add(jsonutils.NewInt(int64(capa.VCapacity)), "storage_virtual")
-	extra.Add(jsonutils.NewInt(int64(capa.GetFree())), "storage_free")
-	extra.Add(jsonutils.NewFloat(capa.GetCommitRate()), "storage_commit_rate")
-	extra.Add(self.GetHardwareSpecification(), "spec")
+	out.Storage = capa.Capacity
+	out.StorageUsed = capa.Used
+	out.StorageWaste = capa.Wasted
+	out.StorageVirtual = capa.VCapacity
+	out.StorageFree = capa.GetFree()
+	out.StorageCommitRate = capa.GetCommitRate()
+	out.Spec = self.GetHardwareSpecification()
 
 	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
 
+	out.IsPrepaidRecycle = false
 	if self.IsPrepaidRecycle() {
-		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
+		out.IsPrepaidRecycle = true
 	}
 
 	if self.IsBaremetal {
+		out.CanPrepare = true
 		err := self.canPrepare()
-		if err == nil {
-			extra.Add(jsonutils.JSONTrue, "can_prepare")
-		} else {
-			extra.Add(jsonutils.JSONFalse, "can_prepare")
-			extra.Add(jsonutils.NewString(err.Error()), "prepare_fail_reason")
+		if err != nil {
+			out.CanPrepare = false
+			out.PrepareFailReason = err.Error()
 		}
 	}
 
-	return extra
+	return out
 }
 
-func (self *SHost) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
-}
-
-func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostDetails, error) {
+	var err error
+	out := api.HostDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, extra), nil
+	return self.getMoreDetails(ctx, out), nil
 }
 
 func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -4296,7 +4318,7 @@ func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
 	return host.(*SHost), nil
 }
 
-func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SHost) getCloudProviderInfo() api.CloudproviderInfo {
 	var region *SCloudregion
 	zone := self.GetZone()
 	if zone != nil {

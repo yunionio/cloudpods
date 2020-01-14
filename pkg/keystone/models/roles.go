@@ -195,31 +195,22 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
-func (role *SRole) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := role.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return roleExtra(role, extra)
-}
-
-func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := role.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RoleDetails, error) {
+	var err error
+	out := api.RoleDetails{}
+	out.StandaloneResourceDetails, err = role.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return roleExtra(role, extra), nil
+	return roleExtra(role, out), nil
 }
 
-func roleExtra(role *SRole, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	usrCnt, _ := role.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	grpCnt, _ := role.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	prjCnt, _ := role.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	policies := policy.PolicyManager.RoleMatchPolicies(role.Name)
-	if len(policies) > 0 {
-		extra.Add(jsonutils.NewStringArray(policies), "match_policies")
-	}
-	return extra
+func roleExtra(role *SRole, out api.RoleDetails) api.RoleDetails {
+	out.UserCount, _ = role.GetUserCount()
+	out.GroupCount, _ = role.GetGroupCount()
+	out.ProjectCount, _ = role.GetProjectCount()
+	out.MatchPolicies = policy.PolicyManager.RoleMatchPolicies(role.Name)
+	return out
 }
 
 // 角色列表

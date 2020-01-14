@@ -274,25 +274,6 @@ func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclie
 	}
 }
 
-func (lbb *SLoadbalancerBackend) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := lbb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
-	}
-	regionInfo := lbb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-
-	if vpc, err := lbb.getVpc(ctx); err != nil {
-		log.Warningf("loadbalancer backend %s(%s): get vpc: %v", lbb.Name, lbb.Id, err)
-	} else if vpc != nil {
-		extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
-	}
-	return extra
-}
-
 func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	if lbb.BackendType != api.LB_BACKEND_GUEST {
 		return nil, nil
@@ -313,9 +294,25 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	return vpc, nil
 }
 
-func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbb.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerBackendDetails, error) {
+	var err error
+	out := api.LoadbalancerBackendDetails{}
+	out.VirtualResourceDetails, err = lbb.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+
+	provider := lbb.GetCloudprovider()
+	region := lbb.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+
+	vpc, err := lbb.getVpc(ctx)
+	if err != nil {
+		log.Warningf("loadbalancer backend %s(%s): get vpc: %v", lbb.Name, lbb.Id, err)
+		return out, err
+	}
+	out.VpcId = vpc.Id
+	return out, nil
 }
 
 func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {

@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -67,10 +66,6 @@ type SAwsCachedLbbg struct {
 	Port                int    `nullable:"false" list:"user" create:"required"`                            // 监听端口
 	HealthCheckProtocol string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 健康检查协议类型
 	HealthCheckInterval int    `nullable:"false" list:"user" create:"required"`                            // 健康检查时间间隔
-}
-
-func (lbb *SAwsCachedLbbg) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
 }
 
 func (lbbg *SAwsCachedLbbg) GetLocalBackendGroup(ctx context.Context, userCred mcclient.TokenCredential) (*SLoadbalancerBackendGroup, error) {

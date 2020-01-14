@@ -99,23 +99,19 @@ func (region *SRegion) ValidateDeleteCondition(ctx context.Context) error {
 	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (region *SRegion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := region.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return regionExtra(region, extra)
-}
-
-func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := region.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RegionDetails, error) {
+	var err error
+	out := api.RegionDetails{}
+	out.StandaloneResourceDetails, err = region.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return regionExtra(region, extra), nil
+	return regionExtra(region, out), nil
 }
 
-func regionExtra(region *SRegion, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	epCnt, _ := region.GetEndpointCount()
-	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
-	return extra
+func regionExtra(region *SRegion, out api.RegionDetails) api.RegionDetails {
+	out.EndpointCount, _ = region.GetEndpointCount()
+	return out
 }
 
 func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

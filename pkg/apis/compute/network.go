@@ -115,25 +115,38 @@ type NetworkCreateInput struct {
 }
 
 type NetworkDetails struct {
-	apis.Meta
 	apis.SharableVirtualResourceDetails
 
-	CloudproviderDetails
+	CloudproviderInfo
 	SNetwork
-	Wire         string `json:"wire"`
-	Exit         bool   `json:"exit"`
-	Ports        int    `json:"ports"`
-	PortsUsed    int    `json:"ports_used"`
-	Vnics        int    `json:"vnics"`
-	BmVnics      int    `json:"bm_nics"`
-	LbVnics      int    `json:"lb_vnics"`
-	EipVnics     int    `json:"eip_vnics"`
-	GroupVnics   int    `json:"group_vnics"`
-	ReserveVnics int    `json:"reserve_vnics"`
-	Vpc          string `json:"vpc"`
-	VpcId        string `json:"vpc_id"`
-	VpcExtId     string `json:"vpc_ext_id"`
 
+	// 二层网络名称
+	Wire string `json:"wire"`
+	// 是否是内网
+	Exit bool `json:"exit"`
+	// 端口数量
+	Ports int `json:"ports"`
+	// 已使用端口数量
+	PortsUsed int `json:"ports_used"`
+	// 网卡数量
+	Vnics int `json:"vnics"`
+	// 裸金属网卡数量
+	BmVnics int `json:"bm_nics"`
+	// 负载均衡网卡数量
+	LbVnics int `json:"lb_vnics"`
+	// 浮动Ip网卡数量
+	EipVnics   int `json:"eip_vnics"`
+	GroupVnics int `json:"group_vnics"`
+	// 预留IP数量
+	ReserveVnics int `json:"reserve_vnics"`
+	// 虚拟私有网络名称
+	Vpc string `json:"vpc"`
+	// 虚拟私有网络Id
+	VpcId string `json:"vpc_id"`
+	// 虚拟私有网络外部Id
+	VpcExtId string `json:"vpc_ext_id"`
+
+	// 路由信息
 	Routes    [][]string                 `json:"routes"`
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 }

@@ -18,12 +18,17 @@ import (
 	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/billing"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SBillingResourceBase struct {
-	BillingType  string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
-	ExpiredAt    time.Time `nullable:"true" list:"user" create:"optional"`
-	BillingCycle string    `width:"10" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 计费类型, 按量、包年包月
+	// example: postpaid
+	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
+	// 过期时间
+	ExpiredAt time.Time `nullable:"true" list:"user" create:"optional"`
+	// 计费周期
+	BillingCycle string `width:"10" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (self *SBillingResourceBase) GetChargeType() string {
@@ -71,7 +76,7 @@ type SBillingBaseInfo struct {
 }
 
 type SCloudBillingInfo struct {
-	SCloudProviderInfo
+	compute.CloudproviderInfo
 
 	SBillingBaseInfo
 

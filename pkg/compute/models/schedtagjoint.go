@@ -147,17 +147,14 @@ func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (joint *SSchedtagJointsBase) getCustomizeColumns(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := joint.SJointResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(obj, extra)
-}
-
-func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query)
+func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.JoinModelBaseDetails, error) {
+	var err error
+	out := apis.JoinModelBaseDetails{}
+	out.ModelBaseDetails, err = joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return db.JointModelExtra(obj, extra), nil
+	return out, nil
 }
 
 func (joint *SSchedtagJointsBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

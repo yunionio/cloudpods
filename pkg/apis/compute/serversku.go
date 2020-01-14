@@ -128,3 +128,23 @@ type ServerSkuCreateInput struct {
 	// swagger:ignore
 	Provider string
 }
+
+type ServerSkuDetails struct {
+	apis.StandaloneResourceDetails
+	SServerSku
+
+	// 绑定云主机数量
+	TotalGuestCount int `json:"total_guest_count"`
+	// 可用区名称
+	Zone string `json:"zone"`
+	// 可用区外部Id
+	ZoneExtId string `json:"zone_ext_id"`
+	// 区域名称
+	Region string `json:"region"`
+	// 区域Id
+	RegionId string `json:"region_id"`
+	// 区域外部Id
+	RegionExternalId string `json:"region_external_id"`
+	// 区域外部Id(不携带平台信息)
+	RegionExtId string `json:"region_ext_id"`
+}

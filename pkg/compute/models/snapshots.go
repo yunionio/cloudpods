@@ -50,21 +50,25 @@ type SSnapshot struct {
 
 	SManagedResourceBase
 
+	// 磁盘Id
 	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
 	// Only onecloud has StorageId
-	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
-	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"user" create:"optional"`
-	Location    string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
-	Size        int    `nullable:"false" list:"user" create:"required"` // MB
+	StorageId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	CreatedBy string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"user" create:"optional"`
+	Location  string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	// 快照大小,单位Mb
+	Size        int    `nullable:"false" list:"user" create:"required"`
 	OutOfChain  bool   `nullable:"false" default:"false" list:"admin" create:"optional"`
 	FakeDeleted bool   `nullable:"false" default:"false"`
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	OsType      string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 操作系统类型
+	OsType string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
+	// 区域Id
 	CloudregionId string    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	BackingDiskId string    `width:"36" charset:"ascii" nullable:"true" default:""`
 	ExpiredAt     time.Time `nullable:"true" list:"user" create:"optional"`
@@ -138,42 +142,38 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
-func (self *SSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SnapshotDetails, error) {
+	var err error
+	out := api.SnapshotDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
-func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SSnapshot) getMoreDetails(out api.SnapshotDetails) api.SnapshotDetails {
 	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
 		storage := IStorage.(*SStorage)
-		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+		out.StorageType = storage.StorageType
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
-		extra.Add(jsonutils.NewString(disk.Status), "disk_status")
+		out.DiskStatus = disk.Status
+		out.DiskName = disk.Name
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
-			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
-			extra.Add(jsonutils.NewString(guests[0].Id), "guest_id")
-			extra.Add(jsonutils.NewString(guests[0].Status), "guest_status")
+			out.Guest = guests[0].Name
+			out.GuestId = guests[0].Id
+			out.GuestStatus = guests[0].Status
 		}
-		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
 	}
 	if t, _ := InstanceSnapshotJointManager.IsSubSnapshot(self.Id); t {
-		extra.Set("is_sub_snapshot", jsonutils.JSONTrue)
+		out.IsSubSnapshot = true
 	}
 
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-	return extra
+	out.CloudproviderInfo = self.getCloudProviderInfo()
+	return out
 }
 
 func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -849,7 +849,7 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	return nil, err
 }
 
-func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SSnapshot) getCloudProviderInfo() api.CloudproviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

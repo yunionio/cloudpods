@@ -67,3 +67,22 @@ type DBInstanceAccountCreateInput struct {
 type SDBInstanceSetPrivilegesInput struct {
 	Privileges []SDBInstanceAccountPrivilege `json:"privileges"`
 }
+
+type DBInstancePrivilege struct {
+	// 数据库名称
+	Database string
+	// 账号名称
+	Account string
+	// 数据库Id
+	DBInstancedatabaseId string
+	// 权限
+	Privileges string
+}
+
+type DBInstanceAccountDetails struct {
+	apis.StandaloneResourceDetails
+	SDBInstanceAccount
+
+	// 账号权限列表
+	DBInstanceprivileges []DBInstancePrivilege `json:"dbinstanceprivileges,allowempty"`
+}

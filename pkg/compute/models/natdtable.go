@@ -246,31 +246,28 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	return &table, nil
 }
 
-func (self *SNatDEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SNatDEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NatDEntryDetails, error) {
+	var err error
+	out := api.NatDEntryDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
-	return self.getMoreDetails(ctx, userCred, extra), nil
-}
-
-func (self *SNatDEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, extra)
+	return self.getMoreDetails(ctx, userCred, out), nil
 }
 
 func (self *SNatDEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query *jsonutils.JSONDict) *jsonutils.JSONDict {
+	out api.NatDEntryDetails) api.NatDEntryDetails {
 
 	natgateway, err := self.GetNatgateway()
 	if err != nil {
 		log.Errorf("failed to get naggateway %s for dtable %s(%s) error: %v", self.NatgatewayId, self.Name, self.Id, err)
-		return query
+		return out
 	}
-	query.Add(jsonutils.NewString(natgateway.Name), "natgateway")
-	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())), "real_name")
-	return query
+	out.Natgateway = natgateway.Name
+	out.RealName = NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())
+	return out
 }
 
 func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

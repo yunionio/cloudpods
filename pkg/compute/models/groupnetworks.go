@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -70,17 +71,15 @@ func (joint *SGroupnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGroupnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGroupJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
-}
-
-func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GroupnetworkDetails, error) {
+	var err error
+	out := api.GroupnetworkDetails{}
+	out.ModelBaseDetails, err = self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return db.JointModelExtra(self, extra), nil
+	out.Instancegroup, out.Network = db.JointModelExtra(self)
+	return out, nil
 }
 
 func (self *SGroupnetwork) GetNetwork() *SNetwork {

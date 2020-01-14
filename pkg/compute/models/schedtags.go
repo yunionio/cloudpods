@@ -316,28 +316,32 @@ func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
 	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
-func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra = self.SScopedResourceBase.GetMoreColumns(extra)
+func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetails {
+	out.ProjectId = self.SScopedResourceBase.ProjectId
 	cnt, _ := self.GetObjectCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
-	cnt, _ = self.getDynamicSchedtagCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "dynamic_schedtag_count")
-	cnt, _ = self.getSchedPoliciesCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "schedpolicy_count")
-	return extra
-}
-
-func (self *SSchedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
-
-func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
+	keyword := self.GetJointManager().GetMasterManager().Keyword()
+	switch keyword {
+	case HostManager.Keyword():
+		out.HostCount = cnt
+	case GuestManager.Keyword():
+		out.ServerCount = cnt
+	default:
+		out.OtherCount = cnt
+		out.JoinModelKeyword = keyword
 	}
-	return self.getMoreColumns(extra), nil
+	out.DynamicSchedtagCount, _ = self.getDynamicSchedtagCount()
+	out.SchedpolicyCount, _ = self.getSchedPoliciesCount()
+	return out
+}
+
+func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SchedtagDetails, error) {
+	var err error
+	out := api.SchedtagDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	return self.getMoreColumns(out), nil
 }
 
 /*func (self *SSchedtag) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -350,8 +354,8 @@ func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (self *SSchedtag) GetShortDescV2(ctx context.Context) *api.SchedtagShortDescDetails {
-	desc := &api.SchedtagShortDescDetails{}
+func (self *SSchedtag) GetShortDescV2(ctx context.Context) api.SchedtagShortDescDetails {
+	desc := api.SchedtagShortDescDetails{}
 	desc.StandaloneResourceShortDescDetail = self.SStandaloneResourceBase.GetShortDescV2(ctx)
 	desc.Default = self.DefaultStrategy
 	return desc
@@ -489,7 +493,7 @@ func GetSchedtagsDetailsToResourceV2(obj IModelWithSchedtag, ctx context.Context
 	if schedtags != nil && len(schedtags) > 0 {
 		for i := 0; i < len(schedtags); i += 1 {
 			desc := schedtags[i].GetShortDescV2(ctx)
-			info = append(info, *desc)
+			info = append(info, desc)
 		}
 	}
 	return info

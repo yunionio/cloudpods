@@ -200,25 +200,22 @@ func (self *SBaremetalagent) GetZone() *SZone {
 	return nil
 }
 
-func (self *SBaremetalagent) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SBaremetalagent) getMoreDetails(ctx context.Context, out api.BaremetalagentDetails) api.BaremetalagentDetails {
 	zone := self.GetZone()
 	if zone != nil {
-		extra.Set("zone", jsonutils.NewString(zone.GetName()))
+		out.Zone = zone.GetName()
 	}
-	return extra
+	return out
 }
 
-func (self *SBaremetalagent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
-}
-
-func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.BaremetalagentDetails, error) {
+	var err error
+	out := api.BaremetalagentDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, extra), nil
+	return self.getMoreDetails(ctx, out), nil
 }
 
 func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {

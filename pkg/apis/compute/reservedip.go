@@ -36,3 +36,13 @@ type ReservedipListInput struct {
 	// list all reserved ips, including expired ones
 	All *bool `json:"all"`
 }
+
+type ReservedipDetails struct {
+	apis.ModelBaseDetails
+	SReservedip
+
+	// IP子网名称
+	Network string `json:"network"`
+	// 是否过期
+	Expired bool `json:"expired"`
+}

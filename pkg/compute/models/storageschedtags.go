@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -69,12 +70,12 @@ func (joint *SStorageschedtag) Master() db.IStandaloneModel {
 	return joint.SSchedtagJointsBase.master(joint)
 }
 
-func (joint *SStorageschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return joint.SSchedtagJointsBase.getCustomizeColumns(joint, ctx, userCred, query)
-}
-
-func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query)
+func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StorageschedtagDetails, error) {
+	var err error
+	out := api.StorageschedtagDetails{}
+	out.JoinModelBaseDetails, err = joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query, details)
+	out.Storage, out.Schedtag = db.JointModelExtra(joint)
+	return out, err
 }
 
 func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

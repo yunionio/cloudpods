@@ -214,3 +214,24 @@ type DbinstanceFilterListInput struct {
 	// filter by dbinstance_id
 	DbinstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
 }
+
+type DBInstanceDetails struct {
+	apis.VirtualResourceDetails
+	SDBInstance
+
+	CloudproviderInfo
+	// 虚拟私有网络名称
+	// example: test-vpc
+	Vpc string `json:"vpc"`
+	// 安全组名称
+	// example: Default
+	Secgroup string `json:"secgroup"`
+	// iops
+	// example: 0
+	Iops int `json:"iops"`
+	// IP子网名称
+	// example: test-network
+	Network string `json:"network"`
+	// 标签信息
+	Metadata map[string]string `json:"metadata"`
+}

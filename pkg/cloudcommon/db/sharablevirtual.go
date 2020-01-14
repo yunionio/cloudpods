@@ -259,8 +259,8 @@ func (model *SSharableVirtualResourceBase) GetSharedProjects() []string {
 	return res
 }
 
-func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	sharedProjects := jsonutils.NewArray()
+func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out apis.SharableVirtualResourceDetails) apis.SharableVirtualResourceDetails {
+	out.SharedProjects = []apis.SharedProject{}
 	projects := model.GetSharedProjects()
 	for i := 0; i < len(projects); i++ {
 		tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projects[i])
@@ -268,50 +268,23 @@ func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, u
 			log.Errorf("failed fetch tenant by id %s", projects[i])
 			continue
 		}
-		p := jsonutils.NewDict()
-		p.Set("id", jsonutils.NewString(tenant.GetId()))
-		p.Set("name", jsonutils.NewString(tenant.GetName()))
-		sharedProjects.Add(p)
-	}
-	if sharedProjects.Length() > 0 {
-		extra.Set("shared_projects", sharedProjects)
-	}
-	return extra
-}
-
-func (model *SSharableVirtualResourceBase) getMoreDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) []apis.SharedProject {
-	out := []apis.SharedProject{}
-	for _, project := range model.GetSharedProjects() {
-		tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, project)
-		if err != nil {
-			log.Errorf("failed fetch tenant by id %s", project)
-			continue
+		project := apis.SharedProject{
+			Id:   tenant.GetId(),
+			Name: tenant.GetName(),
 		}
-		out = append(out, apis.SharedProject{Id: tenant.GetId(), Name: tenant.GetName()})
+		out.SharedProjects = append(out.SharedProjects, project)
 	}
 	return out
 }
 
-func (model *SSharableVirtualResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return model.getMoreDetails(ctx, userCred, query, extra)
-}
-
-func (model *SSharableVirtualResourceBase) GetExtraDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out *apis.SharableVirtualResourceDetails) error {
-	err := model.SVirtualResourceBase.GetExtraDetailsV2(ctx, userCred, query, &out.VirtualResourceDetails)
+func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.SharableVirtualResourceDetails, error) {
+	var err error
+	out := apis.SharableVirtualResourceDetails{}
+	out.VirtualResourceDetails, err = model.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return err
+		return out, err
 	}
-	out.SharedProjects = model.getMoreDetailsV2(ctx, userCred, query)
-	return nil
-}
-
-func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := model.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return model.getMoreDetails(ctx, userCred, query, extra), nil
+	return model.getMoreDetails(ctx, userCred, query, out), nil
 }
 
 func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.SharableVirtualResourceCreateInput) (apis.SharableVirtualResourceCreateInput, error) {
