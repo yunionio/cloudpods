@@ -658,6 +658,9 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsGuestImage.IsTrue() {
 		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
+	if self.IsPublic || len(self.GetSharedProjects()) > 0 {
+		return httperrors.NewForbiddenError("image is shared")
+	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -1241,13 +1244,24 @@ func (self *SImage) PerformMarkStandard(
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
-	if (!self.IsStandard.IsTrue() && isStandard) || (self.IsStandard.IsTrue() && !isStandard) {
+	if !self.IsStandard.IsTrue() && isStandard {
+		params := jsonutils.NewDict()
+		params.Set("scope", jsonutils.NewString("system"))
+		_, err := self.PerformPublic(ctx, userCred, query, params)
+		if err != nil {
+			return nil, err
+		}
 		diff, err := db.Update(self, func() error {
-			if isStandard {
-				self.IsStandard = tristate.True
-			} else {
-				self.IsStandard = tristate.False
-			}
+			self.IsStandard = tristate.True
+			return nil
+		})
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	} else if self.IsStandard.IsTrue() && !isStandard {
+		diff, err := db.Update(self, func() error {
+			self.IsStandard = tristate.False
 			return nil
 		})
 		if err != nil {
