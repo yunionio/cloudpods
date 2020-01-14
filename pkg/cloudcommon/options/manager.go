@@ -85,7 +85,7 @@ func (manager *SOptionManager) doSync(first bool) {
 
 	if merged && !reflect.DeepEqual(newOpts, manager.options) {
 		log.Infof("Service config changed ...")
-		if !first && manager.onOptionsChange != nil && manager.onOptionsChange(manager.options, newOpts) {
+		if manager.onOptionsChange != nil && manager.onOptionsChange(manager.options, newOpts) && !first {
 			log.Infof("Option changes detected and going to restart the program...")
 			appsrv.SetExitFlag()
 		}
