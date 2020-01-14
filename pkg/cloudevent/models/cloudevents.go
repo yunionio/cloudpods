@@ -117,10 +117,6 @@ func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlche
 	return q, nil
 }
 
-func (self *SCloudevent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SModelBase.GetCustomizeColumns(ctx, userCred, query)
-}
-
 func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred mcclient.TokenCredential, cloudprovider *SCloudprovider, iEvents []cloudprovider.ICloudEvent) int {
 	count := 0
 	for _, iEvent := range iEvents {

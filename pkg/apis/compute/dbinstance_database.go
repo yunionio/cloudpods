@@ -60,3 +60,11 @@ type DBInstanceDatabaseCreateInput struct {
 	// required: false
 	Accounts []SDBInstanceDatabasePrivilege `json:"accounts"`
 }
+
+type DBInstancedatabaseDetails struct {
+	apis.StandaloneResourceDetails
+	SDBInstanceDatabase
+
+	// 数据库权限
+	DBInstanceprivileges []DBInstancePrivilege `json:"dbinstanceprivileges"`
+}

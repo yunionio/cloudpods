@@ -196,26 +196,23 @@ func (self *SDynamicschedtag) getSchedtag() *SSchedtag {
 	return obj.(*SSchedtag)
 }
 
-func (self *SDynamicschedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SDynamicschedtag) getMoreColumns(out api.DynamicschedtagDetails) api.DynamicschedtagDetails {
 	schedtag := self.getSchedtag()
 	if schedtag != nil {
-		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
-		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
+		out.Schedtag = schedtag.GetName()
+		out.ResourceType = schedtag.ResourceType
 	}
-	return extra
+	return out
 }
 
-func (self *SDynamicschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
-
-func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DynamicschedtagDetails, error) {
+	var err error
+	out := api.DynamicschedtagDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreColumns(extra), nil
+	return self.getMoreColumns(out), nil
 }
 
 func (manager *SDynamicschedtagManager) GetEnabledDynamicSchedtagsByResource(resType string) []SDynamicschedtag {

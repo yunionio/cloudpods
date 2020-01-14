@@ -78,33 +78,40 @@ type SNetwork struct {
 
 	IfnameHint string `width:"9" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	GuestIpEnd   string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	GuestIpMask  int8   `nullable:"false" list:"user" update:"user" create:"required"`                            // Column(TINYINT, nullable=False)
-	GuestGateway string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	GuestDns     string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// 起始IP地址
+	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	// 接收IP地址
+	GuestIpEnd string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	// 掩码
+	GuestIpMask int8 `nullable:"false" list:"user" update:"user" create:"required"`
+	// 网关地址
+	GuestGateway string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// DNS
+	GuestDns string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 	// allow multiple dhcp, seperated by ","
-	GuestDhcp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	GuestDhcp string `width:"64" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
-	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
+	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"`
 
-	GuestIp6Start string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	GuestIp6End   string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	GuestIp6Mask  int8   `nullable:"true"`                            // Column(TINYINT, nullable=True)
-	GuestGateway6 string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	GuestDns6     string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
+	GuestIp6Start string `width:"64" charset:"ascii" nullable:"true"`
+	GuestIp6End   string `width:"64" charset:"ascii" nullable:"true"`
+	GuestIp6Mask  int8   `nullable:"true"`
+	GuestGateway6 string `width:"64" charset:"ascii" nullable:"true"`
+	GuestDns6     string `width:"64" charset:"ascii" nullable:"true"`
 
-	GuestDomain6 string `width:"128" charset:"ascii" nullable:"true"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
+	GuestDomain6 string `width:"128" charset:"ascii" nullable:"true"`
 
-	VlanId int `nullable:"false" default:"1" list:"user" update:"user" create:"optional"` // Column(Integer, nullable=False, default=1)
+	VlanId int `nullable:"false" default:"1" list:"user" update:"user" create:"optional"`
 
-	WireId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	// 二层网络Id
+	WireId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
-	// IsChanged = Column(Boolean, nullable=False, default=False)
+	// 服务器类型
+	// example: server
+	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" update:"user" create:"optional"`
 
-	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
-
-	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	// 分配策略
+	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"`
 
 	AllocTimoutSeconds int `default:"0" nullable:"true" get:"admin"`
 }
@@ -982,58 +989,7 @@ func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	wire := self.GetWire()
-	zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.Name), "zone")
-		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
-	}
-	if wire != nil {
-		extra.Add(jsonutils.NewString(wire.Name), "wire")
-	}
-	if self.IsExitNetwork() {
-		extra.Add(jsonutils.JSONTrue, "exit")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "exit")
-	}
-	extra.Add(jsonutils.NewInt(int64(self.GetPorts())), "ports")
-	portsUsed, _ := self.GetTotalNicCount()
-	extra.Add(jsonutils.NewInt(int64(portsUsed)), "ports_used")
-	vnics, _ := self.GetGuestnicsCount()
-	extra.Add(jsonutils.NewInt(int64(vnics)), "vnics")
-	bmVnics, _ := self.GetBaremetalNicsCount()
-	extra.Add(jsonutils.NewInt(int64(bmVnics)), "bm_vnics")
-	lbVnics, _ := self.GetLoadbalancerIpsCount()
-	extra.Add(jsonutils.NewInt(int64(lbVnics)), "lb_vnics")
-	eips, _ := self.GetEipsCount()
-	extra.Add(jsonutils.NewInt(int64(eips)), "eip_vnics")
-	groupVnics, _ := self.GetGroupNicsCount()
-	extra.Add(jsonutils.NewInt(int64(groupVnics)), "group_vnics")
-	reserveVnics, _ := self.GetReservedNicsCount()
-	extra.Add(jsonutils.NewInt(int64(reserveVnics)), "reserve_vnics")
-
-	vpc := self.getVpc()
-	if vpc != nil {
-		extra.Add(jsonutils.NewString(vpc.GetId()), "vpc_id")
-		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
-		if len(vpc.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
-		}
-		info := vpc.getCloudProviderInfo()
-		extra.Update(jsonutils.Marshal(&info))
-	}
-	routes := self.GetRoutes()
-	if len(routes) > 0 {
-		extra.Add(jsonutils.Marshal(routes), "routes")
-	}
-
-	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
-
-	return extra
-}
-
-func (self *SNetwork) getMoreDetailsV2(ctx context.Context, out *api.NetworkDetails) {
+func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails, details bool) (api.NetworkDetails, error) {
 	wire := self.GetWire()
 	if wire != nil {
 		out.Wire = wire.Name
@@ -1057,7 +1013,7 @@ func (self *SNetwork) getMoreDetailsV2(ctx context.Context, out *api.NetworkDeta
 		out.Vpc = vpc.Name
 		out.VpcId = vpc.Id
 		out.VpcExtId = vpc.ExternalId
-		out.CloudproviderDetails = vpc.getCloudProviderInfoV2()
+		out.CloudproviderInfo = vpc.getCloudProviderInfo()
 	}
 	if len(out.Zone) == 0 {
 		zone := self.getZone()
@@ -1068,22 +1024,17 @@ func (self *SNetwork) getMoreDetailsV2(ctx context.Context, out *api.NetworkDeta
 	}
 	out.Routes = self.GetRoutes()
 	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
-}
-
-func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.NetworkDetails, error) {
-	out := &api.NetworkDetails{}
-	err := self.SSharableVirtualResourceBase.GetExtraDetailsV2(ctx, userCred, query, &out.SharableVirtualResourceDetails)
-	if err != nil {
-		return nil, err
-	}
-	self.getMoreDetailsV2(ctx, out)
 	return out, nil
 }
 
-func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(ctx, extra)
-	return extra
+func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NetworkDetails, error) {
+	var err error
+	out := api.NetworkDetails{}
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	return self.getMoreDetails(ctx, out, details)
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

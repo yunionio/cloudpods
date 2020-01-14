@@ -166,29 +166,26 @@ func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (self *SCredential) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return credentialExtra(self, extra)
-}
-
-func (self *SCredential) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCredential) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CredentialDetails, error) {
+	var err error
+	out := api.CredentialDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return credentialExtra(self, extra), nil
+	return credentialExtra(self, out), nil
 }
 
-func credentialExtra(cred *SCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewString(string(cred.getBlob())), "blob")
+func credentialExtra(cred *SCredential, out api.CredentialDetails) api.CredentialDetails {
+	out.Blob = string(cred.getBlob())
 
 	usr, _ := UserManager.FetchUserExtended(cred.UserId, "", "", "")
 	if usr != nil {
-		extra.Add(jsonutils.NewString(usr.Name), "user")
-		extra.Add(jsonutils.NewString(usr.DomainId), "domain_id")
-		extra.Add(jsonutils.NewString(usr.DomainName), "domain")
+		out.User = usr.Name
+		out.Domain = usr.DomainName
+		out.DomainId = usr.DomainId
 	}
-	return extra
+	return out
 }
 
 func (self *SCredential) getBlob() []byte {

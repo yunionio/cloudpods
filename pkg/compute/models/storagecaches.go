@@ -61,6 +61,7 @@ type SStoragecache struct {
 
 	SManagedResourceBase
 
+	// 镜像存储地址
 	Path string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
 }
 
@@ -253,19 +254,14 @@ func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCr
 	return nil
 }
 
-func (self *SStoragecache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SStoragecache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StoragecacheDetails, error) {
+	var err error
+	out := api.StoragecacheDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = self.getMoreDetails(ctx, extra)
-	return extra, nil
-}
-
-func (self *SStoragecache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(ctx, extra)
-	return extra
+	return self.getMoreDetails(ctx, out), nil
 }
 
 func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string, status []string) []SCachedimage {
@@ -329,16 +325,16 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	return size
 }
 
-func (self *SStoragecache) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewStringArray(self.getStorageNames()), "storages")
-	extra.Add(jsonutils.NewInt(self.getCachedImageSize()), "size")
-	extra.Add(jsonutils.NewInt(int64(self.getCachedImageCount())), "count")
+func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
+	out.Storages = self.getStorageNames()
+	out.Size = self.getCachedImageSize()
+	out.Count = self.getCachedImageCount()
 
 	host, _ := self.GetHost()
 	if host != nil {
-		extra.Add(host.GetShortDesc(ctx), "host")
+		out.Host = host.GetShortDesc(ctx)
 	}
-	return extra
+	return out
 }
 
 func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {

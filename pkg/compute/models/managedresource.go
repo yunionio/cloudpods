@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -30,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SManagedResourceBase struct {
@@ -63,45 +60,6 @@ func (self *SManagedResourceBase) GetRegionDriver() (IRegionDriver, error) {
 		return nil, fmt.Errorf("failed to get %s region drivder", provider)
 	}
 	return driver, nil
-}
-
-func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	provider := self.GetCloudprovider()
-	if provider == nil {
-		return nil
-	}
-	info := map[string]string{
-		"manager":    provider.GetName(),
-		"manager_id": provider.GetId(),
-	}
-	if len(provider.ProjectId) > 0 {
-		info["manager_project_id"] = provider.ProjectId
-		info["manager_project_domain_id"] = provider.DomainId
-		tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
-		if err == nil {
-			info["manager_project"] = tc.Name
-			info["manager_project_domain"] = tc.Domain
-		}
-	}
-
-	account := provider.GetCloudaccount()
-	if account != nil {
-		info["account"] = account.GetName()
-		info["account_id"] = account.GetId()
-		info["provider"] = account.Provider
-		info["brand"] = account.Brand
-
-		info["account_domain_id"] = account.DomainId
-		dc, err := db.TenantCacheManager.FetchDomainById(appctx.Background, account.DomainId)
-		if err == nil {
-			info["account_domain"] = dc.Name
-		}
-	} else {
-		// 避免account为空导致列表加载失败，这里记录日志即可
-		log.Errorf("provider %s Cloudaccount %s not found", provider.GetName(), provider.CloudaccountId)
-	}
-
-	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
 }
 
 func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
@@ -460,60 +418,8 @@ func fetchExternalId(extId string) string {
 	}
 }
 
-func MakeCloudProviderInfoV2(region *SCloudregion, zone *SZone, provider *SCloudprovider) api.CloudproviderDetails {
-	info := api.CloudproviderDetails{}
-
-	if zone != nil {
-		info.Zone = zone.GetName()
-		info.ZoneId = zone.GetId()
-	}
-
-	if region != nil {
-		info.Region = region.GetName()
-		info.RegionId = region.GetId()
-		info.CloudregionId = region.GetId()
-	}
-
-	if provider != nil {
-		info.Manager = provider.GetName()
-		info.ManagerId = provider.GetId()
-
-		if len(provider.ProjectId) > 0 {
-			info.ManagerProjectId = provider.ProjectId
-			tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
-			if err == nil {
-				info.ManagerProject = tc.GetName()
-				info.ManagerDomain = tc.Domain
-				info.ManagerDomainId = tc.DomainId
-			}
-		}
-
-		account := provider.GetCloudaccount()
-		info.Account = account.GetName()
-		info.AccountId = account.GetId()
-
-		info.Provider = provider.Provider
-		info.Brand = account.Brand
-		info.CloudEnv = account.GetCloudEnv()
-
-		if region != nil {
-			info.RegionExternalId = region.ExternalId
-			info.RegionExtId = fetchExternalId(region.ExternalId)
-			if zone != nil {
-				info.ZoneExtId = fetchExternalId(zone.ExternalId)
-			}
-		}
-	} else {
-		info.CloudEnv = api.CLOUD_ENV_ON_PREMISE
-		info.Provider = api.CLOUD_PROVIDER_ONECLOUD
-		info.Brand = api.CLOUD_PROVIDER_ONECLOUD
-	}
-
-	return info
-}
-
-func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudProviderInfo {
-	info := SCloudProviderInfo{}
+func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) api.CloudproviderInfo {
+	info := api.CloudproviderInfo{}
 
 	if zone != nil {
 		info.Zone = zone.GetName()

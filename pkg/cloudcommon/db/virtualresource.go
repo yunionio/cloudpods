@@ -59,12 +59,16 @@ type SVirtualResourceBase struct {
 	SStatusStandaloneResourceBase
 	SProjectizedResourceBase
 
+	// 云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过
+	// example: local
 	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:""`
 
+	// 是否是系统资源
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 
 	PendingDeletedAt time.Time ``
-	PendingDeleted   bool      `nullable:"false" default:"false" index:"true" get:"user"`
+	// 资源是否处于回收站中
+	PendingDeleted bool `nullable:"false" default:"false" index:"true" get:"user" list:"user"`
 }
 
 func (model *SVirtualResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {
@@ -292,43 +296,14 @@ func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 }
 
-func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	//if IsAdminAllowGet(userCred, model) {
-	// log.Debugf("GetCustomizeColumns")
-	// tobj, err := model.GetTenantCache(ctx)
-	// if err == nil {
-	// log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
-	// extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
-	// } else {
-	// 	log.Errorf("GetTenantCache fail %s", err)
-	// }
-	// }
-	admin, _ := query.GetString("admin")
-	if utils.ToBool(admin) { // admin
-		pendingDelete, _ := query.GetString("pending_delete")
-		pendingDeleteLower := strings.ToLower(pendingDelete)
-		if pendingDeleteLower == "all" || pendingDeleteLower == "any" {
-			extra.Set("pending_deleted", jsonutils.NewBool(model.PendingDeleted))
-		}
-	}
-	return extra
-}
-
-func (model *SVirtualResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return model.getMoreDetails(ctx, userCred, query, extra)
-}
-
-func (model *SVirtualResourceBase) GetExtraDetailsV2(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out *apis.VirtualResourceDetails) error {
-	return model.SStandaloneResourceBase.GetExtraDetailsV2(ctx, userCred, query, &out.ModelBaseDetails)
-}
-
-func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.VirtualResourceDetails, error) {
+	var err error
+	out := apis.VirtualResourceDetails{}
+	out.StandaloneResourceDetails, err = model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return model.getMoreDetails(ctx, userCred, query, extra), nil
+	return out, nil
 }
 
 func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

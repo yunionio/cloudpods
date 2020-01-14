@@ -61,14 +61,26 @@ type SDBInstanceBackup struct {
 	SManagedResourceBase
 	db.SExternalizedResourceBase
 
-	Engine        string    `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	EngineVersion string    `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	StartTime     time.Time `list:"user"`
-	EndTime       time.Time `list:"user"`
-	BackupMode    string    `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	DBNames       string    `width:"512" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	BackupSizeMb  int       `nullable:"false" list:"user"`
-	DBInstanceId  string    `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	// RDS引擎
+	// example: MySQL
+	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// RDS引擎版本
+	// example: 5.7
+	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// 备份开始时间
+	StartTime time.Time `list:"user"`
+	// 备份结束时间
+	EndTime time.Time `list:"user"`
+	// 备份模式
+	BackupMode string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 备份数据库名称
+	DBNames string `width:"512" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 备份大小
+	// example: 32
+	BackupSizeMb int `nullable:"false" list:"user"`
+	// RDS实例Id
+	// example: 239b9663-6d06-4ef4-8cfc-320a7fb6660d
+	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceBackupManager) GetContextManagers() [][]db.IModelManager {
@@ -232,23 +244,22 @@ func (self *SDBInstanceBackup) GetDBInstance() (*SDBInstance, error) {
 	return nil, fmt.Errorf("empty dbinstance id")
 }
 
-func (self *SDBInstanceBackup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SDBInstanceBackup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceBackupDetails, error) {
+	var err error
+	out := api.DBInstanceBackupDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
+	}
 	dbinstance, err := self.GetDBInstance()
 	if err == nil {
-		extra.Add(jsonutils.NewString(dbinstance.Name), "dbinstance")
+		out.DBInstance = dbinstance.Name
 	}
-	cloudregionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if cloudregionInfo != nil {
-		extra.Update(cloudregionInfo)
-	}
+	region := self.GetRegion()
+	provider := self.GetCloudprovider()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
 
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
-
-	return extra
+	return out, nil
 }
 
 func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, instance *SDBInstance, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {

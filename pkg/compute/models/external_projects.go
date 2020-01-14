@@ -79,34 +79,29 @@ func (manager *SExternalProjectManager) getProjectsByProviderId(providerId strin
 	return projects, nil
 }
 
-func (self *SExternalProject) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SExternalProject) getCloudProviderInfo() api.CloudproviderInfo {
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(nil, nil, provider)
 }
 
-func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := self.getCloudProviderInfo()
-
-	extra.Update(jsonutils.Marshal(&info))
+func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.ExternalProjectDetails) api.ExternalProjectDetails {
+	out.CloudproviderInfo = self.getCloudProviderInfo()
 
 	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 	if err == nil {
-		extra.Add(jsonutils.NewString(tenant.GetName()), "tenant")
+		out.Tenant = tenant.GetName()
 	}
-	return extra
+	return out
 }
 
-func (self *SExternalProject) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, query, extra)
-}
-
-func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ExternalProjectDetails, error) {
+	var err error
+	out := api.ExternalProjectDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+	return self.getMoreDetails(ctx, userCred, query, out), nil
 }
 
 func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {

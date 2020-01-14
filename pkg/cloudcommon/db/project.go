@@ -31,6 +31,7 @@ type SProjectizedResourceBaseManager struct {
 type SProjectizedResourceBase struct {
 	SDomainizedResourceBase
 
+	// 项目Id
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
 }
 

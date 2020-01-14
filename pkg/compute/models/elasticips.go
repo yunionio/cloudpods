@@ -65,21 +65,35 @@ type SElasticip struct {
 	SManagedResourceBase
 	SBillingResourceBase
 
+	// IP子网Id, 仅私有云不为空
 	NetworkId string `width:"36" charset:"ascii" nullable:"true" get:"user" list:"user" create:"optional"`
-	Mode      string `width:"32" charset:"ascii" list:"user"`
+	// 标识弹性或非弹性
+	// public_ip: 公网IP
+	// elastic_ip: 弹性公网IP
+	// example: elastic_ip
+	Mode string `width:"32" charset:"ascii" list:"user"`
 
+	// IP地址
 	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`
 
+	// 绑定资源类型
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
-	AssociateId   string `width:"256" charset:"ascii" list:"user"`
+	// 绑定资源Id
+	AssociateId string `width:"256" charset:"ascii" list:"user"`
 
+	// 带宽大小
 	Bandwidth int `list:"user" create:"optional" default:"0"`
 
+	// 计费类型: 流量、带宽
+	// example: bandwidth
 	ChargeType string `name:"charge_type" list:"user" create:"required"`
-	BgpType    string `list:"user" create:"optional"` // 目前只有华为云此字段是必需填写的。
+	// 目前只有华为云此字段是必需填写的
+	BgpType string `list:"user" create:"optional"`
 
+	// 是否跟随主机删除而自动释放
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional" update:"user"`
 
+	// 区域Id
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
@@ -197,7 +211,7 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	billingInfo := SCloudBillingInfo{}
 
-	billingInfo.SCloudProviderInfo = self.getCloudProviderInfo()
+	billingInfo.CloudproviderInfo = self.getCloudProviderInfo()
 
 	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
 
@@ -1063,27 +1077,23 @@ func (self *SElasticip) StartEipSyncstatusTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SElasticip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ElasticipDetails, error) {
+	var err error
+	out := api.ElasticipDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
-func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
+func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDetails {
+	out.CloudproviderInfo = self.getCloudProviderInfo()
 	instance := self.GetAssociateResource()
 	if instance != nil {
-		extra.Add(jsonutils.NewString(instance.GetName()), "associate_name")
+		out.AssociateName = instance.GetName()
 	}
-	return extra
+	return out
 }
 
 func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, host *SHost, bw int, chargeType string, pendingUsage quotas.IQuota) (*SElasticip, error) {
@@ -1289,7 +1299,7 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 	self.Dissociate(ctx, userCred)
 }
 
-func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SElasticip) getCloudProviderInfo() api.CloudproviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

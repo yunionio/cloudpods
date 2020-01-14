@@ -386,27 +386,22 @@ func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Contex
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbbg.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	{
-		lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
-		if err != nil {
-			log.Errorf("loadbalancer backend group %s(%s): fetch loadbalancer (%s) error: %s",
-				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, err)
-		} else {
-			extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
-		}
+func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerBackendGroupDetails, error) {
+	var err error
+	out := api.LoadbalancerBackendGroupDetails{}
+	out.VirtualResourceDetails, err = lbbg.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
-	regionInfo := lbbg.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
+	lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
+	if err != nil {
+		log.Errorf("loadbalancer backend group %s(%s): fetch loadbalancer (%s) error: %s",
+			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, err)
+		return out, err
 	}
-	return extra
-}
-
-func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbbg.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	out.Loadbalancer = lb.GetName()
+	out.CloudregionInfo = lbbg.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
+	return out, nil
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

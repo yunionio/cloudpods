@@ -21,3 +21,8 @@ import (
 type GlobalVpcCreateInput struct {
 	apis.EnabledStatusStandaloneResourceCreateInput
 }
+
+type GlobalVpcDetails struct {
+	apis.StandaloneResourceDetails
+	SGlobalVpc
+}

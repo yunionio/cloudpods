@@ -862,37 +862,30 @@ func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
 	return proj
 }
 
-func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Update(jsonutils.Marshal(self.getUsage()))
-	// project := self.getProject(ctx)
-	// if project != nil {
-	// 	extra.Add(jsonutils.NewString(project.Name), "tenant")
-	// }
+func (self *SCloudprovider) getMoreDetails(ctx context.Context, out api.CloudproviderDetails) api.CloudproviderDetails {
+	jsonutils.Update(&out, self.getUsage())
 	account := self.GetCloudaccount()
 	if account != nil {
-		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
 		// 此字段不能删除，公有云日志同步需要这个字段
-		extra.Add(jsonutils.NewString(account.Brand), "brand")
+		out.Brand = account.Brand
+		out.Cloudaccount = account.GetName()
 	}
-	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
+	out.SyncStatus2 = self.getSyncStatus2()
 	capabilities, _ := CloudproviderCapabilityManager.getCapabilities(self.Id)
 	if len(capabilities) > 0 {
-		extra.Add(jsonutils.NewStringArray(capabilities), "capabilities")
+		out.Capabilities = capabilities
 	}
-	return extra
+	return out
 }
 
-func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
-}
-
-func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CloudproviderDetails, error) {
+	var err error
+	out := api.CloudproviderDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, extra), nil
+	return self.getMoreDetails(ctx, out), nil
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

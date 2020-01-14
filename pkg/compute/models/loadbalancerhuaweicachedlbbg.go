@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -64,10 +63,6 @@ type SHuaweiCachedLbbg struct {
 	AssociatedId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // 关联ID
 	AssociatedType string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // 关联类型， listener || rule
 	ProtocolType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 监听协议类型
-}
-
-func (lbb *SHuaweiCachedLbbg) GetCustomizeColumns(context.Context, mcclient.TokenCredential, jsonutils.JSONObject) *jsonutils.JSONDict {
-	return nil
 }
 
 func (lbbg *SHuaweiCachedLbbg) GetLocalBackendGroup(ctx context.Context, userCred mcclient.TokenCredential) (*SLoadbalancerBackendGroup, error) {

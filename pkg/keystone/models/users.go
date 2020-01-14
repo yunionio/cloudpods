@@ -478,40 +478,34 @@ func (user *SUser) GetCredentialCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (user *SUser) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := user.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return userExtra(user, extra)
-}
-
-func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := user.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.UserDetails, error) {
+	var err error
+	out := api.UserDetails{}
+	out.StandaloneResourceDetails, err = user.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return userExtra(user, extra), nil
+	return userExtra(user, out), nil
 }
 
-func userExtra(user *SUser, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	grpCnt, _ := user.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	prjCnt, _ := user.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	credCnt, _ := user.GetCredentialCount()
-	extra.Add(jsonutils.NewInt(int64(credCnt)), "credential_count")
+func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
+	out.GroupCount, _ = user.GetGroupCount()
+	out.ProjectCount, _ = user.GetProjectCount()
+	out.CredentialCount, _ = user.GetCredentialCount()
 
 	localUser, _ := LocalUserManager.fetchLocalUser(user.Id, user.DomainId, 0)
 	if localUser != nil {
 		if localUser.FailedAuthCount > 0 {
-			extra.Add(jsonutils.NewInt(int64(localUser.FailedAuthCount)), "failed_auth_count")
-			extra.Add(jsonutils.NewTimeString(localUser.FailedAuthAt), "failed_auth_at")
+			out.FailedAuthCount = localUser.FailedAuthCount
+			out.FailedAuthAt = localUser.FailedAuthAt
 		}
 		localPass, _ := PasswordManager.FetchLastPassword(localUser.Id)
 		if localPass != nil && !localPass.ExpiresAt.IsZero() {
-			extra.Add(jsonutils.NewTimeString(localPass.ExpiresAt), "password_expires_at")
+			out.PasswordExpiresAt = localPass.ExpiresAt
 		}
 	}
 
-	return extra
+	return out
 }
 
 func (user *SUser) initLocalData(passwd string) error {

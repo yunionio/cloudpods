@@ -103,24 +103,17 @@ func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userC
 	return IsAllowCreate(rbacutils.ScopeSystem, userCred, manager)
 }
 
-func JointModelExtra(jointModel IJointModel, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func JointModelExtra(jointModel IJointModel) (string, string) {
+	masterName, slaveName := "", ""
 	master := jointModel.Master()
 	if master != nil {
-		extra.Add(jsonutils.NewString(master.GetName()), master.GetModelManager().Keyword())
-		alias := master.GetModelManager().Alias()
-		if len(alias) > 0 {
-			extra.Add(jsonutils.NewString(master.GetName()), alias)
-		}
+		masterName = master.GetName()
 	}
 	slave := jointModel.Slave()
 	if slave != nil {
-		extra.Add(jsonutils.NewString(slave.GetName()), slave.GetModelManager().Keyword())
-		alias := slave.GetModelManager().Alias()
-		if len(alias) > 0 {
-			extra.Add(jsonutils.NewString(slave.GetName()), alias)
-		}
+		slaveName = slave.GetName()
 	}
-	return extra
+	return masterName, slaveName
 }
 
 func (joint *SJointResourceBase) GetJointModelManager() IJointModelManager {
@@ -213,11 +206,6 @@ func (self *SJointResourceBase) AllowDetach(ctx context.Context, userCred mcclie
 }
 
 /*
-func (joint *SJointResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := joint.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return JointModelExtra(joint, extra)
-}
-
 func (joint *SJointResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := joint.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return JointModelExtra(joint, extra)

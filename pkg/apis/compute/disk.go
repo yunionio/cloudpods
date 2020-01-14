@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -127,4 +129,52 @@ type DiskFilterListInput struct {
 	// Deprecated
 	// filter by disk_id
 	DiskId string `json:"disk_id" deprecated-by:"disk"`
+}
+
+type SimpleGuest struct {
+	Name   string `json:"name"`
+	Id     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type SimpleSnapshotPolicy struct {
+	RepeatWeekdays []int `json:"repeat_weekdays"`
+	TimePoints     []int `json:"time_points"`
+}
+
+type DiskDetails struct {
+	apis.VirtualResourceDetails
+	SDisk
+	CloudproviderInfo
+
+	// 云平台
+	Provider string `json:"provider"`
+	// 存储名称
+	Storage string `json:"storage"`
+	// 存储类型
+	StorageType string `json:"storage_type"`
+	// 介质类型
+	MediumType string `json:"medium_type"`
+
+	// 所挂载的虚拟机
+	Guests []SimpleGuest `json:"guests"`
+	// 所挂载的虚拟机
+	Guest string `json:"guest"`
+	// 所挂载虚拟机的数量
+	GuestCount int `json:"guest_count"`
+	// 所挂载虚拟机状态
+	GuestStatus string `json:"guest_status"`
+
+	// 自动清理时间
+	AutoDeleteAt time.Time `json:"auto_delete_at"`
+	// 自动快照策略状态
+	SnapshotpolicyStatus string `json:"snapshotpolicy_status,allowempty"`
+
+	// 自动快照策略
+	Snapshotpolicies []SimpleSnapshotPolicy `json:"snapshotpolicies"`
+
+	// 手动快照数量
+	ManualSnapshotCount int `json:"manual_snapshot_count"`
+	// 最多可创建手动快照数量
+	MaxManualSnapshotCount int `json:"max_manual_snapshot_count"`
 }

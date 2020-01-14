@@ -498,30 +498,27 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
-func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbr.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerListenerRuleDetails, error) {
+	var err error
+	out := api.LoadbalancerListenerRuleDetails{}
+	out.VirtualResourceDetails, err = lbr.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	out.CloudregionInfo = lbr.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
 	if lbr.BackendGroupId == "" {
 		log.Errorf("loadbalancer listener rule %s(%s): empty backend group field", lbr.Name, lbr.Id)
-		return extra
+		return out, nil
 	}
 	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
 	if err != nil {
 		log.Errorf("loadbalancer listener rule %s(%s): fetch backend group (%s) error: %s",
 			lbr.Name, lbr.Id, lbr.BackendGroupId, err)
-		return extra
+		return out, err
 	}
-	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	out.BackendGroup = lbbg.GetName()
 
-	regionInfo := lbr.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
-}
-
-func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbr.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return out, nil
 }
 
 func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {

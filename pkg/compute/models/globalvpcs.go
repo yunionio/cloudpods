@@ -74,12 +74,14 @@ func (self *SGlobalVpc) GetVpcs() ([]SVpc, error) {
 	return vpcs, nil
 }
 
-func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-}
-
-func (self *SGlobalVpc) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GlobalVpcDetails, error) {
+	var err error
+	out := api.GlobalVpcDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func (manager *SGlobalVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.GlobalVpcCreateInput) (api.GlobalVpcCreateInput, error) {

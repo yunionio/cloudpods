@@ -58,17 +58,30 @@ func init() {
 
 type SCachedimage struct {
 	db.SStandaloneResourceBase
-	// SManagedResourceBase
 	db.SExternalizedResourceBase
 
-	Size int64 `nullable:"false" list:"user" update:"admin" create:"admin_required"` // = Column(BigInteger, nullable=False) # in Byte
-	// virtual_size = Column(BigInteger, nullable=False) # in Byte
-	Info jsonutils.JSONObject `nullable:"true" list:"user" update:"admin" create:"admin_required"` // Column(JSONEncodedDict, nullable=True)
+	// 镜像大小单位: Byte
+	// example: 53687091200
+	Size int64 `nullable:"false" list:"user" update:"admin" create:"admin_required"`
 
-	LastSync time.Time `list:"admin"`            // = Column(DateTime)
-	LastRef  time.Time `list:"admin"`            // = Column(DateTime)
-	RefCount int       `default:"0" list:"user"` // = Column(Integer, default=0, server_default='0')
+	// 镜像详情信息
+	// example: {"deleted":false,"disk_format":"qcow2","id":"img-a6uucnfl","is_public":true,"min_disk":51200,"min_ram":0,"name":"FreeBSD 11.1 64bit","properties":{"os_arch":"x86_64","os_distribution":"FreeBSD","os_type":"FreeBSD","os_version":"11"},"protected":true,"size":53687091200,"status":"active"}
+	Info jsonutils.JSONObject `nullable:"true" list:"user" update:"admin" create:"admin_required"`
 
+	// 上此同步时间
+	// example: 2020-01-17T05:28:54.000000Z
+	LastSync time.Time `list:"admin"`
+
+	// 最近一次缓存引用时间
+	// 2020-01-17T05:20:54.000000Z
+	LastRef time.Time `list:"admin"`
+
+	// 引用次数
+	// example: 0
+	RefCount int `default:"0" list:"user"`
+
+	// 镜像类型, system: 公有云镜像, customized: 自定义镜像
+	// example: system
 	ImageType string `width:"16" default:"customized" list:"user"`
 }
 
@@ -293,35 +306,24 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 	return manager.getImageByName(ctx, userCred, imageId, refresh)
 }
 
-func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedimageDetails, error) {
+	var err error
+	out := api.CachedimageDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = self.getMoreDetails(extra)
-	return extra, nil
+	return self.getMoreDetails(out), nil
 }
 
-func (self *SCachedimage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
-	return extra
-}
-
-func (self *SCachedimage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	// extra.Add(jsonutils.NewString(self.GetName()), "name")
-	//extra.Add(jsonutils.NewString(self.GetOwner()), "owner")
-	//extra.Add(jsonutils.NewString(self.GetFormat()), "format")
-	extra.Add(jsonutils.NewString(self.GetStatus()), "status")
-	for _, k := range []string{"os_type", "os_distribution", "os_version", "hypervisor"} {
-		val, _ := self.Info.GetString("properties", k)
-		if len(val) > 0 {
-			extra.Add(jsonutils.NewString(val), k)
-		}
+func (self *SCachedimage) getMoreDetails(out api.CachedimageDetails) api.CachedimageDetails {
+	out.Status = self.GetStatus()
+	properties, _ := self.Info.Get("properties")
+	if properties != nil {
+		jsonutils.Update(&out, properties)
 	}
-	cachedCnt, _ := self.getStoragecacheCount()
-	extra.Add(jsonutils.NewInt(int64(cachedCnt)), "cached_count")
-	return extra
+	out.CachedCount, _ = self.getStoragecacheCount()
+	return out
 }
 
 func (self *SCachedimage) AllowPerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

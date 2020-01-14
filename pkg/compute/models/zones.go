@@ -57,12 +57,11 @@ type SZone struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Location string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
-	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"`             // = Column(VARCHAR(256, charset='utf8'))
-	NameCn   string `width:"256" charset:"utf8"`                                       // = Column(VARCHAR(256, charset='utf8'))
-	// status = Column(VARCHAR(36, charset='ascii'), nullable=False, default=ZONE_DISABLE)
-	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"` // = Column(VARCHAR(256, charset='ascii'), nullable=True)
-	// admin_id = Column(VARCHAR(36, charset='ascii'), nullable=False)
+	Location   string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"`
+	Contacts   string `width:"256" charset:"utf8" get:"user" update:"admin"`
+	NameCn     string `width:"256" charset:"utf8"`
+	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"`
+	// 区域Id
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 }
 
@@ -180,28 +179,37 @@ func (zone *SZone) getNetworkCount() (int, error) {
 	return getNetworkCount(nil, zone, "")
 }
 
-func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	usage := zone.GeneralUsage()
-	extra.Update(jsonutils.Marshal(usage))
+func (zone *SZone) GetZoneInfo() api.ZoneInfo {
+	out := api.ZoneInfo{
+		Zone:      zone.Name,
+		ZoneExtId: fetchExternalId(zone.ExternalId),
+	}
 	region := zone.GetRegion()
 	if region != nil {
-		extra.Add(jsonutils.NewString(region.Name), "cloudregion")
-		extra.Add(jsonutils.NewString(region.Provider), "provider")
+		out.CloudregionInfo = region.GetRegionInfo()
 	}
-	return extra
+	return out
 }
 
-func (zone *SZone) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := zone.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return zoneExtra(zone, extra)
+func zoneExtra(zone *SZone, out api.ZoneDetails) api.ZoneDetails {
+	usage := zone.GeneralUsage()
+	jsonutils.Update(&out, usage)
+	region := zone.GetRegion()
+	if region != nil {
+		out.Provider = region.Provider
+		out.Cloudregion = region.Name
+	}
+	return out
 }
 
-func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ZoneDetails, error) {
+	var err error
+	out := api.ZoneDetails{}
+	out.StandaloneResourceDetails, err = zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return zoneExtra(zone, extra), nil
+	return zoneExtra(zone, out), nil
 }
 
 func (zone *SZone) GetCloudRegionId() string {

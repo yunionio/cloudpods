@@ -255,8 +255,13 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 	return true
 }
 
-func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ServerSkuDetails, error) {
+	var err error
+	out := api.ServerSkuDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
 	// count
 	var count int
 	countKey := self.GetId() + ".total_guest_count"
@@ -267,34 +272,23 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	} else {
 		count = v.(int)
 	}
+	out.TotalGuestCount = count
 
-	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
-
-	zoneInfo := self.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if zoneInfo != nil {
-		extra.Update(zoneInfo)
+	zone := self.GetZone()
+	if zone != nil {
+		out.Zone = zone.Name
+		out.ZoneExtId = fetchExternalId(zone.ExternalId)
 	}
 
-	// region
-	name, extId, err := getNameAndExtId(self.CloudregionId, CloudregionManager)
-	if err == nil {
-		extra.Add(jsonutils.NewString(name), "region")
-		extra.Add(jsonutils.NewString(extId), "region_ext_id")
-	} else {
-		log.Debugf("GetCustomizeColumns %s", err)
+	region, _ := self.GetRegion()
+	if region != nil {
+		out.Region = region.Name
+		out.RegionId = region.Id
+		out.RegionExternalId = region.ExternalId
+		out.RegionExtId = fetchExternalId(region.ExternalId)
 	}
 
-	return extra
-}
-
-func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	count, _ := skuRelatedGuestCount(self)
-	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
-	return extra, nil
+	return out, nil
 }
 
 func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

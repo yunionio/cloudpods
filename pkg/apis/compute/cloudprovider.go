@@ -21,26 +21,120 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-type CloudproviderDetails struct {
-	Provider         string `json:"provider,omitempty"`
-	Brand            string `json:"brand,omitempty"`
-	Account          string `json:"account,omitempty"`
-	AccountId        string `json:"account_id,omitempty"`
-	Manager          string `json:"manager,omitempty"`
-	ManagerId        string `json:"manager_id,omitempty"`
-	ManagerProject   string `json:"manager_project,omitempty"`
+type CloudproviderInfo struct {
+	// 云平台
+	// example: Google
+	Provider string `json:"provider,omitempty"`
+
+	// 云平台品牌
+	// example: Google
+	Brand string `json:"brand,omitempty"`
+
+	// 云账号名称
+	// example: google-account
+	Account string `json:"account,omitempty"`
+
+	// 云账号Id
+	// example: 4d3c8979-9dd0-439b-8d78-36fe1ab1666c
+	AccountId string `json:"account_id,omitempty"`
+
+	// 子订阅名称
+	// example: google-account
+	Manager string `json:"manager,omitempty"`
+
+	// 子订阅Id
+	// example: fa4aaf88-aed8-422d-84e7-56dea533b364
+	ManagerId string `json:"manager_id,omitempty"`
+
+	// 子订阅所在项目名称
+	// example: system
+	ManagerProject string `json:"manager_project,omitempty"`
+	// 子订阅所在项目Id
+	// example: 4d3c8979-9dd0-439b-8d78-36fe1ab1666c
 	ManagerProjectId string `json:"manager_project_id,omitempty"`
-	ManagerDomain    string `json:"manager_domain,omitempty"`
-	ManagerDomainId  string `json:"manager_domain_id,omitempty"`
-	Region           string `json:"region,omitempty"`
-	RegionId         string `json:"region_id,omitempty"`
-	CloudregionId    string `json:"cloudregion_id,omitempty"`
+
+	// 子订阅所在域名称
+	// example: Default
+	ManagerDomain string `json:"manager_domain,omitempty"`
+
+	// 子订阅所在域Id
+	// example: default
+	ManagerDomainId string `json:"manager_domain_id,omitempty"`
+
+	// 区域名称
+	// example: 腾讯云 华南地区(广州)
+	Region string `json:"region,omitempty"`
+	// 区域Id
+	// example: 6151c89b-77f2-4d43-8ef9-cd03d604a16b
+	RegionId string `json:"region_id,omitempty"`
+	// 区域Id
+	// example: 6151c89b-77f2-4d43-8ef9-cd03d604a16b
+	CloudregionId string `json:"cloudregion_id,omitempty"`
+	// 区域外部Id
+	// Qcloud/ap-guangzhou
 	RegionExternalId string `json:"region_external_id,omitempty"`
-	RegionExtId      string `json:"region_ext_id,omitempty"`
-	Zone             string `json:"zone,omitempty"`
-	ZoneId           string `json:"zone_id,omitempty"`
-	ZoneExtId        string `json:"zone_ext_id,omitempty"`
-	CloudEnv         string `json:"cloud_env,omitempty"`
+	// 区域外部Id(不携带平台信息)
+	// example: ap-guangzhou
+	RegionExtId string `json:"region_ext_id,omitempty"`
+
+	// 可用区名称
+	// example: 腾讯云 广州四区
+	Zone string `json:"zone,omitempty"`
+	// 可用区Id
+	// example: 336ac6d2-b80d-43bb-86d5-1ebf474da8d4
+	ZoneId string `json:"zone_id,omitempty"`
+	// 可用区外部Id
+	// example: ap-guangzhou-4
+	ZoneExtId string `json:"zone_ext_id,omitempty"`
+
+	// 云环境
+	// example: public
+	CloudEnv string `json:"cloud_env,omitempty"`
+}
+
+type CloudproviderDetails struct {
+	apis.StandaloneResourceDetails
+	SCloudprovider
+
+	// 云账号名称
+	// example: google-account
+	Cloudaccount string `json:"cloudaccount"`
+	// 子订阅同步状态
+	SyncStatus2 string `json:"sync_status2"`
+	// 支持服务列表
+	Capabilities []string `json:"capabilities"`
+
+	// 云主机数量
+	// example: 1
+	GuestCount int `json:"guest_count"`
+	// 宿主机数量
+	// example: 2
+	HostCount int `json:"host_count"`
+	// 虚拟私有网络数量
+	// example: 4
+	VpcCount int `json:"vpc_count"`
+	// 块存储梳理
+	// example: 4
+	StorageCount int `json:"storage_count"`
+	// 存储缓存数量
+	// example: 1
+	StorageCacheCount int `json:"storagecache_count"`
+	// 弹性公网IP数量
+	// example: 12
+	EipCount int `json:"eip_count"`
+	// 快照数量
+	// example: 0
+	SnapshotCount int `json:"snapshot_count"`
+	// 负载均衡器数量
+	// example: 2
+	LoadbalancerCount int `json:"loadbalancer_count"`
+	// 项目数量
+	ProjectCount int `json:"project_count"`
+	// 同步区域数量
+	SyncRegionCount int `json:"sync_region_count"`
+
+	// 子订阅品牌信息
+	Brand string `json:"brand"`
 }
 
 type ManagedResourceListInput struct {

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -103,43 +104,13 @@ type UserDetail struct {
 	ReceivedAt time.Time
 }
 
-func (self *SNotification) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	// collect user infos
-	scopeStr, err := query.GetString("scope")
+func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NotificationDetails, error) {
+	var err error
+	out := api.NotificationDetails{}
+	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		scopeStr = "system"
+		return out, err
 	}
-	scope := rbacutils.TRbacScope(scopeStr)
-
-	var userDetails []UserDetail
-	if scope.HigherEqual(rbacutils.ScopeSystem) {
-		// fetch users from database
-		userDetails, err = NotificationManager.fetchUserDetailByClusterID(ctx, self.ClusterID)
-		if err != nil {
-			log.Errorf(err.Error())
-		}
-
-	} else {
-		userDetail := UserDetail{
-			Status:     self.Status,
-			Name:       userCred.GetUserId(),
-			ReceivedAt: self.ReceivedAt,
-		}
-		name, err := utils.GetUsernameByID(ctx, self.UID)
-		if err == nil && len(name) != 0 {
-			userDetail.Name = name
-		}
-		userDetails = []UserDetail{userDetail}
-	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.Marshal(userDetails), "user_list")
-	ret.Add(jsonutils.NewString(self.ClusterID), "id")
-	return ret
-}
-
-func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	userDetail := UserDetail{
 		Status:     self.Status,
 		Name:       self.UID,
@@ -147,12 +118,10 @@ func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclien
 	}
 	name, err := utils.GetUsernameByID(ctx, self.UID)
 	if err == nil && len(name) != 0 {
-		userDetail.Name = name
+		out.Name = name
 	}
-	ret := jsonutils.NewDict()
-	data := jsonutils.Marshal([]UserDetail{userDetail})
-	ret.Add(data, "user_list")
-	return ret, nil
+	out.UserList = jsonutils.Marshal([]UserDetail{userDetail})
+	return out, nil
 }
 
 func (self *SNotificationManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

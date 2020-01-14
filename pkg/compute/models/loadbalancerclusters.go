@@ -172,18 +172,15 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (lbc *SLoadbalancerCluster) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbc.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	zoneInfo := lbc.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if zoneInfo != nil {
-		extra.Update(zoneInfo)
+func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerCusterDetails, error) {
+	var err error
+	out := api.LoadbalancerCusterDetails{}
+	out.StandaloneResourceDetails, err = lbc.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
-	return extra
-}
-
-func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbc.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	out.ZoneInfo = lbc.SZoneResourceBase.GetExtraDetails(ctx, userCred, query)
+	return out, nil
 }
 
 func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

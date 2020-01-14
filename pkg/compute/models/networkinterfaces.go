@@ -54,9 +54,12 @@ type SNetworkInterface struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	Mac           string `width:"36" charset:"ascii" list:"user"`
+	// MAC地址
+	Mac string `width:"36" charset:"ascii" list:"user"`
+	// 绑定资源类型
 	AssociateType string `width:"36" charset:"ascii" list:"user" nullable:"true" create:"optional"`
-	AssociateId   string `width:"36" charset:"ascii" list:"user"`
+	// 绑定资源Id
+	AssociateId string `width:"36" charset:"ascii" list:"user"`
 }
 
 func (manager *SNetworkInterfaceManager) GetContextManagers() [][]db.IModelManager {
@@ -101,32 +104,38 @@ func (manager *SNetworkInterfaceManager) ListItemFilter(ctx context.Context, q *
 	return q, nil
 }
 
-func (self *SNetworkInterface) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
+func (self *SNetworkInterface) GetExterDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkInterfaceDetails, error) {
+	var err error
+	out := api.NetworkInterfaceDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
 	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
+
+	provider := self.GetCloudprovider()
+	region := self.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+
 	networks, err := self.GetNetworks()
 	if err != nil {
 		log.Errorf("failed to get network for networkinterface %s(%s) error: %v", self.Name, self.Id, err)
-		return extra
+		return out, nil
 	}
-	networkArray := jsonutils.NewArray()
+	out.Networks = []api.NetworkInterfaceNetworkInfo{}
 	for _, network := range networks {
-		detail, err := network.GetDetailJson()
+		_network, err := network.GetNetwork()
 		if err != nil {
-			log.Errorf("failed to get networkinterface network %s detail error: %v", network.IpAddr, err)
-			return extra
+			return out, err
 		}
-		networkArray.Add(detail)
+		out.Networks = append(out.Networks, api.NetworkInterfaceNetworkInfo{
+			NetworkId:          network.NetworkId,
+			IpAddr:             network.IpAddr,
+			Primary:            network.Primary,
+			NetworkinterfaceId: network.NetworkinterfaceId,
+			Network:            _network.Name,
+		})
 	}
-	extra.Add(networkArray, "networks")
-	return extra
+	return out, nil
 }
 
 func (manager *SNetworkInterfaceManager) getNetworkInterfacesByProviderId(providerId string) ([]SNetworkInterface, error) {

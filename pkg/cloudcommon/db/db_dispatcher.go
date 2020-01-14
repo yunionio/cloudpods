@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -375,7 +376,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		jsonDict.Update(extraData)
 		if showDetails && !query.Contains("export_keys") {
-			extraDict := item.GetCustomizeColumns(ctx, userCred, query)
+			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, false)
 			if extraDict != nil {
 				// Fix for Now
 				extraDict.Update(jsonDict)
@@ -709,22 +710,22 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 	return items, nil
 }
 
-func getModelExtraDetails(item IModel, ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func getModelExtraDetails(item IModel, ctx context.Context) apis.ModelBaseDetails {
+	out := apis.ModelBaseDetails{
+		CanDelete: true,
+		CanUpdate: true,
+	}
 	err := item.ValidateDeleteCondition(ctx)
 	if err != nil {
-		extra.Add(jsonutils.JSONFalse, "can_delete")
-		extra.Add(jsonutils.NewString(err.Error()), "delete_fail_reason")
-	} else {
-		extra.Add(jsonutils.JSONTrue, "can_delete")
+		out.CanDelete = false
+		out.DeleteFailReason = err.Error()
 	}
 	err = item.ValidateUpdateCondition(ctx)
 	if err != nil {
-		extra.Add(jsonutils.JSONFalse, "can_update")
-		extra.Add(jsonutils.NewString(err.Error()), "update_fail_reason")
-	} else {
-		extra.Add(jsonutils.JSONTrue, "can_update")
+		out.CanUpdate = false
+		out.UpdateFailReason = err.Error()
 	}
-	return extra
+	return out
 }
 
 func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
@@ -752,7 +753,7 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 }
 
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	extraDict, err := GetExtraDetails(item, ctx, userCred, query)
+	extraDict, err := GetExtraDetails(item, ctx, userCred, query, true)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

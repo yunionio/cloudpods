@@ -52,14 +52,20 @@ func init() {
 type SReservedip struct {
 	db.SResourceBase
 
-	Id        int64  `primary:"true" auto_increment:"true" list:"admin"`        // = Column(BigInteger, primary_key=True)
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	IpAddr    string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
+	// 自增Id
+	Id int64 `primary:"true" auto_increment:"true" list:"admin"`
+	// IP子网Id
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	// IP地址
+	IpAddr string `width:"16" charset:"ascii" list:"admin"`
 
-	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"` // ]Column(VARCHAR(512, charset='utf8'), nullable=True)
+	// 预留原因或描述
+	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"`
 
+	// 过期时间
 	ExpiredAt time.Time `nullable:"true" list:"admin"`
 
+	// 状态
 	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"admin" create:"admin_optional" update:"admin"`
 }
 
@@ -183,18 +189,19 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	return err
 }
 
-func (self *SReservedip) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SReservedip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ReservedipDetails, error) {
+	var err error
+	out := api.ReservedipDetails{}
+	out.ModelBaseDetails, err = self.SResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
 	net := self.GetNetwork()
 	if net != nil {
-		extra.Add(jsonutils.NewString(net.Name), "network")
+		out.Network = net.Name
 	}
-	if self.IsExpired() {
-		extra.Add(jsonutils.JSONTrue, "expired")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "expired")
-	}
-	return extra
+	out.Expired = self.IsExpired()
+	return out, nil
 }
 
 // 预留IP地址列表

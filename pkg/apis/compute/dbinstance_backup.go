@@ -42,3 +42,13 @@ type DBInstanceBackupCreateInput struct {
 	// swagger:ignore
 	ManagerId string
 }
+
+type DBInstanceBackupDetails struct {
+	apis.VirtualResourceDetails
+	SDBInstanceBackup
+
+	// RDS实例名称
+	DBInstance string `json:"dbinstance"`
+
+	CloudproviderInfo
+}

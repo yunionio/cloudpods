@@ -28,9 +28,11 @@ type InstanceGroupListInput struct {
 }
 
 type InstanceGroupDetail struct {
-	apis.Meta
+	apis.VirtualResourceDetails
 	SGroup
-	GuestCount int64 `json:"guest_count"`
+
+	// 云主机数量
+	GuestCount int `json:"guest_count"`
 }
 
 type GroupFilterListInput struct {

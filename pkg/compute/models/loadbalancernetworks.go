@@ -213,9 +213,15 @@ func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.To
 	return db.DetachJoint(ctx, userCred, ln)
 }
 
-func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := jsonutils.NewDict()
-	return db.JointModelExtra(ln, extra)
+func (ln *SLoadbalancerNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancernetworkDetails, error) {
+	var err error
+	out := api.LoadbalancernetworkDetails{}
+	out.ModelBaseDetails, err = ln.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	out.Loadbalancer, out.Network = db.JointModelExtra(ln)
+	return out, nil
 }
 
 func totalLBNicCount(

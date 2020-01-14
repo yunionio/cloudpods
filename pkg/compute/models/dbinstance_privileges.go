@@ -107,21 +107,21 @@ func (self *SDBInstancePrivilege) GetDBInstanceDatabase() (*SDBInstanceDatabase,
 	return database.(*SDBInstanceDatabase), nil
 }
 
-func (self *SDBInstancePrivilege) GetDetailedJson() (*jsonutils.JSONDict, error) {
-	result := jsonutils.NewDict()
+func (self *SDBInstancePrivilege) GetPrivilege() (api.DBInstancePrivilege, error) {
+	out := api.DBInstancePrivilege{}
 	database, err := self.GetDBInstanceDatabase()
 	if err != nil {
-		return nil, err
+		return out, err
 	}
+	out.Database = database.Name
+	out.DBInstancedatabaseId = database.Id
 	account, err := self.GetDBInstanceAccount()
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	result.Add(jsonutils.NewString(database.Name), "database")
-	result.Add(jsonutils.NewString(account.Name), "account")
-	result.Add(jsonutils.NewString(database.Id), "dbinstancedatabase_id")
-	result.Add(jsonutils.NewString(self.Privilege), "privileges")
-	return result, nil
+	out.Account = account.Name
+	out.Privileges = self.Privilege
+	return out, nil
 }
 
 func (manager *SDBInstancePrivilegeManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstancePrivilegeListInput) (*sqlchemy.SQuery, error) {

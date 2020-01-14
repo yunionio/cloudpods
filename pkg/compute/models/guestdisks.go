@@ -109,33 +109,28 @@ func (joint *SGuestdisk) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGuestdisk) getExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SGuestdisk) getExtraInfo(out api.GuestDiskDetails) api.GuestDiskDetails {
 	disk := self.GetDisk()
 	if storage := disk.GetStorage(); storage != nil {
-		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+		out.StorageType = storage.StorageType
+		out.MediumType = storage.MediumType
 	}
-	extra.Add(jsonutils.NewInt(int64(disk.DiskSize)), "disk_size")
-	extra.Add(jsonutils.NewString(disk.Status), "status")
-	extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-	if storage := disk.GetStorage(); storage != nil {
-		extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	}
-	return extra
+	out.DiskSize = disk.DiskSize
+	out.Status = disk.Status
+	out.DiskType = disk.DiskType
+	return out
 }
 
-func (self *SGuestdisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGuestJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraInfo(extra)
-}
-
-func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GuestDiskDetails, error) {
+	var err error
+	out := api.GuestDiskDetails{}
+	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraInfo(extra), nil
+	out.Guest, out.Disk = db.JointModelExtra(self)
+	out.Server = out.Guest
+	return self.getExtraInfo(out), nil
 }
 
 func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) error {

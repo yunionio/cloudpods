@@ -268,38 +268,29 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (domain *SDomain) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := domain.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return domainExtra(domain, extra)
-}
-
-func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DomainDetails, error) {
+	var err error
+	out := api.DomainDetails{}
+	out.StandaloneResourceDetails, err = domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return domainExtra(domain, extra), nil
+	return domainExtra(domain, out), nil
 }
 
-func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func domainExtra(domain *SDomain, out api.DomainDetails) api.DomainDetails {
 	// idp, _ := domain.GetIdentityProvider()
 	// if idp != nil {
 	//	extra.Add(jsonutils.NewString(idp.Name), "driver")
 	// }
 
-	usrCnt, _ := domain.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	grpCnt, _ := domain.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	prjCnt, _ := domain.GetProjectCount()
-	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
-	roleCnt, _ := domain.GetRoleCount()
-	extra.Add(jsonutils.NewInt(int64(roleCnt)), "role_count")
-	policyCnt, _ := domain.GetPolicyCount()
-	extra.Add(jsonutils.NewInt(int64(policyCnt)), "policy_count")
-	idpCnt, _ := domain.GetIdpCount()
-	extra.Add(jsonutils.NewInt(int64(idpCnt)), "idp_count")
-	return extra
+	out.UserCout, _ = domain.GetUserCount()
+	out.GroupCount, _ = domain.GetGroupCount()
+	out.ProjectCout, _ = domain.GetProjectCount()
+	out.RoleCount, _ = domain.GetRoleCount()
+	out.PolicyCount, _ = domain.GetPolicyCount()
+	out.IdpCount, _ = domain.GetIdpCount()
+	return out
 }
 
 func (domain *SDomain) getUsers() ([]SUser, error) {

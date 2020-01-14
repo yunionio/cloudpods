@@ -189,22 +189,18 @@ func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, user
 	return
 }
 
-func (self *SCachedLoadbalancerCertificate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
+func (self *SCachedLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedLoadbalancerCertificateDetails, error) {
+	var err error
+	out := api.CachedLoadbalancerCertificateDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
-}
+	provider := self.GetCloudprovider()
+	region := self.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
 
-func (self *SCachedLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := self.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return out, nil
 }
 
 func (lbcert *SCachedLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {

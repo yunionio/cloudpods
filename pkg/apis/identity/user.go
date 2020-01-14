@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
+package identity
 
-type VirtualResourceDetails struct {
-	ModelBaseDetails
-}
+import (
+	"time"
 
-type VirtualResourceListInput struct {
-	StatusStandaloneResourceListInput
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
-	ProjectizedResourceListInput
+type UserDetails struct {
+	apis.StandaloneResourceDetails
+	SUser
 
-	// 列表中包含标记为"系统资源"的资源
-	System *bool `json:"system"`
-	// 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
-	PendingDelete *bool `json:"pending_delete"`
-	// 是否显示所有资源，包括回收站和不再回收站的资源
-	// TODO: fix this???
-	PendingDeleteAll *bool `json:"-"`
+	GroupCount        int       `json:"group_count"`
+	ProjectCount      int       `json:"project_count"`
+	CredentialCount   int       `json:"credential_count"`
+	FailedAuthCount   int       `json:"failed_auth_count"`
+	FailedAuthAt      time.Time `json:"failed_auth_at"`
+	PasswordExpiresAt time.Time `json:"password_expires_at"`
 }

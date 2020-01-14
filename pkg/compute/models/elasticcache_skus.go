@@ -97,8 +97,11 @@ func (self SElasticcacheSku) GetGlobalId() string {
 	return self.ExternalId
 }
 
-func (self *SElasticcacheSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SElasticcacheSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheSkuDetails, error) {
+	var err error
+	out := api.ElasticcacheSkuDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	return out, err
 }
 
 func (manager *SElasticcacheSkuManager) GetSkuCountByRegion(regionId string) (int, error) {

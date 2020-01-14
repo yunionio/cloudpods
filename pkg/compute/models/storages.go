@@ -64,21 +64,35 @@ type SStorage struct {
 
 	SManagedResourceBase
 
-	Capacity    int64                `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
-	Reserved    int64                `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
-	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Cmtbound    float32              `nullable:"true" default:"1" list:"admin" update:"admin"`                                        // Column(Float, nullable=True)
-	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                     // = Column(JSONEncodedDict, nullable=True)
+	// 容量大小,单位Mb
+	Capacity int64 `nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	// 预留容量大小
+	Reserved int64 `nullable:"true" default:"0" list:"admin" update:"admin"`
+	// 存储类型
+	// example: local
+	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
+	// 介质类型
+	// example: ssd
+	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"`
+	// 超售比
+	Cmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin"`
+	// 存储配置信息
+	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`
 
+	// 可用区Id
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
+	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
+	// 是否启用
 	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
-	Status  string            `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
+	// 状态
+	Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
 
 	// indicating whether system disk can be allocated in this storage
+	// 是否可以用作系统盘存储
+	// example: true
 	IsSysDiskStore tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
@@ -385,30 +399,30 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	return capa
 }
 
-func (self *SStorage) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails) api.StorageDetails {
 	capa := self.getStorageCapacity()
-	extra.Update(capa.ToJson())
+	out.Capacity = capa.Capacity
+	out.Used = capa.Used
+	out.Wasted = capa.Wasted
+	out.VCapacity = capa.VCapacity
+	out.CommitRate = capa.GetCommitRate()
+	out.FreeCapacity = capa.GetFree()
 
-	extra.Add(jsonutils.NewFloat(float64(self.GetOvercommitBound())), "commit_bound")
+	out.CommitBound = self.GetOvercommitBound()
+	out.CloudproviderInfo = self.getCloudProviderInfo()
+	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
 
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
-
-	return extra
+	return out
 }
 
-func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
-}
-
-func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StorageDetails, error) {
+	var err error
+	out := api.StorageDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, extra), nil
+	return self.getMoreDetails(ctx, out), nil
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int64 {
@@ -1196,7 +1210,7 @@ func (self *SStorage) ClearSchedDescCache() error {
 	return nil
 }
 
-func (self *SStorage) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SStorage) getCloudProviderInfo() api.CloudproviderInfo {
 	var region *SCloudregion
 	zone := self.getZone()
 	if zone != nil {
