@@ -355,7 +355,7 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	backendGroupV.Optional(true)
+	backendGroupV.AllowEmpty(true).Optional(true)
 	if err := backendGroupV.Validate(data); err != nil {
 		return nil, err
 	}
