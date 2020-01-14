@@ -157,6 +157,7 @@ type LoadbalancerBackend struct {
 	Port           int
 
 	SendProxy string
+	Ssl       string
 }
 
 type LoadbalancerAclEntry struct {

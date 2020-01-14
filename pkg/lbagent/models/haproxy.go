@@ -324,6 +324,11 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 			} else {
 				// nothing to do
 			}
+			if backend.Ssl == "on" {
+				serverLine += " ssl"
+				serverLine += " verify none"
+				serverLine += " check-ssl"
+			}
 			serverLines = append(serverLines, serverLine)
 		}
 		data["servers"] = serverLines
