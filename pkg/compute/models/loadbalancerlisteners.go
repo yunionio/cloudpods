@@ -97,11 +97,11 @@ type SLoadbalancerHTTPListener struct {
 }
 
 type SLoadbalancerHTTPRedirect struct {
-	Redirect       string `nullable:"true" list:"user" create:"optional" update:"user" default:"off"` // 跳转类型
-	RedirectCode   int    `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转HTTP code
-	RedirectScheme string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
-	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转时变更Host
-	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转时变更Path
+	Redirect       string `width:"16" nullable:"true" list:"user" create:"optional" update:"user" default:"off"` // 跳转类型
+	RedirectCode   int    `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转HTTP code
+	RedirectScheme string `width:"16" nullable:"true" list:"user" create:"optional" update:"user"`               // 跳转uri scheme
+	RedirectHost   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Host
+	RedirectPath   string `nullable:"true" list:"user" create:"optional" update:"user"`                          // 跳转时变更Path
 }
 
 // TODO
