@@ -72,6 +72,7 @@ type SLoadbalancerBackend struct {
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
 
 	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
+	Ssl       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" default:"off"`
 }
 
 func (man *SLoadbalancerBackendManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
