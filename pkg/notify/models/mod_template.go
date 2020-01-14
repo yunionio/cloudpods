@@ -66,7 +66,7 @@ type STemplate struct {
 
 	// title | content | remote
 	TemplateType string `width:"10" nullable:"false" create:"required" update:"user" list:"user"`
-	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user"`
+	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user" update:"user"`
 }
 
 func (tm *STemplateManager) GetEmailUrl() string {
