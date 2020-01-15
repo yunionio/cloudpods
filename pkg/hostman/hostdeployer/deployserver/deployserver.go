@@ -244,11 +244,11 @@ func (s *SDeployService) PrepareEnv() error {
 	if err := s.FixPathEnv(); err != nil {
 		return err
 	}
-	output, err := procutils.NewCommand("rmmod", "nbd").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", "nbd").Output()
 	if err != nil {
 		log.Errorf("rmmod error: %s", output)
 	}
-	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Output()
+	output, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "nbd", "max_part=16").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate nbd device: %s", output)
 	}

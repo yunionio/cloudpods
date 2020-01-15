@@ -96,7 +96,7 @@ func detectiveKVMModuleSupport() string {
 func ModprobeKvmModule(name string, remove, nest bool) bool {
 	var params = []string{"modprobe"}
 	if remove {
-		if err := procutils.NewCommand("rmmod", name).Run(); err != nil {
+		if err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", name).Run(); err != nil {
 			log.Errorf("rmmod failed %s: %s", name, err)
 		}
 	}
@@ -104,7 +104,7 @@ func ModprobeKvmModule(name string, remove, nest bool) bool {
 	if nest {
 		params = append(params, "nested=1")
 	}
-	if err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
+	if err := procutils.NewRemoteCommandAsFarAsPossible(params[0], params[1:]...).Run(); err != nil {
 		log.Errorf("Modprobe kvm %v failed: %s", params, err)
 		return false
 	}
@@ -137,7 +137,7 @@ func detectNestSupport() string {
 }
 
 func isNestSupport(name string) bool {
-	output, err := procutils.NewCommand("modinfo", name).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modinfo", name).Output()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -191,7 +191,7 @@ func GetKernelModuleParameter(name, moduel string) string {
 }
 
 func IsKernelModuleLoaded(name string) bool {
-	output, err := procutils.NewCommand("lsmod").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("lsmod").Output()
 	if err != nil {
 		log.Errorln(err)
 		return false
