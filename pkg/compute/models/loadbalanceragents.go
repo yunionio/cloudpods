@@ -103,6 +103,7 @@ type SLoadbalancerAgentParamsHaproxy struct {
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
+	TuneHttpMaxhdr int
 }
 
 type SLoadbalancerAgentParamsTelegraf struct {
@@ -194,6 +195,12 @@ func (p *SLoadbalancerAgentParamsHaproxy) Validate(data *jsonutils.JSONDict) err
 	if p.GlobalNbthread > 64 {
 		// This is a limit imposed by haproxy and arch word size
 		p.GlobalNbthread = 64
+	}
+	if p.TuneHttpMaxhdr < 0 {
+		p.TuneHttpMaxhdr = 0
+	}
+	if p.TuneHttpMaxhdr > 32767 {
+		p.TuneHttpMaxhdr = 32767
 	}
 	return nil
 }
@@ -759,6 +766,7 @@ global
 	maxconn 20480
 	tune.ssl.default-dh-param 2048
 	{{- println }}
+	{{- if .haproxy.tune_http_maxhdr }}	tune.http.maxhdr {{ println .haproxy.tune_http_maxhdr }} {{- end }}
 	{{- if .haproxy.global_stats_socket }}	{{ println .haproxy.global_stats_socket }} {{- end }}
 	{{- if .haproxy.global_nbthread }}	nbthread {{ println .haproxy.global_nbthread }} {{- end }}
 	{{- if .haproxy.global_log }}	{{ println .haproxy.global_log }} {{- end }}

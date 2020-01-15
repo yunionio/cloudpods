@@ -234,6 +234,7 @@ type LoadbalancerAgentParamsHaproxy struct {
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
+	TuneHttpMaxhdr int
 }
 
 type LoadbalancerAgentParamsTelegraf struct {
