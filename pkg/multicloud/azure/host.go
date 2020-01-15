@@ -173,7 +173,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 					Name:    fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
 					Caching: "ReadWrite",
 					ManagedDisk: &ManagedDiskParameters{
-						StorageAccountType: storage.Name,
+						StorageAccountType: storage.storageType,
 					},
 					CreateOption: "FromImage",
 					DiskSizeGB:   &sysDiskSize,
