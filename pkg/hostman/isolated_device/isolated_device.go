@@ -333,7 +333,7 @@ func (dev *sGPUBaseDevice) GetVGACmd() string {
 func (dev *sGPUBaseDevice) CustomProbe() error {
 	// vfio kernel driver check
 	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
-		if err := procutils.NewCommand("modprobe", driver).Run(); err != nil {
+		if err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", driver).Run(); err != nil {
 			return fmt.Errorf("modprobe %s: %v", driver, err)
 		}
 	}
@@ -432,7 +432,7 @@ func ParseOutput(output []byte) []string {
 
 func bashOutput(cmd string) ([]string, error) {
 	args := []string{"-c", cmd}
-	output, err := procutils.NewCommand("sh", args...).Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("bash", args...).Output()
 	if err != nil {
 		return nil, err
 	} else {

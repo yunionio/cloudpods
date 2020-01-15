@@ -290,11 +290,11 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/quantum"] = "32"
 	}
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
-	_, err = procutils.NewCommand("modprobe", "tun").Output()
+	_, err = procutils.NewRemoteCommandAsFarAsPossible("modprobe", "tun").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	output, err := procutils.NewCommand("modprobe", "vhost_net").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Errorf("modprobe error: %s", output)
 	}
