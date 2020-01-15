@@ -66,12 +66,12 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	defer disk.Disconnect()
 	if !disk.Connect() {
 		log.Infof("Failed to connect %s disk", req.GuestDesc.Hypervisor)
-		return new(deployapi.DeployGuestFsResponse), errors.Error("disk connect failed")
+		return new(deployapi.DeployGuestFsResponse), nil
 	}
 	root := disk.MountRootfs()
 	if root == nil {
 		log.Infof("Failed mounting rootfs for %s disk", req.GuestDesc.Hypervisor)
-		return new(deployapi.DeployGuestFsResponse), errors.Error("rootfs mount failed")
+		return new(deployapi.DeployGuestFsResponse), nil
 	}
 	defer disk.UmountRootfs(root)
 
