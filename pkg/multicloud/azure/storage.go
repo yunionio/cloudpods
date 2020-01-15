@@ -36,7 +36,6 @@ type SStorage struct {
 	zone *SZone
 
 	storageType  string
-	Name         string
 	ResourceType string
 	Tier         string
 	Kind         string
