@@ -185,6 +185,7 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 		if len(d.ip) == 0 {
 			addr, masklen = netutils2.GetSecretInterfaceAddress()
 		} else {
+			addr = d.ip
 			masklen, _ = mask.Size()
 		}
 		addrStr := fmt.Sprintf("%s/%d", addr, masklen)
