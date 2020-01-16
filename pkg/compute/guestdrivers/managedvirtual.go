@@ -163,7 +163,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		}
 
 		_, err = disk.GetIDisk()
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			//忽略云上磁盘已经被删除错误
 			return nil, nil
 		}
@@ -596,7 +596,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		ihost, err := host.GetIHost()
 		if err != nil {
 			//私有云宿主机有可能下线,会导致虚拟机无限删除失败
-			if err == cloudprovider.ErrNotFound {
+			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
 			log.Errorf("host.GetIHost fail %s", err)

@@ -49,7 +49,7 @@ func init() {
 	type CloudregionCityListOptions struct {
 		Manager  string `help:"List objects belonging to the cloud provider"`
 		Account  string `help:"List objects belonging to the cloud account"`
-		Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud|ZStack"`
+		Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud|ZStack|Ctyun"`
 		City     string `help:"List regions in the specified city"`
 
 		PublicCloud  *bool `help:"List objects belonging to public cloud" json:"public_cloud"`
