@@ -25,10 +25,13 @@ func NewAddress(ifname string, addresses ...string) *Address {
 		if err != nil {
 			r.addrBad = true
 			r.addErr(err, "parse addr")
+			continue
 		}
 		addrs[i] = addr
 	}
-	r.addrs = addrs
+	if !r.addrBad {
+		r.addrs = addrs
+	}
 	return r
 }
 
