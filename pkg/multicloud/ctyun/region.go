@@ -73,6 +73,8 @@ func (self *SRegion) fetchInfrastructure() error {
 			zone := self.izones[j].(*SZone)
 			zone.addWire(&wire)
 		}
+
+		vpc.fetchNetworks()
 	}
 	return nil
 }
@@ -218,7 +220,16 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return self.GetVpc(id)
+	ivpcs, err := self.GetIVpcs()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(ivpcs); i += 1 {
+		if ivpcs[i].GetGlobalId() == id {
+			return ivpcs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -415,6 +426,10 @@ func (self *SRegion) GetProvider() string {
 func (self *SRegion) GetInstances(instanceId string) ([]SInstance, error) {
 	params := map[string]string{
 		"regionId": self.GetId(),
+	}
+
+	if len(instanceId) > 0 {
+		params["instanceId"] = instanceId
 	}
 
 	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVMs", params)

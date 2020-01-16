@@ -151,6 +151,10 @@ func (self *SInstance) GetStatus() string {
 
 func (self *SInstance) Refresh() error {
 	new, err := self.host.zone.region.GetVMById(self.GetId())
+	if err != nil {
+		return err
+	}
+
 	new.host = self.host
 	if err != nil {
 		return err
@@ -347,7 +351,7 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 		return nil, nil
 	}
 
-	if len(self.MasterOrderId) == 0 {
+	if len(self.MasterOrderId) > 0 {
 		return self.getSecurityGroupIdsByMasterOrderId(self.MasterOrderId)
 	}
 
@@ -365,7 +369,7 @@ func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	for i := range secgroups {
 		// todo: bugfix 如果安全组重名比较尴尬
 		if utils.IsInStringArray(secgroups[i].Name, names) {
-			ids = append(ids, secgroups[i].ID)
+			ids = append(ids, secgroups[i].ResSecurityGroupID)
 		}
 	}
 
@@ -592,6 +596,7 @@ func (self *SRegion) CreateInstance(zoneId, name, imageId, volumetype, flavorRef
 	return nil
 }
 
+// vm & nic job
 func (self *SRegion) GetJob(jobId string) (jsonutils.JSONObject, error) {
 	params := map[string]string{
 		"regionId": self.GetId(),
@@ -604,9 +609,30 @@ func (self *SRegion) GetJob(jobId string) (jsonutils.JSONObject, error) {
 	}
 
 	ret := jsonutils.NewDict()
-	err = resp.Unmarshal(&ret)
+	err = resp.Unmarshal(&ret, "returnObj")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetJob.Unmarshal")
+	}
+
+	return ret, nil
+}
+
+// 查询云硬盘备份JOB状态信息
+func (self *SRegion) GetVbsJob(jobId string) (jsonutils.JSONObject, error) {
+	params := map[string]string{
+		"regionId": self.GetId(),
+		"jobId":    jobId,
+	}
+
+	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVbsJob", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetVbsJob.DoGet")
+	}
+
+	ret := jsonutils.NewDict()
+	err = resp.Unmarshal(&ret, "returnObj")
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetVbsJob.Unmarshal")
 	}
 
 	return ret, nil
