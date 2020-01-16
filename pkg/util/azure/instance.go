@@ -355,7 +355,6 @@ func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStor
 		if storageaccounts[i].Name == storageName {
 			storage := SStorage{
 				zone:        self.host.zone,
-				Name:        storageName,
 				storageType: storageaccounts[i].Sku.Name,
 			}
 			return &storage, nil, nil
