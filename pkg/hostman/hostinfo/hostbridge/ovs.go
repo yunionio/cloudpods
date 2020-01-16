@@ -142,10 +142,11 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	}
 	s += fmt.Sprintf("LIMIT_DOWNLOAD='%dmbit'\n", bwDownload)
 	if options.HostOptions.TunnelPaddingBytes > 0 {
-		s += fmt.Sprintf("/sbin/ifconfig $IF mtu %d\n",
+		s += fmt.Sprintf("ip link set dev $IF mtu %d\n",
 			1500+options.HostOptions.TunnelPaddingBytes)
 	}
-	s += "/sbin/ifconfig $IF 0.0.0.0 up\n"
+	s += "ip address flush dev $IF\n"
+	s += "ip link set dev $IF up\n"
 	s += "ovs-vsctl list-ifaces $SWITCH | grep -w $IF > /dev/null 2>&1\n"
 	s += "if [ $? -eq '0' ]; then\n"
 	s += "    ovs-vsctl del-port $SWITCH $IF\n"
@@ -201,7 +202,7 @@ func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, err
 		s += "    " + o.DelFlow(r.cond)
 	}
 	s += "fi\n"
-	s += "/sbin/ifconfig $IF 0.0.0.0 down\n"
+	s += "ip link set dev $IF down\n"
 	s += "ovs-vsctl -- --if-exists del-port $SWITCH $IF\n"
 	return s, nil
 }
