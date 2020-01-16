@@ -484,18 +484,19 @@ func (h *SHostInfo) detectNestSupport() {
 }
 
 func (h *SHostInfo) detectiveOsDist() {
-	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Output()
+	files, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", "ls /etc/*elease").Output()
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
 	re := regexp.MustCompile(`(.+) release ([\d.]+)[^(]*(?:\((.+)\))?`)
 	for _, file := range strings.Split(string(files), "\n") {
-		content, err := fileutils2.FileGetContents(file)
+		content, err := procutils.NewRemoteCommandAsFarAsPossible("cat", file).Output()
 		if err != nil {
+			log.Errorln(err)
 			continue
 		}
-		m := re.FindStringSubmatch(content)
+		m := re.FindStringSubmatch(string(content))
 		if len(m) == 4 {
 			h.sysinfo.OsDistribution = m[1]
 			h.sysinfo.OsVersion = m[2]
