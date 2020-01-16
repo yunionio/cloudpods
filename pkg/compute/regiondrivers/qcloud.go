@@ -16,13 +16,14 @@ package regiondrivers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"regexp"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -132,22 +133,38 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
 	} else {
-		if lbbg != nil {
-			count, err := lbbg.RefCount()
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
-			}
-			if count > 0 {
-				return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
+		if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
+			if lbbg == nil {
+				return nil, httperrors.NewMissingParameterError("backend_group_id")
 			}
 
-			if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-				if err := lbbg.AllBackendsUnique(); err != nil {
-					return nil, httperrors.NewConflictError(err.Error())
+			// listener check
+			q := models.LoadbalancerListenerManager.Query()
+			q = q.Equals("loadbalancer_id", lb.GetId())
+			q = q.Equals("listener_type", listenerType)
+			q = q.Equals("backend_group_id", lbbg.GetId())
+			q = q.IsFalse("pending_deleted")
+			count, err := q.CountWithError()
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+
+			if count > 0 {
+				return nil, httperrors.NewConflictError("loadbalancer backendgroup aready associate with other %s listener", listenerType)
+			}
+
+			// lbbg backend check
+			lbbs, err := lbbg.GetBackends()
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+
+			for i := range lbbs {
+				err = checkQcloudBackendGroupUsable("", listenerType, lbbs[i].BackendId, lbbs[i].Port)
+				if err != nil {
+					return nil, err
 				}
 			}
-
-			data.Set("backend_group_id", jsonutils.NewString(lbbg.GetId()))
 		}
 	}
 
@@ -196,7 +213,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lbbg.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.GetIRegion")
 		}
 
 		// 腾讯云本身没有后端服务器组，因此不需要在qcloud端执行创建操作
@@ -210,7 +227,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.GetILoadBalancerById")
 		}
 		group := &cloudprovider.SLoadbalancerBackendGroup{
 			Name:      lbbg.Name,
@@ -219,14 +236,14 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		}
 		iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(group)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.CreateILoadBalancerBackendGroup")
 		}
 		if err := db.SetExternalId(lbbg, userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.GetGlobalId")
 		}
 		iBackends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackendGroup.GetILoadbalancerBackends")
 		}
 		if len(iBackends) > 0 {
 			provider := loadbalancer.GetCloudprovider()
@@ -246,47 +263,49 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		if lbbg == nil {
 			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
 		}
+		lb := lbbg.GetLoadbalancer()
+		if lb == nil {
+			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		}
+
+		cachedlbbgs, err := models.QcloudCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
+		if err != nil {
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.GetCachedBackendGroups")
+		}
 
 		guest := lbb.GetGuest()
 		if guest == nil {
 			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
 		}
 
-		// 兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步后端服务器
-		if lbbg.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-			cnt, err := lbbg.RefCount()
+		var ibackend cloudprovider.ICloudLoadbalancerBackend
+		for _, cachedLbbg := range cachedlbbgs {
+			iLoadbalancerBackendGroup, err := cachedLbbg.GetICloudLoadbalancerBackendGroup()
 			if err != nil {
-				return nil, err
+				if err == cloudprovider.ErrNotFound {
+					continue
+				}
+
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.GetICloudLoadbalancerBackendGroup")
 			}
-			if cnt == 0 {
-				return nil, nil
+
+			ibackend, err = iLoadbalancerBackendGroup.AddBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.AddBackendServer")
+			}
+
+			_, err = models.QcloudCachedLbManager.CreateQcloudCachedLb(ctx, userCred, lbb, &cachedLbbg, ibackend, cachedLbbg.GetOwnerId())
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.CreateQcloudCachedLb")
 			}
 		}
 
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		if ibackend != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
+			}
 		}
-		iRegion, err := lb.GetIRegion()
-		if err != nil {
-			return nil, err
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-		if err != nil {
-			return nil, err
-		}
-		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
-		if err != nil {
-			return nil, err
-		}
-		iLoadbalancerBackend, err := iLoadbalancerBackendGroup.AddBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
-		if err != nil {
-			return nil, err
-		}
-		if err := db.SetExternalId(lbb, userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
-			return nil, err
-		}
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, nil)
+		return nil, nil
 	})
 	return nil
 }
@@ -296,112 +315,197 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 		if jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
 			return nil, nil
 		}
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
-		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
-		}
-		iRegion, err := lb.GetIRegion()
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetIRegion")
-		}
 
-		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
-		count, err := lbbg.RefCount()
+		cachedlbbs, err := models.QcloudCachedLbManager.GetBackendsByLocalBackendId(lbb.GetId())
 		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.RefCount")
-		}
-		if count == 0 {
-			return nil, nil
-		}
-
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListeners")
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.GetBackendsByLocalBackendId")
 		}
 
 		guest := lbb.GetGuest()
 		if guest == nil {
-			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
+			return nil, fmt.Errorf("loadbalancer backend %s related server not found", lbb.GetName())
 		}
 
-		// delete
-		if forword, _ := iLoadbalancer.GetMetadata().Int("Forward"); forword == 0 {
-			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
+		for _, cachedlbb := range cachedlbbs {
+			cachedlbbg, _ := cachedlbb.GetCachedBackendGroup()
+			if cachedlbbg == nil {
+				log.Warningf("failed to find lbbg for backend %s", cachedlbb.Name)
+				continue
+			}
+			lb := cachedlbbg.GetLoadbalancer()
+			if lb == nil {
+				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
+			}
+			iRegion, err := lb.GetIRegion()
 			if err != nil {
-				return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListenerRules")
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.GetIRegion")
+			}
+			iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.GetILoadBalancerById")
+			}
+			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedlbbg.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
 			}
 
-			return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
-		} else {
-			lblis, err := lbbg.GetLoadbalancerListeners()
+			err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
 			if err != nil {
-				if err != sql.ErrNoRows {
-					return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListeners")
-				}
-			} else {
-				for i := range lblis {
-					_lblis := lblis[i]
-					if utils.IsInStringArray(_lblis.ListenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-						external_id := fmt.Sprintf("%s/%s", lb.ExternalId, _lblis.ExternalId)
-						iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(external_id)
-						if err != nil {
-							return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
-						}
-						backends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
-						if err != nil {
-							return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.GetILoadbalancerBackends")
-						}
-
-						for i := range backends {
-							if backends[i].GetBackendId() == guest.ExternalId && backends[i].GetPort() == lbb.Port && backends[i].GetWeight() == lbb.Weight {
-								err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
-								if err != nil {
-									return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.RemoveBackendServer")
-								}
-							}
-						}
-					}
-				}
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.RemoveBackendServer")
 			}
 
-			lbrs, err := lbbg.GetLoadbalancerListenerRules()
+			err = db.DeleteModel(ctx, userCred, &cachedlbb)
 			if err != nil {
-				if err != sql.ErrNoRows {
-					return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetLoadbalancerListenerRules")
-				}
-			} else {
-				for i := range lbrs {
-					lbr := lbrs[i]
-					external_id := fmt.Sprintf("%s/%s", lb.ExternalId, lbr.ExternalId)
-					iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(external_id)
-					if err != nil {
-						return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.GetILoadBalancerBackendGroupById")
-					}
-
-					backends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
-					if err != nil {
-						return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.listener.GetILoadbalancerBackends")
-					}
-
-					for i := range backends {
-						if backends[i].GetBackendId() == guest.ExternalId && backends[i].GetPort() == lbb.Port && backends[i].GetWeight() == lbb.Weight {
-							err = iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
-							if err != nil {
-								return nil, errors.Wrap(err, "qcloudRegion.RequestDeleteLoadbalancerBackend.rule.RemoveBackendServer")
-							}
-						}
-					}
-				}
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestDeleteLoadbalancerBackend.DeleteModel")
 			}
 		}
 
 		return nil, nil
 	})
 	return nil
+}
+
+func (self *SQcloudRegionDriver) createCachedLbbg(lb *models.SLoadbalancer, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup) (*models.SQcloudCachedLbbg, error) {
+	// create loadbalancer backendgroup cache
+	cachedLbbg := &models.SQcloudCachedLbbg{}
+	cachedLbbg.ManagerId = lb.ManagerId
+	cachedLbbg.CloudregionId = lb.CloudregionId
+	cachedLbbg.LoadbalancerId = lb.GetId()
+	cachedLbbg.BackendGroupId = lbbg.GetId()
+	if lbr != nil {
+		cachedLbbg.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+		cachedLbbg.AssociatedId = lbr.GetId()
+	} else {
+		cachedLbbg.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+		cachedLbbg.AssociatedId = lblis.GetId()
+	}
+
+	err := models.QcloudCachedLbbgManager.TableSpec().Insert(cachedLbbg)
+	if err != nil {
+		return nil, errors.Wrap(err, "SQcloudRegionDriver.createCachedLbbg.Insert")
+	}
+
+	cachedLbbg.SetModelManager(models.QcloudCachedLbbgManager, cachedLbbg)
+	return cachedLbbg, nil
+}
+
+func (self *SQcloudRegionDriver) syncCloudlbbs(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, cachedLbbg *models.SQcloudCachedLbbg, extlbbg cloudprovider.ICloudLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend) error {
+	ibackends, err := extlbbg.GetILoadbalancerBackends()
+	if err != nil {
+		return errors.Wrap(err, "QcloudRegionDriver.syncCloudLoadbalancerBackends.GetILoadbalancerBackends")
+	}
+
+	for i := range ibackends {
+		ibackend := ibackends[i]
+		err = extlbbg.RemoveBackendServer(ibackend.GetId(), ibackend.GetWeight(), ibackend.GetPort())
+		if err != nil {
+			return errors.Wrap(err, "QcloudRegionDriver.syncCloudLoadbalancerBackends.RemoveBackendServer")
+		}
+	}
+
+	for _, backend := range backends {
+		_, err = extlbbg.AddBackendServer(backend.ExternalID, backend.Weight, backend.Port)
+		if err != nil {
+			return errors.Wrap(err, "QcloudRegionDriver.syncCloudLoadbalancerBackends.AddBackendServer")
+		}
+	}
+
+	return nil
+}
+
+func (self *SQcloudRegionDriver) syncCachedLbbs(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, lbbg *models.SQcloudCachedLbbg, extlbbg cloudprovider.ICloudLoadbalancerBackendGroup) error {
+	iBackends, err := extlbbg.GetILoadbalancerBackends()
+	if err != nil {
+		return errors.Wrap(err, "QcloudRegionDriver.syncLoadbalancerBackendCaches.GetILoadbalancerBackends")
+	}
+
+	if len(iBackends) > 0 {
+		provider := lb.GetCloudprovider()
+		if provider == nil {
+			return fmt.Errorf("failed to find cloudprovider for lb %s", lb.Name)
+		}
+
+		result := models.QcloudCachedLbManager.SyncLoadbalancerBackends(ctx, userCred, provider, lbbg, iBackends, &models.SSyncRange{})
+		if result.IsError() {
+			return errors.Wrap(result.AllError(), "QcloudRegionDriver.syncLoadbalancerBackendCaches.SyncLoadbalancerBackends")
+		}
+	}
+
+	return nil
+}
+
+func (self *SQcloudRegionDriver) createLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend) (jsonutils.JSONObject, error) {
+	iRegion, err := lbbg.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetIRegion")
+	}
+	lb := lbbg.GetLoadbalancer()
+	if lb == nil {
+		return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+	}
+	iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetILoadBalancerById")
+	}
+
+	var ilbbg cloudprovider.ICloudLoadbalancerBackendGroup
+	if lbr != nil {
+		l := lbr.GetLoadbalancerListener()
+		if l == nil {
+			return nil, fmt.Errorf("could not create loadbalancer backendgroup, loadbalancer listener rule %s related listener not found", lbr.GetName())
+		}
+
+		ilblis, err := iLoadbalancer.GetILoadBalancerListenerById(l.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetILoadBalancerListenerById")
+		}
+
+		ilbr, err := ilblis.GetILoadBalancerListenerRuleById(lbr.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetILoadBalancerListenerRuleById")
+		}
+
+		extLbbgId := ilbr.GetBackendGroupId()
+		ilbbg, err = iLoadbalancer.GetILoadBalancerBackendGroupById(extLbbgId)
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
+		}
+	} else if lblis != nil {
+		ilblis, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.Listener.GetILoadBalancerListenerById")
+		}
+
+		extLbbgId := ilblis.GetBackendGroupId()
+		ilbbg, err = iLoadbalancer.GetILoadBalancerBackendGroupById(extLbbgId)
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.Listener.GetILoadBalancerBackendGroupById")
+		}
+	} else {
+		return nil, fmt.Errorf("could not create loadbalancer backendgroup, loadbalancer listener & rule are nil")
+	}
+
+	cachedLbbg, err := self.createCachedLbbg(lb, lblis, lbr, lbbg)
+	if err != nil {
+		return nil, errors.Wrap(err, "QcloudRegionDriver.createLoadbalancerBackendGroupCache")
+	}
+
+	if err := db.SetExternalId(cachedLbbg, userCred, ilbbg.GetGlobalId()); err != nil {
+		return nil, errors.Wrap(err, "SQcloudRegionDriver.createLoadbalancerBackendGroup.SetExternalId")
+	}
+
+	err = self.syncCloudlbbs(ctx, userCred, lb, cachedLbbg, ilbbg, backends)
+	if err != nil {
+		return nil, errors.Wrap(err, "QcloudRegionDriver.createLoadbalancerBackendGroup.syncCloudLoadbalancerBackends")
+	}
+
+	err = self.syncCachedLbbs(ctx, userCred, lb, cachedLbbg, ilbbg)
+	if err != nil {
+		return nil, errors.Wrap(err, "QcloudRegionDriver.createLoadbalancerBackendGroup.syncLoadbalancerBackendCaches")
+	}
+
+	return nil, nil
+
 }
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
@@ -416,18 +520,18 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 
 				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.FetchById")
 				}
 
 				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetOrCreateCachedCertificate")
 				}
 
 				if len(lbcert.ExternalId) == 0 {
 					err = self.RequestCreateLoadbalancerCertificate(ctx, userCred, lbcert, task)
 					if err != nil {
-						return nil, err
+						return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.RequestCreateLoadbalancerCertificate")
 					}
 				}
 
@@ -441,44 +545,9 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 			}
 		}
 
-		{
-			aclId, _ := task.GetParams().GetString("acl_id")
-			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
-				if provider == nil {
-					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
-				}
-
-				acl, err := models.LoadbalancerAclManager.FetchById(aclId)
-				if err != nil {
-					return nil, err
-				}
-
-				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
-				if err != nil {
-					return nil, err
-				}
-
-				if len(lbacl.ExternalId) == 0 {
-					err = self.RequestCreateLoadbalancerAcl(ctx, userCred, lbacl, task)
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				_, err = db.Update(lblis, func() error {
-					lblis.CachedAclId = lbacl.GetId()
-					return nil
-				})
-				if err != nil {
-					return nil, errors.Wrap(err, "QcloudRegionDriver.RequestCreateLoadbalancerListener.UpdateCachedAclId")
-				}
-			}
-		}
-
-		params, err := lblis.GetLoadbalancerListenerParams()
+		params, err := lblis.GetQcloudLoadbalancerListenerParams()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetQcloudLoadbalancerListenerParams")
 		}
 		loadbalancer := lblis.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -486,55 +555,84 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		}
 		iRegion, err := loadbalancer.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetIRegion")
 		}
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
 		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
 		if err := db.SetExternalId(lblis, userCred, iListener.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.SetExternalId")
 		}
 
 		// ====腾讯云添加后端服务器=====
-		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
-			group := lblis.GetLoadbalancerBackendGroup()
-			if group != nil {
-				backends, err := group.GetBackends()
-				if err != nil {
-					return nil, fmt.Errorf("failed to find backends for backend group  %s: %s", group.GetId(), err)
-				}
+		if !utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) {
+			lbbg := lblis.GetLoadbalancerBackendGroup()
+			if lbbg == nil {
+				err := fmt.Errorf("loadbalancer listener %s related backendgroup not found", lblis.GetName())
+				return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.GetLoadbalancerBackendGroup")
+			}
 
-				extBgID := iListener.GetBackendGroupId()
-				if len(extBgID) == 0 {
-					return nil, fmt.Errorf("the backend group external id of loadbalancer listener  %s is empty", lblis.GetId())
-				}
+			backends, err := lbbg.GetBackendsParams()
+			if err != nil {
+				return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.GetBackendsParams")
+			}
 
-				ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(extBgID)
-				if err != nil {
-					return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s: %s", lblis.GetId(), err)
-				}
-
-				for _, backend := range backends {
-					guest := backend.GetGuest()
-					if guest == nil {
-						return nil, fmt.Errorf("failed to find instance for loadbalancer backend  %s", backend.GetId())
-					}
-					_, err := ilbbg.AddBackendServer(guest.GetExternalId(), backend.Weight, backend.Port)
-					if err != nil {
-						return nil, err
-					}
-				}
+			_, err = self.createLoadbalancerBackendGroup(ctx, userCred, lblis, nil, lbbg, backends)
+			if err != nil {
+				return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerBackendGroup")
 			}
 		}
 
 		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
 	})
 	return nil
+}
+
+func (self *SQcloudRegionDriver) GetLoadbalancerListenerRuleInputParams(lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule) *cloudprovider.SLoadbalancerListenerRule {
+	scheduler := ""
+	switch lblis.Scheduler {
+	case api.LB_SCHEDULER_WRR:
+		scheduler = "WRR"
+	case api.LB_SCHEDULER_WLC:
+		scheduler = "LEAST_CONN"
+	case api.LB_SCHEDULER_SCH:
+		scheduler = "IP_HASH"
+	default:
+		scheduler = "WRR"
+	}
+
+	sessionTimeout := 0
+	if lblis.StickySession == api.LB_BOOL_ON {
+		sessionTimeout = lblis.StickySessionCookieTimeout
+	}
+
+	rule := &cloudprovider.SLoadbalancerListenerRule{
+		Name:   lbr.Name,
+		Domain: lbr.Domain,
+		Path:   lbr.Path,
+
+		Scheduler: scheduler,
+
+		HealthCheck:         lblis.HealthCheck,
+		HealthCheckType:     lblis.HealthCheckType,
+		HealthCheckTimeout:  lblis.HealthCheckTimeout,
+		HealthCheckDomain:   lblis.HealthCheckDomain,
+		HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+		HealthCheckURI:      lblis.HealthCheckURI,
+		HealthCheckInterval: lblis.HealthCheckInterval,
+
+		HealthCheckRise: lblis.HealthCheckRise,
+		HealthCheckFail: lblis.HealthCheckFall,
+
+		StickySessionCookieTimeout: sessionTimeout,
+	}
+
+	return rule
 }
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
@@ -559,19 +657,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListenerRule.GetILoadBalancerListenerById")
 		}
-		rule := &cloudprovider.SLoadbalancerListenerRule{
-			Name:   lbr.Name,
-			Domain: lbr.Domain,
-			Path:   lbr.Path,
-		}
-		if len(lbr.BackendGroupId) > 0 {
-			group := lbr.GetLoadbalancerBackendGroup()
-			if group == nil {
-				return nil, fmt.Errorf("failed to find backend group for listener rule %s", lbr.Name)
-			}
-			rule.BackendGroupID = group.ExternalId
-			rule.BackendGroupType = group.Type
-		}
+		rule := self.GetLoadbalancerListenerRuleInputParams(listener, lbr)
 		iListenerRule, err := iListener.CreateILoadBalancerListenerRule(rule)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListenerRule.CreateILoadBalancerListenerRule")
@@ -580,30 +666,22 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListenerRule.UpdateListenerRule")
 		}
 		// ====腾讯云添加后端服务器=====
-		if len(rule.BackendGroupID) > 0 {
-			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(iListenerRule.GetBackendGroupId())
-			if err != nil {
-				return nil, fmt.Errorf("failed to find backend group for listener rule %s: %s", lbr.Name, err)
-			}
-
-			group := lbr.GetLoadbalancerBackendGroup()
-			backends, err := group.GetBackends()
-			if err != nil {
-				return nil, fmt.Errorf("failed to find backends for backend group  %s: %s", group.GetId(), err)
-			}
-
-			for _, backend := range backends {
-				guest := backend.GetGuest()
-				if guest == nil {
-					return nil, fmt.Errorf("failed to find instance for loadbalancer backend  %s", backend.GetId())
-				}
-				_, err := ilbbg.AddBackendServer(guest.GetExternalId(), backend.Weight, backend.Port)
-				if err != nil {
-					return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListenerRule.AddBackendServer")
-				}
-			}
-
+		lbbg := lbr.GetLoadbalancerBackendGroup()
+		if lbbg == nil {
+			err := fmt.Errorf("loadbalancer listener rule %s related backendgroup not found", lbr.GetName())
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.GetLoadbalancerBackendGroup")
 		}
+
+		backends, err := lbbg.GetBackendsParams()
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.GetBackendsParams")
+		}
+
+		_, err = self.createLoadbalancerBackendGroup(ctx, userCred, nil, lbr, lbbg, backends)
+		if err != nil {
+			return nil, errors.Wrap(err, "SQcloudRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerBackendGroup")
+		}
+
 		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
 	})
 	return nil
@@ -671,6 +749,40 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lblis.LoadbalancerId)
+		} else {
+			if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
+				cachedLbbgs, err := lbbg.GetQcloudCachedlbbg()
+				if err != nil {
+					return nil, err
+				}
+
+				if len(cachedLbbgs) > 0 {
+					for i := range cachedLbbgs {
+						if cachedLbbgs[i].AssociatedType == api.LB_ASSOCIATE_TYPE_LISTENER && cachedLbbgs[i].AssociatedId != lblis.GetId() {
+							_lblis, err := db.FetchById(models.LoadbalancerListenerManager, cachedLbbgs[i].AssociatedId)
+							if err != nil {
+								return nil, err
+							}
+
+							if _lblis.(*models.SLoadbalancerListener).ListenerType == lblis.ListenerType {
+								return nil, httperrors.NewConflictError("loadbalancer aready associated with fourth layer listener %s", cachedLbbgs[i].AssociatedId)
+							}
+						}
+					}
+				}
+
+				lbbs, err := lbbg.GetBackends()
+				if err != nil {
+					return nil, err
+				}
+
+				for i := range lbbs {
+					err = checkQcloudBackendGroupUsable(lblis.BackendGroupId, lblis.ListenerType, lbbs[i].BackendId, lbbs[i].Port)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 	}
 
@@ -737,6 +849,12 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 	if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
+	} else {
+		if lbbg == nil {
+			return nil, httperrors.NewMissingParameterError("backend_group_id")
+		}
+
+		data.Set("backend_group_id", jsonutils.NewString(lbbg.GetId()))
 	}
 
 	err = models.LoadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
@@ -767,8 +885,8 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx 
 }
 
 // validate backend port unique
-func CheckQcloudBackendPortUnique(backendGroupId string, backendId string, port int) error {
-	q1 := models.LoadbalancerBackendManager.Query("backend_group_id").Equals("port", port).Equals("backend_id", backendId).IsFalse("pending_deleted").Distinct()
+func CheckQcloudBackendPortUnique(backendGroupId string, backendServerId string, port int) error {
+	q1 := models.LoadbalancerBackendManager.Query("backend_group_id").Equals("port", port).Equals("backend_id", backendServerId).IsFalse("pending_deleted").Distinct()
 	count, err := q1.CountWithError()
 	if err != nil {
 		return err
@@ -778,34 +896,75 @@ func CheckQcloudBackendPortUnique(backendGroupId string, backendId string, port 
 		return nil
 	}
 
-	q2 := models.LoadbalancerBackendManager.Query().Equals("backend_group_id", backendGroupId).Equals("port", port).Equals("backend_id", backendId).IsFalse("pending_deleted").Distinct()
+	q2 := models.LoadbalancerBackendManager.Query().Equals("backend_group_id", backendGroupId).Equals("port", port).Equals("backend_id", backendServerId).IsFalse("pending_deleted").Distinct()
 	count, err = q2.CountWithError()
 	if err != nil {
 		return err
 	}
 
 	if count > 0 {
-		return fmt.Errorf("backend %s with port %d already in used in backendgroup", backendId, port)
+		return httperrors.NewConflictError("server %s with port %d already in used", backendServerId, port)
 	}
 
-	q3 := models.LoadbalancerListenerManager.Query().Equals("backend_group_id", backendGroupId).In("listener_type", []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}).IsFalse("pending_deleted")
-	count, err = q3.CountWithError()
-	if err != nil {
-		return err
-	}
-
-	if count == 0 {
-		return nil
-	}
-
-	q4 := models.LoadbalancerListenerManager.Query().In("backend_group_id", q1.SubQuery()).In("listener_type", []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}).IsFalse("pending_deleted")
-	count, err = q4.CountWithError()
+	// 检查 当前服务器组没有backend with port记录，但是其他backendgroup存在backend with port记录的情况
+	q3 := models.LoadbalancerBackendGroupManager.Query().IsFalse("pending_deleted")
+	subLblis := models.LoadbalancerListenerManager.Query().SubQuery()
+	q3 = q3.Join(subLblis, sqlchemy.Equals(subLblis.Field("backend_group_id"), q3.Field("id")))
+	q3 = q3.Equals("id", backendGroupId)
+	count, err = q3.Filter(sqlchemy.Equals(subLblis.Field("listener_type"), api.LB_LISTENER_TYPE_TCP)).CountWithError()
 	if err != nil {
 		return err
 	}
 
 	if count > 0 {
-		return fmt.Errorf("backend %s with port %d already in used in other backendgroup", backendId, port)
+		err = checkQcloudBackendGroupUsable(backendGroupId, api.LB_LISTENER_TYPE_TCP, backendServerId, port)
+		if err != nil {
+			return err
+		}
+	}
+
+	count, err = q3.Filter(sqlchemy.Equals(subLblis.Field("listener_type"), api.LB_LISTENER_TYPE_UDP)).CountWithError()
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		err = checkQcloudBackendGroupUsable(backendGroupId, api.LB_LISTENER_TYPE_UDP, backendServerId, port)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func checkQcloudBackendGroupUsable(fromBackendGroup string, listenerType string, backendServerId string, port int) error {
+	q := models.QcloudCachedLbManager.Query()
+	subLbb := models.LoadbalancerBackendManager.Query().SubQuery()
+	subCachedLbbg := models.QcloudCachedLbbgManager.Query().SubQuery()
+	subLbbg := models.LoadbalancerBackendGroupManager.Query().SubQuery()
+	subLblis := models.LoadbalancerListenerManager.Query().SubQuery()
+	q = q.Join(subLbb, sqlchemy.Equals(q.Field("backend_id"), subLbb.Field("id")))
+	q = q.Join(subCachedLbbg, sqlchemy.Equals(q.Field("cached_backend_group_id"), subCachedLbbg.Field("id")))
+	q = q.Join(subLbbg, sqlchemy.Equals(subCachedLbbg.Field("backend_group_id"), subLbbg.Field("id")))
+	q = q.Join(subLblis, sqlchemy.Equals(subCachedLbbg.Field("associated_id"), subLblis.Field("id")))
+
+	q = q.Filter(sqlchemy.Equals(subCachedLbbg.Field("associated_type"), api.LB_ASSOCIATE_TYPE_LISTENER))
+	q = q.Filter(sqlchemy.Equals(subLblis.Field("listener_type"), listenerType))
+	q = q.Filter(sqlchemy.IsFalse(subLblis.Field("pending_deleted")))
+	if len(fromBackendGroup) > 0 {
+		q = q.Filter(sqlchemy.NotEquals(subLbbg.Field("id"), fromBackendGroup))
+	}
+	q = q.Filter(sqlchemy.Equals(subLbb.Field("backend_id"), backendServerId))
+	q = q.Filter(sqlchemy.Equals(subLbb.Field("port"), port))
+	q = q.Filter(sqlchemy.IsFalse(subLbb.Field("pending_deleted")))
+	count, err := q.CountWithError()
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+
+	if count > 0 {
+		return httperrors.NewConflictError("server %s with port %d aready used by other %s listener", backendServerId, port, listenerType)
 	}
 
 	return nil
@@ -901,129 +1060,181 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 
 func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		lbbg := lbb.GetLoadbalancerBackendGroup()
-		if lbbg == nil {
-			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
-		}
-		lb := lbbg.GetLoadbalancer()
-		if lb == nil {
-			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
-		}
-		iRegion, err := lb.GetIRegion()
+		cachedlbbs, err := models.QcloudCachedLbManager.GetBackendsByLocalBackendId(lbb.GetId())
 		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
-		}
-		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerById")
-		}
-		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerBackendGroupById")
+			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetBackendsByLocalBackendId")
 		}
 
-		iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
+		for _, cachedlbb := range cachedlbbs {
+			cachedlbbg, _ := cachedlbb.GetCachedBackendGroup()
+			if cachedlbbg == nil {
+				return nil, fmt.Errorf("failed to find lbbg for backend %s", cachedlbb.Name)
+			}
+			lb := cachedlbbg.GetLoadbalancer()
+			if lb == nil {
+				return nil, fmt.Errorf("failed to find lb for backendgroup %s", cachedlbbg.Name)
+			}
+			iRegion, err := lb.GetIRegion()
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetIRegion")
+			}
+			iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerById")
+			}
+			iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(cachedlbbg.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetILoadBalancerBackendGroupById")
+			}
+
+			iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(cachedlbb.ExternalId)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
+			}
+
+			err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.SyncConf")
+			}
+
+			err = iBackend.Refresh()
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.Refresh")
+			}
+
+			err = cachedlbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
+			}
 		}
 
-		err = iBackend.SyncConf(lbb.Port, lbb.Weight)
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.SyncConf")
-		}
-
-		iBackend, err = iLoadbalancerBackendGroup.GetILoadbalancerBackendById(iBackend.GetGlobalId())
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
-		}
-
-		_, err = db.Update(lbb, func() error {
-			lbb.ExternalId = iBackend.GetGlobalId()
-			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.UpdateGlobalId")
-		}
-
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+		return nil, nil
 	})
 	return nil
 }
 
-func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := lbbg.GetIRegion()
-		if err != nil {
-			return nil, err
-		}
-
-		lb := lbbg.GetLoadbalancer()
-		ilb, err := iRegion.GetILoadBalancerById(lb.GetExternalId())
-		if err != nil {
-			return nil, err
-		}
-
-		ilisten, err := ilb.GetILoadBalancerListenerById(lblis.GetExternalId())
-		if err != nil {
-			return nil, err
-		}
-
-		ilbbg, err := ilb.GetILoadBalancerBackendGroupById(ilisten.GetBackendGroupId())
-		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
-		}
-
-		// todo: fix me ibackends is empty here
+// 目前只支持应用型负载均衡
+func (self *SQcloudRegionDriver) syncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, lbbg *models.SLoadbalancerBackendGroup, ilbbg cloudprovider.ICloudLoadbalancerBackendGroup) error {
+	if ilbbg != nil {
 		ibackends, err := ilbbg.GetILoadbalancerBackends()
 		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetILoadbalancerBackends")
+			return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetILoadbalancerBackends")
 		}
 
 		for _, ibackend := range ibackends {
 			err = ilbbg.RemoveBackendServer(ibackend.GetBackendId(), ibackend.GetWeight(), ibackend.GetPort())
 			if err != nil {
-				return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.RemoveBackendServer")
+				return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.RemoveBackendServer")
 			}
 		}
 
 		backends, err := lbbg.GetBackendsParams()
 		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetBackendsParams")
+			return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetBackendsParams")
 		}
 
 		for _, backend := range backends {
 			_, err = ilbbg.AddBackendServer(backend.ExternalID, backend.Weight, backend.Port)
 			if err != nil {
-				return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.AddBackendServer")
+				return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.AddBackendServer")
 			}
 		}
 
-		_olbbg, err := db.FetchByExternalId(models.LoadbalancerBackendGroupManager, ilbbg.GetGlobalId())
+		_olbbg, err := db.FetchByExternalId(models.QcloudCachedLbbgManager, ilbbg.GetGlobalId())
 		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.FetchByExternalId")
+			return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.FetchByExternalId")
 		}
 
-		olbbg := _olbbg.(*models.SLoadbalancerBackendGroup)
+		olbbg := _olbbg.(*models.SQcloudCachedLbbg)
 		_, err = db.Update(olbbg, func() error {
 			olbbg.ExternalId = ilbbg.GetGlobalId()
+			olbbg.BackendGroupId = lbbg.GetId()
 			return nil
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.UpdateListenerBackendGroup")
+			return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.UpdateListenerBackendGroup")
 		}
 
-		_, err = db.Update(lbbg, func() error {
-			lbbg.ExternalId = ilbbg.GetGlobalId()
+		err = self.syncCachedLbbs(ctx, userCred, lb, olbbg, ilbbg)
+		if err != nil {
+			return errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.syncCachedLbbs")
+		}
+	}
+
+	return nil
+}
+
+func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) {
+			return nil, nil
+		}
+
+		lbbg := lblis.GetLoadbalancerBackendGroup()
+		if lbbg == nil {
+			err := fmt.Errorf("failed to find lbbg for lblis %s", lblis.Name)
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
+		}
+
+		iRegion, err := lbbg.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetIRegion")
+		}
+
+		lb := lbbg.GetLoadbalancer()
+		ilb, err := iRegion.GetILoadBalancerById(lb.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetILoadBalancerById")
+		}
+
+		ilisten, err := ilb.GetILoadBalancerListenerById(lblis.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerbackendGroup.GetILoadBalancerListenerById")
+		}
+
+		ilbbg, err := ilb.GetILoadBalancerBackendGroupById(ilisten.GetBackendGroupId())
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
+		}
+
+		// listener lbbg sync
+		err = self.syncLoadbalancerBackendGroup(ctx, userCred, lb, lbbg, ilbbg)
+		if err != nil {
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.syncLoadbalancerBackendGroup")
+		}
+
+		_, err = db.UpdateWithLock(ctx, lblis, func() error {
+			lblis.BackendGroupId = lbbg.GetId()
 			return nil
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.UpdateListenerBackendGroup")
+			return nil, errors.Wrap(err, "QcloudRegionDriver.RequestSyncLoadbalancerBackendGroup.UpdateListenBackendGroupId")
 		}
 
 		return nil, nil
 	})
 
 	return nil
+}
+
+func (self *SQcloudRegionDriver) RequestPullRegionLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) error {
+	return nil
+}
+
+func (self *SQcloudRegionDriver) RequestPullLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, syncResults models.SSyncResultSet, provider *models.SCloudprovider, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) error {
+	meta := remoteLoadbalancer.GetMetadata()
+	if meta == nil {
+		return fmt.Errorf("")
+
+	}
+
+	// 经典型负载均衡只有一个后端服务器组，全局共享
+	if forward, _ := meta.Int("Forward"); forward == 1 {
+		models.SyncQcloudLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
+		return nil
+	} else {
+		return self.SManagedVirtualizationRegionDriver.RequestPullLoadbalancerBackendGroup(ctx, userCred, syncResults, provider, localLoadbalancer, remoteLoadbalancer, syncRange)
+	}
 }
 
 func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
@@ -1048,6 +1259,80 @@ func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Conte
 			return nil, err
 		}
 		return data, nil
+	})
+	return nil
+}
+
+func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		{
+			certId, _ := task.GetParams().GetString("certificate_id")
+			if len(certId) > 0 {
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				if provider == nil {
+					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+				}
+
+				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
+				if err != nil {
+					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.FetchCert")
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
+				if err != nil {
+					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetCert")
+				}
+
+				if len(lbcert.ExternalId) == 0 {
+					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
+					if err != nil {
+						return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.CreateCert")
+					}
+				}
+
+				_, err = db.Update(lblis, func() error {
+					lblis.CachedCertificateId = lbcert.GetId()
+					return nil
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.UpdateCachedCertificateId")
+				}
+			}
+		}
+
+		params, err := lblis.GetLoadbalancerListenerParams()
+		if err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetParams")
+		}
+		loadbalancer := lblis.GetLoadbalancer()
+		if loadbalancer == nil {
+			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		}
+		iRegion, err := loadbalancer.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIRegion")
+		}
+		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetILoadbalancer")
+		}
+		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIListener")
+		}
+		if err := iListener.Sync(params); err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.SyncListener")
+		}
+		if err := iListener.Refresh(); err != nil {
+			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.RefreshListener")
+		}
+
+		if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
+			return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
+		} else {
+			// http&https listener 变更不会同步到监听规则
+			return nil, nil
+		}
 	})
 	return nil
 }
