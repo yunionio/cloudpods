@@ -44,9 +44,13 @@ func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
 			ok = false
 		}
 		if ok {
+			gwStr := ""
+			if len(r.Gw) > 0 {
+				gwStr = r.Gw.String()
+			}
 			res = append(res, []string{
 				r.Dst.IP.String(),
-				r.Gw.String(),
+				gwStr,
 				net.IP(r.Dst.Mask).String(),
 			})
 		}
@@ -67,6 +71,9 @@ func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
 	var errs []error
 	for i := range routes {
 		route := &routes[i]
+		if len(route.Src) == 0 {
+			continue
+		}
 		ip4 := route.Src.To4()
 		if len(ip4) != 4 || ip4.Equal(net.IPv4zero) {
 			errs = append(errs, fmt.Errorf("bad src ipv4 address: %s", ip4))
