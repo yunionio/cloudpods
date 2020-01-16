@@ -96,9 +96,7 @@ func detectiveKVMModuleSupport() string {
 func ModprobeKvmModule(name string, remove, nest bool) bool {
 	var params = []string{"modprobe"}
 	if remove {
-		if err := procutils.NewRemoteCommandAsFarAsPossible("rmmod", name).Run(); err != nil {
-			log.Errorf("rmmod failed %s: %s", name, err)
-		}
+		params = append(params, "-r")
 	}
 	params = append(params, name)
 	if nest {
@@ -127,10 +125,12 @@ func detectNestSupport() string {
 	nestStatus := HOST_NEST_UNSUPPORT
 
 	if moduleName != KVM_MODULE_UNSUPPORT && isNestSupport(moduleName) {
+		log.Infof("Host is support kvm nest ...")
 		nestStatus = HOST_NEST_SUPPORT
 	}
 
 	if nestStatus == HOST_NEST_SUPPORT && loadKvmModuleWithNest(moduleName) {
+		log.Infof("Host kvm nest is enabled ...")
 		nestStatus = HOST_NEST_ENABLE
 	}
 	return nestStatus
