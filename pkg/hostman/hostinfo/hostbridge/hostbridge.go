@@ -201,6 +201,9 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	}
 	if d.inter != nil {
 		ifname := d.inter.String()
+		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
+			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
+		}
 		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
 			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
 		}
@@ -210,9 +213,6 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 
 func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 	for _, slaveAddr := range slaveAddrs {
-		if err := iproute2.NewAddress(d.inter.String()).Exact().Err(); err != nil {
-			return errors.Wrap(err, "remove address on slave interface")
-		}
 		addr := fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
 		if err := iproute2.NewAddress(d.bridge.String(), addr).Add().Err(); err != nil {
 			return errors.Wrap(err, "move address to bridge interface")
