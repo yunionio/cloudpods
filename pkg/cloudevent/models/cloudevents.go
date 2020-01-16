@@ -101,6 +101,13 @@ func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.In("provider", input.Providers)
 	}
 
+	if !input.Since.IsZero() {
+		q = q.GT("created_at", input.Since)
+	}
+	if !input.Until.IsZero() {
+		q = q.LE("created_at", input.Until)
+	}
+
 	return q, nil
 }
 

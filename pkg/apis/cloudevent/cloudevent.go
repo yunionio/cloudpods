@@ -15,6 +15,8 @@
 package cloudevent
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -23,4 +25,7 @@ type CloudeventListInput struct {
 	apis.VirtualResourceListInput
 
 	compute.ManagedResourceListInput
+
+	Since time.Time
+	Until time.Time
 }
