@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type IBridgeDriver interface {
@@ -228,17 +227,14 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 }
 
 func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
-	for _, r := range routes {
-		var cmd []string
-		if r[2] == "0.0.0.0" {
-			cmd = []string{"route", "add", "default", "gw", r[1], "dev", d.bridge.String()}
-		} else {
-			cmd = []string{"route", "add", "-net", r[0], "netmask", r[2], "gw", r[1], "dev", d.bridge.String()}
-		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			log.Errorln(err)
-			return fmt.Errorf("Failed to add slave address to bridge %s", d.bridge)
-		}
+	br := d.bridge.String()
+	r := iproute2.NewRoute(br)
+	for _, route := range routes {
+		netStr, maskStr, gwStr := route[0], route[2], route[1]
+		r.Add(netStr, maskStr, gwStr)
+	}
+	if err := r.Err(); err != nil {
+		return errors.Wrapf(err, "set routes on %s", br)
 	}
 	return nil
 }
