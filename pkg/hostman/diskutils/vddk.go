@@ -140,7 +140,8 @@ func (vd *VDDKDisk) Disconnect() bool {
 }
 
 func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
-	if err := vd.Mount(); err == nil {
+	var err error
+	if err = vd.Mount(); err == nil {
 		for _, mntPath := range vd.PartDirs {
 			part := newVDDKPartition(mntPath)
 			if fs := guestfs.DetectRootFs(part); fs != nil {
@@ -149,6 +150,11 @@ func (vd *VDDKDisk) MountRootfs() fsdriver.IRootFsDriver {
 			}
 		}
 	}
+	if err != nil {
+		log.Errorf("VDDKDisk Mount failed: %s", err)
+	}
+	// something is wrong
+	vd.UmountRootfs(nil)
 	return nil
 }
 
