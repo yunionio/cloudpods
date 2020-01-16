@@ -177,7 +177,7 @@ func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 	return networks, err
 }
 
-func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
+func (self *SRegion) getNetwork(subnetId string) (*SNetwork, error) {
 	querys := map[string]string{
 		"subnetId": subnetId,
 		"regionId": self.GetId(),
@@ -185,13 +185,22 @@ func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
 
 	resp, err := self.client.DoGet("/apiproxy/v3/querySubnetDetail", querys)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNetwork.DoGet")
+		return nil, errors.Wrap(err, "SRegion.getNetwork.DoGet")
 	}
 
 	network := &SNetwork{}
 	err = resp.Unmarshal(network, "returnObj")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetNetwork.Unmarshal")
+		return nil, errors.Wrap(err, "SRegion.getNetwork.Unmarshal")
+	}
+
+	return network, nil
+}
+
+func (self *SRegion) GetNetwork(subnetId string) (*SNetwork, error) {
+	network, err := self.getNetwork(subnetId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetNetwork.getNetwork")
 	}
 
 	vpc, err := self.GetVpc(network.VpcID)
