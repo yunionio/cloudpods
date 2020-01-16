@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type IBridgeDriver interface {
@@ -193,14 +192,21 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 			return errors.Wrapf(err, "set bridge %s address", br)
 		}
 	}
-	if options.HostOptions.TunnelPaddingBytes > 0 {
-		mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
-		if err := iproute2.NewLink(br).MTU(mtu).Err(); err != nil {
-			return errors.Wrapf(err, "setting bridge %s mtu %d", br, mtu)
+	{
+		brLink := iproute2.NewLink(br).Up()
+		if options.HostOptions.TunnelPaddingBytes > 0 {
+			mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
+			brLink.MTU(mtu)
+		}
+		if err := brLink.Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s up", br)
 		}
 	}
 	if d.inter != nil {
 		ifname := d.inter.String()
+		if err := iproute2.NewAddress(ifname).Exact().Err(); err != nil {
+			return errors.Wrapf(err, "remove addresses on slave ifname: %s", ifname)
+		}
 		if err := iproute2.NewLink(ifname).Up().Err(); err != nil {
 			return errors.Wrapf(err, "setting bridge %s ifname %s up", br, ifname)
 		}
@@ -209,30 +215,26 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 }
 
 func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
-	for _, slaveAddr := range slaveAddrs {
-		if err := iproute2.NewAddress(d.inter.String()).Exact().Err(); err != nil {
-			return errors.Wrap(err, "remove address on slave interface")
-		}
-		addr := fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
-		if err := iproute2.NewAddress(d.bridge.String(), addr).Add().Err(); err != nil {
-			return errors.Wrap(err, "move address to bridge interface")
-		}
+	br := d.bridge.String()
+	addrs := make([]string, len(slaveAddrs))
+	for i, slaveAddr := range slaveAddrs {
+		addrs[i] = fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+	}
+	if err := iproute2.NewAddress(br, addrs...).Add().Err(); err != nil {
+		return errors.Wrap(err, "move secondary addresses to bridge interface")
 	}
 	return nil
 }
 
 func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
-	for _, r := range routes {
-		var cmd []string
-		if r[2] == "0.0.0.0" {
-			cmd = []string{"route", "add", "default", "gw", r[1], "dev", d.bridge.String()}
-		} else {
-			cmd = []string{"route", "add", "-net", r[0], "netmask", r[2], "gw", r[1], "dev", d.bridge.String()}
-		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
-			log.Errorln(err)
-			return fmt.Errorf("Failed to add slave address to bridge %s", d.bridge)
-		}
+	br := d.bridge.String()
+	r := iproute2.NewRoute(br)
+	for _, route := range routes {
+		netStr, maskStr, gwStr := route[0], route[2], route[1]
+		r.Add(netStr, maskStr, gwStr)
+	}
+	if err := r.Err(); err != nil {
+		return errors.Wrapf(err, "set routes on %s", br)
 	}
 	return nil
 }

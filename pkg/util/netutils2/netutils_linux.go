@@ -30,6 +30,30 @@ func (n *SNetInterface) GetAddresses() [][]string {
 	return r
 }
 
+func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
+	rs, err := iproute2.NewRoute(n.name).List4()
+	if err != nil {
+		return nil
+	}
+
+	res := [][]string{}
+	for i := range rs {
+		r := &rs[i]
+		ok := true
+		if masklen, _ := r.Dst.Mask.Size(); gwOnly && masklen != 0 {
+			ok = false
+		}
+		if ok {
+			res = append(res, []string{
+				r.Dst.IP.String(),
+				r.Gw.String(),
+				net.IP(r.Dst.Mask).String(),
+			})
+		}
+	}
+	return res
+}
+
 func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
 	destIp := net.ParseIP("114.114.114.114")
 	routes, err := netlink.RouteGet(destIp)
