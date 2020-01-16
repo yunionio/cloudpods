@@ -127,6 +127,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.HuaweiCachedLbbgManager,
 		models.AwsCachedLbManager,
 		models.AwsCachedLbbgManager,
+		models.QcloudCachedLbManager,
+		models.QcloudCachedLbbgManager,
 		models.RouteTableManager,
 
 		models.SchedpolicyManager,

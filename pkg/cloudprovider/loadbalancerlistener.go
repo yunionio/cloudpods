@@ -70,4 +70,18 @@ type SLoadbalancerListenerRule struct {
 	BackendGroupType string
 
 	Condition string // for aws only
+
+	Scheduler           string // for qcloud only
+	HealthCheck         string // for qcloud only
+	HealthCheckType     string // for qcloud only
+	HealthCheckTimeout  int    // for qcloud only
+	HealthCheckDomain   string // for qcloud only
+	HealthCheckHttpCode string // for qcloud only
+	HealthCheckURI      string // for qcloud only
+	HealthCheckInterval int    // for qcloud only
+
+	HealthCheckRise int // for qcloud only
+	HealthCheckFail int // for qcloud only
+
+	StickySessionCookieTimeout int // for qcloud only
 }
