@@ -680,7 +680,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	if len(cdromPath) != 0 && !strings.HasPrefix(cdromPath, "[") {
 		cdromPath, err = self.FileUrlPathToDsPath(cdromPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath", cdromPath)
+			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
 		}
 	}
 	deviceChange = append(deviceChange, addDevSpec(NewCDROMDev(cdromPath, 16000, 201)))
@@ -702,7 +702,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		} else {
 			imagePath, err = self.FileUrlPathToDsPath(imagePath)
 			if err != nil {
-				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath", imagePath)
+				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath")
 			}
 		}
 		uuid, _ := disk.GetString("disk_id")
