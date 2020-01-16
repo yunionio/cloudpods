@@ -193,10 +193,14 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 			return errors.Wrapf(err, "set bridge %s address", br)
 		}
 	}
-	if options.HostOptions.TunnelPaddingBytes > 0 {
-		mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
-		if err := iproute2.NewLink(br).MTU(mtu).Err(); err != nil {
-			return errors.Wrapf(err, "setting bridge %s mtu %d", br, mtu)
+	{
+		brLink := iproute2.NewLink(br).Up()
+		if options.HostOptions.TunnelPaddingBytes > 0 {
+			mtu := 1500 + int(options.HostOptions.TunnelPaddingBytes)
+			brLink.MTU(mtu)
+		}
+		if err := brLink.Err(); err != nil {
+			return errors.Wrapf(err, "setting bridge %s up", br)
 		}
 	}
 	if d.inter != nil {
