@@ -1327,7 +1327,13 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 	return nil
 }
 
-func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+func (self *SAwsRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	lbbg := lblis.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		err := fmt.Errorf("failed to find lbbg for lblis %s", lblis.Name)
+		return errors.Wrap(err, "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancerBackendGroup")
+	}
+
 	lb := lblis.GetLoadbalancer()
 	if lb == nil {
 		return errors.Wrap(fmt.Errorf("listener %s related loadbalancer not found", lblis.GetId()), "AwsRegionDriver.RequestSyncLoadbalancerBackendGroup.GetLoadbalancer")

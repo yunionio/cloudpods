@@ -29,7 +29,7 @@ import (
 
 type SLBBackendGroup struct {
 	lb       *SLoadbalancer   // 必须不能为nil
-	listener *SLBListener     // 必须不能为nil
+	listener *SLBListener     // 可能为nil
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
 }
 
@@ -57,6 +57,14 @@ func (self *SLBBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerSti
 	return nil, nil
 }
 
+func (self *SLBBackendGroup) GetListenerId() string {
+	if self.listener != nil {
+		return self.listener.GetId()
+	}
+
+	return ""
+}
+
 // 返回requestid
 func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
 	if len(serverId) == 0 {
@@ -65,7 +73,7 @@ func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, 
 
 	params := map[string]string{
 		"LoadBalancerId":       self.lb.GetId(),
-		"ListenerId":           self.listener.GetId(),
+		"ListenerId":           self.GetListenerId(),
 		"Targets.0.InstanceId": serverId,
 		"Targets.0.Port":       strconv.Itoa(port),
 		"Targets.0.Weight":     strconv.Itoa(weight),
@@ -91,7 +99,7 @@ func (self *SLBBackendGroup) appLBSeventhBackendServer(action string, serverId s
 
 	params := map[string]string{
 		"loadBalancerId":        self.lb.GetId(),
-		"listenerId":            self.listener.GetId(),
+		"listenerId":            self.GetListenerId(),
 		"backends.0.InstanceId": serverId,
 		"backends.0.Port":       strconv.Itoa(port),
 		"backends.0.Weight":     strconv.Itoa(weight),
@@ -117,7 +125,7 @@ func (self *SLBBackendGroup) updateBackendServerWeight(action string, serverId s
 
 	params := map[string]string{
 		"LoadBalancerId":       self.lb.GetId(),
-		"ListenerId":           self.listener.GetId(),
+		"ListenerId":           self.GetListenerId(),
 		"Targets.0.InstanceId": serverId,
 		"Targets.0.Port":       strconv.Itoa(port),
 		"Targets.0.Weight":     strconv.Itoa(weight),
@@ -143,7 +151,7 @@ func (self *SLBBackendGroup) updateBackendServerPort(action string, serverId str
 
 	params := map[string]string{
 		"LoadBalancerId":       self.lb.GetId(),
-		"ListenerId":           self.listener.GetId(),
+		"ListenerId":           self.GetListenerId(),
 		"Targets.0.InstanceId": serverId,
 		"Targets.0.Port":       strconv.Itoa(oldPort),
 		"NewPort":              strconv.Itoa(newPort),
@@ -221,8 +229,12 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 // https://cloud.tencent.com/document/product/214/30687
 // https://cloud.tencent.com/document/product/214/31794
 func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
+	_, err := self.lb.region.GetInstance(serverId)
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	}
+
 	var requestId string
-	var err error
 	if self.lb.Forward == LB_TYPE_APPLICATION {
 		requestId, err = self.appLBBackendServer("DeregisterTargets", serverId, weight, port)
 	} else {
@@ -298,19 +310,23 @@ func (self *SLBBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup
 
 func backendGroupIdGen(lbid string, secondId string) string {
 	if len(secondId) > 0 {
-		return fmt.Sprintf("%s/%s", lbid, secondId)
+		return fmt.Sprintf("%s", secondId)
 	} else {
 		return lbid
 	}
 }
 
 func (self *SLBBackendGroup) GetId() string {
-	t := self.listener.GetListenerType()
+	t := ""
+	if self.listener != nil {
+		t = self.listener.GetListenerType()
+	}
+
 	if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
 		// http https 后端服务器只与规则绑定
 		return backendGroupIdGen(self.lb.GetId(), self.rule.GetId())
 	} else if self.lb.Forward == LB_TYPE_APPLICATION {
-		return backendGroupIdGen(self.lb.GetId(), self.listener.GetId())
+		return backendGroupIdGen(self.lb.GetId(), self.GetListenerId())
 	} else {
 		// 传统型lb 所有监听共用一个后端服务器组
 		return backendGroupIdGen(self.lb.GetId(), "")
@@ -383,13 +399,13 @@ func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
 	var err error
 	if self.rule != nil {
 		// http、https监听
-		backends, err = self.lb.region.GetLBBackends(self.lb.Forward, self.lb.GetId(), self.listener.GetId(), self.rule.GetId())
+		backends, err = self.lb.region.GetLBBackends(self.lb.Forward, self.lb.GetId(), self.GetListenerId(), self.rule.GetId())
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// tcp,udp,tcp_ssl监听
-		backends, err = self.lb.region.GetLBBackends(self.lb.Forward, self.lb.GetId(), self.listener.GetId(), "")
+		backends, err = self.lb.region.GetLBBackends(self.lb.Forward, self.lb.GetId(), self.GetListenerId(), "")
 		if err != nil {
 			return nil, err
 		}
