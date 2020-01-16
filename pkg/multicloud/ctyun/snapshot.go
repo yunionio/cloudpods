@@ -15,12 +15,13 @@
 package ctyun
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SSnapshot struct {
@@ -111,7 +112,12 @@ func (self *SSnapshot) GetDiskType() string {
 }
 
 func (self *SSnapshot) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	_, err := self.region.DeleteSnapshot(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "Snapshot.Delete.DeleteSnapshot")
+	}
+
+	return nil
 }
 
 func (self *SRegion) GetSnapshot(diskId string, snapshotId string) (*SSnapshot, error) {
@@ -156,4 +162,31 @@ func (self *SRegion) GetSnapshots(diskId string) ([]SSnapshot, error) {
 	}
 
 	return ret, nil
+}
+
+func (self *SRegion) DeleteSnapshot(vbsId string) (string, error) {
+	params := map[string]jsonutils.JSONObject{
+		"regionId": jsonutils.NewString(self.GetId()),
+		"vbsId":    jsonutils.NewString(vbsId),
+	}
+
+	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/deleteVBS", params)
+	if err != nil {
+		return "", errors.Wrap(err, "SRegion.DeleteSnapshot.DoPost")
+	}
+
+	var ok bool
+	err = resp.Unmarshal(&ok, "returnObj", "status")
+	if !ok {
+		msg, _ := resp.GetString("message")
+		return "", fmt.Errorf("SRegion.DeleteSnapshot.JobFailed %s", msg)
+	}
+
+	var jobId string
+	err = resp.Unmarshal(&jobId, "returnObj", "data")
+	if err != nil {
+		return "", errors.Wrap(err, "SRegion.DeleteSnapshot.Unmarshal")
+	}
+
+	return jobId, nil
 }

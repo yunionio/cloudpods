@@ -634,6 +634,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			if errors.Cause(err) == cloudprovider.ErrNotFound {
 				return nil, nil
 			}
+
 			log.Errorf("ihost.GetIVMById fail %s", err)
 			return nil, err
 		}

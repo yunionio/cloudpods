@@ -16,9 +16,11 @@ package ctyun
 
 import (
 	"fmt"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -121,7 +123,12 @@ func (self *SStorage) GetEnabled() bool {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	disk, err := self.zone.region.CreateDisk(self.zone.GetId(), self.GetName(), self.GetStorageType(), strconv.Itoa(sizeGb))
+	if err != nil {
+		return nil, errors.Wrap(err, "Storage.CreateIDisk.CreateDisk")
+	}
+
+	return disk, nil
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
