@@ -24,6 +24,9 @@ func init() {
 
 	type CloudeventListOptions struct {
 		options.BaseListOptions
+
+		Since string `help:"since time"`
+		Until string `hlep:"until time"`
 	}
 	R(&CloudeventListOptions{}, "cloud-event-list", "List cloud events", func(s *mcclient.ClientSession, opts *CloudeventListOptions) error {
 		params, err := options.ListStructToParams(opts)
