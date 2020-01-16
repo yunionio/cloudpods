@@ -51,7 +51,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	if len(eip.ExternalId) > 0 {
 		expEip, err := eip.GetIEip()
 		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotFound && err != cloudprovider.ErrInvalidProvider {
+			if errors.Cause(err) != cloudprovider.ErrNotFound && errors.Cause(err) != cloudprovider.ErrInvalidProvider {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 				self.taskFail(ctx, eip, msg)
 				return
