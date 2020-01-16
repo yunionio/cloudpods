@@ -141,42 +141,14 @@ func (h *SHostInfo) Init() error {
 }
 
 func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
-	output, err := procutils.NewCommand("ip", "route", "get", "1").Output()
+	netIp, dev, err := netutils2.DefaultSrcIpDev()
 	if err != nil {
-		return "", errors.Wrap(err, "ip route get")
-	}
-	lines := strings.Split(string(output), "\n")
-	if len(lines) == 0 {
-		return "", fmt.Errorf("can't find local ip address")
-	}
-	fields := strings.Fields(lines[0])
-	if len(fields) != 7 {
-		return "", fmt.Errorf("failed to parse output %v", lines)
-	}
-	ip := fields[len(fields)-1]
-	log.Infof("found ip address %s", ip)
-	netIp := net.ParseIP(strings.TrimSpace(ip))
-	if netIp == nil {
-		return "", fmt.Errorf("failed to parse found ip address %s", ip)
-	}
-	if netIp.To4() == nil {
-		return "", fmt.Errorf("not support ipv6 address %s", ip)
-	}
-	dev := fields[len(fields)-3]
-	log.Infof("found net dev %s", dev)
-	_, err = net.InterfaceByName(dev)
-	if err != nil {
-		return "", errors.Wrap(err, "interface by name")
-	}
-	// not a physical device or bond device
-	if !fileutils2.Exists(path.Join("/sys/class/net", dev, "device")) &&
-		!fileutils2.Exists(path.Join("/proc/net/bonding", dev)) {
-		return "", errors.Errorf("found dev %s not a physical device or bond device", dev)
+		return "", errors.Wrap(err, "find default source address & device")
 	}
 
 	// test if dev is port of bridge
 	var bridgeName string
-	output, err = procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
+	output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
 	if err != nil && !strings.Contains(string(output), "no port named") {
 		return "", errors.Wrapf(err, "port to br failed %s", output)
 	} else if err == nil {
@@ -196,7 +168,7 @@ func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
 	}
 
 	log.Infof("bridge name %s", bridgeName)
-	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, ip), nil
+	return fmt.Sprintf("%s/%s/%s", dev, bridgeName, netIp), nil
 }
 
 func (h *SHostInfo) parseConfig() error {

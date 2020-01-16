@@ -109,6 +109,8 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
 	github.com/ugorji/go v0.0.0-20161130061742-9c7f9b7a2bc3 // indirect
+	github.com/vishvananda/netlink v1.0.0
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	github.com/vmware/govmomi v0.19.0
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738

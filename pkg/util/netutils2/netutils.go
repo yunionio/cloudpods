@@ -24,6 +24,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/vishvananda/netlink"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -31,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/iproute2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -79,6 +82,38 @@ func MyIP() (ip string, err error) {
 		return
 	}
 	ip = addr.IP.String()
+	return
+}
+
+func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
+	destIp := net.ParseIP("114.114.114.114")
+	routes, err := netlink.RouteGet(destIp)
+	if err != nil {
+		err = errors.Wrap(err, "get route")
+		return
+	}
+	if len(routes) == 0 {
+		err = fmt.Errorf("no route")
+		return
+	}
+	var errs []error
+	for i := range routes {
+		route := &routes[i]
+		ip4 := route.Src.To4()
+		if len(ip4) != 4 || ip4.Equal(net.IPv4zero) {
+			errs = append(errs, fmt.Errorf("bad src ipv4 address: %s", ip4))
+			continue
+		}
+		link, err2 := netlink.LinkByIndex(route.LinkIndex)
+		if err2 != nil {
+			errs = append(errs, errors.Wrap(err2, "link by index"))
+			continue
+		}
+		srcIp = ip4
+		ifname = link.Attrs().Name
+		return
+	}
+	err = errors.NewAggregate(errs)
 	return
 }
 
@@ -268,9 +303,12 @@ type SNetInterface struct {
 	Mtu int
 }
 
-var SECRET_PREFIX = "169.254"
-var SECRET_MASK = []byte{255, 255, 255, 255}
-var secretInterfaceIndex = 254
+var (
+	SECRET_PREFIX        = "169.254"
+	SECRET_MASK          = []byte{255, 255, 255, 255}
+	SECRET_MASK_LEN      = 32
+	secretInterfaceIndex = 254
+)
 
 func NewNetInterface(name string) *SNetInterface {
 	n := new(SNetInterface)
@@ -361,10 +399,10 @@ func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
 	}
 }
 
-func GetSecretInterfaceAddress() (string, []byte) {
+func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
 	secretInterfaceIndex -= 1
-	return addr, SECRET_MASK
+	return addr, SECRET_MASK_LEN
 }
 
 func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
@@ -389,25 +427,22 @@ func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
 	return res
 }
 
-func (n *SNetInterface) getAddresses(output []string) [][]string {
-	var addrs = make([][]string, 0)
-	re := regexp.MustCompile(`inet (?P<addr>[0-9.]+)/(?P<mask>[0-9]+) `)
-	for _, line := range output {
-		m := regutils2.GetParams(re, line)
-		if len(m) > 0 {
-			addrs = append(addrs, []string{m["addr"], m["mask"]})
-		}
-	}
-	return addrs
-}
-
 func (n *SNetInterface) GetAddresses() [][]string {
-	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Output()
+	ipnets, err := iproute2.NewAddress(n.name).List4()
 	if err != nil {
-		log.Errorln(err)
+		log.Errorf("list address %s: %v", n.name, err)
 		return nil
 	}
-	return n.getAddresses(strings.Split(string(output), "\n"))
+	r := make([][]string, len(ipnets))
+	for i, ipnet := range ipnets {
+		ip := ipnet.IP
+		masklen, _ := ipnet.Mask.Size()
+		r[i] = []string{
+			ip.String(),
+			fmt.Sprintf("%d", masklen),
+		}
+	}
+	return r
 }
 
 func (n *SNetInterface) GetSlaveAddresses() [][]string {
