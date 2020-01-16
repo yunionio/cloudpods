@@ -188,7 +188,7 @@ func (self *SRegion) getVMs(vmId string) ([]SInstance, error) {
 	}
 
 	for i := range ret {
-		izone, err := self.GetIZoneById(ret[i].OSEXTAZAvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, ret[i].OSEXTAZAvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.getVMs.GetIZoneById")
 		}
@@ -214,7 +214,7 @@ func (self *SRegion) GetVMById(vmId string) (*SInstance, error) {
 	if len(vms) == 0 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVMById")
 	} else if len(vms) == 1 {
-		izone, err := self.GetIZoneById(vms[0].OSEXTAZAvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, vms[0].OSEXTAZAvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.GetVMById.GetIZoneById")
 		}

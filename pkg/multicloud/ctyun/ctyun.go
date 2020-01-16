@@ -204,7 +204,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		_, jsonResp, err := httputils.ParseJSONResponse(resp, err, client.debug)
 		if err == nil {
 			if code, _ := jsonResp.Int("statusCode"); code != 800 {
-				if strings.Contains(jsonResp.String(), "itemNotFound") {
+				if strings.Contains(jsonResp.String(), "NotFound") {
 					return nil, cloudprovider.ErrNotFound
 				}
 
