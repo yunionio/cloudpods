@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -50,7 +51,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	if len(eip.ExternalId) > 0 {
 		expEip, err := eip.GetIEip()
 		if err != nil {
-			if err != cloudprovider.ErrNotFound && err != cloudprovider.ErrInvalidProvider {
+			if errors.Cause(err) != cloudprovider.ErrNotFound && err != cloudprovider.ErrInvalidProvider {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 				self.taskFail(ctx, eip, msg)
 				return

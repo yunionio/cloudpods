@@ -331,7 +331,7 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 	}
 
 	for i := range disks {
-		izone, err := self.GetIZoneById(disks[i].AvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, disks[i].AvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.GetDisk.GetIZoneById")
 		}
@@ -353,7 +353,7 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 
 	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVolumes", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "Region.GetDisks.DoGet")
+		return nil, errors.Wrap(err, "Region.GetDisk.DoGet")
 	}
 
 	disks := make([]SDisk, 0)
@@ -365,7 +365,7 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(disks) == 0 {
 		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetDisk")
 	} else if len(disks) == 1 {
-		izone, err := self.GetIZoneById(disks[0].AvailabilityZone)
+		izone, err := self.GetIZoneById(getZoneGlobalId(self, disks[0].AvailabilityZone))
 		if err != nil {
 			return nil, errors.Wrap(err, "SRegion.GetDisk.GetIZoneById")
 		}

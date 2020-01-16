@@ -15,6 +15,8 @@
 package ctyun
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -35,6 +37,10 @@ type SZone struct {
 	ZoneType string `json:"zoneType"`
 }
 
+func getZoneGlobalId(region *SRegion, zoneId string) string {
+	return fmt.Sprintf("%s/%s", region.GetGlobalId(), zoneId)
+}
+
 func (self *SZone) addWire(wire *SWire) {
 	if self.iwires == nil {
 		self.iwires = make([]cloudprovider.ICloudWire, 0)
@@ -51,7 +57,7 @@ func (self *SZone) GetName() string {
 }
 
 func (self *SZone) GetGlobalId() string {
-	return self.GetId()
+	return getZoneGlobalId(self.region, self.GetId())
 }
 
 func (self *SZone) GetStatus() string {

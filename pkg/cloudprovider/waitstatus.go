@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeout time.Duration) error {
@@ -66,7 +67,7 @@ func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Durati
 	for time.Now().Sub(startTime) < timeout {
 		err := res.Refresh()
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Cause(err) == ErrNotFound {
 				return nil
 			} else {
 				return err

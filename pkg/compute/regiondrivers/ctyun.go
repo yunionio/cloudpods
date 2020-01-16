@@ -49,3 +49,7 @@ func (self *SCtyunRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Co
 func (self *SCtyunRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
 }
+
+func (self *SCtyunRegionDriver) IsSecurityGroupBelongVpc() bool {
+	return true
+}
