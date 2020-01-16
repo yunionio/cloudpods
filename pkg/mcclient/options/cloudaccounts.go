@@ -215,6 +215,11 @@ type SCtyunCloudAccountUpdateCredentialOptions struct {
 	SAccessKeyCredential
 }
 
+type SGoogleCloudAccountUpdateCredentialOptions struct {
+	SCloudAccountUpdateCredentialBaseOptions
+	GoogleJsonFile string `help:"Google auth json file" positional:"true"`
+}
+
 // update
 
 type SCloudAccountUpdateBaseOptions struct {

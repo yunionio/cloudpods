@@ -324,7 +324,7 @@ func (self *SClassicInstance) DeployVM(ctx context.Context, name string, usernam
 	//return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SClassicInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SClassicInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 	//return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
 }

@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SSnapshot struct {
@@ -106,7 +105,7 @@ func (snapshot *SSnapshot) GetDiskType() string {
 }
 
 func (snapshot *SSnapshot) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return snapshot.region.Delete(snapshot.SelfLink)
 }
 
 func (snapshot *SSnapshot) GetProjectId() string {

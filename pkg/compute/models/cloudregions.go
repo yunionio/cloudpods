@@ -725,6 +725,12 @@ func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
+func (self *SCloudregion) SyncVpcs(ctx context.Context, userCred mcclient.TokenCredential, iregion cloudprovider.ICloudRegion, provider *SCloudprovider) error {
+	syncResults, syncRange := SSyncResultSet{}, &SSyncRange{}
+	syncRegionVPCs(ctx, userCred, syncResults, provider, self, iregion, syncRange)
+	return nil
+}
+
 func (self *SCloudregion) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }

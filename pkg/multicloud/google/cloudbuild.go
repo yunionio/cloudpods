@@ -12,18 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package google
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import "yunion.io/x/pkg/errors"
 
-type SInstanceBase struct {
-	SResourceBase
+type SCloudbuildBuild struct {
+	Id     string
+	Status string
+	LogUrl string
 }
 
-func (instance *SInstanceBase) GetIHostId() string {
-	return ""
+type SCloudbuildMetadata struct {
+	Build SCloudbuildBuild
 }
 
-func (instance *SInstanceBase) GetSerialOutput(port int) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+type SCloudbuildOperation struct {
+	Name     string
+	Metadata SCloudbuildMetadata
+}
+
+func (region *SRegion) GetCloudbuildOperation(name string) (*SCloudbuildOperation, error) {
+	operation := SCloudbuildOperation{}
+	err := region.cloudbuildGet(name, &operation)
+	if err != nil {
+		return nil, errors.Wrap(err, "region.cloudbuildGet")
+	}
+	return &operation, nil
 }

@@ -258,6 +258,8 @@ type ICloudVM interface {
 	// GetStatus() string
 	// GetRemoteStatus() string
 
+	GetSerialOutput(port int) (string, error) // 目前仅谷歌云windows机器会使用到此接口
+
 	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
 	GetBootOrder() string
@@ -285,7 +287,7 @@ type ICloudVM interface {
 
 	UpdateUserData(userData string) error
 
-	RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error)
+	RebuildRoot(ctx context.Context, config *SManagedVMRebuildRootConfig) (string, error)
 
 	DeployVM(ctx context.Context, name string, username string, password string, publicKey string, deleteKeypair bool, description string) error
 

@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package shell
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"yunion.io/x/onecloud/pkg/multicloud/google"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
 
-type SInstanceBase struct {
-	SResourceBase
-}
+func init() {
+	type CloudbuildOperationShowOptions struct {
+		NAME string
+	}
 
-func (instance *SInstanceBase) GetIHostId() string {
-	return ""
-}
-
-func (instance *SInstanceBase) GetSerialOutput(port int) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	shellutils.R(&CloudbuildOperationShowOptions{}, "cloud-build-operation-show", "Show cloudbuild operation", func(cli *google.SRegion, args *CloudbuildOperationShowOptions) error {
+		operation, err := cli.GetCloudbuildOperation(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(operation)
+		return nil
+	})
 }

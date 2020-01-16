@@ -203,6 +203,14 @@ func (self *SBaseRegionDriver) RequestBingToNatgateway(ctx context.Context, task
 	return fmt.Errorf("Not implement RequestBindIPToNatgateway")
 }
 
+func (self *SBaseRegionDriver) RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	return fmt.Errorf("Not implement RequestCreateVpc")
+}
+
+func (self *SBaseRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	return fmt.Errorf("Not implement RequestDeleteVpc")
+}
+
 func (self *SBaseRegionDriver) RequestCacheSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, secgroup *models.SSecurityGroup, classic bool, task taskman.ITask) error {
 	return fmt.Errorf("Not Implemented RequestCacheSecurityGroup")
 }
