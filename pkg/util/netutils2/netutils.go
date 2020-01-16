@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -32,7 +31,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 var PSEUDO_VIP = "169.254.169.231"
@@ -368,28 +366,6 @@ func GetSecretInterfaceAddress() (string, int) {
 	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
 	secretInterfaceIndex -= 1
 	return addr, SECRET_MASK_LEN
-}
-
-func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
-	output, err := procutils.NewCommand("route", "-n").Output()
-	if err != nil {
-		return nil
-	}
-	return n.getRoutes(gwOnly, strings.Split(string(output), "\n"))
-}
-
-func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
-	re := regexp.MustCompile(`(?P<dest>[0-9.]+)\s+(?P<gw>[0-9.]+)\s+(?P<mask>[0-9.]+)` +
-		`\s+[A-Z!]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+` + n.name)
-
-	var res [][]string = make([][]string, 0)
-	for _, line := range outputs {
-		m := regutils2.GetParams(re, line)
-		if len(m) > 0 && (!gwOnly || m["gw"] != "0.0.0.0") {
-			res = append(res, []string{m["dest"], m["gw"], m["mask"]})
-		}
-	}
-	return res
 }
 
 func (n *SNetInterface) GetSlaveAddresses() [][]string {
