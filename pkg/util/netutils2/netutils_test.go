@@ -15,25 +15,8 @@
 package netutils2
 
 import (
-	"reflect"
 	"testing"
 )
-
-func TestSNetInterface_getRoutes(t *testing.T) {
-	n := SNetInterface{name: "br0"}
-	routes := []string{"Kernel IP routing table",
-		"Destination     Gateway         Genmask         Flags Metric Ref    Use Iface",
-		"0.0.0.0         10.168.222.1    0.0.0.0         UG    0      0        0 br0",
-		"10.168.222.0    0.0.0.0         255.255.255.0   U     0      0        0 br0",
-		"169.254.169.254 10.168.222.1    255.255.255.255 UGH   0      0        0 br0",
-		""}
-
-	want := [][]string{{"0.0.0.0", "10.168.222.1", "0.0.0.0"}, {"169.254.169.254", "10.168.222.1", "255.255.255.255"}}
-
-	if got := n.getRoutes(true, routes); !reflect.DeepEqual(got, want) {
-		t.Errorf("getParams() = %v, want %v", got, want)
-	}
-}
 
 func TestNetlen2Mask(t *testing.T) {
 	type args struct {
