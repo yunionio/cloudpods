@@ -55,8 +55,7 @@ func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
 }
 
 func DefaultSrcIpDev() (srcIp net.IP, ifname string, err error) {
-	destIp := net.ParseIP("114.114.114.114")
-	routes, err := netlink.RouteGet(destIp)
+	routes, err := iproute2.RouteGetByDst("114.114.114.114")
 	if err != nil {
 		err = errors.Wrap(err, "get route")
 		return
