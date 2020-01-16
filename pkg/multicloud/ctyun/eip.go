@@ -148,8 +148,30 @@ func (self *SEip) GetAssociationType() string {
 	return ""
 }
 
+// eip查询接口未返回 绑定的实例ID/网卡port id。导致不能正常找出关联的主机
 func (self *SEip) GetAssociationExternalId() string {
-	return self.WorkOrderResourceID
+	vms, err := self.region.GetVMs()
+	if err != nil {
+		log.Errorf("SEip.GetAssociationExternalId.GetVMs %s", err)
+		return ""
+	}
+
+	for i := range vms {
+		vm := vms[i]
+		nics, err := self.region.GetNics(vm.GetId())
+		if err != nil {
+			log.Errorf("SEip.GetAssociationExternalId.GetNics %s", err)
+			return ""
+		}
+
+		for _, nic := range nics {
+			if nic.PortID == self.PortID {
+				return vm.GetGlobalId()
+			}
+		}
+	}
+
+	return ""
 }
 
 // http://ctyun-api-url/apiproxy/v3/queryNetworkDetail
