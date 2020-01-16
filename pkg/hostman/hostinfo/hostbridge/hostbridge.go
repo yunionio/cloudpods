@@ -216,11 +216,13 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 }
 
 func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
-	for _, slaveAddr := range slaveAddrs {
-		addr := fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
-		if err := iproute2.NewAddress(d.bridge.String(), addr).Add().Err(); err != nil {
-			return errors.Wrap(err, "move address to bridge interface")
-		}
+	br := d.bridge.String()
+	addrs := make([]string, len(slaveAddrs))
+	for i, slaveAddr := range slaveAddrs {
+		addrs[i] = fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1])
+	}
+	if err := iproute2.NewAddress(br, addrs...).Add().Err(); err != nil {
+		return errors.Wrap(err, "move secondary addresses to bridge interface")
 	}
 	return nil
 }
