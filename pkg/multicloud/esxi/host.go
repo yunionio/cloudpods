@@ -680,7 +680,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 	if len(cdromPath) != 0 && !strings.HasPrefix(cdromPath, "[") {
 		cdromPath, err = self.FileUrlPathToDsPath(cdromPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for cdrom path '%s'", cdromPath)
+			return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath", cdromPath)
 		}
 	}
 	deviceChange = append(deviceChange, addDevSpec(NewCDROMDev(cdromPath, 16000, 201)))
@@ -702,7 +702,7 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 		} else {
 			imagePath, err = self.FileUrlPathToDsPath(imagePath)
 			if err != nil {
-				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath for image path '%s'", imagePath)
+				return nil, errors.Wrapf(err, "SHost.FileUrlPathToDsPath", imagePath)
 			}
 		}
 		uuid, _ := disk.GetString("disk_id")
@@ -928,10 +928,14 @@ func (host *SHost) FileUrlPathToDsPath(path string) (string, error) {
 	}
 	for _, ds := range dss {
 		rds := ds.(*SDatastore)
+		log.Debugf("rds: %s", rds.GetUrl())
 		if strings.HasPrefix(path, rds.GetUrl()) {
 			newPath = fmt.Sprintf("[%s] %s", rds.GetRelName(), path[len(rds.GetUrl()):])
+			break
 		}
-		break
+	}
+	if len(newPath) == 0 {
+		return newPath, fmt.Errorf("path '%s' don't belong any datastore of host '%s'", path, host.GetName())
 	}
 	return newPath, nil
 }

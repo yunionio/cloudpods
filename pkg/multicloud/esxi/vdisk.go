@@ -203,7 +203,7 @@ func (disk *SVirtualDisk) GetAccessPath() string {
 		return ""
 	}
 	ds := istore.(*SDatastore)
-	return ds.getFullPath(disk.getBackingInfo().GetFileName())
+	return ds.GetFullPath(disk.getBackingInfo().GetFileName())
 }
 
 func (disk *SVirtualDisk) GetDiskFormat() string {

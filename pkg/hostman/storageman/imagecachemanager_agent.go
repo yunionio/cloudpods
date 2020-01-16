@@ -18,12 +18,14 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
@@ -96,20 +98,20 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 	exists := false
 	log.Infof("check file: src=%s, dst=%s", srcPath, dstPath)
 	dstVmdkInfo, err := dstDs.GetVmdkInfo(ctx, dstPath)
-	if err != nil {
+	if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 		return nil, err
 	}
 	srcVmdkInfo, err := srcDs.GetVmdkInfo(ctx, srcPath)
 	if err != nil {
 		return nil, err
 	}
-	if dstVmdkInfo == srcVmdkInfo {
+	if dstVmdkInfo != nil && reflect.DeepEqual(dstVmdkInfo, srcVmdkInfo) {
 		exists = true
 	}
 
 	dstUrl := dstDs.GetPathUrl(dstPath)
 	if !exists || data.IsForce {
-		_, err = dstDs.MakeDir(ctx, dstPath)
+		err = dstDs.MakeDir(filepath.Dir(dstPath))
 		if err != nil {
 			return nil, errors.Wrap(err, "dstDs.MakeDir")
 		}
@@ -124,11 +126,12 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByCopy(ctx context.Context, 
 			return nil, errors.Wrap(err, "dstDs.GetVmdkInfo")
 		}
 	}
+	dstPath = dstDs.GetFullPath(dstPath)
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewInt(dstVmdkInfo.Size()), "size")
-	ret.Add(jsonutils.NewString(dstUrl), "path")
+	ret.Add(jsonutils.NewString(dstPath), "path")
 	ret.Add(jsonutils.NewString(data.ImageId), "image_id")
-	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "ready", dstUrl)
+	_, err = hostutils.RemoteStoragecacheCacheImage(ctx, data.StoragecacheId, data.ImageId, "ready", dstPath)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +192,7 @@ func (c *SAgentImageCacheManager) prefetchImageCacheByUpload(ctx context.Context
 			return nil, errors.Wrap(err, "SDatastore.ImportTemplate")
 		}
 	}
-	remotePath = filepath.Join(ds.GetUrl(), remotePath)
+	remotePath = ds.GetFullPath(remotePath)
 	remoteImg := localImage.(*jsonutils.JSONDict)
 	remoteImg.Add(jsonutils.NewString(remotePath), "path")
 
