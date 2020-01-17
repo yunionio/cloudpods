@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -1215,6 +1216,11 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			if err != cloudprovider.ErrNotFound {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.Delete")
 			}
+		}
+
+		err = cloudprovider.WaitDeletedWithDelay(iLoadbalancer, 10*time.Second, 10*time.Second, 60*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.WaitDeleted")
 		}
 
 		// delete backendgroups
