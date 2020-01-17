@@ -418,7 +418,7 @@ func (self *SDatastore) getPathString(path string) string {
 	return fmt.Sprintf("[%s] %s", self.SManagedObject.GetName(), path)
 }
 
-func (self *SDatastore) getFullPath(remotePath string) string {
+func (self *SDatastore) GetFullPath(remotePath string) string {
 	remotePath = self.cleanPath(remotePath)
 	return path.Join(self.GetUrl(), remotePath)
 }
@@ -438,6 +438,9 @@ func (self *SDatastore) FileGetContent(ctx context.Context, remotePath string) (
 	var bytes []byte
 
 	err = self.manager.client.Do(ctx, req, func(resp *http.Response) error {
+		if resp.StatusCode == 404 {
+			return cloudprovider.ErrNotFound
+		}
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("%s", resp.Status)
 		}
@@ -690,20 +693,18 @@ func (self *SDatastore) getDatastoreObj() *object.Datastore {
 	return object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
 }
 
-func (self *SDatastore) MakeDir(ctx context.Context, remotePath string) (string, error) {
-	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
-
+func (self *SDatastore) MakeDir(remotePath string) error {
 	remotePath = self.cleanPath(remotePath)
 
-	objDS := self.getDatastoreObj()
-
-	return dnm.CreateDirectory(ctx, objDS, remotePath, "")
+	m := object.NewFileManager(self.manager.client.Client)
+	path := fmt.Sprintf("[%s] %s", self.GetRelName(), remotePath)
+	return m.MakeDirectory(self.manager.context, path, self.datacenter.getObjectDatacenter(), true)
 }
 
 func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error {
 	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
 
-	remotePath = self.getFullPath(remotePath)
+	remotePath = self.GetFullPath(remotePath)
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
@@ -717,17 +718,15 @@ func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error 
 
 // CheckDirC will check that Dir 'remotePath' is exist, if not, create one.
 func (self *SDatastore) CheckDirC(remotePath string) error {
-	_, err := self.CheckFile(context.Background(), remotePath)
+	_, err := self.CheckFile(self.manager.context, remotePath)
 	if err == nil {
 		return nil
 	}
 	if errors.Cause(err) != cloudprovider.ErrNotFound {
 		return err
 	}
-	m := object.NewFileManager(self.manager.client.Client)
-	path := fmt.Sprintf("[%s] %s", self.GetRelName(), remotePath)
-	return m.MakeDirectory(self.manager.context, path, self.datacenter.getObjectDatacenter(),
-		true)
+	return self.MakeDir(remotePath)
+
 }
 
 func (self *SDatastore) IsSysDiskStore() bool {
