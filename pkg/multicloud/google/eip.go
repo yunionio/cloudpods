@@ -148,7 +148,7 @@ func (addr *SAddress) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (addr *SAddress) Associate(instanceId string) error {
+func (addr *SAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 	return cloudprovider.ErrNotImplemented
 }
 

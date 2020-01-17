@@ -229,7 +229,11 @@ func (self *SOpenStackGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.C
 			if err != nil {
 				return "", errors.Wrap(err, "ieip.Dissociate")
 			}
-			defer ieip.Associate(instanceId)
+			conf := &cloudprovider.AssociateConfig{
+				InstanceId:    instanceId,
+				AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+			}
+			defer ieip.Associate(conf)
 		}
 		err = iVM.DeleteVM(ctx)
 		if err != nil {

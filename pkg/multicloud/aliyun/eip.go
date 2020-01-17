@@ -203,9 +203,9 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	}
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 	err := cloudprovider.Wait(20*time.Second, 60*time.Second, func() (bool, error) {
-		err := self.region.AssociateEip(self.AllocationId, instanceId)
+		err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 		if err != nil {
 			if isError(err, "IncorrectInstanceStatus") {
 				return false, nil
