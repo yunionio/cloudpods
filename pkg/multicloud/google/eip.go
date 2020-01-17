@@ -149,8 +149,8 @@ func (addr *SAddress) Delete() error {
 	return addr.region.Delete(addr.SelfLink)
 }
 
-func (addr *SAddress) Associate(instanceId string) error {
-	return addr.region.AssociateInstanceEip(instanceId, addr.Address)
+func (addr *SAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	return addr.region.AssociateInstanceEip(conf.InstanceId, addr.Address)
 }
 
 func (addr *SAddress) Dissociate() error {

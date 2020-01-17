@@ -190,8 +190,8 @@ func (self *SEip) Delete() error {
 	return self.region.DeleteEip(self.GetId())
 }
 
-func (self *SEip) Associate(instanceId string) error {
-	nics, err := self.region.GetNics(instanceId)
+func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
+	nics, err := self.region.GetNics(conf.InstanceId)
 	if err != nil {
 		return errors.Wrap(err, "Eip.Associate.GetNics")
 	}
