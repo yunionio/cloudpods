@@ -188,7 +188,7 @@ func (self *SEip) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SEip) Associate(instanceId string) error {
+func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
 	return cloudprovider.ErrNotImplemented
 }
 
