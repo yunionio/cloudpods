@@ -778,7 +778,9 @@ func (self *SDBInstance) SaveRenewInfo(
 		if billingType == "" {
 			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
-		self.BillingType = billingType
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
 		} else {
