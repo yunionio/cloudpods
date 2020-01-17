@@ -1863,7 +1863,12 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 					return nil, err
 				}
 
-				err = ieip.Associate(iLoadbalancer.GetGlobalId())
+				conf := &cloudprovider.AssociateConfig{
+					InstanceId:    iLoadbalancer.GetGlobalId(),
+					AssociateType: api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+				}
+
+				err = ieip.Associate(conf)
 				if err != nil {
 					return nil, err
 				}

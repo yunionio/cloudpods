@@ -935,7 +935,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestAssociateEip(ctx context.Cont
 			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to find iEIP for eip %s", err)
 		}
 
-		err = extEip.Associate(server.ExternalId)
+		conf := &cloudprovider.AssociateConfig{
+			InstanceId:    server.ExternalId,
+			Bandwidth:     eip.Bandwidth,
+			AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+		}
+
+		err = extEip.Associate(conf)
 		if err != nil {
 			return nil, fmt.Errorf("ManagedVirtualizedGuestDriver.RequestAssociateEip fail to remote associate EIP %s", err)
 		}
