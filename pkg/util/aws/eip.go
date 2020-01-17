@@ -137,8 +137,8 @@ func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.AllocationId)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.AllocationId, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 	if err != nil {
 		return err
 	}

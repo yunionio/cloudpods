@@ -196,8 +196,8 @@ func (self *SEip) Delete() error {
 	return self.region.DeallocateEIP(self.GetId())
 }
 
-func (self *SEip) Associate(instanceId string) error {
-	return self.region.AssociateEip(self.GetId(), instanceId)
+func (self *SEip) Associate(conf *cloudprovider.AssociateConfig) error {
+	return self.region.AssociateEip(self.GetId(), conf.InstanceId)
 }
 
 func (self *SEip) Dissociate() error {
