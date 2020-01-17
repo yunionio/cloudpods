@@ -15,15 +15,16 @@
 package cloudevent
 
 import (
+	"time"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type CloudeventListInput struct {
 	apis.BaseListInput
 
-	apis.SharableVirtualResourceListInput
-
-	Cloudprovider string `json:"cloudprovider"`
-
 	Providers []string `json:"providers"`
+
+	Since time.Time `json:"since"`
+	Until time.Time `json:"until"`
 }
