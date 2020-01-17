@@ -320,6 +320,22 @@ func (self *SElbBackendGroup) Delete() error {
 		}
 	}
 
+	// 删除后端服务器组的同时，删除掉无效的后端服务器数据
+	{
+		backends, err := self.region.getLoadBalancerAdminStateDownBackends(self.GetId())
+		if err != nil {
+			return errors.Wrap(err, "SElbBackendGroup.Delete.getLoadBalancerAdminStateDownBackends")
+		}
+
+		for i := range backends {
+			backend := backends[i]
+			err := self.RemoveBackendServer(backend.GetId(), backend.GetPort(), backend.GetWeight())
+			if err != nil {
+				return errors.Wrap(err, "SElbBackendGroup.Delete.RemoveBackendServer")
+			}
+		}
+	}
+
 	err := self.region.DeleteLoadBalancerBackendGroup(self.GetId())
 	if err != nil {
 		return errors.Wrap(err, "ElbBackendGroup.Delete.DeleteLoadBalancerBackendGroup")
@@ -455,7 +471,7 @@ func (self *SRegion) RemoveLoadBalancerBackend(lbbgId string, backendId string) 
 	return DoDelete(m.Delete, backendId, nil, nil)
 }
 
-func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
+func (self *SRegion) getLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
 	m := self.ecsClient.ElbBackend
 	err := m.SetBackendGroupId(backendGroupId)
 	if err != nil {
@@ -468,12 +484,42 @@ func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBacke
 		return nil, err
 	}
 
+	for i := range ret {
+		backend := ret[i]
+		backend.region = self
+	}
+
+	return ret, nil
+}
+
+func (self *SRegion) GetLoadBalancerBackends(backendGroupId string) ([]SElbBackend, error) {
+	ret, err := self.getLoadBalancerBackends(backendGroupId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetLoadBalancerBackends.getLoadBalancerBackends")
+	}
+
 	// 过滤掉服务器已经被删除的backend。原因是运管平台查询不到已删除的服务器记录，导致同步出错。产生肮数据。
 	filtedRet := []SElbBackend{}
 	for i := range ret {
 		if ret[i].AdminStateUp {
 			backend := ret[i]
-			backend.region = self
+			filtedRet = append(filtedRet, backend)
+		}
+	}
+
+	return filtedRet, nil
+}
+
+func (self *SRegion) getLoadBalancerAdminStateDownBackends(backendGroupId string) ([]SElbBackend, error) {
+	ret, err := self.getLoadBalancerBackends(backendGroupId)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.getLoadBalancerAdminStateDownBackends.getLoadBalancerBackends")
+	}
+
+	filtedRet := []SElbBackend{}
+	for i := range ret {
+		if !ret[i].AdminStateUp {
+			backend := ret[i]
 			filtedRet = append(filtedRet, backend)
 		}
 	}
