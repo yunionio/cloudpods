@@ -123,9 +123,7 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	}
 
 	if diskType, err := query.GetString("disk_type"); err == nil {
-		diskTbl := DiskManager.Query().SubQuery()
-		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
-		q = q.In("disk_id", sq)
+		q = q.Equals("disk_type", diskType)
 	}
 
 	if isInstanceSnapshot, err := query.Bool("is_instance_snapshot"); err == nil {
