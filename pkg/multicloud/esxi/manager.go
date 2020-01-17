@@ -504,7 +504,7 @@ func (cli *SESXiClient) CopyDisk(ctx context.Context, src, dst string, isForce b
 	dm := object.NewVirtualDiskManager(cli.client.Client)
 	task, err := dm.CopyVirtualDisk(ctx, src, nil, dst, nil, nil, isForce)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "CopyVirtualDisk")
 	}
 	return task.Wait(ctx)
 }
@@ -513,7 +513,7 @@ func (cli *SESXiClient) MoveDisk(ctx context.Context, src, dst string, isForce b
 	dm := object.NewVirtualDiskManager(cli.client.Client)
 	task, err := dm.MoveVirtualDisk(ctx, src, nil, dst, nil, isForce)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "MoveVirtualDisk")
 	}
 	return task.Wait(ctx)
 }
