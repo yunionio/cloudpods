@@ -883,7 +883,12 @@ func (self *SAliyunRegionDriver) RequestBindIPToNatgateway(ctx context.Context, 
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch eip failed")
 		}
-		err = ieip.Associate(natgateway.GetExternalId())
+		conf := &cloudprovider.AssociateConfig{
+			InstanceId:    natgateway.GetExternalId(),
+			Bandwidth:     eip.Bandwidth,
+			AssociateType: api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY,
+		}
+		err = ieip.Associate(conf)
 		if err != nil {
 			return nil, errors.Wrap(err, "fail to bind eip to natgateway")
 		}

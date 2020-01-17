@@ -229,8 +229,8 @@ func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.ID)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	portId, err := self.region.GetInstancePortId(instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	portId, err := self.region.GetInstancePortId(conf.InstanceId)
 	if err != nil {
 		return err
 	}

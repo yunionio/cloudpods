@@ -316,7 +316,7 @@ type ICloudEIP interface {
 
 	Delete() error
 
-	Associate(instanceId string) error
+	Associate(conf *AssociateConfig) error
 	Dissociate() error
 
 	ChangeBandwidth(bw int) error
