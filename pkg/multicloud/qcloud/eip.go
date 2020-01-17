@@ -203,12 +203,18 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.AddressId, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	err := self.region.AssociateEip(self.AddressId, conf.InstanceId)
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	if conf.Bandwidth > 0 {
+		err = self.region.UpdateInstanceBandwidth(conf.InstanceId, conf.Bandwidth)
+		if err != nil {
+			log.Warningf("failed to change instance %s bandwidth -> %d error: %v", conf.InstanceId, conf.Bandwidth, err)
+		}
+	}
+	return cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, 5*time.Second, 10*time.Second, 180*time.Second)
 }
 
 func (self *SEipAddress) Dissociate() error {
@@ -216,16 +222,14 @@ func (self *SEipAddress) Dissociate() error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, api.EIP_STATUS_READY, 5*time.Second, 10*time.Second, 180*time.Second)
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	if self.GetInternetChargeType() == api.EIP_CHARGE_TYPE_BY_TRAFFIC {
-		if len(self.InstanceId) > 0 {
-			return self.region.UpdateInstanceBandwidth(self.InstanceId, bw)
-		}
+	if len(self.InstanceId) > 0 {
+		return self.region.UpdateInstanceBandwidth(self.InstanceId, bw)
 	}
-	return cloudprovider.ErrNotSupported
+	return nil
 }
 
 func (region *SRegion) GetEips(eipId string, instanceId string, offset int, limit int) ([]SEipAddress, int, error) {
