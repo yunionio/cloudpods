@@ -232,8 +232,8 @@ func (eip *SEipAddress) GetInternetChargeType() string {
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
-func (eip *SEipAddress) Associate(instanceId string) error {
-	return eip.region.AssociateEip(instanceId, eip.ID)
+func (eip *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	return eip.region.AssociateEip(conf.InstanceId, eip.ID)
 }
 
 func (eip *SEipAddress) Dissociate() error {

@@ -343,7 +343,9 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 
 		// self.Name = ext.GetName()
-		self.Bandwidth = ext.GetBandwidth()
+		if bandwidth := ext.GetBandwidth(); bandwidth != 0 {
+			self.Bandwidth = bandwidth
+		}
 		self.IpAddr = ext.GetIpAddr()
 		self.Mode = ext.GetMode()
 		self.Status = ext.GetStatus()
