@@ -168,7 +168,7 @@ func (self *GuestCreateTask) OnDeployEipComplete(ctx context.Context, obj db.ISt
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			guest.SaveRenewInfo(ctx, self.GetUserCred(), &bc, nil)
+			guest.SaveRenewInfo(ctx, self.GetUserCred(), &bc, nil, "")
 		}
 		if jsonutils.QueryBoolean(self.GetParams(), "auto_prepaid_recycle", false) {
 			err := guest.CanPerformPrepaidRecycle()

@@ -759,11 +759,15 @@ func (self *SDBInstance) StartDBInstanceRenewTask(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SDBInstance) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SDBInstance) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
-			self.BillingType = billing_api.BILLING_TYPE_PREPAID
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
+		self.BillingType = billingType
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
 		} else {
