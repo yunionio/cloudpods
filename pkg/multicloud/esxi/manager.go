@@ -188,7 +188,7 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 }
 
 func (cli *SESXiClient) GetAccountId() string {
-	return cli.account
+	return fmt.Sprintf("%s:%d", cli.host, cli.port)
 }
 
 func (cli *SESXiClient) GetVersion() string {
