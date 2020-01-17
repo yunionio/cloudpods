@@ -32,6 +32,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -78,6 +79,9 @@ const (
 
 	EC2_SERVICE_NAME = "ec2"
 	EC2_SERVICE_ID   = "EC2"
+
+	CLOUDWATCH_SERVICE_NAME = "monitoring"
+	CLOUDWATCH_SERVICE_ID   = "CloudWatch"
 )
 
 type SRegion struct {
@@ -306,6 +310,35 @@ func (self *SRegion) ec2Request(apiName string, params map[string]string, retval
 	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
 	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
 	return jsonRequest(client, apiName, params, retval, true)
+}
+
+func (self *SRegion) cloudWatchRequest(apiName string, params *cloudwatch.GetMetricStatisticsInput,
+	retval interface{}) error {
+	session, err := self.getAwsSession()
+	if err != nil {
+		return err
+	}
+	c := session.ClientConfig(CLOUDWATCH_SERVICE_NAME)
+	metadata := metadata.ClientInfo{
+		ServiceName:   CLOUDWATCH_SERVICE_NAME,
+		ServiceID:     CLOUDWATCH_SERVICE_ID,
+		SigningName:   c.SigningName,
+		SigningRegion: c.SigningRegion,
+		Endpoint:      c.Endpoint,
+		APIVersion:    "2010-08-01",
+	}
+
+	requestErr := aws.LogDebugWithRequestErrors
+
+	c.Config.LogLevel = &requestErr
+
+	client := client.New(*c.Config, metadata, c.Handlers)
+	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
+	client.Handlers.Build.PushBackNamed(query.BuildHandler)
+	client.Handlers.Unmarshal.PushBackNamed(query.UnmarshalHandler)
+	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
+	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
+	return cloudWatchRequest(client, apiName, params, retval, true)
 }
 
 func (self *SRegion) GetElbV2Client() (*elbv2.ELBV2, error) {
