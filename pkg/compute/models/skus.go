@@ -776,7 +776,6 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	zoneStr := query.Zone
-	regionStr := query.Cloudregion
 	if len(zoneStr) > 0 {
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {
@@ -796,11 +795,11 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		} else {
 			q = q.Equals("zone_id", zone.Id)
 		}
-	} else if len(regionStr) > 0 {
-		q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-		}
+	}
+
+	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
