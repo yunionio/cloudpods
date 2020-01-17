@@ -2265,7 +2265,9 @@ func (self *SDisk) SaveRenewInfo(
 		if billingType == "" {
 			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
-		self.BillingType = billingType
+		if self.BillingType == "" {
+			self.BillingType = billingType
+		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
 		} else if bc != nil {
