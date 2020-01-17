@@ -109,6 +109,7 @@ func (l *SLinuxBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, e
 	s += "if [ $? -ne '0' ]; then\n"
 	s += "    exit 0\n"
 	s += "fi\n"
+	s += "ip addr flush dev $1\n"
 	s += "ip link set dev $1 down\n"
 	s += "brctl delif ${switch} $1\n"
 	return s, nil
