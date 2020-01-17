@@ -38,7 +38,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -106,7 +105,7 @@ func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SE
 	accessInfo := new(models.SVCenterAccessInfo)
 	err := input.Unmarshal(accessInfo)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "%s: unmarshal to SVCenterAccessInfo", hostutils.ParamsError)
+		return nil, nil, errors.Wrapf(err, "unmarshal SVCenterAccessInfo: %s", input)
 	}
 	c, err := NewESXiClientFromAccessInfo(ctx, accessInfo)
 	return c, accessInfo, err
