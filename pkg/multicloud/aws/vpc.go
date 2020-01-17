@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -131,8 +132,18 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	rts := []cloudprovider.ICloudRouteTable{}
-	return rts, nil
+	tables, err := self.region.GetRouteTables(self.GetId(), false)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpc.GetIRouteTables")
+	}
+
+	itables := make([]cloudprovider.ICloudRouteTable, len(tables))
+	for i := range tables {
+		tables[i].vpc = self
+		itables[i] = &tables[i]
+	}
+
+	return itables, nil
 }
 
 func (self *SVpc) Delete() error {
