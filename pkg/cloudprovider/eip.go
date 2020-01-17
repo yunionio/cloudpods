@@ -22,3 +22,9 @@ type SEip struct {
 	NetworkExternalId string
 	IP                string
 }
+
+type AssociateConfig struct {
+	InstanceId    string
+	AssociateType string
+	Bandwidth     int
+}
