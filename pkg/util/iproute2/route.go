@@ -134,3 +134,9 @@ func (route *Route) Add(netStr, maskStr, gwStr string) *Route {
 	}
 	return route.AddByIPNet(ipnet, gw)
 }
+
+func RouteGetByDst(dstStr string) ([]netlink.Route, error) {
+	dstIp := net.ParseIP(dstStr)
+	routes, err := netlink.RouteGet(dstIp)
+	return routes, err
+}
