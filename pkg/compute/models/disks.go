@@ -2257,11 +2257,15 @@ func (self *SDisk) DeleteSnapshots(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SDisk) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
-			self.BillingType = billing_api.BILLING_TYPE_PREPAID
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
+		self.BillingType = billingType
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
 		} else if bc != nil {
@@ -2275,6 +2279,23 @@ func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCre
 		return err
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SDisk) CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return fmt.Errorf("billing type %s not support cancel expire", self.BillingType)
+	}
+	_, err := sqlchemy.GetDB().Exec(
+		fmt.Sprintf(
+			"update %s set expired_at = NULL and billing_cycle = NULL where id = ?",
+			DiskManager.TableSpec().Name(),
+		), self.Id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "disk cancel expire time")
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, "disk cancel expire time", userCred)
 	return nil
 }
 
