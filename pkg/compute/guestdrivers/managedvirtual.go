@@ -918,7 +918,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 	exp, err := data.GetTime("expired_at")
 	if err == nil && !guest.IsPrepaidRecycle() {
-		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp)
+		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp, "")
 	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
