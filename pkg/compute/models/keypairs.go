@@ -170,9 +170,9 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 	}
 
 	// 只允许上传RSA格式密钥。PS: AWS只支持RSA格式。
-	scheme := seclib2.GetPublicKeyScheme(pubKey)
-	if scheme != api.KEYPAIRE_SCHEME_RSA {
-		return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
+	input.Scheme = seclib2.GetPublicKeyScheme(pubKey)
+	if input.Scheme != api.KEYPAIRE_SCHEME_RSA {
+		return nil, httperrors.NewInputParameterError("Unsupported scheme %s", input.Scheme)
 	}
 
 	input.Fingerprint = ssh.FingerprintLegacyMD5(pubKey)
