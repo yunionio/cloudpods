@@ -61,6 +61,11 @@ func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interva
 	return ErrTimeout
 }
 
+func WaitDeletedWithDelay(res ICloudResource, delay time.Duration, interval time.Duration, timeout time.Duration) error {
+	time.Sleep(delay)
+	return WaitDeleted(res, interval, timeout)
+}
+
 func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
