@@ -3413,8 +3413,17 @@ func (self *SGuest) PerformCancelExpire(ctx context.Context, userCred mcclient.T
 	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
 		return nil, httperrors.NewBadRequestError("guest billing type %s not support cancel expire", self.BillingType)
 	}
-	err := self.GetDriver().CancelExpireTime(ctx, userCred, self)
-	return nil, err
+	if err := self.GetDriver().CancelExpireTime(ctx, userCred, self); err != nil {
+		return nil, err
+	}
+	guestdisks := self.GetDisks()
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		if err := disk.CancelExpireTime(ctx, userCred); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 func (self *SGuest) AllowPerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -3422,6 +3431,10 @@ func (self *SGuest) AllowPerformPostpaidExpire(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.BillingType != billing_api.BILLING_TYPE_POSTPAID {
+		return nil, httperrors.NewBadRequestError("guest billing type is %s", self.BillingType)
+	}
+
 	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
 	if len(durationStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missong duration")
@@ -3436,7 +3449,7 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
 	}
 
-	err = self.SaveRenewInfo(ctx, userCred, &bc, nil)
+	err = self.SaveRenewInfo(ctx, userCred, &bc, nil, billing_api.BILLING_TYPE_POSTPAID)
 	return nil, err
 }
 
@@ -3480,15 +3493,18 @@ func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
-	err := self.doSaveRenewInfo(ctx, userCred, bc, expireAt)
+func (self *SGuest) SaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
+	err := self.doSaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
 	if err != nil {
 		return err
 	}
 	guestdisks := self.GetDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt)
+		err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt, billingType)
 		if err != nil {
 			return err
 		}
@@ -3496,11 +3512,15 @@ func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SGuest) doSaveRenewInfo(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	bc *billing.SBillingCycle, expireAt *time.Time, billingType string,
+) error {
 	_, err := db.Update(self, func() error {
-		if len(self.BillingType) == 0 {
-			self.BillingType = billing_api.BILLING_TYPE_PREPAID
+		if billingType == "" {
+			billingType = billing_api.BILLING_TYPE_PREPAID
 		}
+		self.BillingType = billingType
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
 		} else {
