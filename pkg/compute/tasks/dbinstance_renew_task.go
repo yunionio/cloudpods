@@ -54,7 +54,7 @@ func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 
-	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp)
+	err = instance.SaveRenewInfo(ctx, self.UserCred, &bc, &exp, "")
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)
