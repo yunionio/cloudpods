@@ -45,7 +45,7 @@ type SClassicEipAddress struct {
 	Type       string
 }
 
-func (self *SClassicEipAddress) Associate(instanceId string) error {
+func (self *SClassicEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
 	return cloudprovider.ErrNotImplemented
 }
 

@@ -23,6 +23,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -68,7 +69,13 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	err = extEip.Associate(server.ExternalId)
+	conf := &cloudprovider.AssociateConfig{
+		InstanceId:    server.ExternalId,
+		Bandwidth:     eip.Bandwidth,
+		AssociateType: api.EIP_ASSOCIATE_TYPE_SERVER,
+	}
+
+	err = extEip.Associate(conf)
 	if err != nil {
 		msg := fmt.Sprintf("fail to remote associate EIP %s", err)
 		self.TaskFail(ctx, eip, msg, server)

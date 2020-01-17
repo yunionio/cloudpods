@@ -86,8 +86,8 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eip, region.client.Get(eipId, []string{}, &eip)
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	return self.region.AssociateEip(self.ID, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	return self.region.AssociateEip(self.ID, conf.InstanceId)
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {

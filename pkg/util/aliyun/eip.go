@@ -202,8 +202,8 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	}
 }
 
-func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.AllocationId, instanceId)
+func (self *SEipAddress) Associate(conf *cloudprovider.AssociateConfig) error {
+	err := self.region.AssociateEip(self.AllocationId, conf.InstanceId)
 	if err != nil {
 		return err
 	}
