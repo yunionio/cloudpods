@@ -23,8 +23,16 @@ import (
 type CloudeventListInput struct {
 	apis.BaseListInput
 
+	// 根据平台过滤
 	Providers []string `json:"providers"`
+	// 根据品牌过滤
+	Brands []string `json:"brands"`
+	// swagger:ignore
+	// Deprecated
+	Brand []string `json:"brand" deprecated-by:"brands"`
 
+	// 操作日志起始时间
 	Since time.Time `json:"since"`
+	// 操作日志截止时间
 	Until time.Time `json:"until"`
 }
