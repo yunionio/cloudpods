@@ -2674,7 +2674,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 			// if not, reserve this IP temporarily
 			err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
 			if err != nil {
-				return nil, errors.Wrap(err, "net.reserveIpWithDuration")
+				return nil, err
 			}
 		}
 		zoneObj := net.getZone()
