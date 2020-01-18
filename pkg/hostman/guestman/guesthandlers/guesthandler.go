@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -38,31 +37,7 @@ type strDict map[string]string
 type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}, error)
 
 var (
-	keyWords    = []string{"servers"}
-	actionFuncs = map[string]actionFunc{
-		"create":      guestCreate,
-		"deploy":      guestDeploy,
-		"start":       guestStart,
-		"stop":        guestStop,
-		"monitor":     guestMonitor,
-		"sync":        guestSync,
-		"suspend":     guestSuspend,
-		"io-throttle": guestIoThrottle,
-
-		"snapshot":             guestSnapshot,
-		"delete-snapshot":      guestDeleteSnapshot,
-		"reload-disk-snapshot": guestReloadDiskSnapshot,
-		// "remove-statefile":     guestRemoveStatefile,
-		"src-prepare-migrate":  guestSrcPrepareMigrate,
-		"dest-prepare-migrate": guestDestPrepareMigrate,
-		"live-migrate":         guestLiveMigrate,
-		"resume":               guestResume,
-		// "start-nbd-server":     guestStartNbdServer,
-		"drive-mirror":        guestDriveMirror,
-		"hotplug-cpu-mem":     guestHotplugCpuMem,
-		"create-from-libvirt": guestCreateFromLibvirt,
-		"cancel-block-jobs":   guestCancelBlockJobs,
-	}
+	keyWords = []string{"servers"}
 )
 
 func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
@@ -79,27 +54,46 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			fmt.Sprintf("%s/%s/prepare-import-from-libvirt", prefix, keyWord),
 			auth.Authenticate(guestPrepareImportFormLibvirt))
 
-		app.AddHandler("POST",
-			fmt.Sprintf("%s/%s/<sid>/<action>", prefix, keyWord),
-			auth.Authenticate(guestActions))
-
 		app.AddHandler("DELETE",
 			fmt.Sprintf("%s/%s/<sid>", prefix, keyWord),
 			auth.Authenticate(deleteGuest))
+
+		for action, f := range map[string]actionFunc{
+			"create":               guestCreate,
+			"deploy":               guestDeploy,
+			"start":                guestStart,
+			"stop":                 guestStop,
+			"monitor":              guestMonitor,
+			"sync":                 guestSync,
+			"suspend":              guestSuspend,
+			"io-throttle":          guestIoThrottle,
+			"snapshot":             guestSnapshot,
+			"delete-snapshot":      guestDeleteSnapshot,
+			"reload-disk-snapshot": guestReloadDiskSnapshot,
+			"src-prepare-migrate":  guestSrcPrepareMigrate,
+			"dest-prepare-migrate": guestDestPrepareMigrate,
+			"live-migrate":         guestLiveMigrate,
+			"resume":               guestResume,
+			"drive-mirror":         guestDriveMirror,
+			"hotplug-cpu-mem":      guestHotplugCpuMem,
+			"create-from-libvirt":  guestCreateFromLibvirt,
+			"cancel-block-jobs":    guestCancelBlockJobs,
+		} {
+			app.AddHandler("POST",
+				fmt.Sprintf("%s/%s/<sid>/%s", prefix, keyWord, action),
+				auth.Authenticate(guestActions(f)),
+			)
+		}
 	}
 }
 
-func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	params, _, body := appsrv.FetchEnv(ctx, w, r)
-	if body == nil {
-		body = jsonutils.NewDict()
-	}
-	var sid = params["<sid>"]
-	var action = params["<action>"]
-	if f, ok := actionFuncs[action]; !ok {
-		hostutils.Response(ctx, w, httperrors.NewNotFoundError("%s Not found", action))
-	} else {
-		log.Infof("Guest %s Do %s", sid, action)
+func guestActions(f actionFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		params, _, body := appsrv.FetchEnv(ctx, w, r)
+		if body == nil {
+			body = jsonutils.NewDict()
+		}
+		var sid = params["<sid>"]
 		res, err := f(ctx, sid, body)
 		if err != nil {
 			hostutils.Response(ctx, w, err)

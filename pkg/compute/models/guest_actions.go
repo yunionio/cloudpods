@@ -2070,57 +2070,47 @@ func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mccl
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "attachnetwork")
 }
 
-func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status == api.VM_READY {
-		// owner_cred = self.get_owner_user_cred() >.<
-		netDesc, err := data.Get("net_desc")
-		if err != nil {
-			return nil, httperrors.NewBadRequestError(err.Error())
-		}
-		conf, err := cmdline.ParseNetworkConfigByJSON(netDesc, -1)
-		if err != nil {
-			return nil, httperrors.NewBadRequestError(err.Error())
-		}
+func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkConfig) (*api.SGuest, error) {
 
-		conf, err = parseNetworkInfo(userCred, conf)
-		if err != nil {
-			return nil, err
-		}
-		err = isValidNetworkInfo(userCred, conf)
-		if err != nil {
-			return nil, err
-		}
-		var inicCnt, enicCnt int
-		if IsExitNetworkInfo(conf) {
-			enicCnt = 1
-			// ebw = conf.BwLimit
-		} else {
-			inicCnt = 1
-			// ibw = conf.BwLimit
-		}
-		pendingUsage := &SRegionQuota{
-			Port:  inicCnt,
-			Eport: enicCnt,
-			//Bw:    ibw,
-			//Ebw:   ebw,
-		}
-		keys, err := self.GetRegionalQuotaKeys()
-		if err != nil {
-			return nil, err
-		}
-		pendingUsage.SetKeys(keys)
-		err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
-		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError(err.Error())
-		}
-		host := self.GetHost()
-		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
-		if err != nil {
-			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
-			return nil, httperrors.NewBadRequestError(err.Error())
-		}
-		host.ClearSchedDescCache()
+	err := isValidNetworkInfo(userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	var inicCnt, enicCnt int
+	if IsExitNetworkInfo(input) {
+		enicCnt = 1
+		// ebw = input.BwLimit
+	} else {
+		inicCnt = 1
+		// ibw = input.BwLimit
+	}
+	pendingUsage := &SRegionQuota{
+		Port:  inicCnt,
+		Eport: enicCnt,
+		//Bw:    ibw,
+		//Ebw:   ebw,
+	}
+	keys, err := self.GetRegionalQuotaKeys()
+	if err != nil {
+		return nil, err
+	}
+	pendingUsage.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError(err.Error())
+	}
+	host := self.GetHost()
+	_, err = self.attach2NetworkDesc(ctx, userCred, host, input, pendingUsage, nil)
+	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	host.ClearSchedDescCache()
+	if self.Status == api.VM_READY {
 		err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+		return nil, err
+	} else if self.Status == api.VM_RUNNING {
+		err = self.StartSyncTask(ctx, userCred, false, "")
 		return nil, err
 	}
 	return nil, httperrors.NewBadRequestError("Cannot attach network in status %s", self.Status)

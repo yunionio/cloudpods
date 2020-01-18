@@ -1054,7 +1054,7 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 		}
 	}
 
-	nics, _ = newDesc.GetArray("nics")
+	nics, _ = s.Desc.GetArray("nics")
 	for _, n := range nics {
 		if isValid(n) {
 			idx := findNet(addNics, n)
@@ -1069,7 +1069,6 @@ func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([
 	return delNics, addNics
 }
 
-// 目测sync_cgroup没有要用到，先不写
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
 	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
 	var cdrom *string

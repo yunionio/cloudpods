@@ -154,8 +154,11 @@ func init() {
 		NETDESC string `help:"Network description"`
 	}
 	R(&ServerAttachNetworkOptions{}, "server-attach-network", "Attach a server to a virtual network", func(s *mcclient.ClientSession, args *ServerAttachNetworkOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NETDESC), "net_desc")
+		conf, err := cmdline.ParseNetworkConfig(args.NETDESC, -1)
+		if err != nil {
+			return err
+		}
+		params := jsonutils.Marshal(conf)
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "attachnetwork", params)
 		if err != nil {
 			return err
