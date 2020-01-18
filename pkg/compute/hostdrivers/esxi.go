@@ -132,7 +132,11 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		}
 		content.SrcHostIp = srcHost.AccessIp
 		content.SrcPath = srcHostCacheImage.Path
-		srcStorage := srcHost.GetStorageByFilePath(srcHostCacheImage.Path)
+		srcStorageCache, err := srcHostCacheImage.GetStoragecache()
+		if err != nil {
+			return errors.Wrap(err, "StorageCacheImage.GetStoragecaceh")
+		}
+		srcStorage := host.GetStorageByFilePath(srcStorageCache.Path)
 		accessInfo, err := srcHost.GetCloudaccount().GetVCenterAccessInfo(srcStorage.ExternalId)
 		if err != nil {
 			return err
