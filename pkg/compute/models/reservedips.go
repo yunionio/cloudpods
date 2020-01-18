@@ -96,11 +96,28 @@ func (manager *SReservedipManager) ReserveIPWithDurationAndStatus(userCred mccli
 	if duration > 0 {
 		expiredAt = time.Now().UTC().Add(duration)
 	}
-	rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
-	err := manager.TableSpec().Insert(&rip)
-	if err != nil {
-		log.Errorf("ReserveIP fail: %s", err)
-		return err
+	rip := manager.getReservedIP(network, ip)
+	if rip == nil {
+		rip := SReservedip{NetworkId: network.Id, IpAddr: ip, Notes: notes, ExpiredAt: expiredAt, Status: status}
+		err := manager.TableSpec().Insert(&rip)
+		if err != nil {
+			log.Errorf("ReserveIP fail: %s", err)
+			return err
+		}
+	} else if rip.IsExpired() {
+		_, err := db.Update(rip, func() error {
+			rip.Notes = notes
+			rip.ExpiredAt = expiredAt
+			if len(status) > 0 {
+				rip.Status = status
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		return httperrors.NewConflictError("Address %s has been reserved", ip)
 	}
 	db.OpsLog.LogEvent(network, db.ACT_RESERVE_IP, ip, userCred)
 	return nil
