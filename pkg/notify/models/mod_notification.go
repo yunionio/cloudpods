@@ -135,6 +135,7 @@ func (self *SNotification) GetCustomizeColumns(ctx context.Context, userCred mcc
 	}
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.Marshal(userDetails), "user_list")
+	ret.Add(jsonutils.NewString(self.ClusterID), "id")
 	return ret
 }
 
