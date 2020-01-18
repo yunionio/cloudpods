@@ -28,6 +28,7 @@ func init() {
 		NOTES    string   `help:"Why reserve this IP"`
 		IPS      []string `help:"IPs to reserve"`
 		Duration string   `help:"reservation duration, e.g. 1I, 1H, 2M"`
+		Status   string   `help:"ip status"`
 	}
 	R(&NetworkReserveIPOptions{}, "network-reserve-ip", "Reserve an IP address from pool", func(s *mcclient.ClientSession, args *NetworkReserveIPOptions) error {
 		params := jsonutils.NewDict()
@@ -35,6 +36,9 @@ func init() {
 		params.Add(jsonutils.NewString(args.NOTES), "notes")
 		if len(args.Duration) > 0 {
 			params.Add(jsonutils.NewString(args.Duration), "duration")
+		}
+		if len(args.Status) > 0 {
+			params.Add(jsonutils.NewString(args.Status), "status")
 		}
 		net, err := modules.Networks.PerformAction(s, args.NETWORK, "reserve-ip", params)
 		if err != nil {
