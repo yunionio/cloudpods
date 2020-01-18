@@ -120,7 +120,7 @@ type SImage struct {
 	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
 	Protected    tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
-	IsStandard   tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
+	IsStandard   tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"domain_optional"`
 	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 	IsData       tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 
