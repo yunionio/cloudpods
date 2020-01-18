@@ -29,6 +29,7 @@ func InitDB() error {
 		db.TenantCacheManager,
 
 		CloudproviderManager,
+		CloudeventManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
