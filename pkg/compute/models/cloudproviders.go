@@ -872,6 +872,8 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 	account := self.GetCloudaccount()
 	if account != nil {
 		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
+		// 此字段不能删除，公有云日志同步需要这个字段
+		extra.Add(jsonutils.NewString(account.Brand), "brand")
 	}
 	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
 	capabilities, _ := CloudproviderCapabilityManager.getCapabilities(self.Id)

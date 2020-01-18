@@ -26,6 +26,8 @@ type CloudeventListInput struct {
 
 	compute.ManagedResourceListInput
 
-	Since time.Time
-	Until time.Time
+	// 操作日志起始时间
+	Since time.Time `json:"since"`
+	// 操作日志截止时间
+	Until time.Time `json:"until"`
 }
