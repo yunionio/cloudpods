@@ -42,7 +42,7 @@ func (this *HostManager) GetLoginInfo(s *mcclient.ClientSession, id string, para
 	ret := jsonutils.NewDict()
 	login_key, e := data.GetString("password")
 	if e != nil {
-		return nil, fmt.Errorf("No ssh password: %s", e)
+		return nil, httperrors.NewNotFoundError("No ssh password: %s", e)
 	}
 	passwd, e := utils.DescryptAESBase64(id, login_key)
 	if e != nil {

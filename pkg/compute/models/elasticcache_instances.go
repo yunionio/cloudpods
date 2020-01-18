@@ -229,14 +229,10 @@ func (self *SElasticcache) GetDetailsLoginInfo(ctx context.Context, userCred mcc
 		return nil, err
 	}
 
-	password, err := account.GetDecodedPassword()
-	if err != nil {
-		return nil, err
-	}
-
 	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(account.Id), "account_id")
 	ret.Add(jsonutils.NewString(account.Name), "username")
-	ret.Add(jsonutils.NewString(password), "password")
+	ret.Add(jsonutils.NewString(account.Password), "password")
 	return ret, nil
 }
 
