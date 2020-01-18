@@ -67,12 +67,13 @@ type SCloudprovider struct {
 	Secret    string `length:"0" charset:"ascii" nullable:"false" list:"domain"`
 
 	Provider string `width:"64" charset:"ascii" list:"domain"`
+	Brand    string `width:"64" charset:"ascii" list:"domain"`
 }
 
 func (manager *SCloudproviderManager) GetRegionCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudprovider, error) {
 	s := session.GetSession(ctx, userCred)
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString("public"), "cloud_env")
+	params.Add(jsonutils.JSONTrue, "details")
 	result, err := modules.Cloudproviders.List(s, params)
 	if err != nil {
 		return nil, errors.Wrap(err, "modules.Cloudproviders.List")
@@ -151,6 +152,7 @@ func (provider *SCloudprovider) syncWithRegionProvider(ctx context.Context, user
 		provider.Status = cloudprovider.Status
 		provider.Secret = cloudprovider.Secret
 		provider.Enabled = cloudprovider.Enabled
+		provider.Brand = cloudprovider.Brand
 		return nil
 	})
 	return err

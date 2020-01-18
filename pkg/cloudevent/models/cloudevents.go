@@ -49,6 +49,7 @@ func init() {
 type SCloudevent struct {
 	db.SModelBase
 
+	Id           int64                `primary:"true" auto_increment:"true" list:"user"`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Service      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	ResourceType string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
@@ -62,6 +63,7 @@ type SCloudevent struct {
 	CloudproviderId string `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	Manager         string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Provider        string `width:"64" charset:"ascii" nullable:"false" list:"user"`
+	Brand           string `width:"64" charset:"ascii" list:"domain"`
 }
 
 func (self *SCloudeventManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -84,6 +86,10 @@ func (manager *SCloudeventManager) ListItemFilter(ctx context.Context, q *sqlche
 
 	if len(input.Providers) > 0 {
 		q = q.In("provider", input.Providers)
+	}
+
+	if len(input.Brands) > 0 {
+		q = q.In("brand", input.Brands)
 	}
 
 	if !input.Since.IsZero() {
@@ -114,6 +120,7 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 			Success:         iEvent.IsSuccess(),
 			Manager:         cloudprovider.Name,
 			Provider:        cloudprovider.Provider,
+			Brand:           cloudprovider.Brand,
 			CloudproviderId: cloudprovider.Id,
 		}
 
@@ -135,4 +142,23 @@ func (manager *SCloudeventManager) GetPagingConfig() *db.SPagingConfig {
 		MarkerField:  "created_at",
 		DefaultLimit: 20,
 	}
+}
+
+func (manager *SCloudeventManager) InitializeData() error {
+	events := []SCloudevent{}
+	q := manager.Query().IsNullOrEmpty("brand")
+	err := db.FetchModelObjects(manager, q, &events)
+	if err != nil {
+		return err
+	}
+	for i := range events {
+		_, err = db.Update(&events[i], func() error {
+			events[i].Brand = events[i].Provider
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
