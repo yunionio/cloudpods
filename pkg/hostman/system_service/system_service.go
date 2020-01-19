@@ -44,15 +44,16 @@ var serviceMap map[string]ISystemService
 
 func Init() {
 	serviceMap = map[string]ISystemService{
-		"ntpd":          NewNtpdService(),
-		"telegraf":      NewTelegrafService(),
-		"host_sdnagent": NewHostSdnagentService(),
-		"openvswitch":   NewOpenvswitchService(),
-		"fluentbit":     NewFluentbitService(),
-		"kube_agent":    NewKubeAgentService(),
-		"lxcfs":         NewLxcfsService(),
-		"docker":        NewDockerService(),
-		"host-deployer": NewHostDeployerService(),
+		"ntpd":           NewNtpdService(),
+		"telegraf":       NewTelegrafService(),
+		"host_sdnagent":  NewHostSdnagentService(),
+		"openvswitch":    NewOpenvswitchService(),
+		"ovn-controller": NewOvnControllerService(),
+		"fluentbit":      NewFluentbitService(),
+		"kube_agent":     NewKubeAgentService(),
+		"lxcfs":          NewLxcfsService(),
+		"docker":         NewDockerService(),
+		"host-deployer":  NewHostDeployerService(),
 	}
 }
 

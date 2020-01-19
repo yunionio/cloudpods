@@ -180,14 +180,8 @@ func (c *MinCounters) Add(counter Counter) {
 }
 
 func (c *MinCounters) GetCount() int64 {
-	if len(c.counters) == 0 {
-		return EmptyCapacity
-	}
-	minCount := c.counters[0].GetCount()
-	if len(c.counters) == 1 {
-		return minCount
-	}
-	for _, c0 := range c.counters[1:] {
+	minCount := EmptyCapacity
+	for _, c0 := range c.counters {
 		count := c0.GetCount()
 		if count < minCount {
 			minCount = count

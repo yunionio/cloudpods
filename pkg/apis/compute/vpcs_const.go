@@ -70,3 +70,7 @@ type WireListInput struct {
 type GlobalVpcListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 }
+
+const (
+	VPC_PROVIDER_OVN = "ovn"
+)

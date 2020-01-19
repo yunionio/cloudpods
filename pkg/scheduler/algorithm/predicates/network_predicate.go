@@ -60,7 +60,16 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	h := NewPredicateHelper(p, u, c)
 
 	getter := c.Getter()
+	ovnCapable := getter.OvnCapable()
 	networks := getter.Networks()
+	ovnNetworks := []*api.CandidateNetwork{}
+	for i := len(networks) - 1; i >= 0; i -= 1 {
+		net := networks[i]
+		if net.Provider == computeapi.CLOUD_PROVIDER_ONECLOUD {
+			networks = append(networks[:i], networks[i+1:]...)
+			ovnNetworks = append(ovnNetworks, net)
+		}
+	}
 
 	d := u.SchedData()
 
@@ -210,21 +219,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters, networks []*api.CandidateNetwork) []core.PredicateFailureReason {
-		if len(networks) == 0 {
-			return []core.PredicateFailureReason{
-				FailReason{Reason: ErrNoAvailableNetwork},
-			}
-		}
-
-		if n.Network == "" {
-			counters0 := core.NewCounters()
-			retMsg := isRandomNetworkAvailable(n.Address, n.Domain, n.Private, n.Exit, n.Wire, counters0)
-			counters.Add(counters0)
-			return retMsg
-		}
-
 		errMsgs := make([]core.PredicateFailureReason, 0)
-
 		for _, net := range networks {
 			if !(n.Network == net.GetId() || n.Network == net.GetName()) {
 				errMsgs = append(errMsgs, &FailReason{
@@ -258,9 +253,34 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		var errMsgs []core.PredicateFailureReason
 
 		for _, n := range d.Networks {
-			if errMsg := isNetworkAvaliable(n, counters, networks); len(errMsg) != 0 {
-				errMsgs = append(errMsgs, errMsg...)
+			if len(networks) == 0 && len(ovnNetworks) == 0 {
+				errMsgs = append(errMsgs, FailReason{
+					Reason: ErrNoAvailableNetwork,
+				})
+				continue
 			}
+			if n.Network == "" {
+				counters0 := core.NewCounters()
+				retMsg := isRandomNetworkAvailable(n.Address, n.Domain, n.Private, n.Exit, n.Wire, counters0)
+				counters.Add(counters0)
+				errMsgs = append(errMsgs, retMsg...)
+				continue
+			}
+
+			var availCheckErrs []core.PredicateFailureReason
+			if errMsg := isNetworkAvaliable(n, counters, networks); len(errMsg) == 0 {
+				continue
+			} else {
+				availCheckErrs = append(availCheckErrs, errMsg...)
+			}
+			if ovnCapable {
+				if errMsg := isNetworkAvaliable(n, counters, ovnNetworks); len(errMsg) == 0 {
+					continue
+				} else {
+					availCheckErrs = append(availCheckErrs, errMsg...)
+				}
+			}
+			errMsgs = append(errMsgs, availCheckErrs...)
 		}
 
 		if len(errMsgs) > 0 {

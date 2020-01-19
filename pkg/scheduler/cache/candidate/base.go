@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -136,6 +137,10 @@ func (b baseHostGetter) Networks() []*api.CandidateNetwork {
 	return b.h.Networks
 }
 
+func (b baseHostGetter) OvnCapable() bool {
+	return false
+}
+
 func (b baseHostGetter) ResourceType() string {
 	return reviseResourceType(b.h.ResourceType)
 }
@@ -221,6 +226,9 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 
 	if err := desc.fillNetworks(host); err != nil {
 		return nil, fmt.Errorf("Fill networks error: %v", err)
+	}
+	if err := desc.fillOnecloudVpcNetworks(); err != nil {
+		return nil, fmt.Errorf("Fill onecloud vpc networks error: %v", err)
 	}
 
 	if err := desc.fillZone(host); err != nil {
@@ -368,6 +376,45 @@ func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
 	}
 	b.NetInterfaces = netifIndexs
 
+	return nil
+}
+
+func (b *BaseHostDesc) fillOnecloudVpcNetworks() error {
+	nets := computemodels.NetworkManager.Query()
+	wires := computemodels.WireManager.Query().SubQuery()
+	vpcs := computemodels.VpcManager.Query().SubQuery()
+	regions := computemodels.CloudregionManager.Query().SubQuery()
+	q := nets.AppendField(nets.QueryFields()...)
+	q = q.AppendField(
+		vpcs.Field("id", "vpc_id"),
+		regions.Field("provider"),
+	)
+	q = q.Join(wires, sqlchemy.Equals(wires.Field("id"), nets.Field("wire_id")))
+	q = q.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	q = q.Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.AND(
+		sqlchemy.Equals(regions.Field("provider"), computeapi.CLOUD_PROVIDER_ONECLOUD),
+		sqlchemy.NOT(sqlchemy.Equals(vpcs.Field("id"), computeapi.DEFAULT_VPC_ID)),
+	))
+
+	type Row struct {
+		computemodels.SNetwork
+		VpcId    string
+		Provider string
+	}
+	rows := []Row{}
+	if err := q.All(&rows); err != nil {
+		return errors.Wrap(err, "query onecloud vpc networks")
+	}
+	for i := range rows {
+		row := &rows[i]
+		candidateNet := &api.CandidateNetwork{
+			SNetwork: &row.SNetwork,
+			VpcId:    row.VpcId,
+			Provider: row.Provider,
+		}
+		b.Networks = append(b.Networks, candidateNet)
+	}
 	return nil
 }
 

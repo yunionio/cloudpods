@@ -238,22 +238,26 @@ func ListItemQueryFilters(manager IModelManager,
 	return listItemQueryFilters(manager, ctx, q, userCred, query, action, false)
 }
 
-func listItemQueryFilters(manager IModelManager,
+func listItemQueryFiltersRaw(manager IModelManager,
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	action string,
 	doCheckRbac bool,
+	useRawQuery bool,
 ) (*sqlchemy.SQuery, error) {
 	ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, action, doCheckRbac)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	q = manager.FilterByOwner(q, ownerId, queryScope)
-	// apply all filters
-	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
-	q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
+	if !useRawQuery {
+		// Specifically for joint resource, these filters will exclude
+		// deleted resources by joining with master/slave tables
+		q = manager.FilterByOwner(q, ownerId, queryScope)
+		q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
+		q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
+	}
 
 	q, err = ListItemFilter(manager, ctx, q, userCred, query)
 	if err != nil {
@@ -286,6 +290,16 @@ func listItemQueryFilters(manager IModelManager,
 		q, _ = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
 	}
 	return q, nil
+}
+
+func listItemQueryFilters(manager IModelManager,
+	ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	action string,
+	doCheckRbac bool,
+) (*sqlchemy.SQuery, error) {
+	return listItemQueryFiltersRaw(manager, ctx, q, userCred, query, action, doCheckRbac, false)
 }
 
 func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2.SSortedStrings {
@@ -448,7 +462,24 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
 	pagingMarker, _ := query.GetString("paging_marker")
-	q := manager.Query()
+
+	var (
+		q           *sqlchemy.SQuery
+		useRawQuery bool
+	)
+	{
+		// query senders are responsible for clear up other constraint
+		// like setting "pendinge_delete" to "all"
+		queryDelete, _ := query.GetString("delete")
+		if queryDelete == "all" && userCred.HasSystemAdminPrivilege() {
+			useRawQuery = true
+		}
+	}
+	if useRawQuery {
+		q = manager.RawQuery()
+	} else {
+		q = manager.Query()
+	}
 
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
@@ -467,7 +498,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
-	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict, policy.PolicyActionList, true)
+	q, err = listItemQueryFiltersRaw(manager, ctx, q, userCred, queryDict, policy.PolicyActionList, true, useRawQuery)
 	if err != nil {
 		return nil, err
 	}

@@ -47,7 +47,7 @@ var (
 
 func GetKVMModuleSupport() string {
 	if len(kvmModuleSupport) == 0 {
-		kvmModuleSupport = detectiveKVMModuleSupport()
+		kvmModuleSupport = detectKVMModuleSupport()
 	}
 	return kvmModuleSupport
 }
@@ -76,7 +76,7 @@ func IsProcessorAmd() bool {
 	return false
 }
 
-func detectiveKVMModuleSupport() string {
+func detectKVMModuleSupport() string {
 	var km = KVM_MODULE_UNSUPPORT
 	if ModprobeKvmModule(KVM_MODULE_INTEL, false, false) {
 		km = KVM_MODULE_INTEL

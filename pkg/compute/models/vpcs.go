@@ -614,7 +614,7 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 		}
 		data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
-		return nil, httperrors.NewNotImplementedError("Cannot create VPC in private cloud")
+		data.Set("status", jsonutils.NewString(api.VPC_STATUS_AVAILABLE))
 	}
 
 	cidrBlock, _ := data.GetString("cidr_block")
@@ -701,7 +701,7 @@ func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential)
 }
 
 func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if len(self.ExternalId) > 0 {
+	if self.Id != api.DEFAULT_VPC_ID {
 		return self.StartDeleteVpcTask(ctx, userCred)
 	} else {
 		return self.RealDelete(ctx, userCred)
@@ -764,6 +764,16 @@ func (self *SVpc) getIPRanges() []netutils.IPV4AddrRange {
 	}
 
 	return ret
+}
+
+func (self *SVpc) containsIPV4Range(a netutils.IPV4AddrRange) bool {
+	ranges := self.getIPRanges()
+	for i := range ranges {
+		if ranges[i].ContainsRange(a) {
+			return true
+		}
+	}
+	return false
 }
 
 func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -926,4 +936,21 @@ func (vpc *SVpc) GetGlobalVpc() (*SGlobalVpc, error) {
 		return nil, err
 	}
 	return gv.(*SGlobalVpc), nil
+}
+
+func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
+	wire := &SWire{
+		VpcId:     self.Id,
+		ZoneId:    zone.Id,
+		Bandwidth: 10000,
+		Mtu:       1500,
+	}
+	wire.IsEmulated = true
+	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
+	wire.SetModelManager(WireManager, wire)
+	err := WireManager.TableSpec().Insert(wire)
+	if err != nil {
+		return nil, err
+	}
+	return wire, nil
 }

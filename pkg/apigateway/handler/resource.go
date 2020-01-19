@@ -187,7 +187,7 @@ func (f *ResourceHandlers) listHandler(ctx context.Context, w http.ResponseWrite
 	}
 }
 
-func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module modulebase.BaseManagerInterface, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
+func (f *ResourceHandlers) doList(session *mcclient.ClientSession, module modulebase.IBaseManager, query jsonutils.JSONObject, w http.ResponseWriter, r *http.Request) {
 	var exportKeys []string
 	var exportTexts []string
 	exportFormat, _ := query.GetString("export")

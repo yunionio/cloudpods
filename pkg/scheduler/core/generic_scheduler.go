@@ -405,8 +405,8 @@ completed:
 func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) ([]Candidater, error) {
 	var filtered []Candidater
 
-	ok, err, newPredicates := preExecPredicate(unit, candidates, predicates)
-	if !ok {
+	newPredicates, err := preExecPredicate(unit, candidates, predicates)
+	if err != nil {
 		return nil, err
 	}
 
@@ -457,27 +457,20 @@ func findCandidatesThatFit(unit *Unit, candidates []Candidater, predicates map[s
 	return filtered, nil
 }
 
-func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (bool, error, map[string]FitPredicate) {
-	var (
-		name              string
-		predicate         FitPredicate
-		ok                bool
-		err               error
-		newPredicateFuncs map[string]FitPredicate
-	)
-	newPredicateFuncs = make(map[string]FitPredicate)
-	for name, predicate = range predicates {
+func preExecPredicate(unit *Unit, candidates []Candidater, predicates map[string]FitPredicate) (map[string]FitPredicate, error) {
+	newPredicateFuncs := map[string]FitPredicate{}
+	for name, predicate := range predicates {
 		// generate new FitPredicates because of race condition?
 		newPredicate := predicate.Clone()
-		ok, err = newPredicate.PreExecute(unit, candidates)
+		ok, err := newPredicate.PreExecute(unit, candidates)
+		if err != nil {
+			return nil, err
+		}
 		if ok {
 			newPredicateFuncs[name] = newPredicate
 		}
-		if err != nil {
-			return false, err, nil
-		}
 	}
-	return true, err, newPredicateFuncs
+	return newPredicateFuncs, nil
 }
 
 type WaitGroupWrapper struct {

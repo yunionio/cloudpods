@@ -937,3 +937,20 @@ func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	}
 	return extra
 }
+
+func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc) error {
+	wires := []SWire{}
+	q := man.Query().Equals("vpc_id", vpc.Id)
+	err := db.FetchModelObjects(man, q, &wires)
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for i := range wires {
+		wire := &wires[i]
+		if err := wire.Delete(ctx, userCred); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.NewAggregate(errs)
+}

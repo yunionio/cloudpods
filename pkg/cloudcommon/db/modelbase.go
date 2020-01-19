@@ -149,6 +149,10 @@ func (manager *SModelBaseManager) Query(fieldNames ...string) *sqlchemy.SQuery {
 	return instance.Query(fields...)
 }
 
+func (manager *SModelBaseManager) RawQuery(fieldNames ...string) *sqlchemy.SQuery {
+	return manager.Query(fieldNames...)
+}
+
 func (manager *SModelBaseManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q
 }
@@ -410,6 +414,18 @@ func (model *SModelBase) KeywordPlural() string {
 
 func (model *SModelBase) GetName() string {
 	return ""
+}
+
+func (model *SModelBase) GetUpdatedAt() time.Time {
+	return time.Time{}
+}
+
+func (model *SModelBase) GetUpdateVersion() int {
+	return 0
+}
+
+func (model *SModelBase) GetDeleted() bool {
+	return false
 }
 
 func (model *SModelBase) SetModelManager(man IModelManager, virtual IModel) {

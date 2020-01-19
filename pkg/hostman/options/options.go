@@ -110,6 +110,10 @@ type SHostOptions struct {
 	EnableRemoteExecutor      bool   `help:"Enable remote executor" default:"false"`
 	ExecutorSocketPath        string `help:"Executor socket path" default:"/var/run/exec.sock"`
 	CommonConfigFile          string `help:"common config file for container"`
+
+	OvnSouthDatabase     string `help:"address for accessing ovn south database" default:"unix:/var/run/openvswitch/ovnsb_db.sock"`
+	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc"`
+	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route"`
 }
 
 var HostOptions SHostOptions

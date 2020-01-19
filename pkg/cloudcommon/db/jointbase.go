@@ -156,7 +156,9 @@ func JointMaster(joint IJointModel) IStandaloneModel { // need override
 	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
 	if len(masterId) > 0 {
 		master, _ := masterMan.FetchById(masterId)
-		return master.(IStandaloneModel)
+		if master != nil {
+			return master.(IStandaloneModel)
+		}
 	}
 	return nil
 }
@@ -167,7 +169,9 @@ func JointSlave(joint IJointModel) IStandaloneModel { // need override
 	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
 	if len(slaveId) > 0 {
 		slave, _ := slaveMan.FetchById(slaveId)
-		return slave.(IStandaloneModel)
+		if slave != nil {
+			return slave.(IStandaloneModel)
+		}
 	}
 	return nil
 }

@@ -21,7 +21,7 @@ import (
 )
 
 type Host struct {
-	EnabledStatusStandaloneResourceBase
+	EnabledStatusStandaloneResource
 
 	Rack  string
 	Slots string

@@ -63,6 +63,7 @@ type IModelManager interface {
 
 	// fetch hook
 	Query(val ...string) *sqlchemy.SQuery
+	RawQuery(val ...string) *sqlchemy.SQuery
 
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
@@ -129,6 +130,9 @@ type IModel interface {
 	object.IObject
 
 	GetName() string
+	GetUpdateVersion() int
+	GetUpdatedAt() time.Time
+	GetDeleted() bool
 
 	KeywordPlural() string
 
@@ -283,6 +287,7 @@ type IVirtualModelManager interface {
 
 type IVirtualModel interface {
 	IStandaloneModel
+	IPendingDeletable
 
 	IsOwner(userCred mcclient.TokenCredential) bool
 	// IsAdmin(userCred mcclient.TokenCredential) bool

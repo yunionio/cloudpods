@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type BaseManagerInterface interface {
+type IBaseManager interface {
 	Version() string
 	GetApiVersion() string
 	GetKeyword() string
@@ -44,7 +44,7 @@ type ManagerContext struct {
 }
 
 type Manager interface {
-	BaseManagerInterface
+	IBaseManager
 	/* resource list
 	   GET <base_url>/<resource_plural_keyword>
 	   e.g GET <base_url>/alarms
@@ -143,7 +143,7 @@ type Manager interface {
 }
 
 type JointManager interface {
-	BaseManagerInterface
+	IBaseManager
 	MasterManager() Manager
 	SlaveManager() Manager
 	Get(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -163,7 +163,7 @@ type JointManager interface {
 }
 
 var (
-	modules      map[string]map[string][]BaseManagerInterface
+	modules      map[string]map[string][]IBaseManager
 	jointModules map[string]map[string][]JointManager
 )
 
@@ -171,7 +171,7 @@ func _getJointKey(mod1 Manager, mod2 Manager) string {
 	return fmt.Sprintf("%s-%s", mod1.KeyString(), mod2.KeyString())
 }
 
-func ensureModuleNotRegistered(mod, newMod BaseManagerInterface) {
+func ensureModuleNotRegistered(mod, newMod IBaseManager) {
 	modSvcType := mod.ServiceType()
 	newModSvcType := newMod.ServiceType()
 	if mod == newMod {
@@ -182,18 +182,18 @@ func ensureModuleNotRegistered(mod, newMod BaseManagerInterface) {
 	}
 }
 
-func Register(version string, mod BaseManagerInterface) {
+func Register(version string, mod IBaseManager) {
 	if modules == nil {
-		modules = make(map[string]map[string][]BaseManagerInterface)
+		modules = make(map[string]map[string][]IBaseManager)
 	}
 	modtable, ok := modules[version]
 	if !ok {
-		modtable = make(map[string][]BaseManagerInterface)
+		modtable = make(map[string][]IBaseManager)
 		modules[version] = modtable
 	}
 	mods, ok := modtable[mod.KeyString()]
 	if !ok {
-		mods = make([]BaseManagerInterface, 0)
+		mods = make([]IBaseManager, 0)
 	}
 	for i := range mods {
 		ensureModuleNotRegistered(mods[i], mod)
@@ -203,7 +203,7 @@ func Register(version string, mod BaseManagerInterface) {
 	// modtable[mod.KeyString()] = append(mods, mod)
 }
 
-func RegisterJointModule(version string, mod BaseManagerInterface) {
+func RegisterJointModule(version string, mod IBaseManager) {
 	jointMod, ok := mod.(JointManager)
 	if ok { // also a joint manager
 		jointKey := _getJointKey(jointMod.MasterManager(), jointMod.SlaveManager())
@@ -240,7 +240,7 @@ func registerAllJointModules() {
 	}
 }
 
-func _getModule(session *mcclient.ClientSession, name string) (BaseManagerInterface, error) {
+func _getModule(session *mcclient.ClientSession, name string) (IBaseManager, error) {
 	modtable, ok := modules[session.GetApiVersion()]
 	if !ok {
 		return nil, fmt.Errorf("No such version: %s", session.GetApiVersion())

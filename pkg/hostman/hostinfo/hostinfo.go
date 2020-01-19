@@ -93,6 +93,14 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 			return n.BridgeDev
 		}
 	}
+	if bridge == options.HostOptions.OvnIntegrationBridge {
+		drv, err := hostbridge.NewOVSBridgeDriverByName(bridge)
+		if err != nil {
+			log.Errorf("create ovn bridge driver: %v", err)
+			return nil
+		}
+		return drv
+	}
 	return nil
 }
 
@@ -133,8 +141,24 @@ func (h *SHostInfo) Init() error {
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
+	if err := h.setupOvnChassis(); err != nil {
+		return err
+	}
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *SHostInfo) setupOvnChassis() error {
+	opts := &options.HostOptions
+	if opts.BridgeDriver != hostbridge.DRV_OPEN_VSWITCH {
+		return nil
+	}
+	log.Infof("Start setting up ovn chassis")
+	oh := NewOvnHelper(h)
+	if err := oh.Init(); err != nil {
 		return err
 	}
 	return nil
@@ -327,11 +351,11 @@ func (h *SHostInfo) detectHostInfo() error {
 	h.detectKvmModuleSupport()
 	h.detectNestSupport()
 
-	if err := h.detectiveSyssoftwareInfo(); err != nil {
+	if err := h.detectSyssoftwareInfo(); err != nil {
 		return err
 	}
 
-	h.detectiveStorageSystem()
+	h.detectStorageSystem()
 
 	if options.HostOptions.CheckSystemServices {
 		if err := h.checkSystemServices(); err != nil {
@@ -353,7 +377,7 @@ func (h *SHostInfo) checkSystemServices() error {
 	return nil
 }
 
-func (h *SHostInfo) detectiveStorageSystem() {
+func (h *SHostInfo) detectStorageSystem() {
 	var stype = api.DISK_TYPE_ROTATE
 	if options.HostOptions.DiskIsSsd {
 		stype = api.DISK_TYPE_SSD
@@ -483,7 +507,7 @@ func (h *SHostInfo) detectNestSupport() {
 	}
 }
 
-func (h *SHostInfo) detectiveOsDist() {
+func (h *SHostInfo) detectOsDist() {
 	files, err := procutils.NewRemoteCommandAsFarAsPossible("sh", "-c", "ls /etc/*elease").Output()
 	if err != nil {
 		log.Errorln(err)
@@ -503,13 +527,13 @@ func (h *SHostInfo) detectiveOsDist() {
 			break
 		}
 	}
-	log.Infof("DetectiveOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
+	log.Infof("DetectOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
 	if len(h.sysinfo.OsDistribution) == 0 {
 		log.Errorln("Failed to detect distribution info")
 	}
 }
 
-func (h *SHostInfo) detectiveKernelVersion() {
+func (h *SHostInfo) detectKernelVersion() {
 	out, err := procutils.NewCommand("uname", "-r").Output()
 	if err != nil {
 		log.Errorln(err)
@@ -517,17 +541,17 @@ func (h *SHostInfo) detectiveKernelVersion() {
 	h.sysinfo.KernelVersion = strings.TrimSpace(string(out))
 }
 
-func (h *SHostInfo) detectiveSyssoftwareInfo() error {
-	h.detectiveOsDist()
-	h.detectiveKernelVersion()
-	if err := h.detectiveQemuVersion(); err != nil {
+func (h *SHostInfo) detectSyssoftwareInfo() error {
+	h.detectOsDist()
+	h.detectKernelVersion()
+	if err := h.detectQemuVersion(); err != nil {
 		return err
 	}
-	h.detectiveOvsVersion()
+	h.detectOvsVersion()
 	return nil
 }
 
-func (h *SHostInfo) detectiveQemuVersion() error {
+func (h *SHostInfo) detectQemuVersion() error {
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
 	version, err := procutils.NewRemoteCommandAsFarAsPossible(cmd, "--version").Output()
 	if err != nil {
@@ -547,7 +571,7 @@ func (h *SHostInfo) detectiveQemuVersion() error {
 	return nil
 }
 
-func (h *SHostInfo) detectiveOvsVersion() {
+func (h *SHostInfo) detectOvsVersion() {
 	version, err := procutils.NewCommand("ovs-vsctl", "--version").Output()
 	if err != nil {
 		log.Errorln(err)
@@ -846,6 +870,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
 	content.Set("version", jsonutils.NewString(version.GetShortString()))
+	content.Set("ovn_version", jsonutils.NewString(MustGetOvnVersion()))
 
 	var (
 		res jsonutils.JSONObject

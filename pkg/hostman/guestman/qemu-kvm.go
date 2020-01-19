@@ -785,6 +785,18 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	if !ok {
 		return fmt.Errorf("Unknown desc format, not JSONDict")
 	}
+	{
+		// fill in ovn vpc nic bridge field
+		nics, _ := s.Desc.GetArray("nics")
+		ovnBridge := options.HostOptions.OvnIntegrationBridge
+		for _, nic := range nics {
+			vpcProvider, _ := nic.GetString("vpc", "provider")
+			if vpcProvider == compute.VPC_PROVIDER_OVN {
+				nicjd := nic.(*jsonutils.JSONDict)
+				nicjd.Set("bridge", jsonutils.NewString(ovnBridge))
+			}
+		}
+	}
 	if err := fileutils2.FilePutContents(s.GetDescFilePath(), desc.String(), false); err != nil {
 		log.Errorln(err)
 	}

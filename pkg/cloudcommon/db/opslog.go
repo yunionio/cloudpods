@@ -329,6 +329,14 @@ func (opslog *SOpsLog) GetName() string {
 	return fmt.Sprintf("%s-%s", opslog.ObjType, opslog.Action)
 }
 
+func (opslog *SOpsLog) GetUpdatedAt() time.Time {
+	return opslog.OpsTime
+}
+
+func (opslog *SOpsLog) GetUpdateVersion() int {
+	return 1
+}
+
 func (opslog *SOpsLog) GetModelManager() IModelManager {
 	return OpsLog
 }

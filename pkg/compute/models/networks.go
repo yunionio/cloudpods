@@ -989,7 +989,9 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 	}
-	extra.Add(jsonutils.NewString(wire.Name), "wire")
+	if wire != nil {
+		extra.Add(jsonutils.NewString(wire.Name), "wire")
+	}
 	if self.IsExitNetwork() {
 		extra.Add(jsonutils.JSONTrue, "exit")
 	} else {
@@ -1018,14 +1020,14 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 		if len(vpc.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
+		info := vpc.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
 	routes := self.GetRoutes()
 	if len(routes) > 0 {
 		extra.Add(jsonutils.Marshal(routes), "routes")
 	}
 
-	info := vpc.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
 	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 
 	return extra
@@ -1250,50 +1252,113 @@ func (manager *SNetworkManager) newIfnameHint(hint string) (string, error) {
 	return r, nil
 }
 
-func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {
-	var err error
-	var startIp, endIp netutils.IPV4Addr
-	if len(input.GuestIpPrefix) > 0 {
-		prefix, err := netutils.NewIPV4Prefix(input.GuestIpPrefix)
-		if err != nil {
-			return input, httperrors.NewInputParameterError("ip_prefix error: %s", err)
-		}
-		iprange := prefix.ToIPRange()
-		startIp = iprange.StartIp().StepUp()
-		endIp = iprange.EndIp().StepDown()
-		input.GuestIpMask = int64(prefix.MaskLen)
-		// 根据掩码得到合法的GuestIpPrefix
-		input.GuestIpPrefix = prefix.String()
-	} else {
-		startIp, err = netutils.NewIPV4Addr(input.GuestIpStart)
-		if err != nil {
-			return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
-		}
-		endIp, err = netutils.NewIPV4Addr(input.GuestIpEnd)
-		if err != nil {
-			return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
-		}
-		if startIp > endIp {
-			tmp := startIp
-			startIp = endIp
-			endIp = tmp
-		}
+func (manager *SNetworkManager) validateEnsureWire(ctx context.Context, userCred mcclient.TokenCredential, input api.NetworkCreateInput) (w *SWire, v *SVpc, cr *SCloudregion, err error) {
+	wObj, err := WireManager.FetchByIdOrName(userCred, input.Wire)
+	if err != nil {
+		err = errors.Wrapf(err, "wire %s", input.Wire)
+		return
 	}
-	input.GuestIpStart = startIp.String()
-	input.GuestIpEnd = endIp.String()
+	w = wObj.(*SWire)
+	v = w.getVpc()
+	crObj, err := CloudregionManager.FetchById(v.CloudregionId)
+	if err != nil {
+		err = errors.Wrapf(err, "cloudregion %s", v.CloudregionId)
+		return
+	}
+	cr = crObj.(*SCloudregion)
+	return
+}
 
-	if !isValidMaskLen(input.GuestIpMask) {
-		return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
+func (manager *SNetworkManager) validateEnsureZoneVpc(ctx context.Context, userCred mcclient.TokenCredential, input api.NetworkCreateInput) (w *SWire, v *SVpc, cr *SCloudregion, err error) {
+	zObj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
+	if err != nil {
+		err = errors.Wrapf(err, "zone %s", input.Zone)
+		return
+	}
+	z := zObj.(*SZone)
+
+	vObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	if err != nil {
+		err = errors.Wrapf(err, "vpc %s", input.Vpc)
+		return
+	}
+	v = vObj.(*SVpc)
+
+	var wires []SWire
+	// 华为云,ucloud wire zone_id 为空
+	cr = z.GetRegion()
+	if utils.IsInStringArray(cr.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+		wires, err = WireManager.getWiresByVpcAndZone(v, nil)
+	} else {
+		wires, err = WireManager.getWiresByVpcAndZone(v, z)
+	}
+
+	if err != nil {
+		return
+	} else if len(wires) > 1 {
+		err = httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
+		return
+	} else if len(wires) == 1 {
+		w = &wires[0]
+		return
+	}
+	// wire not found.  We auto create one for OneCloud vpc
+	if cr.Provider == api.CLOUD_PROVIDER_ONECLOUD {
+		w, err = v.initWire(ctx, z)
+		if err != nil {
+			err = errors.Wrapf(err, "vpc %s init wire", v.Id)
+			return
+		}
+		return
+	}
+	err = httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
+	return
+}
+
+func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.NetworkCreateInput) (api.NetworkCreateInput, error) {
+	if input.ServerType == "" {
+		input.ServerType = api.NETWORK_TYPE_GUEST
+	} else if !utils.IsInStringArray(input.ServerType, ALL_NETWORK_TYPES) {
+		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
 	}
 
 	{
 		if len(input.IfnameHint) == 0 {
 			input.IfnameHint = input.Name
 		}
+		var err error
 		input.IfnameHint, err = manager.newIfnameHint(input.IfnameHint)
 		if err != nil {
 			return input, httperrors.NewBadRequestError("cannot derive valid ifname hint: %v", err)
 		}
+	}
+
+	var (
+		ipRange netutils.IPV4AddrRange
+	)
+	if len(input.GuestIpPrefix) > 0 {
+		prefix, err := netutils.NewIPV4Prefix(input.GuestIpPrefix)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("ip_prefix error: %s", err)
+		}
+		ipRange = prefix.ToIPRange()
+		input.GuestIpMask = int64(prefix.MaskLen)
+		// 根据掩码得到合法的GuestIpPrefix
+		input.GuestIpPrefix = prefix.String()
+	} else {
+		ipStart, err := netutils.NewIPV4Addr(input.GuestIpStart)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", input.GuestIpStart, err)
+		}
+		ipEnd, err := netutils.NewIPV4Addr(input.GuestIpEnd)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("invalid end ip: %s %s", input.GuestIpEnd, err)
+		}
+		ipRange = netutils.NewIPV4AddrRange(ipStart, ipEnd)
+	}
+
+	if !isValidMaskLen(input.GuestIpMask) {
+		return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
 	}
 
 	for key, ipStr := range map[string]string{"guest_gateway": input.GuestGateway, "guest_dns": input.GuestDns, "guest_dhcp": input.GuestDHCP} {
@@ -1311,119 +1376,86 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 
-	nets := manager.getAllNetworks("")
-	if nets == nil {
-		return input, httperrors.NewInternalServerError("query all networks fail")
-	}
-
-	if isOverlapNetworks(nets, startIp, endIp) {
-		return input, httperrors.NewInputParameterError("Conflict address space with existing networks")
-	}
-
-	if len(input.WireId) > 0 {
+	var (
+		wire   *SWire
+		vpc    *SVpc
+		region *SCloudregion
+		err    error
+	)
+	if input.WireId != "" {
 		input.Wire = input.WireId
 	}
-
-	if len(input.Wire) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred, input.Wire)
+	if input.Wire != "" {
+		wire, vpc, region, err = manager.validateEnsureWire(ctx, userCred, input)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return input, httperrors.NewNotFoundError("wire %s not found", input.Wire)
-			} else {
-				return input, httperrors.NewInternalServerError("query wire %s error %s", input.Wire, err)
-			}
+			return input, err
 		}
-		input.WireId = wireObj.GetId()
+	} else if input.Zone != "" && input.Vpc != "" {
+		wire, vpc, region, err = manager.validateEnsureZoneVpc(ctx, userCred, input)
+		if err != nil {
+			return input, err
+		}
 	} else {
-		if len(input.Zone) > 0 {
-			if len(input.Vpc) > 0 {
-				zoneObj, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
-				if err != nil {
-					if err == sql.ErrNoRows {
-						return input, httperrors.NewNotFoundError("zone %s not found", input.Zone)
-					} else {
-						return input, httperrors.NewInternalServerError("query zone %s error %s", input.Zone, err)
-					}
-				}
-				vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
-				if err != nil {
-					if err == sql.ErrNoRows {
-						return input, httperrors.NewNotFoundError("vpc %s not found", input.Vpc)
-					} else {
-						return input, httperrors.NewInternalServerError("query vpc %s error %s", input.Vpc, err)
-					}
-				}
-				vpc := vpcObj.(*SVpc)
-				zone := zoneObj.(*SZone)
-				region := zone.GetRegion()
-				if region == nil {
-					return input, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
-				}
-
-				// 华为云,ucloud wire zone_id 为空
-				var wires []SWire
-				if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
-					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
-				} else {
-					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)
-				}
-
-				if err != nil {
-					return input, httperrors.NewInternalServerError("query wire for zone %s and vpc %s: %v", input.Zone, input.Vpc, err)
-				}
-				if len(wires) == 0 {
-					return input, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", input.Zone, input.Vpc)
-				} else if len(wires) > 1 {
-					return input, httperrors.NewConflictError("found %d wires for zone %s and vpc %s", len(wires), input.Zone, input.Vpc)
-				} else {
-					input.WireId = wires[0].Id
-				}
-			} else {
-				return input, httperrors.NewInputParameterError("No either wire or vpc provided")
-			}
-		} else {
-			return input, httperrors.NewInvalidStatusError("No either wire or zone provided")
-		}
+		return input, httperrors.NewInputParameterError("zone and vpc info required when wire is absent")
 	}
-
-	if len(input.WireId) == 0 {
-		return input, httperrors.NewMissingParameterError("wire_id")
-	}
-	wire := WireManager.FetchWireById(input.WireId)
-	if wire == nil {
-		return input, httperrors.NewResourceNotFoundError("wire %s not found", input.WireId)
-	}
-	vpc := wire.getVpc()
-	if vpc == nil {
-		return input, httperrors.NewInputParameterError("no valid vpc ???")
-	}
-
+	input.WireId = wire.Id
 	if vpc.Status != api.VPC_STATUS_AVAILABLE {
 		return input, httperrors.NewInvalidStatusError("VPC not ready")
 	}
 
-	vpcRanges := vpc.getIPRanges()
+	var (
+		ipStart = ipRange.StartIp()
+		ipEnd   = ipRange.EndIp()
+	)
+	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
+		// reserve addresses for onecloud vpc networks
+		masklen := int8(input.GuestIpMask)
+		netAddr := ipStart.NetAddr(masklen)
+		if masklen >= 30 {
+			return input, httperrors.NewInputParameterError("subnet masklen should be smaller than 30")
+		}
+		if netAddr != ipEnd.NetAddr(masklen) {
+			return input, httperrors.NewInputParameterError("start and end ip when masked are not in the same cidr subnet")
+		}
+		gateway := netAddr.StepUp()
+		brdAddr := ipStart.BroadcastAddr(masklen)
+		// NOTE
+		//
+		//  - reserve the 1st addr as gateway
+		//  - reserve the last ip for broadcasting
+		//  - reserve the 2nd-to-last for possible future use
+		//
+		// We do not allow split 192.168.1.0/24 into multiple ranges
+		// like
+		//
+		//  - 192.168.1.50-192.168.1.100,
+		//  - 192.168.1.100-192.168.1.200
+		//
+		//  This could complicate gateway setting and topology
+		//  management without much benefit to end users
+		ipStart = gateway.StepUp()
+		ipEnd = brdAddr.StepDown().StepDown()
+		input.GuestGateway = gateway.String()
+	}
 
-	netRange := netutils.NewIPV4AddrRange(startIp, endIp)
-
-	inRange := false
-	for _, vpcRange := range vpcRanges {
-		if vpcRange.ContainsRange(netRange) {
-			inRange = true
-			break
+	{
+		netRange := netutils.NewIPV4AddrRange(ipStart, ipEnd)
+		if !vpc.containsIPV4Range(netRange) {
+			return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
+		}
+	}
+	{
+		nets := manager.getAllNetworks(wire.Id, "")
+		if nets == nil {
+			return input, httperrors.NewInternalServerError("query all networks fail")
+		}
+		if isOverlapNetworks(nets, ipStart, ipEnd) {
+			return input, httperrors.NewInputParameterError("Conflict address space with existing networks")
 		}
 	}
 
-	if !inRange {
-		return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
-	}
-
-	if len(input.ServerType) == 0 {
-		input.ServerType = api.NETWORK_TYPE_GUEST
-	} else if !utils.IsInStringArray(input.ServerType, ALL_NETWORK_TYPES) {
-		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
-	}
-
+	input.GuestIpStart = ipStart.String()
+	input.GuestIpEnd = ipEnd.String()
 	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
 		return input, err
@@ -1431,7 +1463,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var startIp, endIp netutils.IPV4Addr
 	var err error
 
@@ -1439,10 +1471,6 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	ipEndStr, _ := data.GetString("guest_ip_end")
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
-		if self.isManaged() {
-			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-		}
-
 		if len(ipStartStr) > 0 {
 			startIp, err = netutils.NewIPV4Addr(ipStartStr)
 			if err != nil {
@@ -1466,7 +1494,7 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			endIp = tmp
 		}
 
-		nets := NetworkManager.getAllNetworks(self.Id)
+		nets := NetworkManager.getAllNetworks(self.WireId, self.Id)
 		if nets == nil {
 			return nil, httperrors.NewInternalServerError("query all networks fail")
 		}
@@ -1475,21 +1503,9 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewInputParameterError("Conflict address space with existing networks")
 		}
 
-		vpc := self.GetVpc()
-
-		vpcRanges := vpc.getIPRanges()
-
 		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
-
-		inRange := false
-		for _, vpcRange := range vpcRanges {
-			if vpcRange.ContainsRange(netRange) {
-				inRange = true
-				break
-			}
-		}
-
-		if !inRange {
+		vpc := self.GetVpc()
+		if !vpc.containsIPV4Range(netRange) {
 			return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 		}
 
@@ -1503,14 +1519,9 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 
 		data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
 		data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
-
 	}
 
 	if data.Contains("guest_ip_mask") {
-		if self.isManaged() {
-			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-		}
-
 		maskLen64, _ := data.Int("guest_ip_mask")
 		if !isValidMaskLen(maskLen64) {
 			return nil, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
@@ -1520,9 +1531,6 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
 		ipStr, _ := data.GetString(key)
 		if len(ipStr) > 0 {
-			if self.isManaged() {
-				return nil, httperrors.NewForbiddenError("Cannot update a managed network")
-			}
 			if key == "guest_dhcp" {
 				ipList := strings.Split(ipStr, ",")
 				for _, ipstr := range ipList {
@@ -1536,13 +1544,31 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 
 		}
 	}
+	return nil, nil
+}
+
+func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if !self.isManaged() && !self.isOneCloudVpcNetwork() {
+		data.Remove("guest_ip_start")
+		data.Remove("guest_ip_end")
+		data.Remove("guest_ip_mask")
+		data.Remove("guest_gateway")
+		data.Remove("guest_dns")
+		data.Remove("guest_dhcp")
+	} else {
+		var err error
+		data, err = self.validateUpdateData(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SNetworkManager) getAllNetworks(excludeId string) []SNetwork {
+func (manager *SNetworkManager) getAllNetworks(wireId, excludeId string) []SNetwork {
 	nets := make([]SNetwork, 0)
-	q := manager.Query()
+	q := manager.Query().Equals("wire_id", wireId)
 	if len(excludeId) > 0 {
 		q = q.NotEquals("id", excludeId)
 	}
@@ -1666,6 +1692,15 @@ func (self *SNetwork) isManaged() bool {
 	} else {
 		return false
 	}
+}
+
+func (self *SNetwork) isOneCloudVpcNetwork() bool {
+	vpc := self.getVpc()
+	region := self.getRegion()
+	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
+		return true
+	}
+	return false
 }
 
 func parseIpToIntArray(ip string) ([]int, error) {
