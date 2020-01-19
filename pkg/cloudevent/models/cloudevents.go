@@ -139,7 +139,7 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 func (manager *SCloudeventManager) GetPagingConfig() *db.SPagingConfig {
 	return &db.SPagingConfig{
 		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerField:  "created_at",
+		MarkerFields: []string{"created_at", "event_id"},
 		DefaultLimit: 20,
 	}
 }

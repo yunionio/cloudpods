@@ -335,9 +335,22 @@ func (ts *STableSpec) SyncSQL() []string {
 	/* IGNORE DROP STATEMENT */
 	for _, col := range remove {
 		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
+		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
 		// alters = append(alters, sql)
 		// ignore drop statement
-		// but if the column is not nullable but no default
+		// if the column is auto_increment integer column,
+		// then need to drop auto_increment attribute
+		if intCol, ok := col.(*SIntegerColumn); ok {
+			if intCol.IsAutoIncrement {
+				// make sure the column is nullable
+				col.SetNullable(true)
+				log.Errorf("column %s is auto_increment, drop auto_inrement attribute", col.Name())
+				intCol.IsAutoIncrement = false
+				sql := fmt.Sprintf("MODIFY %s", col.DefinitionString())
+				alters = append(alters, sql)
+			}
+		}
+		// if the column is not nullable but no default
 		// then need to drop the not-nullable attribute
 		if !col.IsNullable() && col.Default() == "" {
 			col.SetNullable(true)
@@ -345,7 +358,6 @@ func (ts *STableSpec) SyncSQL() []string {
 			alters = append(alters, sql)
 			log.Errorf("column %s is not nullable but no default, drop not nullable attribute", col.Name())
 		}
-		log.Infof("ALTER TABLE %s %s;", ts.name, sql)
 	}
 	for _, cols := range update {
 		sql := fmt.Sprintf("MODIFY %s", cols.newCol.DefinitionString())
