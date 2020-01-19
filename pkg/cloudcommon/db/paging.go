@@ -15,11 +15,38 @@
 package db
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 )
 
 type SPagingConfig struct {
 	Order        sqlchemy.QueryOrderType
-	MarkerField  string
+	MarkerFields []string
 	DefaultLimit int
+}
+
+func decodePagingMarker(markString string) []string {
+	if len(markString) > 2 && markString[0] == '[' && markString[len(markString)-1] == ']' {
+		markJson, _ := jsonutils.ParseString(markString)
+		if markJson != nil {
+			if markArray, ok := markJson.(*jsonutils.JSONArray); ok {
+				return markArray.GetStringArray()
+			}
+		}
+	}
+	if len(markString) > 0 {
+		return []string{markString}
+	}
+	return []string{}
+}
+
+func encodePagingMarker(markers []string) string {
+	switch len(markers) {
+	case 0:
+		return ""
+	case 1:
+		return markers[0]
+	default:
+		return jsonutils.Marshal(markers).String()
+	}
 }
