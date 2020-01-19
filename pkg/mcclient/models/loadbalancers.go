@@ -157,6 +157,7 @@ type LoadbalancerBackend struct {
 	Port           int
 
 	SendProxy string
+	Ssl       string
 }
 
 type LoadbalancerAclEntry struct {
@@ -233,6 +234,7 @@ type LoadbalancerAgentParamsHaproxy struct {
 	LogHttp        bool
 	LogTcp         bool
 	LogNormal      bool
+	TuneHttpMaxhdr int
 }
 
 type LoadbalancerAgentParamsTelegraf struct {
