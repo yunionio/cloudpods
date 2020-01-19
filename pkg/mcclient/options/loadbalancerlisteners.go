@@ -21,7 +21,7 @@ type LoadbalancerListenerCreateOptions struct {
 	ListenerType      string `required:"true" choices:"tcp|udp|http|https"`
 	ListenerPort      *int   `required:"true"`
 	BackendServerPort *int
-	BackendGroup      string
+	BackendGroup      *string `json:",allowempty"`
 
 	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
 
@@ -81,7 +81,7 @@ type LoadbalancerListenerListOptions struct {
 	Loadbalancer string
 	ListenerType string `choices:"tcp|udp|http|https"`
 	ListenerPort *int
-	BackendGroup string
+	BackendGroup *string `json:",allowempty"`
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
@@ -137,7 +137,7 @@ type LoadbalancerListenerUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
 
-	BackendGroup string
+	BackendGroup *string `json:",allowempty"`
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 

@@ -579,7 +579,12 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 	}
 
 	{
-		if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
+		if backendGroup == nil {
+			if lblis.ListenerType != api.LB_LISTENER_TYPE_HTTP &&
+				lblis.ListenerType != api.LB_LISTENER_TYPE_HTTPS {
+				return nil, httperrors.NewInputParameterError("non http listener must have backend group set")
+			}
+		} else if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lblis.LoadbalancerId)
 		}

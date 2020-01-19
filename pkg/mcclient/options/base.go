@@ -37,6 +37,10 @@ func Bool(v bool) *bool {
 	return &v
 }
 
+func String(v string) *string {
+	return &v
+}
+
 // IntV returns the integer value as pointed to by the argument if it's
 // non-nil, return 0 otherwise
 func IntV(p *int) int {
@@ -53,6 +57,13 @@ func BoolV(p *bool) bool {
 		return *p
 	}
 	return false
+}
+
+func StringV(p *string) string {
+	if p != nil {
+		return *p
+	}
+	return ""
 }
 
 type IParamsOptions interface {
