@@ -25,8 +25,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -142,8 +144,63 @@ func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mod
 	return nil
 }
 
+type SEsxiImageInfo struct {
+	ImageType          string
+	ImageExternalId    string
+	StorageCacheHostIp string
+}
+
 func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	return guest.GetJsonDescAtHypervisor(ctx, host)
+	desc := guest.GetJsonDescAtHypervisor(ctx, host)
+	// add image_info
+	disks, _ := desc.GetArray("disks")
+	if len(disks) == 0 {
+		return desc
+	}
+	templateId, _ := disks[0].GetString("template_id")
+	if len(templateId) == 0 {
+		return desc
+	}
+	model, err := models.CachedimageManager.FetchById(templateId)
+	if err != nil {
+		log.Errorf("fail to Fetch cachedimage by '%s' in SESXiGuestDriver.GetJsonDescAtHost: %s", templateId, err)
+		return desc
+	}
+	img := model.(*models.SCachedimage)
+	if img.ImageType != cloudprovider.CachedImageTypeSystem {
+		return desc
+	}
+	sciSubQ := models.StoragecachedimageManager.Query("storagecache_id").Equals("cachedimage_id", templateId).SubQuery()
+	scQ := models.StoragecacheManager.Query().In("id", sciSubQ)
+	storageCaches := make([]models.SStoragecache, 0, 1)
+	err = db.FetchModelObjects(models.StoragecacheManager, scQ, &storageCaches)
+	if err != nil {
+		log.Errorf("fail to fetch storageCache associated with cacheimage '%s'", templateId)
+		return desc
+	}
+	if len(storageCaches) == 0 {
+		log.Errorf("no such storage cache associated with cacheimage '%s'", templateId)
+		return desc
+	}
+	if len(storageCaches) > 1 {
+		log.Errorf("there are multiple storageCache associated with caheimage '%s' ??!!", templateId)
+	}
+
+	var hostIp string
+	storageCacheHost, err := storageCaches[0].GetHost()
+	if err != nil {
+		log.Errorf("fail to GetHost of storageCache %s", storageCaches[0].Id)
+		hostIp = storageCaches[0].ExternalId
+	}
+	hostIp = storageCacheHost.AccessIp
+	imageInfo := SEsxiImageInfo{
+		ImageType:          img.ImageType,
+		ImageExternalId:    img.ExternalId,
+		StorageCacheHostIp: hostIp,
+	}
+	dict := disks[0].(*jsonutils.JSONDict)
+	dict.Add(jsonutils.Marshal(imageInfo), "image_info")
+	return desc
 }
 
 func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

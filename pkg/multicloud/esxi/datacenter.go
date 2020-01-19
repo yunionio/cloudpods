@@ -166,26 +166,32 @@ func (dc *SDatacenter) getDcObj() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
-func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, error) {
+// fetchVms will identify if VM is a template and return two different arrays; the latter contains all template vms.
+func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, []*SVirtualMachine, error) {
 	var vms []mo.VirtualMachine
 	if vmRefs != nil {
 		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
 		if err != nil {
-			return nil, errors.Wrap(err, "dc.manager.references2Objects")
+			return nil, nil, errors.Wrap(err, "dc.manager.references2Objects")
 		}
 	}
 
 	// avoid applying new memory and copying
-	retVms := make([]cloudprovider.ICloudVM, 0, len(vms))
+	retVms := make([]cloudprovider.ICloudVM, 0, len(vms)/2)
+	templateVMs := make([]*SVirtualMachine, 0, 2)
 	for i := 0; i < len(vms); i += 1 {
 		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
 			vmObj := NewVirtualMachine(dc.manager, &vms[i], dc)
+			if vms[i].Config.Template {
+				templateVMs = append(templateVMs, vmObj)
+				continue
+			}
 			if vmObj != nil {
 				retVms = append(retVms, vmObj)
 			}
 		}
 	}
-	return retVms, nil
+	return retVms, templateVMs, nil
 }
 
 func (dc *SDatacenter) fetchDatastores(datastoreRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudStorage, error) {

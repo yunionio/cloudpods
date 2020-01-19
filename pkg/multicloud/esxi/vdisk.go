@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,6 +31,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
+
+var driverMap = map[string]string{
+	"ahci":        "sata",
+	"parascsi":    "pvscsi",
+	"buslogic":    "scsi",
+	"lsilogic":    "scsi",
+	"lsilogicsas": "scsi",
+}
 
 type SVirtualDisk struct {
 	multicloud.SDisk
@@ -261,14 +270,7 @@ func (disk *SVirtualDisk) GetDriver() string {
 	controller := disk.vm.getVdev(disk.getControllerKey())
 	name := controller.GetDriver()
 	name = strings.Replace(name, "controller", "", -1)
-	mapping := map[string]string{
-		"ahci":        "sata",
-		"parascsi":    "pvscsi",
-		"buslogic":    "scsi",
-		"lsilogic":    "scsi",
-		"lsilogicsas": "scsi",
-	}
-	return mapping[name]
+	return driverMap[name]
 }
 
 func (disk *SVirtualDisk) GetCacheMode() string {
@@ -343,7 +345,23 @@ func (disk *SVirtualDisk) GetBillingType() string {
 	return ""
 }
 
+// GetCreatedAt return create time by getting the Data of file stored at disk.GetAccessPath
 func (disk *SVirtualDisk) GetCreatedAt() time.Time {
+	path, name := disk.GetAccessPath(), disk.GetFilename()
+	storage, err := disk.GetIStorage()
+	if err != nil {
+		return time.Time{}
+	}
+	ds := storage.(*SDatastore)
+	files, err := ds.ListDir(context.Background(), filepath.Dir(path))
+	if err != nil {
+		return time.Time{}
+	}
+	for _, file := range files {
+		if file.Name == name {
+			return file.Date
+		}
+	}
 	return time.Time{}
 }
 

@@ -52,7 +52,11 @@ func (dev *SVirtualDevice) getLabel() string {
 }
 
 func (dev *SVirtualDevice) GetDriver() string {
-	val := reflect.Indirect(reflect.ValueOf(dev.dev))
+	return getDevName(dev.dev)
+}
+
+func getDevName(device types.BaseVirtualDevice) string {
+	val := reflect.Indirect(reflect.ValueOf(device))
 	driver := strings.ToLower(val.Type().Name())
 	if strings.Contains(driver, "virtualmachine") {
 		return strings.Replace(driver, "virtualmachine", "", -1)

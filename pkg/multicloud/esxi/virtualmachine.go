@@ -332,7 +332,28 @@ func (self *SVirtualMachine) GetOSType() string {
 
 func (self *SVirtualMachine) GetOSName() string {
 	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
-		return string(osInfo.OsDistribution)
+		return osInfo.OsDistribution
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOSVersion() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return osInfo.OsVersion
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOsArch() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return string(osInfo.OsArch)
+	}
+	return ""
+}
+
+func (self *SVirtualMachine) GetOsDistribution() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return osInfo.OsDistribution
 	}
 	return ""
 }
@@ -725,6 +746,10 @@ func (self *SVirtualMachine) fetchHardwareInfo() error {
 		vdev := NewVirtualDevice(self, dev, 0)
 		self.devs[vdev.getKey()] = vdev
 	}
+	// sort disk based on index
+	sort.Slice(self.vdisks, func(i, j int) bool {
+		return self.vdisks[i].GetIndex() < self.vdisks[j].GetIndex()
+	})
 	return nil
 }
 
@@ -805,10 +830,10 @@ func minDiskKey(devs []SVirtualDisk) int32 {
 	return minKey
 }
 
-func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+func (self *SVirtualMachine) FindController(ctx context.Context, driver string) ([]SVirtualDevice, error) {
 	aliasDrivers, ok := driverTable[driver]
 	if !ok {
-		return fmt.Errorf("Unsupported disk driver %s", driver)
+		return nil, fmt.Errorf("Unsupported disk driver %s", driver)
 	}
 	var devs []SVirtualDevice
 	for _, alias := range aliasDrivers {
@@ -817,16 +842,30 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 			break
 		}
 	}
+	return devs, nil
+}
+
+func (self *SVirtualMachine) FindDiskByDriver(driver string) []SVirtualDisk {
+	disks := make([]SVirtualDisk, 0)
+	for i := range self.vdisks {
+		if self.vdisks[i].GetDriver() == driver {
+			disks = append(disks, self.vdisks[i])
+		}
+	}
+	return disks
+}
+
+func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	devs, err := self.FindController(ctx, driver)
+	if err != nil {
+		return err
+	}
 	if len(devs) == 0 {
 		return fmt.Errorf("Driver %s not found", driver)
 	}
 	ctlKey := minDevKey(devs)
-	sameDisks := make([]SVirtualDisk, 0)
-	for i := 0; i < len(self.vdisks); i += 1 {
-		if self.vdisks[i].GetDriver() == driver {
-			sameDisks = append(sameDisks, self.vdisks[i])
-		}
-	}
+	sameDisks := self.FindDiskByDriver(driver)
+
 	var diskKey int32 = 2000
 	if len(sameDisks) == 0 {
 		diskKey = minDiskKey(sameDisks)
@@ -1081,4 +1120,27 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 
 func (self *SVirtualMachine) GetSerialOutput(port int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
+	if self.devs == nil {
+		self.fetchHardwareInfo()
+	}
+	devKeys := make([]int32, 0, len(self.devs))
+	for key := range self.devs {
+		devKeys = append(devKeys, key)
+	}
+	sort.Slice(devKeys, func(i int, j int) bool {
+		return devKeys[i] < devKeys[j]
+	})
+	for _, key := range devKeys {
+		switch {
+		case key < limit:
+		case key == limit:
+			limit += 1
+		case key > limit:
+			return limit
+		}
+	}
+	return limit
 }

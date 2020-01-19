@@ -16,14 +16,15 @@ package hostdrivers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -68,16 +69,19 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	}
 
 	type contentStruct struct {
-		ImageId        string
-		HostId         string
-		HostIp         string
-		SrcHostIp      string
-		SrcPath        string
-		SrcDatastore   models.SVCenterAccessInfo
-		Datastore      models.SVCenterAccessInfo
-		Format         string
-		IsForce        bool
-		StoragecacheId string
+		ImageId            string
+		HostId             string
+		HostIp             string
+		SrcHostIp          string
+		SrcPath            string
+		SrcDatastore       models.SVCenterAccessInfo
+		Datastore          models.SVCenterAccessInfo
+		Format             string
+		IsForce            bool
+		StoragecacheId     string
+		ImageType          string
+		ImageExternalId    string
+		StorageCacheHostIp string
 	}
 
 	content := contentStruct{}
@@ -87,11 +91,14 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	// format force VMDK
 	content.Format = "vmdk" // cacheImage.GetFormat()
 
+	content.ImageType = cacheImage.ImageType
+	content.ImageExternalId = cacheImage.ExternalId
+
 	storage := host.GetStorageByFilePath(storageCache.Path)
 	if storage == nil {
 		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
 		log.Errorf(msg)
-		return errors.New(msg)
+		return errors.Error(msg)
 	}
 
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
@@ -100,7 +107,21 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	}
 	content.Datastore = accessInfo
 
-	if srcHostCacheImage != nil {
+	if cacheImage.ImageType == cloudprovider.CachedImageTypeSystem {
+		var host *models.SHost
+		if srcHostCacheImage != nil {
+			host, err = srcHostCacheImage.GetHost()
+			if err != nil {
+				return errors.Wrap(err, "srcHostCacheImage.GetHost")
+			}
+		} else {
+			host, err = storageCache.GetHost()
+			if err != nil {
+				return errors.Wrap(err, "StorageCache.GetHost")
+			}
+		}
+		content.StorageCacheHostIp = host.AccessIp
+	} else if srcHostCacheImage != nil {
 		err = srcHostCacheImage.AddDownloadRefcount()
 		if err != nil {
 			return err
