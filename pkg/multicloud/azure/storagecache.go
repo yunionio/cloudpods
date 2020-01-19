@@ -125,6 +125,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
+	err := os.MkdirAll(options.Options.TempPath, os.ModePerm)
+	if err != nil {
+		log.Warningf("failed to create tmp path %s error: %v", options.Options.TempPath, err)
+	}
 	return self.uploadImage(ctx, userCred, image, isForce, options.Options.TempPath)
 }
 
