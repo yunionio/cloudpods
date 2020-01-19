@@ -31,10 +31,11 @@ import (
 type SchedInfo struct {
 	*api.ScheduleInput
 
-	Tag         string   `json:"tag"`
-	Type        string   `json:"type"`
-	IsContainer bool     `json:"is_container"`
-	Candidates  []string `json:"candidates"`
+	Tag                string   `json:"tag"`
+	Type               string   `json:"type"`
+	IsContainer        bool     `json:"is_container"`
+	PreferCandidates   []string `json:"candidates"`
+	RequiredCandidates int      `json:"required_candidates"`
 
 	IgnoreFilters         map[string]bool `json:"ignore_filters"`
 	IsSuggestion          bool            `json:"suggestion"`
@@ -88,14 +89,25 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 	data := new(SchedInfo)
 	data.ScheduleInput = input
+	data.RequiredCandidates = 1
 
 	if data.Hypervisor == "" || data.Hypervisor == SchedTypeKvm {
 		data.Hypervisor = HostHypervisorForKvm
 	}
 
-	candidates := make([]string, 0)
-	if !data.Backup && data.PreferHost != "" {
-		candidates = append(candidates, data.PreferHost)
+	preferCandidates := make([]string, 0)
+	if data.PreferHost != "" {
+		preferCandidates = append(preferCandidates, data.PreferHost)
+	}
+
+	if data.Backup {
+		if data.PreferBackupHost != "" {
+			preferCandidates = append(preferCandidates, data.PreferBackupHost)
+		}
+		data.RequiredCandidates += 1
+	} else {
+		// make sure prefer backup is null
+		data.PreferBackupHost = ""
 	}
 
 	if data.ResourceType == "" {
@@ -108,7 +120,7 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 		log.V(4).Warningf("No baremetal_disk_config info found in json, use default baremetal disk config: %#v", defaultConfs)
 	}
 
-	data.Candidates = candidates
+	data.PreferCandidates = preferCandidates
 
 	data.reviseData()
 

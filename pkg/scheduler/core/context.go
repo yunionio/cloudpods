@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -442,19 +443,9 @@ func (u *Unit) SchedData() *api.SchedInfo {
 }
 
 func (u *Unit) ShouldExecuteSchedtagFilter(hostId string) bool {
-	schedData := u.SchedData()
-	if !schedData.Backup {
-		if len(schedData.PreferHost) != 0 {
-			return false
-		}
-		return true
-	}
-	for _, preferHost := range []string{schedData.PreferHost, schedData.PreferBackupHost} {
-		if preferHost == hostId {
-			return false
-		}
-	}
-	return true
+	return !utils.IsInStringArray(
+		hostId, []string{u.SchedInfo.PreferHost, u.SchedInfo.PreferBackupHost},
+	)
 }
 
 func (u *Unit) GetHypervisor() string {

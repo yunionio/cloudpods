@@ -1051,9 +1051,6 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	}
 	disks, _ := s.Desc.GetArray("disks")
 	if s.index < len(disks) {
-		if s.index >= 1 { // data disk
-			s.syncMode = "none"
-		}
 		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
 		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
 			target, s.syncMode, true)

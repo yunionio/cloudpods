@@ -193,8 +193,8 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	return r
 }
 
-func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) ([]*SchedResultItem, error) {
-	results := make([]*SchedResultItem, 0)
+func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) (SchedResultItems, error) {
+	results := make(SchedResultItems, 0)
 	itemMap := make(map[string]int)
 
 	for _, it := range scs {
@@ -218,10 +218,9 @@ func generateScheduleResult(u *Unit, scs []*SelectedCandidate, cs []Candidater) 
 	}
 
 	suggestionAll := u.SchedInfo.SuggestionAll
-	if suggestionAll || len(u.SchedData().Candidates) > 0 {
+	if suggestionAll || len(u.SchedData().PreferCandidates) > 0 {
 		for _, c := range cs {
 			if suggestionLimit <= int64(len(results)) {
-
 				break
 			}
 			id := c.IndexKey()
@@ -272,21 +271,18 @@ func GetCapacities(u *Unit, id string) (res map[string]int64) {
 	return
 }
 
-type SchedResultItemList struct {
-	Unit *Unit
-	Data []*SchedResultItem
+type SchedResultItems []*SchedResultItem
+
+func (its SchedResultItems) Len() int {
+	return len(its)
 }
 
-func (its SchedResultItemList) Len() int {
-	return len(its.Data)
+func (its SchedResultItems) Swap(i, j int) {
+	its[i], its[j] = its[j], its[i]
 }
 
-func (its *SchedResultItemList) Swap(i, j int) {
-	its.Data[i], its.Data[j] = its.Data[j], its.Data[i]
-}
-
-func (its SchedResultItemList) Less(i, j int) bool {
-	it1, it2 := its.Data[i], its.Data[j]
+func (its SchedResultItems) Less(i, j int) bool {
+	it1, it2 := its[i], its[j]
 	return it1.Capacity < it2.Capacity
 	/*
 		ctx := its.Unit
@@ -308,6 +304,11 @@ func (its SchedResultItemList) Less(i, j int) bool {
 
 		return v(count1, capacity1, score1) < v(count2, capacity2, score2)
 	*/
+}
+
+type SchedResultItemList struct {
+	Unit *Unit
+	Data SchedResultItems
 }
 
 func (its SchedResultItemList) String() string {
