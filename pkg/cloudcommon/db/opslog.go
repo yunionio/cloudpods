@@ -631,7 +631,7 @@ func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
 func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
 	return &SPagingConfig{
 		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerField:  "id",
+		MarkerFields: []string{"id"},
 		DefaultLimit: 20,
 	}
 }
