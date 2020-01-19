@@ -307,23 +307,96 @@ func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 		nic := n.delNics[len(n.delNics)-1]
 		n.delNics = n.delNics[:len(n.delNics)-1]
 		n.removeNic(nic)
-		return
 	} else if len(n.addNics) > 0 {
 		nic := n.addNics[len(n.addNics)-1]
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
-		return
 	} else {
-		n.callback()
+		n.callback(n.errors...)
 	}
 }
 
 func (n *SGuestNetworkSyncTask) removeNic(nic jsonutils.JSONObject) {
-	// pass not implement
+	ifname, _ := nic.GetString("ifname")
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("netdev del failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("netdev del failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onNetdevDel(nic)
+		}
+	}
+	n.guest.Monitor.NetdevDel(ifname, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onNetdevDel(nic jsonutils.JSONObject) {
+	downScript := n.guest.getNicDownScriptPath(nic)
+	output, err := procutils.NewCommand("sh", downScript).Output()
+	if err != nil {
+		log.Errorf("script down nic failed %s", output)
+		n.errors = append(n.errors, err)
+	}
+	n.syncNetworkConf()
 }
 
 func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
-	// pass not implement
+	if err := n.guest.generateNicScripts(nic); err != nil {
+		log.Errorln(err)
+		n.errors = append(n.errors, err)
+		n.syncNetworkConf()
+		return
+	}
+	upscript := n.guest.getNicUpScriptPath(nic)
+	downscript := n.guest.getNicDownScriptPath(nic)
+	ifname, _ := nic.GetString("ifname")
+	params := map[string]string{
+		"ifname": ifname, "script": upscript, "downscript": downscript,
+		"vhost": "on", "vhostforce": "off",
+	}
+	netType := "tap"
+
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("netdev add failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("netdev add failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onNetdevAdd(nic)
+		}
+	}
+
+	n.guest.Monitor.NetdevAdd(ifname, netType, params, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onNetdevAdd(nic jsonutils.JSONObject) {
+	index, _ := nic.Int("index")
+	ifname, _ := nic.GetString("ifname")
+	mac, _ := nic.GetString("mac")
+	driver, _ := nic.GetString("driver")
+	dev := n.guest.getNicDeviceModel(driver)
+	addr := n.guest.getNicAddr(int(index))
+	params := map[string]interface{}{
+		"id":     fmt.Sprintf("netdev-%s", ifname),
+		"netdev": ifname,
+		"addr":   fmt.Sprintf("0x%x", addr),
+		"mac":    mac,
+		"bus":    "pci.0",
+	}
+	callback := func(res string) {
+		if len(res) > 0 {
+			log.Errorf("device add failed %s", res)
+			n.errors = append(n.errors, fmt.Errorf("device add failed %s", res))
+			n.syncNetworkConf()
+		} else {
+			n.onDeviceAdd(nic)
+		}
+	}
+	n.guest.Monitor.DeviceAdd(dev, params, callback)
+}
+
+func (n *SGuestNetworkSyncTask) onDeviceAdd(nic jsonutils.JSONObject) {
+	n.syncNetworkConf()
 }
 
 func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {

@@ -84,6 +84,12 @@ type NetworkConfig struct {
 	Schedtags []*SchedtagConfig `json:"schedtags"`
 }
 
+type AttachNetworkInput struct {
+	// 添加的网卡的配置
+	// required: true
+	Nets []*NetworkConfig `json:"nets"`
+}
+
 type DiskConfig struct {
 	apis.Meta
 

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
@@ -150,12 +151,19 @@ func init() {
 	})
 
 	type ServerAttachNetworkOptions struct {
-		SERVER  string `help:"ID or Name of server"`
-		NETDESC string `help:"Network description"`
+		SERVER  string   `help:"ID or Name of server"`
+		NETDESC []string `help:"Network description"`
 	}
 	R(&ServerAttachNetworkOptions{}, "server-attach-network", "Attach a server to a virtual network", func(s *mcclient.ClientSession, args *ServerAttachNetworkOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NETDESC), "net_desc")
+		input := compute.AttachNetworkInput{[]*compute.NetworkConfig{}}
+		for i := 0; i < len(args.NETDESC); i++ {
+			conf, err := cmdline.ParseNetworkConfig(args.NETDESC[i], -1)
+			if err != nil {
+				return err
+			}
+			input.Nets = append(input.Nets, conf)
+		}
+		params := jsonutils.Marshal(input)
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "attachnetwork", params)
 		if err != nil {
 			return err
