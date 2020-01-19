@@ -2734,7 +2734,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 			lockman.LockObject(ctx, accessNet)
 			defer lockman.ReleaseObject(ctx, accessNet)
 
-			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, false)
+			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, true)
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
