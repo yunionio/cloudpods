@@ -43,6 +43,7 @@ type LoadbalancerAgentParamsOptions struct {
 	HaproxyLogHttp        string `choices:"true|false"`
 	HaproxyLogTcp         string `choices:"true|false"`
 	HaproxyLogNormal      string `choices:"true|false"`
+	HaproxyTuneHttpMaxhdr *int   `help:"max number of http headers allowed"`
 
 	TelegrafInfluxDbOutputUrl       string
 	TelegrafInfluxDbOutputName      string

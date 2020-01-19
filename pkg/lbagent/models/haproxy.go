@@ -195,10 +195,15 @@ func (b *LoadbalancerCorpus) genHaproxyConfigCommon(lb *Loadbalancer, listener *
 	{
 		agentHaproxyParams := opts.AgentModel.Params.Haproxy
 		if agentHaproxyParams.GlobalLog != "" {
-			if listener.ListenerType == "http" && agentHaproxyParams.LogHttp {
-				data["log"] = true
-			} else if listener.ListenerType == "tcp" && agentHaproxyParams.LogTcp {
-				data["log"] = true
+			switch listener.ListenerType {
+			case "http", "https":
+				if agentHaproxyParams.LogHttp {
+					data["log"] = true
+				}
+			case "tcp":
+				if agentHaproxyParams.LogTcp {
+					data["log"] = true
+				}
 			}
 		}
 	}
@@ -323,6 +328,11 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 				serverLine += " " + sendProxy
 			} else {
 				// nothing to do
+			}
+			if backend.Ssl == "on" {
+				serverLine += " ssl"
+				serverLine += " verify none"
+				serverLine += " check-ssl"
 			}
 			serverLines = append(serverLines, serverLine)
 		}

@@ -22,6 +22,7 @@ type LoadbalancerBackendCreateOptions struct {
 	Weight       *int   `default:"1"`
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-on"`
+	Ssl       string `choices:"on|off"`
 }
 
 type LoadbalancerBackendListOptions struct {
@@ -34,6 +35,7 @@ type LoadbalancerBackendListOptions struct {
 	Port         *int
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-on"`
+	Ssl       string `choices:"on|off"`
 }
 
 type LoadbalancerBackendUpdateOptions struct {
@@ -44,6 +46,7 @@ type LoadbalancerBackendUpdateOptions struct {
 	Port   *int
 
 	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-on"`
+	Ssl       string `choices:"on|off"`
 }
 
 type LoadbalancerBackendGetOptions struct {
