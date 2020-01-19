@@ -49,7 +49,7 @@ func init() {
 type SCloudevent struct {
 	db.SModelBase
 
-	Id           int64                `primary:"true" auto_increment:"true" list:"user"`
+	EventId      int64                `primary:"true" auto_increment:"true" list:"user"`
 	Name         string               `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user"`
 	Service      string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
 	ResourceType string               `width:"64" charset:"utf8" nullable:"true" list:"user"`
