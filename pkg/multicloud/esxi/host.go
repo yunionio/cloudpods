@@ -988,7 +988,6 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	}
 
 	return NewVirtualMachine(host.manager, &moVM, host.datacenter), nil
-	return nil, nil
 }
 
 func (host *SHost) changeNic(device types.BaseVirtualDevice, update types.BaseVirtualDevice) {

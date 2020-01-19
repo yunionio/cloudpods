@@ -56,8 +56,6 @@ type SVirtualMachine struct {
 	ihost  cloudprovider.ICloudHost
 
 	guestIps map[string]string
-
-	devKeys []int32
 }
 
 type byDiskType []SVirtualDisk
@@ -1128,16 +1126,14 @@ func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
 	if self.devs == nil {
 		self.fetchHardwareInfo()
 	}
-	if self.devKeys == nil {
-		self.devKeys = make([]int32, 0, len(self.devs))
-		for key, _ := range self.devs {
-			self.devKeys = append(self.devKeys, key)
-		}
-		sort.Slice(self.devKeys, func(i int, j int) bool {
-			return self.devKeys[i] < self.devKeys[j]
-		})
+	devKeys := make([]int32, 0, len(self.devs))
+	for key := range self.devs {
+		devKeys = append(devKeys, key)
 	}
-	for _, key := range self.devKeys {
+	sort.Slice(devKeys, func(i int, j int) bool {
+		return devKeys[i] < devKeys[j]
+	})
+	for _, key := range devKeys {
 		switch {
 		case key < limit:
 		case key == limit:
