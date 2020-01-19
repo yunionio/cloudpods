@@ -530,6 +530,17 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		limit = exportLimit
 	}
 
+	// orders defined in pagingConf should have the highest priority
+	if pagingConf != nil {
+		for _, f := range pagingConf.MarkerFields {
+			if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+				q = q.Asc(f)
+			} else {
+				q = q.Desc(f)
+			}
+		}
+	}
+
 	var primaryCol sqlchemy.IColumnSpec
 	primaryCols := manager.TableSpec().PrimaryColumns()
 	if len(primaryCols) == 1 {
@@ -544,8 +555,8 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 	orderQuery := query.(*jsonutils.JSONDict).Copy()
 	for _, orderByField := range orderBy {
-		if pagingConf != nil && orderByField == pagingConf.MarkerField {
-			// skip markerField
+		if pagingConf != nil && utils.IsInStringArray(orderByField, pagingConf.MarkerFields) {
+			// skip markerField in pagingConf
 			continue
 		}
 		colSpec := manager.TableSpec().ColumnSpec(orderByField)
@@ -569,8 +580,8 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	for _, orderByField := range orderBy {
-		if pagingConf != nil && pagingConf.MarkerField == orderByField {
-			// skip markerField
+		if pagingConf != nil && utils.IsInStringArray(orderByField, pagingConf.MarkerFields) {
+			// skip markerField in pagingConf
 			continue
 		}
 		colSpec := manager.TableSpec().ColumnSpec(orderByField)
@@ -582,36 +593,38 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	}
-	if pagingConf != nil {
-		if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
-			q = q.Asc(pagingConf.MarkerField)
-		} else {
-			q = q.Desc(pagingConf.MarkerField)
-		}
-	}
 
 	if pagingConf != nil {
 		q = q.Limit(int(limit) + 1)
 		if len(pagingMarker) > 0 {
-			if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
-				q = q.GE(pagingConf.MarkerField, pagingMarker)
-			} else {
-				q = q.LE(pagingConf.MarkerField, pagingMarker)
+			markers := decodePagingMarker(pagingMarker)
+			for markerIdx, marker := range markers {
+				if markerIdx < len(pagingConf.MarkerFields) {
+					if pagingConf.Order == sqlchemy.SQL_ORDER_ASC {
+						q = q.GE(pagingConf.MarkerFields[markerIdx], marker)
+					} else {
+						q = q.LE(pagingConf.MarkerFields[markerIdx], marker)
+					}
+				}
 			}
 		}
 		retList, err := Query2List(manager, ctx, userCred, q, queryDict, false)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		nextMarker := ""
+		nextMarkers := make([]string, 0)
 		if int64(len(retList)) > limit {
-			nextMarker, _ = retList[limit].GetString(pagingConf.MarkerField)
+			for _, markerField := range pagingConf.MarkerFields {
+				nextMarker, _ := retList[limit].GetString(markerField)
+				nextMarkers = append(nextMarkers, nextMarker)
+			}
 			retList = retList[:limit]
 		}
+		nextMarker := encodePagingMarker(nextMarkers)
 		retResult := modulebase.ListResult{
 			Data: retList, Limit: int(limit),
 			NextMarker:  nextMarker,
-			MarkerField: pagingConf.MarkerField,
+			MarkerField: strings.Join(pagingConf.MarkerFields, ","),
 			MarkerOrder: string(pagingConf.Order),
 		}
 		return &retResult, nil

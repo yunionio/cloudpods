@@ -80,7 +80,7 @@ func (manager *SBaremetalEventManager) ResourceScope() rbacutils.TRbacScope {
 func (manager *SBaremetalEventManager) GetPagingConfig() *db.SPagingConfig {
 	return &db.SPagingConfig{
 		Order:        sqlchemy.SQL_ORDER_DESC,
-		MarkerField:  "id",
+		MarkerFields: []string{"id"},
 		DefaultLimit: 20,
 	}
 }
