@@ -142,6 +142,26 @@ func TestOptionsStructToParams(t *testing.T) {
 		}
 		testSs(t, cases)
 	})
+	t.Run("string ptr", func(t *testing.T) {
+		type s struct {
+			String *string `json:",allowempty"`
+		}
+		cases := []*S{
+			{
+				In:   &s{},
+				Want: `{}`,
+			},
+			{
+				In:   &s{String("")},
+				Want: `{"string": ""}`,
+			},
+			{
+				In:   &s{String("holy")},
+				Want: `{string: "holy"}`,
+			},
+		}
+		testSs(t, cases)
+	})
 	t.Run("string slice", func(t *testing.T) {
 		type s struct {
 			StringSlice []string
