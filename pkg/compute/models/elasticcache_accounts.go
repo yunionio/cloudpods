@@ -411,6 +411,13 @@ func (self *SElasticcacheAccount) AllowPerformResetPassword(ctx context.Context,
 }
 
 func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if reset, _ := data.Bool("reset_password"); reset {
+		if _, err := data.GetString("password"); err != nil {
+			randomPasswd := seclib2.RandomPassword2(12)
+			data.(*jsonutils.JSONDict).Set("password", jsonutils.NewString(randomPasswd))
+		}
+	}
+
 	passwd, err := data.GetString("password")
 	if err == nil && !seclib2.MeetComplxity(passwd) {
 		return nil, httperrors.NewWeakPasswordError()
@@ -448,14 +455,9 @@ func (self *SElasticcacheAccount) AllowGetDetailsLoginInfo(ctx context.Context, 
 }
 
 func (self *SElasticcacheAccount) GetDetailsLoginInfo(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	password, err := self.GetDecodedPassword()
-	if err != nil {
-		return nil, err
-	}
-
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(self.Name), "username")
-	ret.Add(jsonutils.NewString(password), "password")
+	ret.Add(jsonutils.NewString(self.Password), "password")
 	return ret, nil
 }
 
