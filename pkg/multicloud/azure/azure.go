@@ -263,6 +263,36 @@ func (self *SAzureClient) ListResources(resourceType string, retVal interface{},
 	return err
 }
 
+func (self *SAzureClient) ListResourcesOfMetirc(resourceType string, external_id string,
+	params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return jsonutils.JSONNull, err
+	}
+	url := external_id
+	if len(resourceType) > 0 {
+		url += fmt.Sprintf("/providers/%s", resourceType)
+	}
+	if len(params) > 0 {
+		first := true
+		for param, value := range params {
+			if first {
+				url += fmt.Sprintf("?%s=%s", param, value)
+				first = false
+				continue
+			}
+			url += fmt.Sprintf("&%s=%s", param, value)
+		}
+	}
+	//body, err := jsonRequest(cli, "GET", "https://management.azure.com", url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	if err != nil {
+		return jsonutils.JSONNull, err
+	}
+	// fmt.Printf("%s: %s\n", resourceType, body)
+	return body, nil
+}
+
 func (self *SAzureClient) ListSubscriptions() (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
