@@ -85,12 +85,12 @@ type MetricValue struct {
 
 func (self *SRegion) GetMonitorData(name string, ns string, external_id string, since time.Time,
 	until time.Time) (*ResponseMetirc, error) {
-	params := make(map[string]string)
-	params["metricnamespace"] = ns
-	params["interval"] = "PT1M"
-	//params["metricnames"] = name
-	params["aggregation"] = "Average"
-	params["api-version"] = "2018-01-01"
+	params := map[string]string{
+		"metricnamespace": ns,
+		"interval":        "PT1M",
+		"aggregation":     "Average",
+		"api-version":     "2018-01-01",
+	}
 	if !since.IsZero() && !until.IsZero() {
 		params["timespan"] = since.UTC().Format(time.RFC3339) + "/" + until.UTC().Format(time.RFC3339)
 	}
