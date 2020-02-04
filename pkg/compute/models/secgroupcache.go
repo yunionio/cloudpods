@@ -44,8 +44,10 @@ type SSecurityGroupCache struct {
 	SCloudregionResourceBase
 	SManagedResourceBase
 
+	// 安全组Id
 	SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
-	VpcId      string `width:"128" charset:"ascii" list:"user" create:"required"`
+	// 虚拟私有网络外部Id
+	VpcId string `width:"128" charset:"ascii" list:"user" create:"required"`
 }
 
 var SecurityGroupCacheManager *SSecurityGroupCacheManager
@@ -113,21 +115,23 @@ func (self *SSecurityGroupCache) GetVpc() (*SVpc, error) {
 	return vpc.(*SVpc), nil
 }
 
-func (self *SSecurityGroupCache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	regionInfo := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
+func (self *SSecurityGroupCache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SecurityGroupCacheDetails, error) {
+	var err error
+	out := api.SecurityGroupCacheDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
 	}
-	accountInfo := self.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
+	provider := self.GetCloudprovider()
+	region := self.GetRegion()
+
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+
 	vpc, _ := self.GetVpc()
 	if vpc != nil {
-		extra.Add(jsonutils.NewString(vpc.Name), "vpc")
+		out.Vpc = vpc.Name
 	}
-	return extra
+	return out, nil
 }
 
 func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) (*SSecurityGroupCache, error) {

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -70,22 +71,20 @@ func (bn *SHostnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(bn)
 }
 
-func (bn *SHostnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := bn.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(bn, extra)
+func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostnetworkDetails, error) {
+	var err error
+	out := api.HostnetworkDetails{}
+	out.ModelBaseDetails, err = bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+	out.Host, out.Network = db.JointModelExtra(bn)
+	out.Baremetal = out.Host
 	netif := bn.GetNetInterface()
 	if netif != nil {
-		extra.Add(jsonutils.NewString(netif.NicType), "nic_type")
+		out.NicType = netif.NicType
 	}
-	return extra
-}
-
-func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return db.JointModelExtra(bn, extra), nil
+	return out, nil
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {

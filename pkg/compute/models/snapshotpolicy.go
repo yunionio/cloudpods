@@ -313,37 +313,25 @@ func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, us
 	return nil
 }
 
-func (sp *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extraDict := sp.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, _ := sp.getMoreDetails(ctx, userCred, extraDict)
-	return ret
-}
-
 func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extraDict, err := sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	query jsonutils.JSONObject, details bool) (api.SnapshotPolicyDetails, error) {
+	var err error
+	out := api.SnapshotPolicyDetails{}
+	out.VirtualResourceDetails, err = sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return sp.getMoreDetails(ctx, userCred, extraDict)
+	return sp.getMoreDetails(ctx, userCred, out)
 }
 
 func (sp *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	extraDict *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	out api.SnapshotPolicyDetails) (api.SnapshotPolicyDetails, error) {
 
-	ret := extraDict
-	// more
-	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
-	timePoints := SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
-	ret.Add(jsonutils.Marshal(weekdays), "repeat_weekdays")
-	ret.Add(jsonutils.Marshal(timePoints), "time_points")
-	count, err := SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
-	if err != nil {
-		return ret, err
-	}
-	ret.Add(jsonutils.NewInt(int64(count)), "binding_disk_count")
-	return ret, nil
+	var err error
+	out.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
+	out.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
+	out.BindingDiskCount, err = SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
+	return out, err
 }
 
 // ==================================================== sync ===========================================================

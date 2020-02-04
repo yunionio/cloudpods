@@ -114,19 +114,15 @@ func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 	return regionObj.(*SCloudregion)
 }
 
-func (self *SCloudproviderregion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SJointResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
-}
-
-func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SJointResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CloudproviderregionDetails, error) {
+	var err error
+	out := api.CloudproviderregionDetails{}
+	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+	out.Cloudprovider, out.Cloudregion = db.JointModelExtra(self)
+	return self.getExtraDetails(out), nil
 }
 
 func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount) int {
@@ -136,20 +132,19 @@ func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount)
 	return account.getSyncIntervalSeconds()
 }
 
-func (self *SCloudproviderregion) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SCloudproviderregion) getExtraDetails(out api.CloudproviderregionDetails) api.CloudproviderregionDetails {
 	account := self.GetAccount()
 	if account != nil {
-		extra.Add(jsonutils.NewString(account.Id), "cloudaccount_id")
-		extra.Add(jsonutils.NewString(account.Name), "cloudaccount")
-		extra.Add(jsonutils.NewString(account.DomainId), "cloudaccount_domain_id")
+		out.CloudaccountId = account.Id
+		out.Cloudaccount = account.Name
+		out.CloudaccountDomainId = account.DomainId
+		out.EnableAutoSync = false
 		if account.Enabled && account.EnableAutoSync {
-			extra.Add(jsonutils.JSONTrue, "enable_auto_sync")
-		} else {
-			extra.Add(jsonutils.JSONFalse, "enable_auto_sync")
+			out.EnableAutoSync = true
 		}
-		extra.Add(jsonutils.NewInt(int64(self.getSyncIntervalSeconds(account))), "sync_interval_seconds")
+		out.SyncIntervalSeconds = self.getSyncIntervalSeconds(account)
 	}
-	return extra
+	return out
 }
 
 func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -14,17 +14,6 @@
 
 package apis
 
-type ModelBaseDetails struct {
-	CanDelete        bool   `json:"can_delete"`
-	DeleteFailReason string `json:"delete_fail_reason"`
-	CanUpdate        bool   `json:"can_update"`
-	UpdateFailReason string `json:"update_fail_reason"`
-}
-
-type ModelBaseShortDescDetail struct {
-	ResName string `json:"res_name"`
-}
-
 type ModelBaseListInput struct {
 	Meta
 
@@ -87,4 +76,77 @@ type ModelBaseListInput struct {
 type IncrementalListInput struct {
 	// 用于指定增量加载的标记
 	PagingMarker string `json:"paging_marker"`
+}
+
+type VirtualResourceListInput struct {
+	StatusStandaloneResourceListInput
+
+	ProjectizedResourceListInput
+
+	// 列表中包含标记为"系统资源"的资源
+	System *bool `json:"system"`
+	// 是否显示回收站内的资源，默认不显示（对实现了回收站的资源有效，例如主机，磁盘，镜像）
+	PendingDelete *bool `json:"pending_delete"`
+	// 是否显示所有资源，包括回收站和不再回收站的资源
+	// TODO: fix this???
+	PendingDeleteAll *bool `json:"-"`
+}
+
+type ResourceBaseListInput struct {
+	ModelBaseListInput
+}
+
+type SharableResourceListInput struct {
+	// 根据资源是否共享过滤列表
+	IsPublic *bool `json:"is_public"`
+}
+
+type SharableVirtualResourceListInput struct {
+	VirtualResourceListInput
+
+	// 根据资源的共享范围过滤列表，可能值为：system, domain, project
+	PublicScope string `json:"public_scope"`
+}
+
+type AdminSharableVirtualResourceListInput struct {
+	SharableVirtualResourceListInput
+}
+
+type STag struct {
+	// 标签key
+	Key string
+	// 标签Value
+	Value string
+}
+
+type StandaloneResourceListInput struct {
+	ResourceBaseListInput
+
+	// 通过标签过滤
+	Tags []STag `json:"tags"`
+	// 返回资源的标签不包含特定的用户标签
+	WithoutUserMeta bool `json:"without_user_meta"`
+	// 返回列表数据中包含资源的标签数据（Metadata）
+	WithMeta *bool `json:"with_meta"`
+	// 显示所有的资源，包括模拟的资源
+	ShowEmulated *bool `json:"show_emulated"`
+
+	// 以资源名称过滤列表
+	Names []string `json:"name"`
+	// 以资源ID过滤列表
+	Ids []string `json:"id"`
+}
+
+type StatusStandaloneResourceListInput struct {
+	StandaloneResourceListInput
+
+	// 以资源的状态过滤列表
+	Status []string `json:"status"`
+}
+
+type EnabledStatusStandaloneResourceListInput struct {
+	StatusStandaloneResourceListInput
+
+	// 以资源是否启用/禁用过滤列表
+	Enabled *bool `json:"enabled"`
 }

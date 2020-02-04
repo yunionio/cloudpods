@@ -222,19 +222,16 @@ func (manager *SPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	return q, nil
 }
 
-func (policy *SPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := policy.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return policyExtra(policy, extra)
-}
-
-func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.PolicyDetails, error) {
+	var err error
+	out := api.PolicyDetails{}
+	out.StandaloneResourceDetails, err = policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return policyExtra(policy, extra), nil
+	return policyExtra(policy, out), nil
 }
 
-func policyExtra(policy *SPolicy, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	return extra
+func policyExtra(policy *SPolicy, out api.PolicyDetails) api.PolicyDetails {
+	return out
 }

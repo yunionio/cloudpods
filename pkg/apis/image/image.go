@@ -15,6 +15,10 @@
 package image
 
 import (
+	"time"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -29,4 +33,18 @@ type ImageListInput struct {
 
 type GuestImageListInput struct {
 	apis.SharableVirtualResourceListInput
+}
+
+type ImageDetails struct {
+	apis.SharableVirtualResourceDetails
+	SImage
+
+	// 镜像属性信息
+	Properties *jsonutils.JSONDict `json:"properties"`
+
+	// 自动清除时间
+	AutoDeleteAt time.Time `json:"auto_delete_at"`
+	// 删除保护
+	DisableDelete bool `json:"disable_delete"`
+	//OssChecksum   string    `json:"oss_checksum"`
 }

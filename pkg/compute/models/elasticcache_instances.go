@@ -140,43 +140,38 @@ func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IId
 	return q
 }
 
-func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SElasticcache) getCloudProviderInfo() api.CloudproviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	zone := self.GetZone()
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SElasticcache) updateExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
+func (self *SElasticcache) updateExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.ElasticcacheDetails) api.ElasticcacheDetails {
+	out.CloudproviderInfo = self.getCloudProviderInfo()
 
 	vpc, err := VpcManager.FetchById(self.VpcId)
 	if err == nil {
-		extra.Set("vpc", jsonutils.NewString(vpc.GetName()))
+		out.Vpc = vpc.GetName()
 	}
 
 	network, err := NetworkManager.FetchById(self.NetworkId)
 	if err == nil {
-		extra.Set("network", jsonutils.NewString(network.GetName()))
+		out.Network = network.GetName()
 	}
 
-	return extra
+	return out
 }
 
-func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ElasticcacheDetails, error) {
+	var err error
+	out := api.ElasticcacheDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
-	return self.updateExtraDetails(ctx, userCred, extra), nil
-}
-
-func (self *SElasticcache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-
-	return self.updateExtraDetails(ctx, userCred, extra)
+	return self.updateExtraDetails(ctx, userCred, out), nil
 }
 
 func (self *SElasticcache) GetElasticcacheParameters() ([]SElasticcacheParameter, error) {

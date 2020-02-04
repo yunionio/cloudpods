@@ -283,21 +283,14 @@ func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context) error {
 	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (endpoint *SEndpoint) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := endpoint.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return endpointExtra(endpoint, extra)
-}
-
-func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := endpoint.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.EndpointDetails, error) {
+	var err error
+	out := api.EndpointDetails{}
+	out.StandaloneResourceDetails, err = endpoint.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return endpointExtra(endpoint, extra), nil
-}
-
-func endpointExtra(endpoint *SEndpoint, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	return extra
+	return out, nil
 }
 
 func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

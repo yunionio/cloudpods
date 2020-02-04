@@ -328,37 +328,29 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (rt *SRouteTable) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := rt.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-	return extra
-}
-
-func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := rt.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RouteTableDetails, error) {
+	var err error
+	out := api.RouteTableDetails{}
+	out.VirtualResourceDetails, err = rt.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
 	vpcM, err := VpcManager.FetchById(rt.VpcId)
 	if err != nil {
 		log.Errorf("route table %s(%s): fetch vpc (%s) error: %s",
 			rt.Name, rt.Id, rt.VpcId, err)
-		return extra
+		return out, err
 	}
+	out.Vpc = vpcM.GetName()
 	cloudregionM, err := CloudregionManager.FetchById(rt.CloudregionId)
 	if err != nil {
 		log.Errorf("route table %s(%s): fetch cloud region (%s) error: %s",
 			rt.Name, rt.Id, rt.CloudregionId, err)
-		return extra
+		return out, err
 	}
-	extra.Set("vpc", jsonutils.NewString(vpcM.GetName()))
-	extra.Set("cloudregion", jsonutils.NewString(cloudregionM.GetName()))
-
-	extra = rt.getMoreDetails(extra)
-	return extra
-}
-
-func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := rt.GetCustomizeColumns(ctx, userCred, query)
-	extra = rt.getMoreDetails(extra)
-	return extra, nil
+	out.Cloudregion = cloudregionM.GetName()
+	out.CloudproviderInfo = rt.getCloudProviderInfo()
+	return out, nil
 }
 
 func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
@@ -529,7 +521,7 @@ func (self *SRouteTable) getRegion() (*SCloudregion, error) {
 	return vpc.GetRegion()
 }
 
-func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SRouteTable) getCloudProviderInfo() api.CloudproviderInfo {
 	region, _ := self.getRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

@@ -71,7 +71,7 @@ const (
 
 type SSecurityGroup struct {
 	db.SSharableVirtualResourceBase
-	IsDirty bool `nullable:"false" default:"false"` // Column(Boolean, nullable=False, default=False)
+	IsDirty bool `nullable:"false" default:"false"`
 }
 
 // 安全组列表
@@ -228,29 +228,21 @@ func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SecgroupDetails, error) {
+	var err error
+	out := api.SecgroupDetails{}
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	cnt, _ := self.GetSecgroupCacheCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
-	return extra, nil
-}
-
-func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-
-	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	cnt, _ := self.GetSecgroupCacheCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
-	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
-	extra.Add(jsonutils.NewString(self.Description), "description")
-	return extra
+	out.GuestCnt = len(self.GetGuests())
+	out.CacheCnt, _ = self.GetSecgroupCacheCount()
+	if !isList {
+		out.Rules = self.getSecurityRuleString("")
+		out.InRules = self.getSecurityRuleString("in")
+		out.OutRules = self.getSecurityRuleString("out")
+	}
+	return out, nil
 }
 
 func (manager *SSecurityGroupManager) ValidateCreateData(

@@ -398,29 +398,31 @@ func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
-func (self *SIdentityProvider) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.IdentityProviderDetails, error) {
+	var err error
+	out := api.IdentityProviderDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
-func (self *SIdentityProvider) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra = db.FetchModelExtraCountProperties(self, extra)
-	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
+func (self *SIdentityProvider) getMoreDetails(out api.IdentityProviderDetails) api.IdentityProviderDetails {
+	out.RoleCount, _ = self.GetRoleCount()
+	out.UserCount, _ = self.GetUserCount()
+	out.PolicyCount, _ = self.GetPolicyCount()
+	out.DomainCount, _ = self.GetDomainCount()
+	out.ProjectCount, _ = self.GetProjectCount()
+	out.GroupCount, _ = self.GetGroupCount()
+	out.SyncIntervalSeconds = self.getSyncIntervalSeconds()
 	if len(self.TargetDomainId) > 0 {
 		domain, _ := DomainManager.FetchDomainById(self.TargetDomainId)
 		if domain != nil {
-			extra.Set("target_domain", jsonutils.NewString(domain.Name))
+			out.TargetDomain = domain.Name
 		}
 	}
-	return extra
+	return out
 }
 
 func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

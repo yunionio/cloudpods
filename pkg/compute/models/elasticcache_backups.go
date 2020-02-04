@@ -122,24 +122,25 @@ func (manager *SElasticcacheBackupManager) SyncElasticcacheBackups(ctx context.C
 	return syncResult
 }
 
-func (self *SElasticcacheBackup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (self *SElasticcacheBackup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheBackupDetails, error) {
+	var err error
+	out := api.ElasticcacheBackupDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
+	}
 	icache, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
 	if err == nil {
 		ec := icache.(*SElasticcache)
 		provider := ec.GetCloudprovider()
 		region := ec.GetRegion()
 		zone := ec.GetZone()
-		info := MakeCloudProviderInfo(region, zone, provider)
-		extra.Update(jsonutils.Marshal(&info))
+		out.CloudproviderInfo = MakeCloudProviderInfo(region, zone, provider)
 
-		info2 := jsonutils.NewDict()
-		info2.Set("engine", jsonutils.NewString(ec.Engine))
-		info2.Set("engine_version", jsonutils.NewString(ec.EngineVersion))
-		extra.Update(info2)
+		out.Engine = ec.Engine
+		out.EngineVersion = ec.EngineVersion
 	}
-
-	return extra
+	return out, nil
 }
 
 func (self *SElasticcacheBackup) syncRemoveCloudElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential) error {

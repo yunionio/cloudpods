@@ -108,23 +108,34 @@ func init() {
 type SImage struct {
 	db.SSharableVirtualResourceBase
 
+	// 镜像大小, 单位Byte
 	Size int64 `nullable:"true" list:"user" create:"optional"`
-	// VirtualSize int64  `nullable:"true" list:"user" create:"optional"`
+	// 存储地址
 	Location string `nullable:"true"`
 
-	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional" default:"raw"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
-	Checksum   string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
-	FastHash   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
-	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
-	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
-	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	// 镜像格式
+	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional" default:"raw"`
+	// 校验和
+	Checksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
+	FastHash string `width:"32" charset:"ascii" nullable:"true" get:"user"`
+	// 用户Id
+	Owner string `width:"255" charset:"ascii" nullable:"true" get:"user"`
+	// 最小系统盘要求
+	MinDiskMB int32 `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	// 最小内存要求
+	MinRamMB int32 `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
-	Protected    tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
-	IsStandard   tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"domain_optional"`
+	// 是否有删除保护
+	Protected tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
+	// 是否是标准镜像
+	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
+	// 是否是主机镜像
 	IsGuestImage tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
-	IsData       tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
+	// 是否是数据盘镜像
+	IsData tristate.TriState `nullable:"false" default:"false" create:"optional" list:"user"`
 
 	// image copy from url, save origin checksum before probe
+	// 从镜像时长导入的镜像校验和
 	OssChecksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 }
 
@@ -241,60 +252,48 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
-func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.ImageDetails) api.ImageDetails {
 	var ossChksum = self.OssChecksum
 	if len(self.OssChecksum) == 0 {
 		ossChksum = self.Checksum
 	}
-	extra.Set("oss_checksum", jsonutils.NewString(ossChksum))
-	extra.Set("disable_delete", jsonutils.NewBool(self.Protected.Bool()))
-	return extra
+	out.OssChecksum = ossChksum
+	out.DisableDelete = self.Protected.Bool()
+	return out
 }
 
-func (self *SImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	properties, _ := ImagePropertyManager.GetProperties(self.Id)
-	if len(properties) > 0 {
-		jsonProps := jsonutils.NewDict()
-		for k, v := range properties {
-			jsonProps.Add(jsonutils.NewString(v), k)
-		}
-		extra.Add(jsonProps, "properties")
-	}
-	return self.getMoreDetails(ctx, userCred, query, extra)
-}
-
-func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ImageDetails, error) {
+	var err error
+	out := api.ImageDetails{}
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
 	properties, err := ImagePropertyManager.GetProperties(self.Id)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return out, httperrors.NewGeneralError(err)
 	}
 	propJson := jsonutils.NewDict()
 	for k, v := range properties {
 		propJson.Add(jsonutils.NewString(v), k)
 	}
-	extra.Add(propJson, "properties")
+	out.Properties = propJson
 
 	if self.PendingDeleted {
 		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
+		out.AutoDeleteAt = pendingDeletedAt
+		//extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+	return self.getMoreDetails(ctx, userCred, query, out), nil
 }
 
 func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	headers := make(map[string]string)
 
-	extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if extra == nil {
-		extra = jsonutils.NewDict()
-	}
+	_extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, false)
+	extra := _extra.JSON(_extra)
 	extraRows := self.GetModelManager().FetchCustomizeColumns(ctx, userCred, query, []db.IModel{self}, nil)
 	if len(extraRows) == 1 {
 		extra.Update(extraRows[0])

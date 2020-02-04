@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -76,26 +75,38 @@ type SDisk struct {
 
 	SBillingResourceBase
 
-	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
-	DiskSize   int    `nullable:"false" list:"user"`                                            // Column(Integer, nullable=False) # in MB
-	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user"`                  // = Column(VARCHAR(256, charset='ascii'), nullable=True)
+	// 磁盘存储类型
+	// example: qcow2
+	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user"`
+	// 磁盘大小, 单位Mb
+	// example: 10240
+	DiskSize int `nullable:"false" list:"user"`
+	// 磁盘路径
+	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user"`
 
-	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"` // Column(Boolean, nullable=False, default=False)
+	// 是否跟随云主机自动删除, 仅绑定到云主机时才生效
+	// example: false
+	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"`
 
-	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	// 存储Id
+	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	BackupStorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin"`
 
-	// # backing template id and type
-	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
-	// backing snapshot id
+	// 镜像Id
+	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"`
+	// 快照Id
 	SnapshotId string `width:"256" charset:"ascii" nullable:"true" list:"user"`
 
-	// # file system
-	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	// # disk type, OS, SWAP, DAT, VOLUME
-	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	// 文件系统
+	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	// 磁盘类型
+	// sys: 系统盘
+	// data: 数据盘
+	// swap: 交换盘
+	// example: sys
+	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin"`
 	// # is persistent
-	Nonpersistent bool `default:"false" list:"user"` // Column(Boolean, default=False)
+	Nonpersistent bool `default:"false" list:"user"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
@@ -1733,48 +1744,37 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 		jsonutils.QueryBoolean(query, "delete_snapshots", false))
 }
 
-func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	extra *jsonutils.JSONDict) *jsonutils.
-	JSONDict {
-	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
-		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
-	}
+func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DiskDetails) api.DiskDetails {
 	if storage := self.GetStorage(); storage != nil {
-		extra.Add(jsonutils.NewString(storage.GetName()), "storage")
-		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-		extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-		/*extra.Add(jsonutils.NewString(storage.ZoneId), "zone_id")
-		if zone := storage.getZone(); zone != nil {
-			extra.Add(jsonutils.NewString(zone.Name), "zone")
-			extra.Add(jsonutils.NewString(zone.CloudregionId), "region_id")
-			if region := zone.GetRegion(); region != nil {
-				extra.Add(jsonutils.NewString(region.Name), "region")
-			}
-		}*/
-
-		info := storage.getCloudProviderInfo()
-		extra.Update(jsonutils.Marshal(&info))
+		out.Storage = storage.Name
+		out.StorageType = storage.StorageType
+		out.MediumType = storage.MediumType
+		out.CloudproviderInfo = storage.getCloudProviderInfo()
 	}
-	guestArray := jsonutils.NewArray()
-	guests, guest_status := []string{}, []string{}
+
+	out.Guests = []api.SimpleGuest{}
+	guests, guestStatus := []string{}, []string{}
 	for _, guest := range self.GetGuests() {
 		guests = append(guests, guest.Name)
-		guest_status = append(guest_status, guest.Status)
-		guestArray.Add(jsonutils.Marshal(map[string]string{"name": guest.Name, "id": guest.Id, "status": guest.Status}))
+		guestStatus = append(guestStatus, guest.Status)
+		out.Guests = append(out.Guests, api.SimpleGuest{
+			Name:   guest.Name,
+			Id:     guest.Id,
+			Status: guest.Status,
+		})
 	}
-	extra.Add(guestArray, "guests")
-	extra.Add(jsonutils.NewString(strings.Join(guests, ",")), "guest")
-	extra.Add(jsonutils.NewInt(int64(len(guests))), "guest_count")
-	extra.Add(jsonutils.NewString(strings.Join(guest_status, ",")), "guest_status")
+	out.Guest = strings.Join(guests, ",")
+	out.GuestCount = len(guests)
+	out.GuestStatus = strings.Join(guestStatus, ",")
 
 	if self.PendingDeleted {
 		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
+		out.AutoDeleteAt = pendingDeletedAt
 	}
 	// the binded snapshot policy list
 	sds, err := SnapshotPolicyDiskManager.FetchAllByDiskID(ctx, userCred, self.Id)
 	if err != nil {
-		return extra
+		return out
 	}
 	spIds := make([]string, len(sds))
 	for i := range sds {
@@ -1782,51 +1782,41 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 	}
 	sps, err := SnapshotPolicyManager.FetchAllByIds(spIds)
 	if err != nil {
-		return extra
+		return out
 	}
-	if len(sps) == 0 {
-		extra.Add(jsonutils.NewString(""), "snapshotpolicy_status")
-	} else {
-		extra.Add(jsonutils.NewString(sds[0].Status), "snapshotpolicy_status")
+	if len(sps) > 0 {
+		out.SnapshotpolicyStatus = sds[0].Status
 	}
+
 	// check status
 	// construction for snapshotpolicies attached to disk
-	snapshotpoliciesJson := jsonutils.NewArray()
+	out.Snapshotpolicies = []api.SimpleSnapshotPolicy{}
 	for i := range sps {
-		spsJson := jsonutils.Marshal(sps[i])
-		spsDict := spsJson.(*jsonutils.JSONDict)
-		repeatWeekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(sps[i].RepeatWeekdays)
-		timePoints := SnapshotPolicyManager.TimePointsToIntArray(sps[i].TimePoints)
-		spsDict.Remove("repeat_weekdays")
-		spsDict.Remove("time_points")
-		spsDict.Add(jsonutils.Marshal(repeatWeekdays), "repeat_weekdays")
-		spsDict.Add(jsonutils.Marshal(timePoints), "time_points")
-		snapshotpoliciesJson.Add(spsDict)
+		policy := api.SimpleSnapshotPolicy{}
+		policy.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sps[i].RepeatWeekdays)
+		policy.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sps[i].TimePoints)
+		out.Snapshotpolicies = append(out.Snapshotpolicies, policy)
 	}
-	extra.Add(snapshotpoliciesJson, "snapshotpolicies")
 	storage := self.GetStorage()
 	if storage != nil {
 		manualSnapshotCount, _ := self.GetManualSnapshotCount()
 		if utils.IsInStringArray(storage.StorageType, append(api.SHARED_FILE_STORAGE, api.STORAGE_LOCAL)) {
-			extra.Set("manual_snapshot_count", jsonutils.NewInt(int64(manualSnapshotCount)))
-			extra.Set("max_manual_snapshot_count", jsonutils.NewInt(int64(options.Options.DefaultMaxManualSnapshotCount)))
+			out.ManualSnapshotCount = manualSnapshotCount
+			out.MaxManualSnapshotCount = options.Options.DefaultMaxManualSnapshotCount
 		}
 	}
 
-	return extra
+	return out
 }
 
-func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DiskDetails, error) {
+	var err error
+	out := api.DiskDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, extra), nil
-}
-
-func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, extra)
+	return self.getMoreDetails(ctx, userCred, out), nil
 }
 
 func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
@@ -1948,7 +1938,7 @@ func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	var billingInfo SCloudBillingInfo
 
 	if storage != nil {
-		billingInfo.SCloudProviderInfo = storage.getCloudProviderInfo()
+		billingInfo.CloudproviderInfo = storage.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {

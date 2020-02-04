@@ -32,6 +32,7 @@ import (
 type SStatusStandaloneResourceBase struct {
 	SStandaloneResourceBase
 
+	// 资源状态
 	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional"`
 }
 

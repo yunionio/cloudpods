@@ -405,16 +405,22 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx contex
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lblis.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerListenerDetails, error) {
+	var err error
+	out := api.LoadbalancerListenerDetails{}
+	out.VirtualResourceDetails, err = lblis.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
+	}
+
 	{
 		lb, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
 		if err != nil {
 			log.Errorf("loadbalancer listener %s(%s): fetch loadbalancer (%s) error: %s",
 				lblis.Name, lblis.Id, lblis.LoadbalancerId, err)
-			return extra
+			return out, err
 		}
-		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
+		out.Loadbalancer = lb.GetName()
 	}
 	{
 		if lblis.BackendGroupId != "" {
@@ -422,33 +428,26 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 			if err != nil {
 				log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
 					lblis.Name, lblis.Id, lblis.BackendGroupId, err)
-				return extra
+				return out, err
 			}
-			extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+			out.BackendGroup = lbbg.GetName()
 		}
 	}
 	if len(lblis.AclId) > 0 {
 		if acl := lblis.GetCachedLoadbalancerAcl(); acl != nil {
-			extra.Set("acl_name", jsonutils.NewString(acl.Name))
+			out.AclName = acl.Name
 		}
 	}
 
 	if len(lblis.CertificateId) > 0 {
 		if cert, _ := lblis.GetLoadbalancerCertificate(); cert != nil {
-			extra.Set("certificate_name", jsonutils.NewString(cert.Name))
-			extra.Set("origin_certificate_id", jsonutils.NewString(cert.CertificateId))
+			out.CertificateName = cert.Name
+			out.OriginCertificateId = cert.CertificateId
 		}
 	}
-	regionInfo := lblis.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
-	}
-	return extra
-}
+	out.CloudregionInfo = lblis.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
 
-func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lblis.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return out, nil
 }
 
 func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

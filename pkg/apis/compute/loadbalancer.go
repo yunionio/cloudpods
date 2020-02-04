@@ -114,3 +114,20 @@ type LoadbalancerClusterListInput struct {
 type LoadbalancerAclListInput struct {
 	apis.SharableVirtualResourceListInput
 }
+
+type LoadbalancerDetails struct {
+	apis.VirtualResourceDetails
+	SLoadbalancer
+
+	CloudproviderInfo
+
+	// 公网IP地址
+	Eip string `json:"eip"`
+	// 公网IP地址类型: 弹性、非弹性
+	// example: public_ip
+	EipMode string `json:"eip_mode"`
+	// 虚拟私有网络名称
+	Vpc string `json:"vpc"`
+	// 后端服务器组名称
+	BackendGroup string `json:"backend_group"`
+}

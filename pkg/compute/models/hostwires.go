@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -49,13 +50,18 @@ func init() {
 type SHostwire struct {
 	SHostJointsBase
 
-	Bridge    string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	Interface string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	IsMaster  bool   `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`             // Column(Boolean, nullable=True, default=False)
-	MacAddr   string `width:"18" charset:"ascii" list:"admin" update:"admin" create:"admin_required"`                  // Column(VARCHAR(18, charset='ascii'))
+	Bridge string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	// 接口名称
+	Interface string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	// 是否是主地址
+	IsMaster bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+	// MAC地址
+	MacAddr string `width:"18" charset:"ascii" list:"admin" update:"admin" create:"admin_required"`
 
-	HostId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	WireId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	// 宿主机Id
+	HostId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// 二层网络Id
+	WireId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
 func (manager *SHostwireManager) GetMasterFieldName() string {
@@ -74,19 +80,15 @@ func (joint *SHostwire) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SHostwire) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
-}
-
-func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostwireDetails, error) {
+	var err error
+	out := api.HostwireDetails{}
+	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+	out.Baremetal, out.Wire = db.JointModelExtra(self)
+	return self.getExtraDetails(out), nil
 }
 
 func (hw *SHostwire) GetWire() *SWire {
@@ -105,12 +107,12 @@ func (hw *SHostwire) GetHost() *SHost {
 	return nil
 }
 
-func (hw *SHostwire) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (hw *SHostwire) getExtraDetails(out api.HostwireDetails) api.HostwireDetails {
 	wire := hw.GetWire()
 	if wire != nil {
-		extra.Add(jsonutils.NewInt(int64(wire.Bandwidth)), "bandwidth")
+		out.Bandwidth = wire.Bandwidth
 	}
-	return extra
+	return out
 }
 
 func (self *SHostwire) GetGuestnicsCount() (int, error) {

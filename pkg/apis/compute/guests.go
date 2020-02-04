@@ -15,6 +15,10 @@
 package compute
 
 import (
+	"time"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
@@ -122,4 +126,52 @@ func (i ServerRebuildRootInput) GetKeypairName() string {
 
 type ServerResumeInput struct {
 	apis.Meta
+}
+
+type ServerDetails struct {
+	apis.VirtualResourceDetails
+	SGuest
+	CloudproviderInfo
+
+	// details
+	// 网络概要
+	Networks string `json:"networks"`
+	// 磁盘概要
+	Disks string `json:"disks"`
+	// 磁盘详情
+	DisksInfo *jsonutils.JSONArray `json:"disk_info"`
+	// 虚拟机Ip列表
+	VirtualIps string `json:"virtual_ips"`
+	// 安全组规则
+	SecurityRules string `json:"security_rules"`
+	// 操作系统名称
+	OsName string `json:"os_name"`
+	// 操作系统类型
+	OsType string `json:"os_type"`
+	// 系统管理员可见的安全组规则
+	AdminSecurityRules string `json:"admin_security_rules"`
+
+	// list
+	AttachTime time.Time `attach_time`
+
+	// common
+	IsPrepaidRecycle bool `json:"is_prepaid_recycle"`
+
+	// 备机所在宿主机名称
+	BackupHostName string `json:"backup_host_name"`
+	// 北京所在宿主机状态
+	BackupHostStatus string `json:"backup_host_status"`
+	// 宿主机名称
+	Host string `json:"host"`
+	// 宿主机SN
+	HostSN     string `json:"host_sn"`
+	CanRecycle bool   `json:"can_recycle"`
+	// 自动释放时间
+	AutoDeleteAt time.Time `json:"auto_delete_at"`
+	// 标签
+	Metadata map[string]string `json:"metadata"`
+	// 磁盘数量
+	DiskCount int `json:"disk_count"`
+	// 是否支持ISO启动
+	CdromSupport bool `json:"cdrom_support"`
 }

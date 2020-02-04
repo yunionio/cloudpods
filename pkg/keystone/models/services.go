@@ -108,23 +108,19 @@ func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
 	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (service *SService) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := service.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return serviceExtra(service, extra)
-}
-
-func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ServiceDetails, error) {
+	var err error
+	out := api.ServiceDetails{}
+	out.StandaloneResourceDetails, err = service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return serviceExtra(service, extra), nil
+	return serviceExtra(service, out), nil
 }
 
-func serviceExtra(service *SService, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	epCnt, _ := service.GetEndpointCount()
-	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
-	return extra
+func serviceExtra(service *SService, out api.ServiceDetails) api.ServiceDetails {
+	out.EndpointCount, _ = service.GetEndpointCount()
+	return out
 }
 
 func (service *SService) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

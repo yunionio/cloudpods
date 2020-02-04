@@ -61,12 +61,18 @@ type SVpc struct {
 
 	SManagedResourceBase
 
+	// 是否是默认VPC
+	// example: true
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
 
+	// CIDR地址段
+	// example: 192.168.222.0/24
 	CidrBlock string `charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
+	// 区域Id
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	GlobalvpcId   string `width:"36" charset:"ascii" list:"user"`
+	// 全局VPC Id
+	GlobalvpcId string `width:"36" charset:"ascii" list:"user"`
 }
 
 func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
@@ -236,38 +242,16 @@ func (self *SVpc) GetRouteTableCount() (int, error) {
 	return self.GetRouteTableQuery().CountWithError()
 }
 
-func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	cnt, _ := self.GetWireCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "wire_count")
-	cnt, _ = self.GetNetworkCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "network_count")
-	cnt, _ = self.GetRouteTableCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "routetable_count")
-	cnt, _ = self.GetNatgatewayCount()
-	extra.Add(jsonutils.NewInt(int64(cnt)), "natgateway_count")
-	/* region, err := self.GetRegion()
-	if err != nil {
-		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)
-		return extra
-	}
-	extra.Add(jsonutils.NewString(region.GetName()), "region")
-	if len(region.GetExternalId()) > 0 {
-		extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-	}*/
-
-	info := self.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-
-	return extra
+func (self *SVpc) getMoreDetails(out api.VpcDetails) api.VpcDetails {
+	out.WireCount, _ = self.GetWireCount()
+	out.NetworkCount, _ = self.GetNetworkCount()
+	out.RoutetableCount, _ = self.GetRouteTableCount()
+	out.NatgatewayCount, _ = self.GetNatgatewayCount()
+	out.CloudproviderInfo = self.getCloudProviderInfo()
+	return out
 }
 
-func (self *SVpc) getCloudProviderInfoV2() api.CloudproviderDetails {
-	region, _ := self.GetRegion()
-	provider := self.GetCloudprovider()
-	return MakeCloudProviderInfoV2(region, nil, provider)
-}
-
-func (self *SVpc) getCloudProviderInfo() SCloudProviderInfo {
+func (self *SVpc) getCloudProviderInfo() api.CloudproviderInfo {
 	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
@@ -301,17 +285,14 @@ func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
 	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
 }
 
-func (self *SVpc) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.VpcDetails, error) {
+	var err error
+	out := api.VpcDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
 func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SVpc, error) {

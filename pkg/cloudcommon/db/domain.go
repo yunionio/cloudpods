@@ -31,6 +31,7 @@ type SDomainizedResourceBaseManager struct {
 }
 
 type SDomainizedResourceBase struct {
+	// 域Id
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
 }
 

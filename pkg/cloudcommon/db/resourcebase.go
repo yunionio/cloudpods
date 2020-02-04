@@ -30,11 +30,16 @@ import (
 type SResourceBase struct {
 	SModelBase
 
-	CreatedAt     time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
-	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
-	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true" list:"user"`
-	DeletedAt     time.Time ``
-	Deleted       bool      `nullable:"false" default:"false" list:"admin"`
+	// 资源创建时间
+	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
+	// 资源更新时间
+	UpdatedAt time.Time `nullable:"false" updated_at:"true" list:"user"`
+	// 资源被更新次数
+	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user"`
+	// 资源删除时间
+	DeletedAt time.Time ``
+	// 资源是否被删除
+	Deleted bool `nullable:"false" default:"false"`
 }
 
 type SResourceBaseManager struct {
@@ -74,17 +79,7 @@ func (model *SResourceBase) GetIResourceModel() IResourceModel {
 	return model.GetVirtualObject().(IResourceModel)
 }
 
-/*func (model *SResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SModelBase.GetCustomizeColumns(ctx, userCred, query)
-	canDelete := CanDelete(model, ctx)
-	if canDelete {
-		extra.Add(jsonutils.JSONTrue, "can_delete")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "can_delete")
-	}
-	return extra
-}
-
+/*
 func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := model.SModelBase.GetExtraDetails(ctx, userCred, query)
 	canDelete := CanDelete(model, ctx)

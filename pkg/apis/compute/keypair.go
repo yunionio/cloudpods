@@ -40,3 +40,18 @@ type KeypairCreateInput struct {
 	// default: RSA
 	Scheme string `json:"scheme"`
 }
+
+type KeypairDetails struct {
+	apis.StandaloneResourceDetails
+	SKeypair
+
+	// 私钥长度
+	PrivateKeyLen int `json:"private_key_len"`
+	// 关联云主机次数
+	LinkedGuestCount int `json:"linked_guest_count"`
+
+	// 用户Id
+	OwnerId string `json:"owner_id"`
+	// 用户名称
+	OwnerName string `json:"owner_name"`
+}

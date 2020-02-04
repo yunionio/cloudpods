@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -64,17 +65,16 @@ func (joint *SGroupguest) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGroupguest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGroupJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
-}
-
-func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GroupguestDetails, error) {
+	var err error
+	out := api.GroupguestDetails{}
+	out.ModelBaseDetails, err = self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return db.JointModelExtra(self, extra), nil
+	out.Instancegroup, out.Server = db.JointModelExtra(self)
+	out.Guest = out.Server
+	return out, nil
 }
 
 func (self *SGroupguest) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

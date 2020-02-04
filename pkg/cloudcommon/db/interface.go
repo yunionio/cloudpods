@@ -144,7 +144,7 @@ type IModel interface {
 	GetShortDesc(ctx context.Context) *jsonutils.JSONDict
 
 	// list hooks
-	GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
+	//GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
 
 	// get hooks
 	AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool

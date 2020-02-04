@@ -289,35 +289,30 @@ func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (proj *SProject) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := proj.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
-	return projectExtra(proj, extra)
-}
-
-func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ProjectDetails, error) {
+	var err error
+	out := api.ProjectDetails{}
+	out.StandaloneResourceDetails, err = proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return projectExtra(proj, extra), nil
+	return projectExtra(proj, out), nil
 }
 
-func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	grpCnt, _ := proj.GetGroupCount()
-	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
-	usrCnt, _ := proj.GetUserCount()
-	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
+func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {
+	out.GroupCount, _ = proj.GetGroupCount()
+	out.UserCount, _ = proj.GetUserCount()
 	external, update, _ := proj.getExternalResources()
 	if len(external) > 0 {
-		extra.Add(jsonutils.Marshal(external), "ext_resources")
-		extra.Add(jsonutils.NewTimeString(update), "ext_resources_last_update")
+		out.ExtResource = jsonutils.Marshal(external)
+		out.ExtResourcesLastUpdate = update
 		if update.IsZero() {
 			update = time.Now()
 		}
 		nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
-		extra.Add(jsonutils.NewTimeString(nextUpdate), "ext_resources_next_update")
+		out.ExtResourcesNextUpdate = nextUpdate
 	}
-	return extra
+	return out
 }
 
 func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) {
