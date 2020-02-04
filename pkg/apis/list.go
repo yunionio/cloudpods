@@ -35,26 +35,26 @@ type ModelBaseListInput struct {
 	// 指定过滤条件，允许指定多个，每个条件的格式为"字段名称.操作符(匹配信息)"，例如name字段等于test的过滤器为：name.equals('test')
 	// 支持的操作符如下：
 	//
-	// | 操作符         | 参数个数 | 举例                                            | 说明                  ｜
-	// |---------------|---------|------------------------------------------------|-----------------------|
-	// | in            | > 0     | name.in("test", "good")                        | 在给定数组中            |
-	// | notin         | > 0     | name.notin('test')                             | 不在给定数组中          |
-	// | between       | 2       | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间            |
-	// | ge            | 1       | created_at.ge('2020-01-01')                    | 大于或等于给定值         |
-	// | gt            | 1       | created_at.gt('2020-01-01')                    | 严格大于给定值           |
-	// | le            | 1       | created_at.le('2020-01-01')                    | 小于或等于给定值         |
-	// | lt            | 1       | sync_seconds.lt(900)                           | 严格大于给定值           |
-	// | like          | 1       | name.like('%test%')                            | sql字符串匹配            |
-	// | contains      | 1       | name.contains('test')                          | 包含给定字符串           |
-	// | startswith    | 1       | name.startswith('test')                        | 以给定字符串开头         |
-	// | endswith      | 1       | name.endswith('test')                          | 以给定字符串结尾          |
-	// | equals        | 1       | name.equals('test')                            | 等于给定值               |
-	// | notequals     | 1       | name.notequals('test')                         | 不等于给定值             |
-	// | isnull        | 0       | name.isnull()                                  | 值为SQL的NULL           |
-	// | isnotnull     | 0       | name.isnotnull()                               | 值不为SQL的NULL         |
-	// | isempty       | 0       | name.isempty('test')                           | 值为空字符串             |
-	// | isnotempty    | 0       | name.isnotempty('test')                        | 值不是空字符串           |
-	// | isnullorempty | 0       | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串 |
+	// | 操作符        | 参数个数 | 举例                                           | 说明                        |
+	// |---------------|----------|------------------------------------------------|-----------------------------|
+	// | in            | > 0      | name.in("test", "good")                        | 在给定数组中                |
+	// | notin         | > 0      | name.notin('test')                             | 不在给定数组中              |
+	// | between       | 2        | created_at.between('2019-12-10', '2020-01-02') | 在两个值之间                |
+	// | ge            | 1        | created_at.ge('2020-01-01')                    | 大于或等于给定值            |
+	// | gt            | 1        | created_at.gt('2020-01-01')                    | 严格大于给定值              |
+	// | le            | 1        | created_at.le('2020-01-01')                    | 小于或等于给定值            |
+	// | lt            | 1        | sync_seconds.lt(900)                           | 严格大于给定值              |
+	// | like          | > 0      | name.like('%test%')                            | sql字符串匹配任意一个字符串 |
+	// | contains      | > 0      | name.contains('test')                          | 包含任意一个给定字符串      |
+	// | startswith    | > 0      | name.startswith('test')                        | 以任意一个给定字符串开头    |
+	// | endswith      | > 0      | name.endswith('test')                          | 以任意一个给定字符串结尾    |
+	// | equals        | > 0      | name.equals('test')                            | 等于任意一个给定值          |
+	// | notequals     | 1        | name.notequals('test')                         | 不等于给定值                |
+	// | isnull        | 0        | name.isnull()                                  | 值为SQL的NULL               |
+	// | isnotnull     | 0        | name.isnotnull()                               | 值不为SQL的NULL             |
+	// | isempty       | 0        | name.isempty('test')                           | 值为空字符串                |
+	// | isnotempty    | 0        | name.isnotempty('test')                        | 值不是空字符串              |
+	// | isnullorempty | 0        | name.isnullorempty('test')                     | 值为SQL的NULL或者空字符串   |
 	//
 	Filter []string `json:"filter"`
 	// 指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，

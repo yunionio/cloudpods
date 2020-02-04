@@ -31,15 +31,15 @@ type SResourceBase struct {
 	SModelBase
 
 	// 资源创建时间
-	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
+	CreatedAt time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user" json:"created_at"`
 	// 资源更新时间
-	UpdatedAt time.Time `nullable:"false" updated_at:"true" list:"user"`
+	UpdatedAt time.Time `nullable:"false" updated_at:"true" list:"user" json:"updated_at"`
 	// 资源被更新次数
-	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user"`
+	UpdateVersion int `default:"0" nullable:"false" auto_version:"true" list:"user" json:"update_version"`
 	// 资源删除时间
-	DeletedAt time.Time ``
+	DeletedAt time.Time `json:"deleted_at"`
 	// 资源是否被删除
-	Deleted bool `nullable:"false" default:"false"`
+	Deleted bool `nullable:"false" default:"false" json:"deleted"`
 }
 
 type SResourceBaseManager struct {

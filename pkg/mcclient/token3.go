@@ -30,18 +30,37 @@ import (
 const REGION_ZONE_SEP = '-'
 
 type KeystoneEndpointV3 struct {
-	Id        string `json:"id"`
+	// endpoint ID
+	// example: 75f4e36100184a5a8a3e36cb0f12aa87
+	Id string `json:"id"`
+	// endpoint接口类型，目前定义了一下集中类型
+	//
+	// | interface | 说明                                                   |
+	// |-----------|--------------------------------------------------------|
+	// | internal  | 内部接口，访问服务时默认用inernal类型的接口            |
+	// | public    | 外部接口                                               |
+	// | admin     | 管理类型接口，deprecated                               |
+	// | console   | web控制台接口，指定显示在web控制台的外部服务的接口地址 |
+	//
 	Interface string `json:"interface"`
-	Region    string `json:"region"`
-	RegionId  string `json:"region_id"`
-	Url       string `json:"url"`
-	Name      string `json:"name"`
+	// 区域名称
+	Region string `json:"region"`
+	// 区域ID
+	RegionId string `json:"region_id"`
+	// 接口URL
+	Url string `json:"url"`
+	// 接口名称
+	Name string `json:"name"`
 }
 
 type KeystoneServiceV3 struct {
-	Id        string               `json:"id,omitempty"`
-	Name      string               `json:"name,omitempty"`
-	Type      string               `json:"type,omitempty"`
+	// service ID
+	Id string `json:"id,omitempty"`
+	// service Name
+	Name string `json:"name,omitempty"`
+	// service Type，例如identity, compute等
+	Type string `json:"type,omitempty"`
+	// service的访问endpoints
 	Endpoints []KeystoneEndpointV3 `json:"endpoints,omitempty"`
 }
 
@@ -50,52 +69,83 @@ type KeystoneDomainV3 api.SIdentityObject
 type KeystoneRoleV3 api.SIdentityObject
 
 type KeystoneProjectV3 struct {
-	Id     string
-	Name   string
+	// 项目ID
+	Id string
+	// 项目名称
+	Name string
+	// 项目归属域
 	Domain KeystoneDomainV3
 }
 
 type KeystoneUserV3 struct {
-	Id                string
-	Name              string
-	Domain            KeystoneDomainV3
+	// 用户ID
+	Id string
+	// 用户名称
+	Name string
+	// 用户归属域
+	Domain KeystoneDomainV3
+	// 用户密码过期时间
 	PasswordExpiresAt time.Time
 
+	// 用户的显式名称，通常为中文名
 	Displayname string
-	Email       string
-	Mobile      string
+	// 用户Email
+	Email string
+	// 用户手机号
+	Mobile string
 }
 
 type KeystoneServiceCatalogV3 []KeystoneServiceV3
 
 type KeystonePolicy struct {
+	// 项目范围的权限
 	Project []string
-	Domain  []string
-	System  []string
+	// 域范围的权限
+	Domain []string
+	// 系统范围的权限
+	System []string
 }
 
 type KeystoneTokenV3 struct {
-	AuditIds  []string                 `json:"audit_ids"`
-	ExpiresAt time.Time                `json:"expires_at"`
-	IsDomain  bool                     `json:"is_domain,allowfalse"`
-	IssuedAt  time.Time                `json:"issued_at"`
-	Methods   []string                 `json:"methods"`
-	Project   KeystoneProjectV3        `json:"project"`
-	Policies  KeystonePolicy           `json:"policies"`
-	Roles     []KeystoneRoleV3         `json:"roles"`
-	User      KeystoneUserV3           `json:"user"`
-	Catalog   KeystoneServiceCatalogV3 `json:"catalog"`
-	Context   SAuthContext             `json:"context"`
+	// AutdiIds, 没有什么用
+	// swagger:ignore
+	AuditIds []string `json:"audit_ids"`
+	// token过期时间
+	ExpiresAt time.Time `json:"expires_at"`
+	// 是否为域的token
+	IsDomain bool `json:"is_domain,allowfalse"`
+	// token颁发时间
+	IssuedAt time.Time `json:"issued_at"`
+	// 获取token的认证方式
+	Methods []string `json:"methods"`
+	// token的关联项目，如果用户认证时scope为项目，则为改指定项目的信息
+	Project KeystoneProjectV3 `json:"project"`
+	// token的关联用户在关联项目的权限信息，只有项目scope的token才有这个属性
+	Policies KeystonePolicy `json:"policies"`
+	// token的关联用户在关联项目的角色列表，只有项目scope的token才有这个属性
+	Roles []KeystoneRoleV3 `json:"roles"`
+	// token的关联用户信息
+	User KeystoneUserV3 `json:"user"`
+	// 服务目录
+	Catalog KeystoneServiceCatalogV3 `json:"catalog"`
+	// 认证上下文
+	Context SAuthContext `json:"context"`
 
-	Projects        []KeystoneProjectV3   `json:"projects"`
+	// 当用户认证时未指定scoepe时，会返回改用户所有的项目
+	Projects []KeystoneProjectV3 `json:"projects"`
+	// 返回用户在所有项目的所有角色信息
 	RoleAssignments []api.SRoleAssignment `json:"role_assignments"`
 
+	// 如果时AK/SK认证，返回用户的AccessKey/Secret信息，用于客户端后续的AK/SK认证，避免频繁访问keystone进行AK/SK认证
 	AccessKey api.SAccessKeySecretInfo `json:"access_key"`
 }
 
 type TokenCredentialV3 struct {
+	// keystone V3 token
 	Token KeystoneTokenV3 `json:"token"`
-	Id    string          `json:"id"`
+
+	// swagger:ignore
+	Id string `json:"id"`
 }
 
 func (token *TokenCredentialV3) GetTokenString() string {

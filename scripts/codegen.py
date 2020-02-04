@@ -166,10 +166,10 @@ class SwaggerCode(FuncDispatcher):
         self.run("keystone", pkg=["tokens", "models"], out="identity")
 
     def gen_compute(self):
-        self.run_svc("compute", pkg=["models"])
+        self.run("compute", pkg=["models"], out="compute")
 
     def gen_image(self):
-        self.run_svc("image", pkg=["models"])
+        self.run("image", pkg=["models"], out="image")
 
 
 class SwaggerYAML(FuncDispatcher):

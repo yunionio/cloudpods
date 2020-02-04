@@ -69,22 +69,37 @@ type SCloudprovider struct {
 
 	SSyncableBaseResource
 
-	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
+	// 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
+	//
+	// | HealthStatus  | 说明                 |
+	// |---------------|----------------------|
+	// | normal        | 远端处于健康状态     |
+	// | insufficient  | 不足按需资源余额     |
+	// | suspended     | 远端处于冻结状态     |
+	// | arrears       | 远端处于欠费状态     |
+	// | unknown       | 未知状态，查询失败   |
+	// | no permission | 没有权限获取账单信息 |
+	//
+	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
+
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	// port = Column(Integer, nullable=False)
 	// Version string `width:"32" charset:"ascii" nullable:"true" list:"domain"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	// Sysinfo jsonutils.JSONObject `get:"domain"` // Column(JSONEncodedDict, nullable=True)
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
-	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret    string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`  // Google需要秘钥认证,需要此字段比较长
-
+	// 云账号的用户信息，例如用户名，access key等
+	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	// 云账号的密码信息，例如密码，access key secret等。该字段在数据库加密存储。Google需要存储秘钥证书,需要此字段比较长
+	Secret string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	// 该云账号在云平台的唯一账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"domain"`
 
 	// LastSync time.Time `get:"domain" list:"domain"` // = Column(DateTime, nullable=True)
 
+	// 云账号的平台信息
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 }
 

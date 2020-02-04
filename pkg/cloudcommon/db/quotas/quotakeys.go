@@ -24,34 +24,66 @@ import (
 )
 
 type SBaseQuotaKeys struct {
-	DomainId  string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	ProjectId string `name:"tenant_id" width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+	// 配额适用的项目的域ID
+	DomainId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"domain_id"`
+	// 配额适用的项目ID
+	ProjectId string `name:"tenant_id" width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"project_id"`
+}
+
+type SBaseQuotaDetailKeys struct {
+	// 配额适用的项目的域名称
+	Domain string `json:"domain"`
+	// 配额适用的项目名称
+	Project string `json:"project"`
 }
 
 type SCloudResourceKeys struct {
 	SBaseQuotaKeys
-	// provider
-	Provider string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	// brand
-	Brand string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	// Env
-	CloudEnv string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	// cloudaccount
-	AccountId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
-	// cloudprovider
-	ManagerId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+	// 配额适用的平台名称，参考List接口的平台列表
+	Provider string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"provider"`
+	// 配额适用的品牌名称，参考List接口的品牌列表
+	Brand string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"brand"`
+	// 配额适用的云环境，参考List接口的云环境列表
+	CloudEnv string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"cloud_env"`
+	// 配额适用的云账号ID
+	AccountId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"account_id"`
+	// 配额适用的云订阅ID
+	ManagerId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"manager_id"`
+}
+
+type SCloudResourceDetailKeys struct {
+	SBaseQuotaDetailKeys
+
+	// 配额适用的云账号名称
+	Account string `json:"account"`
+	// 配额适用的云订阅名称
+	Manager string `json:"manager"`
 }
 
 type SRegionalCloudResourceKeys struct {
 	SCloudResourceKeys
-	// region
-	RegionId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+	// 配额适用的区域ID
+	RegionId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"region_id"`
+}
+
+type SRegionalCloudResourceDetailKeys struct {
+	SCloudResourceDetailKeys
+
+	// 配额适用的区域名称
+	Region string `json:"region"`
 }
 
 type SZonalCloudResourceKeys struct {
 	SRegionalCloudResourceKeys
-	// zone
-	ZoneId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user"`
+	// 配额适用的可用区ID
+	ZoneId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"zone_id"`
+}
+
+type SZonalCloudResourceDetailKeys struct {
+	SRegionalCloudResourceDetailKeys
+
+	// 配额适用的可用区名称
+	Zone string `json:"zone"`
 }
 
 func (k SBaseQuotaKeys) Fields() []string {

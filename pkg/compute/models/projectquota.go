@@ -68,7 +68,7 @@ type SProjectQuota struct {
 
 	quotas.SBaseQuotaKeys
 
-	Secgroup int `default:"-1" allow_zero:"true"`
+	Secgroup int `default:"-1" allow_zero:"true" json:"secgroup"`
 }
 
 func (self *SProjectQuota) GetKeys() quotas.IQuotaKeys {

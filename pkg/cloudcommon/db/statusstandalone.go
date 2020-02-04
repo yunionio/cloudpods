@@ -33,7 +33,7 @@ type SStatusStandaloneResourceBase struct {
 	SStandaloneResourceBase
 
 	// 资源状态
-	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional"`
+	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional" json:"status"`
 }
 
 type SStatusStandaloneResourceBaseManager struct {

@@ -64,11 +64,9 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.UnauthorizedError(w, "unauthorized %s", err)
 		return
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.Marshal(token), "access")
-	appsrv.SendJSON(w, ret)
+	appsrv.SendJSON(w, jsonutils.Marshal(token))
 
-	models.UserManager.TraceLoginV2(ctx, token)
+	models.UserManager.TraceLoginV2(ctx, &token.Access)
 }
 
 func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -104,6 +102,22 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	models.UserManager.TraceLoginV3(ctx, token)
 }
 
+// swagger:parameters verifyTokensV2
+type VerifyTokenV2Param struct {
+	// keystone V2验证token
+	// in:path
+	// required:true
+	Token string
+}
+
+// swagger:route GET /v2.0/tokens/{token} authentication verifyTokensV2
+//
+// keystone v2验证token API
+//
+// keystone v2验证token API
+//
+//     Responses:
+//       200: tokens_AuthenticateV2Output
 func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
 	tokenStr := params["<token>"]
@@ -137,6 +151,22 @@ func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	appsrv.SendJSON(w, ret)
 }
 
+// swagger:parameters verifyTokensV3
+type VerifyTokenV3Param struct {
+	// keystone V3验证token
+	// in:header
+	// required:true
+	Token string `json:"X-Subject-Token"`
+}
+
+// swagger:route GET /v3/auth/tokens authentication verifyTokensV3
+//
+// keystone v3验证token API
+//
+// keystone v3验证token API
+//
+//     Responses:
+//       200: tokens_AuthenticateV3Output
 func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
 	token, err := verifyCommon(ctx, w, tokenStr)

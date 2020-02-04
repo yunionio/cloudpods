@@ -70,22 +70,22 @@ type SRegionQuota struct {
 
 	quotas.SRegionalCloudResourceKeys
 
-	Eip   int `default:"-1" allow_zero:"true"`
-	Port  int `default:"-1" allow_zero:"true"`
-	Eport int `default:"-1" allow_zero:"true"`
+	Eip   int `default:"-1" allow_zero:"true" json:"eip"`
+	Port  int `default:"-1" allow_zero:"true" json:"port"`
+	Eport int `default:"-1" allow_zero:"true" json:"eport"`
 	// Bw    int `default:"-1" allow_zero:"true"`
 	// Ebw   int `default:"-1" allow_zero:"true"`
 
-	Snapshot int `default:"-1" allow_zero:"true"`
+	Snapshot int `default:"-1" allow_zero:"true" json:"snapshot"`
 
-	Bucket    int `default:"-1" allow_zero:"true"`
-	ObjectGB  int `default:"-1" allow_zero:"true"`
-	ObjectCnt int `default:"-1" allow_zero:"true"`
+	Bucket    int `default:"-1" allow_zero:"true" json:"bucket"`
+	ObjectGB  int `default:"-1" allow_zero:"true" json:"object_gb"`
+	ObjectCnt int `default:"-1" allow_zero:"true" json:"object_cnt"`
 
-	Rds   int `default:"-1" allow_zero:"true"`
-	Cache int `default:"-1" allow_zero:"true"`
+	Rds   int `default:"-1" allow_zero:"true" json:"rds"`
+	Cache int `default:"-1" allow_zero:"true" json:"cache"`
 
-	Loadbalancer int `default:"-1" allow_zero:"true"`
+	Loadbalancer int `default:"-1" allow_zero:"true" json:"loadbalancer"`
 }
 
 func (self *SRegionQuota) GetKeys() quotas.IQuotaKeys {

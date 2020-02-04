@@ -61,14 +61,14 @@ type SVirtualResourceBase struct {
 
 	// 云上同步资源是否在本地被更改过配置, local: 更改过, cloud: 未更改过
 	// example: local
-	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:""`
+	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:"" json:"project_src"`
 
 	// 是否是系统资源
-	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
+	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional" json:"is_system"`
 
-	PendingDeletedAt time.Time ``
+	PendingDeletedAt time.Time `json:"pending_deleted_at"`
 	// 资源是否处于回收站中
-	PendingDeleted bool `nullable:"false" default:"false" index:"true" get:"user" list:"user"`
+	PendingDeleted bool `nullable:"false" default:"false" index:"true" get:"user" list:"user" json:"pending_deleted"`
 }
 
 func (model *SVirtualResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {

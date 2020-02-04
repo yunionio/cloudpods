@@ -65,8 +65,9 @@ type SWire struct {
 	// example: 1000
 	Bandwidth int `list:"admin" update:"admin" nullable:"false" create:"admin_required"`
 	// MTU
-	// example: MTU
-	Mtu          int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
+	// example: 1500
+	Mtu int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
+	// swagger:ignore
 	ScheduleRank int `list:"admin" update:"admin"`
 	// 可用区Id
 	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`

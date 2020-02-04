@@ -240,3 +240,70 @@ func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
 	}
 	return 0
 }
+
+///////////////////////////////////////////////////
+// for swagger API documentation
+
+// 区域配额详情
+type SImageQuotaDetail struct {
+	SQuota
+
+	quotas.SBaseQuotaDetailKeys
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}/{scopeId}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+// +onecloud:swagger-gen-param-path=scopeId
+// +onecloud:swagger-gen-param-path=指定项目或者域的ID
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取指定项目或者域的镜像配额
+func GetImageQuota(query quotas.SBaseQuotaQueryInput) *SImageQuotaDetail {
+	return nil
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项 目的配额和域的配额
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取所有项目或者域的镜像配额
+func ListImageQuotas(query quotas.SBaseQuotaQueryInput) *SImageQuotaDetail {
+	return nil
+}
+
+// 设置镜像配额输入参数
+type SetImageQuotaInput struct {
+	quotas.SBaseQuotaSetInput
+
+	SQuota
+}
+
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/image_quotas/{scope}/{scopeId}
+// +onecloud:swagger-gen-route-tag=image_quota
+// +onecloud:swagger-gen-param-path=scope
+// +onecloud:swagger-gen-param-path=配额所属范围，可能值为projects和domains，分别代表项目的配额和域的配额
+// +onecloud:swagger-gen-param-path=scopeId
+// +onecloud:swagger-gen-param-path=指定项目或者域的ID
+// +onecloud:swagger-gen-param-body-index=0
+// +onecloud:swagger-gen-param-body-key=image_quotas
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=image_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 设置指定项目或者域的镜像配额
+func SetRegionQuotas(input SetImageQuotaInput) *SImageQuotaDetail {
+	return nil
+}

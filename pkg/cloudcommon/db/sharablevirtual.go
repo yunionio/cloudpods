@@ -34,8 +34,8 @@ import (
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
 
-	IsPublic    bool   `default:"false" nullable:"false" create:"domain_optional" list:"user"`
-	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"domain_optional" list:"user"`
+	IsPublic    bool   `default:"false" nullable:"false" create:"domain_optional" list:"user" json:"is_public"`
+	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"domain_optional" list:"user" json:"public_scope"`
 }
 
 type SSharableVirtualResourceBaseManager struct {

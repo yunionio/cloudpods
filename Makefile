@@ -256,7 +256,7 @@ gen-swagger: gen-swagger-check
 	$(ROOT_DIR)/scripts/codegen.py swagger-code
 	$(ROOT_DIR)/scripts/codegen.py swagger-yaml
 
-swagger-serve: gen-swagger
+swagger-serve: gen-model-api gen-swagger
 	$(ROOT_DIR)/scripts/codegen.py swagger-serve
 
 .PHONY: gen-model-api-check gen-model-api gen-swagger-check gen-swagger swagger-serve
