@@ -58,13 +58,18 @@ func init() {
 type SHoststorage struct {
 	SHostJointsBase
 
-	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	// 挂载点
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"`
 
-	HostId    string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	// 宿主机Id
+	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	// 存储Id
+	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
 
-	Config       *jsonutils.JSONArray `nullable:"true" get:"admin"`  // Column(JSONEncodedDict, nullable=True)
-	RealCapacity int64                `nullable:"true" list:"admin"` // Column(Integer, nullable=True)
+	// 配置信息
+	Config *jsonutils.JSONArray `nullable:"true" get:"admin"`
+	// 真实容量大小
+	RealCapacity int64 `nullable:"true" list:"admin"`
 }
 
 func (manager *SHoststorageManager) GetMasterFieldName() string {
@@ -83,19 +88,15 @@ func (joint *SHoststorage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SHoststorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
-}
-
-func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HoststorageDetails, error) {
+	var err error
+	out := api.HoststorageDetails{}
+	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra), nil
+	out.Baremetal, out.Storage = db.JointModelExtra(self)
+	return self.getExtraDetails(out), nil
 }
 
 func (self *SHoststorage) GetHost() *SHost {
@@ -205,37 +206,37 @@ func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	}
 }
 
-func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SHoststorage) getExtraDetails(out api.HoststorageDetails) api.HoststorageDetails {
 	host := self.GetHost()
-	extra.Add(jsonutils.NewString(host.Name), "host")
+	out.Host = host.Name
 	storage := self.GetStorage()
-	extra.Add(jsonutils.NewString(storage.Name), "storage")
-	extra.Add(jsonutils.NewInt(int64(storage.Capacity)), "capacity")
+	out.Storage = storage.Name
+	out.Capacity = storage.Capacity
 	if storage.StorageConf != nil {
-		extra.Set("storage_conf", storage.StorageConf)
+		out.StorageConf = storage.StorageConf
 	}
 	used := storage.GetUsedCapacity(tristate.True)
 	wasted := storage.GetUsedCapacity(tristate.False)
-	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
-	extra.Add(jsonutils.NewInt(int64(wasted)), "waste_capacity")
-	extra.Add(jsonutils.NewInt(int64(storage.GetFreeCapacity())), "free_capacity")
-	extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	extra.Add(jsonutils.NewBool(storage.Enabled.Bool()), "enabled")
-	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
+	out.UsedCapacity = used
+	out.WasteCapacity = wasted
+	out.FreeCapacity = storage.GetFreeCapacity()
+	out.StorageType = storage.StorageType
+	out.MediumType = storage.MediumType
+	out.Enabled = storage.Enabled.Bool()
+	out.Cmtbound = storage.GetOvercommitBound()
 
 	//extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
 
-	extra = db.FetchModelExtraCountProperties(self, extra)
+	out.GuestDiskCount, _ = self.GetGuestDiskCount()
 
 	if len(storage.StoragecacheId) > 0 {
 		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
 		if storagecache != nil {
-			extra.Set("imagecache_path", jsonutils.NewString(storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
-			extra.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
+			out.StoragecacheId = storagecache.Id
+			out.ImagecachePath = storage.GetStorageCachePath(self.MountPoint, storagecache.Path)
 		}
 	}
-	return extra
+	return out
 }
 
 func (self *SHoststorage) GetGuestDiskCount() (int, error) {

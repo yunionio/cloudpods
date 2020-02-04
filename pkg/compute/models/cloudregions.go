@@ -60,8 +60,12 @@ type SCloudregion struct {
 
 	cloudprovider.SGeographicInfo
 
+	// 云环境
+	// example: ChinaCloud
 	Environment string `width:"32" charset:"ascii" list:"user"`
-	Provider    string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud"`
+	// 云平台
+	// example: Huawei
+	Provider string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud"`
 }
 
 func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -238,21 +242,23 @@ func (self *SCloudregion) GetDriver() IRegionDriver {
 	return GetRegionDriver(provider)
 }
 
-func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	return db.FetchModelExtraCountProperties(self, extra)
+func (self *SCloudregion) getMoreDetails(out api.CloudregionDetails) api.CloudregionDetails {
+	out.VpcCount, _ = self.GetVpcCount()
+	out.ZoneCount, _ = self.GetZoneCount()
+	out.GuestCount, _ = self.GetGuestCount()
+	out.NetworkCount, _ = self.GetNetworkCount()
+	out.GuestIncrementCount, _ = self.GetGuestIncrementCount()
+	return out
 }
 
-func (self *SCloudregion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SCloudregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SCloudregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CloudregionDetails, error) {
+	var err error
+	out := api.CloudregionDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
 func (self *SCloudregion) GetSkus() ([]SServerSku, error) {
@@ -715,6 +721,15 @@ func (self *SCloudregion) isManaged() bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+func (self *SCloudregion) GetRegionInfo() api.CloudregionInfo {
+	return api.CloudregionInfo{
+		Region:           self.Name,
+		RegionId:         self.Id,
+		RegionExtId:      fetchExternalId(self.ExternalId),
+		RegionExternalId: self.ExternalId,
 	}
 }
 

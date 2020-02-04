@@ -164,3 +164,19 @@ type SecgroupFilterListInput struct {
 	// filter by secgroup_id
 	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
 }
+
+type SecgroupDetails struct {
+	apis.SharableVirtualResourceDetails
+	SSecurityGroup
+
+	// 关联云主机数量
+	GuestCnt int `json:"guest_cnt"`
+	// 安全组缓存数量
+	CacheCnt int `json:"cache_cnt"`
+	// 规则信息
+	Rules string `json:"rules"`
+	// 入方向规则信息
+	InRules string `json:"in_rules"`
+	// 出方向规则信息
+	OutRules string `json:"out_rules"`
+}

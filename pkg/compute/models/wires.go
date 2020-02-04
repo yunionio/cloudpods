@@ -61,11 +61,17 @@ type SWire struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"` // = Column(Integer, nullable=False) # bandwidth of network in Mbps
-	Mtu          int    `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
-	ScheduleRank int    `list:"admin" update:"admin"`                                                     // = Column(Integer, default=0, nullable=True)
-	ZoneId       string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
-	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// 带宽大小, 单位Mbps
+	// example: 1000
+	Bandwidth int `list:"admin" update:"admin" nullable:"false" create:"admin_required"`
+	// MTU
+	// example: MTU
+	Mtu          int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
+	ScheduleRank int `list:"admin" update:"admin"`
+	// 可用区Id
+	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	// VPC Id
+	VpcId string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
 func (manager *SWireManager) GetContextManagers() [][]db.IModelManager {
@@ -906,36 +912,29 @@ func (self *SWire) getRegion() *SCloudregion {
 	return nil
 }
 
-func (self *SWire) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
-}
-
-func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.WireDetails, error) {
+	var err error
+	out := api.WireDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(out), nil
 }
 
-func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	cnt, _ := self.NetworkCount()
+func (self *SWire) getMoreDetails(out api.WireDetails) api.WireDetails {
+	out.Networks, _ = self.NetworkCount()
 	zone := self.GetZone()
 	if zone != nil {
-		extra.Add(jsonutils.NewString(string(zone.Name)), "zone")
+		out.Zone = zone.Name
 	}
-	extra.Add(jsonutils.NewInt(int64(cnt)), "networks")
 	vpc := self.getVpc()
 	if vpc != nil {
-		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
-		if len(vpc.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
-		}
-		info := vpc.getCloudProviderInfo()
-		extra.Update(jsonutils.Marshal(&info))
+		out.Vpc = vpc.Name
+		out.VpcExtId = vpc.GetExternalId()
+		out.CloudproviderInfo = vpc.getCloudProviderInfo()
 	}
-	return extra
+	return out
 }
 
 func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc) error {

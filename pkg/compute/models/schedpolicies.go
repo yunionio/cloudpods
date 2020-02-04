@@ -137,26 +137,23 @@ func (self *SSchedpolicy) getSchedtag() *SSchedtag {
 	return obj.(*SSchedtag)
 }
 
-func (self *SSchedpolicy) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SSchedpolicy) getMoreColumns(out api.SchedpolicyDetails) api.SchedpolicyDetails {
 	schedtag := self.getSchedtag()
 	if schedtag != nil {
-		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
-		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
+		out.Schedtag = schedtag.Name
+		out.ResourceType = schedtag.ResourceType
 	}
-	return extra
+	return out
 }
 
-func (self *SSchedpolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreColumns(extra)
-}
-
-func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SchedpolicyDetails, error) {
+	var err error
+	out := api.SchedpolicyDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreColumns(extra), nil
+	return self.getMoreColumns(out), nil
 }
 
 func (manager *SSchedpolicyManager) getAllEnabledPoliciesByResource(resType string) []SSchedpolicy {

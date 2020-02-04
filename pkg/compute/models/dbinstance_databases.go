@@ -57,7 +57,11 @@ type SDBInstanceDatabase struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	// 字符集
+	// example: utf-8
 	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// RDS实例Id
+	// example: 7d07e867-37d1-4754-865d-80f88ad0f982
 	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
@@ -240,44 +244,40 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DBInstancedatabaseDetails, error) {
+	var err error
+	out := api.DBInstancedatabaseDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 
-	return self.getMoreDetails(ctx, userCred, extra)
+	return self.getMoreDetails(ctx, userCred, out)
 }
 
-func (self *SDBInstanceDatabase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra, _ = self.getMoreDetails(ctx, userCred, extra)
-	return extra
-}
-
-func (self *SDBInstanceDatabase) getPrivilegesDetails() (*jsonutils.JSONArray, error) {
-	result := jsonutils.NewArray()
+func (self *SDBInstanceDatabase) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {
+	out := []api.DBInstancePrivilege{}
 	privileges, err := self.GetDBInstancePrivileges()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDBInstancePrivileges")
+		return out, errors.Wrap(err, "GetDBInstancePrivileges")
 	}
 	for _, privilege := range privileges {
-		detail, err := privilege.GetDetailedJson()
+		detail, err := privilege.GetPrivilege()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetDetailedJson")
 		}
-		result.Add(detail)
+		out = append(out, detail)
 	}
-	return result, nil
+	return out, nil
 }
 
-func (self *SDBInstanceDatabase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SDBInstanceDatabase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DBInstancedatabaseDetails) (api.DBInstancedatabaseDetails, error) {
 	privileges, err := self.getPrivilegesDetails()
 	if err != nil {
-		return extra, err
+		return out, err
 	}
-	extra.Add(privileges, "dbinstanceprivileges")
-	return extra, nil
+	out.DBInstanceprivileges = privileges
+	return out, nil
 }
 
 func (manager *SDBInstanceDatabaseManager) SyncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudDatabases []cloudprovider.ICloudDBInstanceDatabase) compare.SyncResult {

@@ -518,29 +518,22 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (bucket *SBucket) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := bucket.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return bucket.getMoreDetails(extra)
-}
-
-func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*api.BucketDetail, error) {
-	extra, err := bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.BucketDetails, error) {
+	var err error
+	out := api.BucketDetails{}
+	out.VirtualResourceDetails, err = bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	ret := bucket.getMoreDetails(extra)
-	out := new(api.BucketDetail)
-	err = ret.Unmarshal(out)
-	return out, err
+	return bucket.getMoreDetails(out), nil
 }
 
 func joinPath(ep, path string) string {
 	return strings.TrimRight(ep, "/") + "/" + strings.TrimLeft(path, "/")
 }
 
-func (bucket *SBucket) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	info := bucket.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
+func (bucket *SBucket) getMoreDetails(out api.BucketDetails) api.BucketDetails {
+	out.CloudproviderInfo = bucket.getCloudProviderInfo()
 
 	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", "public")
 	if len(s3gwUrl) > 0 {
@@ -563,14 +556,14 @@ func (bucket *SBucket) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 				Url:         joinPath(s3gwUrl, bucket.Name),
 				Description: "s3gateway",
 			})
-			extra.Set("access_urls", jsonutils.Marshal(accessUrls))
+			out.AccessUrls = accessUrls
 		}
 	}
 
-	return extra
+	return out
 }
 
-func (bucket *SBucket) getCloudProviderInfo() SCloudProviderInfo {
+func (bucket *SBucket) getCloudProviderInfo() api.CloudproviderInfo {
 	region, _ := bucket.GetRegion()
 	provider := bucket.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

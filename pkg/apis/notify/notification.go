@@ -12,30 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
+package notify
 
-type SharedProject struct {
-	Id   string `json:"id"`
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
+
+type NotificationDetails struct {
+	apis.ModelBaseDetails
+
 	Name string `json:"name"`
-}
 
-type SharableVirtualResourceDetails struct {
-	SharedProjects []SharedProject `json:"shared_projects"`
-	VirtualResourceDetails
-}
-
-type SharableResourceListInput struct {
-	// 根据资源是否共享过滤列表
-	IsPublic *bool `json:"is_public"`
-}
-
-type SharableVirtualResourceListInput struct {
-	VirtualResourceListInput
-
-	// 根据资源的共享范围过滤列表，可能值为：system, domain, project
-	PublicScope string `json:"public_scope"`
-}
-
-type AdminSharableVirtualResourceListInput struct {
-	SharableVirtualResourceListInput
+	UserList jsonutils.JSONObject `json:"user_list"`
 }

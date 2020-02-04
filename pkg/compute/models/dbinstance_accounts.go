@@ -59,7 +59,9 @@ type SDBInstanceAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Secret       string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	// 数据库密码
+	Secret string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	// RDS实例Id
 	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
@@ -132,43 +134,39 @@ func (self *SDBInstanceAccount) AllowDeleteItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SDBInstanceAccount) getPrivilegesDetails() (*jsonutils.JSONArray, error) {
-	result := jsonutils.NewArray()
+func (self *SDBInstanceAccount) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {
+	out := []api.DBInstancePrivilege{}
 	privileges, err := self.GetDBInstancePrivileges()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstancePrivileges")
 	}
 	for _, privilege := range privileges {
-		detail, err := privilege.GetDetailedJson()
+		detail, err := privilege.GetPrivilege()
 		if err != nil {
 			return nil, errors.Wrap(err, "GetDetailedJson")
 		}
-		result.Add(detail)
+		out = append(out, detail)
 	}
-	return result, nil
+	return out, nil
 }
 
-func (self *SDBInstanceAccount) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra, _ = self.getMoreDetails(ctx, userCred, extra)
-	return extra
-}
-
-func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DBInstanceAccountDetails) (api.DBInstanceAccountDetails, error) {
 	privileges, err := self.getPrivilegesDetails()
 	if err != nil {
-		return extra, err
+		return out, err
 	}
-	extra.Add(privileges, "dbinstanceprivileges")
-	return extra, nil
+	out.DBInstanceprivileges = privileges
+	return out, nil
 }
 
-func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DBInstanceAccountDetails, error) {
+	var err error
+	out := api.DBInstanceAccountDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, extra)
+	return self.getMoreDetails(ctx, userCred, out)
 }
 
 // RDS账号列表

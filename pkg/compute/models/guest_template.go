@@ -177,34 +177,23 @@ func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mccli
 	return gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (gt *SGuestTemplate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := gt.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	out := &computeapis.GuesttemplateDetails{}
-	gt.getMoreDetailsV2(ctx, userCred, out)
-	ret := out.JSON(out)
-	ret.Update(extra)
-	return ret
-}
-
 func (gt *SGuestTemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*computeapis.GuesttemplateDetails, error) {
-
-	out := &computeapis.GuesttemplateDetails{}
-	err := gt.SSharableVirtualResourceBase.GetExtraDetailsV2(ctx, userCred, query, &out.SharableVirtualResourceDetails)
+	query jsonutils.JSONObject, details bool) (computeapis.GuesttemplateDetails, error) {
+	var err error
+	out := computeapis.GuesttemplateDetails{}
+	out.SharableVirtualResourceDetails, err = gt.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
 		return out, err
 	}
-	gt.getMoreDetailsV2(ctx, userCred, out)
-	return out, nil
+	return gt.getMoreDetails(ctx, userCred, out)
 }
 
-func (gt *SGuestTemplate) getMoreDetailsV2(ctx context.Context, userCred mcclient.TokenCredential,
-	out *computeapis.GuesttemplateDetails) {
+func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	out computeapis.GuesttemplateDetails) (computeapis.GuesttemplateDetails, error) {
 
 	input, err := cmdline.FetchServerCreateInputByJSON(gt.Content)
 	if err != nil {
-		return
+		return out, err
 	}
 	configInfo := computeapis.GuesttemplateConfigInfo{}
 	if len(input.PreferRegion) != 0 {
@@ -338,7 +327,7 @@ func (gt *SGuestTemplate) getMoreDetailsV2(ctx context.Context, userCred mcclien
 	}
 
 	out.ConfigInfo = configInfo
-	return
+	return out, nil
 }
 
 func (gt *SGuestTemplate) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,

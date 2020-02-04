@@ -95,32 +95,20 @@ func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (self *SSnapshotPolicyDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	ret, _ := self.getMoreDetails(ctx, userCred, query)
-	return ret
-}
-
-func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-
-	return self.getMoreDetails(ctx, userCred, query)
-}
-
-func (self *SSnapshotPolicyDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-
-	ret := jsonutils.NewDict()
-	disk := DiskManager.FetchDiskById(self.DiskId)
-	extraDict, err := disk.GetExtraDetails(ctx, userCred, query)
+func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (compute.SnapshotPolicyDiskDetails, error) {
+	var err error
+	out := compute.SnapshotPolicyDiskDetails{}
+	out.ModelBaseDetails, err = self.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return ret, nil
+		return out, err
 	}
-	dict := jsonutils.Marshal(disk).(*jsonutils.JSONDict)
-	dict.Update(extraDict)
-	ret.Add(dict, "disk")
-	return ret, nil
+	_, out.Snapshotpolicy = db.JointModelExtra(self)
+	disk := DiskManager.FetchDiskById(self.DiskId)
+	out.Disk, err = disk.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, nil
+	}
+	return out, nil
 }
 
 // ==================================================== fetch ==========================================================

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -36,18 +37,11 @@ func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
 	return region.(*SCloudregion)
 }
 
-func (self *SCloudregionResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (self *SCloudregionResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.CloudregionInfo {
+	out := api.CloudregionInfo{}
 	region := self.GetRegion()
 	if region == nil {
-		return nil
+		return out
 	}
-	info := map[string]string{
-		"region":    region.GetName(),
-		"region_id": region.GetId(),
-	}
-	if len(region.ExternalId) > 0 {
-		info["region_external_id"] = region.ExternalId
-		info["region_ext_id"] = fetchExternalId(region.ExternalId)
-	}
-	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
+	return region.GetRegionInfo()
 }

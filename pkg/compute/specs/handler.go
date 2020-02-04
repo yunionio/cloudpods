@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -238,7 +239,7 @@ func QueryObjectsToJson(objs []models.ISpecModel, ctx context.Context, userCred 
 		if !ok {
 			return nil, fmt.Errorf("Invalid model data structure, not a dict")
 		}
-		extraDict := obj.GetCustomizeColumns(ctx, userCred, query)
+		extraDict, _ := db.GetExtraDetails(obj, ctx, userCred, query, false)
 		if extraDict != nil {
 			jsonDict.Update(extraDict)
 		}

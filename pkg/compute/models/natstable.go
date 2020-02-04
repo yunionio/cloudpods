@@ -302,39 +302,38 @@ func (manager *SNatSEntryManager) checkNetWorkId(networkId string) (*SNetwork, e
 	return model.(*SNetwork), nil
 }
 
-func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NatSEntryDetails, error) {
+	var err error
+	out := api.NatSEntryDetails{}
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetails(ctx, userCred, extra), nil
-}
-
-func (self *SNatSEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-
-	return self.getMoreDetails(ctx, userCred, extra)
+	return self.getMoreDetails(ctx, userCred, out), nil
 }
 
 func (self *SNatSEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query *jsonutils.JSONDict) *jsonutils.JSONDict {
+	out api.NatSEntryDetails) api.NatSEntryDetails {
 
 	network, err := self.GetNetwork()
 	if err != nil {
-		return query
+		return out
 	}
 	if network == nil {
-		return query
+		return out
 	}
-	query.Add(jsonutils.Marshal(network), "network")
+	out.Network = api.SimpleNetwork{
+		Id:   network.Id,
+		Name: network.Name,
+	}
 	natgateway, err := self.GetNatgateway()
 	if err != nil {
 		log.Errorf("failed to get naggateway %s for stable %s(%s) error: %v", self.NatgatewayId, self.Name, self.Id, err)
-		return query
+		return out
 	}
-	query.Add(jsonutils.NewString(natgateway.Name), "natgateway")
-	query.Add(jsonutils.NewString(NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())), "real_name")
-	return query
+	out.Natgateway = natgateway.Name
+	out.RealName = NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())
+	return out
 }
 
 func (self *SNatSEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

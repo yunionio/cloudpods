@@ -49,14 +49,22 @@ func init() {
 type SInstanceSnapshot struct {
 	db.SVirtualResourceBase
 
-	GuestId        string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
-	ServerConfig   jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 云主机Id
+	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
+	// 云主机配置
+	ServerConfig jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 云主机标签
 	ServerMetadata jsonutils.JSONObject `nullable:"true" list:"user"`
-	AutoDelete     bool                 `default:"false" update:"user" list:"user"`
-	RefCount       int                  `default:"0" list:"user"`
-	SecGroups      jsonutils.JSONObject `nullable:"true" list:"user"`
-	KeypairId      string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
-	OsType         string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 是否自动删除
+	AutoDelete bool `default:"false" update:"user" list:"user"`
+	// 引用次数
+	RefCount int `default:"0" list:"user"`
+	// 安全组
+	SecGroups jsonutils.JSONObject `nullable:"true" list:"user"`
+	// 秘钥Id
+	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 操作系统类型
+	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -98,51 +106,47 @@ func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcc
 	return false
 }
 
-func (self *SInstanceSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(userCred, extra)
-	return extra
-}
-
-func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstnaceSnapshotDetails) api.InstnaceSnapshotDetails {
 	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
-		extra.Set("guest_status", jsonutils.NewString(guest.Status))
-		extra.Set("guest", jsonutils.NewString(guest.Name))
+		out.Guest = guest.Name
+		out.GuestStatus = guest.Status
 	}
 	var osType string
 	snapshots, _ := self.GetSnapshots()
-	snapshotsDesc := jsonutils.NewArray()
+	out.Snapshots = []api.SimpleSnapshot{}
 	for i := 0; i < len(snapshots); i++ {
 		if snapshots[i].DiskType == api.DISK_TYPE_SYS {
 			osType = snapshots[i].OsType
 		}
-		jsonDict := jsonutils.Marshal(&snapshots[i]).(*jsonutils.JSONDict)
-		metaFields := db.GetDetailFields(SnapshotManager, userCred)
-		jsonDict = jsonDict.CopyIncludes(metaFields...)
+		out.Snapshots = append(out.Snapshots, api.SimpleSnapshot{
+			Id:            snapshots[i].Id,
+			Name:          snapshots[i].Name,
+			StorageId:     snapshots[i].StorageId,
+			DiskType:      snapshots[i].DiskType,
+			CloudregionId: snapshots[i].CloudregionId,
+		})
+
 		if len(snapshots[i].StorageId) > 0 {
 			storage := snapshots[i].GetStorage()
 			if storage != nil {
-				jsonDict.Set("storage_type", jsonutils.NewString(storage.StorageType))
+				out.StorageType = storage.StorageType
 			}
 		}
-		snapshotsDesc.Add(jsonDict)
 	}
-	extra.Set("snapshots", snapshotsDesc)
 	if len(osType) > 0 {
-		properties := jsonutils.NewDict()
-		properties.Set("os_type", jsonutils.NewString(osType))
-		extra.Set("properties", properties)
+		out.Properties = map[string]string{"os_type": osType}
 	}
-	return extra
+	return out
 }
 
-func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.InstnaceSnapshotDetails, error) {
+	var err error
+	out := api.InstnaceSnapshotDetails{}
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = self.getMoreDetails(userCred, extra)
-	return extra, nil
+	return self.getMoreDetails(userCred, out), nil
 }
 
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(

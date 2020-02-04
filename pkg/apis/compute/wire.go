@@ -41,3 +41,21 @@ type WireCreateInput struct {
 	// swagger:ignore
 	ZoneId string
 }
+
+type WireDetails struct {
+	apis.StandaloneResourceDetails
+	SWire
+
+	// 可用区Id
+	// exampe: zone1
+	Zone string `json:"zone"`
+	// IP子网数量
+	// example: 1
+	Networks int `json:"networks"`
+	// VPC名称
+	Vpc string `json:"vpc'`
+	// VPC外部Id
+	VpcExtId string `json:"vpc_ext_id"`
+
+	CloudproviderInfo
+}

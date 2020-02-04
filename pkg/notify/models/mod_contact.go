@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/utils"
@@ -183,19 +184,8 @@ func (self *SContactManager) FetchByMore(uid, contact, contactType string) ([]SC
 	return records, nil
 }
 
-func (self *SContact) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	ret, err := self.getMoreDetail(ctx, userCred, extra)
-	if err != nil {
-		log.Errorf("getMoreDetail error: %s", err)
-	}
-	return ret
-}
-
 func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.TokenCredential,
-	ret *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	out api.ContactDetails) (api.ContactDetails, error) {
 
 	uname, err := utils.GetUsernameByID(ctx, self.UID)
 	if errors.Cause(err) == sql.ErrNoRows {
@@ -203,29 +193,31 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 		err = nil
 	}
 	if err != nil {
-		return ret, err
+		return out, err
 	}
 
 	q := ContactManager.Query().Equals("uid", self.UID)
 	contacts := make([]SContact, 0)
 	err = db.FetchModelObjects(ContactManager, q, &contacts)
 	if err != nil {
-		return ret, errors.Wrapf(err, "fetch Contacts of uid %s error", self.UID)
+		return out, errors.Wrapf(err, "fetch Contacts of uid %s error", self.UID)
 	}
-	ret.Add(jsonutils.NewString(self.UID), "id")
-	ret.Add(jsonutils.NewString(uname), "name")
-	ret.Add(jsonutils.NewString(jsonutils.Marshal(contacts).String()), "details")
+	out.Id = self.UID
+	out.Name = uname
+	out.Details = jsonutils.Marshal(contacts).String()
 
-	return ret, nil
+	return out, nil
 }
 
 func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	query jsonutils.JSONObject, details bool) (api.ContactDetails, error) {
+	var err error
+	out := api.ContactDetails{}
+	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	return self.getMoreDetail(ctx, userCred, extra)
+	return self.getMoreDetail(ctx, userCred, out)
 }
 
 // 联系方式列表

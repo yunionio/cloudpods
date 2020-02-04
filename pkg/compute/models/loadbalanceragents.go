@@ -547,26 +547,23 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (lbagent *SLoadbalancerAgent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lbagent.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	{
-		m, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
-		if err != nil {
-			log.Errorf("loadbalancer agent %s(%s): fetch cluster (%s) error: %s",
-				lbagent.Name, lbagent.Id, lbagent.ClusterId, err)
-		} else {
-			lbcluster := m.(*SLoadbalancerCluster)
-			extra.Set("cluster", jsonutils.NewString(lbcluster.GetName()))
-			zoneInfo := lbcluster.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-			extra.Update(zoneInfo)
-		}
+func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerAgentDetails, error) {
+	var err error
+	out := api.LoadbalancerAgentDetails{}
+	out.StandaloneResourceDetails, err = lbagent.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
-	return extra
-}
-
-func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lbagent.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	m, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
+	if err != nil {
+		log.Errorf("loadbalancer agent %s(%s): fetch cluster (%s) error: %s",
+			lbagent.Name, lbagent.Id, lbagent.ClusterId, err)
+		return out, err
+	}
+	lbcluster := m.(*SLoadbalancerCluster)
+	out.Cluster = lbcluster.GetName()
+	out.ZoneInfo = lbcluster.SZoneResourceBase.GetExtraDetails(ctx, userCred, query)
+	return out, nil
 }
 
 func (manager *SLoadbalancerAgentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {

@@ -67,3 +67,13 @@ type SElasticipCreateInput struct {
 	// swagger:ignore
 	NetworkId string
 }
+
+type ElasticipDetails struct {
+	apis.VirtualResourceDetails
+	SElasticip
+
+	CloudproviderInfo
+
+	// 绑定资源名称
+	AssociateName string `json:"associate_name"`
+}

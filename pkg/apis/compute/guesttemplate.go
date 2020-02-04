@@ -36,7 +36,6 @@ type GuesttemplateCreateInput struct {
 }
 
 type GuesttemplateDetails struct {
-	apis.Meta
 	apis.SharableVirtualResourceDetails
 	SGuestTemplate
 

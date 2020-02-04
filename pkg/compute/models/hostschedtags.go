@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -69,12 +70,12 @@ func (self *SHostschedtag) Master() db.IStandaloneModel {
 	return self.SSchedtagJointsBase.master(self)
 }
 
-func (self *SHostschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return self.SSchedtagJointsBase.getCustomizeColumns(self, ctx, userCred, query)
-}
-
-func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query)
+func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostschedtagDetails, error) {
+	out := api.HostschedtagDetails{}
+	out.JoinModelBaseDetails, _ = self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query, details)
+	out.Host, out.Schedtag = db.JointModelExtra(self)
+	out.Baremetal = out.Host
+	return out, nil
 }
 
 func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -106,3 +106,75 @@ type CloudaccountListInput struct {
 
 	CapabilityListInput
 }
+
+type ProviderProject struct {
+	// 子订阅项目名称
+	// example: system
+	Tenant string `json:"tenant"`
+
+	// 子订阅项目Id
+	// 9a48383a-467a-4542-8b50-4e15b0a8715f
+	TenantId string `json:"tenant_id"`
+}
+
+type CloudaccountDetail struct {
+	apis.StandaloneResourceDetails
+	SCloudaccount
+
+	// 子订阅项目信息
+	Projects []ProviderProject `json:"projects"`
+
+	// 同步时间间隔
+	// example: 3600
+	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+
+	// 同步状态
+	SyncStatus2 string `json:"sync_stauts2"`
+
+	// 云账号环境类型
+	// public: 公有云
+	// private: 私有云
+	// onpremise: 本地IDC
+	// example: public
+	CloudEnv string `json:"cloud_env"`
+
+	// 云账号项目名称
+	// example: system
+	Tenant string `json:"tenant"`
+
+	// 弹性公网Ip数量
+	// example: 2
+	EipCount int `json:"eip_count,allowempty"`
+
+	// 虚拟私有网络数量
+	// example: 4
+	VpcCount int `json:"vpc_count,allowempty"`
+
+	// 云盘数量
+	// example: 12
+	DiskCount int `json:"disk_count,allowempty"`
+
+	// 宿主机数量(不计算虚拟机宿主机数量)
+	// example: 0
+	HostCount int `json:"host_count,allowempty"`
+
+	// 云主机数量
+	// example: 4
+	GuestCount int `json:"guest_count,allowempty"`
+
+	// 块存储数量
+	// example: 12
+	StorageCount int `json:"storage_count,allowempty"`
+
+	// 子订阅数量
+	// example: 1
+	ProviderCount int `json:"provider_count,allowempty"`
+
+	// 路由表数量
+	// example: 0
+	RoutetableCount int `json:"routetable_count,allowempty"`
+
+	// 存储缓存数量
+	// example: 10
+	StoragecacheCount int `json:"storagecache_count,allowempty"`
+}

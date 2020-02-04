@@ -279,20 +279,20 @@ type sPair struct {
 }
 
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	out api.GuestImageDetails) api.GuestImageDetails {
 
 	if self.Status != api.IMAGE_STATUS_ACTIVE {
 		self.checkStatus(ctx, userCred)
-		extra.Add(jsonutils.NewString(self.Status), "status")
+		out.Status = self.Status
 	}
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
-		return extra
+		return out
 	}
 	var size int64 = 0
 	if len(images) == 0 {
-		extra.Add(jsonutils.NewInt(size), "size")
-		return extra
+		out.Size = size
+		return out
 	}
 	dataImages := make([]sPair, 0, len(images)-1)
 	var rootImage sPair
@@ -301,8 +301,8 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		size += image.Size
 		if !image.IsData.IsTrue() {
 			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat, image.Size, image.Status}
-			extra.Add(jsonutils.NewInt(int64(image.MinRamMB)), "min_ram_mb")
-			extra.Add(jsonutils.NewString(image.DiskFormat), "disk_format")
+			out.MinRamMb = image.MinRamMB
+			out.DiskFormat = image.DiskFormat
 			continue
 		}
 		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat, image.Size,
@@ -312,44 +312,37 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	sort.Slice(dataImages, func(i, j int) bool {
 		return dataImages[i].Name < dataImages[j].Name
 	})
-	extra.Add(jsonutils.NewInt(size), "size")
-	extra.Add(jsonutils.Marshal(rootImage), "root_image")
-	extra.Add(jsonutils.Marshal(dataImages), "data_images")
+	out.Size = size
+	out.RootImage = jsonutils.Marshal(rootImage)
+	out.DataImages = jsonutils.Marshal(dataImages)
 	// properties of root image
-	properties, _ := ImagePropertyManager.GetProperties(rootImage.ID)
+	properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
 	if err != nil {
-		return extra
+		return out
 	}
 	propJson := jsonutils.NewDict()
 	for k, v := range properties {
 		propJson.Add(jsonutils.NewString(v), k)
 	}
-	extra.Add(propJson, "properties")
-	extra.Set("disable_delete", jsonutils.NewBool(self.Protected.Bool()))
-	return extra
-}
-
-func (self *SGuestImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-
-	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(ctx, userCred, query, extra)
+	out.Properties = propJson
+	out.DisableDelete = self.Protected.Bool()
+	return out
 }
 
 func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	query jsonutils.JSONObject, details bool) (api.GuestImageDetails, error) {
 
-	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	var err error
+	out := api.GuestImageDetails{}
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	if query.Contains("image_ids") {
-		imageIds, _ := query.Get("image_ids")
-		extra.Add(imageIds, "image_ids")
-		return extra, nil
+	if details && query.Contains("image_ids") {
+		out.ImageIds, _ = query.Get("image_ids")
 	}
 
-	return self.getMoreDetails(ctx, userCred, query, extra), nil
+	return self.getMoreDetails(ctx, userCred, query, out), nil
 }
 
 func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,

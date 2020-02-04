@@ -73,22 +73,23 @@ func init() {
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
 
-	// name = Column(VARCHAR(16, charset='utf8'), nullable=True, default='', server_default='') # not used
-
-	HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	// 宿主机Id
+	HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
-	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	// 设备类型
+	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
-	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"`
 
-	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=True, index=True)
+	// 云主机Id
+	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"admin"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
-	Addr string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	Addr string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -590,32 +591,27 @@ func (self *SIsolatedDevice) getGuest() *SGuest {
 	return nil
 }
 
-func (self *SIsolatedDevice) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SIsolatedDevice) getMoreDetails(out api.IsolateDeviceDetails) api.IsolateDeviceDetails {
 	host := self.getHost()
 	if host != nil {
-		extra.Add(jsonutils.NewString(host.Name), "host")
+		out.Host = host.Name
 	}
 	guest := self.getGuest()
 	if guest != nil {
-		extra.Add(jsonutils.NewString(guest.Name), "guest")
-		extra.Add(jsonutils.NewString(guest.Status), "guest_status")
+		out.Guest = guest.Name
+		out.GuestStatus = guest.Status
 	}
-	return extra
+	return out
 }
 
-func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.IsolateDeviceDetails, error) {
+	var err error
+	out := api.IsolateDeviceDetails{}
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	extra = self.getMoreDetails(extra)
-	return extra, nil
-}
-
-func (self *SIsolatedDevice) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
-	return extra
+	return self.getMoreDetails(out), nil
 }
 
 func (self *SIsolatedDevice) ClearSchedDescCache() error {

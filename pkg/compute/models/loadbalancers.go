@@ -77,17 +77,26 @@ type SLoadbalancer struct {
 	SZoneResourceBase
 	SLoadbalancerRateLimiter
 
-	Address     string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// IP地址
+	Address string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 地址类型
 	AddressType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 网络类型
 	NetworkType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	NetworkId   string `width:"147" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	VpcId       string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	ClusterId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 子网Id
+	NetworkId string `width:"147" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 虚拟私有网络Id
+	VpcId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 负载均衡集群Id
+	ClusterId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
+	// 计费类型
 	ChargeType string `list:"user" get:"user" create:"optional" update:"user"`
 
+	// 套餐名称
 	LoadbalancerSpec string `list:"user" get:"user" list:"user" create:"optional"`
 
+	// 后端服务器组Id
 	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user"`
 	LBInfo         jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"`
 }
@@ -400,32 +409,28 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := lb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := lb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
+func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerDetails, error) {
+	var err error
+	out := api.LoadbalancerDetails{}
+	out.VirtualResourceDetails, err = lb.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	if err != nil {
+		return out, err
 	}
 
-	zoneInfo := lb.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if zoneInfo != nil {
-		extra.Update(zoneInfo)
-	} else {
-		regionInfo := lb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-		if regionInfo != nil {
-			extra.Update(regionInfo)
-		}
-	}
+	provider := lb.GetCloudprovider()
+	zone := lb.GetZone()
+	region := lb.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, zone, provider)
 
 	eip, _ := lb.GetEip()
 	if eip != nil {
-		extra.Set("eip", jsonutils.NewString(eip.IpAddr))
-		extra.Set("eip_mode", jsonutils.NewString(eip.Mode))
+		out.Eip = eip.IpAddr
+		out.EipMode = eip.Mode
 	}
 
 	if len(lb.VpcId) > 0 {
 		if vpc := lb.GetVpc(); vpc != nil {
-			extra.Set("vpc", jsonutils.NewString(vpc.Name))
+			out.Vpc = vpc.Name
 		}
 	}
 
@@ -434,16 +439,12 @@ func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mccli
 		if err != nil {
 			log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
 				lb.Name, lb.Id, lb.BackendGroupId, err)
-			return extra
+			return out, err
 		}
-		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+		out.BackendGroup = lbbg.GetName()
 	}
-	return extra
-}
 
-func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra := lb.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return out, nil
 }
 
 func (lb *SLoadbalancer) ValidateDeleteCondition(ctx context.Context) error {

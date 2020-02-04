@@ -111,18 +111,18 @@ func (spc *SSnapshotPolicyCache) GetSnapshotPolicy() (*SSnapshotPolicy, error) {
 	return model.(*SSnapshotPolicy), nil
 }
 
-func (spc *SSnapshotPolicyCache) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := spc.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	regionInfo := spc.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if regionInfo != nil {
-		extra.Update(regionInfo)
+func (spc *SSnapshotPolicyCache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, isList bool) (api.SnapshotPolicyCacheDetails, error) {
+	var err error
+	out := api.SnapshotPolicyCacheDetails{}
+	out.StandaloneResourceDetails, err = spc.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
 	}
-	accountInfo := spc.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if accountInfo != nil {
-		extra.Update(accountInfo)
-	}
-	return extra
+	provider := spc.GetCloudprovider()
+	region := spc.GetRegion()
+	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+	return out, nil
 }
 
 // =============================================== detach and delete ===================================================

@@ -49,10 +49,13 @@ type BucketCreateInput struct {
 	StorageClass string `json:"storage_class"`
 }
 
-type BucketDetail struct {
-	apis.Meta
+type BucketDetails struct {
+	apis.VirtualResourceDetails
 	SBucket
-	CloudproviderDetails
+
+	CloudproviderInfo
+
+	AccessUrls []cloudprovider.SBucketAccessUrl `json:"access_urls"`
 }
 
 type BucketObjectsActionInput struct {

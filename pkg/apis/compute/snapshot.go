@@ -86,3 +86,25 @@ type InstanceSnapshotListInput struct {
 
 	ServerFilterListInput
 }
+
+type SnapshotDetails struct {
+	apis.VirtualResourceDetails
+	SSnapshot
+
+	CloudproviderInfo
+
+	// 存储类型
+	StorageType string `json:"storage_type"`
+	// 磁盘状态
+	DiskStatus string `json:"disk_status"`
+	// 云主机名称
+	Guest string `json:"guest"`
+	// 云主机Id
+	GuestId string `json:"guest_id"`
+	// 云主机状态
+	GuestStatus string `json:"guest_status"`
+	// 磁盘名称
+	DiskName string `json:"disk_name"`
+	// 是否是子快照
+	IsSubSnapshot bool `json:"is_sub_snapshot,allowempty"`
+}
