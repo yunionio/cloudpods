@@ -107,11 +107,19 @@ func (oh *OvnHelper) mustPrepService() {
 }
 
 func MustGetOvnVersion() string {
-	output, err := procutils.NewCommand("ovn-controller", "--version").Output()
+	output, err := procutils.NewRemoteCommandAsFarAsPossible("ovn-controller", "--version").Output()
 	if err != nil {
 		return ""
 	}
 	return ovnExtractVersion(string(output))
+}
+
+func HasOvnSupport() bool {
+	ver := MustGetOvnVersion()
+	if ver != "" {
+		return true
+	}
+	return false
 }
 
 func ovnExtractVersion(in string) string {
