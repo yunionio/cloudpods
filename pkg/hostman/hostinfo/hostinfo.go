@@ -141,8 +141,11 @@ func (h *SHostInfo) Init() error {
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
-	if err := h.setupOvnChassis(); err != nil {
-		return err
+	if HasOvnSupport() {
+		if err := h.setupOvnChassis(); err != nil {
+			return err
+		}
+		return nil
 	}
 	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {

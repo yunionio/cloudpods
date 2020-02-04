@@ -114,6 +114,14 @@ func MustGetOvnVersion() string {
 	return ovnExtractVersion(string(output))
 }
 
+func HasOvnSupport() bool {
+	ver := MustGetOvnVersion()
+	if ver != "" {
+		return true
+	}
+	return false
+}
+
 func ovnExtractVersion(in string) string {
 	r := make([]rune, 0, 8)
 	var (
