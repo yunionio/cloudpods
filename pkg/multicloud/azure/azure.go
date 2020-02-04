@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	net_url "net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -261,6 +262,32 @@ func (self *SAzureClient) ListResourcesWithNextLink(resourceType string, retVal 
 func (self *SAzureClient) ListResources(resourceType string, retVal interface{}, keys []string) error {
 	_, err := self.ListResourcesWithNextLink(resourceType, retVal, keys)
 	return err
+}
+
+func (self *SAzureClient) ListResourcesOfMetirc(resourceType string, external_id string,
+	params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	//azure的external_id中会包含请求相关的url的处理信息
+	url := external_id
+	if len(resourceType) > 0 {
+		url += fmt.Sprintf("/providers/%s", resourceType)
+	}
+	if len(params) > 0 {
+		values := net_url.Values{}
+		for param, value := range params {
+			values.Add(param, value)
+		}
+		url += fmt.Sprintf("?%s", values.Encode())
+	}
+	//body, err := jsonRequest(cli, "GET", "https://management.azure.com", url, self.subscriptionId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 func (self *SAzureClient) ListSubscriptions() (jsonutils.JSONObject, error) {
