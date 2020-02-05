@@ -331,7 +331,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		return
 	}
 
-	err = m.verifyMacAddr(sshCli)
+	err, registered := m.verifyMacAddr(sshCli)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -344,16 +344,19 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 		input.Username, input.Password, input.IpAddr,
 		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
 	)
-	bmId, err := registerTask.CreateBaremetal()
-	if input.isTimeout() {
-		return
-	} else if err != nil {
+	var bmId string
+	if !registered {
+		bmId, err = registerTask.CreateBaremetal()
+	} else {
+		bmId, err = registerTask.UpdateBaremetal()
+	}
+	if err != nil {
 		input.responseErr(httperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
 	input.responseSucc(bmId)
-	registerTask.DoPrepare(ctx, sshCli)
+	registerTask.DoPrepare(ctx, sshCli, registered)
 }
 
 func (m *SBaremetalManager) fetchIpmiIp(sshCli *ssh.Client) (string, error) {
@@ -384,31 +387,31 @@ func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
 	return res.Data[0].GetString("wire_id")
 }
 
-func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) error {
+func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) (error, bool) {
 	output, err := sshCli.Run("/lib/mos/lsnic")
 	if err != nil {
-		return err
+		return err, false
 	}
 	nicinfo := sysutils.ParseNicInfo(output)
 	if len(nicinfo) == 0 {
-		return fmt.Errorf("Can't get nic info")
+		return fmt.Errorf("Can't get nic info"), false
 	}
 
+	var registered bool
 	params := jsonutils.NewDict()
 	for _, nic := range nicinfo {
-		if nic.Up && len(nic.Mac) > 0 {
+		if len(nic.Mac) > 0 {
 			params.Set("any_mac", jsonutils.NewString(nic.Mac.String()))
+			res, err := modules.Hosts.List(m.GetClientSession(), params)
+			if err != nil {
+				return fmt.Errorf("Get hosts info failed: %s", err), false
+			}
+			if len(res.Data) > 0 {
+				registered = true
+			}
 		}
 	}
-	res, err := modules.Hosts.List(m.GetClientSession(), params)
-	if err != nil {
-		return fmt.Errorf("Get hosts info failed: %s", err)
-	}
-	if len(res.Data) > 0 {
-		return fmt.Errorf("Address has been registerd: %s", params.String())
-	} else {
-		return nil
-	}
+	return nil, registered
 }
 
 func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, error) {

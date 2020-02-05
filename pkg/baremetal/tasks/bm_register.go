@@ -165,8 +165,32 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() (string, error) {
 	return bmInstanceId, nil
 }
 
-func (s *sBaremetalRegisterTask) update() {
+func (s *sBaremetalRegisterTask) UpdateBaremetal() (string, error) {
+	accessMac, err := s.getAccessDevMacAddr(s.RemoteIp)
+	if err != nil {
+		return "", err
+	}
+	accessMacAddr, err := net.ParseMAC(accessMac)
+	if err != nil {
+		return "", fmt.Errorf("Failed parse access mac %s", accessMac)
+	}
 
+	params := jsonutils.NewDict()
+	params.Set("any_mac", jsonutils.NewString(accessMacAddr.String()))
+	res, err := modules.Hosts.List(s.BmManager.GetClientSession(), params)
+	if err != nil {
+		return "", fmt.Errorf("Fetch baremetal failed %s", err)
+	}
+	if len(res.Data) == 0 {
+		return "", fmt.Errorf("Cann't find baremetal by access mac %s", accessMacAddr)
+	}
+	pxeBm, err := s.BmManager.AddBaremetal(res.Data[0])
+	if err != nil {
+		return "", fmt.Errorf("BmManager add baremetal failed: %s", err)
+	}
+
+	s.baremetal = pxeBm.(IBaremetal)
+	return s.baremetal.GetId(), nil
 }
 
 func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSupport bool, cdromBoot bool) {
@@ -179,7 +203,7 @@ func (s *sBaremetalRegisterTask) doRedfishProbe(ctx context.Context) (redfishSup
 	return
 }
 
-func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client) error {
+func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client, registered bool) error {
 	infos, err := s.prepareBaremetalInfo(cli)
 	if err != nil {
 		return err
@@ -198,7 +222,7 @@ func (s *sBaremetalRegisterTask) DoPrepare(ctx context.Context, cli *ssh.Client)
 
 	s.updateIpmiInfo(cli)
 
-	return s.updateBmInfo(cli, infos)
+	return s.updateBmInfo(cli, infos, registered)
 }
 
 func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
@@ -233,7 +257,7 @@ func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
 	s.sendNicInfo(nic, -1, api.NIC_TYPE_IPMI, false, "", false)
 }
 
-func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
+func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo, registered bool) error {
 	updateInfo := make(map[string]interface{})
 	updateInfo["access_ip"] = s.RemoteIp
 	updateInfo["cpu_count"] = i.cpuInfo.Count
@@ -264,6 +288,13 @@ func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepa
 			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
 		}
 	}
+	if registered {
+		return nil
+	}
+	return s.initBaremetalServer()
+}
+
+func (s *sBaremetalRegisterTask) initBaremetalServer() error {
 	if err := s.baremetal.InitializeServer(s.Hostname); err != nil {
 		return fmt.Errorf("Baremteal Create Server Failed %s", err)
 	}
