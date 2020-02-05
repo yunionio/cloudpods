@@ -1495,23 +1495,23 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 		}
 	}
-	return nil, nil
+	return data, nil
 }
 
 func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if !self.isManaged() && !self.isOneCloudVpcNetwork() {
+		var err error
+		data, err = self.validateUpdateData(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		data.Remove("guest_ip_start")
 		data.Remove("guest_ip_end")
 		data.Remove("guest_ip_mask")
 		data.Remove("guest_gateway")
 		data.Remove("guest_dns")
 		data.Remove("guest_dhcp")
-	} else {
-		var err error
-		data, err = self.validateUpdateData(ctx, userCred, query, data)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
