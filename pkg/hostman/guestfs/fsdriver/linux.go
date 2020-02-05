@@ -65,6 +65,14 @@ func (l *sLinuxRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc", "/boot", "/lib", "/usr"}
 }
 
+func getHostname(hostname, domain string) string {
+	if len(domain) > 0 {
+		return fmt.Sprintf("%s.%s", hostname, domain)
+	} else {
+		return hostname
+	}
+}
+
 func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain string, ips []string) error {
 	var etcHosts = "/etc/hosts"
 	var oldHostFile string
@@ -79,7 +87,7 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 	hf.Parse(oldHostFile)
 	hf.Add("127.0.0.1", "localhost")
 	for _, ip := range ips {
-		hf.Add(ip, fmt.Sprintf("%s.%s", hostname, domain), hostname)
+		hf.Add(ip, getHostname(hostname, domain), hostname)
 	}
 	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
@@ -588,7 +596,9 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				cmds.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " ")))
-				cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
+				if len(nicDesc.Domain) > 0 {
+					cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
+				}
 			}
 			if len(nicDesc.TeamingSlaves) > 0 {
 				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
@@ -816,7 +826,7 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	var sPath = "/etc/sysconfig/network"
 	centosHn := ""
 	centosHn += "NETWORKING=yes\n"
-	centosHn += fmt.Sprintf("HOSTNAME=%s.%s\n", hn, domain)
+	centosHn += fmt.Sprintf("HOSTNAME=%s\n", getHostname(hn, domain))
 	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
 		return err
 	}
@@ -978,7 +988,9 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				for i := 0; i < len(dnslist); i++ {
 					cmds.WriteString(fmt.Sprintf("DNS%d=%s\n", i+1, dnslist[i]))
 				}
-				cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
+				if len(nicDesc.Domain) > 0 {
+					cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
+				}
 			}
 		} else {
 			cmds.WriteString("BOOTPROTO=dhcp\n")
