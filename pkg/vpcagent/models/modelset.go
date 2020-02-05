@@ -105,13 +105,14 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 	for _, m := range ms {
 		m.Guestnetworks = Guestnetworks{}
 	}
-	correct := true
 	for _, subEntry := range subEntries {
 		id := subEntry.NetworkId
 		m, ok := ms[id]
 		if !ok {
-			log.Warningf("network id %s not found", id)
-			correct = false
+			// this can happen when this guestnetwork is just a
+			// stub for external/managed guests and "ms" was
+			// already filtered by conditions like
+			// external_id.isnullorempty, etc.
 			continue
 		}
 		subId := subEntry.GuestId
@@ -122,7 +123,7 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 		subEntry.Network = m
 		m.Guestnetworks[subId] = subEntry
 	}
-	return correct
+	return true
 }
 
 func (set Guestnetworks) ModelManager() mcclient_modulebase.IBaseManager {
