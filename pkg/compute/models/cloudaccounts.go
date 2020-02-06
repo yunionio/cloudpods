@@ -311,17 +311,15 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return input, err
 	}
 
-	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	tenantV := validators.NewModelIdOrNameValidator("tenant", "tenant", ownerId)
-	tenantV.Optional(true)
-	err = tenantV.Validate(data)
-	if err != nil {
-		return input, err
-	}
-
-	err = data.Unmarshal(&input)
-	if err != nil {
-		return input, httperrors.NewInputParameterError("failed to unmarshal input params error: %v", err)
+	if len(input.Tenant) > 0 {
+		tenantObj, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.Tenant)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return input, httperrors.NewResourceNotFoundError("failed to found tenant %s", input.Tenant)
+			}
+			return input, httperrors.NewGeneralError(errors.Wrap(err, "FetchTenantByIdOrName"))
+		}
+		input.TenantId = tenantObj.GetId()
 	}
 
 	if !cloudprovider.IsSupported(input.Provider) {
