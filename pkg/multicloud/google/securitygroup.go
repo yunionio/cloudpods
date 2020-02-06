@@ -71,7 +71,7 @@ func (f FirewallSet) Swap(i, j int) {
 
 func (f FirewallSet) Less(i, j int) bool {
 	if f[i].Priority != f[j].Priority {
-		return f[i].Priority > f[j].Priority
+		return f[i].Priority < f[j].Priority
 	}
 	return len(f[i].Allowed) < len(f[j].Allowed)
 }
