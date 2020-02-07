@@ -354,6 +354,9 @@ type ServerCreateInput struct {
 	// required: false
 	UserData string `json:"user_data"`
 
+	// swagger:ignore
+	Keypair string `json:"keypair" deprecated-by:"keypair_id"`
+
 	// 秘钥对Id
 	// required: false
 	KeypairId string `json:"keypair_id"`
