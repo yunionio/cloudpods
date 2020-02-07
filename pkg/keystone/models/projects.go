@@ -289,10 +289,10 @@ func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ProjectDetails, error) {
+func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ProjectDetails, error) {
 	var err error
 	out := api.ProjectDetails{}
-	out.StandaloneResourceDetails, err = proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

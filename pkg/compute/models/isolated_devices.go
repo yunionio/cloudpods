@@ -604,10 +604,10 @@ func (self *SIsolatedDevice) getMoreDetails(out api.IsolateDeviceDetails) api.Is
 	return out
 }
 
-func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.IsolateDeviceDetails, error) {
+func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IsolateDeviceDetails, error) {
 	var err error
 	out := api.IsolateDeviceDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

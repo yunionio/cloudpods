@@ -80,10 +80,10 @@ func (joint *SHostwire) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostwireDetails, error) {
+func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
 	var err error
 	out := api.HostwireDetails{}
-	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

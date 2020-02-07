@@ -222,10 +222,10 @@ func (manager *SPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	return q, nil
 }
 
-func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.PolicyDetails, error) {
+func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.PolicyDetails, error) {
 	var err error
 	out := api.PolicyDetails{}
-	out.StandaloneResourceDetails, err = policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -172,10 +172,10 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerCusterDetails, error) {
+func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerCusterDetails, error) {
 	var err error
 	out := api.LoadbalancerCusterDetails{}
-	out.StandaloneResourceDetails, err = lbc.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = lbc.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

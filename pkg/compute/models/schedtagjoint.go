@@ -147,10 +147,10 @@ func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.JoinModelBaseDetails, error) {
+func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.JoinModelBaseDetails, error) {
 	var err error
 	out := apis.JoinModelBaseDetails{}
-	out.ModelBaseDetails, err = joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

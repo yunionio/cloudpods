@@ -294,10 +294,10 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	return vpc, nil
 }
 
-func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerBackendDetails, error) {
+func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerBackendDetails, error) {
 	var err error
 	out := api.LoadbalancerBackendDetails{}
-	out.VirtualResourceDetails, err = lbb.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = lbb.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

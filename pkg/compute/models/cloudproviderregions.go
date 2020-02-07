@@ -115,10 +115,10 @@ func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 	return regionObj.(*SCloudregion)
 }
 
-func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CloudproviderregionDetails, error) {
+func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudproviderregionDetails, error) {
 	var err error
 	out := api.CloudproviderregionDetails{}
-	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -518,10 +518,10 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.BucketDetails, error) {
+func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BucketDetails, error) {
 	var err error
 	out := api.BucketDetails{}
-	out.VirtualResourceDetails, err = bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

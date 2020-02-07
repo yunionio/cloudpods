@@ -142,10 +142,10 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
-func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SnapshotDetails, error) {
+func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SnapshotDetails, error) {
 	var err error
 	out := api.SnapshotDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -100,10 +100,10 @@ func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 }
 
 func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, details bool) (api.InstanceGroupDetail, error) {
+	query jsonutils.JSONObject, isList bool) (api.InstanceGroupDetail, error) {
 	var err error
 	out := api.InstanceGroupDetail{}
-	out.VirtualResourceDetails, err = group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

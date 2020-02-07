@@ -65,10 +65,10 @@ func (joint *SGroupguest) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GroupguestDetails, error) {
+func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GroupguestDetails, error) {
 	var err error
 	out := api.GroupguestDetails{}
-	out.ModelBaseDetails, err = self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

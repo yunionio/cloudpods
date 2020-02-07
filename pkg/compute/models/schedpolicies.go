@@ -146,10 +146,10 @@ func (self *SSchedpolicy) getMoreColumns(out api.SchedpolicyDetails) api.Schedpo
 	return out
 }
 
-func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SchedpolicyDetails, error) {
+func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SchedpolicyDetails, error) {
 	var err error
 	out := api.SchedpolicyDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

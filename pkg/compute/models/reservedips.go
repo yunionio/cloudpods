@@ -189,10 +189,10 @@ func (self *SReservedip) Release(ctx context.Context, userCred mcclient.TokenCre
 	return err
 }
 
-func (self *SReservedip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ReservedipDetails, error) {
+func (self *SReservedip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ReservedipDetails, error) {
 	var err error
 	out := api.ReservedipDetails{}
-	out.ModelBaseDetails, err = self.SResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

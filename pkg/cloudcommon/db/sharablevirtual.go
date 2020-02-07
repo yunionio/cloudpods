@@ -277,10 +277,10 @@ func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, u
 	return out
 }
 
-func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.SharableVirtualResourceDetails, error) {
+func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.SharableVirtualResourceDetails, error) {
 	var err error
 	out := apis.SharableVirtualResourceDetails{}
-	out.VirtualResourceDetails, err = model.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = model.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}
