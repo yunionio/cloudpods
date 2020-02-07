@@ -268,10 +268,10 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DomainDetails, error) {
+func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DomainDetails, error) {
 	var err error
 	out := api.DomainDetails{}
-	out.StandaloneResourceDetails, err = domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -70,10 +70,10 @@ func (joint *SStorageschedtag) Master() db.IStandaloneModel {
 	return joint.SSchedtagJointsBase.master(joint)
 }
 
-func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StorageschedtagDetails, error) {
+func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StorageschedtagDetails, error) {
 	var err error
 	out := api.StorageschedtagDetails{}
-	out.JoinModelBaseDetails, err = joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query, details)
+	out.JoinModelBaseDetails, err = joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query, isList)
 	out.Storage, out.Schedtag = db.JointModelExtra(joint)
 	return out, err
 }

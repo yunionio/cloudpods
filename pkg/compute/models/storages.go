@@ -415,10 +415,10 @@ func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails
 	return out
 }
 
-func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StorageDetails, error) {
+func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StorageDetails, error) {
 	var err error
 	out := api.StorageDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

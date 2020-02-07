@@ -104,10 +104,10 @@ type UserDetail struct {
 	ReceivedAt time.Time
 }
 
-func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NotificationDetails, error) {
+func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NotificationDetails, error) {
 	var err error
 	out := api.NotificationDetails{}
-	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

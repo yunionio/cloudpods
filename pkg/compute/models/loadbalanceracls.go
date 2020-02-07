@@ -252,10 +252,10 @@ func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient
 	lbacl.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
 }
 
-func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerAclDetails, error) {
+func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerAclDetails, error) {
 	var err error
 	out := api.LoadbalancerAclDetails{}
-	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	return out, err
 }
 

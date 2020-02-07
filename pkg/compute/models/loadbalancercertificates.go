@@ -122,10 +122,10 @@ func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred
 	lbcert.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
 }
 
-func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerCertificateDetails, error) {
+func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerCertificateDetails, error) {
 	var err error
 	out := api.LoadbalancerCertificateDetails{}
-	out.VirtualResourceDetails, err = lbcert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = lbcert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	return out, err
 }
 

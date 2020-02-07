@@ -108,10 +108,10 @@ func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
 	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ServiceDetails, error) {
+func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServiceDetails, error) {
 	var err error
 	out := api.ServiceDetails{}
-	out.StandaloneResourceDetails, err = service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

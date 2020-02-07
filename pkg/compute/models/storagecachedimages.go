@@ -145,10 +145,10 @@ func (self *SStoragecachedimage) GetHost() (*SHost, error) {
 	return sc.GetHost()
 }
 
-func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.StoragecachedimageDetails, error) {
+func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StoragecachedimageDetails, error) {
 	var err error
 	out := api.StoragecachedimageDetails{}
-	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

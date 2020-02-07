@@ -498,10 +498,10 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
-func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerListenerRuleDetails, error) {
+func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerListenerRuleDetails, error) {
 	var err error
 	out := api.LoadbalancerListenerRuleDetails{}
-	out.VirtualResourceDetails, err = lbr.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = lbr.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -244,10 +244,10 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DBInstancedatabaseDetails, error) {
+func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstancedatabaseDetails, error) {
 	var err error
 	out := api.DBInstancedatabaseDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

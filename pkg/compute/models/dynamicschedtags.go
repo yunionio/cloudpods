@@ -205,10 +205,10 @@ func (self *SDynamicschedtag) getMoreColumns(out api.DynamicschedtagDetails) api
 	return out
 }
 
-func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DynamicschedtagDetails, error) {
+func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DynamicschedtagDetails, error) {
 	var err error
 	out := api.DynamicschedtagDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

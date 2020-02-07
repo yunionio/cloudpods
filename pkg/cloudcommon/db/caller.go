@@ -172,8 +172,8 @@ func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQue
 	return ret[0].Interface().(*sqlchemy.SQuery), nil
 }
 
-func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (*jsonutils.JSONDict, error) {
-	ret, err := call(model, "GetExtraDetails", ctx, userCred, query, details)
+func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (*jsonutils.JSONDict, error) {
+	ret, err := call(model, "GetExtraDetails", ctx, userCred, query, isList)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

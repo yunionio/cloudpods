@@ -365,10 +365,10 @@ func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.Token
 	task.ScheduleRun(nil)
 }
 
-func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.DBInstanceDetails, error) {
+func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceDetails, error) {
 	var err error
 	out := api.DBInstanceDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

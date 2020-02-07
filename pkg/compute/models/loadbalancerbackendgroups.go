@@ -386,10 +386,10 @@ func (lbbg *SLoadbalancerBackendGroup) ValidatePurgeCondition(ctx context.Contex
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerBackendGroupDetails, error) {
+func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerBackendGroupDetails, error) {
 	var err error
 	out := api.LoadbalancerBackendGroupDetails{}
-	out.VirtualResourceDetails, err = lbbg.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = lbbg.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

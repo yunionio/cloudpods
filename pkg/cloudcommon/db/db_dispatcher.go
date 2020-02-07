@@ -376,7 +376,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		jsonDict.Update(extraData)
 		if showDetails && !query.Contains("export_keys") {
-			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, false)
+			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, true)
 			if extraDict != nil {
 				// Fix for Now
 				extraDict.Update(jsonDict)
@@ -753,7 +753,7 @@ func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context
 }
 
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	extraDict, err := GetExtraDetails(item, ctx, userCred, query, true)
+	extraDict, err := GetExtraDetails(item, ctx, userCred, query, false)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
