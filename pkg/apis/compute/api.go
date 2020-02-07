@@ -164,6 +164,8 @@ type ServerCreateInput struct {
 	UserData  string            `json:"user_data"`
 	Metadata  map[string]string `json:"__meta__"`
 
+	// swagger:ignore
+	Keypair   string `json:"keypair" deprecated-by:"keypair_id"`
 	KeypairId string `json:"keypair_id"`
 	Password  string `json:"password"`
 	Cdrom     string `json:"cdrom"`
