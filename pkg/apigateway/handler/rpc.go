@@ -117,21 +117,24 @@ func rpcHandler(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 		v, ok := retobj.Interface().(jsonutils.JSONObject)
 		if ok {
 			appsrv.SendJSON(w, v)
+			return
 		}
 
 		v2, ok := retobj.Interface().([]modulebase.SubmitResult)
 		if ok {
 			w.WriteHeader(207)
 			appsrv.SendJSON(w, modulebase.SubmitResults2JSON(v2))
-		} else {
-			httperrors.BadGatewayError(w, "recv invalid data")
+			return
 		}
+
+		httperrors.BadGatewayError(w, "recv invalid data")
 	} else {
 		v, ok := reterr.Interface().(*httputils.JSONClientError)
 		if ok {
 			httperrors.JsonClientError(w, v)
-		} else {
-			httperrors.BadGatewayError(w, fmt.Sprintf("%s", reterr.Interface()))
+			return
 		}
+
+		httperrors.BadGatewayError(w, fmt.Sprintf("%s", reterr.Interface()))
 	}
 }
