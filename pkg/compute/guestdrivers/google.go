@@ -150,6 +150,9 @@ func (self *SGoogleGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	if localDisk > 8 {
 		return nil, httperrors.NewInputParameterError("%s disk cannot exceed 8", api.STORAGE_GOOGLE_LOCAL_SSD)
 	}
+	if localDisk > 0 && strings.HasPrefix(input.InstanceType, "e2") {
+		return nil, httperrors.NewNotSupportedError("%s for %s features are not compatible for creating instance", input.InstanceType, api.STORAGE_GOOGLE_LOCAL_SSD)
+	}
 	return input, nil
 }
 
