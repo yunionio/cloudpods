@@ -80,13 +80,19 @@ type SQuota struct {
 
 	SComputeResourceKeys
 
-	Count   int `default:"-1" allow_zero:"true"`
-	Cpu     int `default:"-1" allow_zero:"true"`
-	Memory  int `default:"-1" allow_zero:"true"`
-	Storage int `default:"-1" allow_zero:"true"`
+	// 主机数量配额
+	Count int `default:"-1" allow_zero:"true" json:"count"`
+	// 主机CPU核数量配额
+	Cpu int `default:"-1" allow_zero:"true" json:"cpu"`
+	// 主机内存容量配额
+	Memory int `default:"-1" allow_zero:"true" json:"memory"`
+	// 主机存储容量配额
+	Storage int `default:"-1" allow_zero:"true" json:"storage"`
 
-	Group          int `default:"-1" allow_zero:"true"`
-	IsolatedDevice int `default:"-1" allow_zero:"true"`
+	// 主机组配额
+	Group int `default:"-1" allow_zero:"true" json:"group"`
+	// 直通设备(GPU)配额
+	IsolatedDevice int `default:"-1" allow_zero:"true" json:"isolated_device"`
 }
 
 func (self *SQuota) GetKeys() quotas.IQuotaKeys {
@@ -438,6 +444,7 @@ func fetchManagerNames(idMap map[string]string) (map[string]string, error) {
 type SComputeResourceKeys struct {
 	quotas.SZonalCloudResourceKeys
 
+	// 主机配额适用的主机类型，参考主机List的Hypervisor列表
 	Hypervisor string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 }
 

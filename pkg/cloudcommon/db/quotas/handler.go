@@ -46,6 +46,30 @@ const (
 	QUOTA_ACTION_DELETE  = "delete"
 )
 
+type SBaseQuotaSetInput struct {
+	// 设置配额操作
+	//
+	// | action  | 说明                                      |
+	// |---------|-------------------------------------------|
+	// | add     | 增量增加配额                              |
+	// | sub     | 增量减少配额                              |
+	// | reset   | 重置所有配额为0                           |
+	// | replace | 替换所有配额，对于不存在的配额项，设置为0 |
+	// | update  | 更新存在的配额                            |
+	// | delete  | 删除配额                                  |
+	//
+	Action string `json:"action"`
+}
+
+type SBaseQuotaQueryInput struct {
+	// 只列出主配额
+	// require:false
+	Primary bool `json:"primary"`
+	// 强制刷新使用量
+	// require:false
+	Refresh bool `json:"refresh"`
+}
+
 func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),

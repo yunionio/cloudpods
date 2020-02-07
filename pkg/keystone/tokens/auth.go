@@ -253,8 +253,10 @@ func authUserByAccessKeyV3(ctx context.Context, input mcclient.SAuthenticationIn
 // +onecloud:swagger-gen-route-tag=authentication
 // +onecloud:swagger-gen-param-body-index=1
 // +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-header=X-Subject-Token
+// +onecloud:swagger-gen-resp-header=验证成功的keystone V3 token
 
-// keystone keystone v3认证API
+// keystone v3认证API
 func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) (*mcclient.TokenCredentialV3, error) {
 	var akskInfo api.SAccessKeySecretInfo
 	var user *api.SUserExtended
@@ -353,6 +355,10 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	return tokenV3, nil
 }
 
+type SAuthenticateV2ResponseBody struct {
+	Access mcclient.TokenCredentialV2 `json:"access"`
+}
+
 // +onecloud:swagger-gen-route-method=POST
 // +onecloud:swagger-gen-route-path=/v2.0/tokens
 // +onecloud:swagger-gen-route-tag=authentication
@@ -360,7 +366,18 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 // +onecloud:swagger-gen-resp-index=0
 
 // keystone v2 认证接口，通过用户名/密码或者 token 认证
-func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
+func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*SAuthenticateV2ResponseBody, error) {
+	token, err := _authenticateV2(ctx, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "_authenticateV2")
+	}
+	body := SAuthenticateV2ResponseBody{
+		Access: *token,
+	}
+	return &body, nil
+}
+
+func _authenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
 	var user *api.SUserExtended
 	var err error
 	var method string

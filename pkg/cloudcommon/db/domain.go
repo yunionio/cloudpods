@@ -32,7 +32,7 @@ type SDomainizedResourceBaseManager struct {
 
 type SDomainizedResourceBase struct {
 	// 域Id
-	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
+	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user" json:"domain_id"`
 }
 
 func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacutils.TRbacScope {

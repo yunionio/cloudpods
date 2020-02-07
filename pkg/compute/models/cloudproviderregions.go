@@ -61,6 +61,7 @@ type SCloudproviderregion struct {
 
 	SSyncableBaseResource
 
+	// 云订阅ID
 	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"domain"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 
