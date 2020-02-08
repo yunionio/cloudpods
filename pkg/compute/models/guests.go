@@ -2312,11 +2312,12 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
-		if !recycle {
-			if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
-				self.CreatedAt = createdAt
-			}
-		}
+		// no need to sync CreatedAt
+		// if !recycle {
+		//	if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
+		//		self.CreatedAt = createdAt
+		//	}
+		// }
 
 		return nil
 	})
