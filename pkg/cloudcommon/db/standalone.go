@@ -239,10 +239,10 @@ func (model *SStandaloneResourceBase) GetShortDescV2(ctx context.Context) *apis.
 	return desc
 }
 
-func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.StandaloneResourceDetails, error) {
+func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.StandaloneResourceDetails, error) {
 	var err error
 	out := apis.StandaloneResourceDetails{}
-	out.ModelBaseDetails, err = model.SResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = model.SResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

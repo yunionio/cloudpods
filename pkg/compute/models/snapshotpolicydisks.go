@@ -95,16 +95,16 @@ func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (compute.SnapshotPolicyDiskDetails, error) {
+func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (compute.SnapshotPolicyDiskDetails, error) {
 	var err error
 	out := compute.SnapshotPolicyDiskDetails{}
-	out.ModelBaseDetails, err = self.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}
 	_, out.Snapshotpolicy = db.JointModelExtra(self)
 	disk := DiskManager.FetchDiskById(self.DiskId)
-	out.Disk, err = disk.GetExtraDetails(ctx, userCred, query, details)
+	out.Disk, err = disk.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, nil
 	}

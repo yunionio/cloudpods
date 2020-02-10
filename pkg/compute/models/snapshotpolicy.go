@@ -314,10 +314,10 @@ func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, us
 }
 
 func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, details bool) (api.SnapshotPolicyDetails, error) {
+	query jsonutils.JSONObject, isList bool) (api.SnapshotPolicyDetails, error) {
 	var err error
 	out := api.SnapshotPolicyDetails{}
-	out.VirtualResourceDetails, err = sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

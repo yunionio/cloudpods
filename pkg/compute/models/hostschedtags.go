@@ -70,9 +70,9 @@ func (self *SHostschedtag) Master() db.IStandaloneModel {
 	return self.SSchedtagJointsBase.master(self)
 }
 
-func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostschedtagDetails, error) {
+func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostschedtagDetails, error) {
 	out := api.HostschedtagDetails{}
-	out.JoinModelBaseDetails, _ = self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query, details)
+	out.JoinModelBaseDetails, _ = self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query, isList)
 	out.Host, out.Schedtag = db.JointModelExtra(self)
 	out.Baremetal = out.Host
 	return out, nil

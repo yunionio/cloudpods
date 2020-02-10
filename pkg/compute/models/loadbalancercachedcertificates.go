@@ -189,10 +189,10 @@ func (self *SCachedLoadbalancerCertificate) PostCreate(ctx context.Context, user
 	return
 }
 
-func (self *SCachedLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedLoadbalancerCertificateDetails, error) {
+func (self *SCachedLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedLoadbalancerCertificateDetails, error) {
 	var err error
 	out := api.CachedLoadbalancerCertificateDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

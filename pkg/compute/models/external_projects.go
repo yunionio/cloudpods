@@ -94,10 +94,10 @@ func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mccli
 	return out
 }
 
-func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ExternalProjectDetails, error) {
+func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ExternalProjectDetails, error) {
 	var err error
 	out := api.ExternalProjectDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

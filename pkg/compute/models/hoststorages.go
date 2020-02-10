@@ -88,10 +88,10 @@ func (joint *SHoststorage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HoststorageDetails, error) {
+func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HoststorageDetails, error) {
 	var err error
 	out := api.HoststorageDetails{}
-	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

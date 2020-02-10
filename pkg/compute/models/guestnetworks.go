@@ -99,10 +99,10 @@ func (joint *SGuestnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGuestnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GuestnetworkDetails, error) {
+func (self *SGuestnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GuestnetworkDetails, error) {
 	var err error
 	out := api.GuestnetworkDetails{}
-	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

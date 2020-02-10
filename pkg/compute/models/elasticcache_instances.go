@@ -163,10 +163,10 @@ func (self *SElasticcache) updateExtraDetails(ctx context.Context, userCred mccl
 	return out
 }
 
-func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ElasticcacheDetails, error) {
+func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheDetails, error) {
 	var err error
 	out := api.ElasticcacheDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

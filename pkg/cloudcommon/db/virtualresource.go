@@ -296,10 +296,10 @@ func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 }
 
-func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.VirtualResourceDetails, error) {
+func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.VirtualResourceDetails, error) {
 	var err error
 	out := apis.VirtualResourceDetails{}
-	out.StandaloneResourceDetails, err = model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

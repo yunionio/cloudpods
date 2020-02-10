@@ -302,10 +302,10 @@ func (manager *SNatSEntryManager) checkNetWorkId(networkId string) (*SNetwork, e
 	return model.(*SNetwork), nil
 }
 
-func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NatSEntryDetails, error) {
+func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatSEntryDetails, error) {
 	var err error
 	out := api.NatSEntryDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

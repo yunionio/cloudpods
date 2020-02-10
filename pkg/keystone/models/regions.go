@@ -99,10 +99,10 @@ func (region *SRegion) ValidateDeleteCondition(ctx context.Context) error {
 	return region.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RegionDetails, error) {
+func (region *SRegion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RegionDetails, error) {
 	var err error
 	out := api.RegionDetails{}
-	out.StandaloneResourceDetails, err = region.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = region.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

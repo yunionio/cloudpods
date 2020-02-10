@@ -195,10 +195,10 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
-func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RoleDetails, error) {
+func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RoleDetails, error) {
 	var err error
 	out := api.RoleDetails{}
-	out.StandaloneResourceDetails, err = role.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = role.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

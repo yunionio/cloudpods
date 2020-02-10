@@ -121,10 +121,10 @@ func (self *SGuestdisk) getExtraInfo(out api.GuestDiskDetails) api.GuestDiskDeta
 	return out
 }
 
-func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GuestDiskDetails, error) {
+func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GuestDiskDetails, error) {
 	var err error
 	out := api.GuestDiskDetails{}
-	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

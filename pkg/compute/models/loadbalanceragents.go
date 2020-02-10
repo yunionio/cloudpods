@@ -547,10 +547,10 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerAgentDetails, error) {
+func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerAgentDetails, error) {
 	var err error
 	out := api.LoadbalancerAgentDetails{}
-	out.StandaloneResourceDetails, err = lbagent.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = lbagent.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -74,10 +74,10 @@ func (self *SGlobalVpc) GetVpcs() ([]SVpc, error) {
 	return vpcs, nil
 }
 
-func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GlobalVpcDetails, error) {
+func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GlobalVpcDetails, error) {
 	var err error
 	out := api.GlobalVpcDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

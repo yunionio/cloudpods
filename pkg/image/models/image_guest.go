@@ -330,15 +330,15 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, details bool) (api.GuestImageDetails, error) {
+	query jsonutils.JSONObject, isList bool) (api.GuestImageDetails, error) {
 
 	var err error
 	out := api.GuestImageDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}
-	if details && query.Contains("image_ids") {
+	if !isList && query.Contains("image_ids") {
 		out.ImageIds, _ = query.Get("image_ids")
 	}
 
