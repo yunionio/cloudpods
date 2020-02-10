@@ -456,7 +456,7 @@ func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.
 	return false
 }
 
-func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (apis.ModelBaseDetails, error) {
+func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ModelBaseDetails, error) {
 	return getModelExtraDetails(model.GetIModel(), ctx), nil
 }
 

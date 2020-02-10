@@ -398,10 +398,10 @@ func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
-func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.IdentityProviderDetails, error) {
+func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IdentityProviderDetails, error) {
 	var err error
 	out := api.IdentityProviderDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

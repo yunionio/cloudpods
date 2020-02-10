@@ -202,10 +202,10 @@ func zoneExtra(zone *SZone, out api.ZoneDetails) api.ZoneDetails {
 	return out
 }
 
-func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.ZoneDetails, error) {
+func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ZoneDetails, error) {
 	var err error
 	out := api.ZoneDetails{}
-	out.StandaloneResourceDetails, err = zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

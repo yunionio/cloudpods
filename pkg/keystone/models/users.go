@@ -478,10 +478,10 @@ func (user *SUser) GetCredentialCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.UserDetails, error) {
+func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.UserDetails, error) {
 	var err error
 	out := api.UserDetails{}
-	out.StandaloneResourceDetails, err = user.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = user.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

@@ -1687,6 +1687,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 	} else {
 		out.Networks = self.getNetworksDetails()
+		out.Disks = self.getDisksDetails()
 		out.DisksInfo = self.getDisksInfoDetails()
 		out.VirtualIps = strings.Join(self.getVirtualIPs(), ",")
 		out.SecurityRules = self.getSecurityGroupsRules()

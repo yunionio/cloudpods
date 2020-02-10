@@ -139,10 +139,10 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 	return out
 }
 
-func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.InstnaceSnapshotDetails, error) {
+func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.InstnaceSnapshotDetails, error) {
 	var err error
 	out := api.InstnaceSnapshotDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

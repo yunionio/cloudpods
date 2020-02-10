@@ -70,10 +70,10 @@ func (s *SNetworkschedtag) Master() db.IStandaloneModel {
 	return s.SSchedtagJointsBase.master(s)
 }
 
-func (s *SNetworkschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NetworkschedtagDetails, error) {
+func (s *SNetworkschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkschedtagDetails, error) {
 	var err error
 	out := api.NetworkschedtagDetails{}
-	out.JoinModelBaseDetails, err = s.SSchedtagJointsBase.getExtraDetails(s, ctx, userCred, query, details)
+	out.JoinModelBaseDetails, err = s.SSchedtagJointsBase.getExtraDetails(s, ctx, userCred, query, isList)
 	out.Network, out.Schedtag = db.JointModelExtra(s)
 	return out, err
 

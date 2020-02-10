@@ -306,10 +306,10 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 	return manager.getImageByName(ctx, userCred, imageId, refresh)
 }
 
-func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedimageDetails, error) {
+func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedimageDetails, error) {
 	var err error
 	out := api.CachedimageDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

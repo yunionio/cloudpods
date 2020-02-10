@@ -71,10 +71,10 @@ func (bn *SHostnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(bn)
 }
 
-func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.HostnetworkDetails, error) {
+func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostnetworkDetails, error) {
 	var err error
 	out := api.HostnetworkDetails{}
-	out.ModelBaseDetails, err = bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

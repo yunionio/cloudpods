@@ -144,10 +144,10 @@ func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredenti
 	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.GroupDetails, error) {
+func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GroupDetails, error) {
 	var err error
 	out := api.GroupDetails{}
-	out.StandaloneResourceDetails, err = group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

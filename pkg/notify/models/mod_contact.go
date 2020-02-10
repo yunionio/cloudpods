@@ -210,10 +210,10 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, details bool) (api.ContactDetails, error) {
+	query jsonutils.JSONObject, isList bool) (api.ContactDetails, error) {
 	var err error
 	out := api.ContactDetails{}
-	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

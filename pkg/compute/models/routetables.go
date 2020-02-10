@@ -328,10 +328,10 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.RouteTableDetails, error) {
+func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RouteTableDetails, error) {
 	var err error
 	out := api.RouteTableDetails{}
-	out.VirtualResourceDetails, err = rt.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = rt.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

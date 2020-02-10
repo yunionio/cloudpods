@@ -334,10 +334,10 @@ func (self *SSchedtag) getMoreColumns(out api.SchedtagDetails) api.SchedtagDetai
 	return out
 }
 
-func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.SchedtagDetails, error) {
+func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SchedtagDetails, error) {
 	var err error
 	out := api.SchedtagDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

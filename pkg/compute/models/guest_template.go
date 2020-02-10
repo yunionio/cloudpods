@@ -178,10 +178,10 @@ func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mccli
 }
 
 func (gt *SGuestTemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, details bool) (computeapis.GuesttemplateDetails, error) {
+	query jsonutils.JSONObject, isList bool) (computeapis.GuesttemplateDetails, error) {
 	var err error
 	out := computeapis.GuesttemplateDetails{}
-	out.SharableVirtualResourceDetails, err = gt.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.SharableVirtualResourceDetails, err = gt.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

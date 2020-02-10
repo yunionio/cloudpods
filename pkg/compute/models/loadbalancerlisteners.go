@@ -405,10 +405,10 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx contex
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.LoadbalancerListenerDetails, error) {
+func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerListenerDetails, error) {
 	var err error
 	out := api.LoadbalancerListenerDetails{}
-	out.VirtualResourceDetails, err = lblis.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.VirtualResourceDetails, err = lblis.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

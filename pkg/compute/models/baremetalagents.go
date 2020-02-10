@@ -208,10 +208,10 @@ func (self *SBaremetalagent) getMoreDetails(ctx context.Context, out api.Baremet
 	return out
 }
 
-func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.BaremetalagentDetails, error) {
+func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BaremetalagentDetails, error) {
 	var err error
 	out := api.BaremetalagentDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

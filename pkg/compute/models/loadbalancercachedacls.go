@@ -202,10 +202,10 @@ func (lbacl *SCachedLoadbalancerAcl) GetListener() (*SLoadbalancerListener, erro
 	return listener.(*SLoadbalancerListener), nil
 }
 
-func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.CachedLoadbalancerAclDetails, error) {
+func (lbacl *SCachedLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedLoadbalancerAclDetails, error) {
 	var err error
 	out := api.CachedLoadbalancerAclDetails{}
-	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.SharableVirtualResourceDetails, err = lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

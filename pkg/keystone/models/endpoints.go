@@ -283,10 +283,10 @@ func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context) error {
 	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.EndpointDetails, error) {
+func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.EndpointDetails, error) {
 	var err error
 	out := api.EndpointDetails{}
-	out.StandaloneResourceDetails, err = endpoint.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.StandaloneResourceDetails, err = endpoint.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}

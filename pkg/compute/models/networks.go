@@ -989,7 +989,7 @@ func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails, details bool) (api.NetworkDetails, error) {
+func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails, isList bool) (api.NetworkDetails, error) {
 	wire := self.GetWire()
 	if wire != nil {
 		out.Wire = wire.Name
@@ -1027,14 +1027,14 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails
 	return out, nil
 }
 
-func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, details bool) (api.NetworkDetails, error) {
+func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkDetails, error) {
 	var err error
 	out := api.NetworkDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, details)
+	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}
-	return self.getMoreDetails(ctx, out, details)
+	return self.getMoreDetails(ctx, out, isList)
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
