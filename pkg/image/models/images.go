@@ -244,7 +244,7 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	}
 	defer fp.Close()
 
-	_, err = streamutils.StreamPipe(fp, appParams.Response, false)
+	_, err = streamutils.StreamPipe(fp, appParams.Response, false, nil)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -448,7 +448,25 @@ func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, calC
 		return nil, err
 	}
 	defer fp.Close()
-	return streamutils.StreamPipe(reader, fp, calChecksum)
+	lastSaveTime := time.Now()
+	return streamutils.StreamPipe(reader, fp, calChecksum, func(saved int64) {
+		now := time.Now()
+		if now.Sub(lastSaveTime) > 5*time.Second {
+			self.saveSize(saved)
+			lastSaveTime = now
+		}
+	})
+}
+
+func (self *SImage) saveSize(newSize int64) error {
+	_, err := db.Update(self, func() error {
+		self.Size = newSize
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "Update size")
+	}
+	return nil
 }
 
 //Image always do probe and customize after save from stream

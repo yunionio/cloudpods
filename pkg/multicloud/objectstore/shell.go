@@ -416,7 +416,7 @@ func S3Shell() {
 			defer fp.Close()
 			target = fp
 		}
-		prop, err := streamutils.StreamPipe(output, target, false)
+		prop, err := streamutils.StreamPipe(output, target, false, nil)
 		if err != nil {
 			return err
 		}
