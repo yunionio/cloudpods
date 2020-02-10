@@ -226,7 +226,7 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	hf.Parse(oldHf)
 	hf.Add("127.0.0.1", "localhost")
 	for _, ip := range ips {
-		hf.Add(ip, fmt.Sprintf("%s.%s", hn, domain), hn)
+		hf.Add(ip, getHostname(hn, domain), hn)
 	}
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
@@ -366,7 +366,7 @@ func (w *SWindowsRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, pub
 			}
 		}
 	} else {
-		log.Errorf("Filaed Password %s", account)
+		log.Errorf("Failed Password %s", account)
 	}
 	defUanme := tool.GetDefaultAccount()
 	if len(defUanme) > 0 && defUanme != account {
@@ -436,6 +436,7 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 		cmds = append(cmds, fmt.Sprintf(`REG ADD "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" /v %s /t %s /d %s /f`,
 			v[0], v[1], v[2]))
 	}
+	cmds = append(cmds, `REG ADD "HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation" /v RealTimeIsUniversal /t REG_DWORD /d 1 /f`)
 	cmds = append(cmds, "Net start wuauserv")
 	cmds = append(cmds, "wuauclt /detectnow")
 	cmds = append(cmds, `del %SystemRoot%\chgpwd_setup.ps1`)
