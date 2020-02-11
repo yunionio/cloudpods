@@ -209,7 +209,7 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	return out, nil
 }
 
-func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
+func (self *SContact) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, isList bool) (api.ContactDetails, error) {
 	var err error
 	out := api.ContactDetails{}
