@@ -1261,7 +1261,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	preferRegionId, _ := data.GetString("prefer_region_id")
-	if err := manager.validateEip(userCred, input, preferRegionId); err != nil {
+	if err := manager.validateEip(userCred, input, preferRegionId, input.PreferManager); err != nil {
 		return nil, err
 	}
 
@@ -1317,7 +1317,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	return input.JSON(input), nil
 }
 
-func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, input *api.ServerCreateInput, preferRegionId string) error {
+func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, input *api.ServerCreateInput,
+	preferRegionId string, preferManagerId string) error {
 	eipStr := input.Eip
 	eipBw := input.EipBw
 	if len(eipStr) > 0 || eipBw > 0 {
@@ -1342,6 +1343,12 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 				return httperrors.NewResourceBusyError("eip %s has been associated", eipStr)
 			}
 			input.Eip = eipObj.GetId()
+
+			eipCloudprovider := eip.GetCloudprovider()
+			if len(preferManagerId) > 0 && preferManagerId != eipCloudprovider.Id {
+				return httperrors.NewConflictError("cannot assoicate with eip %s: different cloudprovider", eipStr)
+			}
+			input.PreferManager = eipCloudprovider.Id
 
 			eipRegion := eip.GetRegion()
 			// preferRegionId, _ := data.GetString("prefer_region_id")
