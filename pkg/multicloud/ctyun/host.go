@@ -205,7 +205,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		}
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "Disk.CreateISnapshot.Wait")
+		return nil, errors.Wrap(err, "SHost.CreateVM.Wait")
 	}
 
 	return self.zone.region.GetVMById(vmId)

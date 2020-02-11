@@ -427,7 +427,8 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		return errors.Wrap(err, "Instance.StartVM")
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 300*time.Second)
+	return errors.Wrap(err, "Instance.StartVM.WaitStatus")
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -436,7 +437,8 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return errors.Wrap(err, "Instance.StopVM")
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 300*time.Second)
+	return errors.Wrap(err, "Instance.StopVM.WaitStatus")
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -445,7 +447,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		return errors.Wrap(err, "SInstance.DeleteVM")
 	}
 
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitDeleted(self, 10*time.Second, 180*time.Second)
+	return errors.Wrap(err, "Instance.DeleteVM.WaitDeleted")
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
