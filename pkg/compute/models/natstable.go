@@ -323,8 +323,12 @@ func (self *SNatSEntry) getMoreDetails(ctx context.Context, userCred mcclient.To
 		return out
 	}
 	out.Network = api.SimpleNetwork{
-		Id:   network.Id,
-		Name: network.Name,
+		Id:            network.Id,
+		Name:          network.Name,
+		GuestIpStart:  network.GuestIpStart,
+		GuestIpEnd:    network.GuestIpEnd,
+		GuestIp6Start: network.GuestIp6Start,
+		GuestIp6End:   network.GuestIp6End,
 	}
 	natgateway, err := self.GetNatgateway()
 	if err != nil {
