@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
@@ -277,8 +278,10 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 	snapshotId := ""
 	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
 		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
+		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
 		if err != nil {
-			return false, err
+			log.Debugf("Ctyun.SDisk.CreateISnapshot.GetVbsJob %s", err)
+			return false, nil
 		}
 
 		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
@@ -330,8 +333,10 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 
 	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
 		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
+		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
 		if err != nil {
-			return false, err
+			log.Debugf("Ctyun.SDisk.Resize.GetVbsJob %s", err)
+			return false, nil
 		}
 
 		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
@@ -357,8 +362,10 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 
 	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
 		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
+		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
 		if err != nil {
-			return false, err
+			log.Debugf("Ctyun.SDisk.Reset.GetVbsJob %s", err)
+			return false, nil
 		}
 
 		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
