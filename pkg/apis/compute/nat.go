@@ -52,14 +52,19 @@ type NatSEntryDetails struct {
 	apis.StandaloneResourceDetails
 	// SNatSEntry
 
-	Natgateway string        `json:"natgateway"`
-	RealName   string        `json:"real_name"`
-	Network    SimpleNetwork `json:"network"`
+	Natgateway string `json:"natgateway"`
+	// RealName identifies the local name of SNAT record
+	RealName string        `json:"real_name"`
+	Network  SimpleNetwork `json:"network"`
 }
 
 type SimpleNetwork struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id            string `json:"id"`
+	Name          string `json:"name"`
+	GuestIpStart  string `json:"guest_ip_start"`
+	GuestIpEnd    string `json:"guest_ip_end"`
+	GuestIp6Start string `json:"guest_ip6_start"`
+	GuestIp6End   string `json:"guest_ip6_end"`
 }
 
 type NatgatewayDetails struct {
