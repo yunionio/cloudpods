@@ -49,6 +49,7 @@ type SFirewall struct {
 	Network               string
 	Priority              int
 	SourceRanges          []string
+	DestinationRanges     []string
 	TargetServiceAccounts []string
 	TargetTags            []string
 	Allowed               []SFirewallAction
@@ -122,12 +123,16 @@ func (firewall *SFirewall) _toRules(action secrules.TSecurityRuleAction) ([]secr
 		default:
 			return nil, fmt.Errorf("unsupport protocol %s", allow.IPProtocol)
 		}
-		for _, sourceRange := range firewall.SourceRanges {
-			if regutils.MatchCIDR(sourceRange) {
-				_, rule.IPNet, _ = net.ParseCIDR(sourceRange)
+		ipRanges := firewall.SourceRanges
+		if rule.Direction == secrules.DIR_OUT {
+			ipRanges = firewall.DestinationRanges
+		}
+		for _, ipRange := range ipRanges {
+			if regutils.MatchCIDR(ipRange) {
+				_, rule.IPNet, _ = net.ParseCIDR(ipRange)
 			} else {
 				rule.IPNet = &net.IPNet{
-					IP:   net.ParseIP(sourceRange),
+					IP:   net.ParseIP(ipRange),
 					Mask: net.CIDRMask(32, 32),
 				}
 			}
