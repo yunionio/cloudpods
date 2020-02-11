@@ -124,6 +124,7 @@ func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error
 }
 
 type ServerConfigs struct {
+	Manager    string `help:"Preferred cloudprovider where virtual server should bd created" json:"prefer_manager"`
 	Region     string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
 	Zone       string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
 	Wire       string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
@@ -148,6 +149,7 @@ type ServerConfigs struct {
 
 func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 	data := &computeapi.ServerConfigs{
+		PreferManager:    o.Manager,
 		PreferRegion:     o.Region,
 		PreferZone:       o.Zone,
 		PreferWire:       o.Wire,
