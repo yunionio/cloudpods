@@ -23,7 +23,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
@@ -166,7 +165,8 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 			sq := resourceView.Query(field)
 			ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
 			if err != nil {
-				return nil, httperrors.NewGeneralError(errors.Wrap(err, "FetchCheckQueryOwnerScope"))
+				log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
+				continue
 			}
 			sq = man.FilterByOwner(sq, ownerId, queryScope)
 			sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
