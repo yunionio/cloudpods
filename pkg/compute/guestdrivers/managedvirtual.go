@@ -475,7 +475,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 	}, 10)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GuestDriver.RemoteDeployGuestForCreate.RetryUntil")
 	}
 
 	guest.GetDriver().RemoteActionAfterGuestCreated(ctx, userCred, guest, host, iVM, &desc)
