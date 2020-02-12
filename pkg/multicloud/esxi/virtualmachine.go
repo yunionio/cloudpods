@@ -1102,3 +1102,26 @@ func (self *SVirtualMachine) ExportTemplate(ctx context.Context, idx int, diskPa
 	log.Debugf("download to %s finish", diskPath)
 	return nil
 }
+
+func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
+	if self.devs == nil {
+		self.fetchHardwareInfo()
+	}
+	devKeys := make([]int32, 0, len(self.devs))
+	for key := range self.devs {
+		devKeys = append(devKeys, key)
+	}
+	sort.Slice(devKeys, func(i int, j int) bool {
+		return devKeys[i] < devKeys[j]
+	})
+	for _, key := range devKeys {
+		switch {
+		case key < limit:
+		case key == limit:
+			limit += 1
+		case key > limit:
+			return limit
+		}
+	}
+	return limit
+}
