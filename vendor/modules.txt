@@ -508,6 +508,8 @@ github.com/vmihailenco/msgpack/codes
 github.com/vmware/govmomi
 github.com/vmware/govmomi/nfc
 github.com/vmware/govmomi/object
+github.com/vmware/govmomi/ovf
+github.com/vmware/govmomi/performance
 github.com/vmware/govmomi/property
 github.com/vmware/govmomi/session
 github.com/vmware/govmomi/task
