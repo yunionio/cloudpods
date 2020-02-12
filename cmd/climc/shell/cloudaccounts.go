@@ -99,6 +99,9 @@ func init() {
 		if len(args.OptionsBillingBucketAccount) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
 		}
+		if len(args.OptionsBillingFilePrefix) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFilePrefix), "billing_file_prefix")
+		}
 		if options.Size() > 0 {
 			params.(*jsonutils.JSONDict).Add(options, "options")
 		}
@@ -164,8 +167,8 @@ func init() {
 		if len(args.OptionsBillingBucketAccount) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
 		}
-		if len(args.OptionsBillingFileAccount) > 0 {
-			options.Add(jsonutils.NewString(args.OptionsBillingFileAccount), "billing_file_account")
+		if len(args.OptionsBillingFilePrefix) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFilePrefix), "billing_file_prefix")
 		}
 		if options.Size() > 0 {
 			params.Add(options, "options")
@@ -308,6 +311,9 @@ func init() {
 		if len(args.OptionsBillingBucketAccount) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
 		}
+		if len(args.OptionsBillingFilePrefix) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFilePrefix), "billing_file_prefix")
+		}
 		if options.Size() > 0 {
 			params.Add(options, "options")
 		}
@@ -317,6 +323,9 @@ func init() {
 		}
 		if args.RemoveOptionsBillingBucketAccount {
 			removeOptions = append(removeOptions, "billing_bucket_account")
+		}
+		if args.RemoveOptionsBillingFilePrefix {
+			removeOptions = append(removeOptions, "billing_file_prefix")
 		}
 		if len(removeOptions) > 0 {
 			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
@@ -382,8 +391,8 @@ func init() {
 		if len(args.OptionsBillingBucketAccount) > 0 {
 			options.Add(jsonutils.NewString(args.OptionsBillingBucketAccount), "billing_bucket_account")
 		}
-		if len(args.OptionsBillingFileAccount) > 0 {
-			options.Add(jsonutils.NewString(args.OptionsBillingFileAccount), "billing_file_account")
+		if len(args.OptionsBillingFilePrefix) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingFilePrefix), "billing_file_prefix")
 		}
 		if options.Size() > 0 {
 			params.Add(options, "options")
@@ -395,8 +404,8 @@ func init() {
 		if args.RemoveOptionsBillingBucketAccount {
 			removeOptions = append(removeOptions, "billing_bucket_account")
 		}
-		if args.RemoveOptionsBillingFileAccount {
-			removeOptions = append(removeOptions, "billing_file_account")
+		if args.RemoveOptionsBillingFilePrefix {
+			removeOptions = append(removeOptions, "billing_file_prefix")
 		}
 		if len(removeOptions) > 0 {
 			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
