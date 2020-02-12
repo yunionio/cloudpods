@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 
@@ -45,6 +46,9 @@ func init() {
 		if err != nil {
 			return err
 		}
+		if decodeStr, err := base64.StdEncoding.DecodeString(connParams); err == nil {
+			connParams = string(decodeStr)
+		}
 		var query url.Values
 		connUrl, err := url.ParseRequestURI(connParams)
 		if err == nil {
@@ -64,7 +68,9 @@ func init() {
 			return nil
 		}
 
-		u.RawQuery = connParams
+		newQuery := url.Values(make(map[string][]string))
+		newQuery.Set("data", base64.StdEncoding.EncodeToString([]byte(connParams)))
+		u.RawQuery = newQuery.Encode()
 		fmt.Println(u.String())
 		return nil
 	}
