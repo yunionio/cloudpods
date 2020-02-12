@@ -16,11 +16,11 @@ package hostdrivers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -91,7 +91,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	if storage == nil {
 		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
 		log.Errorf(msg)
-		return errors.New(msg)
+		return errors.Error(msg)
 	}
 
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
