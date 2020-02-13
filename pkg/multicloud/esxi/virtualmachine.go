@@ -854,7 +854,7 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		return err
 	}
 	if len(devs) == 0 {
-		return fmt.Errorf("Driver %s not found", driver)
+		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
 	}
 	ctlKey := minDevKey(devs)
 	sameDisks := self.FindDiskByDriver(driver)
@@ -871,13 +871,38 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "", true)
 }
 
-func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
-	diskKey int32, ctlKey int32, imagePath string, check bool) error {
+// createDriverAndDisk will create a driver and disk associated with the driver
+func (self *SVirtualMachine) createDriverAndDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	if driver != "scsi" && driver != "pvscsi" {
+		return fmt.Errorf("Driver %s is not supported", driver)
+	}
+
+	deviceChange := make([]types.BaseVirtualDeviceConfigSpec, 0, 2)
+
+	// find a suitable key for scsi or pvscsi driver
+	scsiKey := self.FindMinDiffKey(1000)
+	deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(scsiKey, 100, driver)))
+
+	// find a suitable key for disk
+	diskKey := self.FindMinDiffKey(2000)
+
+	if diskKey == scsiKey {
+		// unarrivelable
+		log.Errorf("there is no suitable key between 1000 and 2000???!")
+	}
+
+	return self.createDiskWithDeviceChange(ctx, deviceChange, sizeMb, uuid, 0, diskKey, scsiKey, "", true)
+}
+
+func (self *SVirtualMachine) createDiskWithDeviceChange(ctx context.Context,
+	deviceChange []types.BaseVirtualDeviceConfigSpec, sizeMb int,
+	uuid string, index int32, diskKey int32, ctlKey int32, imagePath string, check bool) error {
+
 	devSpec := NewDiskDev(int64(sizeMb), imagePath, uuid, index, diskKey, ctlKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}
-	configSpec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{spec}
+	configSpec.DeviceChange = append(deviceChange, spec)
 
 	vmObj := self.getVmObj()
 
@@ -902,6 +927,12 @@ func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int,
 		}
 	}
 	return cloudprovider.ErrTimeout
+}
+
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32,
+	diskKey int32, ctlKey int32, imagePath string, check bool) error {
+
+	return self.createDiskWithDeviceChange(ctx, nil, sizeMb, uuid, index, diskKey, ctlKey, imagePath, check)
 }
 
 func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
