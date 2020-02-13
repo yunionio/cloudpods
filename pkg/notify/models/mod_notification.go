@@ -111,16 +111,35 @@ func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclien
 	if err != nil {
 		return out, err
 	}
-	userDetail := UserDetail{
-		Status:     self.Status,
-		Name:       self.UID,
-		ReceivedAt: self.ReceivedAt,
+
+	var scopeStr string
+	scopeStr, err = query.GetString("scope")
+	if err != nil {
+		scopeStr = "system"
 	}
-	name, err := utils.GetUsernameByID(ctx, self.UID)
-	if err == nil && len(name) != 0 {
-		out.Name = name
+	scope := rbacutils.TRbacScope(scopeStr)
+
+	var userDetails []UserDetail
+	if scope.HigherEqual(rbacutils.ScopeSystem) {
+		userDetails, err = NotificationManager.fetchUserDetailByClusterID(ctx, self.ClusterID)
+		if err != nil {
+			return out, errors.Wrap(err, "NotificationManager.fetchUserDetailByClusterID")
+		}
+	} else {
+		userDetail := UserDetail{
+			Status:     self.Status,
+			Name:       self.UID,
+			ReceivedAt: self.ReceivedAt,
+		}
+		name, err := utils.GetUsernameByID(ctx, self.UID)
+		if err == nil && len(name) != 0 {
+			userDetail.Name = name
+		}
+		userDetails = []UserDetail{userDetail}
 	}
-	out.UserList = jsonutils.Marshal([]UserDetail{userDetail})
+
+	out.Id = self.ClusterID
+	out.UserList = jsonutils.Marshal(userDetails)
 	return out, nil
 }
 

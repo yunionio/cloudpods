@@ -16,6 +16,7 @@ package webconsole
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -206,7 +207,7 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 	case session.ALIYUN, session.QCLOUD, session.OPENSTACK, session.VMRC, session.ZSTACK, session.CTYUN:
 		responsePublicCloudConsole(info, w)
 	case session.VNC, session.SPICE, session.WMKS:
-		handleDataSession(info, w, url.Values{"password": {info.GetPassword()}})
+		handleDataSession(info, w, url.Values{"password": {info.GetPassword()}}, true)
 	default:
 		httperrors.NotAcceptableError(w, "Unspported remote console protocol: %s", info.Protocol)
 	}
@@ -223,7 +224,7 @@ func responsePublicCloudConsole(info *session.RemoteConsoleInfo, w http.Response
 	sendJSON(w, data)
 }
 
-func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connParams url.Values) {
+func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connParams url.Values, b64Encode bool) {
 	s, err := session.Manager.Save(sData)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -235,13 +236,16 @@ func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connPa
 		httperrors.GeneralServerError(w, err)
 		return
 	}
+	if b64Encode {
+		params = base64.StdEncoding.EncodeToString([]byte(params))
+	}
 	data.Add(jsonutils.NewString(params), "connect_params")
 	data.Add(jsonutils.NewString(s.Id), "session")
 	sendJSON(w, data)
 }
 
 func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(session.WrapCommandSession(cmd), w, nil)
+	handleDataSession(session.WrapCommandSession(cmd), w, nil, false)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {

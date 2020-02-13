@@ -96,6 +96,7 @@ type SAliyunCloudAccountCreateOptions struct {
 
 	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
 	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
 type SAzureCloudAccountCreateOptions struct {
@@ -119,7 +120,7 @@ type SAWSCloudAccountCreateOptions struct {
 
 	OptionsBillingReportBucket  string `help:"bucket that stores billing report" json:"-"`
 	OptionsBillingBucketAccount string `help:"id of account that can access bucket, blank if this account can access" json:"-"`
-	OptionsBillingFileAccount   string `help:"account number, prefix of billing file name, blank if this account number is prefix" json:"-"`
+	OptionsBillingFilePrefix    string `help:"prefix of billing file name" json:"-"`
 }
 
 type SOpenStackCloudAccountCreateOptions struct {
@@ -243,6 +244,8 @@ type SAliyunCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingReportBucket  bool   `help:"remove Aliyun S3 bucket that stores account billing report" json:"-"`
 	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
 	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SAzureCloudAccountUpdateOptions struct {
@@ -263,8 +266,8 @@ type SAWSCloudAccountUpdateOptions struct {
 	RemoveOptionsBillingReportBucket  bool   `help:"remove AWS S3 bucket that stores account billing report" json:"-"`
 	OptionsBillingBucketAccount       string `help:"update id of account that can access bucket, blank if this account can access" json:"-"`
 	RemoveOptionsBillingBucketAccount bool   `help:"remove id of account that can access bucket, blank if this account can access" json:"-"`
-	OptionsBillingFileAccount         string `help:"update account number, prefix of billing file name, blank if this account number is prefix" json:"-"`
-	RemoveOptionsBillingFileAccount   bool   `help:"remove account number, prefix of billing file name, blank if this account number is prefix" json:"-"`
+	OptionsBillingFilePrefix          string `help:"update prefix of billing file name" json:"-"`
+	RemoveOptionsBillingFilePrefix    bool   `help:"remove prefix of billing file name" json:"-"`
 }
 
 type SOpenStackCloudAccountUpdateOptions struct {

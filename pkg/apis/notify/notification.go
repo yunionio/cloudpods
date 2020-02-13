@@ -23,6 +23,7 @@ import (
 type NotificationDetails struct {
 	apis.ModelBaseDetails
 
+	Id   string `json:"id"`
 	Name string `json:"name"`
 
 	UserList jsonutils.JSONObject `json:"user_list"`
