@@ -15,10 +15,13 @@
 package aws
 
 import (
+	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -173,6 +176,12 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	if strings.ToLower(desc.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		// powershell scripts
+		data := fmt.Sprintf("<powershell>%s</powershell>", desc.UserData)
+		desc.UserData = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+
 	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData)
 	if err != nil {
 		return nil, err
