@@ -50,6 +50,7 @@ type ServerListOptions struct {
 	UsableServerForEip string `help:"Eip id or name"`
 	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
 	Group              string `help:"Instance Group ID or Name"`
+	HostSn             string `help:"Host SN"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 

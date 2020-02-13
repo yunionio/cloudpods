@@ -80,6 +80,8 @@ type ServerListInput struct {
 	ResourceType string `json:"resource_type"`
 	// 返回开启主备机功能的主机
 	GetBackupGuestsOnHost *bool `json:"get_backup_guests_on_host"`
+	// 根据宿主机 SN 过滤
+	HostSn string `json:"host_sn"`
 }
 
 func (input *ServerListInput) AfterUnmarshal() {
