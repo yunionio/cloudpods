@@ -25,6 +25,7 @@ import (
 	ptem "text/template"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -73,65 +74,66 @@ func (tm *STemplateManager) GetEmailUrl() string {
 	return options.Options.VerifyEmailUrl
 }
 
-func (tm *STemplateManager) InitializeData() error {
-	// init email VERIFY template
-	q := tm.Query().Equals("contact_type", "email").Equals("topic", "VERIFY").Equals("template_type", "content")
-	count, _ := q.CountWithError()
-	if count > 0 {
-		return nil
+var initTemlateList []STemplate
+
+func (tm *STemplateManager) defaultTemplate() []STemplate {
+	if len(initTemlateList) != 0 {
+		return initTemlateList
+	}
+
+	initTemlateList = []STemplate{
+		{
+			ContactType:  "email",
+			Topic:        "IMAGE_ACTIVED",
+			TemplateType: TEMPLATE_TYPE_TITLE,
+			Content:      template.IMAGE_ACTIVED_TITLE,
+		},
+		{
+			ContactType:  "email",
+			Topic:        "IMAGE_ACTIVED",
+			TemplateType: TEMPLATE_TYPE_CONTENT,
+			Content:      template.IMAGE_ACTIVED_CONTENT,
+		},
 	}
 	content, err := ioutil.ReadFile(template.EMAIL_VERIFY_CONTENT_PATH)
-	if os.IsNotExist(err) {
-		return nil
+	if err == nil {
+		initTemlateList = append(initTemlateList,
+			STemplate{
+				ContactType:  "email",
+				Topic:        "VERIFY",
+				TemplateType: TEMPLATE_TYPE_CONTENT,
+				Content:      string(content),
+			},
+			STemplate{
+				ContactType:  "email",
+				Topic:        "VERIFY",
+				TemplateType: TEMPLATE_TYPE_TITLE,
+				Content:      template.EMAIL_VERIFY_TITLE,
+			},
+		)
+	} else {
+		if os.IsNotExist(err) {
+			log.Errorf("The path of email verify template is invalid")
+		} else {
+			log.Errorf("open %s error: %s", template.EMAIL_VERIFY_CONTENT_PATH, err.Error())
+		}
 	}
-	if err != nil {
-		return errors.Wrapf(err, "os.Open for '%s'", template.EMAIL_VERIFY_CONTENT_PATH)
-	}
-	contentTem := STemplate{
-		ContactType:  "email",
-		Topic:        "VERIFY",
-		TemplateType: TEMPLATE_TYPE_CONTENT,
-		Content:      string(content),
-	}
-	titleTem := STemplate{
-		ContactType:  "email",
-		Topic:        "VERIFY",
-		TemplateType: TEMPLATE_TYPE_TITLE,
-		Content:      template.EMAIL_VERIFY_TITLE,
-	}
-	err = tm.TableSpec().InsertOrUpdate(&contentTem)
-	if err != nil {
-		return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
-	}
-	tm.TableSpec().InsertOrUpdate(&titleTem)
-	if err != nil {
-		return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
-	}
-	// init email IMAGE_ACTIVED template
-	q = tm.Query().Equals("contact_type", "email").Equals("topic", "IMAGE_ACTIVED")
-	count, _ = q.CountWithError()
-	if count > 1 {
-		return nil
-	}
-	titleTem = STemplate{
-		ContactType:  "email",
-		Topic:        "IMAGE_ACTIVED",
-		TemplateType: TEMPLATE_TYPE_TITLE,
-		Content:      template.IMAGE_ACTIVED_TITLE,
-	}
-	contentTem = STemplate{
-		ContactType:  "email",
-		Topic:        "IMAGE_ACTIVED",
-		TemplateType: TEMPLATE_TYPE_CONTENT,
-		Content:      template.IMAGE_ACTIVED_CONTENT,
-	}
-	err = tm.TableSpec().InsertOrUpdate(&titleTem)
-	if err != nil {
-		return errors.Wrapf(err, "fail to InsertOrUpdate for email IMAGE_ACTIVED title template")
-	}
-	err = tm.TableSpec().InsertOrUpdate(&contentTem)
-	if err != nil {
-		return errors.Wrapf(err, "fail to InsertOrUpdate for email IMAGE_ACTIVED content template")
+
+	return initTemlateList
+}
+
+func (tm *STemplateManager) InitializeData() error {
+	for _, template := range tm.defaultTemplate() {
+		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type",
+			template.TemplateType)
+		count, _ := q.CountWithError()
+		if count > 0 {
+			continue
+		}
+		err := tm.TableSpec().InsertOrUpdate(&template)
+		if err != nil {
+			return errors.Wrap(err, "sqlchemy.TableSpec.InsertOrUpdate")
+		}
 	}
 	return nil
 }
