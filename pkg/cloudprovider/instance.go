@@ -115,7 +115,7 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 
 	cloudConfig := cloudinit.SCloudConfig{
 		DisableRoot: 0,
-		SshPwauth:   1,
+		SshPwauth:   cloudinit.SSH_PASSWORD_AUTH_ON,
 
 		Users: []cloudinit.SUser{
 			ansibleUser,
@@ -141,7 +141,7 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 
 	cloudconfig := cloudinit.SCloudConfig{
 		DisableRoot: 0,
-		SshPwauth:   1,
+		SshPwauth:   cloudinit.SSH_PASSWORD_AUTH_ON,
 		Users: []cloudinit.SUser{
 			loginUser,
 		},
