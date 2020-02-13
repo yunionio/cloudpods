@@ -501,6 +501,11 @@ github.com/tredoe/osutil/user/crypt/common
 github.com/tredoe/osutil/user/crypt/sha512_crypt
 # github.com/ugorji/go v0.0.0-20161130061742-9c7f9b7a2bc3
 github.com/ugorji/go/codec
+# github.com/vishvananda/netlink v1.1.0
+github.com/vishvananda/netlink
+github.com/vishvananda/netlink/nl
+# github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+github.com/vishvananda/netns
 # github.com/vmihailenco/msgpack v4.0.4+incompatible
 github.com/vmihailenco/msgpack
 github.com/vmihailenco/msgpack/codes
@@ -508,7 +513,6 @@ github.com/vmihailenco/msgpack/codes
 github.com/vmware/govmomi
 github.com/vmware/govmomi/nfc
 github.com/vmware/govmomi/object
-github.com/vmware/govmomi/ovf
 github.com/vmware/govmomi/performance
 github.com/vmware/govmomi/property
 github.com/vmware/govmomi/session
