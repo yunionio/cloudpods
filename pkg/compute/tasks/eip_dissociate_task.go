@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -86,7 +87,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		}
 
 		extEip, err := eip.GetIEip()
-		if err != nil && err != cloudprovider.ErrNotFound {
+		if err != nil && errors.Cause(err) != cloudprovider.ErrNotFound {
 			msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 			self.TaskFail(ctx, eip, msg, model)
 			return

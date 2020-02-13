@@ -31,4 +31,13 @@ func init() {
 		printObject(job)
 		return nil
 	})
+
+	shellutils.R(&VJobShowOptions{}, "vbs-job-show", "Show job", func(cli *ctyun.SRegion, args *VJobShowOptions) error {
+		job, e := cli.GetVbsJob(args.JOBID)
+		if e != nil {
+			return e
+		}
+		printObject(job)
+		return nil
+	})
 }

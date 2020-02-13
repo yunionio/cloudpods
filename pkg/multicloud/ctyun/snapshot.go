@@ -128,7 +128,7 @@ func (self *SRegion) GetSnapshot(diskId string, snapshotId string) (*SSnapshot, 
 
 	for i := range snapshots {
 		snapshot := snapshots[i]
-		if snapshot.ID == snapshotId {
+		if snapshot.ID == snapshotId || snapshot.Container == snapshotId {
 			snapshot.region = self
 			return &snapshot, nil
 		}

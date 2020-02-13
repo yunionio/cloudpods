@@ -427,7 +427,11 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		return errors.Wrap(err, "Instance.StartVM")
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "Instance.StartVM.WaitStatus")
+	}
+	return nil
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -436,7 +440,11 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return errors.Wrap(err, "Instance.StopVM")
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "Instance.StopVM.WaitStatus")
+	}
+	return nil
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -445,7 +453,11 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		return errors.Wrap(err, "SInstance.DeleteVM")
 	}
 
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitDeleted(self, 10*time.Second, 180*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "Instance.DeleteVM.WaitDeleted")
+	}
+	return nil
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -763,9 +775,12 @@ func (self *SRegion) GetInstanceVNCUrl(vmId string) (string, error) {
 创建主机接口目前没有绑定密钥的参数选项，不支持绑定密码。
 但是重装系统接口支持绑定密钥
 */
-func (self *SRegion) CreateInstance(zoneId, name, imageId, osType, volumetype, flavorRef, vpcid, subnetId, secGroupId, adminPass string) (string, error) {
+func (self *SRegion) CreateInstance(zoneId, name, imageId, osType, flavorRef, vpcid, subnetId, secGroupId, adminPass, volumetype string, volumeSize int, dataDisks []cloudprovider.SDiskInfo) (string, error) {
 	rootParams := jsonutils.NewDict()
 	rootParams.Set("volumetype", jsonutils.NewString(volumetype))
+	if volumeSize > 0 {
+		rootParams.Set("size", jsonutils.NewInt(int64(volumeSize)))
+	}
 
 	nicParams := jsonutils.NewArray()
 	nicParam := jsonutils.NewDict()
@@ -793,6 +808,18 @@ func (self *SRegion) CreateInstance(zoneId, name, imageId, osType, volumetype, f
 	serverParams.Set("adminPass", jsonutils.NewString(adminPass))
 	serverParams.Set("count", jsonutils.NewString("1"))
 	serverParams.Set("extendparam", extParams)
+
+	if dataDisks != nil && len(dataDisks) > 0 {
+		dataDisksParams := jsonutils.NewArray()
+		for i := range dataDisks {
+			dataDiskParams := jsonutils.NewDict()
+			dataDiskParams.Set("volumetype", jsonutils.NewString(dataDisks[i].StorageType))
+			dataDiskParams.Set("size", jsonutils.NewInt(int64(dataDisks[i].SizeGB)))
+			dataDisksParams.Add(dataDiskParams)
+		}
+
+		serverParams.Set("data_volumes", dataDisksParams)
+	}
 
 	vmParams := jsonutils.NewDict()
 	vmParams.Set("server", serverParams)
