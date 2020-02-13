@@ -461,6 +461,13 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
+	hostSNFilter, _ := queryDict.GetString("host_sn")
+	if len(hostSNFilter) > 0 {
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("sn"), hostSNFilter)).SubQuery()
+		q = q.In("host_id", sq)
+	}
+
 	orderByHost, _ := queryDict.GetString("order_by_host")
 	if orderByHost == "asc" {
 		hosts := HostManager.Query().SubQuery()
