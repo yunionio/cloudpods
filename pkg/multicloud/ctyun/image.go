@@ -42,6 +42,7 @@ type SImage struct {
 	Platform  string `json:"platform"`
 	Name      string `json:"name"`
 	OSBit     int64  `json:"osBit"`
+	OSVersion string `json:"osVersion"`
 	MinRAM    int64  `json:"minRam"`
 	MinDisk   int64  `json:"minDisk"`
 	ImageType string `json:"imageType"`
@@ -135,7 +136,7 @@ func (self *SImage) GetOsDist() string {
 }
 
 func (self *SImage) GetOsVersion() string {
-	return imagetools.NormalizeImageInfo(self.Name, "", "", "", "").OsVersion
+	return imagetools.NormalizeImageInfo(self.OSVersion, "", "", self.Platform, "").OsVersion
 }
 
 func (self *SImage) GetOsArch() string {
