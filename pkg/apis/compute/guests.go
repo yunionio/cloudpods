@@ -65,6 +65,8 @@ type ServerListInput struct {
 	ResourceType string `json:"resource_type"`
 	// Billing type choices:"postpaid|prepaid"
 	BillingType string `json:"billing_type"`
+	// 根据宿主机 SN 过滤
+	HostSn string `json:"host_sn"`
 }
 
 type ServerRebuildRootInput struct {
