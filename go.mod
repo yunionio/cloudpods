@@ -3,7 +3,8 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
-	cloud.google.com/go v0.38.0
+	cloud.google.com/go v0.50.0
+	cloud.google.com/go/storage v1.5.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
@@ -55,7 +56,6 @@ require (
 	github.com/golang-plus/errors v1.0.0
 	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
-	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.1.0 // indirect
@@ -118,16 +118,15 @@ require (
 	github.com/vmware/govmomi v0.19.0
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20191023171146-3cf2f69b5738
 	go.uber.org/atomic v1.4.0 // indirect
-	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
-	golang.org/x/net v0.0.0-20191007182048-72f939374954
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20191008105621-543471e840be
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
-	google.golang.org/api v0.13.0 // indirect
-	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
-	google.golang.org/grpc v1.23.1
+	google.golang.org/genproto v0.0.0-20191230161307-f3c370f40bfb
+	google.golang.org/grpc v1.26.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
@@ -141,7 +140,7 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
-	yunion.io/x/jsonutils v0.0.0-20200113074440-9297fd00ba07
+	yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e

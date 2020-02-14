@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/google"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -63,6 +64,33 @@ func init() {
 
 	shellutils.R(&BucketNameOptions{}, "bucket-delete", "Delete bucket", func(cli *google.SRegion, args *BucketNameOptions) error {
 		return cli.DeleteBucket(args.NAME)
+	})
+
+	shellutils.R(&BucketNameOptions{}, "bucket-acl-list", "Show bucket acls", func(cli *google.SRegion, args *BucketNameOptions) error {
+		acls, err := cli.GetBucketAcl(args.NAME)
+		if err != nil {
+			return err
+		}
+		printList(acls, 0, 0, 0, nil)
+		return nil
+	})
+
+	shellutils.R(&BucketNameOptions{}, "bucket-iam-show", "Show bucket iam", func(cli *google.SRegion, args *BucketNameOptions) error {
+		iam, err := cli.GetBucketIam(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(iam)
+		return nil
+	})
+
+	type BucketAclOptions struct {
+		BUCKET string
+		ACL    string
+	}
+
+	shellutils.R(&BucketAclOptions{}, "bucket-acl-set", "Set bucket acl", func(cli *google.SRegion, args *BucketAclOptions) error {
+		return cli.SetBucketAcl(args.BUCKET, cloudprovider.TBucketACLType(args.ACL))
 	})
 
 }

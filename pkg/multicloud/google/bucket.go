@@ -15,16 +15,23 @@
 package google
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SLifecycleRuleAction struct {
@@ -58,6 +65,10 @@ type SLifecycle struct {
 }
 
 type SBucket struct {
+	multicloud.SBaseBucket
+
+	region *SRegion
+
 	Kind             string
 	SelfLink         string
 	Id               string
@@ -72,6 +83,258 @@ type SBucket struct {
 	Lifecycle        SLifecycle
 	IamConfiguration SIamConfiguration
 	LocationType     string
+}
+
+func (b *SBucket) GetProjectId() string {
+	return b.region.GetProjectId()
+}
+
+func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	iam, err := b.region.GetBucketIam(b.Name)
+	if err != nil {
+		return cloudprovider.ACLUnknown
+	}
+	acl := cloudprovider.ACLPrivate
+	allUsers := []SBucketBinding{}
+	allAuthUsers := []SBucketBinding{}
+	for _, binding := range iam.Bindings {
+		if utils.IsInStringArray("allUsers", binding.Members) {
+			allUsers = append(allUsers, binding)
+		}
+		if utils.IsInStringArray("allAuthenticatedUsers", binding.Members) {
+			allAuthUsers = append(allAuthUsers, binding)
+		}
+	}
+
+	for _, binding := range allUsers {
+		switch binding.Role {
+		case "roles/storage.admin", "roles/storage.objectAdmin":
+			acl = cloudprovider.ACLPublicReadWrite
+		case "roles/storage.objectViewer":
+			if acl != cloudprovider.ACLPublicReadWrite {
+				acl = cloudprovider.ACLPublicRead
+			}
+		}
+	}
+
+	for _, binding := range allAuthUsers {
+		switch binding.Role {
+		case "roles/storage.admin", "roles/storage.objectAdmin", "roles/storage.objectViewer":
+			acl = cloudprovider.ACLAuthRead
+		}
+	}
+	return acl
+}
+
+func (region *SRegion) SetBucketAcl(bucket string, acl cloudprovider.TBucketACLType) error {
+	iam, err := region.GetBucketIam(bucket)
+	if err != nil {
+		return errors.Wrap(err, "GetBucketIam")
+	}
+	bindings := []SBucketBinding{}
+	for _, binding := range iam.Bindings {
+		if !utils.IsInStringArray(string(storage.AllUsers), binding.Members) && !utils.IsInStringArray(string(storage.AllAuthenticatedUsers), binding.Members) {
+			bindings = append(bindings, binding)
+		}
+	}
+	switch acl {
+	case cloudprovider.ACLPrivate:
+		if len(bindings) == len(iam.Bindings) {
+			return nil
+		}
+	case cloudprovider.ACLAuthRead:
+		bindings = append(bindings, SBucketBinding{
+			Role:    "roles/storage.objectViewer",
+			Members: []string{"allAuthenticatedUsers"},
+		})
+	case cloudprovider.ACLPublicRead:
+		bindings = append(bindings, SBucketBinding{
+			Role:    "roles/storage.objectViewer",
+			Members: []string{"allUsers"},
+		})
+	case cloudprovider.ACLPublicReadWrite:
+		bindings = append(bindings, SBucketBinding{
+			Role:    "roles/storage.objectAdmin",
+			Members: []string{"allUsers"},
+		})
+	default:
+		return fmt.Errorf("unknown acl %s", acl)
+	}
+	iam.Bindings = bindings
+	_, err = region.SetBucketIam(bucket, iam)
+	if err != nil {
+		return errors.Wrap(err, "SetBucketIam")
+	}
+	return nil
+
+}
+
+func (b *SBucket) SetAcl(acl cloudprovider.TBucketACLType) error {
+	return b.region.SetBucketAcl(b.Name, acl)
+}
+
+func (b *SBucket) GetGlobalId() string {
+	return b.Name
+}
+
+func (b *SBucket) GetName() string {
+	return b.Name
+}
+
+func (b *SBucket) GetLocation() string {
+	return strings.ToLower(b.Location)
+}
+
+func (b *SBucket) GetIRegion() cloudprovider.ICloudRegion {
+	return b.region
+}
+
+func (b *SBucket) GetCreateAt() time.Time {
+	return b.TimeCreated
+}
+
+func (b *SBucket) GetStorageClass() string {
+	return b.StorageClass
+}
+
+func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
+	return []cloudprovider.SBucketAccessUrl{
+		{
+			Url:         fmt.Sprintf("https://www.googleapis.com/storage/v1/b/%s", b.Name),
+			Description: "bucket domain",
+			Primary:     true,
+		},
+		{
+			Url:         fmt.Sprintf("https://www.googleapis.com/upload/storage/v1/b/%s/o", b.Name),
+			Description: "object upload endpoint",
+		},
+		{
+			Url:         fmt.Sprintf("https://www.googleapis.com/batch/storage/v1/b/%s", b.Name),
+			Description: "batch operation",
+		},
+	}
+}
+
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(b)
+	return stats
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	resource := fmt.Sprintf("b/%s/o?uploadType=resumable&upload_id=%s", b.Name, uploadId)
+	return b.region.client.storageAbortUpload(resource)
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	resource := fmt.Sprintf("b/%s/o/%s", b.Name, key)
+	err := b.region.StorageGet(resource, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get object %s", key)
+	}
+	return nil
+}
+
+func (b *SBucket) CopyObject(ctx context.Context, destKey string, srcBucket, srcKey string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
+	resource := fmt.Sprintf("b/%s/o/%s", srcBucket, srcKey)
+	action := fmt.Sprintf("copyTo/b/%s/o/%s", b.Name, destKey)
+	err := b.region.StorageDo(resource, action, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "CopyObject")
+	}
+	err = b.region.SetObjectAcl(b.Name, destKey, cannedAcl)
+	if err != nil {
+		return errors.Wrapf(err, "AddObjectAcl(%s)", cannedAcl)
+	}
+	err = b.region.SetObjectMeta(b.Name, destKey, meta)
+	if err != nil {
+		return errors.Wrap(err, "SetObjectMeta")
+	}
+	return nil
+}
+
+func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, partNumber int, srcBucket string, srcKey string, srcOffset int64, srcLength int64) (string, error) {
+	return "", cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
+	resource := fmt.Sprintf("b/%s/o/%s", b.Name, key)
+	return b.region.StorageDelete(resource)
+}
+
+func (region *SRegion) DownloadObjectRange(bucket, object string, start, end int64) (io.ReadCloser, error) {
+	resource := fmt.Sprintf("b/%s/o/%s?alt=media", bucket, object)
+	header := http.Header{}
+	header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	return region.client.storageDownload(resource, header)
+}
+
+func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
+	return b.region.DownloadObjectRange(b.Name, key, rangeOpt.Start, rangeOpt.End)
+}
+
+func (region *SRegion) SingedUrl(bucket, key string, method string, expire time.Duration) (string, error) {
+	if expire > time.Hour*24*7 {
+		return "", fmt.Errorf(`Expiration Time can\'t be longer than 604800 seconds (7 days)`)
+	}
+	opts := &storage.SignedURLOptions{
+		Scheme:         storage.SigningSchemeV4,
+		Method:         method,
+		GoogleAccessID: region.client.clientEmail,
+		PrivateKey:     []byte(region.client.privateKey),
+		Expires:        time.Now().Add(expire),
+	}
+	switch method {
+	case "GET":
+	case "PUT":
+		opts.Headers = []string{"Content-Type:application/octet-stream"}
+	default:
+		return "", errors.Wrapf(cloudprovider.ErrNotSupported, "Not support method %s", method)
+	}
+	return storage.SignedURL(bucket, key, opts)
+
+}
+
+func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
+	return b.region.SingedUrl(b.Name, key, method, expire)
+}
+
+func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
+	result := cloudprovider.SListObjectResult{}
+	objs, err := b.region.GetObjects(b.Name, prefix, marker, delimiter, maxCount)
+	if err != nil {
+		return result, errors.Wrap(err, "GetObjects")
+	}
+	result.NextMarker = objs.NextPageToken
+	log.Errorf("obj count: %d", len(objs.Items))
+	result.Objects = []cloudprovider.ICloudObject{}
+	result.CommonPrefixes = []cloudprovider.ICloudObject{}
+	for i := range objs.Items {
+		if strings.HasSuffix(objs.Items[i].Name, "/") {
+			continue
+		}
+		objs.Items[i].bucket = b
+		result.Objects = append(result.Objects, &objs.Items[i])
+	}
+	for i := range objs.Prefixes {
+		obj := &SObject{
+			bucket: b,
+			Name:   objs.Prefixes[i],
+		}
+		result.CommonPrefixes = append(result.CommonPrefixes, obj)
+	}
+	return result, nil
+}
+
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
+}
+
+func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
+	return b.region.PutObject(b.Name, key, body, sizeBytes, cannedAcl, meta)
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetBucket(name string) (*SBucket, error) {
@@ -122,26 +385,22 @@ func (region *SRegion) UploadObject(bucket string, params url.Values, header htt
 	return region.client.storageUpload(resource, header, input)
 }
 
-func (region *SRegion) PutObject(bucket string, name string, input io.Reader, contType string, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType) error {
+func (region *SRegion) PutObject(bucket string, name string, input io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, meta http.Header) error {
 	params := url.Values{}
 	params.Set("name", name)
 	params.Set("uploadType", "media")
-	switch cannedAcl {
-	case cloudprovider.ACLPrivate:
-		params.Set("predefinedAcl", "private")
-	case cloudprovider.ACLAuthRead:
-		params.Set("predefinedAcl", "authenticatedRead")
-	case cloudprovider.ACLPublicRead:
-		params.Set("predefinedAcl", "publicRead")
-	case cloudprovider.ACLPublicReadWrite:
-		return cloudprovider.ErrNotSupported
-	}
-
 	header := http.Header{}
 	header.Set("Content-Length", fmt.Sprintf("%v", sizeBytes))
-	header.Set("Content-Type", "application/octet-stream")
 
-	return region.UploadObject(bucket, params, header, input)
+	err := region.UploadObject(bucket, params, header, input)
+	if err != nil {
+		return errors.Wrap(err, "UploadObject")
+	}
+	err = region.SetObjectAcl(bucket, name, cannedAcl)
+	if err != nil {
+		return errors.Wrap(err, "SetObjectAcl")
+	}
+	return region.SetObjectMeta(bucket, name, meta)
 }
 
 func (region *SRegion) DeleteBucket(name string) error {

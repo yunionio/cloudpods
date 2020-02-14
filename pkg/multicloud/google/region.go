@@ -32,7 +32,6 @@ import (
 type SRegion struct {
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
-	multicloud.SNoObjectStorageRegion
 	client *SGoogleClient
 
 	Description       string
@@ -83,6 +82,51 @@ func (region *SRegion) GetStatus() string {
 		return api.CLOUD_REGION_STATUS_INSERVER
 	}
 	return api.CLOUD_REGION_STATUS_OUTOFSERVICE
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
+	_, err := region.CreateBucket(name, storageClassStr)
+	return err
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	return region.DeleteBucket(name)
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	//{"error":{"code":403,"details":"200420163731-compute@developer.gserviceaccount.com does not have storage.buckets.get access to test."}}
+	//{"error":{"code":404,"details":"Not Found"}}
+	_, err := region.GetBucket(name)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Cause(err) == cloudprovider.ErrNotFound || strings.Contains(err.Error(), "storage.buckets.get access") {
+		return false, nil
+	}
+	return false, err
+}
+
+func (region *SRegion) GetIBucketById(id string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, id)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	iBuckets, err := region.client.getIBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIBuckets")
+	}
+	ret := []cloudprovider.ICloudBucket{}
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
+			continue
+		}
+		ret = append(ret, iBuckets[i])
+	}
+	return ret, nil
 }
 
 func (region *SRegion) IsEmulated() bool {
@@ -353,6 +397,7 @@ func (region *SRegion) StorageList(resource string, params map[string]string, ma
 	if err != nil {
 		return errors.Wrap(err, "storageList")
 	}
+	log.Errorf("resp: %s\nparams: %s", resp.PrettyString(), params)
 	if resp.Contains("items") && retval != nil {
 		err = resp.Unmarshal(retval, "items")
 		if err != nil {
@@ -364,6 +409,10 @@ func (region *SRegion) StorageList(resource string, params map[string]string, ma
 
 func (region *SRegion) StorageGet(id string, retval interface{}) error {
 	return region.client.storageGet(id, retval)
+}
+
+func (region *SRegion) StoragePut(id string, body jsonutils.JSONObject, retval interface{}) error {
+	return region.client.storagePut(id, body, retval)
 }
 
 func (region *SRegion) StorageDo(id string, action string, params map[string]string, body jsonutils.JSONObject) error {

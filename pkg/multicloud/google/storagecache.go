@@ -17,6 +17,7 @@ package google
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"unicode"
 
@@ -156,7 +157,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 
 	defer cache.region.DeleteBucket(bucket.Name)
 
-	err = cache.region.PutObject(bucketName, info.Name, reader, "", info.Size, cloudprovider.ACLPublicRead)
+	err = cache.region.PutObject(bucketName, info.Name, reader, info.Size, cloudprovider.ACLPublicRead, http.Header{})
 	if err != nil {
 		return "", errors.Wrap(err, "region.PutObject")
 	}
