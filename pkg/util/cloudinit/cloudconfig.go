@@ -34,6 +34,7 @@ import (
  */
 
 type TSudoPolicy string
+type TSshPwauth string
 
 const (
 	CLOUD_CONFIG_HEADER = "#cloud-config\n"
@@ -43,6 +44,10 @@ const (
 	USER_SUDO          = TSudoPolicy("sudo")
 	USER_SUDO_DENY     = TSudoPolicy("sudo_deny")
 	USER_SUDO_NONE     = TSudoPolicy("")
+
+	SSH_PASSWORD_AUTH_ON        = TSshPwauth("true")
+	SSH_PASSWORD_AUTH_OFF       = TSshPwauth("false")
+	SSH_PASSWORD_AUTH_UNCHANGED = TSshPwauth("unchanged")
 )
 
 type SWriteFile struct {
@@ -74,7 +79,7 @@ type SCloudConfig struct {
 	Packages    []string
 	PhoneHome   *SPhoneHome
 	DisableRoot int
-	SshPwauth   int
+	SshPwauth   TSshPwauth
 }
 
 func NewWriteFile(path string, content string, perm string, owner string, isBase64 bool) SWriteFile {
