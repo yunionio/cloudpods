@@ -120,4 +120,7 @@ type HostDetails struct {
 	IsPrepaidRecycle  bool                `json:"is_prepaid_recycle"`
 	CanPrepare        bool                `json:"can_prepare"`
 	PrepareFailReason string              `json:"prepare_fail_reason"`
+
+	// 标签
+	Metadata map[string]string `json:"metadata"`
 }
