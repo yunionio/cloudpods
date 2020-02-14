@@ -55,6 +55,8 @@ func init() {
 
 		CdromBoot *bool `help:"filter hosts list by cdrom_boot=true|false"`
 
+		Sn string `help:"find host by sn"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
@@ -75,6 +77,9 @@ func init() {
 		}
 		if len(opts.Uuid) > 0 {
 			params.Add(jsonutils.NewString(opts.Uuid), "uuid")
+		}
+		if len(opts.Sn) > 0 {
+			params.Add(jsonutils.NewString(opts.Sn), "sn")
 		}
 		result, err := modules.Hosts.List(s, params)
 		if err != nil {
