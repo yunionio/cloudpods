@@ -141,7 +141,7 @@ type ServerDetails struct {
 	// 磁盘概要
 	Disks string `json:"disks"`
 	// 磁盘详情
-	DisksInfo *jsonutils.JSONArray `json:"disk_info"`
+	DisksInfo *jsonutils.JSONArray `json:"disks_info"`
 	// 虚拟机Ip列表
 	VirtualIps string `json:"virtual_ips"`
 	// 安全组规则
