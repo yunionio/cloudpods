@@ -16,9 +16,12 @@ package huawei
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -177,7 +180,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle)
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Account, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +198,7 @@ func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 }
 
 func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
-	networkId string, ipAddr string, desc string, passwd string,
+	networkId string, ipAddr string, desc string, account string, passwd string,
 	diskSizes []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
 	userData string, bc *billing.SBillingCycle) (string, error) {
 	net := self.zone.getNetworkById(networkId)
@@ -232,6 +235,18 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	if img.Status != ImageStatusActive {
 		log.Errorf("image %s status %s", imgId, img.Status)
 		return "", fmt.Errorf("image not ready")
+	}
+	// passwd, windows机型直接使用密码比较方便
+	if strings.ToLower(img.Platform) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) && len(passwd) > 0 {
+		keypair = ""
+	}
+
+	if strings.ToLower(img.Platform) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		if u, err := updateWindowsUserData(userData, img.OSVersion, account, passwd); err == nil {
+			userData = u
+		} else {
+			return "", errors.Wrap(err, "SHost.CreateVM.updateWindowsUserData")
+		}
 	}
 
 	disks := make([]SDisk, len(diskSizes)+1)
