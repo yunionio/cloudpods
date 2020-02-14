@@ -416,7 +416,6 @@ func (as *SAgentStorage) PrepareSaveToGlance(ctx context.Context, taskId string,
 	destDir := as.GetImgsaveBackupPath()
 	as.checkDirC(destDir)
 	backupPath := filepath.Join(destDir, fmt.Sprintf("%s.%s", spec.Vm.PrivateId, taskId))
-	defer as.checkFileR(backupPath)
 
 	client, err := esxi.NewESXiClientFromAccessInfo(ctx, &spec.Vm)
 	if err != nil {
@@ -465,6 +464,8 @@ func (as *SAgentStorage) SaveToGlance(ctx context.Context, params interface{}) (
 		as.onSaveToGlanceFailed(ctx, imageId)
 		return nil, err
 	}
+	// delete the backup image
+	as.checkFileR(imagePath)
 
 	imagecacheManager := as.Manager.LocalStorageImagecacheManager
 	if len(imagecacheManager.GetId()) > 0 {
