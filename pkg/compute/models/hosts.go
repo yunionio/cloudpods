@@ -2434,10 +2434,18 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.
 	return out
 }
 
+func (self *SHost) GetMetadataHideKeys() []string {
+	return []string{}
+}
+
 func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostDetails, error) {
 	var err error
 	out := api.HostDetails{}
 	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, err
+	}
+	out.Metadata, err = db.GetVisiableMetadata(self, nil)
 	if err != nil {
 		return out, err
 	}
