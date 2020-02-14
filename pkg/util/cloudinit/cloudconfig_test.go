@@ -43,7 +43,7 @@ func TestSCloudConfig_UserData(t *testing.T) {
 			Url: "http://www.yunion.io/$INSTANCE_ID",
 		},
 		DisableRoot: 0,
-		SshPwauth:   1,
+		SshPwauth:   SSH_PASSWORD_AUTH_ON,
 	}
 	userData := config.UserData()
 
