@@ -221,7 +221,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 			return nil, errors.Wrapf(err, "iVM.AttachDisk")
 		}
 
-		err = cloudprovider.Wait(time.Second*5, time.Minute*3, func() (bool, error) {
+		err = cloudprovider.Wait(time.Second*10, time.Minute*6, func() (bool, error) {
 			err := iVM.Refresh()
 			if err != nil {
 				return false, errors.Wrapf(err, "iVM.Refresh")
