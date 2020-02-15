@@ -134,6 +134,11 @@ func (self *SEip) GetINetworkId() string {
 func (self *SEip) GetAssociationType() string {
 	orders, err := self.region.GetOrder(self.WorkOrderResourceID)
 	if err != nil {
+		// bugfix: 由于没有接口可以返向查询出关联的device，这里默认关联的是server？
+		if len(self.PortID) > 0 || len(self.PrivateIPAddress) > 0 {
+			return api.EIP_ASSOCIATE_TYPE_SERVER
+		}
+
 		log.Errorf("SEip.GetAssociationType %s", err)
 		return ""
 	}
