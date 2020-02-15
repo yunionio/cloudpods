@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"strings"
+
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"

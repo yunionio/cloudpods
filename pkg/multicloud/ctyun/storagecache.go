@@ -41,6 +41,11 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	img, err := self.region.GetImage(image.ExternalId)
+	if err == nil {
+		return img.GetGlobalId(), nil
+	}
+
 	return "", cloudprovider.ErrNotSupported
 }
 
