@@ -145,6 +145,10 @@ func (self *SRegion) fetchIVpcs() error {
 }
 
 func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	if len(id) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetIVMById")
+	}
+
 	instance, err := self.GetInstanceByID(id)
 	if err != nil {
 		return nil, err

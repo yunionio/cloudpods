@@ -16,7 +16,6 @@ package huawei
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -165,15 +164,10 @@ func (self *SEipAddress) GetPort() *Port {
 func (self *SEipAddress) GetAssociationType() string {
 	port := self.GetPort()
 	if port != nil {
-		return port.DeviceID
+		return port.GetAssociateType()
 	}
 
-	owner := port.DeviceOwner
-	if strings.Contains(owner, "LOADBALANCER") {
-		return api.EIP_ASSOCIATE_TYPE_ELB
-	} else {
-		return api.EIP_ASSOCIATE_TYPE_SERVER
-	}
+	return ""
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

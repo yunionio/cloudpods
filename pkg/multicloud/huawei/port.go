@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"strings"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -80,6 +81,7 @@ func (port *Port) GetMacAddress() string {
 	return port.MACAddress
 }
 
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0133195888.html
 func (port *Port) GetAssociateType() string {
 	switch port.DeviceOwner {
 	case "compute:nova":
@@ -92,6 +94,10 @@ func (port *Port) GetAssociateType() string {
 		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_LOADBALANCER
 	case "neutron:VIP_PORT":
 		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_VIP
+	default:
+		if strings.HasPrefix(port.DeviceOwner, "compute:") {
+			return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER
+		}
 	}
 	return port.DeviceOwner
 }
