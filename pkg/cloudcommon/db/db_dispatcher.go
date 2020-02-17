@@ -459,7 +459,7 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 
 func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modulebase.ListResult, error) {
 	var err error
-	var maxLimit int64 = 2048
+	var maxLimit int64 = consts.GetMaxPagingLimit()
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
 	pagingMarker, _ := query.GetString("paging_marker")
@@ -507,6 +507,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	var totalCnt int
 	pagingConf := manager.GetPagingConfig()
 	if pagingConf == nil {
+		if limit == 0 {
+			limit = consts.GetDefaultPagingLimit()
+		}
 		totalCnt, err = q.CountWithError()
 		if err != nil {
 			return nil, err
