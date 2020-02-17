@@ -29,6 +29,7 @@ func (self *HAGuestDeployTask) OnDeployGuestComplete(
 }
 
 func (self *HAGuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnDeploySlaveGuestComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	err := guest.GetDriver().RequestDeployGuestOnHost(ctx, guest, host, self)
 	if err != nil {
