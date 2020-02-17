@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strconv"
@@ -518,7 +519,6 @@ func (self *SInstance) UpdateUserData(userData string) error {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html 使用原镜像重装
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html 更换系统盘操作系统
 // 不支持调整系统盘大小
-// todo: 支持注入user_data
 func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SManagedVMRebuildRootConfig) (string, error) {
 	var err error
 	var jobId string
@@ -531,13 +531,28 @@ func (self *SInstance) RebuildRoot(ctx context.Context, desc *cloudprovider.SMan
 		}
 	}
 
+	image, err := self.host.zone.region.GetImage(desc.ImageId)
+	if err != nil {
+		return "", errors.Wrap(err, "SInstance.RebuildRoot.GetImage")
+	}
+
+	// Password存在的情况下，windows 系统直接使用密码
+	if strings.ToLower(image.Platform) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) && len(desc.Password) > 0 {
+		publicKeyName = ""
+	}
+
+	userData, err := updateUserData(self.OSEXTSRVATTRUserData, image.OSVersion, desc.Account, desc.Password, desc.PublicKey)
+	if err != nil {
+		return "", errors.Wrap(err, "SInstance.RebuildRoot.updateUserData")
+	}
+
 	if self.Metadata.MeteringImageID == desc.ImageId {
-		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), desc.Password, publicKeyName, desc.PublicKey, self.OSEXTSRVATTRUserData)
+		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), desc.Password, publicKeyName, userData)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), desc.ImageId, desc.Password, publicKeyName, desc.PublicKey, self.OSEXTSRVATTRUserData)
+		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), desc.ImageId, desc.Password, publicKeyName, userData)
 		if err != nil {
 			return "", err
 		}
@@ -830,20 +845,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	if len(userData) > 0 {
-		pwd := ""
-		k := ""
-		if len(keypair) > 0 {
-			k = publicKey
-		} else {
-			pwd = passwd
-		}
-
-		udata, err := updateUserData(userData, "root", pwd, k)
-		if err != nil {
-			return "", errors.Wrap(err, "region.CreateInstance.UpdateUserData")
-		}
-
-		params.UserData = udata
+		params.UserData = userData
 	}
 
 	serverObj := jsonutils.Marshal(params)
@@ -1062,35 +1064,21 @@ func (self *SRegion) UpdateVM(instanceId, name string) error {
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html
 // 返回job id
-func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd, publicKeyName, publicKey, userData string) (string, error) {
+func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd, publicKeyName, userData string) (string, error) {
 	params := jsonutils.NewDict()
 	reinstallObj := jsonutils.NewDict()
 
-	var udata string
-	var err error
 	if len(publicKeyName) > 0 {
 		reinstallObj.Add(jsonutils.NewString(publicKeyName), "keyname")
-
-		if len(userData) > 0 {
-			if udata, err = updateUserData(userData, "root", "", publicKey); err != nil {
-				return "", errors.Wrap(err, "region.RebuildRoot.UpdateUserData set root publicKey")
-			}
-		}
 	} else if len(passwd) > 0 {
 		reinstallObj.Add(jsonutils.NewString(passwd), "adminpass")
-
-		if len(userData) > 0 {
-			if udata, err = updateUserData(userData, "root", passwd, ""); err != nil {
-				return "", errors.Wrap(err, "region.RebuildRoot.UpdateUserData set root password")
-			}
-		}
 	} else {
 		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
-	if len(udata) > 0 {
+	if len(userData) > 0 {
 		meta := jsonutils.NewDict()
-		meta.Add(jsonutils.NewString(udata), "user_data")
+		meta.Add(jsonutils.NewString(userData), "user_data")
 		reinstallObj.Add(meta, "metadata")
 	}
 
@@ -1109,35 +1097,21 @@ func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
 // 返回job id
-func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, publicKey, userData string) (string, error) {
+func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, userData string) (string, error) {
 	params := jsonutils.NewDict()
 	changeOsObj := jsonutils.NewDict()
 
-	var udata string
-	var err error
 	if len(publicKeyName) > 0 {
 		changeOsObj.Add(jsonutils.NewString(publicKeyName), "keyname")
-
-		if len(userData) > 0 {
-			if udata, err = updateUserData(userData, "root", "", publicKey); err != nil {
-				return "", errors.Wrap(err, "region.ChangeRoot.UpdateUserData set root publicKey")
-			}
-		}
 	} else if len(passwd) > 0 {
 		changeOsObj.Add(jsonutils.NewString(passwd), "adminpass")
-
-		if len(userData) > 0 {
-			if udata, err = updateUserData(userData, "root", passwd, ""); err != nil {
-				return "", errors.Wrap(err, "region.ChangeRoot.UpdateUserData set root password")
-			}
-		}
 	} else {
 		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
-	if len(udata) > 0 {
+	if len(userData) > 0 {
 		meta := jsonutils.NewDict()
-		meta.Add(jsonutils.NewString(udata), "user_data")
+		meta.Add(jsonutils.NewString(userData), "user_data")
 		changeOsObj.Add(meta, "metadata")
 	}
 
@@ -1353,15 +1327,29 @@ func (self *SInstance) GetError() error {
 	return nil
 }
 
-func updateUserData(userData, username, password, publicKey string) (string, error) {
-	config, err := cloudinit.ParseUserDataBase64(userData)
-	if err != nil {
-		return "", fmt.Errorf("invalid userdata %s", userData)
+func updateUserData(userData, osVersion, username, password, publicKey string) (string, error) {
+	winOS := strings.ToLower(osprofile.OS_TYPE_WINDOWS)
+	osVersion = strings.ToLower(osVersion)
+	config := &cloudinit.SCloudConfig{}
+	if strings.Contains(osVersion, winOS) {
+		if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
+			config = _config
+		} else {
+			log.Debugf("updateWindowsUserData invalid userdata %s", userData)
+		}
+	} else {
+		if _config, err := cloudinit.ParseUserDataBase64(userData); err == nil {
+			config = _config
+		} else {
+			return "", fmt.Errorf("updateLinuxUserData invalid userdata %s", userData)
+		}
 	}
 
 	user := cloudinit.NewUser(username)
 	config.RemoveUser(user)
+	config.DisableRoot = 0
 	if len(password) > 0 {
+		config.SshPwauth = cloudinit.SSH_PASSWORD_AUTH_ON
 		user.Password(password)
 		config.MergeUser(user)
 	}
@@ -1371,5 +1359,43 @@ func updateUserData(userData, username, password, publicKey string) (string, err
 		config.MergeUser(user)
 	}
 
-	return config.UserDataBase64(), nil
+	if strings.Contains(osVersion, winOS) {
+		userData, err := updateWindowsUserData(config.UserDataPowerShell(), osVersion, username, password)
+		if err != nil {
+			return "", errors.Wrap(err, "updateUserData.updateWindowsUserData")
+		}
+		return userData, nil
+	} else {
+		return config.UserDataBase64(), nil
+	}
+}
+
+func updateWindowsUserData(userData string, osVersion string, username, password string) (string, error) {
+	// Windows Server 2003, Windows Vista, Windows Server 2008, Windows Server 2003 R2, Windows Server 2000, Windows Server 2012, Windows Server 2003 with SP1, Windows 8
+	oldVersions := []string{"2000", "2003", "2008", "2012", "Vista"}
+	isOldVersion := false
+	for i := range oldVersions {
+		if strings.Contains(osVersion, oldVersions[i]) {
+			isOldVersion = true
+		}
+	}
+
+	shells := ""
+	if isOldVersion {
+		shells += fmt.Sprintf("rem cmd\n")
+		if username == "Administrator" {
+			shells += fmt.Sprintf("net user %s %s\n", username, password)
+		} else {
+			shells += fmt.Sprintf("net user %s %s  /add\n", username, password)
+			shells += fmt.Sprintf("net localgroup administrators %s  /add\n", username)
+		}
+
+		shells += fmt.Sprintf("net user %s /active:yes", username)
+	} else {
+		if !strings.HasPrefix(userData, "#ps1") {
+			shells = fmt.Sprintf("#ps1\n%s", userData)
+		}
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(shells)), nil
 }

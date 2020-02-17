@@ -112,11 +112,6 @@ func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SHuaweiGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
-	if desc.ImageType == "system" {
-		if desc.OsDistribution == "Ubuntu" {
-			userName = "ubuntu"
-		}
-	}
 	if desc.OsType == "Windows" {
 		userName = "Administrator"
 	}
@@ -130,4 +125,8 @@ func (self *SHuaweiGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 	}
 
 	return false
+}
+
+func (self *SHuaweiGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
 }

@@ -113,6 +113,10 @@ func (self *SDisk) GetCreatedAt() time.Time {
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
+	if self.ExpireTime == 0 {
+		return time.Time{}
+	}
+
 	return time.Unix(self.ExpireTime/1000, 0)
 }
 

@@ -120,13 +120,12 @@ func init() {
 		Image         string `help:"Image ID"`
 		Password      string `help:"admin password"`
 		PublicKeyName string `help:"public key name"`
-		PublicKey     string `help:"public key"`
 		UserData      string `help:"cloud-init user data"`
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *huawei.SRegion, args *InstanceRebuildRootOptions) error {
 		ctx := context.Background()
-		jobId, err := cli.ChangeRoot(ctx, args.UserId, args.ID, args.Image, args.Password, args.PublicKeyName, args.PublicKey, args.UserData)
+		jobId, err := cli.ChangeRoot(ctx, args.UserId, args.ID, args.Image, args.Password, args.PublicKeyName, args.UserData)
 		if err != nil {
 			return err
 		}
