@@ -4377,8 +4377,8 @@ func (self *SGuest) getSecgroupExternalIds(provider *SCloudprovider) []string {
 	return externalIds
 }
 
-func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId string) (*SSecurityGroup, error) {
-	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
+func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, vpcId string, externalId string) (*SSecurityGroup, error) {
+	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId).Equals("vpc_id", vpcId)
 	cache := SSecurityGroupCache{}
 	cache.SetModelManager(SecurityGroupCacheManager, &cache)
 	count, err := q.CountWithError()
@@ -4412,11 +4412,17 @@ func (self *SGuest) setSecgroupPublicScope(secgroup *SSecurityGroup) error {
 func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroupIds []string) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
+	vpc, err := self.GetVpc()
+	if err != nil {
+		syncResult.AddError(err)
+		return syncResult
+	}
+
 	secgroupExternalIds := self.getSecgroupExternalIds(provider)
 
 	_secgroupIds := []string{}
 	for _, secgroupId := range secgroupIds {
-		secgroup, err := self.getSecgroupByCache(provider, secgroupId)
+		secgroup, err := self.getSecgroupByCache(provider, vpc.GetId(), secgroupId)
 		if err != nil {
 			syncResult.AddError(err)
 			continue
