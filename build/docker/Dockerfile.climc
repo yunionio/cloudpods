@@ -1,3 +1,5 @@
 FROM registry.cn-beijing.aliyuncs.com/yunionio/climc-base:latest
 
+ADD ./build/climc/root/opt /opt
+
 ADD ./_output/bin/climc ./_output/bin/*cli /opt/yunion/bin/
