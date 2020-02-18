@@ -52,6 +52,10 @@ const (
 	PATCH  = THttpMethod("PATCH")
 	DELETE = THttpMethod("DELETE")
 	OPTION = THttpMethod("OPTION")
+
+	IdleConnTimeout       = 60
+	TLSHandshakeTimeout   = 10
+	ResponseHeaderTimeout = 30
 )
 
 var (
@@ -162,17 +166,17 @@ func getTransport(insecure bool, adaptive bool) *http.Transport {
 		// (keep-alive) connection will remain idle before closing
 		// itself.
 		// Zero means no limit.
-		IdleConnTimeout: 60 * time.Second,
+		IdleConnTimeout: IdleConnTimeout * time.Second,
 		// 建立TCP连接后，等待TLS握手的超时时间
 		// TLSHandshakeTimeout specifies the maximum amount of time waiting to
 		// wait for a TLS handshake. Zero means no timeout.
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: TLSHandshakeTimeout * time.Second,
 		// 发送请求后，等待服务端http响应的超时时间
 		// ResponseHeaderTimeout, if non-zero, specifies the amount of
 		// time to wait for a server's response headers after fully
 		// writing the request (including its body, if any). This
 		// time does not include the time to read the response body.
-		ResponseHeaderTimeout: 10 * time.Second,
+		ResponseHeaderTimeout: ResponseHeaderTimeout * time.Second,
 		// 当请求携带Expect: 100-continue时，等待服务端100响应的超时时间
 		// ExpectContinueTimeout, if non-zero, specifies the amount of
 		// time to wait for a server's first response headers after fully
