@@ -28,6 +28,9 @@ var (
 	tenantCacheExpireSeconds = 900
 
 	nonDefaultDomainProjects = false
+
+	defaultPagingLimit int64 = 20
+	maxPagingLimit     int64 = 2048
 )
 
 func SetRegion(region string) {
@@ -60,4 +63,12 @@ func SetNonDefaultDomainProjects(val bool) {
 
 func GetNonDefaultDomainProjects() bool {
 	return nonDefaultDomainProjects
+}
+
+func GetDefaultPagingLimit() int64 {
+	return defaultPagingLimit
+}
+
+func GetMaxPagingLimit() int64 {
+	return maxPagingLimit
 }
