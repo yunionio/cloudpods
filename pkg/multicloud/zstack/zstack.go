@@ -310,6 +310,49 @@ func (cli *SZStackClient) getResource(resource, resourceId string, retval interf
 	return cloudprovider.ErrDuplicateId
 }
 
+func (cli *SZStackClient) getMonitor(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	return cli._getMonitor(resource, params)
+}
+
+func (cli *SZStackClient) _getMonitor(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	client := httputils.GetDefaultClient()
+	header := http.Header{}
+	requestURL := cli.getPostURL(resource)
+	paramDict := params.(*jsonutils.JSONDict)
+	if paramDict.Size() > 0 {
+		values := url.Values{}
+		for _, key := range paramDict.SortedKeys() {
+			value, _ := paramDict.GetString(key)
+			values.Add(key, value)
+		}
+		requestURL += fmt.Sprintf("?%s", values.Encode())
+	}
+	var resp jsonutils.JSONObject
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*5 {
+		err := cli.sign(requestURL, "GET", header)
+		if err != nil {
+			return nil, err
+		}
+		_, resp, err = httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
+		if err != nil {
+			if strings.Contains(err.Error(), "exceeded while awaiting headers") {
+				time.Sleep(time.Second * 5)
+				continue
+			}
+			return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s", resource, params))
+		}
+		break
+	}
+
+	if resp.Contains("location") {
+		location, _ := resp.GetString("location")
+		return cli.wait(client, header, "get", requestURL, jsonutils.NewDict(), location)
+	}
+	return resp, nil
+}
+
 func (cli *SZStackClient) get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
 	return cli._get(resource, resourceId, spec)
 }
