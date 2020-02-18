@@ -284,20 +284,14 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Equals("manager_id", eip.ManagerId)
 
 		if len(eip.NetworkId) > 0 {
-			network, err := eip.GetNetwork()
-			if err != nil {
-				return nil, err
-			}
-			zone := network.getZone()
-			sq := hostQ.Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
-			q = q.In("host_id", sq)
-		} else {
-			region := eip.GetRegion()
-			regionTable := CloudregionManager.Query().SubQuery()
-			sq := hostQ.Join(regionTable, sqlchemy.Equals(zoneTable.Field("cloudregion_id"), regionTable.Field("id"))).
-				Filter(sqlchemy.Equals(regionTable.Field("id"), region.GetId())).SubQuery()
-			q = q.In("host_id", sq)
+			sq := GuestnetworkManager.Query("guest_id").Equals("network_id", eip.NetworkId).SubQuery()
+			q = q.NotIn("id", sq)
 		}
+		region := eip.GetRegion()
+		regionTable := CloudregionManager.Query().SubQuery()
+		sq := hostQ.Join(regionTable, sqlchemy.Equals(zoneTable.Field("cloudregion_id"), regionTable.Field("id"))).
+			Filter(sqlchemy.Equals(regionTable.Field("id"), region.GetId())).SubQuery()
+		q = q.In("host_id", sq)
 	}
 
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
