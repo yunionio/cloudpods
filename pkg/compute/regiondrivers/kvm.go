@@ -801,6 +801,11 @@ func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCre
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *models.SCloudregion, vpc *models.SVpc, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
 	return httperrors.NewNotImplementedError("Not Implement EIP")
 }
