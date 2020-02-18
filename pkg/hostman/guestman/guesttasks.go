@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -145,11 +146,12 @@ type SGuestDiskSyncTask struct {
 	addDisks []jsonutils.JSONObject
 	cdrom    *string
 
-	callback func(...error)
+	callback      func(...error)
+	checkeDrivers []string
 }
 
 func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []jsonutils.JSONObject, cdrom *string) *SGuestDiskSyncTask {
-	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil}
+	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil, nil}
 }
 
 func (d *SGuestDiskSyncTask) Start(callback func(...error)) {
@@ -223,7 +225,43 @@ func (d *SGuestDiskSyncTask) onRemoveDiskSucc(results string) {
 	d.syncDisksConf()
 }
 
+func (d *SGuestDiskSyncTask) checkDiskDriver(disk jsonutils.JSONObject) {
+	if d.checkeDrivers == nil {
+		d.checkeDrivers = make([]string, 0)
+	}
+	driver, _ := disk.GetString("driver")
+	log.Debugf("sync disk driver: %s", driver)
+	if driver == DISK_DRIVER_SCSI {
+		if utils.IsInStringArray(DISK_DRIVER_SCSI, d.checkeDrivers) {
+			d.startAddDisk(disk)
+		} else {
+			cb := func(ret string) { d.checkScsiDriver(ret, disk) }
+			d.guest.Monitor.HumanMonitorCommand("info pci", cb)
+		}
+	} else {
+		d.startAddDisk(disk)
+	}
+}
+
+func (d *SGuestDiskSyncTask) checkScsiDriver(ret string, disk jsonutils.JSONObject) {
+	if strings.Contains(ret, "SCSI controller") {
+		d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
+		d.startAddDisk(disk)
+	} else {
+		cb := func(ret string) {
+			log.Infof("Add scsi controller %s", ret)
+			d.checkeDrivers = append(d.checkeDrivers, DISK_DRIVER_SCSI)
+			d.startAddDisk(disk)
+		}
+		d.guest.Monitor.DeviceAdd("virtio-scsi-pci", map[string]interface{}{"id": "scsi"}, cb)
+	}
+}
+
 func (d *SGuestDiskSyncTask) addDisk(disk jsonutils.JSONObject) {
+	d.checkDiskDriver(disk)
+}
+
+func (d *SGuestDiskSyncTask) startAddDisk(disk jsonutils.JSONObject) {
 	diskPath, _ := disk.GetString("path")
 	iDisk := storageman.GetManager().GetDiskByPath(diskPath)
 	if iDisk == nil {

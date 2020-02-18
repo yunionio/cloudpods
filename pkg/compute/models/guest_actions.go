@@ -2124,6 +2124,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 	defer host.ClearSchedDescCache()
 	for i := 0; i < count; i++ {
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, input.Nets[i], pendingUsage, nil)
+		logclient.AddSimpleActionLog(self, logclient.ACT_ATTACH_NETWORK, input.Nets[i], userCred, err == nil)
 		if err != nil {
 			quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
