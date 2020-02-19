@@ -624,18 +624,6 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	lbr.Status = extRule.GetStatus()
 	lbr.Condition = extRule.GetCondition()
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
-		// 腾讯云兼容代码。主要目的是在关联listener rule时回写一个fake的backend group external id
-		if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(groupId) > 0 && len(lbr.BackendGroupId) > 0 {
-			ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
-			lbbg := ilbbg.(*SLoadbalancerBackendGroup)
-			if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-				err = db.SetExternalId(lbbg, userCred, groupId)
-				if err != nil {
-					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
-				}
-			}
-		}
-
 		if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
 			if err != nil {
@@ -655,6 +643,16 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 
 				lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 			}
+		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+			group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					lbr.BackendGroupId = ""
+				}
+				log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			}
+
+			lbr.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
 		} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}
@@ -686,7 +684,29 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 					return nil
 				})
 				if err != nil {
-					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate")
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.huawei")
+				}
+			}
+		}
+	case api.CLOUD_PROVIDER_QCLOUD:
+		_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				lbr.BackendGroupId = ""
+			}
+			return fmt.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+		}
+
+		if _group != nil {
+			group := _group.(*SQcloudCachedLbbg)
+			if group.AssociatedId != lbr.Id {
+				_, err := db.UpdateWithLock(ctx, group, func() error {
+					group.AssociatedId = lbr.Id
+					group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+					return nil
+				})
+				if err != nil {
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
 				}
 			}
 		}

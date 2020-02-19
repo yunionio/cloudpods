@@ -52,16 +52,10 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 
-	lbbg := lblis.GetLoadbalancerBackendGroup()
-	if lbbg == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find lbbg for lblis %s", lblis.Name))
-		return
-	}
-
 	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
 	driver := region.GetDriver()
 	userCred := self.GetUserCred()
-	err := driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, lbbg, self)
+	err := driver.RequestSyncLoadbalancerBackendGroup(ctx, userCred, lblis, self)
 	if err != nil {
 		self.taskFail(ctx, lblis, err.Error())
 	}
