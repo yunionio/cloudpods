@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -762,7 +763,7 @@ func (self *SVirtualMachine) GetVGADevice() string {
 var (
 	driverTable = map[string][]string{
 		"sata":   {"ahci"},
-		"scsi":   {"lsilogic", "lsilogicsas", "buslogic"},
+		"scsi":   {"parascsi", "lsilogic", "lsilogicsas", "buslogic"},
 		"pvscsi": {"parascsi"},
 		"ide":    {"ide"},
 	}
@@ -798,10 +799,10 @@ func minDiskKey(devs []SVirtualDisk) int32 {
 	return minKey
 }
 
-func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+func (self *SVirtualMachine) FindController(ctx context.Context, driver string) ([]SVirtualDevice, error) {
 	aliasDrivers, ok := driverTable[driver]
 	if !ok {
-		return fmt.Errorf("Unsupported disk driver %s", driver)
+		return nil, fmt.Errorf("Unsupported disk driver %s", driver)
 	}
 	var devs []SVirtualDevice
 	for _, alias := range aliasDrivers {
@@ -810,18 +811,39 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 			break
 		}
 	}
+	return devs, nil
+}
+
+func (self *SVirtualMachine) FindDiskByDriver(drivers ...string) []SVirtualDisk {
+	disks := make([]SVirtualDisk, 0)
+	for i := range self.vdisks {
+		if utils.IsInStringArray(self.vdisks[i].GetDriver(), drivers) {
+			disks = append(disks, self.vdisks[i])
+		}
+	}
+	return disks
+}
+
+func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	if driver == "pvscsi" {
+		driver = "scsi"
+	}
+	devs, err := self.FindController(ctx, driver)
+	if err != nil {
+		return err
+	}
 	if len(devs) == 0 {
 		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
 	}
 	ctlKey := minDevKey(devs)
-	sameDisks := make([]SVirtualDisk, 0)
-	for i := 0; i < len(self.vdisks); i += 1 {
-		if self.vdisks[i].GetDriver() == driver {
-			sameDisks = append(sameDisks, self.vdisks[i])
-		}
+	drivers := []string{driver}
+	if driver == "scsi" {
+		drivers = append(drivers, "pvscsi")
 	}
-	var diskKey int32 = 2000
-	if len(sameDisks) == 0 {
+	sameDisks := self.FindDiskByDriver(drivers...)
+
+	diskKey := self.FindMinDiffKey(2000)
+	if len(sameDisks) != 0 {
 		diskKey = minDiskKey(sameDisks)
 	}
 	index := len(sameDisks)
