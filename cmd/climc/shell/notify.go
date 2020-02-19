@@ -34,7 +34,24 @@ func init() {
 		}
 		body := jsonutils.NewDict()
 		body.Add(tmp, args.CONTACTTYPE)
-		modules.Configs.Create(s, body)
+		ret, err := modules.Configs.Create(s, body)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+	R(&ConfigCreate2Options{}, "notify-config-validate", "config validate", func(s *mcclient.ClientSession,
+		args *ConfigCreate2Options) error {
+		tmp := jsonutils.NewDict()
+		for i := 0; i+1 < len(args.CONFIGS); i += 2 {
+			tmp.Add(jsonutils.NewString(args.CONFIGS[i+1]), args.CONFIGS[i])
+		}
+		ret, err := modules.Configs.PerformAction(s, args.CONTACTTYPE, "validate", tmp)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
 		return nil
 	})
 

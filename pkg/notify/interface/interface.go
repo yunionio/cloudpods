@@ -28,6 +28,7 @@ type INotifyService interface {
 	RestartService(ctx context.Context, config SConfig, serviceName string)
 	Send(ctx context.Context, contactType, contact, topic, msg, priority string) error
 	ContactByMobile(ctx context.Context, mobile, serviceName string) (string, error)
+	ValidateConfig(ctx context.Context, cType string, configs map[string]string) (isValid bool, message string, err error)
 }
 
 type IServiceConfigStore interface {
