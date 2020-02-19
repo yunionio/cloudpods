@@ -691,7 +691,16 @@ func (self *SRegion) SyncElbListener(listener *SElbListener, config *cloudprovid
 
 	_, err = client.ModifyListener(params)
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "CertificateNotFound") {
+			// aws 比较诡异，证书能查询到，但是如果立即创建会报错，这里只能等待一会重试
+			time.Sleep(10*time.Second)
+			_, err = client.ModifyListener(params)
+			if err != nil {
+				return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener.Retry")
+			}
+		}
+
+		return errors.Wrap(err, "SRegion.SyncElbListener.ModifyListener")
 	}
 
 	hc := &cloudprovider.SLoadbalancerHealthCheck{
