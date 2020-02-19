@@ -928,12 +928,17 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	}
 	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
+	subnetId := ""
+	if len(instance.VpcAttributes.NetworkId) > 0 {
+		subnetId = instance.VpcAttributes.NetworkId
+	}
+
 	// create tmp server
 	tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
 	_id, err := self.CreateInstance(tempName,
 		imageId,
 		instance.InstanceType,
-		"",
+		subnetId,
 		"",
 		instance.ZoneId,
 		instance.Description,
