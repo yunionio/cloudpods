@@ -17,7 +17,6 @@ package notify
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"yunion.io/x/jsonutils"
 
@@ -56,74 +55,19 @@ func emailConfigGetHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
-	// hostport should be int and ssl_global should be bool
-	newDataDict := make(map[string]interface{})
 	data, _ := ret.Get("config")
 	dataDict := data.(*jsonutils.JSONDict)
-	dataDict = database2Display(dataDict)
-	for _, k := range dataDict.SortedKeys() {
-		tmp, _ := dataDict.GetString(k)
-		switch k {
-		case "hostport":
-			port, _ := strconv.Atoi(tmp)
-			newDataDict[k] = port
-		case "ssl_global":
-			ssl, _ := strconv.ParseBool(tmp)
-			newDataDict[k] = ssl
-		default:
-			newDataDict[k] = tmp
-		}
-	}
-	appsrv.SendJSON(w, jsonutils.Marshal(map[string]map[string]interface{}{
-		EMAIL_KEYWORD: newDataDict,
-	}))
-}
-
-func dispaly2Database(dict *jsonutils.JSONDict) *jsonutils.JSONDict {
-	keys := dict.SortedKeys()
-	newKey := ""
-	for _, key := range keys {
-		switch key {
-		case "username", "password":
-			newKey = "mail." + key
-		case "hostname", "hostport":
-			newKey = "mail.smtp." + key
-		case "ssl_global":
-			newKey = "mail.global.ssl"
-		}
-		v, _ := dict.Get(key)
-		dict.Add(v, newKey)
-		dict.Remove(key)
-	}
-	return dict
-}
-
-func database2Display(dict *jsonutils.JSONDict) *jsonutils.JSONDict {
-	keys := dict.SortedKeys()
-	newKey := ""
-	for _, key := range keys {
-		switch key {
-		case "mail.username", "mail.password":
-			newKey = key[5:]
-		case "mail.smtp.hostname", "mail.smtp.hostport":
-			newKey = key[10:]
-		case "mail.global.ssl":
-			newKey = "ssl_global"
-		}
-		v, _ := dict.Get(key)
-		dict.Add(v, newKey)
-		dict.Remove(key)
-	}
-	return dict
+	output := jsonutils.NewDict()
+	output.Add(dataDict, EMAIL_KEYWORD)
+	appsrv.SendJSON(w, output)
 }
 
 func emailConfigUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, _, _, body := fetchEnv(ctx, w, r)
 	body, _ = body.Get(EMAIL_KEYWORD)
 	bodyRet := jsonutils.DeepCopy(body)
-	bodyDict := body.(*jsonutils.JSONDict)
 	newBody := jsonutils.NewDict()
-	newBody.Add(dispaly2Database(bodyDict), EMAIL)
+	newBody.Add(body, EMAIL)
 	err := manager.UpdateConfig(ctx, newBody)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
