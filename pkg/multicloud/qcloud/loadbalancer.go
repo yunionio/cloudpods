@@ -132,7 +132,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 func onecloudHealthCodeToQcloud(codes string) int {
 	qcode := 0
 	for i, code := range HTTP_CODES {
-		if strings.Contains(code, codes) {
+		if strings.Contains(codes, code) {
 			// 按位或然后再赋值qcode
 			qcode |= 1 << uint(i)
 		}
@@ -311,6 +311,11 @@ func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLo
 }
 
 func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	if self.Forward == LB_TYPE_CLASSIC {
+		bg := SLBBackendGroup{lb: self}
+		return []cloudprovider.ICloudLoadbalancerBackendGroup{&bg}, nil
+	}
+
 	listeners, err := self.GetLoadbalancerListeners("")
 	if err != nil {
 		return nil, err
