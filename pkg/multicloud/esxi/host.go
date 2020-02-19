@@ -879,7 +879,11 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 	}
 	if len(scsiDevs) == 0 {
 		key := from.FindMinDiffKey(1000)
-		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, "scsi")))
+		driver := "pvscsi"
+		if host.isVersion50() {
+			driver = "scsi"
+		}
+		deviceChange = append(deviceChange, addDevSpec(NewSCSIDev(key, 100, driver)))
 		ctlKey = key
 	} else {
 		ctlKey = minDevKey(scsiDevs)
@@ -914,7 +918,7 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			// find same disk
 			var index int32
 			var key int32 = 2000
-			sameDisk := from.FindDiskByDriver("scsi")
+			sameDisk := from.FindDiskByDriver("scsi", "pvscsi")
 			index += int32(len(sameDisk))
 			if len(sameDisk) > 0 {
 				key = minDiskKey(sameDisk)

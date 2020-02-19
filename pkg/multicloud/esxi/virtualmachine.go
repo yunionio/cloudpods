@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -787,7 +788,7 @@ func (self *SVirtualMachine) GetVGADevice() string {
 var (
 	driverTable = map[string][]string{
 		"sata":   {"ahci"},
-		"scsi":   {"lsilogic", "lsilogicsas", "buslogic"},
+		"scsi":   {"parascsi", "lsilogic", "lsilogicsas", "buslogic"},
 		"pvscsi": {"parascsi"},
 		"ide":    {"ide"},
 	}
@@ -838,10 +839,10 @@ func (self *SVirtualMachine) FindController(ctx context.Context, driver string) 
 	return devs, nil
 }
 
-func (self *SVirtualMachine) FindDiskByDriver(driver string) []SVirtualDisk {
+func (self *SVirtualMachine) FindDiskByDriver(drivers ...string) []SVirtualDisk {
 	disks := make([]SVirtualDisk, 0)
 	for i := range self.vdisks {
-		if self.vdisks[i].GetDriver() == driver {
+		if utils.IsInStringArray(self.vdisks[i].GetDriver(), drivers) {
 			disks = append(disks, self.vdisks[i])
 		}
 	}
@@ -849,6 +850,9 @@ func (self *SVirtualMachine) FindDiskByDriver(driver string) []SVirtualDisk {
 }
 
 func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	if driver == "pvscsi" {
+		driver = "scsi"
+	}
 	devs, err := self.FindController(ctx, driver)
 	if err != nil {
 		return err
@@ -857,10 +861,14 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		return self.createDriverAndDisk(ctx, sizeMb, uuid, driver)
 	}
 	ctlKey := minDevKey(devs)
-	sameDisks := self.FindDiskByDriver(driver)
+	drivers := []string{driver}
+	if driver == "scsi" {
+		drivers = append(drivers, "pvscsi")
+	}
+	sameDisks := self.FindDiskByDriver(drivers...)
 
-	var diskKey int32 = 2000
-	if len(sameDisks) == 0 {
+	diskKey := self.FindMinDiffKey(2000)
+	if len(sameDisks) != 0 {
 		diskKey = minDiskKey(sameDisks)
 	}
 	index := len(sameDisks)
