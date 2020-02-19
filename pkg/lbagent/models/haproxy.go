@@ -285,14 +285,18 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 		stickyCookie := ""
 		switch listener.StickySessionType {
 		case "insert":
-			stickyCookie = "cookie SERVERID insert indirect nocache"
+			cookie := listener.StickySessionCookie
+			if cookie == "" {
+				cookie = "SERVERID"
+			}
+			stickyCookie = fmt.Sprintf("cookie %s insert indirect nocache", cookie)
 			if maxIdle := listener.StickySessionCookieTimeout; maxIdle > 0 {
 				stickyCookie += fmt.Sprintf(" maxidle %ds", maxIdle)
 			}
 		case "server":
 			cookie := listener.StickySessionCookie
 			if cookie != "" {
-				stickyCookie = fmt.Sprintf("cookie %q rewrite nocache", cookie)
+				stickyCookie = fmt.Sprintf("cookie %q rewrite", cookie)
 			}
 		}
 		if stickyCookie != "" {
