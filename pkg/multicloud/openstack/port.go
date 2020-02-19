@@ -17,10 +17,10 @@ package openstack
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -150,13 +150,11 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(ports); i++ {
-		if len(ports[i].DeviceID) == 0 || !utils.IsInStringArray(ports[i].DeviceOwner, []string{
-			"compute:nova",       //instance ip addr
-			"network:floatingip", //float ip addr
-		}) {
-			ports[i].region = region
-			ret = append(ret, &ports[i])
+		if strings.HasPrefix(ports[i].DeviceOwner, "compute:") || ports[i].DeviceOwner == "network:floatingip" {
+			continue
 		}
+		ports[i].region = region
+		ret = append(ret, &ports[i])
 	}
 	return ret, nil
 }
