@@ -2583,3 +2583,7 @@ func (self *SHuaWeiRegionDriver) IsSupportedDBInstance() bool {
 func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
 	return true
 }
+
+func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {
+	return []string{api.VM_RUNNING, api.VM_READY}
+}
