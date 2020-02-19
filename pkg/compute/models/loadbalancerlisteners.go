@@ -644,6 +644,29 @@ func (lblis *SLoadbalancerListener) GetAwsLoadbalancerListenerParams() (*cloudpr
 	return listener, nil
 }
 
+func (lblis *SLoadbalancerListener) GetQcloudLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
+	listener, err := lblis.GetLoadbalancerListenerParams()
+	if err != nil {
+		return nil, err
+	}
+
+	if backendgroup := lblis.GetLoadbalancerBackendGroup(); backendgroup != nil {
+		cachedLbbg, err := QcloudCachedLbbgManager.GetCachedBackendGroupByAssociateId(lblis.GetId())
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, errors.Wrap(err, "loadbalancerListener.GetCachedBackendGroupByAssociateId")
+			} else {
+				log.Debugf("loadbalancerListener.GetCachedBackendGroupByAssociateId %s not found", lblis.GetId())
+			}
+		} else {
+			listener.BackendGroupID = cachedLbbg.ExternalId
+			listener.BackendGroupType = backendgroup.Type
+		}
+	}
+
+	return listener, nil
+}
+
 func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() (*SCachedLoadbalancerCertificate, error) {
 	if len(lblis.CachedCertificateId) == 0 {
 		return nil, nil
@@ -859,27 +882,28 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		fallthrough
 	case api.LB_LISTENER_TYPE_HTTP:
 		if len(extListener.GetStickySessionType()) > 0 {
-			lblis.StickySession = extListener.GetStickySession()
-			lblis.StickySessionType = extListener.GetStickySessionType()
-			lblis.StickySessionCookie = extListener.GetStickySessionCookie()
-			lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
+			if lblis.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) {
+				// 腾讯云http&https监听， 没有会话保持，不需要同步
+			} else {
+				// deprecated ???
+				lblis.StickySession = extListener.GetStickySession()
+				lblis.StickySessionType = extListener.GetStickySessionType()
+				lblis.StickySessionCookie = extListener.GetStickySessionCookie()
+				lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
+			}
 		}
 		lblis.XForwardedFor = extListener.XForwardedForEnabled()
 		lblis.Gzip = extListener.GzipEnabled()
 	}
-	groupId := extListener.GetBackendGroupId()
-	// 腾讯云兼容代码。主要目的是在关联listen时回写一个fake的backend group external id
-	if lblis.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(groupId) > 0 && len(lblis.BackendGroupId) > 0 {
-		ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
-		lbbg := ilbbg.(*SLoadbalancerBackendGroup)
-		if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-			err = db.SetExternalId(lbbg, userCred, groupId)
-			if err != nil {
-				log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
-			}
-		}
+
+	if utils.IsInStringArray(extListener.GetStickySession(), []string{api.LB_BOOL_ON, api.LB_BOOL_OFF}) {
+		lblis.StickySession = extListener.GetStickySession()
+		lblis.StickySessionType = extListener.GetStickySessionType()
+		lblis.StickySessionCookie = extListener.GetStickySessionCookie()
+		lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
 	}
 
+	groupId := extListener.GetBackendGroupId()
 	switch lblis.GetProviderName() {
 	case api.CLOUD_PROVIDER_HUAWEI:
 		if len(groupId) > 0 {
@@ -910,6 +934,24 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 					if err != nil {
 						log.Errorf("Update default rule %s backendgroup failed %s", rule.GetId(), err)
 					}
+				}
+			}
+		}
+	case api.CLOUD_PROVIDER_QCLOUD:
+		if len(groupId) > 0 {
+			lb := lblis.GetLoadbalancer()
+			if forward, _ := lb.LBInfo.Int("Forward"); forward == 1 {
+				// 应用型负载均衡
+				group, err := db.FetchByExternalId(QcloudCachedLbbgManager, groupId)
+				if err != nil {
+					log.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				} else {
+					lblis.BackendGroupId = group.(*SQcloudCachedLbbg).BackendGroupId
+				}
+			} else {
+				// 传统型负载均衡
+				if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+					lblis.BackendGroupId = group.GetId()
 				}
 			}
 		}
@@ -948,7 +990,33 @@ func (lblis *SLoadbalancerListener) updateCachedLoadbalancerBackendGroupAssociat
 					return nil
 				})
 				if err != nil {
-					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate")
+					return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.huawei")
+				}
+			}
+		}
+	case api.CLOUD_PROVIDER_QCLOUD:
+		lb := lblis.GetLoadbalancer()
+		if forward, _ := lb.LBInfo.Int("Forward"); forward == 1 {
+			_group, err := db.FetchByExternalId(QcloudCachedLbbgManager, exteralLbbgId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					lblis.BackendGroupId = ""
+				} else {
+					return fmt.Errorf("Fetch qcloud loadbalancer backendgroup by external id %s failed: %s", exteralLbbgId, err)
+				}
+			}
+
+			if _group != nil {
+				group := _group.(*SQcloudCachedLbbg)
+				if group.AssociatedId != lblis.Id {
+					_, err := db.UpdateWithLock(ctx, group, func() error {
+						group.AssociatedId = lblis.Id
+						group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+						return nil
+					})
+					if err != nil {
+						return errors.Wrap(err, "LoadbalancerListener.updateCachedLoadbalancerBackendGroupAssociate.qcloud")
+					}
 				}
 			}
 		}
