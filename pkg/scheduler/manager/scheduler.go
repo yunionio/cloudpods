@@ -40,6 +40,7 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedInfo)
 			ResType:   provider.CandidateType(),
 			ZoneID:    schedData.PreferZone,
 			RegionID:  schedData.PreferRegion,
+			ManagerID: schedData.PreferManager,
 			HostTypes: schedData.GetCandidateHostTypes(),
 		}
 		hosts, err = candidateManager.GetCandidates(args)
