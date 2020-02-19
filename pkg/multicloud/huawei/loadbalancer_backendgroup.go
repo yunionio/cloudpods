@@ -377,7 +377,9 @@ func (self *SRegion) UpdateLoadBalancerBackendGroup(backendGroupID string, group
 	}
 	poolObj.Set("lb_algorithm", jsonutils.NewString(scheduler))
 
-	if group.StickySession != nil {
+	if group.StickySession == nil || group.StickySession.StickySession == api.LB_BOOL_OFF {
+		poolObj.Set("session_persistence", jsonutils.JSONNull)
+	} else {
 		s := jsonutils.NewDict()
 		timeout := int64(group.StickySession.StickySessionCookieTimeout / 60)
 		if group.ListenType == api.LB_LISTENER_TYPE_UDP || group.ListenType == api.LB_LISTENER_TYPE_TCP {
