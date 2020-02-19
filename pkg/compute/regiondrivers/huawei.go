@@ -862,8 +862,14 @@ func (self *SHuaWeiRegionDriver) removeCachedLbbg(ctx context.Context, userCred 
 	return nil
 }
 
-func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbbg *models.SLoadbalancerBackendGroup, task taskman.ITask) error {
+func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		lbbg := lblis.GetLoadbalancerBackendGroup()
+		if lbbg == nil {
+			err := fmt.Errorf("failed to find lbbg for lblis %s", lblis.Name)
+			return nil, errors.Wrap(err, "HuaWeiRegionDriver.RequestSyncLoadbalancerbackendGroup.GetLoadbalancerBackendGroup")
+		}
+
 		iRegion, err := lbbg.GetIRegion()
 		if err != nil {
 			return nil, err
