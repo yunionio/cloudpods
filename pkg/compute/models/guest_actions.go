@@ -476,7 +476,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	createInput.EipBw = cloneInput.EipBw
 	createInput.Eip = cloneInput.Eip
 	createInput.EipChargeType = cloneInput.EipChargeType
-	if err := GuestManager.validateEip(userCred, createInput, createInput.PreferRegion); err != nil {
+	if err := GuestManager.validateEip(userCred, createInput, createInput.PreferRegion, createInput.PreferManager); err != nil {
 		return nil, err
 	}
 

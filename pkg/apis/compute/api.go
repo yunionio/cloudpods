@@ -231,6 +231,9 @@ type BaremetalDiskConfig struct {
 }
 
 type ServerConfigs struct {
+	// 调度使用指定的云账号
+	PreferManager string `json:"prefer_manager_id"`
+
 	// 调度到指定区域,优先级低于prefer_zone_id
 	PreferRegion string `json:"prefer_region_id"`
 
