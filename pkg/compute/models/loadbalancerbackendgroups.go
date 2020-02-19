@@ -607,6 +607,17 @@ func (lbbg *SLoadbalancerBackendGroup) GetHuaweiCachedlbbg() ([]SHuaweiCachedLbb
 	return ret, nil
 }
 
+func (lbbg *SLoadbalancerBackendGroup) GetQcloudCachedlbbg() ([]SQcloudCachedLbbg, error) {
+	ret := []SQcloudCachedLbbg{}
+	q := QcloudCachedLbbgManager.Query().Equals("backend_group_id", lbbg.GetId())
+	err := db.FetchModelObjects(QcloudCachedLbbgManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackendGroup.GetQcloudCachedlbbg")
+	}
+
+	return ret, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
 	ret, err := lbbg.GetBackendGroupParams()
 	if err != nil {
@@ -643,6 +654,21 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbala
 	ret.Scheduler = lblis.Scheduler
 	ret.HealthCheck = healthCheck
 	ret.Name = fmt.Sprintf("%s-%s", ret.Name, rand.String(4))
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetQcloudBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
+	ret, err := lbbg.GetBackendGroupParams()
+	if err != nil {
+		return ret, err
+	}
+
+	if lbr != nil {
+		ret.ListenerID = lbr.GetExternalId()
+	} else {
+		ret.ListenerID = lblis.GetExternalId()
+	}
 
 	return ret, nil
 }
