@@ -436,6 +436,7 @@ auth_uri = '{{ auth_uri }}'
 admin_user = '{{ user }}'
 admin_password = '{{ pass }}'
 admin_tenant_name = '{{ proj }}'
+session_endpoint_type = 'public'
 
 data_preserve_n = 10
 base_data_dir = "/opt/cloud/workspace/lbagent"
