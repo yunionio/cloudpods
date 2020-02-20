@@ -50,6 +50,7 @@ var RegionNames = map[string]string{
 	"asia-east2":           "香港",
 	"asia-northeast1":      "东京",
 	"asia-northeast2":      "大阪",
+	"asia-northeast3":      "首尔",
 	"asia-south1":          "孟买",
 	"asia-southeast1":      "新加坡",
 	"australia-southeast1": "悉尼",
