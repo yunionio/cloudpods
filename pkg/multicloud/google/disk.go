@@ -109,7 +109,7 @@ func (disk *SDisk) GetIStorageId() string {
 }
 
 func (disk *SDisk) GetDiskFormat() string {
-	return ""
+	return "raw"
 }
 
 func (disk *SDisk) GetDiskSizeMB() int {
