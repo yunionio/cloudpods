@@ -2247,7 +2247,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewBadRequestError("Guest have backup not allow to change config")
 	}
 
-	changeStatus, err := self.GetDriver().GetChangeConfigStatus()
+	changeStatus, err := self.GetDriver().GetChangeConfigStatus(self)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}

@@ -115,7 +115,7 @@ func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
-func (self *SBaremetalGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SBaremetalGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return nil, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
 }
 

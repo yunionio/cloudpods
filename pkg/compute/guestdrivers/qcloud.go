@@ -91,7 +91,7 @@ func (self *SQcloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SQcloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SQcloudGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
