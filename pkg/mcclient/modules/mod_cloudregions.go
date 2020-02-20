@@ -49,7 +49,9 @@ func (cc tNameCounters) Less(i, j int) bool {
 
 func (this *SCloudregionManager) getRegionAttributeList(session *mcclient.ClientSession, params jsonutils.JSONObject, attr string) (jsonutils.JSONObject, error) {
 	paramsDict := params.(*jsonutils.JSONDict)
-	paramsDict.Set("limit", jsonutils.NewInt(0))
+	if limit, err := paramsDict.Int("limit"); err != nil || limit == 0 {
+		paramsDict.Set("limit", jsonutils.NewInt(2048))
+	}
 
 	listResult, err := this.List(session, params)
 	if err != nil {
