@@ -54,6 +54,9 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"southindia":         {City: api.CITY_KANCHIPURAM, CountryCode: api.COUNTRY_CODE_IN}, //印度 甘吉布勒姆
 	"uaenorth":           {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
 	"uaecentral":         {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
+	"switzerlandwest":    {City: api.CITY_GENEVA, CountryCode: api.COUNTRY_CODE_CH},    // 日内瓦
+	"switzerlandnorth":   {City: api.CITY_ZURICH, CountryCode: api.COUNTRY_CODE_CH},    // 苏黎世
+	"norwaywest":         {City: api.CITY_STAVANGER, CountryCode: api.COUNTRY_CODE_NO}, // 斯塔万格
 
 	"chinaeast":   {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"chinaeast2":  {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
