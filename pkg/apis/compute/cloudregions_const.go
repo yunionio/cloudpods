@@ -36,6 +36,7 @@ const (
 	CITY_TAIPEI        = "Taipei"      //台北市
 	CITY_KAOHSIUNG     = "Kaohsiung"   //高雄市
 	CITY_CHENG_DU      = "Chengdu"     //成都
+	CITY_HE_YUAN       = "HeYuan"      //河源
 	CITY_CHONG_QING    = "Chongqing"   //重庆
 	CITY_LAN_ZHOU      = "Lanzhou"     //兰州
 	CITY_TAI_YUAN      = "Taiyuan"     //太原
