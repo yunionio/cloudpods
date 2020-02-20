@@ -106,7 +106,7 @@ func (self *SOpenStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING, api.VM_REBUILD_ROOT_FAIL}, nil
 }
 
-func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SOpenStackGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

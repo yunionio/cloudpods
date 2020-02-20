@@ -101,7 +101,11 @@ func (self *SGoogleGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
-func (self *SGoogleGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SGoogleGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
+	// Google Windows Server not support change config when vm running
+	if strings.ToLower(guest.OsType) == strings.ToLower(osprofile.OS_TYPE_WINDOWS) {
+		return []string{api.VM_READY}, nil
+	}
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 

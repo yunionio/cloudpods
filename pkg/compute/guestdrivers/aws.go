@@ -139,7 +139,7 @@ func (self *SAwsGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SAwsGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
