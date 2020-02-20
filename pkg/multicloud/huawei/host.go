@@ -246,15 +246,15 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		disks[i+1].VolumeType = dataDisk.StorageType
 	}
 
-	secgroup, err := self.zone.region.GetSecurityGroupDetails(secgroupId)
+	_, err = self.zone.region.GetSecurityGroupDetails(secgroupId)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "SHost.CreateVM.GetSecurityGroupDetails")
 	}
 
 	// 创建实例
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, secgroup.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("create %s failed:%s", instanceType, ErrMessage(err))
@@ -276,7 +276,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.Name
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, secgroup.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
+		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, net.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, publicKey, passwd, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
