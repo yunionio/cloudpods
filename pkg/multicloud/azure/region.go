@@ -171,7 +171,7 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if err != nil {
 		log.Errorf("Parse azure region %s longitude %s error: %v", self.Name, self.Longitude, err)
 	} else {
-		info.Latitude = float32(longitude)
+		info.Longitude = float32(longitude)
 	}
 	return info
 }
