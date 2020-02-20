@@ -77,6 +77,10 @@ const (
 
 	//瑞士
 	CITY_ZURICH = "Zurich" //苏黎世
+	CITY_GENEVA = "Geneva" //日内瓦
+
+	// 挪威
+	CITY_STAVANGER = "Stavanger" //斯塔万格
 
 	// 马来西亚
 	CITY_KUALA_LUMPUR = "Kuala Lumpur" //吉隆坡
@@ -186,4 +190,5 @@ const (
 	COUNTRY_CODE_NG = "NG" //尼日利亚
 	COUNTRY_CODE_VN = "VN" //越南
 	COUNTRY_CODE_CH = "CH" //瑞士
+	COUNTRY_CODE_NO = "NO" //挪威
 )
