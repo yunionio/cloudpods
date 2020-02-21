@@ -59,6 +59,10 @@ type NetworkListInput struct {
 	UsableResourceListInput
 
 	WireFilterListInput
+
+	// description: search ip address in network.
+	// example: 10.168.222.1
+	Ip string `json:"ip"`
 }
 
 type NetworkCreateInput struct {
