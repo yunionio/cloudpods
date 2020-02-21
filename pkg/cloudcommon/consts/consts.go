@@ -29,7 +29,7 @@ var (
 
 	nonDefaultDomainProjects = false
 
-	defaultPagingLimit int64 = 20
+	defaultPagingLimit int64 = 2048
 	maxPagingLimit     int64 = 2048
 )
 
