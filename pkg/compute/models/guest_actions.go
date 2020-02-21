@@ -3479,18 +3479,35 @@ func (self *SGuest) PerformPostpaidExpire(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewBadRequestError("guest billing type is %s", self.BillingType)
 	}
 
-	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
-	if len(durationStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missong duration")
-	}
-
-	bc, err := billing.ParseBillingCycle(durationStr)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
-	}
-
 	if !self.GetDriver().IsSupportPostpaidExpire() {
 		return nil, httperrors.NewBadRequestError("guest %s unsupport postpaid expire", self.Hypervisor)
+	}
+
+	var (
+		bc          billing.SBillingCycle
+		err         error
+		durationStr string
+	)
+	durationStr, _ = data.GetString("duration")
+	if len(durationStr) == 0 {
+		expireTime, err := data.GetTime("expire_time")
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("missing duration/expire_time")
+		}
+		timeC := self.ExpiredAt
+		if timeC.IsZero() {
+			timeC = time.Now()
+		}
+		dur := expireTime.Sub(timeC)
+		if dur <= 0 {
+			return nil, httperrors.NewInputParameterError("expire time is before current expire at")
+		}
+		bc = billing.DurationToBillingCycle(dur)
+	} else {
+		bc, err = billing.ParseBillingCycle(durationStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+		}
 	}
 
 	err = self.SaveRenewInfo(ctx, userCred, &bc, nil, billing_api.BILLING_TYPE_POSTPAID)
@@ -3502,7 +3519,7 @@ func (self *SGuest) AllowPerformRenew(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+	durationStr, _ := data.GetString("duration")
 	if len(durationStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missong duration")
 	}
