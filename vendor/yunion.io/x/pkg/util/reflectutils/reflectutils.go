@@ -160,12 +160,11 @@ func ExpandInterface(val interface{}) []interface{} {
 // tagetType must not be a pointer
 func getAnonymouStructPointer(structValue reflect.Value, targetType reflect.Type) interface{} {
 	structType := structValue.Type()
+	if structType == targetType {
+		return structValue.Addr().Interface()
+	}
 	for i := 0; i < structValue.NumField(); i += 1 {
 		fieldType := structType.Field(i)
-		if fieldType.Type == targetType {
-			val := structValue.Field(i) // val is not a pointer
-			return val.Addr().Interface()
-		}
 		if fieldType.Anonymous && fieldType.Type.Kind() == reflect.Struct {
 			ptr := getAnonymouStructPointer(structValue.Field(i), targetType)
 			if ptr != nil {
@@ -177,12 +176,26 @@ func getAnonymouStructPointer(structValue reflect.Value, targetType reflect.Type
 }
 
 func FindAnonymouStructPointer(data interface{}, targetPtr interface{}) error {
-	targetValue := reflect.ValueOf(targetPtr).Elem()
+	targetValue := reflect.ValueOf(targetPtr)
+	if targetValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("target must be a pointer to pointer")
+	}
+	targetValue = targetValue.Elem()
 	if targetValue.Kind() != reflect.Ptr {
 		return fmt.Errorf("target must be a pointer to pointer")
 	}
 	targetType := targetValue.Type().Elem()
-	structValue := reflect.Indirect(reflect.ValueOf(data))
+	if targetType.Kind() != reflect.Struct {
+		return fmt.Errorf("target type must be a struct")
+	}
+	structValue := reflect.ValueOf(data)
+	if structValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("data type must be a pointer to struct")
+	}
+	structValue = reflect.ValueOf(data).Elem()
+	if structValue.Kind() != reflect.Struct {
+		return fmt.Errorf("data type must be a pointer to struct")
+	}
 	ptr := getAnonymouStructPointer(structValue, targetType)
 	if ptr == nil {
 		return fmt.Errorf("no anonymous struct found")
