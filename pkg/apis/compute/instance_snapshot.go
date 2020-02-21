@@ -27,6 +27,8 @@ type SimpleSnapshot struct {
 	DiskType string `json:"disk_type"`
 	// 区域Id
 	CloudregionId string `json:"cloudregion_id"`
+	// 快照大小
+	Size int `json:"size"`
 }
 
 type InstnaceSnapshotDetails struct {

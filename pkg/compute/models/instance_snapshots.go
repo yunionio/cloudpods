@@ -124,6 +124,7 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			StorageId:     snapshots[i].StorageId,
 			DiskType:      snapshots[i].DiskType,
 			CloudregionId: snapshots[i].CloudregionId,
+			Size:          snapshots[i].Size,
 		})
 
 		if len(snapshots[i].StorageId) > 0 {
