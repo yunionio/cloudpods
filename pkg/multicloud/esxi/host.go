@@ -565,12 +565,16 @@ func (self *SHost) getStorages() []*SHostStorageAdapterInfo {
 }
 
 func (self *SHost) GetStorageSizeMB() int {
-	size := 0
-	storages := self.GetStorageInfo()
-	for i := 0; i < len(storages); i += 1 {
-		size += storages[i].Size
+	storages, err := self.GetIStorages()
+	if err != nil {
+		log.Errorf("SHost.GetStorageSizeMB: SHost.GetIStorages: %s", err)
+		return 0
 	}
-	return size
+	var size int64
+	for _, stor := range storages {
+		size += stor.GetCapacityMB()
+	}
+	return int(size)
 }
 
 func (self *SHost) GetStorageType() string {
