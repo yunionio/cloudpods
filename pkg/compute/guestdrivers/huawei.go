@@ -83,7 +83,7 @@ func (self *SHuaweiGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SHuaweiGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SHuaweiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 

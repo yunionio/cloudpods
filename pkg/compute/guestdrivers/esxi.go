@@ -97,7 +97,7 @@ func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
-func (self *SESXiGuestDriver) GetChangeConfigStatus() ([]string, error) {
+func (self *SESXiGuestDriver) GetChangeConfigStatus(guest *models.SGuest) ([]string, error) {
 	return []string{api.VM_READY}, nil
 }
 
