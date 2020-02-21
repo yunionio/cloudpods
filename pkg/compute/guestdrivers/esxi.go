@@ -54,6 +54,8 @@ func (self *SESXiGuestDriver) DoScheduleMemoryFilter() bool { return true }
 
 func (self *SESXiGuestDriver) DoScheduleSKUFilter() bool { return false }
 
+func (self *SESXiGuestDriver) DoScheduleStorageFilter() bool { return true }
+
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ESXI
 }
