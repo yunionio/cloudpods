@@ -170,3 +170,7 @@ func AND_Val(name string, field IQueryField, v interface{}) IQueryField {
 	rightStr := fmt.Sprintf("&%v", v)
 	return NewFunctionField(name, "%s"+rightStr, field)
 }
+
+func INET_ATON(field IQueryField) IQueryField {
+	return NewFunctionField("", `INET_ATON(%s)`, field)
+}
