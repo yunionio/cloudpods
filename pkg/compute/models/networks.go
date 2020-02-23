@@ -1673,50 +1673,6 @@ func parseIpToIntArray(ip string) ([]int, error) {
 	return ipIa, nil
 }
 
-func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
-	filters := db.NewCustomizeListFilters()
-
-	if query.Contains("ip") {
-		// ipv4 only
-		ip, err := query.GetString("ip")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("Get ip fail")
-		}
-		ipIa, err := parseIpToIntArray(ip)
-		if err != nil {
-			return nil, err
-		}
-
-		ipFilter := func(obj jsonutils.JSONObject) (bool, error) {
-			guestIpStart, err := obj.GetString("guest_ip_start")
-			if err != nil {
-				return false, httperrors.NewInternalServerError("Get guest ip start error %s", err)
-			}
-			guestIpEnd, err := obj.GetString("guest_ip_end")
-			if err != nil {
-				return false, httperrors.NewInternalServerError("Get guest ip end error %s", err)
-			}
-			ipStartIa, err := parseIpToIntArray(guestIpStart)
-			if err != nil {
-				return false, httperrors.NewInternalServerError("Parse guest ip start error %s", err)
-			}
-			ipEndIa, err := parseIpToIntArray(guestIpEnd)
-			if err != nil {
-				return false, httperrors.NewInternalServerError("Parse guest ip end error %s", err)
-			}
-			for i := 0; i < len(ipIa); i++ {
-				if ipIa[i] < ipStartIa[i] || ipIa[i] > ipEndIa[i] {
-					return false, nil
-				}
-			}
-			return true, nil
-		}
-
-		filters.Append(ipFilter)
-	}
-	return filters, nil
-}
-
 // IP子网列表
 func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.NetworkListInput) (*sqlchemy.SQuery, error) {
 	var err error
@@ -1843,6 +1799,26 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		}
 		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
+
+	if len(input.Ip) > 0 {
+		ipIa, err := parseIpToIntArray(input.Ip)
+		if err != nil {
+			return nil, err
+		}
+
+		ipSa := []string{"0", "0", "0", "0"}
+		for i := range ipIa {
+			ipSa[i] = strconv.Itoa(ipIa[i])
+		}
+		fullIp := strings.Join(ipSa, ".")
+
+		ipField := sqlchemy.INET_ATON(sqlchemy.NewStringField(fullIp))
+		ipStart := sqlchemy.INET_ATON(q.Field("guest_ip_start"))
+		ipEnd := sqlchemy.INET_ATON(q.Field("guest_ip_end"))
+
+		ipCondtion := sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), input.Ip), sqlchemy.Contains(q.Field("guest_ip_end"), input.Ip))
+		q = q.Filter(ipCondtion)
 	}
 
 	return q, nil
