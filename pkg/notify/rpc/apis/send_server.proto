@@ -40,8 +40,14 @@ message UseridByMobileReply {
     string userid = 1;
 }
 
+message ValidateConfigReply {
+    bool isValid = 1;
+    string msg = 2;
+}
+
 service SendAgent {
     rpc Send(SendParams) returns (Empty);
     rpc UpdateConfig(UpdateConfigParams) returns (Empty);
+    rpc ValidateConfig(UpdateConfigParams) returns (ValidateConfigReply);
     rpc UseridByMobile(UseridByMobileParams) returns (UseridByMobileReply);
 }
