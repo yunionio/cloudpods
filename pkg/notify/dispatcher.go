@@ -56,15 +56,19 @@ func (self *NotifyModelDispatcher) GetConfig(ctx context.Context, params map[str
 	if err != nil {
 		return nil, err
 	}
-	keyVs := make(map[string]string)
-	for _, ret := range listResult.Data {
-		key, _ := ret.GetString("key_text")
-		value, _ := ret.GetString("value_text")
-		keyVs[key] = value
+	configs := jsonutils.NewDict()
+	for _, data := range listResult.Data {
+		key, _ := data.GetString("key_text")
+		value, _ := data.Get("value_text")
+		configs.Add(value, key)
 	}
-	return jsonutils.Marshal(map[string]map[string]string{
-		models.ConfigManager.Keyword(): keyVs,
-	}), nil
+	cType, ok := params["<type>"]
+	if ok {
+		configs = models.ConfigManager.Database2Display(cType, configs)
+	}
+	output := jsonutils.NewDict()
+	output.Add(configs, models.ConfigManager.Keyword())
+	return output, nil
 }
 
 func (self *NotifyModelDispatcher) DeleteConfig(ctx context.Context, params map[string]string) error {
@@ -93,6 +97,7 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 	}
 	tmp, _ := data.Get(contactType)
 	data = tmp.(*jsonutils.JSONDict)
+	data = models.ConfigManager.Display2Database(contactType, data)
 	userCred := policy.FetchUserCredential(ctx)
 	// If no config of type 'contactType' in database, create news.
 	// Else delete original ones and create news.
@@ -109,24 +114,72 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 			}
 		}
 	}
+	keys := data.SortedKeys()
 	config := make(map[string]string)
-	// create
-	for _, key := range data.SortedKeys() {
+	createDataList := make([]jsonutils.JSONObject, 0, len(keys))
+
+	// Extract data
+	for _, key := range keys {
 		createData := jsonutils.NewDict()
 		tmp, _ = data.Get(key)
 		createData.Add(tmp, "value_text")
 		createData.Add(jsonutils.NewString(key), "key_text")
 		createData.Add(jsonutils.NewString(contactType), "type")
-		_, err := self.Create(ctx, jsonutils.JSONNull, createData, nil)
+		createDataList = append(createDataList, createData)
 		value, _ := tmp.GetString()
 		config[key] = value
+	}
+
+	// validate configs
+	isValid, message, err := models.NotifyService.ValidateConfig(ctx, contactType, config)
+	if err != nil {
+		if errors.Cause(err) != errors.ErrNotImplemented {
+			return httperrors.NewInternalServerError("Validate Config error: %s", err.Error())
+		}
+		isValid = true
+	}
+	if !isValid {
+		return httperrors.NewInputParameterError("validate failed: %s", message)
+	}
+
+	// create
+	for _, createData := range createDataList {
+		_, err := self.Create(ctx, jsonutils.JSONNull, createData, nil)
 		if err != nil {
-			return errors.Wrapf(err, "Create config (%s, %s, %s) failed", contactType, key, value)
+			return errors.Wrapf(err, "Create config %s for contact type %s failed", createData.String(), contactType)
 		}
 	}
+
 	// update config
 	models.RestartService(config, contactType)
 	return nil
+}
+
+func (self *NotifyModelDispatcher) ValidateConfig(ctx context.Context, contactType string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict, ok := body.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("")
+	}
+	dict = models.ConfigManager.Display2Database(contactType, dict)
+	configs := make(map[string]string)
+	for _, key := range dict.SortedKeys() {
+		value, err := dict.GetString(key)
+		if err != nil {
+			return nil, errors.Wrap(err, "jsonutils.JsonDict.GetString")
+		}
+		configs[key] = value
+	}
+	isValid, message, err := models.NotifyService.ValidateConfig(ctx, contactType, configs)
+	if err != nil {
+		if errors.Cause(err) == errors.ErrNotImplemented {
+			return nil, httperrors.NewNotImplementedError("validating config of %s", contactType)
+		}
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewBool(isValid), "is_valid")
+	ret.Add(jsonutils.NewString(message), "message")
+	return ret, nil
 }
 
 // CreateNotification create new notifications and send them through rpc.RpcService.
