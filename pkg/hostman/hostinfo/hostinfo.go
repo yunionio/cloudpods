@@ -627,6 +627,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
+	params.Set("server_type", jsonutils.NewString(api.NETWORK_TYPE_BAREMETAL))
 	params.Set("limit", jsonutils.NewInt(0))
 
 	res, err := modules.Networks.List(h.GetSession(), params)
