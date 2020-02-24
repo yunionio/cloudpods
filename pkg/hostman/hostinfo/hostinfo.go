@@ -830,6 +830,9 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		h.onFail(err)
 	}
 	content.Set("mem_size", jsonutils.NewInt(int64(memTotal)))
+	if len(hostId) == 0 {
+		content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMem())))
+	}
 	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
 	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
