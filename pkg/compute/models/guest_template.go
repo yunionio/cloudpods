@@ -156,6 +156,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	// data.Add(jsonutils.NewString(input.OsType), "os_type")
 	cinput.Hypervisor = input.Hypervisor
 	// data.Add(jsonutils.NewString(input.Hypervisor), "hypervisor")
+	cinput.InstanceType = input.InstanceType
 
 	if len(input.GuestImageID) > 0 {
 		cinput.ImageType = IMAGE_TYPE_GUEST
@@ -528,4 +529,8 @@ func (manager *SGuestTemplateManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 	}
 
 	return q, httperrors.ErrNotFound
+}
+func (gt *SGuestTemplate) Validate(ctx context.Context, hypervisor, cloudregionId string) bool {
+	//todo: check this SGuestTemplate is valid in this hypervisor and cloudregion
+	return true
 }

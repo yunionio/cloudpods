@@ -25,12 +25,13 @@ type GuesttemplateInput struct {
 	// required: true
 	Content jsonutils.JSONObject `json:"content"`
 
-	VmemSize   int    `json:"vmem_size"`
-	VcpuCount  int    `json:"vcpu_count"`
-	OsType     string `json:"os_type"`
-	Hypervisor string `json:"hypervisor"`
-	ImageType  string `json:"image_type"`
-	ImageId    string `json:"image_id"`
+	VmemSize     int    `json:"vmem_size"`
+	VcpuCount    int    `json:"vcpu_count"`
+	OsType       string `json:"os_type"`
+	Hypervisor   string `json:"hypervisor"`
+	ImageType    string `json:"image_type"`
+	ImageId      string `json:"image_id"`
+	InstanceType string `json:"instance_type"`
 }
 
 type GuesttemplateCreateInput struct {
@@ -97,4 +98,13 @@ type GuesttemplatePublicInput struct {
 	// required: true
 	// example: system
 	Scope string `json:"scope"`
+}
+
+type GuesttemplateValidateInput struct {
+	apis.Meta
+
+	// description: the hypervisor about guest template
+	Hypervisor    string `json:"hypervisor"`
+
+	CloudregionId string `json:"cloudregion_id"`
 }
