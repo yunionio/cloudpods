@@ -724,7 +724,7 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	params := jsonutils.NewDict()
 	secgroupObj := jsonutils.NewDict()
 	secgroupObj.Add(jsonutils.NewString(name), "name")
-	if len(vpcId) > 0 {
+	if len(vpcId) > 0 && (vpcId != "classic" && vpcId != "normal") {
 		secgroupObj.Add(jsonutils.NewString(vpcId), "vpc_id")
 	}
 	params.Add(secgroupObj, "security_group")
