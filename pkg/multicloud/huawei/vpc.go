@@ -87,16 +87,13 @@ func (self *SVpc) fetchNetworks() error {
 
 // 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
-	// todo： vpc 和 安全组的关联关系还需要进一步确认。
 	secgroups, err := self.region.GetSecurityGroups("", "")
 	if err != nil {
 		return err
 	}
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	// 这里已经填充了vpc。 所以是不是不需要在GetSecurityGroups方法中填充vpc和region了？
 	for i := 0; i < len(secgroups); i++ {
-		secgroups[i].vpc = self
 		self.secgroups[i] = &secgroups[i]
 	}
 	return nil
