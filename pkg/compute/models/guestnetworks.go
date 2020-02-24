@@ -372,9 +372,11 @@ func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 
 func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHostwire) *jsonutils.JSONDict {
 	desc := self.getJsonDesc(network)
-	desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
-	desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
-	desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
+	if hostwire != nil {
+		desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
+		desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
+		desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
+	}
 	return desc
 }
 
