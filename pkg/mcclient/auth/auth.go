@@ -210,10 +210,16 @@ func (a *authManager) reAuth() {
 }
 
 func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
 	return a.adminCredential.GetServiceURL(service, region, zone, endpointType)
 }
 
 func (a *authManager) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	if endpointType == "" && globalEndpointType != "" {
+		endpointType = globalEndpointType
+	}
 	return a.adminCredential.GetServiceURLs(service, region, zone, endpointType)
 }
 

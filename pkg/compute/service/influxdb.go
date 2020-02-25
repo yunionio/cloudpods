@@ -23,7 +23,7 @@ import (
 )
 
 func setInfluxdbRetentionPolicy() error {
-	urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "internal")
+	urls, err := auth.GetServiceURLs("influxdb", options.Options.Region, "", "")
 	if err != nil {
 		return err
 	}
