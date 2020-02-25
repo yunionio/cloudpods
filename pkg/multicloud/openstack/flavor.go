@@ -82,22 +82,7 @@ func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
 }
 
 func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
-	id, err := region.syncFlavor(name, cpu, memoryMb, diskGB)
-	if err != nil {
-		return "", errors.Wrap(err, "syncFlavor")
-	}
-	flavor, err := region.GetFlavor(id)
-	if err != nil {
-		return "", errors.Wrapf(err, "region.GetFlavor(%s)", id)
-	}
-	if flavor.GetCpuCoreCount() != cpu || flavor.GetMemorySizeMB() != memoryMb || flavor.Disk != diskGB {
-		flavor, err = region.CreateFlavor(name, cpu, memoryMb, diskGB)
-		if err != nil {
-			return "", errors.Wrap(err, "CreateFlavor")
-		}
-		return flavor.ID, nil
-	}
-	return id, nil
+	return region.syncFlavor(name, cpu, memoryMb, diskGB)
 }
 
 func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
@@ -105,30 +90,32 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	if err != nil {
 		return "", err
 	}
-	if len(name) > 0 {
-		for _, flavor := range flavors {
-			flavorName := flavor.GetName()
-			if flavorName == name {
-				return flavor.ID, nil
-			}
-		}
-		flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
-		if err != nil {
-			return "", errors.Wrap(err, "region.CreateClavor()")
-		}
-		return flavor.ID, nil
-	}
 
 	if cpu == 0 && memoryMb == 0 {
 		return "", fmt.Errorf("failed to find instance type %s", name)
 	}
 
+	match := false
 	for _, flavor := range flavors {
-		if flavor.GetCpuCoreCount() == cpu && flavor.GetMemorySizeMB() == memoryMb {
-			return flavor.ID, nil
+		flavorName := flavor.GetName()
+		if (len(name) == 0 || flavorName == name || flavorName == fmt.Sprintf("%s-%d", name, diskGB)) && flavor.GetCpuCoreCount() == cpu && flavor.GetMemorySizeMB() == memoryMb {
+			if diskGB <= flavor.GetSysDiskMaxSizeGB() {
+				return flavor.ID, nil
+			}
+			match = true
 		}
 	}
-	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
+	if len(name) == 0 {
+		name = fmt.Sprintf("ecs.g1.c%dm%d", cpu, memoryMb/1024)
+	}
+	if match {
+		name = fmt.Sprintf("%s-%d", name, diskGB)
+	}
+	flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateFlavor")
+	}
+	return flavor.ID, nil
 }
 
 func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
@@ -137,7 +124,7 @@ func (region *SRegion) CreateISku(name string, vCpu int, memoryMb int) error {
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
-	if diskGB < 30 {
+	if diskGB <= 0 {
 		diskGB = 30
 	}
 	params := map[string]map[string]interface{}{
