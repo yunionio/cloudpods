@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -611,18 +612,20 @@ func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.S
 	if len(config.InstanceType) > 0 {
 		return self.ChangeConfig2(ctx, config.InstanceType)
 	}
+	var err error
 	status := self.GetStatus()
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(config.Cpu, config.MemoryMB) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
 		self.Properties.InstanceView = nil
 		log.Debugf("Try HardwareProfile : %s", vmSize)
-		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+		err = self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
-		} else {
-			log.Debugf("ChangeConfig %s", err)
 		}
+	}
+	if err != nil {
+		return errors.Wrap(err, "client.Update")
 	}
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
@@ -634,13 +637,10 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	self.Properties.InstanceView = nil
 	log.Debugf("Try HardwareProfile : %s", instanceType)
 	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
-	if err == nil {
-		return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
-	} else {
-		log.Errorf("ChangeConfig2 %s", err)
+	if err != nil {
+		return errors.Wrap(err, "client.Update")
 	}
-
-	return fmt.Errorf("Failed to change vm config, specification not supported")
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) ChangeVMConfig2(ctx context.Context, instanceId string, instanceType string) error {
