@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -168,4 +169,84 @@ func (self *SConfigManager) GetConfig(contactType string) (_interface.SConfig, e
 
 func (self *SConfigManager) SetConfig(contactType string, config _interface.SConfig) error {
 	return fmt.Errorf("SetConfig Not Implemented")
+}
+
+type SConvertFunc func(*jsonutils.JSONDict) *jsonutils.JSONDict
+
+var (
+	// toDisplay store SConvertFunc which convert the data from client to the form required by database of contactType
+	toDisplay map[string]SConvertFunc
+	// fromDisplay store SConvertFunc which convert the data from database to the form required by client of contactType
+	fromDisplay map[string]SConvertFunc
+)
+
+func init() {
+	toDisplay = map[string]SConvertFunc{
+		EMAIL: emailToDisplay,
+	}
+	fromDisplay = map[string]SConvertFunc{
+		EMAIL: emailFromDisplay,
+	}
+}
+
+func emailFromDisplay(dict *jsonutils.JSONDict) *jsonutils.JSONDict {
+	keys := dict.SortedKeys()
+	newKey := ""
+	for _, key := range keys {
+		switch key {
+		case "username", "password":
+			newKey = "mail." + key
+		case "hostname", "hostport":
+			newKey = "mail.smtp." + key
+		case "ssl_global":
+			newKey = "mail.global.ssl"
+		}
+		v, _ := dict.Get(key)
+		dict.Add(v, newKey)
+		dict.Remove(key)
+	}
+	return dict
+}
+
+func emailToDisplay(dict *jsonutils.JSONDict) *jsonutils.JSONDict {
+	keys := dict.SortedKeys()
+	for _, key := range keys {
+		newKey := ""
+		value, _ := dict.Get(key)
+		switch key {
+		case "mail.username", "mail.password":
+			newKey = key[5:]
+		case "mail.smtp.hostname":
+			newKey = key[10:]
+		case "mail.smtp.hostport":
+			newKey = key[10:]
+			portStr, _ := value.GetString()
+			port, _ := strconv.Atoi(portStr)
+			value = jsonutils.NewInt(int64(port))
+		case "mail.global.ssl":
+			newKey = "ssl_global"
+			sslStr, _ := value.GetString()
+			ssl, _ := strconv.ParseBool(sslStr)
+			value = jsonutils.NewBool(ssl)
+		}
+		dict.Add(value, newKey)
+		dict.Remove(key)
+	}
+	return dict
+}
+
+func (self *SConfigManager) Display2Database(cType string, dict *jsonutils.JSONDict) *jsonutils.JSONDict {
+	cf, ok := fromDisplay[cType]
+	if ok {
+		return cf(dict)
+	}
+	return dict
+}
+
+func (self *SConfigManager) Database2Display(cType string, dict *jsonutils.JSONDict) *jsonutils.JSONDict {
+	cf, ok := toDisplay[cType]
+	if ok {
+		return cf(dict)
+	}
+	return dict
 }

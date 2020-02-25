@@ -139,6 +139,9 @@ func AddNotifyDispatcher(prefix string, app *appsrv.Application) {
 	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<type>", prefix, modelDispatcher.KeywordPlural()),
 		middleware(configDeleteHandler), metadata, "delete_configs", tags)
+	app.AddHandler2("POST",
+		fmt.Sprintf("%s/%s/<type>/validate", prefix, modelDispatcher.KeywordPlural()),
+		middleware(configValidateHandler), metadata, "validate_configs", tags)
 
 	// email handler for being compatible
 	app.AddHandler2("POST",
@@ -244,6 +247,21 @@ func configUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 	}
+}
+
+func configValidateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, _, body := fetchEnv(ctx, w, r)
+	body, err := body.Get(models.ConfigManager.Keyword())
+	if err != nil {
+		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need config"))
+	}
+	ctype := params["<type>"]
+	res, err := manager.ValidateConfig(ctx, ctype, body)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	appsrv.SendJSON(w, res)
 }
 
 func notificationHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
