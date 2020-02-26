@@ -51,6 +51,7 @@ ifdef LIBQEMUIO_PATH
 		X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
 endif
 
+export GOOS ?= linux
 export GO111MODULE:=on
 export CGO_CFLAGS = ${X_CGO_CFLAGS}
 export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
