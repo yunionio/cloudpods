@@ -115,6 +115,7 @@ func (self *SRegion) CreateVpc(name, cidr string) (*SVpc, error) {
 		return nil, err
 	}
 
+	vpc.ResVpcID, _ = resp.GetString("returnObj", "id")
 	vpc.region = self
 	return vpc, nil
 }
