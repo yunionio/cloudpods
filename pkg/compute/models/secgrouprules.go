@@ -159,7 +159,12 @@ func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr s
 }
 
 // 安全组规则列表
-func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupRuleListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSecurityGroupRuleManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SecurityGroupRuleListInput,
+) (*sqlchemy.SQuery, error) {
 	sql, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
@@ -180,7 +185,34 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q 
 	if len(query.Protocol) > 0 {
 		sql = sql.Equals("protocol", query.Protocol)
 	}
-	return sql, err
+	return sql, nil
+}
+
+func (manager *SSecurityGroupRuleManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SecurityGroupRuleListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSecurityGroupRuleManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SSecurityGroupRule) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

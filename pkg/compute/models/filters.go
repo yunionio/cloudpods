@@ -45,7 +45,7 @@ func rangeObjFilter(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, regionFiel
 	case "wire":
 		wire := rangeObj.(*SWire)
 		if regionField != nil {
-			vpc := wire.getVpc()
+			vpc := wire.GetVpc()
 			q = q.Filter(sqlchemy.Equals(regionField, vpc.CloudregionId))
 		} else if zoneField != nil {
 			q = q.Filter(sqlchemy.Equals(zoneField, wire.ZoneId))

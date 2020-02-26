@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -39,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGuestImageManager struct {
@@ -329,20 +331,36 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 	return out
 }
 
-func (self *SGuestImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.GuestImageDetails, error) {
+func (self *SGuestImage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestImageDetails, error) {
+	return api.GuestImageDetails{}, nil
+}
 
-	var err error
-	out := api.GuestImageDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	if !isList && query.Contains("image_ids") {
-		out.ImageIds, _ = query.Get("image_ids")
+func (manager *SGuestImageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestImageDetails {
+	rows := make([]api.GuestImageDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.GuestImageDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+		guestImage := objs[i].(*SGuestImage)
+		rows[i] = guestImage.getMoreDetails(ctx, userCred, query, rows[i])
 	}
 
-	return self.getMoreDetails(ctx, userCred, query, out), nil
+	return rows
 }
 
 func (self *SGuestImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -502,42 +520,72 @@ func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, us
 }
 
 func (self *SGuestImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	query jsonutils.JSONObject, input apis.PerformProjectPublicInput) (jsonutils.JSONObject, error) {
 
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPublic(ctx, userCred, query, data)
+		_, err := images[i].PerformPublic(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to public subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, data)
+	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
 func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	query jsonutils.JSONObject, input apis.PerformProjectPrivateInput) (jsonutils.JSONObject, error) {
 
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
 	}
 	for i := range images {
-		_, err := images[i].PerformPrivate(ctx, userCred, query, data)
+		_, err := images[i].PerformPrivate(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrapf(err, "fail to private subimage %s", images[i].GetId())
 		}
 	}
-	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, data)
+	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
 
 // 主机镜像列表
-func (manager *SGuestImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GuestImageListInput) (*sqlchemy.SQuery, error) {
+func (manager *SGuestImageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestImageListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SGuestImageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestImageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SGuestImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

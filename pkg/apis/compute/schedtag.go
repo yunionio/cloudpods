@@ -46,6 +46,14 @@ type SchedtagFilterListInput struct {
 	// Deprecated
 	// filter by schedtag_id
 	SchedtagId string `json:"schedtag_id" deprecated-by:"schedtag"`
+
+	// 按调度标签名称排序
+	// pattern:asc|desc
+	OrderBySchedtag string `json:"order_by_schedtag"`
+
+	// 按调度标签资源类型排序
+	// pattern:asc|desc
+	OrderByResourceType string `json:"order_by_resource_type"`
 }
 
 type SchedtagListInput struct {
@@ -70,4 +78,23 @@ type SchedtagDetails struct {
 	ServerCount          int    `json:"server_count"`
 	OtherCount           int    `json:"other_count"`
 	JoinModelKeyword     string `json:"join_model_keyword"`
+}
+
+type SchedtagResourceInfo struct {
+
+	// 调度标签名称
+	Schedtag string `json:"schedtag"`
+
+	// 调度标签管理的资源类型
+	ResourceType string `json:"resource_type"`
+}
+
+type SchedtagJointResourceDetails struct {
+	apis.JointResourceBaseDetails
+
+	// 调度标签名称
+	Schedtag string `json:"schedtag"`
+
+	// 调度标签管理的资源类型
+	ResourceType string `json:"resource_type"`
 }

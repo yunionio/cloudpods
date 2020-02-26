@@ -87,16 +87,20 @@ type RoleFilterListInput struct {
 }
 
 type ServiceFilterListInput struct {
-	// filter by service, either id or name
+	// 服务名称或ID过滤
 	Service string `json:"service"`
 	// swagger:ignore
 	// Deprecated
 	// filter by service_id
 	ServiceId string `json:"service_id" deprecated-by:"service"`
+
+	// 以服务名称排序
+	OrderByService string `json:"order_by_service"`
 }
 
 type RoleListInput struct {
 	IdentityBaseResourceListInput
+	apis.SharableResourceBaseListInput
 
 	ProjectFilterListInput
 	UserFilterListInput
@@ -236,7 +240,7 @@ type CredentialListInput struct {
 
 type PolicyListInput struct {
 	EnabledIdentityBaseResourceListInput
-	apis.SharableResourceListInput
+	apis.SharableResourceBaseListInput
 }
 
 type RegionListInput struct {

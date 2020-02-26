@@ -166,7 +166,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 
 	fakeHost.Status = api.HOST_STATUS_RUNNING
 	fakeHost.HostStatus = api.HOST_ONLINE
-	fakeHost.Enabled = true
+	fakeHost.SetEnabled(true)
 	fakeHost.HostType = oHost.HostType
 	fakeHost.ExternalId = oHost.ExternalId
 	fakeHost.RealExternalId = self.ExternalId
@@ -311,7 +311,7 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInvalidStatusError("no valid host")
 	}
 
-	if host.Enabled {
+	if host.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("host should be disabled")
 	}
 
@@ -336,7 +336,7 @@ func (self *SHost) AllowPerformUndoPrepaidRecycle(ctx context.Context, userCred 
 }
 
 func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Enabled {
+	if self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("host should be disabled")
 	}
 

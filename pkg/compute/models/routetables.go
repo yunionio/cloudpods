@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SRoute struct {
@@ -96,6 +97,7 @@ func (routes *SRoutes) Validate(data *jsonutils.JSONDict) error {
 
 type SRouteTableManager struct {
 	db.SVirtualResourceBaseManager
+	SVpcResourceBaseManager
 }
 
 var RouteTableManager *SRouteTableManager
@@ -118,39 +120,68 @@ func init() {
 type SRouteTable struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
+	SVpcResourceBase
 
-	SManagedResourceBase
-
-	VpcId         string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	CloudregionId string   `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	Type          string   `width:"16" charset:"ascii" nullable:"false" list:"user"`
-	Routes        *SRoutes `list:"user" update:"user" create:"required"`
+	Type   string   `width:"16" charset:"ascii" nullable:"false" list:"user"`
+	Routes *SRoutes `list:"user" update:"user" create:"required"`
 }
 
 // VPC虚拟路由表列表
-func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RouteTableListInput) (*sqlchemy.SQuery, error) {
+func (man *SRouteTableManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RouteTableListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	// userProjId := userCred.GetProjectId()
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
-	})
+
+	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
 	return q, nil
+}
+
+func (man *SRouteTableManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RouteTableListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SRouteTableManager) validateRoutes(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
@@ -195,7 +226,7 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 	return data, nil
 }
 
-func (manager *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+/*func (manager *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
@@ -213,7 +244,7 @@ func (manager *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, f
 		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
-}
+}*/
 
 func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, rt, "purge")
@@ -226,7 +257,7 @@ func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.Token
 	}
 	provider := rt.GetCloudprovider()
 	if provider != nil {
-		if provider.Enabled {
+		if provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge route_table on enabled cloud provider")
 		}
 	}
@@ -329,28 +360,30 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 }
 
 func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RouteTableDetails, error) {
-	var err error
-	out := api.RouteTableDetails{}
-	out.VirtualResourceDetails, err = rt.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.RouteTableDetails{}, nil
+}
+
+func (manager *SRouteTableManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.RouteTableDetails {
+	rows := make([]api.RouteTableDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.RouteTableDetails{
+			VirtualResourceDetails: virtRows[i],
+			VpcResourceInfo:        vpcRows[i],
+		}
 	}
-	vpcM, err := VpcManager.FetchById(rt.VpcId)
-	if err != nil {
-		log.Errorf("route table %s(%s): fetch vpc (%s) error: %s",
-			rt.Name, rt.Id, rt.VpcId, err)
-		return out, err
-	}
-	out.Vpc = vpcM.GetName()
-	cloudregionM, err := CloudregionManager.FetchById(rt.CloudregionId)
-	if err != nil {
-		log.Errorf("route table %s(%s): fetch cloud region (%s) error: %s",
-			rt.Name, rt.Id, rt.CloudregionId, err)
-		return out, err
-	}
-	out.Cloudregion = cloudregionM.GetName()
-	out.CloudproviderInfo = rt.getCloudProviderInfo()
-	return out, nil
+
+	return rows
 }
 
 func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
@@ -428,11 +461,10 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		}
 	}
 	routeTable := &SRouteTable{
-		CloudregionId: vpc.CloudregionId,
-		VpcId:         vpc.Id,
-		Type:          cloudRouteTable.GetType(),
-		Routes:        &routes,
+		Type:   cloudRouteTable.GetType(),
+		Routes: &routes,
 	}
+	routeTable.VpcId = vpc.Id
 	{
 		basename := routeTableBasename(cloudRouteTable.GetName(), vpc.Name)
 		newName, err := db.GenerateName(man, userCred, basename)
@@ -441,7 +473,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		}
 		routeTable.Name = newName
 	}
-	routeTable.ManagerId = vpc.ManagerId
+	// routeTable.ManagerId = vpc.ManagerId
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()
 	routeTable.ProjectId = userCred.GetProjectId()
@@ -491,7 +523,7 @@ func (self *SRouteTable) SyncWithCloudRouteTable(ctx context.Context, userCred m
 		return err
 	}
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.CloudregionId = routeTable.CloudregionId
+		// self.CloudregionId = routeTable.CloudregionId
 		self.VpcId = vpc.Id
 		self.Type = routeTable.Type
 		self.Routes = routeTable.Routes
@@ -521,7 +553,7 @@ func (self *SRouteTable) getRegion() (*SCloudregion, error) {
 	return vpc.GetRegion()
 }
 
-func (self *SRouteTable) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.getRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

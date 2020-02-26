@@ -236,10 +236,31 @@ func (cata SServiceCatalog) GetKeystoneCatalogV2() mcclient.KeystoneServiceCatal
 	return results
 }
 
-func (manager *SEndpointManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+func (endpoint *SEndpoint) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.EndpointDetails, error) {
+	return api.EndpointDetails{}, nil
+}
+
+func (manager *SEndpointManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.EndpointDetails {
+	rows := make([]api.EndpointDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	serviceIds := stringutils2.SSortedStrings{}
 	for i := range objs {
+		rows[i] = api.EndpointDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
 		ep := objs[i].(*SEndpoint)
 		serviceIds = stringutils2.Append(serviceIds, ep.ServiceId)
 	}
@@ -250,10 +271,10 @@ func (manager *SEndpointManager) FetchCustomizeColumns(ctx context.Context, user
 				ep := objs[i].(*SEndpoint)
 				if srv, ok := svs[ep.ServiceId]; ok {
 					if len(fields) == 0 || fields.Contains("service_name") {
-						rows[i].Add(jsonutils.NewString(srv.Name), "service_name")
+						rows[i].ServiceName = srv.Name
 					}
 					if len(fields) == 0 || fields.Contains("service_type") {
-						rows[i].Add(jsonutils.NewString(srv.Type), "service_type")
+						rows[i].ServiceType = srv.Type
 					}
 				}
 			}
@@ -281,16 +302,6 @@ func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewInvalidStatusError("endpoint is enabled")
 	}
 	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
-}
-
-func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.EndpointDetails, error) {
-	var err error
-	out := api.EndpointDetails{}
-	out.StandaloneResourceDetails, err = endpoint.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return out, nil
 }
 
 func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -330,7 +341,12 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 }
 
 // 服务地址列表
-func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.EndpointListInput) (*sqlchemy.SQuery, error) {
+func (manager *SEndpointManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.EndpointListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
@@ -349,6 +365,43 @@ func (manager *SEndpointManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.Equals("service_id", subq.SubQuery())
 	}
 	return q, nil
+}
+
+func (manager *SEndpointManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.EndpointListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	if db.NeedOrderQuery([]string{query.OrderByService}) {
+		services := ServiceManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(services, sqlchemy.Equals(q.Field("service_id"), services.Field("id")))
+		if sqlchemy.SQL_ORDER_ASC.Equals(query.OrderByService) {
+			q = q.Asc(services.Field("name"))
+		} else {
+			q = q.Desc(services.Field("name"))
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SEndpointManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

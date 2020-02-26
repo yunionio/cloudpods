@@ -30,16 +30,7 @@ type ZoneCreateInput struct {
 	CloudregionId string
 }
 
-type ZoneDetails struct {
-	apis.StandaloneResourceDetails
-	SZone
-
-	// 区域名称
-	Cloudregion string `json:"cloudregion"`
-	// 平台
-	// example: OneCloud
-	Provider string `json:"provider"`
-
+type ZoneGeneralUsage struct {
 	// 可用区底下的宿主机数量
 	// example: 3
 	Hosts int `json:"hosts"`
@@ -69,12 +60,46 @@ type ZoneDetails struct {
 	Storages int `json:"storages"`
 }
 
-type ZoneInfo struct {
+func (usage *ZoneGeneralUsage) IsEmpty() bool {
+	if usage.Hosts > 0 {
+		return false
+	}
+	if usage.Wires > 0 {
+		return false
+	}
+	if usage.Networks > 0 {
+		return false
+	}
+	if usage.Storages > 0 {
+		return false
+	}
+	return true
+}
+
+type ZoneDetails struct {
+	apis.StatusStandaloneResourceDetails
+	CloudregionResourceInfo
+	CloudenvResourceInfo
+
+	ZoneGeneralUsage
+
+	SZone
+}
+
+type ZoneResourceInfoBase struct {
 	// 可用区名称
 	// example: zone1
 	Zone string `json:"zone"`
 
 	// 纳管云的zoneId
 	ZoneExtId string `json:"zone_ext_id"`
-	CloudregionInfo
+}
+
+type ZoneResourceInfo struct {
+	ZoneResourceInfoBase
+
+	// 可用区的区域ID
+	CloudregionId string `json:"cloudregion_id"`
+
+	CloudregionResourceInfo
 }

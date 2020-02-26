@@ -18,12 +18,11 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type ProjectDetails struct {
-	apis.StandaloneResourceDetails
+	IdentityBaseResourceDetails
+
 	SProject
 
 	GroupCount             int                  `json:"group_count"`

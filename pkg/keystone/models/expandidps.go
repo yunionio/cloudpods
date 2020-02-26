@@ -17,37 +17,36 @@ package models
 import (
 	"database/sql"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-func expandIdpAttributes(rows []*jsonutils.JSONDict, objs []db.IModel, fields stringutils2.SSortedStrings, entType string) []*jsonutils.JSONDict {
+func expandIdpAttributes(entType string, idList []string, fields stringutils2.SSortedStrings) []api.IdpResourceInfo {
+	rows := make([]api.IdpResourceInfo, len(idList))
+	for i := range rows {
+		rows[i] = api.IdpResourceInfo{}
+	}
 	if len(fields) == 0 || fields.Contains("idp_id") || fields.Contains("idp") || fields.Contains("idp_entity_id") || fields.Contains("idp_driver") {
-		log.Debugf("objs %d", len(objs))
-		idList := make([]string, len(objs))
-		for i := range objs {
-			idList[i] = objs[i].GetId()
-		}
 		idps, err := fetchIdmappings(idList, entType)
 		if err == nil && idps != nil {
-			for i := range rows {
-				if idp, ok := idps[objs[i].GetId()]; ok {
+			for i := range idList {
+				if idp, ok := idps[idList[i]]; ok {
 					if len(fields) == 0 || fields.Contains("idp_id") {
-						rows[i].Set("idp_id", jsonutils.NewString(idp.IdpId))
+						rows[i].IdpId = idp.IdpId
 					}
 					if len(fields) == 0 || fields.Contains("idp") {
-						rows[i].Set("idp", jsonutils.NewString(idp.IdpName))
+						rows[i].Idp = idp.IdpName
 					}
 					if len(fields) == 0 || fields.Contains("idp_entity_id") {
-						rows[i].Set("idp_entity_id", jsonutils.NewString(idp.EntityId))
+						rows[i].IdpEntityId = idp.EntityId
 					}
 					if len(fields) == 0 || fields.Contains("idp_driver") {
-						rows[i].Set("idp_driver", jsonutils.NewString(idp.Driver))
+						rows[i].IdpDriver = idp.Driver
+						rows[i].IdpDriver = idp.Driver
 					}
 				}
 			}

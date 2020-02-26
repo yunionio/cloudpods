@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNotificationManager struct {
@@ -104,13 +105,35 @@ type UserDetail struct {
 	ReceivedAt time.Time
 }
 
-func (self *SNotification) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NotificationDetails, error) {
+func (manager *SNotificationManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NotificationDetails {
+	rows := make([]api.NotificationDetails, len(objs))
+
+	resRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.NotificationDetails{
+			ResourceBaseDetails: resRows[i],
+		}
+	}
+
+	return rows
+}
+
+func (self *SNotification) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NotificationDetails, error) {
 	var err error
 	out := api.NotificationDetails{}
-	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
 
 	var scopeStr string
 	scopeStr, err = query.GetString("scope")

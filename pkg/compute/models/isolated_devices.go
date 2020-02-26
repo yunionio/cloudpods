@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -54,6 +55,7 @@ var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
+	SHostResourceBaseManager
 }
 
 var IsolatedDeviceManager *SIsolatedDeviceManager
@@ -72,9 +74,10 @@ func init() {
 
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
+	SHostResourceBase
 
 	// 宿主机Id
-	HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
+	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
@@ -138,17 +141,19 @@ func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mccli
 }
 
 // 直通设备（GPU等）列表
-func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IsolatedDeviceListInput) (*sqlchemy.SQuery, error) {
+func (manager *SIsolatedDeviceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IsolatedDeviceListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "host_id", func() *sqlchemy.SQuery {
-		return HostManager.Query("id")
-	})
+	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Gpu != nil && *query.Gpu {
@@ -157,41 +162,42 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if query.Usb != nil && *query.Usb {
 		q = q.Equals("dev_type", "USB")
 	}
-	hostStr := query.Host
-	var sq *sqlchemy.SSubQuery
-	if len(hostStr) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		sq = hosts.Query(hosts.Field("id")).Filter(sqlchemy.OR(
-			sqlchemy.Equals(hosts.Field("id"), hostStr),
-			sqlchemy.Equals(hosts.Field("name"), hostStr))).SubQuery()
-	}
-	if sq != nil {
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
-	}
 	if query.Unused != nil && *query.Unused {
 		q = q.IsEmpty("guest_id")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
-		hosts := HostManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
-
-		q := hosts.Query(hosts.Field("id"))
-		q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
-		return q
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-	}
-
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "host_id", func() *sqlchemy.SQuery {
-		return HostManager.Query("id")
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
-	}
-
 	return q, nil
+}
+
+func (manager *SIsolatedDeviceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IsolatedDeviceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SIsolatedDeviceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SHostResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 /*
@@ -539,7 +545,7 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 		host := self.getHost()
-		if host.Status != api.BAREMETAL_RUNNING || !host.Enabled {
+		if host.Status != api.BAREMETAL_RUNNING || !host.GetEnabled() {
 			return nil
 		}
 	}
@@ -591,27 +597,46 @@ func (self *SIsolatedDevice) getGuest() *SGuest {
 	return nil
 }
 
-func (self *SIsolatedDevice) getMoreDetails(out api.IsolateDeviceDetails) api.IsolateDeviceDetails {
-	host := self.getHost()
-	if host != nil {
-		out.Host = host.Name
-	}
-	guest := self.getGuest()
-	if guest != nil {
-		out.Guest = guest.Name
-		out.GuestStatus = guest.Status
-	}
-	return out
+func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IsolateDeviceDetails, error) {
+	return api.IsolateDeviceDetails{}, nil
 }
 
-func (self *SIsolatedDevice) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IsolateDeviceDetails, error) {
-	var err error
-	out := api.IsolateDeviceDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SIsolatedDeviceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.IsolateDeviceDetails {
+	rows := make([]api.IsolateDeviceDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostRows := manager.SHostResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	guestIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.IsolateDeviceDetails{
+			StandaloneResourceDetails: stdRows[i],
+			HostResourceInfo:          hostRows[i],
+		}
+		guestIds[i] = objs[i].(*SIsolatedDevice).GuestId
 	}
-	return self.getMoreDetails(out), nil
+
+	guests := make(map[string]SGuest)
+	err := db.FetchStandaloneObjectsByIds(GuestManager, guestIds, &guests)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if guest, ok := guests[guestIds[i]]; ok {
+			rows[i].Guest = guest.Name
+			rows[i].GuestStatus = guest.Status
+		}
+	}
+
+	return rows
 }
 
 func (self *SIsolatedDevice) ClearSchedDescCache() error {

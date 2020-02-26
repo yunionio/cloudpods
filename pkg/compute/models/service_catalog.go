@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SServiceCatalogManager struct {
@@ -170,10 +171,69 @@ func (sc *SServiceCatalog) PerformDeploy(ctx context.Context, userCred mcclient.
 }
 
 // 服务目录列表
-func (manager *SServiceCatalogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input computeapis.ServiceCatalogListInput) (*sqlchemy.SQuery, error) {
+func (manager *SServiceCatalogManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input computeapis.ServiceCatalogListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SServiceCatalogManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input computeapis.ServiceCatalogListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SServiceCatalogManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SServiceCatalogManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []computeapis.ServiceCatalogDetails {
+	rows := make([]computeapis.ServiceCatalogDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = computeapis.ServiceCatalogDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+	}
+
+	return rows
+}
+
+func (self *SServiceCatalog) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (computeapis.ServiceCatalogDetails, error) {
+	return computeapis.ServiceCatalogDetails{}, nil
 }

@@ -31,7 +31,7 @@ type SimpleSnapshot struct {
 	Size int `json:"size"`
 }
 
-type InstnaceSnapshotDetails struct {
+type InstanceSnapshotDetails struct {
 	apis.VirtualResourceDetails
 	SInstanceSnapshot
 

@@ -14,13 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type StorageschedtagDetails struct {
-	apis.JoinModelBaseDetails
+	SchedtagJointResourceDetails
+
 	SStorageschedtag
 
 	// 存储名称
-	Storage  string `json:"storage"`
-	Schedtag string `json:"schedtag"`
+	Storage string `json:"storage"`
 }

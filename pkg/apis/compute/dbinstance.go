@@ -165,18 +165,18 @@ type SDBInstanceRecoveryConfigInput struct {
 type DBInstanceListInput struct {
 	apis.VirtualResourceListInput
 
-	ZonalFilterListInput
-	ManagedResourceListInput
 	VpcFilterListInput
+
+	// 以可用区过滤数据库实例
+	Zone string `json:"zone"`
 }
 
 type DBInstanceBackupListInput struct {
 	apis.VirtualResourceListInput
-
 	ManagedResourceListInput
 	RegionalFilterListInput
 
-	DbinstanceFilterListInput
+	DBInstanceFilterListInputBase
 }
 
 type DBInstancePrivilegeListInput struct {
@@ -191,38 +191,27 @@ type DBInstancePrivilegeListInput struct {
 type DBInstanceParameterListInput struct {
 	apis.StandaloneResourceListInput
 
-	DbinstanceFilterListInput
+	DBInstanceFilterListInput
 }
 
 type DBInstanceDatabaseListInput struct {
 	apis.StatusStandaloneResourceListInput
 
-	DbinstanceFilterListInput
+	DBInstanceFilterListInput
 }
 
 type DBInstanceAccountListInput struct {
 	apis.StatusStandaloneResourceListInput
 
-	DbinstanceFilterListInput
-}
-
-type DbinstanceFilterListInput struct {
-	// filter by dbinstance
-	Dbinstance string `json:"dbinstance"`
-	// swagger:ignore
-	// Deprecated
-	// filter by dbinstance_id
-	DbinstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
+	DBInstanceFilterListInput
 }
 
 type DBInstanceDetails struct {
 	apis.VirtualResourceDetails
+	VpcResourceInfo
+
 	SDBInstance
 
-	CloudproviderInfo
-	// 虚拟私有网络名称
-	// example: test-vpc
-	Vpc string `json:"vpc"`
 	// 安全组名称
 	// example: Default
 	Secgroup string `json:"secgroup"`
@@ -232,6 +221,32 @@ type DBInstanceDetails struct {
 	// IP子网名称
 	// example: test-network
 	Network string `json:"network"`
-	// 标签信息
-	Metadata map[string]string `json:"metadata"`
+}
+
+type DBInstanceResourceInfoBase struct {
+	// RDS实例名称
+	DBInstance string `json:"dbinstance"`
+}
+
+type DBInstanceResourceInfo struct {
+	DBInstanceResourceInfoBase
+
+	// 归属VPC ID
+	VpcId string `json:"vpc_id"`
+
+	VpcResourceInfo
+}
+
+type DBInstanceFilterListInputBase struct {
+	// 以RDS实例过滤
+	DBInstance string `json:"dbinstance"`
+
+	// 以RDS实例名字排序
+	OrderByDBInstance string `json:"order_by_dbinstance"`
+}
+
+type DBInstanceFilterListInput struct {
+	DBInstanceFilterListInputBase
+
+	VpcFilterListInput
 }

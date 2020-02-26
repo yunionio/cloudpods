@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -445,12 +446,12 @@ func IsMetadataKeyVisiable(key string) bool {
 	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key))
 }
 
-func GetVisiableMetadata(model IMetadataModel, userCred mcclient.TokenCredential) (map[string]string, error) {
+func GetVisiableMetadata(model IStandaloneModel, userCred mcclient.TokenCredential) (map[string]string, error) {
 	metaData, err := model.GetAllMetadata(userCred)
 	if err != nil {
 		return nil, err
 	}
-	for _, key := range model.GetMetadataHideKeys() {
+	for _, key := range model.StandaloneModelManager().GetMetadataHiddenKeys() {
 		delete(metaData, key)
 	}
 	for key := range metaData {
@@ -459,4 +460,17 @@ func GetVisiableMetadata(model IMetadataModel, userCred mcclient.TokenCredential
 		}
 	}
 	return metaData, nil
+}
+
+func metaList2Map(manager IStandaloneModelManager, userCred mcclient.TokenCredential, metaList []SMetadata) map[string]string {
+	metaMap := make(map[string]string)
+
+	hiddenKeys := manager.GetMetadataHiddenKeys()
+	for _, meta := range metaList {
+		if IsMetadataKeyVisiable(meta.Key) && !utils.IsInStringArray(meta.Key, hiddenKeys) {
+			metaMap[meta.Key] = meta.Value
+		}
+	}
+
+	return metaMap
 }

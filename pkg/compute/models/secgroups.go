@@ -43,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSecurityGroupManager struct {
@@ -75,7 +76,19 @@ type SSecurityGroup struct {
 }
 
 // 安全组列表
-func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SecgroupListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSecurityGroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SecgroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
+	}
+
 	if len(input.Equals) > 0 {
 		_secgroup, err := manager.FetchByIdOrName(userCred, input.Equals)
 		if err != nil {
@@ -138,12 +151,20 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 	return q, nil
 }
 
-func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+func (manager *SSecurityGroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SecgroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	orderByCache, _ := query.GetString("order_by_cache_cnt")
+
+	orderByCache := input.OrderByCacheCnt
 	if sqlchemy.SQL_ORDER_ASC.Equals(orderByCache) || sqlchemy.SQL_ORDER_DESC.Equals(orderByCache) {
 		caches := SecurityGroupCacheManager.Query().SubQuery()
 		cacheQ := caches.Query(
@@ -158,7 +179,7 @@ func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q 
 			q = q.Desc(cacheSQ.Field("cache_cnt"))
 		}
 	}
-	orderByGuest, _ := query.GetString("order_by_guest_cnt")
+	orderByGuest := input.OrderByGuestCnt
 	if sqlchemy.SQL_ORDER_ASC.Equals(orderByGuest) || sqlchemy.SQL_ORDER_DESC.Equals(orderByGuest) {
 		guests := GuestManager.Query().SubQuery()
 		guestsecgroups := GuestsecgroupManager.Query().SubQuery()
@@ -184,6 +205,17 @@ func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q 
 	}
 
 	return q, nil
+}
+
+func (manager *SSecurityGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
@@ -228,21 +260,42 @@ func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SecgroupDetails, error) {
-	var err error
-	out := api.SecgroupDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SSecurityGroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SecgroupDetails {
+	rows := make([]api.SecgroupDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.SecgroupDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+		sg := objs[i].(*SSecurityGroup)
+		rows[i].GuestCnt = len(sg.GetGuests())
+		rows[i].CacheCnt, _ = sg.GetSecgroupCacheCount()
+		if !isList {
+			rows[i].Rules = sg.getSecurityRuleString("")
+			rows[i].InRules = sg.getSecurityRuleString("in")
+			rows[i].OutRules = sg.getSecurityRuleString("out")
+		}
 	}
-	out.GuestCnt = len(self.GetGuests())
-	out.CacheCnt, _ = self.GetSecgroupCacheCount()
-	if !isList {
-		out.Rules = self.getSecurityRuleString("")
-		out.InRules = self.getSecurityRuleString("in")
-		out.OutRules = self.getSecurityRuleString("out")
-	}
-	return out, nil
+
+	return rows
+}
+
+func (self *SSecurityGroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SecgroupDetails, error) {
+	return api.SecgroupDetails{}, nil
 }
 
 func (manager *SSecurityGroupManager) ValidateCreateData(

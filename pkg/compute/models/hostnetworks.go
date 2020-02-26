@@ -18,11 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostnetworkManager struct {
@@ -71,20 +73,71 @@ func (bn *SHostnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(bn)
 }
 
-func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostnetworkDetails, error) {
-	var err error
-	out := api.HostnetworkDetails{}
-	out.ModelBaseDetails, err = bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
+func (bn *SHostnetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HostnetworkDetails, error) {
+	return api.HostnetworkDetails{}, nil
+}
+
+func (manager *SHostnetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostnetworkDetails {
+	rows := make([]api.HostnetworkDetails, len(objs))
+
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
+	macIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.HostnetworkDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		hostIds[i] = objs[i].(*SHostnetwork).BaremetalId
+		netIds[i] = objs[i].(*SHostnetwork).NetworkId
+		macIds[i] = objs[i].(*SHostnetwork).MacAddr
+	}
+
+	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
 	if err != nil {
-		return out, err
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
 	}
-	out.Host, out.Network = db.JointModelExtra(bn)
-	out.Baremetal = out.Host
-	netif := bn.GetNetInterface()
-	if netif != nil {
-		out.NicType = netif.NicType
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
+		return rows
 	}
-	return out, nil
+	netifs := make(map[string]SNetInterface)
+	netifQ := NetInterfaceManager.Query("mac", "nic_type")
+	err = db.FetchQueryObjectsByIds(netifQ, "mac", macIds, &netifs)
+	if err != nil {
+		log.Errorf("FetchQueryObjectsByIds macIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := hostIdMaps[hostIds[i]]; ok {
+			rows[i].Host = name
+			rows[i].Baremetal = name
+		}
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+		if netif, ok := netifs[macIds[i]]; ok {
+			rows[i].NicType = netif.NicType
+		}
+	}
+
+	return rows
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {

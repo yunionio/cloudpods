@@ -18,5 +18,8 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancerAclDetails struct {
 	apis.SharableVirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
 	SLoadbalancerAcl
 }

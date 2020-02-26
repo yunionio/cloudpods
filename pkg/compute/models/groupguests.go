@@ -18,11 +18,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGroupguestManager struct {
@@ -65,16 +67,49 @@ func (joint *SGroupguest) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGroupguest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GroupguestDetails, error) {
-	var err error
-	out := api.GroupguestDetails{}
-	out.ModelBaseDetails, err = self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SGroupguest) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GroupguestDetails, error) {
+	return api.GroupguestDetails{}, nil
+}
+
+func (manager *SGroupguestManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GroupguestDetails {
+	rows := make([]api.GroupguestDetails, len(objs))
+
+	groupRows := manager.SGroupJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	guestIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GroupguestDetails{
+			GroupJointResourceDetails: groupRows[i],
+		}
+		guestIds[i] = objs[i].(SGroupguest).GuestId
 	}
-	out.Instancegroup, out.Server = db.JointModelExtra(self)
-	out.Guest = out.Server
-	return out, nil
+
+	guestIdMaps, err := db.FetchIdNameMap2(GuestManager, guestIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := guestIdMaps[guestIds[i]]; ok {
+			rows[i].Guest = name
+			rows[i].Server = name
+		}
+	}
+
+	return rows
 }
 
 func (self *SGroupguest) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -33,12 +33,8 @@ const (
 
 type LoadbalancerListenerListInput struct {
 	apis.VirtualResourceListInput
+	LoadbalancerFilterListInput
 
-	ManagedResourceListInput
-	RegionalFilterListInput
-
-	// filter by loadbalancer
-	Loadbalancer string `json:"loadbalancer"`
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
 	// filter by acl
@@ -47,19 +43,17 @@ type LoadbalancerListenerListInput struct {
 
 type LoadbalancerListenerRuleListInput struct {
 	apis.VirtualResourceListInput
+	LoadbalancerListenerFilterListInput
 
-	// filter by listener
-	Listener string `json:"listener"`
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
 }
 
 type LoadbalancerListInput struct {
 	apis.VirtualResourceListInput
-
-	ManagedResourceListInput
-	ZonalFilterListInput
-	NetworkFilterListInput
+	VpcFilterListInput
+	ZonalFilterListBase
+	NetworkFilterListBase
 
 	// filter by cluster
 	Cluster string `json:"cluster"`
@@ -67,9 +61,7 @@ type LoadbalancerListInput struct {
 
 type LoadbalancerAgentListInput struct {
 	apis.StandaloneResourceListInput
-
-	// filter by loadbalancercluster
-	Cluster string `json:"cluster"`
+	LoadbalancerClusterFilterListInput
 }
 
 type LoadbalancerCertificateListInput struct {
@@ -83,23 +75,20 @@ type LoadbalancerCertificateListInput struct {
 type LoadbalancerBackendListInput struct {
 	apis.VirtualResourceListInput
 
-	ManagedResourceListInput
-	RegionalFilterListInput
+	LoadbalancerBackendGroupFilterListInput
 
 	// filter by backend server
 	Backend string `json:"backend"`
+
 	// filter by backend group
-	BackendGroup string `json:"backend_group"`
+	// BackendGroup string `json:"backend_group"`
 }
 
 type LoadbalancerBackendGroupListInput struct {
 	apis.VirtualResourceListInput
 
-	RegionalFilterListInput
-	ManagedResourceListInput
+	LoadbalancerFilterListInput
 
-	// filter by loadbalancer
-	Loadbalancer string `json:"loadbalancer"`
 	// filter LoadbalancerBackendGroup with no reference
 	NoRef *bool `json:"no_ref"`
 }
@@ -108,26 +97,62 @@ type LoadbalancerClusterListInput struct {
 	apis.StandaloneResourceListInput
 
 	ZonalFilterListInput
-	WireFilterListInput
+	WireFilterListBase
 }
 
 type LoadbalancerAclListInput struct {
 	apis.SharableVirtualResourceListInput
+
+	ManagedResourceListInput
+	RegionalFilterListInput
 }
 
 type LoadbalancerDetails struct {
 	apis.VirtualResourceDetails
-	SLoadbalancer
+	VpcResourceInfo
+	ZoneResourceInfoBase
+	NetworkResourceInfoBase
 
-	CloudproviderInfo
+	SLoadbalancer
 
 	// 公网IP地址
 	Eip string `json:"eip"`
+
 	// 公网IP地址类型: 弹性、非弹性
 	// example: public_ip
 	EipMode string `json:"eip_mode"`
-	// 虚拟私有网络名称
-	Vpc string `json:"vpc"`
+
 	// 后端服务器组名称
 	BackendGroup string `json:"backend_group"`
+}
+
+type LoadbalancerResourceInfo struct {
+	// 负载均衡名称
+	Loadbalancer string `json:"loadbalancer"`
+
+	// VPC ID
+	VpcId string `json:"vpc_id"`
+
+	VpcResourceInfo
+
+	// 可用区ID
+	ZoneId string `json:"zone_id"`
+
+	ZoneResourceInfoBase
+}
+
+type LoadbalancerFilterListInput struct {
+	VpcFilterListInput
+
+	ZonalFilterListBase
+
+	// 负载均衡名称
+	Loadbalancer string `json:"loadbalancer"`
+
+	// swagger:ignore
+	// Deprecated
+	LoadbalancerId string `json:"loadbalancer_id" deprecated-by:"loadbalancer"`
+
+	// 以负载均衡名称排序
+	OrderByLoadbalancer string `json:"order_by_loadbalancer"`
 }

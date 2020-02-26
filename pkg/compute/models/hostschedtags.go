@@ -18,10 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostschedtagManager struct {
@@ -70,12 +72,48 @@ func (self *SHostschedtag) Master() db.IStandaloneModel {
 	return self.SSchedtagJointsBase.master(self)
 }
 
-func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostschedtagDetails, error) {
-	out := api.HostschedtagDetails{}
-	out.JoinModelBaseDetails, _ = self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query, isList)
-	out.Host, out.Schedtag = db.JointModelExtra(self)
-	out.Baremetal = out.Host
-	return out, nil
+func (self *SHostschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HostschedtagDetails, error) {
+	return api.HostschedtagDetails{}, nil
+}
+
+func (manager *SHostschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostschedtagDetails {
+	rows := make([]api.HostschedtagDetails, len(objs))
+
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	hostIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.HostschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		hostIds[i] = objs[i].(*SHostschedtag).HostId
+	}
+
+	hostIdMaps, err := db.FetchIdNameMap2(HostManager, hostIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := hostIdMaps[hostIds[i]]; ok {
+			rows[i].Host = name
+			rows[i].Baremetal = name
+		}
+	}
+
+	return rows
 }
 
 func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -18,7 +18,11 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type InstanceGroupListInput struct {
 	apis.VirtualResourceListInput
+
+	apis.EnabledResourceBaseListInput
+
 	ZonalFilterListInput
+
 	ServerFilterListInput
 
 	// 以service_type过滤列表结果
@@ -29,6 +33,8 @@ type InstanceGroupListInput struct {
 
 type InstanceGroupDetail struct {
 	apis.VirtualResourceDetails
+	ZoneResourceInfo
+
 	SGroup
 
 	// 云主机数量

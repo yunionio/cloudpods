@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -52,15 +53,14 @@ import (
 )
 
 type SCloudaccountManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
-	db.SDomainizedResourceBaseManager
+	db.SEnabledStatusDomainLevelResourceBaseManager
 }
 
 var CloudaccountManager *SCloudaccountManager
 
 func init() {
 	CloudaccountManager = &SCloudaccountManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SEnabledStatusDomainLevelResourceBaseManager: db.NewEnabledStatusDomainLevelResourceBaseManager(
 			SCloudaccount{},
 			"cloudaccounts_tbl",
 			"cloudaccount",
@@ -71,8 +71,8 @@ func init() {
 }
 
 type SCloudaccount struct {
-	db.SEnabledStatusStandaloneResourceBase
-	db.SDomainizedResourceBase
+	db.SEnabledStatusDomainLevelResourceBase
+
 	SSyncableBaseResource
 
 	// 上此同步时间
@@ -150,32 +150,12 @@ type SCloudaccount struct {
 	ShareMode string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
 }
 
-func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SCloudaccountManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SCloudaccount) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SCloudaccount) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SCloudaccount) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
 	return self.getCloudprovidersInternal(tristate.None)
 }
 
 func (self *SCloudaccount) IsAvailable() bool {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return false
 	}
 
@@ -211,7 +191,7 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	// if self.EnableAutoSync {
 	//	return httperrors.NewInvalidStatusError("automatic syncing is enabled")
 	// }
-	if self.Enabled {
+	if self.GetEnabled() {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
 	if self.Status == api.CLOUD_PROVIDER_CONNECTED && self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
@@ -224,21 +204,21 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 		}
 	}
 
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusDomainLevelResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	if strings.Index(self.Status, "delet") >= 0 {
 		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")
 	}
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+	_, err := self.SEnabledStatusDomainLevelResourceBase.PerformEnable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		if !cloudproviders[i].Enabled {
-			_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
+		if !cloudproviders[i].GetEnabled() {
+			_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, input)
 			if err != nil {
 				return nil, err
 			}
@@ -247,15 +227,15 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusDomainLevelResourceBase.PerformDisable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		if cloudproviders[i].Enabled {
-			_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
+		if cloudproviders[i].GetEnabled() {
+			_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, input)
 			if err != nil {
 				return nil, err
 			}
@@ -301,7 +281,7 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 		}
 		data.Set("options", optionsJson)
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	return self.SEnabledStatusDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudaccountCreateInput) (api.CloudaccountCreateInput, error) {
@@ -399,7 +379,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		}
 	}
 
-	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	input.EnabledStatusDomainLevelResourceCreateInput, err = manager.SEnabledStatusDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusDomainLevelResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -408,18 +388,18 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 }
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.Enabled = true
+	self.SetEnabled(true)
 	if len(self.Brand) == 0 {
 		self.Brand = self.Provider
 	}
 	self.DomainId = ownerId.GetProjectDomainId()
 	// self.EnableAutoSync = false
 	self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
-	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return self.SEnabledStatusDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusDomainLevelResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.savePassword(self.Secret)
 
 	// if !self.EnableAutoSync {
@@ -449,7 +429,7 @@ func (self *SCloudaccount) AllowPerformSync(ctx context.Context, userCred mcclie
 }
 
 func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 	if self.EnableAutoSync {
@@ -474,7 +454,7 @@ func (self *SCloudaccount) AllowPerformUpdateCredential(ctx context.Context, use
 }
 
 func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
@@ -593,7 +573,7 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 	}
 	providers := self.GetCloudproviders()
 	for i := range providers {
-		if providers[i].Enabled {
+		if providers[i].GetEnabled() {
 			err := providers[i].markStartingSync(userCred)
 			if err != nil {
 				return errors.Wrap(err, "providers.markStartSync")
@@ -658,7 +638,7 @@ func (self *SCloudaccount) GetProviderFactory() (cloudprovider.ICloudProviderFac
 }
 
 func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
 	return self.getProviderInternal()
@@ -721,7 +701,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.CloudaccountId = self.Id
 		newCloudprovider.Provider = self.Provider
 		newCloudprovider.AccessUrl = self.AccessUrl
-		newCloudprovider.Enabled = true
+		newCloudprovider.SetEnabled(true)
 		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
 		if !options.Options.CloudaccountHealthStatusCheck {
 			self.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
@@ -849,7 +829,10 @@ func (self *SCloudaccount) GetEipCount() (int, error) {
 
 func (self *SCloudaccount) GetRoutetableCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
-	q := RouteTableManager.Query().In("manager_id", subq)
+	vpcs := VpcManager.Query("id", "manager_id").SubQuery()
+	q := RouteTableManager.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.In(vpcs.Field("manager_id"), subq))
 	return q.CountWithError()
 }
 
@@ -898,6 +881,10 @@ func (self *SCloudaccount) GetCloudEnv() string {
 	}
 }
 
+func (self *SCloudaccount) GetEnvironment() string {
+	return self.AccessUrl
+}
+
 func (self *SCloudaccount) getMoreDetails(out api.CloudaccountDetail) api.CloudaccountDetail {
 	out.EipCount, _ = self.GetEipCount()
 	out.VpcCount, _ = self.GetVpcCount()
@@ -931,13 +918,26 @@ func (self *SCloudaccount) getMoreDetails(out api.CloudaccountDetail) api.Clouda
 }
 
 func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudaccountDetail, error) {
-	var err error
-	out := api.CloudaccountDetail{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.CloudaccountDetail{}, nil
+}
+
+func (manager *SCloudaccountManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudaccountDetail {
+	rows := make([]api.CloudaccountDetail, len(objs))
+	stdRows := manager.SEnabledStatusDomainLevelResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.CloudaccountDetail{
+			EnabledStatusDomainLevelResourceDetails: stdRows[i],
+		}
+		rows[i] = objs[i].(*SCloudaccount).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(out), nil
+	return rows
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {
@@ -1171,7 +1171,12 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 }
 
 // 云账号列表
-func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudaccountListInput) (*sqlchemy.SQuery, error) {
+func (manager *SCloudaccountManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudaccountListInput,
+) (*sqlchemy.SQuery, error) {
 	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
@@ -1185,9 +1190,9 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		q = q.Equals("id", accountObj.GetId())
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager")
+		return nil, errors.Wrap(err, "SEnabledStatusDomainLevelResourceBaseManager")
 	}
 	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
@@ -1226,6 +1231,32 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		q = q.In("id", subq.SubQuery())
 	}
 
+	return q, nil
+}
+
+func (manager *SCloudaccountManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "account":
+		q = q.AppendField(q.Field("name").Label("account")).Distinct()
+		return q, nil
+	}
+	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SCloudaccountManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudaccountListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields")
+	}
 	return q, nil
 }
 
@@ -1394,7 +1425,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].Enabled && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
+		if accounts[i].GetEnabled() && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
@@ -1487,7 +1518,7 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	account.markAccountConnected(ctx, userCred)
 	providers := account.importAllSubaccounts(ctx, userCred, subaccounts)
 	for i := range providers {
-		if providers[i].Enabled {
+		if providers[i].GetEnabled() {
 			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
 			if err != nil {
 				log.Errorf("syncCloudproviderRegion fail %s", err)
@@ -1521,7 +1552,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			waitChan <- err
 		} else {
 			syncCnt := 0
-			if err == nil && autoSync && account.Enabled && account.EnableAutoSync {
+			if err == nil && autoSync && account.GetEnabled() && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
 				account.markAutoSync(userCred)
 				providers := account.GetEnabledCloudproviders()
@@ -1552,7 +1583,7 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusDomainLevelResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SCloudaccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1589,27 +1620,6 @@ func (self *SCloudaccount) getSyncStatus2() string {
 	} else {
 		return api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 	}
-}
-
-func (manager *SCloudaccountManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	if len(fields) == 0 || fields.Contains("domain") {
-		domainIds := stringutils2.SSortedStrings{}
-		for i := range objs {
-			idStr := objs[i].GetOwnerId().GetProjectDomainId()
-			domainIds = stringutils2.Append(domainIds, idStr)
-		}
-		domains := db.FetchProjects(domainIds, true)
-		if domains != nil {
-			for i := range rows {
-				idStr := objs[i].GetOwnerId().GetProjectDomainId()
-				if domain, ok := domains[idStr]; ok {
-					rows[i].Add(jsonutils.NewString(domain.Name), "domain")
-				}
-			}
-		}
-	}
-	return rows
 }
 
 func (account *SCloudaccount) setShareMode(userCred mcclient.TokenCredential, mode string) error {
@@ -1781,7 +1791,7 @@ func (account *SCloudaccount) AllowPerformSyncSkus(ctx context.Context, userCred
 }
 
 func (account *SCloudaccount) PerformSyncSkus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !account.Enabled {
+	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 

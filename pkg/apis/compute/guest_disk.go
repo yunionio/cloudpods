@@ -14,16 +14,11 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type GuestDiskDetails struct {
-	apis.JoinModelBaseDetails
+	GuestJointResourceDetails
+
 	SGuestdisk
 
-	// 云主机名称
-	Guest string
-	// 云主机名称
-	Server string
 	// 磁盘名称
 	Disk string
 

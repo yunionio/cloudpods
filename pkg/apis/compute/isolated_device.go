@@ -18,10 +18,10 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type IsolateDeviceDetails struct {
 	apis.StandaloneResourceDetails
+	HostResourceInfo
+
 	SIsolatedDevice
 
-	// 宿主机名称
-	Host string `json:"host"`
 	// 云主机名称
 	Guest string `json:"guest"`
 	// 云主机状态

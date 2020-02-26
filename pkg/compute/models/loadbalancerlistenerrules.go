@@ -34,11 +34,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerListenerRuleManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	SLoadbalancerListenerResourceBaseManager
 }
 
 var LoadbalancerListenerRuleManager *SLoadbalancerListenerRuleManager
@@ -59,11 +61,13 @@ type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SManagedResourceBase
-	SCloudregionResourceBase
+	SLoadbalancerListenerResourceBase
 
-	IsDefault      bool   `default:"false" nullable:"true" list:"user" create:"optional"` // 默认转发策略，目前只有aws用到其它云都是false
-	ListenerId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 默认转发策略，目前只有aws用到其它云都是false
+	IsDefault bool `default:"false" nullable:"true" list:"user" create:"optional"`
+
+	// ListenerId     string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
 
 	Domain    string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -380,21 +384,67 @@ func (man *SLoadbalancerListenerRuleManager) pendingDeleteSubs(ctx context.Conte
 	}
 }
 
-func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerListenerRuleListInput) (*sqlchemy.SQuery, error) {
+// 负载均衡监听器规则列表
+func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerListenerRuleListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SLoadbalancerListenerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerListenerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerListenerResourceBaseManager.ListItemFilter")
+	}
+
 	// userProjId := userCred.GetProjectId()
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "listener", ModelKeyword: "loadbalancerlistener", OwnerId: userCred},
+		// {Key: "listener", ModelKeyword: "loadbalancerlistener", OwnerId: userCred},
 		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
 	}
 	return q, nil
+}
+
+func (man *SLoadbalancerListenerRuleManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerListenerRuleListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SLoadbalancerListenerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerListenerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerListenerResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerListenerRuleManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SLoadbalancerListenerResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -498,14 +548,16 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
-func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerListenerRuleDetails, error) {
-	var err error
-	out := api.LoadbalancerListenerRuleDetails{}
-	out.VirtualResourceDetails, err = lbr.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	out.CloudregionInfo = lbr.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
+func (lbr *SLoadbalancerListenerRule) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerListenerRuleDetails, error) {
+	return api.LoadbalancerListenerRuleDetails{}, nil
+}
+
+func (lbr *SLoadbalancerListenerRule) getMoreDetails(out api.LoadbalancerListenerRuleDetails) (api.LoadbalancerListenerRuleDetails, error) {
 	if lbr.BackendGroupId == "" {
 		log.Errorf("loadbalancer listener rule %s(%s): empty backend group field", lbr.Name, lbr.Id)
 		return out, nil
@@ -521,14 +573,38 @@ func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userC
 	return out, nil
 }
 
-func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {
+func (man *SLoadbalancerListenerRuleManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerListenerRuleDetails {
+	rows := make([]api.LoadbalancerListenerRuleDetails, len(objs))
+
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	listenerRows := man.SLoadbalancerListenerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerListenerRuleDetails{
+			VirtualResourceDetails:           virtRows[i],
+			LoadbalancerListenerResourceInfo: listenerRows[i],
+		}
+		rows[i], _ = objs[i].(*SLoadbalancerListenerRule).getMoreDetails(rows[i])
+	}
+
+	return rows
+}
+
+/*func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {
 	listener, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
 	if err != nil {
 		log.Errorf("failed to find listener for loadbalancer listener rule %s", lbr.Name)
 		return nil
 	}
 	return listener.(*SLoadbalancerListener)
-}
+}*/
 
 func (lbr *SLoadbalancerListenerRule) GetRegion() *SCloudregion {
 	if listener := lbr.GetLoadbalancerListener(); listener != nil {
@@ -595,7 +671,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], syncOwnerId)
+		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -604,7 +680,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		local, err := man.newFromCloudLoadbalancerListenerRule(ctx, userCred, listener, added[i], syncOwnerId)
+		local, err := man.newFromCloudLoadbalancerListenerRule(ctx, userCred, listener, added[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -717,14 +793,21 @@ func (lbr *SLoadbalancerListenerRule) updateCachedLoadbalancerBackendGroupAssoci
 	return nil
 }
 
-func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerListenerRule, error) {
+func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	listener *SLoadbalancerListener,
+	extRule cloudprovider.ICloudLoadbalancerListenerRule,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+) (*SLoadbalancerListenerRule, error) {
 	lbr := &SLoadbalancerListenerRule{}
 	lbr.SetModelManager(man, lbr)
 
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
-	lbr.ManagerId = listener.ManagerId
-	lbr.CloudregionId = listener.CloudregionId
+	//lbr.ManagerId = listener.ManagerId
+	//lbr.CloudregionId = listener.CloudregionId
 
 	newName, err := db.GenerateName(man, syncOwnerId, extRule.GetName())
 	if err != nil {
@@ -744,7 +827,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 		return nil, errors.Wrap(err, "LoadbalancerListenerRuleManager.newFromCloudLoadbalancerListenerRule")
 	}
 
-	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
+	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, provider.Id)
 
 	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
 
@@ -764,12 +847,18 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	return err
 }
 
-func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, syncOwnerId mcclient.IIdentityProvider) error {
-	listener := lbr.GetLoadbalancerListener()
+func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	extRule cloudprovider.ICloudLoadbalancerListenerRule,
+	syncOwnerId mcclient.IIdentityProvider,
+	provider *SCloudprovider,
+) error {
+	// listener := lbr.GetLoadbalancerListener()
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-		lbr.ManagerId = listener.ManagerId
-		lbr.CloudregionId = listener.CloudregionId
+		// lbr.ManagerId = provider.Id
+		// lbr.CloudregionId = listener.CloudregionId
 		return nil
 	})
 	if err != nil {
@@ -783,12 +872,12 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)
 
-	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
+	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, provider.Id)
 
 	return nil
 }
 
-func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
+/*func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
 	rules := []SLoadbalancerListenerRule{}
 	q := manager.Query()
 	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
@@ -809,7 +898,7 @@ func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
 		}
 	}
 	return nil
-}
+}*/
 
 func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")

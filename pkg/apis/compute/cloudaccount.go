@@ -23,8 +23,114 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
+type CloudenvResourceInfo struct {
+	// 云平台名称
+	// example: Google
+	Provider string `json:"provider,omitempty"`
+
+	// 云平台品牌
+	// example: Google
+	Brand string `json:"brand,omitempty"`
+
+	// 云环境
+	// example: public
+	CloudEnv string `json:"cloud_env,omitempty"`
+
+	// Environment
+	Environment string `json:"environment,omitempty"`
+}
+
+type CloudenvResourceListInput struct {
+	// 列出指定云平台的资源，支持的云平台如下
+	//
+	// | Provider  | 开始支持版本 | 平台                                |
+	// |-----------|------------|-------------------------------------|
+	// | OneCloud  | 0.0        | OneCloud内置私有云，包括KVM和裸金属管理 |
+	// | VMware    | 1.2        | VMware vCenter                      |
+	// | OpenStack | 2.6        | OpenStack M版本以上私有云             |
+	// | ZStack    | 2.10       | ZStack私有云                         |
+	// | Aliyun    | 2.0        | 阿里云                               |
+	// | Aws       | 2.3        | Amazon AWS                          |
+	// | Azure     | 2.2        | Microsoft Azure                     |
+	// | Google    | 2.13       | Google Cloud Platform               |
+	// | Qcloud    | 2.3        | 腾讯云                               |
+	// | Huawei    | 2.5        | 华为公有云                           |
+	// | Ucloud    | 2.7        | UCLOUD                               |
+	// | Ctyun     | 2.13       | 天翼云                               |
+	// | S3        | 2.11       | 通用s3对象存储                        |
+	// | Ceph      | 2.11       | Ceph对象存储                         |
+	// | Xsky      | 2.11       | XSKY启明星辰Ceph对象存储              |
+	//
+	// enum: OneCloud,VMware,Aliyun,Qcloud,Azure,Aws,Huawei,OpenStack,Ucloud,ZStack,Google,Ctyun,S3,Ceph,Xsky"
+	Providers []string `json:"providers"`
+	// swagger:ignore
+	// Deprecated
+	Provider []string `json:"provider" deprecated-by:"providers"`
+
+	// 列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
+	//
+	// |   Brand  | Provider | 说明        |
+	// |----------|----------|------------|
+	// | DStack   | ZStack   | 滴滴云私有云 |
+	//
+	Brands []string `json:"brands"`
+	// swagger:ignore
+	// Deprecated
+	Brand []string `json:"brand" deprecated-by:"brands"`
+
+	// 列出指定云环境的资源，支持云环境如下：
+	//
+	// | CloudEnv  | 说明   |
+	// |-----------|--------|
+	// | public    | 公有云  |
+	// | private   | 私有云  |
+	// | onpremise | 本地IDC |
+	//
+	// enum: public,private,onpremise
+	CloudEnv string `json:"cloud_env"`
+
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	PublicCloud bool `json:"public_cloud"`
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	IsPublic bool `json:"is_public"`
+
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	PrivateCloud bool `json:"private_cloud"`
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	IsPrivate bool `json:"is_private"`
+
+	// swagger:ignore
+	// Deprecated
+	// description: this param will be deprecate at 3.0
+	IsOnPremise bool `json:"is_on_premise"`
+
+	// 以平台名称排序
+	// pattern:asc|desc
+	OrderByProvider string `json:"order_by_provider"`
+
+	// 以平台品牌排序
+	// pattern:asc|desc
+	OrderByBrand string `json:"order_by_brand"`
+}
+
+type CloudaccountResourceInfo struct {
+	CloudenvResourceInfo
+
+	// 云账号名称
+	// example: google-account
+	Account string `json:"account,omitempty"`
+}
+
 type CloudaccountCreateInput struct {
-	apis.EnabledStatusStandaloneResourceCreateInput
+	apis.EnabledStatusDomainLevelResourceCreateInput
 
 	// 指定云平台
 	// Qcloud: 腾讯云
@@ -100,7 +206,7 @@ func (i CloudaccountShareModeInput) Validate() error {
 }
 
 type CloudaccountListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.EnabledStatusDomainLevelResourceListInput
 
 	ManagedResourceListInput
 
@@ -118,7 +224,7 @@ type ProviderProject struct {
 }
 
 type CloudaccountDetail struct {
-	apis.StandaloneResourceDetails
+	apis.EnabledStatusDomainLevelResourceDetails
 	SCloudaccount
 
 	// 子订阅项目信息

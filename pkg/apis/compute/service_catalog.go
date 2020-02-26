@@ -14,7 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type ServiceCatalogCreateInput struct {
 	apis.SharableVirtualResourceCreateInput
@@ -57,4 +59,10 @@ type ServiceCatalogDeploy struct {
 	// description: the count of the new vm
 	// example: 1
 	Count int `json:"count"`
+}
+
+type ServiceCatalogDetails struct {
+	apis.SharableVirtualResourceDetails
+
+	SServiceCatalog
 }

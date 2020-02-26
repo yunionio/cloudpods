@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -179,7 +180,7 @@ func (lbbg *SQcloudCachedLbbg) isBackendsMatch(backends []SLoadbalancerBackend, 
 	return true
 }
 
-func (lbbg *SQcloudCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) error {
+func (lbbg *SQcloudCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	lbbg.SetModelManager(QcloudCachedLbbgManager, lbbg)
 
 	ibackends, err := extLoadbalancerBackendgroup.GetILoadbalancerBackends()
@@ -199,7 +200,7 @@ func (lbbg *SQcloudCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context
 
 	var newLocalLbbg *SLoadbalancerBackendGroup
 	if !lbbg.isBackendsMatch(backends, ibackends) {
-		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+		newLocalLbbg, err = newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId, provider)
 		if err != nil {
 			return errors.Wrap(err, "QcloudCachedLbbg.SyncWithCloudLoadbalancerBackendgroup.newLocalBackendgroupFromCloudLoadbalancerBackendgroup")
 		}
@@ -217,7 +218,7 @@ func (lbbg *SQcloudCachedLbbg) SyncWithCloudLoadbalancerBackendgroup(ctx context
 	}
 	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 	return err
 }
 
@@ -288,7 +289,7 @@ func (man *SQcloudCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.C
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.GetOwnerId(), provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -299,12 +300,12 @@ func (man *SQcloudCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.C
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], syncOwnerId)
+		newlbbg, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
-			localLbgs = append(localLbgs, *new)
+			syncMetadata(ctx, userCred, newlbbg, added[i])
+			localLbgs = append(localLbgs, *newlbbg)
 			remoteLbbgs = append(remoteLbbgs, added[i])
 			syncResult.Add()
 		}
@@ -312,8 +313,8 @@ func (man *SQcloudCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.C
 	return localLbgs, remoteLbbgs, syncResult
 }
 
-func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider) (*SQcloudCachedLbbg, error) {
-	LocalLbbg, err := newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId)
+func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SQcloudCachedLbbg, error) {
+	LocalLbbg, err := newLocalBackendgroupFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, extLoadbalancerBackendgroup, syncOwnerId, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -321,8 +322,12 @@ func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 	lbbg := &SQcloudCachedLbbg{}
 	lbbg.SetModelManager(man, lbbg)
 
-	lbbg.ManagerId = lb.ManagerId
-	lbbg.CloudregionId = lb.CloudregionId
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer is not attached to any region")
+	}
+	lbbg.ManagerId = provider.Id
+	lbbg.CloudregionId = region.Id
 	lbbg.LoadbalancerId = lb.Id
 	lbbg.BackendGroupId = LocalLbbg.GetId()
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
@@ -340,7 +345,7 @@ func (man *SQcloudCachedLbbgManager) newFromCloudLoadbalancerBackendgroup(ctx co
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, lb.ManagerId)
+	SyncCloudProject(userCred, lbbg, syncOwnerId, extLoadbalancerBackendgroup, provider.Id)
 
 	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 	return lbbg, nil

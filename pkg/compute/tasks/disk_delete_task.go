@@ -106,7 +106,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	}
 
 	isPurge := false
-	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
 	}
 	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")

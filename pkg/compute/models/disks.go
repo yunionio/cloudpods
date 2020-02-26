@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
@@ -49,10 +50,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDiskManager struct {
 	db.SVirtualResourceBaseManager
+	SStorageResourceBaseManager
+	SBillingResourceBaseManager
 }
 
 var DiskManager *SDiskManager
@@ -74,39 +78,44 @@ type SDisk struct {
 	db.SExternalizedResourceBase
 
 	SBillingResourceBase
+	SStorageResourceBase
 
 	// 磁盘存储类型
 	// example: qcow2
-	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user"`
+	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user" json:"disk_format"`
 	// 磁盘大小, 单位Mb
 	// example: 10240
-	DiskSize int `nullable:"false" list:"user"`
+	DiskSize int `nullable:"false" list:"user" json:"disk_size"`
 	// 磁盘路径
-	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user"`
+	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user" json:"access_path"`
 
 	// 是否跟随云主机自动删除, 仅绑定到云主机时才生效
 	// example: false
-	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"`
+	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user" json:"auto_delete"`
 
 	// 存储Id
-	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
-	BackupStorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin"`
+	// StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+
+	// 备份磁盘实例的存储ID
+	BackupStorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin" json:"backup_storage_id"`
 
 	// 镜像Id
-	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"`
+	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"template_id"`
 	// 快照Id
-	SnapshotId string `width:"256" charset:"ascii" nullable:"true" list:"user"`
+	SnapshotId string `width:"256" charset:"ascii" nullable:"true" list:"user" json:"snapshot_id"`
 
 	// 文件系统
-	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user" json:"fs_format"`
+
 	// 磁盘类型
 	// sys: 系统盘
 	// data: 数据盘
 	// swap: 交换盘
 	// example: sys
-	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin"`
+	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin" json:"disk_type"`
+
 	// # is persistent
-	Nonpersistent bool `default:"false" list:"user"`
+	Nonpersistent bool `default:"false" list:"user" json:"nonpersistent"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
@@ -125,28 +134,22 @@ func (manager *SDiskManager) FetchDiskById(diskId string) *SDisk {
 }
 
 // 磁盘列表
-func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DiskListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDiskManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DiskListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	storages := StorageManager.Query().SubQuery()
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "storage_id", func() *sqlchemy.SQuery {
-		return storages.Query(storages.Field("id"))
-	})
+
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
 	}
 
-	billingTypeStr := query.BillingType
-	if len(billingTypeStr) > 0 {
-		if billingTypeStr == billing_api.BILLING_TYPE_POSTPAID {
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
-					sqlchemy.Equals(q.Field("billing_type"), billingTypeStr),
-				),
-			)
-		} else {
-			q = q.Equals("billing_type", billingTypeStr)
-		}
+	q, err = manager.SBillingResourceBaseManager.ListItemFilter(ctx, q, userCred, query.BillingResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBillingResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
@@ -162,16 +165,6 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		} else {
 			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
 		}
-	}
-
-	if query.Share != nil && *query.Share {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
-		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
-	}
-
-	if query.Local != nil && *query.Local {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
-		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
 	guestId := query.Server
@@ -190,15 +183,6 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 	}
 
-	storageStr := query.Storage
-	if len(storageStr) > 0 {
-		storageObj, err := StorageManager.FetchByIdOrName(userCred, storageStr)
-		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("storage %s not found: %s", storageStr, err)
-		}
-		q = q.Filter(sqlchemy.Equals(q.Field("storage_id"), storageObj.GetId()))
-	}
-
 	if diskType := query.DiskType; diskType != "" {
 		q = q.Filter(sqlchemy.Equals(q.Field("disk_type"), diskType))
 	}
@@ -215,6 +199,47 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", sq)
 	}
 	return q, nil
+}
+
+func (manager *SDiskManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SBillingResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.BillingResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBillingResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SDiskManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SStorageResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SDisk) GetGuestDiskCount() (int, error) {
@@ -383,7 +408,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 
 		provider := storage.GetCloudprovider()
 		if provider != nil {
-			if !provider.Enabled {
+			if !provider.GetEnabled() {
 				return nil, httperrors.NewInputParameterError("provider %s(%s) is disabled, you need enable provider first", provider.Name, provider.Id)
 			}
 			if !utils.IsInStringArray(provider.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
@@ -1745,13 +1770,6 @@ func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.DiskDetails) api.DiskDetails {
-	if storage := self.GetStorage(); storage != nil {
-		out.Storage = storage.Name
-		out.StorageType = storage.StorageType
-		out.MediumType = storage.MediumType
-		out.CloudproviderInfo = storage.getCloudProviderInfo()
-	}
-
 	out.Guests = []api.SimpleGuest{}
 	guests, guestStatus := []string{}, []string{}
 	for _, guest := range self.GetGuests() {
@@ -1810,13 +1828,28 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DiskDetails, error) {
-	var err error
-	out := api.DiskDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.DiskDetails{}, nil
+}
+
+func (manager *SDiskManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DiskDetails {
+	rows := make([]api.DiskDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storeRows := manager.SStorageResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.DiskDetails{
+			VirtualResourceDetails: virtRows[i],
+			StorageResourceInfo:    storeRows[i],
+		}
+		rows[i] = objs[i].(*SDisk).getMoreDetails(ctx, userCred, rows[i])
 	}
-	return self.getMoreDetails(ctx, userCred, out), nil
+	return rows
 }
 
 func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
@@ -1938,7 +1971,7 @@ func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	var billingInfo SCloudBillingInfo
 
 	if storage != nil {
-		billingInfo.CloudproviderInfo = storage.getCloudProviderInfo()
+		billingInfo.SCloudProviderInfo = storage.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {
@@ -2368,9 +2401,9 @@ func (self *SDisk) GetSnapshotsNotInInstanceSnapshot() ([]SSnapshot, error) {
 }
 
 func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
-	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 
-	_, err := self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	_, err := self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -2383,7 +2416,7 @@ func (self *SDisk) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	for i := range snapshots {
 		snapshot := snapshots[i]
 		lockman.LockObject(ctx, &snapshot)
-		_, err := snapshot.PerformChangeOwner(ctx, userCred, query, data)
+		_, err := snapshot.PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			lockman.ReleaseObject(ctx, &snapshot)
 			return nil, errors.Wrapf(err, "fail to change owner of this disk(%s)'s snapshot %s", self.Id, snapshot.Id)

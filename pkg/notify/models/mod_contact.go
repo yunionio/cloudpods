@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/utils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SContactManager struct {
@@ -209,15 +210,35 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	return out, nil
 }
 
-func (self *SContact) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.ContactDetails, error) {
-	var err error
-	out := api.ContactDetails{}
-	out.ModelBaseDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SContactManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ContactDetails {
+	rows := make([]api.ContactDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ContactDetails{
+			ResourceBaseDetails: stdRows[i],
+		}
+		rows[i], _ = objs[i].(*SContact).getMoreDetail(ctx, userCred, rows[i])
 	}
-	return self.getMoreDetail(ctx, userCred, out)
+
+	return rows
+}
+
+func (self *SContact) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ContactDetails, error) {
+	return api.ContactDetails{}, nil
 }
 
 // 联系方式列表

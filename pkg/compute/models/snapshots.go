@@ -38,10 +38,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSnapshotManager struct {
 	db.SVirtualResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 type SSnapshot struct {
@@ -49,12 +52,14 @@ type SSnapshot struct {
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
+	SCloudregionResourceBase
 
 	// 磁盘Id
 	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
 
 	// Only onecloud has StorageId
 	StorageId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+
 	CreatedBy string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"user" create:"optional"`
 	Location  string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	// 快照大小,单位Mb
@@ -69,7 +74,8 @@ type SSnapshot struct {
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
 	// 区域Id
-	CloudregionId string    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// CloudregionId string    `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+
 	BackingDiskId string    `width:"36" charset:"ascii" nullable:"true" default:""`
 	ExpiredAt     time.Time `nullable:"true" list:"user" create:"optional"`
 }
@@ -93,16 +99,27 @@ func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mccli
 }
 
 // 快照列表
-func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SnapshotListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSnapshotManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
 	if query.FakeDeleted != nil && *query.FakeDeleted {
@@ -142,14 +159,86 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	return q, nil
 }
 
-func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SnapshotDetails, error) {
+func (manager *SSnapshotManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SnapshotListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	out := api.SnapshotDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return out, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	return self.getMoreDetails(out), nil
+
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SSnapshotManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SnapshotDetails {
+	rows := make([]api.SnapshotDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.SnapshotDetails{
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regionRows[i],
+		}
+		rows[i] = objs[i].(*SSnapshot).getMoreDetails(rows[i])
+	}
+
+	return rows
+}
+
+func (self *SSnapshot) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SnapshotDetails, error) {
+	return api.SnapshotDetails{}, nil
 }
 
 func (self *SSnapshot) getMoreDetails(out api.SnapshotDetails) api.SnapshotDetails {
@@ -172,7 +261,6 @@ func (self *SSnapshot) getMoreDetails(out api.SnapshotDetails) api.SnapshotDetai
 		out.IsSubSnapshot = true
 	}
 
-	out.CloudproviderInfo = self.getCloudProviderInfo()
 	return out
 }
 
@@ -841,7 +929,7 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	}
 	provider := self.GetCloudprovider()
 	if provider != nil {
-		if provider.Enabled {
+		if provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge snapshot on enabled cloud provider")
 		}
 	}
@@ -849,7 +937,7 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	return nil, err
 }
 
-func (self *SSnapshot) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)

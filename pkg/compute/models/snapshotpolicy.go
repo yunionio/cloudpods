@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/validate"
 )
 
@@ -313,25 +314,42 @@ func (sp *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, us
 	return nil
 }
 
-func (sp *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.SnapshotPolicyDetails, error) {
-	var err error
-	out := api.SnapshotPolicyDetails{}
-	out.VirtualResourceDetails, err = sp.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SSnapshotPolicyManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SnapshotPolicyDetails {
+	rows := make([]api.SnapshotPolicyDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.SnapshotPolicyDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+		rows[i] = objs[i].(*SSnapshotPolicy).getMoreDetails(rows[i])
 	}
-	return sp.getMoreDetails(ctx, userCred, out)
+
+	return rows
 }
 
-func (sp *SSnapshotPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	out api.SnapshotPolicyDetails) (api.SnapshotPolicyDetails, error) {
+func (sp *SSnapshotPolicy) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SnapshotPolicyDetails, error) {
+	return api.SnapshotPolicyDetails{}, nil
+}
 
-	var err error
+func (sp *SSnapshotPolicy) getMoreDetails(out api.SnapshotPolicyDetails) api.SnapshotPolicyDetails {
 	out.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sp.RepeatWeekdays)
 	out.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sp.TimePoints)
-	out.BindingDiskCount, err = SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
-	return out, err
+	out.BindingDiskCount, _ = SnapshotPolicyDiskManager.FetchDiskCountBySPID(sp.Id)
+	return out
 }
 
 // ==================================================== sync ===========================================================
@@ -835,10 +853,42 @@ func (sp *SSnapshotPolicy) PerformUnbindDisks(ctx context.Context, userCred mccl
 }
 
 // 快照策略列表
-func (manager *SSnapshotPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.SnapshotPolicyListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSnapshotPolicyManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SnapshotPolicyListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SSnapshotPolicyManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.SnapshotPolicyListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

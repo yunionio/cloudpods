@@ -52,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -252,7 +253,18 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
-func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.ImageDetails) api.ImageDetails {
+func (self *SImage) getMoreDetails(out api.ImageDetails) api.ImageDetails {
+	properties, err := ImagePropertyManager.GetProperties(self.Id)
+	if err != nil {
+		log.Errorf("ImagePropertyManager.GetProperties fail %s", err)
+	}
+	out.Properties = properties
+
+	if self.PendingDeleted {
+		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+		out.AutoDeleteAt = pendingDeletedAt
+	}
+
 	var ossChksum = self.OssChecksum
 	if len(self.OssChecksum) == 0 {
 		ossChksum = self.Checksum
@@ -262,42 +274,43 @@ func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenC
 	return out
 }
 
-func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ImageDetails, error) {
-	var err error
-	out := api.ImageDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SImageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ImageDetails {
+	rows := make([]api.ImageDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		image := objs[i].(*SImage)
+		rows[i] = api.ImageDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+		rows[i] = image.getMoreDetails(rows[i])
 	}
 
-	properties, err := ImagePropertyManager.GetProperties(self.Id)
-	if err != nil {
-		return out, httperrors.NewGeneralError(err)
-	}
-	propJson := jsonutils.NewDict()
-	for k, v := range properties {
-		propJson.Add(jsonutils.NewString(v), k)
-	}
-	out.Properties = propJson
+	return rows
+}
 
-	if self.PendingDeleted {
-		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-		out.AutoDeleteAt = pendingDeletedAt
-		//extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
-	}
-
-	return self.getMoreDetails(ctx, userCred, query, out), nil
+func (self *SImage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ImageDetails, error) {
+	return api.ImageDetails{}, nil
 }
 
 func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	headers := make(map[string]string)
 
-	_extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, false)
-	extra := _extra.JSON(_extra)
-	extraRows := self.GetModelManager().FetchCustomizeColumns(ctx, userCred, query, []db.IModel{self}, nil)
-	if len(extraRows) == 1 {
-		extra.Update(extraRows[0])
-	}
+	details := ImageManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{self}, nil, false)
+	extra := jsonutils.Marshal(details[0]).(*jsonutils.JSONDict)
 	for _, k := range extra.SortedKeys() {
 		val, _ := extra.GetString(k)
 		if len(val) > 0 {
@@ -1114,10 +1127,15 @@ func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.
 }
 
 // 磁盘镜像列表
-func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ImageListInput) (*sqlchemy.SQuery, error) {
+func (manager *SImageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ImageListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 	fmtJsonArray := query.DiskFormats
 	if len(fmtJsonArray) > 0 {
@@ -1129,6 +1147,33 @@ func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Join(imagePropertyQ, sqlchemy.Equals(q.Field("id"), imagePropertyQ.Field("image_id")))
 	}
 	return q, nil
+}
+
+func (manager *SImageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ImageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SImageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) bool {
@@ -1263,11 +1308,12 @@ func (self *SImage) PerformMarkStandard(
 ) (jsonutils.JSONObject, error) {
 	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
 	if !self.IsStandard.IsTrue() && isStandard {
-		params := jsonutils.NewDict()
-		params.Set("scope", jsonutils.NewString("system"))
-		_, err := self.PerformPublic(ctx, userCred, query, params)
+		input := apis.PerformProjectPublicInput{
+			Scope: "system",
+		}
+		_, err := self.PerformPublic(ctx, userCred, query, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "PerformPublic")
 		}
 		diff, err := db.Update(self, func() error {
 			self.IsStandard = tristate.True

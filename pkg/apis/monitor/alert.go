@@ -121,9 +121,11 @@ type AlertUpdateInput struct {
 
 type AlertListInput struct {
 	apis.VirtualResourceListInput
+	apis.EnabledResourceBaseListInput
 
 	// 监控指标名称
 	Metric string `json:"metric"`
+
 	// 以报警是否启用/禁用过滤列表
-	Enabled *bool `json:"enabled"`
+	// Enabled *bool `json:"enabled"`
 }

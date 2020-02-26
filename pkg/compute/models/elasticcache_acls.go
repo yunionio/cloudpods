@@ -35,11 +35,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // SElasticcache.Acl
 type SElasticcacheAclManager struct {
 	db.SStandaloneResourceBaseManager
+	SElasticcacheResourceBaseManager
 }
 
 var ElasticcacheAclManager *SElasticcacheAclManager
@@ -59,10 +61,12 @@ func init() {
 type SElasticcacheAcl struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SElasticcacheResourceBase
 
-	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
+	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
-	IpList string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	// Ip地址白名单列表
+	IpList string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required" json:"ip_list"`
 }
 
 func (manager *SElasticcacheAclManager) SyncElasticcacheAcls(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheAcls []cloudprovider.ICloudElasticcacheAcl) compare.SyncResult {
@@ -241,24 +245,6 @@ func (self *SElasticcacheAcl) StartElasticcacheAclCreateTask(ctx context.Context
 	return nil
 }
 
-func (self *SElasticcacheAcl) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	_ec, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
-	if err != nil {
-		return nil, err
-	}
-
-	ec := _ec.(*SElasticcache)
-	provider, err := ec.GetDriver()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", ec.Name, err)
-	}
-	region := ec.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
-	}
-	return provider.GetIRegionById(region.ExternalId)
-}
-
 func (self *SElasticcacheAcl) GetRegion() *SCloudregion {
 	ieb, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
 	if err != nil {
@@ -344,10 +330,92 @@ func (self *SElasticcacheAcl) Delete(ctx context.Context, userCred mcclient.Toke
 }
 
 // 弹性缓存ACL规则列表
-func (manager *SElasticcacheAclManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheAclListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+func (manager *SElasticcacheAclManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheAclListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (manager *SElasticcacheAclManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheAclListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheAclManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SElasticcacheAcl) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ElasticcacheAclDetails, error) {
+	return api.ElasticcacheAclDetails{}, nil
+}
+
+func (manager *SElasticcacheAclManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheAclDetails {
+	rows := make([]api.ElasticcacheAclDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	elasticRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ElasticcacheAclDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ElasticcacheResourceInfo:  elasticRows[i],
+		}
+	}
+
+	return rows
 }

@@ -316,7 +316,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 	guestStatus, _ := task.GetParams().GetString("guest_status")
 	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
 	purge := jsonutils.QueryBoolean(task.GetParams(), "purge", false)
-	if host != nil && host.Enabled &&
+	if host != nil && host.GetEnabled() &&
 		(guestStatus == api.VM_RUNNING || strings.Index(guestStatus, "stop") >= 0) &&
 		options.Options.EnablePendingDelete &&
 		!guest.PendingDeleted &&
@@ -324,7 +324,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 		!purge {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
-	if host != nil && !host.Enabled && !purge {
+	if host != nil && !host.GetEnabled() && !purge {
 		return fmt.Errorf("fail to contact baremetal")
 	}
 	task.ScheduleRun(nil)

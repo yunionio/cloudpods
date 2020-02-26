@@ -51,10 +51,12 @@ type BucketCreateInput struct {
 
 type BucketDetails struct {
 	apis.VirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
 	SBucket
 
-	CloudproviderInfo
-
+	// 访问URL列表
 	AccessUrls []cloudprovider.SBucketAccessUrl `json:"access_urls"`
 }
 
@@ -96,6 +98,6 @@ func (input *BucketMetadataInput) Validate() error {
 
 type BucketListInput struct {
 	apis.VirtualResourceListInput
-
 	ManagedResourceListInput
+	RegionalFilterListInput
 }

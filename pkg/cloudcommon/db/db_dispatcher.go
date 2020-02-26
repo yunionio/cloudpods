@@ -270,10 +270,13 @@ func listItemQueryFiltersRaw(manager IModelManager,
 			return nil, err
 		}
 	}
-	q, err = listItemsQueryByColumn(manager, q, userCred, query)
+	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	// TURN OFF automatic query by column name!!!!
+	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	/*q, err = listItemsQueryByColumn(manager, q, userCred, query)
 	if err != nil {
 		return nil, err
-	}
+	}*/
 	searches := jsonutils.GetQueryStringArray(query, "search")
 	if len(searches) > 0 {
 		q, err = applyListItemsSearchFilters(manager, ctx, q, userCred, searches)
@@ -332,7 +335,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	} else {
 		showDetails = true
 	}
-	items := make([]IModel, 0)
+	items := make([]interface{}, 0)
 	results := make([]jsonutils.JSONObject, 0)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
@@ -375,7 +378,8 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
 		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		jsonDict.Update(extraData)
-		if showDetails && !query.Contains("export_keys") {
+		// ignore GetExtraDetails
+		/*if showDetails && !query.Contains("export_keys") {
 			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, true)
 			if extraDict != nil {
 				// Fix for Now
@@ -383,16 +387,21 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 				jsonDict = extraDict
 			}
 			// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}
+		}*/
 		results = append(results, jsonDict)
 		items = append(items, item)
 	}
 	if showDetails && !query.Contains("export_keys") {
-		extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter))
+		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter), true)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchCustomizeColumns")
+		}
 		// log.Debugf("manager.FetchCustomizeColumns: %s %s", extraRows, listF)
 		if len(extraRows) == len(results) {
 			for i := range results {
-				results[i].(*jsonutils.JSONDict).Update(extraRows[i])
+				extraRows[i].Update(results[i])
+				results[i] = extraRows[i]
 			}
 		}
 	}
@@ -568,7 +577,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			orderQuery.Set(fmt.Sprintf("order_by_%s", orderByField), jsonutils.NewString(string(order)))
 		}
 	}
-	q, err = manager.OrderByExtraFields(ctx, q, userCred, orderQuery)
+	q, err = OrderByExtraFields(manager, ctx, q, userCred, orderQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +783,10 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	extraDict.Update(jsonDict)
 	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
-	extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, []IModel{item}, stringutils2.NewSortedStrings(fieldFilter))
+	extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, []interface{}{item}, stringutils2.NewSortedStrings(fieldFilter), false)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchCustomizeColumns")
+	}
 	if len(extraRows) == 1 {
 		extraDict.Update(extraRows[0])
 	}

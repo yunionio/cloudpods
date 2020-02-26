@@ -18,8 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancerAgentDetails struct {
 	apis.StandaloneResourceDetails
-	SLoadbalancerAgent
+	LoadbalancerClusterResourceInfo
 
-	ZoneInfo ZoneInfo
-	Cluster  string `json:"cluster"`
+	SLoadbalancerAgent
 }

@@ -16,12 +16,12 @@ package identity
 
 import (
 	"time"
-
-	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type UserDetails struct {
-	apis.StandaloneResourceDetails
+	EnabledIdentityBaseResourceDetails
+	IdpResourceInfo
+
 	SUser
 
 	GroupCount        int       `json:"group_count"`

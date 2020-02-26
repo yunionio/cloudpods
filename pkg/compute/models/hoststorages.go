@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const ErrStorageInUse = errors.Error("StorageInUse")
@@ -59,17 +60,17 @@ type SHoststorage struct {
 	SHostJointsBase
 
 	// 挂载点
-	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"`
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required" json:"mount_point"`
 
 	// 宿主机Id
-	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required" json:"host_id"`
 	// 存储Id
-	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required" json:"storage_id"`
 
 	// 配置信息
-	Config *jsonutils.JSONArray `nullable:"true" get:"admin"`
+	Config *jsonutils.JSONArray `nullable:"true" get:"admin" json:"config"`
 	// 真实容量大小
-	RealCapacity int64 `nullable:"true" list:"admin"`
+	RealCapacity int64 `nullable:"true" list:"admin" json:"real_capacity"`
 }
 
 func (manager *SHoststorageManager) GetMasterFieldName() string {
@@ -88,15 +89,49 @@ func (joint *SHoststorage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HoststorageDetails, error) {
-	var err error
-	out := api.HoststorageDetails{}
-	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SHoststorage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HoststorageDetails, error) {
+	return api.HoststorageDetails{}, nil
+}
+
+func (manager *SHoststorageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HoststorageDetails {
+	rows := make([]api.HoststorageDetails, len(objs))
+
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storageIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.HoststorageDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		storageIds[i] = objs[i].(*SHoststorage).StorageId
 	}
-	out.Baremetal, out.Storage = db.JointModelExtra(self)
-	return self.getExtraDetails(out), nil
+
+	storages := make(map[string]SStorage)
+	err := db.FetchStandaloneObjectsByIds(StorageManager, storageIds, &storages)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if storage, ok := storages[storageIds[i]]; ok {
+			rows[i] = objs[i].(*SHoststorage).getExtraDetails(storage, rows[i])
+		}
+	}
+
+	return rows
 }
 
 func (self *SHoststorage) GetHost() *SHost {
@@ -206,10 +241,7 @@ func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	}
 }
 
-func (self *SHoststorage) getExtraDetails(out api.HoststorageDetails) api.HoststorageDetails {
-	host := self.GetHost()
-	out.Host = host.Name
-	storage := self.GetStorage()
+func (self *SHoststorage) getExtraDetails(storage SStorage, out api.HoststorageDetails) api.HoststorageDetails {
 	out.Storage = storage.Name
 	out.Capacity = storage.Capacity
 	if storage.StorageConf != nil {

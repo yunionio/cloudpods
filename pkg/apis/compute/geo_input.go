@@ -36,19 +36,28 @@ type RegionalFilterListInput struct {
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	RegionId string `json:"region_id" deprecated-by:"cloudregion"`
+
+	// 按区域名称过滤
+	OrderByRegion string `json:"order_by_region"`
+	// 按城市过滤
+	OrderByCity string `json:"order_by_city"`
 }
 
 type ZonalFilterListInput struct {
 	RegionalFilterListInput
 
-	// 过滤处于指定可用区内的资源
-	Zone string `json:"zone"`
-	// swagger:ignore
-	// Deprecated
-	// filter by zone_id
-	ZoneId string `json:"zone_id" deprecated-by:"zone"`
+	ZonalFilterListBase
+}
+
+type ZonalFilterListBase struct {
+	ZoneResourceInput
+
 	// 过滤处于多个指定可用区内的资源
 	Zones []string `json:"zones"`
+
+	// 按可用区名称排序
+	// pattern:asc|desc
+	OrderByZone string `json:"order_by_zone"`
 }
 
 func (input ZonalFilterListInput) ZoneList() []string {
@@ -57,17 +66,6 @@ func (input ZonalFilterListInput) ZoneList() []string {
 		input.Zones = append(input.Zones, zoneStr)
 	}
 	return input.Zones
-}
-
-type HostFilterListInput struct {
-	ZonalFilterListInput
-
-	// 过滤关联指定宿主机（ID或Name）的列表结果
-	Host string `json:"host"`
-	// swagger:ignore
-	// Deprecated
-	// filter by host_id
-	HostId string `json:"host_id" deprecated-by:"host"`
 }
 
 type CloudregionListInput struct {
@@ -97,4 +95,14 @@ type ZoneListInput struct {
 
 	// 过滤提供特定服务的可用区
 	Service string `json:"service"`
+}
+
+type ZoneResourceInput struct {
+	// 可用区ID或名称
+	// example:zone1
+	Zone string `json:"zone"`
+
+	// swagger:ignore
+	// Deprecated
+	ZoneId string `json:"zone_id" deprecated-by:"zone"`
 }

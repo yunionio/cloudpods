@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SPolicyManager struct {
@@ -207,31 +208,73 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 // 权限策略列表
-func (manager *SPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyListInput) (*sqlchemy.SQuery, error) {
+func (manager *SPolicyManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.PolicyListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ListItemFilter")
 	}
-	if query.IsPublic != nil {
-		if *query.IsPublic {
-			q = q.IsTrue("is_public")
-		} else {
-			q = q.IsFalse("is_public")
-		}
+	q, err = manager.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SharableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableBaseResourceManager.ListItemFilter")
 	}
 	return q, nil
 }
 
-func (policy *SPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.PolicyDetails, error) {
+func (manager *SPolicyManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.PolicyListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	out := api.PolicyDetails{}
-	out.StandaloneResourceDetails, err = policy.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
+
+	q, err = manager.SEnabledIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {
-		return out, err
+		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.OrderByExtraFields")
 	}
-	return policyExtra(policy, out), nil
+
+	return q, nil
 }
 
-func policyExtra(policy *SPolicy, out api.PolicyDetails) api.PolicyDetails {
-	return out
+func (manager *SPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (policy *SPolicy) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.PolicyDetails, error) {
+	return api.PolicyDetails{}, nil
+}
+
+func (manager *SPolicyManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.PolicyDetails {
+	rows := make([]api.PolicyDetails, len(objs))
+	identRows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.PolicyDetails{
+			EnabledIdentityBaseResourceDetails: identRows[i],
+		}
+	}
+	return rows
 }

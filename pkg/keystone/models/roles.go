@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SRoleManager struct {
@@ -195,29 +196,57 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
-func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.RoleDetails, error) {
-	var err error
-	out := api.RoleDetails{}
-	out.StandaloneResourceDetails, err = role.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return roleExtra(role, out), nil
+func (role *SRole) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.RoleDetails, error) {
+	return api.RoleDetails{}, nil
 }
 
-func roleExtra(role *SRole, out api.RoleDetails) api.RoleDetails {
-	out.UserCount, _ = role.GetUserCount()
-	out.GroupCount, _ = role.GetGroupCount()
-	out.ProjectCount, _ = role.GetProjectCount()
-	out.MatchPolicies = policy.PolicyManager.RoleMatchPolicies(role.Name)
-	return out
+func (manager *SRoleManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.RoleDetails {
+	rows := make([]api.RoleDetails, len(objs))
+
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.RoleDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+		role := objs[i].(*SRole)
+		rows[i].UserCount, _ = role.GetUserCount()
+		rows[i].GroupCount, _ = role.GetGroupCount()
+		rows[i].ProjectCount, _ = role.GetProjectCount()
+		rows[i].MatchPolicies = policy.PolicyManager.RoleMatchPolicies(role.Name)
+	}
+
+	return rows
 }
 
 // 角色列表
-func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RoleListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
+func (manager *SRoleManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RoleListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
+	}
+
+	q, err = manager.SSharableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SharableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableBaseResourceManager.ListItemFilter")
 	}
 
 	var projectId string
@@ -263,6 +292,33 @@ func (manager *SRoleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	return q, nil
+}
+
+func (manager *SRoleManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RoleListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SRoleManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

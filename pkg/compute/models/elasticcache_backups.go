@@ -34,11 +34,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 // SElasticcache.Backup
 type SElasticcacheBackupManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SElasticcacheResourceBaseManager
 }
 
 var ElasticcacheBackupManager *SElasticcacheBackupManager
@@ -58,16 +60,26 @@ func init() {
 type SElasticcacheBackup struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
+	SElasticcacheResourceBase
 
-	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
+	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
-	BackupSizeMb int    `nullable:"false" list:"user" create:"optional"`
-	BackupType   string `width:"32" charset:"ascii" nullable:"true" create:"optional" list:"user"` // 全量|增量额
-	BackupMode   string `width:"32" charset:"ascii" nullable:"true" create:"optional" list:"user"` //  自动|手动
-	DownloadURL  string `width:"512" charset:"ascii" nullable:"true" create:"optional" list:"user"`
+	// 备份大小
+	BackupSizeMb int `nullable:"false" list:"user" create:"optional"`
 
+	// 备份类型, 全量|增量额
+	BackupType string `width:"32" charset:"ascii" nullable:"true" create:"optional" list:"user"`
+
+	// 备份模式，自动|手动
+	BackupMode string `width:"32" charset:"ascii" nullable:"true" create:"optional" list:"user"`
+
+	// 下载地址
+	DownloadURL string `width:"512" charset:"ascii" nullable:"true" create:"optional" list:"user"`
+
+	// 开始备份时间
 	StartTime time.Time `list:"user" create:"optional"`
-	EndTime   time.Time `list:"user" create:"optional"`
+	// 结束备份时间
+	EndTime time.Time `list:"user" create:"optional"`
 }
 
 func (manager *SElasticcacheBackupManager) SyncElasticcacheBackups(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheBackups []cloudprovider.ICloudElasticcacheBackup) compare.SyncResult {
@@ -120,27 +132,6 @@ func (manager *SElasticcacheBackupManager) SyncElasticcacheBackups(ctx context.C
 		syncResult.Add()
 	}
 	return syncResult
-}
-
-func (self *SElasticcacheBackup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheBackupDetails, error) {
-	var err error
-	out := api.ElasticcacheBackupDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	icache, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
-	if err == nil {
-		ec := icache.(*SElasticcache)
-		provider := ec.GetCloudprovider()
-		region := ec.GetRegion()
-		zone := ec.GetZone()
-		out.CloudproviderInfo = MakeCloudProviderInfo(region, zone, provider)
-
-		out.Engine = ec.Engine
-		out.EngineVersion = ec.EngineVersion
-	}
-	return out, nil
 }
 
 func (self *SElasticcacheBackup) syncRemoveCloudElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -286,24 +277,6 @@ func (self *SElasticcacheBackup) StartElasticcacheBackupCreateTask(ctx context.C
 	return nil
 }
 
-func (self *SElasticcacheBackup) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	_eb, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
-	if err != nil {
-		return nil, err
-	}
-
-	eb := _eb.(*SElasticcache)
-	provider, err := eb.GetDriver()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", eb.Name, err)
-	}
-	region := eb.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
-	}
-	return provider.GetIRegionById(region.ExternalId)
-}
-
 func (self *SElasticcacheBackup) AllowPerformRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	// todo : fix me self.IsOwner(userCred) ||
 	return db.IsAdminAllowPerform(userCred, self, "restore_instance")
@@ -369,10 +342,91 @@ func (self *SElasticcacheBackup) ValidatePurgeCondition(ctx context.Context) err
 }
 
 // 弹性缓存备份列表
-func (manager *SElasticcacheBackupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.ElasticcacheBackupListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+func (manager *SElasticcacheBackupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheBackupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (manager *SElasticcacheBackupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.ElasticcacheBackupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SElasticcacheResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ElasticcacheFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheBackupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SElasticcacheResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SElasticcacheBackup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ElasticcacheBackupDetails, error) {
+	return api.ElasticcacheBackupDetails{}, nil
+}
+
+func (manager *SElasticcacheBackupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheBackupDetails {
+	rows := make([]api.ElasticcacheBackupDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	cacheRows := manager.SElasticcacheResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ElasticcacheBackupDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ElasticcacheResourceInfo:        cacheRows[i],
+		}
+	}
+
+	return rows
 }

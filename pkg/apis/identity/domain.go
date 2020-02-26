@@ -18,6 +18,8 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type DomainDetails struct {
 	apis.StandaloneResourceDetails
+	IdpResourceInfo
+
 	SDomain
 
 	UserCout    int `json:"user_count"`

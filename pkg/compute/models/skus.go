@@ -47,12 +47,15 @@ import (
 	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var Cache *hashcache.Cache
 
 type SServerSkuManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SCloudregionResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var ServerSkuManager *SServerSkuManager
@@ -256,12 +259,10 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServerSkuDetails, error) {
-	var err error
-	out := api.ServerSkuDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
+	return api.ServerSkuDetails{}, nil
+}
+
+func (self *SServerSku) getTotalGuestCount() int {
 	// count
 	var count int
 	countKey := self.GetId() + ".total_guest_count"
@@ -272,23 +273,35 @@ func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.T
 	} else {
 		count = v.(int)
 	}
-	out.TotalGuestCount = count
+	return count
+}
 
-	zone := self.GetZone()
-	if zone != nil {
-		out.Zone = zone.Name
-		out.ZoneExtId = fetchExternalId(zone.ExternalId)
+func (manager *SServerSkuManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ServerSkuDetails {
+	rows := make([]api.ServerSkuDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ServerSkuDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:                zoneRows[i],
+		}
+		if len(rows[i].Zone) == 0 {
+			rows[i].CloudregionResourceInfo = regRows[i]
+		}
+		rows[i].TotalGuestCount = objs[i].(*SServerSku).getTotalGuestCount()
 	}
 
-	region, _ := self.GetRegion()
-	if region != nil {
-		out.Region = region.Name
-		out.RegionId = region.Id
-		out.RegionExternalId = region.ExternalId
-		out.RegionExtId = fetchExternalId(region.ExternalId)
-	}
-
-	return out, nil
+	return rows
 }
 
 func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -707,7 +720,12 @@ func listItemDomainFilter(q *sqlchemy.SQuery, providers []string, domainId strin
 }
 
 // 主机套餐规格列表
-func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerSkuListInput) (*sqlchemy.SQuery, error) {
+func (manager *SServerSkuManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ServerSkuListInput,
+) (*sqlchemy.SQuery, error) {
 	publicCloud := false
 
 	cloudEnvStr := query.CloudEnv
@@ -805,6 +823,39 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	return q, err
+}
+
+func (manager *SServerSkuManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ServerSkuListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SServerSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SServerSkuManager) GetMatchedSku(regionId string, cpu int64, memMB int64) (*SServerSku, error) {
@@ -974,7 +1025,7 @@ func (self *SServerSku) PerformCacheSku(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("failed to get cloudprovider for region %s(%s)", cloudregion.Name, cloudregion.Id)
 	}
 
-	if !cloudprovider.Enabled {
+	if !cloudprovider.GetEnabled() {
 		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) disabled", cloudprovider.Name, cloudprovider.Id)
 	}
 

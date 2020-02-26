@@ -29,6 +29,9 @@ func NewSortedStrings(strs []string) SSortedStrings {
 }
 
 func Append(ss SSortedStrings, ele ...string) SSortedStrings {
+	if ss == nil {
+		ss = NewSortedStrings([]string{})
+	}
 	for _, e := range ele {
 		pos, find := ss.Index(e)
 		if find {

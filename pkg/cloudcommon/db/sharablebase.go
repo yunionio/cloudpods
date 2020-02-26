@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -48,7 +49,7 @@ type SSharableBaseResource struct {
 	IsPublic bool `default:"false" nullable:"false" list:"user"`
 }
 
-type SSharableBaseInterface interface {
+type ISharableBase interface {
 	IModel
 	SetIsPublic(pub bool)
 	GetIsPublic() bool
@@ -66,11 +67,11 @@ func (m SSharableBaseResource) GetIsPublic() bool {
 	return m.IsPublic
 }
 
-func SharableAllowPerformPublic(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
+func SharableAllowPerformPublic(model ISharableBase, userCred mcclient.TokenCredential) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
 }
 
-func SharablePerformPublic(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func SharablePerformPublic(model ISharableBase, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.GetIsPublic() {
 		return nil, nil
 	}
@@ -95,11 +96,11 @@ func SharablePerformPublic(model SSharableBaseInterface, ctx context.Context, us
 	return nil, err
 }
 
-func SharableAllowPerformPrivate(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
+func SharableAllowPerformPrivate(model ISharableBase, userCred mcclient.TokenCredential) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
 }
 
-func SharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func SharablePerformPrivate(model ISharableBase, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !model.GetIsPublic() {
 		return nil, nil
 	}
@@ -122,4 +123,20 @@ func SharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, u
 		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 	}
 	return nil, err
+}
+
+func (manager *SSharableBaseResourceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.SharableResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	if query.IsPublic != nil {
+		if *query.IsPublic == true {
+			q = q.IsTrue("is_public")
+		} else {
+			q = q.IsFalse("is_public")
+		}
+	}
+	return q, nil
 }

@@ -118,7 +118,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	}
 	db.Update(host, func() error {
 		host.AccessIp = adminNic.IpAddr
-		host.Enabled = true
+		host.SetEnabled(true)
 		host.HostType = api.HOST_TYPE_BAREMETAL
 		host.HostStatus = api.HOST_OFFLINE
 		host.ManagerUri = ""
@@ -156,7 +156,7 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		host.CpuReserved = 0
 		host.MemReserved = 0
 		host.AccessIp = guest.GetRealIPs()[0]
-		host.Enabled = false
+		host.SetEnabled(false)
 		host.HostStatus = api.HOST_OFFLINE
 		host.HostType = hostType
 		host.IsBaremetal = true

@@ -29,10 +29,10 @@ type SSharedResource struct {
 
 	Id int64 `primary:"true" auto_increment:"true" list:"user"`
 
-	ResourceType    string `width:"32" charset:"ascii" nullable:"false" list:"user"`
-	ResourceId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
-	OwnerProjectId  string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
-	TargetProjectId string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
+	ResourceType    string `width:"32" charset:"ascii" nullable:"false" list:"user" json:"resource_type"`
+	ResourceId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"resource_id"`
+	OwnerProjectId  string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"owner_project_id"`
+	TargetProjectId string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"target_project_id"`
 }
 
 type SSharedResourceManager struct {

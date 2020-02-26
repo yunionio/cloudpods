@@ -158,7 +158,7 @@ func (b baseHostGetter) HostStatus() string {
 }
 
 func (b baseHostGetter) Enabled() bool {
-	return b.h.Enabled
+	return b.h.GetEnabled()
 }
 
 func (b baseHostGetter) ProjectGuests() map[string]int64 {
@@ -459,7 +459,7 @@ func (b *BaseHostDesc) fillIpmiInfo(host *computemodels.SHost) error {
 }
 
 func (h *BaseHostDesc) GetEnableStatus() string {
-	if h.Enabled {
+	if h.GetEnabled() {
 		return "enable"
 	}
 	return "disable"

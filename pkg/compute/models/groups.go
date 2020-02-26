@@ -27,11 +27,13 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -41,6 +43,8 @@ const (
 
 type SGroupManager struct {
 	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var GroupManager *SGroupManager
@@ -62,25 +66,51 @@ func init() {
 type SGroup struct {
 	db.SVirtualResourceBase
 
+	SZoneResourceBase
+
+	db.SEnabledResourceBase
+
 	// 服务类型
-	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
-	ParentId    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"service_type"`
+	ParentId    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"parent_id"`
+
 	// 可用区Id
 	// example: zone1
-	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"zone_id"`
+
 	// 调度策略
-	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"`
+	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional" json:"sched_strategy"`
 
 	// the upper limit number of guests with this group in a host
-	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1"`
-	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true"`
+	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1" json:"granularity"`
+	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true" json:"force_dispersion"`
 	// 是否启用
-	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
+	// Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user" json:"enabled"`
 }
 
 // 主机组列表
-func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential,
-	input api.InstanceGroupListInput) (*sqlchemy.SQuery, error) {
+func (sm *SGroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.InstanceGroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = sm.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = sm.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = sm.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
+	}
+
 	guestFilter := input.Server
 	if len(guestFilter) != 0 {
 		guestObj, err := GuestManager.FetchByIdOrName(userCred, guestFilter)
@@ -96,25 +126,82 @@ func (sm *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	if len(input.ServiceType) > 0 {
 		q = q.Equals("service_type", input.ServiceType)
 	}
+
 	return q, nil
 }
 
-func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (api.InstanceGroupDetail, error) {
+func (sm *SGroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.InstanceGroupListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	out := api.InstanceGroupDetail{}
-	out.VirtualResourceDetails, err = group.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+
+	q, err = sm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
-		return out, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	return group.getMoreDetails(ctx, userCred, out)
+	q, err = sm.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }
 
-func (group *SGroup) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	out api.InstanceGroupDetail) (api.InstanceGroupDetail, error) {
+func (sm *SGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = sm.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = sm.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (sm *SGroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.InstanceGroupDetail {
+	rows := make([]api.InstanceGroupDetail, len(objs))
+
+	virtRows := sm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := sm.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.InstanceGroupDetail{
+			VirtualResourceDetails: virtRows[i],
+			ZoneResourceInfo:       zoneRows[i],
+		}
+		rows[i].GuestCount = objs[i].(*SGroup).GetGuestCount()
+	}
+
+	return rows
+}
+
+func (group *SGroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.InstanceGroupDetail, error) {
+	return api.InstanceGroupDetail{}, nil
+}
+
+func (group *SGroup) GetGuestCount() int {
 	q := GroupguestManager.Query().Equals("group_id", group.Id)
-	out.GuestCount, _ = q.CountWithError()
-	return out, nil
+	count, _ := q.CountWithError()
+	return count
 }
 
 func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
@@ -256,46 +343,26 @@ func (group *SGroup) checkGuests(ctx context.Context, userCred mcclient.TokenCre
 	return
 }
 
-func (group *SGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (group *SGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
 	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "enable")
 }
 
-func (group *SGroup) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !group.Enabled.IsTrue() {
-		_, err := db.Update(group, func() error {
-			group.Enabled = tristate.True
-			return nil
-		})
-		if err != nil {
-			logclient.AddSimpleActionLog(group, logclient.ACT_ENABLE, nil, userCred, false)
-			return nil, err
-		}
-		err = group.ClearAllScheDescCache()
-		if err != nil {
-			log.Errorf("fail to clean all sche desc cache: %s", err.Error())
-		}
-		db.OpsLog.LogEvent(group, db.ACT_ENABLE, "", userCred)
-		logclient.AddSimpleActionLog(group, logclient.ACT_ENABLE, nil, userCred, true)
+func (group *SGroup) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(group, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
 }
 
-func (group *SGroup) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (group *SGroup) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
 	return group.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, group, "disable")
 }
 
-func (group *SGroup) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if group.Enabled.IsTrue() {
-		_, err := db.Update(group, func() error {
-			group.Enabled = tristate.False
-			return nil
-		})
-		if err != nil {
-			logclient.AddSimpleActionLog(group, logclient.ACT_DISABLE, nil, userCred, false)
-			return nil, err
-		}
-		db.OpsLog.LogEvent(group, db.ACT_DISABLE, "", userCred)
-		logclient.AddSimpleActionLog(group, logclient.ACT_DISABLE, nil, userCred, true)
+func (group *SGroup) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(group, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
 }

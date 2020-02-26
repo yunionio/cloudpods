@@ -18,12 +18,14 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostwireManager struct {
@@ -81,14 +83,44 @@ func (joint *SHostwire) Slave() db.IStandaloneModel {
 }
 
 func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostwireDetails, error) {
-	var err error
-	out := api.HostwireDetails{}
-	out.ModelBaseDetails, err = self.SHostJointsBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.HostwireDetails{}, nil
+}
+
+func (manager *SHostwireManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostwireDetails {
+	rows := make([]api.HostwireDetails, len(objs))
+
+	hostRows := manager.SHostJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	wireIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.HostwireDetails{
+			HostJointResourceDetails: hostRows[i],
+		}
+		wireIds[i] = objs[i].(*SHostwire).WireId
 	}
-	out.Baremetal, out.Wire = db.JointModelExtra(self)
-	return self.getExtraDetails(out), nil
+
+	wires := make(map[string]SWire)
+	err := db.FetchStandaloneObjectsByIds(WireManager, wireIds, &wires)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if wire, ok := wires[wireIds[i]]; ok {
+			rows[i].Wire = wire.Name
+			rows[i].Bandwidth = wire.Bandwidth
+		}
+	}
+
+	return rows
 }
 
 func (hw *SHostwire) GetWire() *SWire {
@@ -105,14 +137,6 @@ func (hw *SHostwire) GetHost() *SHost {
 		return host.(*SHost)
 	}
 	return nil
-}
-
-func (hw *SHostwire) getExtraDetails(out api.HostwireDetails) api.HostwireDetails {
-	wire := hw.GetWire()
-	if wire != nil {
-		out.Bandwidth = wire.Bandwidth
-	}
-	return out
 }
 
 func (self *SHostwire) GetGuestnicsCount() (int, error) {

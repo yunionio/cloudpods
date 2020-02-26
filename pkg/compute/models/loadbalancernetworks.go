@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancernetworkManager struct {
@@ -213,15 +214,59 @@ func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.To
 	return db.DetachJoint(ctx, userCred, ln)
 }
 
-func (ln *SLoadbalancerNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancernetworkDetails, error) {
-	var err error
-	out := api.LoadbalancernetworkDetails{}
-	out.ModelBaseDetails, err = ln.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (ln *SLoadbalancerNetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancernetworkDetails, error) {
+	return api.LoadbalancernetworkDetails{}, nil
+}
+
+func (manager *SLoadbalancernetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancernetworkDetails {
+	rows := make([]api.LoadbalancernetworkDetails, len(objs))
+
+	jointRows := manager.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	lbIds := make([]string, len(rows))
+	netIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.LoadbalancernetworkDetails{
+			VirtualJointResourceBaseDetails: jointRows[i],
+		}
+		lbIds[i] = objs[i].(*SLoadbalancerNetwork).LoadbalancerId
+		netIds[i] = objs[i].(*SLoadbalancerNetwork).NetworkId
 	}
-	out.Loadbalancer, out.Network = db.JointModelExtra(ln)
-	return out, nil
+
+	lbIdMaps, err := db.FetchIdNameMap2(LoadbalancerManager, lbIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 for lbIds fail %s", err)
+		return rows
+	}
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 for netIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := lbIdMaps[lbIds[i]]; ok {
+			rows[i].Loadbalancer = name
+		}
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func totalLBNicCount(

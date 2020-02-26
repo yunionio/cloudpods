@@ -18,11 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type RouteTableDetails struct {
 	apis.VirtualResourceDetails
-	SRouteTable
-	CloudproviderInfo
+	VpcResourceInfo
 
-	// 虚拟私有网络名称
-	Vpc string `json:"vpc"`
-	// 区域名称
-	Cloudregion string `json:"cloudregion"`
+	SRouteTable
 }

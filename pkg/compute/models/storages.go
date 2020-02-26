@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -38,17 +39,20 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStorageManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SEnabledStatusStandaloneResourceBaseManager
+	SManagedResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var StorageManager *SStorageManager
 
 func init() {
 	StorageManager = &SStorageManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
 			SStorage{},
 			"storages_tbl",
 			"storage",
@@ -59,10 +63,11 @@ func init() {
 }
 
 type SStorage struct {
-	db.SStandaloneResourceBase
+	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
+	SZoneResourceBase
 
 	// 容量大小,单位Mb
 	Capacity int64 `nullable:"false" list:"admin" update:"admin" create:"admin_required"`
@@ -79,16 +84,13 @@ type SStorage struct {
 	// 存储配置信息
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`
 
-	// 可用区Id
-	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
-
 	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
 	// 是否启用
-	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
+	// Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
 	// 状态
-	Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
+	// Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
 
 	// indicating whether system disk can be allocated in this storage
 	// 是否可以用作系统盘存储
@@ -128,7 +130,7 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 }
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("cmtbound") || data.Contains("capacity") {
 		hosts := self.GetAttachedHosts()
@@ -159,7 +161,7 @@ func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	DeleteResourceJointSchedtags(self, ctx, userCred)
-	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
@@ -215,7 +217,7 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 
-	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
@@ -244,11 +246,11 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has snapshots")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	storageDriver := GetStorageDriver(self.StorageType)
 	if storageDriver != nil {
@@ -409,20 +411,36 @@ func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails
 	out.FreeCapacity = capa.GetFree()
 
 	out.CommitBound = self.GetOvercommitBound()
-	out.CloudproviderInfo = self.getCloudProviderInfo()
 	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
 
 	return out
 }
 
 func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StorageDetails, error) {
-	var err error
-	out := api.StorageDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.StorageDetails{}, nil
+}
+
+func (manager *SStorageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StorageDetails {
+	rows := make([]api.StorageDetails, len(objs))
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manageRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.StorageDetails{
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:                       zoneRows[i],
+			ManagedResourceInfo:                    manageRows[i],
+		}
+		rows[i] = objs[i].(*SStorage).getMoreDetails(ctx, rows[i])
 	}
-	return self.getMoreDetails(ctx, out), nil
+	return rows
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int64 {
@@ -948,7 +966,7 @@ func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCr
 	disk.StorageId = self.Id
 	disk.AutoDelete = autoDelete
 	disk.ProjectId = ownerId.GetProjectId()
-	disk.ProjectSrc = string(db.PROJECT_SOURCE_LOCAL)
+	disk.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	disk.DomainId = ownerId.GetProjectDomainId()
 	disk.IsSystem = isSystem
 
@@ -1127,33 +1145,27 @@ func (manager *SStorageManager) IsStorageTypeExist(storageType string) (string, 
 }
 
 // 块存储列表
-func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.StorageListInput) (*sqlchemy.SQuery, error) {
+func (manager *SStorageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
-	}
-
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "zone_id", func() *sqlchemy.SQuery {
-		return ZoneManager.Query("id")
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-	}
-
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Share != nil && *query.Share {
@@ -1193,6 +1205,46 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	return q, err
 }
 
+func (manager *SStorageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SStorageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SStorage) ClearSchedDescCache() error {
 	hosts := self.GetAllAttachingHosts()
 	if hosts == nil {
@@ -1210,7 +1262,7 @@ func (self *SStorage) ClearSchedDescCache() error {
 	return nil
 }
 
-func (self *SStorage) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SStorage) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
 	zone := self.getZone()
 	if zone != nil {

@@ -24,7 +24,7 @@ import (
 type SDeletePreventableResourceBase struct {
 	// 是否开启删除保护
 	// example: true
-	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`
+	DisableDelete tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional" json:"disable_delete"`
 }
 
 func (lock *SDeletePreventableResourceBase) MarkDeletePreventionOff() {

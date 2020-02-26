@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type Caller struct {
@@ -122,10 +123,22 @@ func (p *param) convert() reflect.Value {
 }
 
 func ValueToJSONObject(out reflect.Value) jsonutils.JSONObject {
+	if gotypes.IsNil(out.Interface()) {
+		return nil
+	}
+
 	if obj, ok := isJSONObject(out); ok {
 		return obj
 	}
 	return jsonutils.Marshal(out.Interface())
+}
+
+func ValueToJSONDict(out reflect.Value) *jsonutils.JSONDict {
+	jsonObj := ValueToJSONObject(out)
+	if jsonObj == nil {
+		return nil
+	}
+	return jsonObj.(*jsonutils.JSONDict)
 }
 
 func ValueToError(out reflect.Value) error {
@@ -137,7 +150,7 @@ func ValueToError(out reflect.Value) error {
 }
 
 func mergeInputOutputData(data *jsonutils.JSONDict, resVal reflect.Value) *jsonutils.JSONDict {
-	retJson := ValueToJSONObject(resVal).(*jsonutils.JSONDict)
+	retJson := ValueToJSONDict(resVal)
 	// preserve the input info not returned by caller
 	data.Update(retJson)
 	return data
@@ -164,7 +177,27 @@ func ListItemFilter(manager IModelManager, ctx context.Context, q *sqlchemy.SQue
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald ListItemFilter return value")
+		return nil, httperrors.NewInternalServerError("Invald ListItemFilter return value count %d", len(ret))
+	}
+	if err := ValueToError(ret[1]); err != nil {
+		return nil, err
+	}
+	return ret[0].Interface().(*sqlchemy.SQuery), nil
+}
+
+func OrderByExtraFields(
+	manager IModelManager,
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (*sqlchemy.SQuery, error) {
+	ret, err := call(manager, "OrderByExtraFields", ctx, q, userCred, query)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 2 {
+		return nil, httperrors.NewInternalServerError("Invald OrderByExtraFields return value count %d", len(ret))
 	}
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
@@ -178,12 +211,44 @@ func GetExtraDetails(model IModel, ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(ret) != 2 {
-		return nil, httperrors.NewInternalServerError("Invald GetExtraDetails return value")
+		return nil, httperrors.NewInternalServerError("Invalid GetExtraDetails return value count %d", len(ret))
 	}
 	if err := ValueToError(ret[1]); err != nil {
 		return nil, err
 	}
-	return ValueToJSONObject(ret[0]).(*jsonutils.JSONDict), nil
+	return ValueToJSONDict(ret[0]), nil
+}
+
+func FetchCustomizeColumns(
+	manager IModelManager,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) ([]*jsonutils.JSONDict, error) {
+	ret, err := call(manager, "FetchCustomizeColumns", ctx, userCred, query, objs, fields, isList)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(ret) != 1 {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value count %d", len(ret))
+	}
+	if ret[0].IsNil() {
+		return nil, nil
+	}
+	if ret[0].Kind() != reflect.Slice {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value type, not a slice!")
+	}
+	if ret[0].Len() != len(objs) {
+		return nil, httperrors.NewInternalServerError("Invalid FetchCustomizeColumns return value, inconsistent obj count: input %d != output %d", len(objs), ret[0].Len())
+	}
+	retVal := make([]*jsonutils.JSONDict, ret[0].Len())
+	for i := 0; i < ret[0].Len(); i += 1 {
+		retVal[i] = ValueToJSONDict(ret[0].Index(i))
+	}
+	return retVal, nil
 }
 
 func ValidateUpdateData(model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -18,9 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancerBackendDetails struct {
 	apis.VirtualResourceDetails
+	LoadbalancerBackendGroupResourceInfo
+
 	SLoadbalancerBackend
-
-	CloudproviderInfo
-
-	VpcId string `json:"vpc_id"`
 }

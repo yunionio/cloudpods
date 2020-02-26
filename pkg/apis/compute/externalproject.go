@@ -18,9 +18,8 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type ExternalProjectDetails struct {
 	apis.StandaloneResourceDetails
+	apis.ProjectizedResourceInfo
+	ManagedResourceInfo
 
 	SExternalProject
-	CloudproviderInfo
-
-	Tenant string `json:"tenant"`
 }

@@ -17,7 +17,8 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancernetworkDetails struct {
-	apis.JoinModelBaseDetails
+	apis.VirtualJointResourceBaseDetails
+
 	SLoadbalancerNetwork
 
 	// 负载均衡器名称

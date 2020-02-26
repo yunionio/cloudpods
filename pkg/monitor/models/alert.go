@@ -24,12 +24,12 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -46,6 +46,7 @@ func init() {
 
 type SAlertManager struct {
 	db.SVirtualResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 func NewAlertManager(dt interface{}, keyword, keywordPlural string) *SAlertManager {
@@ -72,10 +73,11 @@ func (man *SAlertManager) FetchAllAlerts() ([]SAlert, error) {
 
 type SAlert struct {
 	db.SVirtualResourceBase
+	db.SEnabledResourceBase
 
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
 	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
-	Enabled   bool                 `nullable:"false" default:"false" list:"user" create:"optional"`
+	// Enabled   bool                 `nullable:"false" default:"false" list:"user" create:"optional"`
 
 	Message string `charset:"utf8" list:"user" update:"user"`
 	State   string `width:"36" charset:"ascii" list:"user"`
@@ -89,20 +91,6 @@ type SAlert struct {
 
 	NoDataState         string `charset:"utf8" list:"user"`
 	ExecutionErrorState string `charset:"utf8" list:"user"`
-}
-
-func (alert *SAlert) IsEnable() bool {
-	return alert.Enabled
-}
-
-func (alert *SAlert) SetEnable() error {
-	alert.Enabled = true
-	return nil
-}
-
-func (alert *SAlert) SetDisable() error {
-	alert.Enabled = false
-	return nil
 }
 
 func (alert *SAlert) SetTitle(ctx context.Context, t string) error {
@@ -184,12 +172,13 @@ func (man *SAlertManager) ValidateCreateData(ctx context.Context, userCred mccli
 func (man *SAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input monitor.AlertListInput) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	q, err = db.ListEnableItemFilter(q, input.Enabled)
+	q, err = man.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledResourceBaseManager.ListItemFilter")
 	}
+
 	return q, nil
 }
 
@@ -238,20 +227,28 @@ func (alert *SAlert) CustomizeCreate(ctx context.Context, userCred mcclient.Toke
 	return alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (alert *SAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.AllowPerformEnable(alert, rbacutils.ScopeProject, userCred)
+func (alert *SAlert) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "enable")
 }
 
-func (alert *SAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return db.PerformEnable(alert, userCred)
+func (alert *SAlert) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(alert, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
 }
 
-func (alert *SAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.AllowPerformDisable(alert, rbacutils.ScopeProject, userCred)
+func (alert *SAlert) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "disable")
 }
 
-func (alert *SAlert) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return db.PerformDisable(alert, userCred)
+func (alert *SAlert) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(alert, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
 }
 
 func (alert *SAlert) GetNotifications() ([]SAlertNotification, error) {

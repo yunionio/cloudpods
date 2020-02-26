@@ -256,7 +256,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 			return
 		}
 		self.OnGuestDeleteComplete(ctx, guest, nil)
-	} else if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	} else if (host == nil || !host.GetEnabled()) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("OnGuestDeleteComplete", nil)

@@ -28,15 +28,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceDatabaseManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 var DBInstanceDatabaseManager *SDBInstanceDatabaseManager
@@ -57,12 +58,15 @@ type SDBInstanceDatabase struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	SDBInstanceResourceBase
+
 	// 字符集
 	// example: utf-8
-	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	CharacterSet string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"character_set"`
+
 	// RDS实例Id
 	// example: 7d07e867-37d1-4754-865d-80f88ad0f982
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceDatabaseManager) GetContextManagers() [][]db.IModelManager {
@@ -118,33 +122,62 @@ func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, use
 	return q
 }
 
-func (self *SDBInstanceDatabaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
+//func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+//只能创建或删除，避免update name后造成登录数据库名称异常
+//	return false
+//}
 
-func (self *SDBInstanceDatabase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstanceDatabase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	//只能创建或删除，避免update name后造成登录数据库名称异常
-	return false
-}
-
-func (self *SDBInstanceDatabase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
+func (self *SDBInstanceDatabase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.ErrForbidden
 }
 
 // RDS数据库列表
-func (manager *SDBInstanceDatabaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceDatabaseListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDBInstanceDatabaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceDatabaseListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-	})
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceDatabaseListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceDatabaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SDBInstanceDatabase) GetParentId() string {
@@ -245,14 +278,28 @@ func (self *SDBInstanceDatabase) GetDBInstance() (*SDBInstance, error) {
 }
 
 func (self *SDBInstanceDatabase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstancedatabaseDetails, error) {
-	var err error
-	out := api.DBInstancedatabaseDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
+	return api.DBInstancedatabaseDetails{}, nil
+}
 
-	return self.getMoreDetails(ctx, userCred, out)
+func (manager *SDBInstanceDatabaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstancedatabaseDetails {
+	rows := make([]api.DBInstancedatabaseDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.DBInstancedatabaseDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			DBInstanceResourceInfo:          dbRows[i],
+		}
+		rows[i], _ = objs[i].(*SDBInstanceDatabase).getMoreDetails(ctx, userCred, rows[i])
+	}
+	return rows
 }
 
 func (self *SDBInstanceDatabase) getPrivilegesDetails() ([]api.DBInstancePrivilege, error) {

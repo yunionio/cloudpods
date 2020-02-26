@@ -14,9 +14,18 @@
 
 package compute
 
-type HostJointsDetails struct {
+import "yunion.io/x/onecloud/pkg/apis"
+
+type HostJointResourceDetailsBase struct {
 	// 宿主机名称
 	Host string `json:"host"`
 	// 裸金属服务器名称
+	// Deprecated
 	Baremetal string `json:"baremetal"`
+}
+
+type HostJointResourceDetails struct {
+	apis.JointResourceBaseDetails
+
+	HostJointResourceDetailsBase
 }

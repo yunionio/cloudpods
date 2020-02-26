@@ -14,16 +14,24 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type GuestnetworkDetails struct {
-	apis.JoinModelBaseDetails
+	GuestJointResourceDetails
+
 	SGuestnetwork
 
-	// 云主机名称
-	Guest string
-	// 云主机名称
-	Server string
 	// IP子网名称
 	Network string
+}
+
+type GuestnetworkShortDesc struct {
+	// IP地址
+	IpAddr string `json:"ip_addr"`
+	// 是否为外网网卡
+	IsExit bool `json:"is_exit"`
+	// IPv6地址
+	Ip6Addr string `json:"ip6_addr"`
+	// Mac地址
+	Mac string `json:"mac"`
+	// Bonding的配对网卡MAC
+	TeamWith string `json:"team_with"`
 }

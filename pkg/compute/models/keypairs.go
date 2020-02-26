@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SKeypairManager struct {
@@ -69,13 +71,18 @@ type SKeypair struct {
 }
 
 // 列出ssh密钥对
-func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.KeypairListInput) (*sqlchemy.SQuery, error) {
+func (manager *SKeypairManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.KeypairListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}
 	if query.Admin != nil && *query.Admin && db.IsAdminAllowList(userCred, manager) {
-		user := query.UserStr()
+		user := query.User
 		if len(user) > 0 {
 			uc, _ := db.UserCacheManager.FetchUserByIdOrName(ctx, user)
 			if uc == nil {
@@ -87,6 +94,29 @@ func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Equals("owner_id", userCred.GetUserId())
 	}
 	return q, nil
+}
+
+func (manager *SKeypairManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.KeypairListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SKeypairManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SKeypairManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -101,25 +131,50 @@ func (self *SKeypair) AllowGetDetails(ctx context.Context, userCred mcclient.Tok
 	return self.IsOwner(userCred) || db.IsAdminAllowGet(userCred, self)
 }
 
-func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.KeypairDetails, error) {
-	var err error
-	out := api.KeypairDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SKeypair) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.KeypairDetails, error) {
+	return api.KeypairDetails{}, nil
+}
+
+func (manager *SKeypairManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.KeypairDetails {
+	rows := make([]api.KeypairDetails, len(objs))
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	userIds := make([]string, len(objs))
+	for i := range rows {
+		keypair := objs[i].(*SKeypair)
+		rows[i] = api.KeypairDetails{
+			StandaloneResourceDetails: stdRows[i],
+			PrivateKeyLen:             len(keypair.PrivateKey),
+		}
+		rows[i].LinkedGuestCount, _ = keypair.GetLinkedGuestsCount()
+		userIds[i] = keypair.OwnerId
 	}
-	out.PrivateKeyLen = len(self.PrivateKey)
 
-	out.LinkedGuestCount, _ = self.GetLinkedGuestsCount()
+	users := make(map[string]db.SUser)
+	err := db.FetchStandaloneObjectsByIds(db.UserCacheManager, userIds, &users)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds for users fail %s", err)
+		return rows
+	}
 
-	if !isList && db.IsAdminAllowGet(userCred, self) {
-		out.OwnerId = self.OwnerId
-		uc, _ := db.UserCacheManager.FetchUserById(ctx, self.OwnerId)
-		if uc != nil {
-			out.OwnerName = uc.Name
+	for i := range rows {
+		if owner, ok := users[userIds[i]]; ok {
+			rows[i].OwnerName = owner.Name
 		}
 	}
-	return out, nil
+
+	return rows
 }
 
 func (manager *SKeypairManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

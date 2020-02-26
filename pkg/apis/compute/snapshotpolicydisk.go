@@ -19,7 +19,7 @@ import (
 )
 
 type SnapshotPolicyDiskDetails struct {
-	apis.JoinModelBaseDetails
+	apis.VirtualJointResourceBaseDetails
 
 	// 快照策略名称
 	Snapshotpolicy string      `json:"snapshotpolicy"`

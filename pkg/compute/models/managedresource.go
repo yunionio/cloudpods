@@ -20,6 +20,10 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -28,11 +32,16 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SManagedResourceBase struct {
-	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
+	// 云订阅ID
+	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional" json:"manager_id"`
 }
+
+type SManagedResourceBaseManager struct{}
 
 func (self *SManagedResourceBase) GetCloudprovider() *SCloudprovider {
 	if len(self.ManagerId) > 0 {
@@ -104,7 +113,178 @@ func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
 }
 
-func managedResourceFilterByDomain(q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func (self *SManagedResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) api.ManagedResourceInfo {
+	return api.ManagedResourceInfo{}
+}
+
+func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ManagedResourceInfo {
+	rows := make([]api.ManagedResourceInfo, len(objs))
+	managerIds := make([]string, len(objs))
+	managerCnt := 0
+	for i := range objs {
+		rows[i] = api.ManagedResourceInfo{}
+		rows[i].CloudEnv = api.CLOUD_ENV_ON_PREMISE
+		rows[i].Provider = api.CLOUD_PROVIDER_ONECLOUD
+		rows[i].Brand = api.CLOUD_PROVIDER_ONECLOUD
+		var base *SManagedResourceBase
+		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if err != nil {
+			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			continue
+		}
+		if base != nil && len(base.ManagerId) > 0 {
+			managerIds[i] = base.ManagerId
+			managerCnt += 1
+		}
+	}
+
+	if managerCnt == 0 {
+		return rows
+	}
+
+	managers := make(map[string]SCloudprovider)
+	err := db.FetchStandaloneObjectsByIds(CloudproviderManager, managerIds, &managers)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	accountIds := make([]string, 0)
+	projectIds := make([]string, 0)
+	for i := range rows {
+		if _, ok := managers[managerIds[i]]; ok {
+			manager := managers[managerIds[i]]
+			rows[i].Manager = manager.Name
+			rows[i].ManagerDomainId = manager.DomainId
+			rows[i].ManagerProjectId = manager.ProjectId
+			rows[i].AccountId = manager.CloudaccountId
+			if len(manager.ProjectId) > 0 {
+				projectIds = append(projectIds, manager.ProjectId)
+			}
+			if len(manager.CloudaccountId) > 0 {
+				accountIds = append(accountIds, manager.CloudaccountId)
+			}
+		}
+	}
+
+	accounts := make(map[string]SCloudaccount)
+	err = db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds for accounts fail %s", err)
+		return nil
+	}
+
+	projects := db.FetchProjects(projectIds, false)
+
+	for i := range rows {
+		if account, ok := accounts[rows[i].AccountId]; ok {
+			rows[i].Account = account.Name
+			rows[i].Brand = account.Brand
+			rows[i].Provider = account.Provider
+			rows[i].CloudEnv = account.GetCloudEnv()
+			rows[i].Environment = account.GetEnvironment()
+		}
+		if project, ok := projects[rows[i].ManagerProjectId]; ok {
+			rows[i].ManagerProject = project.Name
+			rows[i].ManagerDomain = project.Domain
+			rows[i].ManagerDomainId = project.DomainId
+		}
+	}
+
+	return rows
+}
+
+func (manager *SManagedResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ManagedResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	return managedResourceFilterByAccount(q, query, "", nil)
+}
+
+func (manager *SManagedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "manager":
+		managerQuery := CloudproviderManager.Query("name", "id").SubQuery()
+		q.AppendField(managerQuery.Field("name", field)).Distinct()
+		q = q.Join(managerQuery, sqlchemy.Equals(q.Field("manager_id"), managerQuery.Field("id")))
+		return q, nil
+	case "account":
+		accountQuery := CloudaccountManager.Query("name", "id").SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		q.AppendField(accountQuery.Field("name", field)).Distinct()
+		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	case "provider", "brand":
+		accountQuery := CloudaccountManager.Query(field, "id").Distinct().SubQuery()
+		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
+		q.AppendField(accountQuery.Field(field)).Distinct()
+		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SManagedResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ManagedResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
+	if len(orders) > 0 {
+		q = db.OrderByFields(q, orders, fields)
+	}
+	return q, nil
+}
+
+func (manager *SManagedResourceBaseManager) GetOrderBySubQuery(
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ManagedResourceListInput,
+) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
+	var orders []string
+	var fields []sqlchemy.IQueryField
+	orders = manager.GetOrderByFields(query)
+	if db.NeedOrderQuery(orders) {
+		providers := CloudproviderManager.Query("id", "name", "cloudaccount_id").SubQuery()
+		accounts := CloudaccountManager.Query("id", "name", "provider", "brand").SubQuery()
+		subq := providers.Query(
+			providers.Field("id"),
+			providers.Field("name"),
+			accounts.Field("name").Label("account"),
+			accounts.Field("provider"),
+			accounts.Field("brand"),
+		).Join(
+			accounts,
+			sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")),
+		).SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("manager_id"), subq.Field("id")))
+		fields = []sqlchemy.IQueryField{
+			subq.Field("name"),
+			subq.Field("account"),
+			subq.Field("provider"),
+			subq.Field("brand"),
+		}
+	}
+	return q, orders, fields
+}
+
+func (manager *SManagedResourceBaseManager) GetOrderByFields(query api.ManagedResourceListInput) []string {
+	return []string{query.OrderByManager, query.OrderByAccount, query.OrderByProvider, query.OrderByBrand}
+}
+
+func _managedResourceFilterByDomain(q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	domainStr := query.ProjectDomain
 	if len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
@@ -237,16 +417,34 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourc
 
 	q = filterByCloudType(q, input, filterField, subqFunc)
 
+	q, err := _managedResourceFilterByDomain(q, input.DomainizedResourceListInput, filterField, subqFunc)
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+	}
+
 	return q, nil
 }
 
 func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	zoneStr := query.Zone
-	if len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
+	zoneList := query.ZoneList()
+	if len(zoneList) > 1 {
+		zoneQ := ZoneManager.Query("id")
+		zoneQ = zoneQ.Filter(sqlchemy.OR(
+			sqlchemy.In(zoneQ.Field("id"), zoneList),
+			sqlchemy.In(zoneQ.Field("name"), zoneList),
+		))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("zone_id"), zoneQ.SubQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("zone_id"), zoneQ.SubQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	} else if len(query.Zone) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(nil, query.Zone)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.Zone)
 			} else {
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -410,6 +608,9 @@ var (
 )
 
 func fetchExternalId(extId string) string {
+	if len(extId) == 0 {
+		return ""
+	}
 	pos := strings.LastIndexByte(extId, '/')
 	if pos > 0 {
 		return extId[pos+1:]
@@ -418,8 +619,8 @@ func fetchExternalId(extId string) string {
 	}
 }
 
-func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) api.CloudproviderInfo {
-	info := api.CloudproviderInfo{}
+func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudProviderInfo {
+	info := SCloudProviderInfo{}
 
 	if zone != nil {
 		info.Zone = zone.GetName()

@@ -17,7 +17,7 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type CloudproviderregionDetails struct {
-	apis.JoinModelBaseDetails
+	apis.JointResourceBaseDetails
 
 	Cloudprovider string
 	Cloudregion   string

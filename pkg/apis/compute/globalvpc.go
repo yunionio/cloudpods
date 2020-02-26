@@ -23,6 +23,20 @@ type GlobalVpcCreateInput struct {
 }
 
 type GlobalVpcDetails struct {
-	apis.StandaloneResourceDetails
+	apis.EnabledStatusStandaloneResourceDetails
+
 	SGlobalVpc
+}
+
+type GlobalVpcResourceInfo struct {
+	// 全局VPC名称
+	Globalvpc string `json:"globalvpc"`
+}
+
+type GlobalVpcResourceListInput struct {
+	// 以GlobalVpc的过滤
+	Globalvpc string `json:"globalvpc"`
+
+	// 以GlobalVpc的名称排序
+	OrderByGlobalvpc string `json:"order_by_globalvpc"`
 }

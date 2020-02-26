@@ -45,10 +45,10 @@ type DBInstanceBackupCreateInput struct {
 
 type DBInstanceBackupDetails struct {
 	apis.VirtualResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
+	DBInstanceResourceInfoBase
+
 	SDBInstanceBackup
-
-	// RDS实例名称
-	DBInstance string `json:"dbinstance"`
-
-	CloudproviderInfo
 }

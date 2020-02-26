@@ -169,13 +169,42 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 }
 
 // 域列表
-func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DomainListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (manager *SDomainManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DomainListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
 	return q, nil
+}
+
+func (manager *SDomainManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DomainListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDomainManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -268,29 +297,48 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DomainDetails, error) {
-	var err error
-	out := api.DomainDetails{}
-	out.StandaloneResourceDetails, err = domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return domainExtra(domain, out), nil
+func (domain *SDomain) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DomainDetails, error) {
+	return api.DomainDetails{}, nil
 }
 
-func domainExtra(domain *SDomain, out api.DomainDetails) api.DomainDetails {
-	// idp, _ := domain.GetIdentityProvider()
-	// if idp != nil {
-	//	extra.Add(jsonutils.NewString(idp.Name), "driver")
-	// }
+func (manager *SDomainManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DomainDetails {
+	rows := make([]api.DomainDetails, len(objs))
 
-	out.UserCout, _ = domain.GetUserCount()
-	out.GroupCount, _ = domain.GetGroupCount()
-	out.ProjectCout, _ = domain.GetProjectCount()
-	out.RoleCount, _ = domain.GetRoleCount()
-	out.PolicyCount, _ = domain.GetPolicyCount()
-	out.IdpCount, _ = domain.GetIdpCount()
-	return out
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	idList := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.DomainDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		domain := objs[i].(*SDomain)
+		idList[i] = domain.Id
+		rows[i].UserCout, _ = domain.GetUserCount()
+		rows[i].GroupCount, _ = domain.GetGroupCount()
+		rows[i].ProjectCout, _ = domain.GetProjectCount()
+		rows[i].RoleCount, _ = domain.GetRoleCount()
+		rows[i].PolicyCount, _ = domain.GetPolicyCount()
+		rows[i].IdpCount, _ = domain.GetIdpCount()
+	}
+
+	idpRows := expandIdpAttributes(api.IdMappingEntityDomain, idList, fields)
+
+	for i := range rows {
+		rows[i].IdpResourceInfo = idpRows[i]
+	}
+
+	return rows
 }
 
 func (domain *SDomain) getUsers() ([]SUser, error) {
@@ -363,11 +411,6 @@ func (domain *SDomain) IsReadOnly() bool {
 		return true
 	}
 	return false
-}
-
-func (manager *SDomainManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityDomain)
 }
 
 func (domain *SDomain) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

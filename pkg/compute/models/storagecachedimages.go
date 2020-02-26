@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStoragecachedimageManager struct {
@@ -145,15 +146,35 @@ func (self *SStoragecachedimage) GetHost() (*SHost, error) {
 	return sc.GetHost()
 }
 
-func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StoragecachedimageDetails, error) {
-	var err error
+func (self *SStoragecachedimage) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.StoragecachedimageDetails, error) {
 	out := api.StoragecachedimageDetails{}
-	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	out.Storagecache, out.Cachedimage = db.JointModelExtra(self)
 	return self.getExtraDetails(ctx, out), nil
+}
+
+func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StoragecachedimageDetails {
+	rows := make([]api.StoragecachedimageDetails, len(objs))
+
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.StoragecachedimageDetails{
+			JointResourceBaseDetails: jointRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
@@ -179,6 +200,7 @@ func (self *SStoragecachedimage) GetStoragecache() (*SStoragecache, error) {
 func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.StoragecachedimageDetails) api.StoragecachedimageDetails {
 	storagecache, _ := self.GetStoragecache()
 	if storagecache != nil {
+		out.Storagecache = storagecache.Name
 		out.Storages = storagecache.getStorageNames()
 		host, _ := storagecache.GetHost()
 		if host != nil {
@@ -187,6 +209,7 @@ func (self *SStoragecachedimage) getExtraDetails(ctx context.Context, out api.St
 	}
 	cachedImage := self.GetCachedimage()
 	if cachedImage != nil {
+		out.Cachedimage = cachedImage.Name
 		out.Image = cachedImage.GetName()
 		out.Size = cachedImage.Size
 	}
