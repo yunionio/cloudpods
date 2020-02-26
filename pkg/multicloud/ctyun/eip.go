@@ -188,7 +188,7 @@ func (self *SEip) GetBandwidth() int {
 
 func (self *SEip) GetInternetChargeType() string {
 	// todo: fix me
-	return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+	return ""
 }
 
 func (self *SEip) Delete() error {

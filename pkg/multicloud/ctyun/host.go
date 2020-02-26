@@ -265,6 +265,10 @@ func (self *SRegion) GetVMs() ([]SInstance, error) {
 }
 
 func (self *SRegion) GetVMById(vmId string) (*SInstance, error) {
+	if len(vmId) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVMById.EmptyVmID")
+	}
+
 	vms, err := self.getVMs(vmId)
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetVMById")
