@@ -366,7 +366,9 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		self.ExternalId = ext.GetGlobalId()
 		self.IsEmulated = ext.IsEmulated()
 
-		self.ChargeType = ext.GetInternetChargeType()
+		if chargeType := ext.GetInternetChargeType(); len(chargeType) > 0 {
+			self.ChargeType = chargeType
+		}
 
 		factory, _ := provider.GetProviderFactory()
 		if factory != nil && factory.IsSupportPrepaidResources() {
