@@ -400,10 +400,12 @@ func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, ho
 	desc.Add(jsonutils.NewString(self.GetIfname()), "ifname")
 	desc.Add(jsonutils.NewInt(int64(network.GuestIpMask)), "masklen")
 	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
-	desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
+	if hostwire != nil {
+		desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
+		desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
+		desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
+	}
 	desc.Add(jsonutils.NewInt(int64(network.VlanId)), "vlan")
-	desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
 	desc.Add(jsonutils.NewInt(int64(self.getBandwidth())), "bw")
 	desc.Add(jsonutils.NewInt(int64(self.getMtu())), "mtu")
 	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
