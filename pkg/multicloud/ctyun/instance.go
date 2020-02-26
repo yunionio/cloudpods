@@ -166,6 +166,13 @@ func (self *SInstance) Refresh() error {
 		return cloudprovider.ErrNotFound
 	}
 
+	// update details
+	detail, err := self.host.zone.region.GetVMDetails(self.GetId())
+	if err != nil {
+		return errors.Wrap(err, "SInstance.Refresh.GetDetails")
+	}
+
+	self.vmDetails = detail
 	return jsonutils.Update(self, new)
 }
 
