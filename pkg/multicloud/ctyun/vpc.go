@@ -204,6 +204,10 @@ func (self *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 		return nil, errors.Wrap(err, "SRegion.GetVpc.DoGet")
 	}
 
+	if id, _ := resp.GetString("returnObj", "resVpcId"); len(id) == 0 {
+		return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetVpc.GetID")
+	}
+
 	err = resp.Unmarshal(vpc, "returnObj")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetVpc.Unmarshal")
