@@ -59,6 +59,10 @@ type SRbdStorage struct {
 func NewRBDStorage(manager *SStorageManager, path string) *SRbdStorage {
 	var ret = new(SRbdStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, path)
+	err := procutils.NewRemoteCommandAsFarAsPossible("mkdir", "-p", "/etc/ceph").Run()
+	if err != nil {
+		log.Errorf("Failed to mkdir /etc/ceph: %s", err)
+	}
 	return ret
 }
 
