@@ -28,7 +28,6 @@ import (
 
 type SSecurityGroup struct {
 	region *SRegion
-	vpc    *SVpc
 
 	ResSecurityGroupID string `json:"resSecurityGroupId"`
 	Name               string `json:"name"`
@@ -354,7 +353,7 @@ func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withR
 
 func (self *SSecurityGroup) GetVpcId() string {
 	if len(self.VpcID) == 0 {
-		return "normal"
+		return "classic"
 	}
 
 	return self.VpcID
@@ -411,8 +410,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 func (self *SRegion) CreateSecurityGroup(vpcId, name string) (*SSecurityGroup, error) {
 	params := map[string]jsonutils.JSONObject{
 		"regionId": jsonutils.NewString(self.GetId()),
-		"vpcId":    jsonutils.NewString(vpcId),
 		"name":     jsonutils.NewString(name),
+	}
+
+	if len(vpcId) > 0 && (vpcId != "classic" && vpcId != "normal") {
+		params["vpcId"] = jsonutils.NewString(vpcId)
 	}
 
 	resp, err := self.client.DoPost("/apiproxy/v3/createSecurityGroup", params)
@@ -430,12 +432,6 @@ func (self *SRegion) CreateSecurityGroup(vpcId, name string) (*SSecurityGroup, e
 		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetISecurityGroupById")
 	}
 
-	vpc, err := self.GetVpc(vpcId)
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.CreateSecurityGroup.GetVpc")
-	}
-
-	secgroup.vpc = vpc
 	secgroup.region = self
 	return secgroup, nil
 }
