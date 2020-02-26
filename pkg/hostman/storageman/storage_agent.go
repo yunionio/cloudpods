@@ -253,7 +253,7 @@ func (as *SAgentStorage) AgentDeployGuest(ctx context.Context, data interface{})
 	rootPath := disks[0].(*esxi.SVirtualDisk).GetFilename()
 
 	key := deployapi.SSHKeys{}
-	err = dataDict.Unmarshal(&key, "desc")
+	err = dataDict.Unmarshal(&key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s: unmarshal to deployapi.SSHKeys", hostutils.ParamsError.Error())
 	}
