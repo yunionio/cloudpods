@@ -2124,10 +2124,6 @@ func (self *SHuaWeiRegionDriver) DealNatGatewaySpec(spec string) string {
 	return ""
 }
 
-func (self *SHuaWeiRegionDriver) IsSecurityGroupBelongVpc() bool {
-	return true
-}
-
 func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
 	if len(input.MasterInstanceId) > 0 && input.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		return input, httperrors.NewInputParameterError("Not support create read-only dbinstance for %s", input.Engine)

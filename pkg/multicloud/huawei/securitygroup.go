@@ -59,7 +59,6 @@ type SecurityGroupRuleDetail struct {
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 type SSecurityGroup struct {
 	region *SRegion
-	vpc    *SVpc // 安全组对应的vpc可能为空
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -129,9 +128,9 @@ func (self *SSecurityGroup) GetId() string {
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	// 无vpc关联的安全组统一返回normal
+	// 无vpc关联的安全组统一返回classic
 	if len(self.VpcID) == 0 {
-		return "normal"
+		return "classic"
 	}
 
 	return self.VpcID
@@ -286,10 +285,6 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	}
 
 	securitygroup.region = self
-	if len(securitygroup.VpcID) > 0 && securitygroup.VpcID != "default" {
-		securitygroup.vpc, err = self.getVpc(securitygroup.VpcID)
-	}
-
 	return &securitygroup, err
 }
 
@@ -306,27 +301,10 @@ func (self *SRegion) GetSecurityGroups(vpcId string, name string) ([]SSecurityGr
 		return nil, err
 	}
 
-	vpcCache := map[string]*SVpc{}
+	// security 中的vpc字段只是一个标识，实际可以跨vpc使用
 	for i := range securitygroups {
 		securitygroup := &securitygroups[i]
 		securitygroup.region = self
-		// 未绑定VPC的安全组
-		// todo:确认 vpc_id  = default的安全组有什么含义？
-		if len(securitygroup.VpcID) == 0 || securitygroup.VpcID == "default" {
-			continue
-		}
-
-		if vpc, exists := vpcCache[securitygroup.VpcID]; exists {
-			securitygroup.vpc = vpc
-		} else {
-			vpc, err := self.getVpc(securitygroup.VpcID)
-			if err != nil {
-				return nil, err
-			}
-
-			vpcCache[securitygroup.VpcID] = vpc
-			securitygroup.vpc = vpc
-		}
 	}
 
 	result := []SSecurityGroup{}
