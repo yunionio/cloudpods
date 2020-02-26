@@ -332,7 +332,7 @@ func (c *Cmd) Wait() error {
 		}
 		return nil
 	} else {
-		return &ExitError{ExitStatus: NewWaitStatus(res.ExitStatus)}
+		return &ExitError{ExitStatus: newWaitStatus(res.ExitStatus)}
 	}
 }
 
