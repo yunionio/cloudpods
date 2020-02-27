@@ -3,6 +3,7 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
+	cloud.google.com/go v0.38.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
 	github.com/Azure/go-autorest v10.15.5+incompatible
@@ -117,10 +118,12 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/net v0.0.0-20191007182048-72f939374954
-	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20191008105621-543471e840be
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
+	google.golang.org/api v0.13.0 // indirect
+	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 	google.golang.org/grpc v1.23.1
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
@@ -134,12 +137,12 @@ require (
 	k8s.io/client-go v9.0.0+incompatible
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
-	yunion.io/x/executor v0.0.0-20191202093616-92e2e6119257
+	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
 	yunion.io/x/jsonutils v0.0.0-20200113074440-9297fd00ba07
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20200103043034-27c6f82160fa
+	yunion.io/x/pkg v0.0.0-20200221023330-f129027c3b04
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20200119074814-09089d67c78d
+	yunion.io/x/sqlchemy v0.0.0-20200221103553-6a98f7f8ab92
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
