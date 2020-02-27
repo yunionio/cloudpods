@@ -680,6 +680,8 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	params.Set("ip", jsonutils.NewString(masterIp))
 	params.Set("is_on_premise", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
+	// use default vpc
+	params.Set("vpc", jsonutils.NewString(api.DEFAULT_VPC_ID))
 
 	res, err := modules.Networks.List(h.GetSession(), params)
 	if err != nil {
