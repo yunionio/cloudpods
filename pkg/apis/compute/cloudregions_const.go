@@ -109,6 +109,7 @@ const (
 	CITY_IOWA           = "Iowa"           //爱荷华
 	CITY_US_GOV_WEST    = "us-gov-west"    //???
 	CITY_SOUTH_CAROLINA = "South Carolina" //南卡罗来纳州
+	CITY_SALT_LAKE_CITY = "Salt Lake City" //盐湖城
 
 	// 英国
 	CITY_LONDON      = "London"      //伦敦
