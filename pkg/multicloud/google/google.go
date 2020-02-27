@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,6 +60,11 @@ const (
 	GOOGLE_MONITOR_DOMAIN        = "https://monitoring.googleapis.com"
 
 	MAX_RETRY = 3
+)
+
+var (
+	MultiRegions []string = []string{"us", "eu", "asia"}
+	DualRegions  []string = []string{"nam4", "eur4"}
 )
 
 type SGoogleClient struct {
@@ -126,6 +132,20 @@ func (self *SGoogleClient) fetchRegions() error {
 	for i := 0; i < len(regions); i++ {
 		regions[i].client = self
 		self.iregions = append(self.iregions, &regions[i])
+	}
+	for _, region := range MultiRegions {
+		_region := SRegion{
+			Name:   region,
+			client: self,
+		}
+		self.iregions = append(self.iregions, &_region)
+	}
+	for _, region := range DualRegions {
+		_region := SRegion{
+			Name:   region,
+			client: self,
+		}
+		self.iregions = append(self.iregions, &_region)
 	}
 	return nil
 }
@@ -305,18 +325,55 @@ func (self *SGoogleClient) storageInsert(resource string, body jsonutils.JSONObj
 	return nil
 }
 
-func (self *SGoogleClient) storageUpload(resource string, header http.Header, body io.Reader) error {
-	_, err := rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
-	return err
+func (self *SGoogleClient) storageUpload(resource string, header http.Header, body io.Reader) (*http.Response, error) {
+	resp, err := rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return resp, nil
+}
+
+func (self *SGoogleClient) storageUploadPart(resource string, header http.Header, body io.Reader) (*http.Response, error) {
+	resp, err := rawRequest(self.client, "PUT", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return resp, nil
 }
 
 func (self *SGoogleClient) storageAbortUpload(resource string) error {
-	_, err := rawRequest(self.client, "DELETE", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.Debug)
-	return err
+	resp, err := rawRequest(self.client, "DELETE", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.Debug)
+	if err != nil {
+		return errors.Wrap(err, "rawRequest")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return nil
 }
 
 func (self *SGoogleClient) storageDownload(resource string, header http.Header) (io.ReadCloser, error) {
 	resp, err := rawRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, nil, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
 	return resp.Body, err
 }
 

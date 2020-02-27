@@ -18,9 +18,11 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/storage"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type GCSAcl struct {
@@ -55,7 +57,7 @@ func (region *SRegion) SetObjectAcl(bucket, object string, cannedAcl cloudprovid
 		}
 		for _, _acl := range acls {
 			if _acl.Entity == string(storage.AllUsers) || _acl.Entity == string(storage.AllAuthenticatedUsers) {
-				resource := fmt.Sprintf("b/%s/o/%s/acl/%s", _acl.Entity)
+				resource := fmt.Sprintf("b/%s/o/%s/acl/%s", bucket, object, _acl.Entity)
 				err = region.StorageDelete(resource)
 				if err != nil {
 					return errors.Wrapf(err, "StorageDelete(%s)", resource)

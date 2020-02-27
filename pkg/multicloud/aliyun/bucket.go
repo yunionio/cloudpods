@@ -273,7 +273,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 	return result.UploadID, nil
 }
 
-func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
 		return "", errors.Wrap(err, "GetOssClient")

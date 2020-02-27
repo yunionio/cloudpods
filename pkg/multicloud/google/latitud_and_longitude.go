@@ -71,4 +71,13 @@ var RegionNames = map[string]string{
 	"us-west1":                "俄勒冈州",
 	"us-west2":                "洛杉矶",
 	"us-west3":                "盐湖城",
+
+	// Multi-region
+	"us":   "美国的多区域",
+	"eu":   "欧盟的多区域",
+	"asia": "亚洲的多区域",
+
+	// Dual-region
+	"nam4": "爱荷华和南卡罗来纳",
+	"eur4": "荷兰和芬兰",
 }

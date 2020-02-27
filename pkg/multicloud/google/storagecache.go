@@ -121,7 +121,7 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 	bucket, err := region.GetBucket(bucketName)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			bucket, err = region.CreateBucket(bucketName, "")
+			bucket, err = region.CreateBucket(bucketName, "", cloudprovider.ACLPrivate)
 			if err != nil {
 				return nil, errors.Wrapf(err, "region.CreateBucket(%s)", bucketName)
 			}

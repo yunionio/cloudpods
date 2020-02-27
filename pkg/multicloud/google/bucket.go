@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -256,20 +257,36 @@ func (b *SBucket) CopyPart(ctx context.Context, key string, uploadId string, par
 	return "", cloudprovider.ErrNotSupported
 }
 
+func (region *SRegion) DeleteObject(bucket, key string) error {
+	resource := fmt.Sprintf("b/%s/o/%s", bucket, url.PathEscape(key))
+	return region.StorageDelete(resource)
+}
+
 func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
-	resource := fmt.Sprintf("b/%s/o/%s", b.Name, key)
-	return b.region.StorageDelete(resource)
+	return b.region.DeleteObject(b.Name, key)
 }
 
 func (region *SRegion) DownloadObjectRange(bucket, object string, start, end int64) (io.ReadCloser, error) {
 	resource := fmt.Sprintf("b/%s/o/%s?alt=media", bucket, object)
 	header := http.Header{}
-	header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	if start <= 0 {
+		if end > 0 {
+			header.Set("Range", fmt.Sprintf("bytes=0-%d", end))
+		} else {
+			header.Set("Range", "bytes=-1")
+		}
+	} else {
+		if end > start {
+			header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+		} else {
+			header.Set("Range", fmt.Sprintf("bytes=%d-", start))
+		}
+	}
 	return region.client.storageDownload(resource, header)
 }
 
 func (b *SBucket) GetObject(ctx context.Context, key string, rangeOpt *cloudprovider.SGetObjectRange) (io.ReadCloser, error) {
-	return b.region.DownloadObjectRange(b.Name, key, rangeOpt.Start, rangeOpt.End)
+	return b.region.DownloadObjectRange(b.Name, url.PathEscape(key), rangeOpt.Start, rangeOpt.End)
 }
 
 func (region *SRegion) SingedUrl(bucket, key string, method string, expire time.Duration) (string, error) {
@@ -325,16 +342,103 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
+func (region *SRegion) NewMultipartUpload(bucket, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
+	body := map[string]string{"name": key}
+	if len(storageClassStr) > 0 {
+		body["storageClass"] = storageClassStr
+	}
+	for k := range meta {
+		switch k {
+		case cloudprovider.META_HEADER_CONTENT_TYPE:
+			body["contentType"] = meta.Get(k)
+		case cloudprovider.META_HEADER_CONTENT_ENCODING:
+			body["contentEncoding"] = meta.Get(k)
+		case cloudprovider.META_HEADER_CONTENT_DISPOSITION:
+			body["contentDisposition"] = meta.Get(k)
+		case cloudprovider.META_HEADER_CONTENT_LANGUAGE:
+			body["contentLanguage"] = meta.Get(k)
+		case cloudprovider.META_HEADER_CACHE_CONTROL:
+			body["cacheControl"] = meta.Get(k)
+		default:
+			body[fmt.Sprintf("metadata.%s", k)] = meta.Get(k)
+		}
+	}
+	switch cannedAcl {
+	case cloudprovider.ACLPrivate:
+	case cloudprovider.ACLAuthRead:
+		body["predefinedAcl"] = "authenticatedRead"
+	case cloudprovider.ACLPublicRead:
+		body["predefinedAcl"] = "publicRead"
+	case cloudprovider.ACLPublicReadWrite:
+		return "", cloudprovider.ErrNotSupported
+	}
+	resource := fmt.Sprintf("b/%s/o?uploadType=resumable", bucket)
+	input := strings.NewReader(jsonutils.Marshal(body).String())
+	header := http.Header{}
+	header.Set("Content-Type", "application/json; charset=UTF-8")
+	header.Set("Content-Length", fmt.Sprintf("%d", input.Len()))
+	resp, err := region.client.storageUpload(resource, header, input)
+	if err != nil {
+		return "", errors.Wrap(err, "storageUpload")
+	}
+	defer resp.Body.Close()
+	location := resp.Header.Get("Location")
+	query, err := url.ParseQuery(location)
+	if err != nil {
+		return "", errors.Wrapf(err, "url.ParseQuery(%s)", location)
+	}
+	return query.Get("upload_id"), nil
+}
+
 func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return b.region.NewMultipartUpload(b.Name, key, cannedAcl, storageClassStr, meta)
+}
+
+func (region *SRegion) UploadPart(bucket, uploadId string, partIndex int, offset int64, part io.Reader, partSize int64, totalSize int64) error {
+	resource := fmt.Sprintf("b/%s/o?uploadType=resumable&upload_id=%s", bucket, uploadId)
+	header := http.Header{}
+	header.Set("Content-Length", fmt.Sprintf("%d", partSize))
+	header.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", offset, offset+partSize-1, totalSize))
+	resp, err := region.client.storageUploadPart(resource, header, part)
+	if err != nil {
+		return errors.Wrap(err, "storageUploadPart")
+	}
+	if resp.StatusCode >= 500 {
+		content, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("status code: %d %s", resp.StatusCode, content)
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+func (region *SRegion) CheckUploadRange(bucket string, uploadId string) error {
+	resource := fmt.Sprintf("b/%s/o?uploadType=resumable&upload_id=%s", bucket, uploadId)
+	header := http.Header{}
+	header.Set("Content-Range", "bytes */*")
+	resp, err := region.client.storageUploadPart(resource, header, nil)
+	if err != nil {
+		return errors.Wrap(err, "storageUploadPart")
+	}
+	defer resp.Body.Close()
+
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "ReadAll")
+	}
+	fmt.Println("content: ", string(content))
+	for k, v := range resp.Header {
+		fmt.Println("k: ", k, "v: ", v)
+	}
+	fmt.Println("status code: ", resp.StatusCode)
+	return nil
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64, offset, totalSize int64) (string, error) {
+	return "", b.region.UploadPart(b.Name, uploadId, partIndex, offset, part, partSize, totalSize)
 }
 
 func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, storageClassStr string, meta http.Header) error {
 	return b.region.PutObject(b.Name, key, body, sizeBytes, cannedAcl, meta)
-}
-
-func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetBucket(name string) (*SBucket, error) {
@@ -359,7 +463,7 @@ func (region *SRegion) GetBuckets(maxResults int, pageToken string) ([]SBucket, 
 	return buckets, nil
 }
 
-func (region *SRegion) CreateBucket(name string, storageClass string) (*SBucket, error) {
+func (region *SRegion) CreateBucket(name string, storageClass string, acl cloudprovider.TBucketACLType) (*SBucket, error) {
 	body := map[string]interface{}{
 		"name":     name,
 		"location": region.Name,
@@ -368,9 +472,21 @@ func (region *SRegion) CreateBucket(name string, storageClass string) (*SBucket,
 		body["storageClass"] = storageClass
 	}
 	params := url.Values{}
+	params.Set("predefinedDefaultObjectAcl", "private")
+	switch acl {
+	case cloudprovider.ACLPrivate, cloudprovider.ACLUnknown:
+		params.Set("predefinedAcl", "private")
+	case cloudprovider.ACLAuthRead:
+		params.Set("predefinedAcl", "authenticatedRead")
+	case cloudprovider.ACLPublicRead:
+		params.Set("predefinedAcl", "publicRead")
+	case cloudprovider.ACLPublicReadWrite:
+		params.Set("predefinedAcl", "publicReadWrite")
+	}
 	params.Set("project", region.GetProjectId())
 	bucket := &SBucket{}
-	err := region.StorageInsert(fmt.Sprintf("b?%s", params.Encode()), jsonutils.Marshal(body), bucket)
+	resource := fmt.Sprintf("b?%s", params.Encode())
+	err := region.StorageInsert(resource, jsonutils.Marshal(body), bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +498,12 @@ func (region *SRegion) UploadObject(bucket string, params url.Values, header htt
 	if len(params) > 0 {
 		resource = fmt.Sprintf("%s?%s", resource, params.Encode())
 	}
-	return region.client.storageUpload(resource, header, input)
+	resp, err := region.client.storageUpload(resource, header, input)
+	if err != nil {
+		return errors.Wrap(err, "storageUpload")
+	}
+	defer resp.Body.Close()
+	return nil
 }
 
 func (region *SRegion) PutObject(bucket string, name string, input io.Reader, sizeBytes int64, cannedAcl cloudprovider.TBucketACLType, meta http.Header) error {

@@ -38,10 +38,11 @@ func init() {
 	type BucketCreateOptions struct {
 		NAME         string
 		StorageClass string `choices:"STANDARD|NEARLINE|COLDLINE"`
+		Acl          string `choices:"private|authenticated-read|public-read|public-read-write"`
 	}
 
 	shellutils.R(&BucketCreateOptions{}, "bucket-create", "Create buckets", func(cli *google.SRegion, args *BucketCreateOptions) error {
-		bucket, err := cli.CreateBucket(args.NAME, args.StorageClass)
+		bucket, err := cli.CreateBucket(args.NAME, args.StorageClass, cloudprovider.TBucketACLType(args.Acl))
 		if err != nil {
 			return err
 		}
