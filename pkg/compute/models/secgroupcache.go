@@ -350,3 +350,27 @@ func (self *SSecurityGroupCache) StartSecurityGroupCacheDeleteTask(ctx context.C
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (manager *SSecurityGroupCacheManager) InitializeData() error {
+	providerIds := CloudproviderManager.Query("id").In("provider", []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_CTYUN}).SubQuery()
+
+	deprecatedSecgroups := []SSecurityGroupCache{}
+	q := manager.Query().In("manager_id", providerIds).NotEquals("vpc_id", api.NORMAL_VPC_ID)
+	err := db.FetchModelObjects(manager, q, &deprecatedSecgroups)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.Wrap(err, "SSecurityGroupCacheManager.InitializeData.Query")
+	}
+
+	for i := range deprecatedSecgroups {
+		cache := &deprecatedSecgroups[i]
+		_, err := db.Update(cache, func() error {
+			return cache.MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrap(err, "SSecurityGroupCacheManager.InitializeData.Query")
+		}
+	}
+
+	log.Debugf("SSecurityGroupCacheManager cleaned %d deprecated security group cache.", len(deprecatedSecgroups))
+	return nil
+}

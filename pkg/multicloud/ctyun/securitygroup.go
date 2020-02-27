@@ -24,6 +24,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
+
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SSecurityGroup struct {
@@ -352,11 +354,7 @@ func (self *SSecurityGroup) GetSecurityRule(remoteRule SSecurityGroupRule, withR
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	if len(self.VpcID) == 0 {
-		return "classic"
-	}
-
-	return self.VpcID
+	return apis.NORMAL_VPC_ID
 }
 
 func (self *SRegion) GetSecurityGroupDetails(groupId string) (*SSecurityGroup, error) {
@@ -413,7 +411,7 @@ func (self *SRegion) CreateSecurityGroup(vpcId, name string) (*SSecurityGroup, e
 		"name":     jsonutils.NewString(name),
 	}
 
-	if len(vpcId) > 0 && (vpcId != "classic" && vpcId != "normal") {
+	if len(vpcId) > 0 && vpcId != apis.NORMAL_VPC_ID {
 		params["vpcId"] = jsonutils.NewString(vpcId)
 	}
 
