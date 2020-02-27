@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/ovsutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -80,6 +81,11 @@ func (oh *OvnHelper) mustPrepOvsdbConfig() {
 		if opts.OvnSouthDatabase == "" {
 			panic(errors.Wrap(ErrOvnConfig, "bad config: ovn_south_database"))
 		}
+		db, err := ovsutils.NormalizeDbHost(opts.OvnSouthDatabase)
+		if err != nil {
+			panic(errors.Wrap(err, "normalize db host"))
+		}
+		opts.OvnSouthDatabase = db
 		args = append(args, fmt.Sprintf("external_ids:ovn-remote=%s",
 			opts.OvnSouthDatabase))
 	}
