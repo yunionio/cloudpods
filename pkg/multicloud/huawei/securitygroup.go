@@ -31,6 +31,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SecurityGroupRule struct {
@@ -128,12 +130,7 @@ func (self *SSecurityGroup) GetId() string {
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
-	// 无vpc关联的安全组统一返回classic
-	if len(self.VpcID) == 0 {
-		return "classic"
-	}
-
-	return self.VpcID
+	return api.NORMAL_VPC_ID
 }
 
 func (self *SSecurityGroup) GetName() string {
