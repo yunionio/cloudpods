@@ -38,7 +38,7 @@ build_bin() {
 		climc)
 			GOOS=linux make cmd/$1 cmd/*cli
 			;;
-		vpcagent)
+		vpcagent|host)
 			docker run --rm \
 				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
 				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
@@ -53,12 +53,9 @@ build_bin() {
 
 
 build_bundle_libraries() {
-    for bundle_component in 'host' 'host-deployer' 'baremetal-agent'; do
+    for bundle_component in 'host-deployer' 'baremetal-agent'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
-            if [ $bundle_component == 'host' ]; then
-                $CUR_DIR/host_find_libraries.sh _output/bin/bundles/$1
-            fi
             break
         fi
     done
