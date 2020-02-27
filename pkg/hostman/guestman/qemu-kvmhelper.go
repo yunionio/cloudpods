@@ -260,7 +260,8 @@ func (s *SKVMGuestInstance) getNicAddr(index int) int {
 	if len(disks) > 10 {
 		diskCnt = 20
 	}
-	return s.GetDiskAddr(diskCnt + index)
+	isolatedParams, _ := s.Desc.GetArray("isolated_devices")
+	return s.GetDiskAddr(diskCnt + index + len(isolatedParams))
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
