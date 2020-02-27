@@ -16,6 +16,7 @@ package hostinfo
 
 import (
 	"fmt"
+	"os"
 
 	"yunion.io/x/pkg/errors"
 
@@ -49,7 +50,9 @@ func (oh *OvnHelper) Init() (err error) {
 		}
 	}()
 	oh.mustPrepOvsdbConfig()
-	oh.mustPrepService()
+	if _, ok := ovnContainerImageTag(); !ok {
+		oh.mustPrepService()
+	}
 	return nil
 }
 
@@ -113,6 +116,9 @@ func (oh *OvnHelper) mustPrepService() {
 }
 
 func MustGetOvnVersion() string {
+	if tag, _ := ovnContainerImageTag(); tag != "" {
+		return tag
+	}
 	output, err := procutils.NewRemoteCommandAsFarAsPossible("ovn-controller", "--version").Output()
 	if err != nil {
 		return ""
@@ -121,11 +127,26 @@ func MustGetOvnVersion() string {
 }
 
 func HasOvnSupport() bool {
+	if OvnControllerInsideContainer() {
+		return true
+	}
 	ver := MustGetOvnVersion()
 	if ver != "" {
 		return true
 	}
 	return false
+}
+
+func OvnControllerInsideContainer() bool {
+	tag, _ := ovnContainerImageTag()
+	if tag != "" {
+		return true
+	}
+	return false
+}
+
+func ovnContainerImageTag() (string, bool) {
+	return os.LookupEnv("OVN_CONTAINER_IMAGE_TAG")
 }
 
 func ovnExtractVersion(in string) string {
