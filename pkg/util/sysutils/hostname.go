@@ -22,7 +22,7 @@ import (
 )
 
 func setHostname7(name string) error {
-	return procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
+	return procutils.NewRemoteCommandAsFarAsPossible("hostnamectl", "set-hostname", name).Run()
 }
 
 func setHostname6(name string) error {

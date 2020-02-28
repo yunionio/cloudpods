@@ -34,21 +34,28 @@ REGISTRY=${REGISTRY:-docker.io/yunion}
 TAG=${TAG:-latest}
 
 build_bin() {
-    if [[ "$1" == "climc" ]]; then
-        GOOS=linux make cmd/$1 cmd/*cli
-    else
-        GOOS=linux make cmd/$1
-    fi
+	case "$1" in
+		climc)
+			GOOS=linux make cmd/$1 cmd/*cli
+			;;
+		vpcagent|host)
+			docker run --rm \
+				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
+				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
+				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; make cmd/$1"
+			;;
+		*)
+			GOOS=linux make cmd/$1
+			;;
+	esac
 }
 
 
 build_bundle_libraries() {
-    for bundle_component in 'host' 'host-deployer' 'baremetal-agent'; do
+    for bundle_component in 'host-deployer' 'baremetal-agent'; do
         if [ $1 == $bundle_component ]; then
             $CUR_DIR/bundle_libraries.sh _output/bin/bundles/$1 _output/bin/$1
-            if [ $bundle_component == 'host' ]; then
-                $CUR_DIR/host_find_libraries.sh _output/bin/bundles/$1
-            fi
             break
         fi
     done

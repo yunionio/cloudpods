@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/util/ovsutils"
 )
 
 const (
@@ -27,6 +28,7 @@ const (
 
 const (
 	ErrInvalidVpcProvider = errors.Error("invalid vpc provider")
+	ErrInvalidOvnDatabase = errors.Error("invalid ovn database")
 )
 
 type VpcAgentOptions struct {
@@ -63,6 +65,12 @@ func (opts *Options) ValidateThenInit() error {
 
 	if opts.OvnWorkerCheckInterval <= 60 {
 		opts.OvnWorkerCheckInterval = 60
+	}
+
+	if db, err := ovsutils.NormalizeDbHost(opts.OvnNorthDatabase); err != nil {
+		return err
+	} else {
+		opts.OvnNorthDatabase = db
 	}
 	return nil
 }
