@@ -81,6 +81,7 @@ const (
 
 	// 挪威
 	CITY_STAVANGER = "Stavanger" //斯塔万格
+	CITY_OSLO      = "Oslo"      // 奥斯陆
 
 	// 马来西亚
 	CITY_KUALA_LUMPUR = "Kuala Lumpur" //吉隆坡
@@ -120,7 +121,8 @@ const (
 	CITY_DUBAI = "Dubai" //迪拜
 
 	// 德国
-	CITY_FRANKFURT = "Frankfurt" //法兰克福
+	CITY_FRANKFURT   = "Frankfurt"   // 法兰克福
+	CITY_DELMENHORST = "Delmenhorst" // 代尔门霍斯特
 
 	// 韩国
 	CITY_SEOUL = "Seoul" //首尔
