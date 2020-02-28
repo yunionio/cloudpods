@@ -255,12 +255,16 @@ func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
 }
 
 func (s *SKVMGuestInstance) getNicAddr(index int) int {
-	var diskCnt = 10
+	var pciBase = 10
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 10 {
-		diskCnt = 20
+		pciBase = 20
 	}
-	return s.GetDiskAddr(diskCnt + index)
+	isolatedDevices, _ := s.Desc.GetArray("isolated_devices")
+	if len(isolatedDevices) > 0 {
+		pciBase += 10
+	}
+	return s.GetDiskAddr(pciBase + index)
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
