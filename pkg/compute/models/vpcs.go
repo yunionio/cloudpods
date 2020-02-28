@@ -723,7 +723,9 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	usable := jsonutils.QueryBoolean(query, "usable", false)
+	usable_vpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
+	if usable_vpc || usable {
 		regions := CloudregionManager.Query().SubQuery()
 		cloudproviders := CloudproviderManager.Query().SubQuery()
 		providerSQ := cloudproviders.Query(cloudproviders.Field("id")).Filter(
@@ -743,14 +745,17 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 					),
 				),
 			)
-		wires := WireManager.Query().SubQuery()
-		networks := NetworkManager.Query().SubQuery()
 
-		sq := wires.Query(wires.Field("vpc_id")).Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).Filter(
-			sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE),
-		)
+		if usable {
+			wires := WireManager.Query().SubQuery()
+			networks := NetworkManager.Query().SubQuery()
 
-		q = q.In("id", sq.SubQuery())
+			sq := wires.Query(wires.Field("vpc_id")).Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).Filter(
+				sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE),
+			)
+
+			q = q.In("id", sq.SubQuery())
+		}
 	}
 
 	return q, nil
