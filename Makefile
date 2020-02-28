@@ -195,7 +195,7 @@ mod:
 
 DOCKER_BUILD_IMAGE_VERSION?=latest
 
-define dockerBuildCmd
+define dockerCentOSBuildCmd
 set -o errexit
 set -o pipefail
 cd /home/build/onecloud
@@ -203,26 +203,26 @@ export GOFLAGS=-mod=vendor
 make $(1)
 endef
 
-docker-build: export dockerBuildCmd:=$(call dockerBuildCmd,$(F))
-docker-build:
-	echo "$$dockerBuildCmd"
+docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
+docker-centos-build:
+	echo "$$dockerCentOSBuildCmd"
 	docker rm --force onecloud-ci-build &>/dev/null || true
 	docker run \
 		--name onecloud-ci-build \
 		--rm \
 		--volume $(CURDIR):/home/build/onecloud \
 		yunionio/onecloud-ci:$(DOCKER_BUILD_IMAGE_VERSION) \
-		/bin/bash -c "$$dockerBuildCmd"
+		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
 	ls -lh _output/bin
 
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
-docker-build-stop:
-	docker stop --time 0 onecloud-ci-build || true
+docker-centos-build-stop:
+	docker-centos stop --time 0 onecloud-ci-build || true
 
-.PHONY: docker-build
-.PHONY: docker-build-stop
+.PHONY: docker-centos-build
+.PHONY: docker-centos-build-stop
 
 define helpText
 Build with docker
