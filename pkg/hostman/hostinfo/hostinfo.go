@@ -368,14 +368,30 @@ func (h *SHostInfo) detectHostInfo() error {
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	for _, srv := range []string{"host_sdnagent", "host-deployer", "telegraf", "ntpd"} {
-		srvinst := system_service.GetService(srv)
+	funcEn := func(srv string, srvinst system_service.ISystemService) {
 		if !srvinst.IsInstalled() {
 			log.Warningf("Service %s not installed", srv)
 		} else if !srvinst.IsActive() {
 			srvinst.Start(false)
 		}
 	}
+	for _, srv := range []string{"telegraf", "ntpd"} {
+		srvinst := system_service.GetService(srv)
+		funcEn(srv, srvinst)
+	}
+
+	svcs := os.Getenv("HOST_SYSTEM_SERVICES_OFF")
+	for _, srv := range []string{"host_sdnagent", "host-deployer"} {
+		srvinst := system_service.GetService(srv)
+		if strings.Contains(svcs, srv) {
+			if srvinst.IsActive() || srvinst.IsEnabled() {
+				srvinst.Stop(true)
+			}
+		} else {
+			funcEn(srv, srvinst)
+		}
+	}
+
 	return nil
 }
 
