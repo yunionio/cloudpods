@@ -68,7 +68,8 @@ type SPrepaidCard struct {
 func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
 	body, err := self.businessRequest("QueryAccountBalance", nil)
 	if err != nil {
-		if isError(err, "NotApplicable") {
+		// {"RequestId":"5258BDEF-8975-4EB0-9E0C-08D5E54E7981","HostId":"business.aliyuncs.com","Code":"NotAuthorized","Message":"This API is not authorized for caller."}
+		if isError(err, "NotApplicable") || isError(err, "NotAuthorized") {
 			return nil, cloudprovider.ErrNoBalancePermission
 		}
 		return nil, errors.Wrapf(err, "QueryAccountBalance")
