@@ -195,7 +195,8 @@ mod:
 
 DOCKER_BUILD_IMAGE_VERSION?=latest
 
-define dockerBuildCmd
+define dockerCentOSBuildCmd
+set -o xtrace
 set -o errexit
 set -o pipefail
 cd /home/build/onecloud
@@ -203,33 +204,62 @@ export GOFLAGS=-mod=vendor
 make $(1)
 endef
 
-docker-build: export dockerBuildCmd:=$(call dockerBuildCmd,$(F))
-docker-build:
-	echo "$$dockerBuildCmd"
+docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
+docker-centos-build:
 	docker rm --force onecloud-ci-build &>/dev/null || true
 	docker run \
 		--name onecloud-ci-build \
 		--rm \
 		--volume $(CURDIR):/home/build/onecloud \
 		yunionio/onecloud-ci:$(DOCKER_BUILD_IMAGE_VERSION) \
-		/bin/bash -c "$$dockerBuildCmd"
+		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
 	ls -lh _output/bin
 
 # NOTE we need a way to stop and remove the container started by docker-build.
 # No --tty, --stop-signal won't work
-docker-build-stop:
-	docker stop --time 0 onecloud-ci-build || true
+docker-centos-build-stop:
+	docker-centos stop --time 0 onecloud-ci-build || true
 
-.PHONY: docker-build
-.PHONY: docker-build-stop
+.PHONY: docker-centos-build
+.PHONY: docker-centos-build-stop
+
+define dockerAlpineBuildCmd
+set -o xtrace
+set -o errexit
+set -o pipefail
+cd /root/go/src/yunion.io/x/onecloud
+export GOFLAGS=-mod=vendor
+make $(1)
+endef
+
+docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
+docker-alpine-build:
+	docker rm --force onecloud-docker-alpine-build &>/dev/null || true
+	docker run --rm \
+		--name onecloud-docker-alpine-build \
+		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
+		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+		registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
+		/bin/sh -c "$$dockerAlpineBuildCmd"
+	ls -lh _output/alpine-build/bin
+
+docker-alpine-build-stop:
+	docker stop --time 0 onecloud-docker-alpine-build || true
+
+.PHONY: docker-alpine-build
+.PHONY: docker-alpine-build-stop
 
 define helpText
 Build with docker
 
-	make docker-build F='-j4'
-	make docker-build F='-j4 cmd/region cmd/climc'
-	make docker-build-stop
+	make docker-centos-build F='-j4'
+	make docker-centos-build F='-j4 cmd/region cmd/climc'
+	make docker-centos-build-stop
+
+	make docker-alpine-build F='-j4'
+	make docker-alpine-build F='-j4 cmd/host cmd/host-deployer'
+	make docker-alpine-build-stop
 
 Tidy up go modules and vendor directory
 
