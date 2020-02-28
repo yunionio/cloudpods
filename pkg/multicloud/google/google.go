@@ -48,6 +48,7 @@ const (
 	GOOGLE_STORAGE_API_VERSION    = "v1"
 	GOOGLE_CLOUDBUILD_API_VERSION = "v1"
 	GOOGLE_BILLING_API_VERSION    = "v1"
+	GOOGLE_MONITOR_API_VERSION    = "v3"
 
 	GOOGLE_MANAGER_DOMAIN        = "https://cloudresourcemanager.googleapis.com"
 	GOOGLE_COMPUTE_DOMAIN        = "https://www.googleapis.com/compute"
@@ -55,6 +56,7 @@ const (
 	GOOGLE_CLOUDBUILD_DOMAIN     = "https://cloudbuild.googleapis.com"
 	GOOGLE_STORAGE_UPLOAD_DOMAIN = "https://www.googleapis.com/upload/storage"
 	GOOGLE_BILLING_DOMAIN        = "https://cloudbilling.googleapis.com"
+	GOOGLE_MONITOR_DOMAIN        = "https://monitoring.googleapis.com"
 
 	MAX_RETRY = 3
 )
@@ -396,6 +398,38 @@ func (self *SGoogleClient) billingListAll(resource string, params map[string]str
 		}
 	}
 	return items.Unmarshal(retval)
+}
+
+func (self *SGoogleClient) monitorList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	return jsonRequest(self.client, "GET", GOOGLE_MONITOR_DOMAIN, GOOGLE_MONITOR_API_VERSION, resource, params, nil, self.Debug)
+}
+
+func (self *SGoogleClient) monitorListAll(resource string, params map[string]string, retval interface{}) error {
+	if params == nil {
+		params = map[string]string{}
+	}
+	timeSeries := jsonutils.NewArray()
+	nextPageToken := ""
+	params["pageSize"] = "5000"
+	for {
+		params["pageToken"] = nextPageToken
+		resp, err := self.monitorList(resource, params)
+		if err != nil {
+			return errors.Wrap(err, "monitorList")
+		}
+		if resp.Contains("timeSeries") {
+			_series, err := resp.GetArray("timeSeries")
+			if err != nil {
+				return errors.Wrap(err, "resp.GetArray")
+			}
+			timeSeries.Add(_series...)
+		}
+		nextPageToken, _ = resp.GetString("nextPageToken")
+		if len(nextPageToken) == 0 {
+			break
+		}
+	}
+	return timeSeries.Unmarshal(retval)
 }
 
 func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion string, resource string, header http.Header, body io.Reader, debug bool) error {
