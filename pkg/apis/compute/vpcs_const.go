@@ -53,6 +53,7 @@ type VpcListInput struct {
 
 	ManagedResourceListInput
 	UsableResourceListInput
+	UsableVpcResourceListInput
 
 	// filter by globalvpc
 	Globalvpc string `json:"globalvpc"`
