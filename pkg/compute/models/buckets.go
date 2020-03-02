@@ -946,6 +946,9 @@ func (bucket *SBucket) PerformUpload(
 		if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
+
+		// always cancel pending usage
+		defer quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, cloudprovider.TBucketACLType(aclStr), storageClass, meta, false)
@@ -957,10 +960,6 @@ func (bucket *SBucket) PerformUpload(
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_UPLOAD_OBJECT, key, userCred, true)
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
-
-	if !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
-	}
 
 	return nil, nil
 }
