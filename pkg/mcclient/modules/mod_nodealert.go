@@ -21,8 +21,8 @@ var (
 )
 
 func init() {
-	NodeAlert = NewMeterAlertManager("nodealert", "nodealerts",
-		[]string{"id", "type", "metric", "node_name", "node_id", "period", "window", "comparator", "threshold", "recipients", "level", "channel", "status", "create_by", "update_by", "delete_by", "gmt_create", "gmt_modified", "gmt_delete", "is_deleted", "project_id", "remark"},
+	NodeAlert = NewMonitorV2Manager("nodealert", "nodealerts",
+		[]string{"id", "type", "metric", "node_name", "node_id", "period", "window", "comparator", "threshold", "recipients", "level", "channel", "state", "project_id"},
 		[]string{})
 
 	register(&NodeAlert)

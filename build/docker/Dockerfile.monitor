@@ -1,0 +1,4 @@
+FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:latest
+
+ADD ./_output/bin/monitor /opt/yunion/bin/monitor
+

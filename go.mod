@@ -23,6 +23,7 @@ require (
 	github.com/aokoli/goutils v1.0.1
 	github.com/aws/aws-sdk-go v1.21.4
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
+	github.com/benbjohnson/clock v1.0.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/c-bata/go-prompt v0.2.1
@@ -101,6 +102,7 @@ require (
 	github.com/shirou/gopsutil v2.18.10+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20190110000554-dc11ecdae0a9
+	github.com/smartystreets/goconvey v1.6.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.4.0
@@ -121,6 +123,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20191008105621-543471e840be
+	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191008142428-8d021180e987
 	google.golang.org/api v0.13.0 // indirect
 	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
@@ -140,7 +143,7 @@ require (
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
 	yunion.io/x/jsonutils v0.0.0-20200113074440-9297fd00ba07
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
-	yunion.io/x/pkg v0.0.0-20200221023330-f129027c3b04
+	yunion.io/x/pkg v0.0.0-20200302034534-fdf44d54b070
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200221103553-6a98f7f8ab92
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
