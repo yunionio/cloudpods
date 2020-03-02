@@ -59,18 +59,18 @@ func init() {
 	 * 修改指定的报警规则
 	 */
 	type NodealertUpdateOptions struct {
-		ID         string  `help:"ID of the alert rule" required:"true" positional:"true"`
-		Type       string  `help:"Alert rule type" choices:"guest|host"`
-		Metric     string  `help:"Metric name, include measurement and field, such as vm_cpu.usage_active"`
-		NodeName   string  `help:"Name of the guest or host"`
-		NodeID     string  `help:"ID of the guest or host"`
-		Period     string  `help:"Specify the query time period for the data"`
-		Window     string  `help:"Specify the query interval for the data"`
-		Threshold  float64 `help:"Threshold value of the metric"`
-		Comparator string  `help:"Comparison operator for join expressions" choices:">|<|>=|<=|=|!="`
-		Recipients string  `help:"Comma separated recipient ID"`
-		Level      string  `help:"Alert level" choices:"normal|important|fatal"`
-		Channel    string  `help:"Ways to send an alarm" choices:"email|mobile"`
+		ID         string   `help:"ID of the alert rule" required:"true" positional:"true"`
+		Type       string   `help:"Alert rule type" choices:"guest|host"`
+		Metric     string   `help:"Metric name, include measurement and field, such as vm_cpu.usage_active"`
+		NodeName   string   `help:"Name of the guest or host"`
+		NodeID     string   `help:"ID of the guest or host"`
+		Period     string   `help:"Specify the query time period for the data"`
+		Window     string   `help:"Specify the query interval for the data"`
+		Threshold  *float64 `help:"Threshold value of the metric"`
+		Comparator string   `help:"Comparison operator for join expressions" choices:">|<|>=|<=|=|!="`
+		Recipients string   `help:"Comma separated recipient ID"`
+		Level      string   `help:"Alert level" choices:"normal|important|fatal"`
+		Channel    string   `help:"Ways to send an alarm" choices:"email|mobile"`
 	}
 	R(&NodealertUpdateOptions{}, "nodealert-update", "Update the node alert rule", func(s *mcclient.ClientSession, args *NodealertUpdateOptions) error {
 		params, err := options.StructToParams(args)
@@ -92,14 +92,11 @@ func init() {
 	 * 删除指定ID的报警规则
 	 */
 	type NodealertDeleteOptions struct {
-		ID string `help:"ID of node alert" required:"true" positional:"true"`
+		ID []string `help:"ID of node alert" required:"true" positional:"true"`
 	}
 	R(&NodealertDeleteOptions{}, "nodealert-delete", "Delete a node alert", func(s *mcclient.ClientSession, args *NodealertDeleteOptions) error {
-		alarm, err := modules.NodeAlert.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(alarm)
+		ret := modules.NodeAlert.BatchDelete(s, args.ID, nil)
+		printBatchResults(ret, modules.NodeAlert.GetColumns(s))
 		return nil
 	})
 
