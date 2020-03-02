@@ -154,6 +154,7 @@ type IDBInstanceDriver interface {
 	IsSupportKeepDBInstanceManualBackup() bool
 
 	InitDBInstanceUser(dbinstance *SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error
+	IsDBInstanceNeedSecgroup() bool
 }
 
 type IElasticcacheDriver interface {

@@ -50,6 +50,7 @@ const (
 	GOOGLE_CLOUDBUILD_API_VERSION = "v1"
 	GOOGLE_BILLING_API_VERSION    = "v1"
 	GOOGLE_MONITOR_API_VERSION    = "v3"
+	GOOGLE_DBINSTANCE_API_VERSION = "v1beta4"
 
 	GOOGLE_MANAGER_DOMAIN        = "https://cloudresourcemanager.googleapis.com"
 	GOOGLE_COMPUTE_DOMAIN        = "https://www.googleapis.com/compute"
@@ -58,6 +59,7 @@ const (
 	GOOGLE_STORAGE_UPLOAD_DOMAIN = "https://www.googleapis.com/upload/storage"
 	GOOGLE_BILLING_DOMAIN        = "https://cloudbilling.googleapis.com"
 	GOOGLE_MONITOR_DOMAIN        = "https://monitoring.googleapis.com"
+	GOOGLE_DBINSTANCE_DOMAIN     = "https://www.googleapis.com/sql"
 
 	MAX_RETRY = 3
 )
@@ -292,6 +294,46 @@ func (self *SGoogleClient) ecsDo(resource string, action string, params map[stri
 	return selfLink, nil
 }
 
+func (self *SGoogleClient) rdsDelete(id string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, id, nil, nil, self.Debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
+}
+
+func (self *SGoogleClient) rdsDo(resource string, action string, params map[string]string, body jsonutils.JSONObject) (string, error) {
+	resource = fmt.Sprintf("%s/%s", resource, action)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, params, body, self.Debug)
+	if err != nil {
+		return "", err
+	}
+	selfLink, _ := resp.GetString("selfLink")
+	return selfLink, nil
+}
+
+func (self *SGoogleClient) rdsPatch(resource string, body jsonutils.JSONObject) (string, error) {
+	resp, err := jsonRequest(self.client, "PATCH", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, nil, body, self.Debug)
+	if err != nil {
+		return "", err
+	}
+	selfLink, _ := resp.GetString("selfLink")
+	return selfLink, nil
+}
+
+func (self *SGoogleClient) rdsUpdate(resource string, params map[string]string, body jsonutils.JSONObject) (string, error) {
+	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	resp, err := jsonRequest(self.client, "PUT", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, params, body, self.Debug)
+	if err != nil {
+		return "", err
+	}
+	selfLink, _ := resp.GetString("selfLink")
+	return selfLink, nil
+}
+
 func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
 	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
 	if name, _ := body.GetString("name"); len(name) > 0 {
@@ -489,6 +531,65 @@ func (self *SGoogleClient) cloudbuildInsert(resource string, body jsonutils.JSON
 	return nil
 }
 
+func (self *SGoogleClient) rdsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
+	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, nil, body, self.Debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		return resp.Unmarshal(retval)
+	}
+	return nil
+}
+
+func (self *SGoogleClient) rdsGet(resource string, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, nil, nil, self.Debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		err = resp.Unmarshal(retval)
+		if err != nil {
+			return errors.Wrap(err, "resp.Unmarshal")
+		}
+	}
+	return nil
+}
+
+func (self *SGoogleClient) rdsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
+	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
+	return jsonRequest(self.client, "GET", GOOGLE_DBINSTANCE_DOMAIN, GOOGLE_DBINSTANCE_API_VERSION, resource, params, nil, self.Debug)
+}
+
+func (self *SGoogleClient) rdsListAll(resource string, params map[string]string, retval interface{}) error {
+	if params == nil {
+		params = map[string]string{}
+	}
+	items := jsonutils.NewArray()
+	nextPageToken := ""
+	params["maxResults"] = "500"
+	for {
+		params["pageToken"] = nextPageToken
+		resp, err := self.rdsList(resource, params)
+		if err != nil {
+			return errors.Wrap(err, "rdsList")
+		}
+		if resp.Contains("items") {
+			_items, err := resp.GetArray("items")
+			if err != nil {
+				return errors.Wrap(err, "resp.GetArray")
+			}
+			items.Add(_items...)
+		}
+		nextPageToken, _ = resp.GetString("nextPageToken")
+		if len(nextPageToken) == 0 {
+			break
+		}
+	}
+	return items.Unmarshal(retval)
+}
+
 func (self *SGoogleClient) billingList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
 	return jsonRequest(self.client, "GET", GOOGLE_BILLING_DOMAIN, GOOGLE_BILLING_API_VERSION, resource, params, nil, self.Debug)
 }
@@ -592,7 +693,9 @@ func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string,
 		}
 	}
 	if err != nil {
-		if strings.Index(strings.ToLower(err.Error()), "not found") > 0 {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Index(errMsg, "not found") > 0 || strings.Index(errMsg, "not exist") > 0 {
+			// The Cloud SQL instance does not exist.
 			return nil, cloudprovider.ErrNotFound
 		}
 		return nil, errors.Wrap(err, "JSONRequest")
@@ -681,12 +784,12 @@ func (self *SGoogleClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 
 func (self *SGoogleClient) GetCapabilities() []string {
 	caps := []string{
-		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
-		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 	}

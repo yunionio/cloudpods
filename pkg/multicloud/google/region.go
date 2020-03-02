@@ -377,6 +377,98 @@ func (region *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot
 	return snapshot, nil
 }
 
+func (region *SRegion) rdsDelete(id string) error {
+	operation := &SOperation{}
+	err := region.client.rdsDelete(id, operation)
+	if err != nil {
+		return errors.Wrap(err, "client.rdsDelete")
+	}
+	_, err = region.WaitRdsOperation(operation.SelfLink, id, "delete")
+	if err != nil {
+		return errors.Wrapf(err, "region.WaitRdsOperation(%s)", operation.SelfLink)
+	}
+	return nil
+}
+
+func (region *SRegion) rdsDo(id string, action string, params map[string]string, body jsonutils.JSONObject) error {
+	opId, err := region.client.rdsDo(id, action, params, body)
+	if err != nil {
+		return err
+	}
+	if strings.Index(opId, "/operations/") > 0 {
+		_, err = region.WaitRdsOperation(opId, id, action)
+		return err
+	}
+	return nil
+}
+
+func (region *SRegion) rdsPatch(id string, body jsonutils.JSONObject) error {
+	opId, err := region.client.rdsPatch(id, body)
+	if err != nil {
+		return err
+	}
+	if strings.Index(opId, "/operations/") > 0 {
+		_, err = region.WaitRdsOperation(opId, id, "update")
+		return err
+	}
+	return nil
+}
+
+func (region *SRegion) rdsUpdate(id string, params map[string]string, body jsonutils.JSONObject) error {
+	opId, err := region.client.rdsUpdate(id, params, body)
+	if err != nil {
+		return err
+	}
+	if strings.Index(opId, "/operations/") > 0 {
+		_, err = region.WaitRdsOperation(opId, id, "update")
+		return err
+	}
+	return nil
+}
+
+func (region *SRegion) rdsGet(resource string, retval interface{}) error {
+	return region.client.rdsGet(resource, retval)
+}
+
+func (region *SRegion) rdsInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
+	operation := SOperation{}
+	err := region.client.rdsInsert(resource, body, &operation)
+	if err != nil {
+		return errors.Wrap(err, "rdsInsert")
+	}
+	resourceId, err := region.WaitRdsOperation(operation.SelfLink, resource, "insert")
+	if err != nil {
+		return errors.Wrapf(err, "region.WaitRdsOperation(%s)", operation.SelfLink)
+	}
+	return region.rdsGet(resourceId, retval)
+}
+
+func (region *SRegion) RdsListAll(resource string, params map[string]string, retval interface{}) error {
+	return region.client.rdsListAll(resource, params, retval)
+}
+
+func (region *SRegion) RdsList(resource string, params map[string]string, maxResults int, pageToken string, retval interface{}) error {
+	if maxResults == 0 && len(pageToken) == 0 {
+		return region.RdsListAll(resource, params, retval)
+	}
+	if params == nil {
+		params = map[string]string{}
+	}
+	params["maxResults"] = fmt.Sprintf("%d", maxResults)
+	params["pageToken"] = pageToken
+	resp, err := region.client.rdsList(resource, params)
+	if err != nil {
+		return errors.Wrap(err, "billingList")
+	}
+	if resp.Contains("items") && retval != nil {
+		err = resp.Unmarshal(retval, "items")
+		if err != nil {
+			return errors.Wrap(err, "resp.Unmarshal")
+		}
+	}
+	return nil
+}
+
 func (region *SRegion) BillingList(resource string, params map[string]string, pageSize int, pageToken string, retval interface{}) error {
 	if pageSize == 0 && len(pageToken) == 0 {
 		return region.BillingListAll(resource, params, retval)
@@ -634,4 +726,61 @@ func (region *SRegion) GetCapabilities() []string {
 		return region.client.GetCapabilities()
 	}
 	return region.capabilities
+}
+
+func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
+	instances, err := region.GetDBInstances(0, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDBInstances")
+	}
+	ret := []cloudprovider.ICloudDBInstance{}
+	for i := range instances {
+		instances[i].region = region
+		ret = append(ret, &instances[i])
+	}
+	return ret, nil
+}
+
+func (region *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	instance, err := region.GetDBInstance(instanceId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDBInstance(%s)", instanceId)
+	}
+	return instance, nil
+}
+
+func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	instances, err := region.GetDBInstances(0, "")
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDBInstances")
+	}
+	ret := []cloudprovider.ICloudDBInstanceBackup{}
+	for i := range instances {
+		instances[i].region = region
+		backups, err := region.GetDBInstanceBackups(instances[i].Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "GetDBInstanceBackups(%s)", instances[i].Name)
+		}
+		for j := range backups {
+			backups[j].rds = &instances[i]
+			ret = append(ret, &backups[j])
+		}
+	}
+	return ret, nil
+}
+
+func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
+	backup, err := region.GetDBInstanceBackup(backupId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDBInstanceBackup(%s)", backupId)
+	}
+	return backup, nil
+}
+
+func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	rds, err := region.CreateDBInstance(desc)
+	if err != nil {
+		return nil, errors.Wrap(err, "CreateDBInstance")
+	}
+	return rds, nil
 }

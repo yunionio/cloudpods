@@ -2141,14 +2141,14 @@ func (self *SHuaWeiRegionDriver) ValidateCreateDBInstanceData(ctx context.Contex
 		return input, httperrors.NewInputParameterError("The disk_size_gb must be an integer multiple of 10")
 	}
 
+	if len(input.Password) == 0 {
+		return input, httperrors.NewMissingParameterError("password")
+	}
+
 	return input, nil
 }
 
 func (self *SHuaWeiRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
-	if len(desc.Password) == 0 {
-		desc.Password = seclib2.RandomPassword2(12)
-	}
-
 	user := "root"
 	if desc.Engine == api.DBINSTANCE_TYPE_SQLSERVER {
 		user = "rdsuser"
@@ -2585,4 +2585,8 @@ func (self *SHuaWeiRegionDriver) IsSupportedElasticcache() bool {
 
 func (self *SHuaWeiRegionDriver) GetBackendStatusForAdd() []string {
 	return []string{api.VM_RUNNING, api.VM_READY}
+}
+
+func (self *SHuaWeiRegionDriver) IsDBInstanceNeedSecgroup() bool {
+	return true
 }

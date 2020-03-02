@@ -12,29 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package seclib2
+package google
 
-import (
-	"testing"
-)
+import "fmt"
 
-func TestAes(t *testing.T) {
-	secret := "This is a secret for AES!!!"
-	key := "This is AES key"
+type SDBInstanceParameter struct {
+	rds *SDBInstance
 
-	code, err := encryptAES([]byte(key), []byte(secret))
-	if err != nil {
-		t.Errorf("encrypt error %s", err)
-		return
-	}
+	Name  string
+	Value string
+}
 
-	secret2, err := decryptAES([]byte(key), code)
-	if err != nil {
-		t.Errorf("decrypt error %s", err)
-		return
-	}
+func (parameter *SDBInstanceParameter) GetGlobalId() string {
+	return fmt.Sprintf("%s/%s", parameter.rds.GetGlobalId(), parameter.Name)
+}
 
-	if secret != string(secret2) {
-		t.Errorf("aes encrypt/decrypt mismatch! %s != %s", secret, string(secret2))
-	}
+func (parameter *SDBInstanceParameter) GetKey() string {
+	return parameter.Name
+}
+
+func (parameter *SDBInstanceParameter) GetValue() string {
+	return parameter.Value
+}
+
+func (parameter *SDBInstanceParameter) GetDescription() string {
+	return ""
 }

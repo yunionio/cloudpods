@@ -338,3 +338,7 @@ func (self *SBaseRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Con
 func (self *SBaseRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestSyncElasticcacheStatus")
 }
+
+func (self *SBaseRegionDriver) IsDBInstanceNeedSecgroup() bool {
+	return false
+}

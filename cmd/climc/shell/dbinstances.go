@@ -267,6 +267,15 @@ func init() {
 		return nil
 	})
 
+	R(&DBInstanceIdOptions{}, "dbinstance-sync", "Sync conf from cloud dbinstance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
+		result, err := modules.DBInstance.PerformAction(s, opts.ID, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&DBInstanceIdOptions{}, "dbinstance-sync-status", "Sync status for DB instance", func(s *mcclient.ClientSession, opts *DBInstanceIdOptions) error {
 		result, err := modules.DBInstance.PerformAction(s, opts.ID, "sync-status", nil)
 		if err != nil {

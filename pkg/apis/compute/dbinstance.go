@@ -21,6 +21,7 @@ type DBInstanceCreateInput struct {
 	DeletePreventableCreateInput
 
 	// Ip子网名称或Id,建议使用Id
+	// 谷歌云并不实际使用Ip子网,仅仅通过Ip子网确定Vpc
 	// required: true
 	Network string `json:"network"`
 	// swagger:ignore
@@ -96,10 +97,11 @@ type DBInstanceCreateInput struct {
 	//
 	//
 	//
-	// | 平台		| 支持类型	|
-	// | -----		| ------	|
-	// | 华为云		|ha, single, replica|
-	// | 阿里云		|basic, high_availability, always_on, finance|
+	// | 平台		| 支持类型	| 说明 |
+	// | -----		| ------	| --- |
+	// | 华为云		|ha, single, replica| |
+	// | 阿里云		|basic, high_availability, always_on, finance||
+	// | Google		|SECOND_GEN | FIRST_GEN 目前谷歌已弃用|
 	// 翻译:
 	// basic: 基础版
 	// high_availability: 高可用
@@ -108,6 +110,7 @@ type DBInstanceCreateInput struct {
 	// ha: 高可用
 	// single: 单机
 	// replica: 只读
+	// SECNOD_GEN: 第二代
 	// required: true
 	Category string `json:"category"`
 
@@ -118,6 +121,10 @@ type DBInstanceCreateInput struct {
 	// | 平台	| 支持类型	|
 	// | 华为云	|SSD, SAS, SATA|
 	// | 阿里云	|local_ssd, cloud_essd, cloud_ssd|
+	// | Google	|PD_SSD, PD_HDD|
+	// 翻译:
+	// PD_SSD: SSD
+	// PD_HDD: HDD
 	// required: true
 	StorageType string `json:"storage_type"`
 
@@ -129,7 +136,13 @@ type DBInstanceCreateInput struct {
 	// rds初始化密码
 	// 阿里云不需要此参数
 	// 华为云会默认创建一个用户,若不传此参数, 则为随机密码
+	// 谷歌云会默认创建一个用户,若不传此参数, 则为随机密码
 	Password string `json:"password"`
+
+	// 是否不设置初始密码
+	// 华为云不支持此参数
+	// 谷歌云仅mysql支持此参数
+	ResetPassword *bool `json:"reset_password"`
 
 	// rds实例cpu大小
 	// 若指定实例套餐，此参数将根据套餐设置
