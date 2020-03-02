@@ -26,7 +26,7 @@ done
 
 PRNS=("$PRN")
 
-for INDEX in $(python -m json.tool $pulldata | grep "\"title\":" | cut -d '"' -f 4 | grep -nr "Automated cherry pick of #${PRN}:" | awk 'BEGIN{FS=":"}{print $2}')
+for INDEX in $(python -m json.tool $pulldata | grep "\"title\":" | cut -d '"' -f 4 | grep -n "Automated cherry pick of #${PRN}:" | awk 'BEGIN{FS=":"}{print $1}')
 do
     INDEX=$((INDEX-1))
     PRNS+=("${PR_NUMBERS[$INDEX]}")
