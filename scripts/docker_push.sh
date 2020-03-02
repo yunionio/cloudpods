@@ -43,7 +43,7 @@ build_bin() {
 				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
 				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
 				registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
-				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; make cmd/$1"
+				/bin/sh -c "set -ex; cd /root/go/src/yunion.io/x/onecloud; make cmd/$1; chown -R $(id -u):$(id -g) _output"
 			;;
 		*)
 			GOOS=linux make cmd/$1

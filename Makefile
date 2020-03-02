@@ -202,6 +202,7 @@ set -o pipefail
 cd /home/build/onecloud
 export GOFLAGS=-mod=vendor
 make $(1)
+chown -R $(shell id -u):$(shell id -g) _output
 endef
 
 docker-centos-build: export dockerCentOSBuildCmd:=$(call dockerCentOSBuildCmd,$(F))
@@ -231,6 +232,7 @@ set -o pipefail
 cd /root/go/src/yunion.io/x/onecloud
 export GOFLAGS=-mod=vendor
 make $(1)
+chown -R $(shell id -u):$(shell id -g) _output
 endef
 
 docker-alpine-build: export dockerAlpineBuildCmd:=$(call dockerAlpineBuildCmd,$(F))
