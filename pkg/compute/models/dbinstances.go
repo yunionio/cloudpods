@@ -1270,7 +1270,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.ZoneId = extInstance.GetIZoneId()
 		err := self.setZoneInfo()
 		if err != nil {
-			return errors.Wrap(err, "setZoneInfo")
+			log.Errorf("failed to set zone info for dbinstance %s(%s) error: %v", self.Name, self.Id, err)
 		}
 
 		if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
@@ -1337,7 +1337,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.ZoneId = extInstance.GetIZoneId()
 	err = instance.setZoneInfo()
 	if err != nil {
-		return nil, errors.Wrap(err, "instance.setZoneInfo")
+		log.Errorf("failed to set zone info for dbinstance %s error: %v", instance.ExternalId, err)
 	}
 
 	if secgroupId := extInstance.GetSecurityGroupId(); len(secgroupId) > 0 {
