@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -31,16 +30,14 @@ import (
 )
 
 var (
-	AlertNotificationManager      *SAlertNotificationManager
-	AlertNotificationStateManager *SAlertNotificationStateManager
+	NotificationManager *SNotificationManager
 )
 
 func init() {
-	AlertNotificationManager = NewAlertNotificationManager()
-	AlertNotificationStateManager = NewAlertNotificationStateManager()
+	NotificationManager = NewNotificationManager()
 }
 
-type SAlertNotificationManager struct {
+type SNotificationManager struct {
 	db.SVirtualResourceBaseManager
 }
 
@@ -48,11 +45,11 @@ type SAlertNotificationStateManager struct {
 	db.SStandaloneResourceBaseManager
 }
 
-func NewAlertNotificationManager() *SAlertNotificationManager {
-	man := &SAlertNotificationManager{
+func NewNotificationManager() *SNotificationManager {
+	man := &SNotificationManager{
 		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
-			SAlertNotification{},
-			"alert_notifications_tbl",
+			SNotification{},
+			"notifications_tbl",
 			"alert_notification",
 			"alert_notifications",
 		),
@@ -61,20 +58,7 @@ func NewAlertNotificationManager() *SAlertNotificationManager {
 	return man
 }
 
-func NewAlertNotificationStateManager() *SAlertNotificationStateManager {
-	man := &SAlertNotificationStateManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
-			SAlertNotificationState{},
-			"alert_notification_states_tbl",
-			"alert_notification_state",
-			"alert_notification_states",
-		),
-	}
-	man.SetVirtualObject(man)
-	return man
-}
-
-type SAlertNotification struct {
+type SNotification struct {
 	db.SVirtualResourceBase
 
 	Type                  string               `nullable:"false" list:"user" create:"required"`
@@ -85,15 +69,7 @@ type SAlertNotification struct {
 	Settings              jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
 }
 
-type SAlertNotificationState struct {
-	db.SStandaloneResourceBase
-
-	AlertId    string `nullable:"false" list:"user" create:"required"`
-	NotifierId string `nullable:"false" list:"user" create:"required"`
-	State      string `nullable:"false" list:"user" create:"required"`
-}
-
-func (man *SAlertNotificationManager) GetPlugin(typ string) (*notifydrivers.NotifierPlugin, error) {
+func (man *SNotificationManager) GetPlugin(typ string) (*notifydrivers.NotifierPlugin, error) {
 	drv, err := notifydrivers.GetPlugin(typ)
 	if err != nil {
 		if errors.Cause(err) == notifydrivers.ErrUnsupportedNotificationType {
@@ -105,7 +81,7 @@ func (man *SAlertNotificationManager) GetPlugin(typ string) (*notifydrivers.Noti
 	return drv, nil
 }
 
-func (man *SAlertNotificationManager) GetNotification(id string) (*SAlertNotification, error) {
+func (man *SNotificationManager) GetNotification(id string) (*SNotification, error) {
 	obj, err := man.FetchById(id)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -113,11 +89,11 @@ func (man *SAlertNotificationManager) GetNotification(id string) (*SAlertNotific
 		}
 		return nil, err
 	}
-	return obj.(*SAlertNotification), nil
+	return obj.(*SNotification), nil
 }
 
-func (man *SAlertNotificationManager) GetNotifications(ids []string) ([]SAlertNotification, error) {
-	objs := make([]SAlertNotification, 0)
+func (man *SNotificationManager) GetNotifications(ids []string) ([]SNotification, error) {
+	objs := make([]SNotification, 0)
 	notis := man.Query().SubQuery()
 	q := notis.Query().Filter(sqlchemy.In(notis.Field("id"), ids))
 	if err := db.FetchModelObjects(man, q, &objs); err != nil {
@@ -129,8 +105,8 @@ func (man *SAlertNotificationManager) GetNotifications(ids []string) ([]SAlertNo
 	return objs, nil
 }
 
-func (man *SAlertNotificationManager) GetNotificationsWithDefault(ids []string) ([]SAlertNotification, error) {
-	objs := make([]SAlertNotification, 0)
+func (man *SNotificationManager) GetNotificationsWithDefault(ids []string) ([]SNotification, error) {
+	objs := make([]SNotification, 0)
 	notis := man.Query().SubQuery()
 	q := notis.Query().Filter(
 		sqlchemy.OR(
@@ -145,7 +121,7 @@ func (man *SAlertNotificationManager) GetNotificationsWithDefault(ids []string) 
 	return objs, nil
 }
 
-func (man *SAlertNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error) {
+func (man *SNotificationManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, _ jsonutils.JSONObject, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error) {
 	if input.Type == "" {
 		return input, httperrors.NewInputParameterError("notification type is empty")
 	}
@@ -164,12 +140,12 @@ func (man *SAlertNotificationManager) ValidateCreateData(ctx context.Context, us
 	return plug.ValidateCreateData(userCred, input)
 }
 
-func (man *SAlertNotificationManager) CreateOneCloudNotification(
+func (man *SNotificationManager) CreateOneCloudNotification(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	alertName string,
 	channel string,
-	userIds []string) (*SAlertNotification, error) {
+	userIds []string) (*SNotification, error) {
 	settings := &monitor.NotificationSettingOneCloud{
 		Channel: channel,
 		UserIds: userIds,
@@ -178,7 +154,7 @@ func (man *SAlertNotificationManager) CreateOneCloudNotification(
 	if err != nil {
 		return nil, errors.Wrapf(err, "generate name: %s", alertName)
 	}
-	input := &monitor.AlertNotificationCreateInput{
+	input := &monitor.NotificationCreateInput{
 		Name:     newName,
 		Type:     monitor.AlertNotificationTypeOneCloud,
 		Settings: jsonutils.Marshal(settings),
@@ -187,127 +163,16 @@ func (man *SAlertNotificationManager) CreateOneCloudNotification(
 	if err != nil {
 		return nil, errors.Wrapf(err, "create notification input: %s", input.JSON(input))
 	}
-	return obj.(*SAlertNotification), nil
+	return obj.(*SNotification), nil
 }
 
-func (n *SAlertNotification) GetStates() ([]SAlertNotificationState, error) {
-	states := AlertNotificationStateManager.Query().SubQuery()
-	q := states.Query().Filter(sqlchemy.Equals(states.Field("notifier_id"), n.GetId()))
-	objs := make([]SAlertNotificationState, 0)
-	if err := db.FetchModelObjects(AlertNotificationStateManager, q, &objs); err != nil {
-		return nil, err
-	}
-	return objs, nil
-}
-
-func (n *SAlertNotification) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	stats, err := n.GetStates()
-	if err != nil {
-		return err
-	}
-	for _, stat := range stats {
-		if err := stat.Delete(ctx, userCred); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (man *SAlertNotificationStateManager) ValidateCreateData(
+func (n *SNotification) AttachToAlert(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
-	_ jsonutils.JSONObject,
-	input monitor.AlertNotificationStateCreateInput) (monitor.AlertNotificationStateCreateInput, error) {
-	if input.AlertId == "" {
-		return input, httperrors.NewNotEmptyError("alert_id is empty")
-	}
-	if input.NotifierId == "" {
-		return input, httperrors.NewNotEmptyError("notifier_id is empty")
-	}
-	var name string
-	if obj, err := AlertManager.FetchById(input.AlertId); err != nil {
-		return input, err
-	} else {
-		name = obj.GetName()
-	}
-	if obj, err := AlertNotificationManager.FetchById(input.NotifierId); err != nil {
-		return input, err
-	} else {
-		name = fmt.Sprintf("%s_%s", name, obj.GetName())
-	}
-	name, err := db.GenerateName(man, ownerId, name)
-	if err != nil {
-		return input, err
-	}
-	input.Name = name
-	return input, nil
-}
-
-func (man *SAlertNotificationStateManager) CreateState(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	input monitor.AlertNotificationStateCreateInput) (*SAlertNotificationState, error) {
-	obj, err := db.DoCreate(man, ctx, userCred, nil, input.JSON(input), userCred)
-	if err != nil {
-		return nil, errors.Wrapf(err, "create notification state: %s", input.JSON(input))
-	}
-	return obj.(*SAlertNotificationState), nil
-}
-
-func (man *SAlertNotificationStateManager) GetState(alertId, notifierId string) (*SAlertNotificationState, error) {
-	state := man.Query().SubQuery()
-	q := state.Query().Filter(sqlchemy.AND(
-		sqlchemy.Equals(state.Field("alert_id"), alertId),
-		sqlchemy.Equals(state.Field("notifier_id"), notifierId)))
-	obj := new(SAlertNotificationState)
-	err := q.First(obj)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, nil
-		} else {
-			return nil, err
-		}
-	}
-	return obj, nil
-}
-
-func (man *SAlertNotificationStateManager) GetOrCreateState(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	alertId string,
-	notifierId string) (*SAlertNotificationState, error) {
-	state, err := man.GetState(alertId, notifierId)
+	alertId string) (*SAlertnotification, error) {
+	alert, err := AlertManager.GetAlert(alertId)
 	if err != nil {
 		return nil, err
 	}
-	if state == nil {
-		return man.CreateState(ctx, userCred, monitor.AlertNotificationStateCreateInput{
-			AlertId:    alertId,
-			NotifierId: notifierId,
-			State:      monitor.AlertNotificationStateUnknown,
-		})
-	}
-	state.SetModelManager(man, state)
-	return state, nil
-}
-
-func (state *SAlertNotificationState) SetToPending() error {
-	return state.setState(monitor.AlertNotificationStatePending)
-}
-
-func (state *SAlertNotificationState) SetToCompleted() error {
-	return state.setState(monitor.AlertNotificationStateCompleted)
-}
-
-func (state *SAlertNotificationState) setState(changeState monitor.AlertNotificationStateType) error {
-	_, err := db.Update(state, func() error {
-		state.State = string(changeState)
-		return nil
-	})
-	return err
-}
-
-func (state *SAlertNotificationState) GetState() monitor.AlertNotificationStateType {
-	return monitor.AlertNotificationStateType(state.State)
+	return alert.AttachNotification(ctx, userCred, n, monitor.AlertNotificationStateUnknown, "")
 }

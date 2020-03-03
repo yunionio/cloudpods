@@ -36,7 +36,7 @@ const (
 	AlertNotificationTypeFeishu   = "feishu"
 )
 
-type AlertNotificationCreateInput struct {
+type NotificationCreateInput struct {
 	apis.Meta
 
 	// 报警通知名称
@@ -55,7 +55,7 @@ type AlertNotificationCreateInput struct {
 	Settings jsonutils.JSONObject `json:"settings"`
 }
 
-type AlertNotificationUpdateInput struct {
+type NotificationUpdateInput struct {
 	apis.Meta
 
 	// 报警通知名称
@@ -94,13 +94,4 @@ type NotificationSettingFeishu struct {
 	// Url         string `json:"url"`
 	AppId     string `json:"app_id"`
 	AppSecret string `json:"app_secret"`
-}
-
-type AlertNotificationStateCreateInput struct {
-	apis.Meta
-
-	Name       string                     `json:"name"`
-	AlertId    string                     `json:"alert_id"`
-	NotifierId string                     `json:"notifier_id"`
-	State      AlertNotificationStateType `json:"state"`
 }

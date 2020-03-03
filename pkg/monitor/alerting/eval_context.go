@@ -16,6 +16,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/log"
@@ -83,7 +84,7 @@ func (c *EvalContext) GetStateModel() *StateDescription {
 			Text: "Unknown",
 		}
 	default:
-		panic("Unknown rule state for alert " + c.Rule.State)
+		panic(fmt.Sprintf("Unknown rule state %q for alert %s", c.Rule.State, c.Rule.Name))
 	}
 }
 
@@ -177,6 +178,7 @@ func (c *EvalContext) GetNotificationTemplateConfig() monitor.NotificationTempla
 		EndTime:     c.EndTime.Format(time.RFC3339),
 		Description: desc,
 		Level:       c.Rule.Level,
+		NoDataFound: c.NoDataFound,
 	}
 }
 

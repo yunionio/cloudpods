@@ -15,6 +15,7 @@
 package alerting
 
 import (
+	"database/sql"
 	"time"
 
 	"yunion.io/x/log"
@@ -48,7 +49,7 @@ func (n *notificationService) SendIfNeeded(evalCtx *EvalContext) error {
 
 type notifierState struct {
 	notifier Notifier
-	state    *models.SAlertNotificationState
+	state    *models.SAlertnotification
 }
 
 type notifierStateSlice []*notifierState
@@ -92,7 +93,7 @@ func (n *notificationService) sendNotifications(evalCtx *EvalContext, states not
 }
 
 func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalContext) (notifierStateSlice, error) {
-	notis, err := models.AlertNotificationManager.GetNotificationsWithDefault(nIds)
+	notis, err := models.NotificationManager.GetNotificationsWithDefault(nIds)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +110,21 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 			Settings:              obj.Settings,
 		})
 		if err != nil {
-			log.Errorf("Could not creat enotifier %s, error: %v", obj.GetId(), err)
+			log.Errorf("Could not create notifier %s, error: %v", obj.GetId(), err)
 			continue
 		}
-		state, err := models.AlertNotificationStateManager.GetOrCreateState(evalCtx.Ctx, evalCtx.UserCred, evalCtx.Rule.Id, obj.GetId())
+		state, err := models.AlertNotificationManager.Get(evalCtx.Rule.Id, obj.GetId())
 		if err != nil {
-			log.Errorf("Get alert state: %v, alertId %s, notifierId: %s", err, evalCtx.Rule.Id, obj.GetId())
-			continue
+			if errors.Cause(err) == sql.ErrNoRows {
+				state, err = obj.AttachToAlert(evalCtx.Ctx, evalCtx.UserCred, evalCtx.Rule.Id)
+				if err != nil {
+					log.Errorf("Attach notification %s to alert %s error: %v", obj.GetName(), evalCtx.Rule.Id, err)
+					continue
+				}
+			} else {
+				log.Errorf("Get alert state: %v, alertId %s, notifierId: %s", err, evalCtx.Rule.Id, obj.GetId())
+				continue
+			}
 		}
 
 		if not.ShouldNotify(evalCtx.Ctx, evalCtx, state) {
@@ -132,7 +141,7 @@ func (n *notificationService) getNeededNotifiers(nIds []string, evalCtx *EvalCon
 type NotifierPlugin struct {
 	Type               string
 	Factory            NotifierFactory
-	ValidateCreateData func(cred mcclient.IIdentityProvider, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error)
+	ValidateCreateData func(cred mcclient.IIdentityProvider, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error)
 }
 
 type NotificationConfig notifydrivers.NotificationConfig

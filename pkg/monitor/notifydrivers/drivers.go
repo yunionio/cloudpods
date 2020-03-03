@@ -56,7 +56,7 @@ var notifierFactories = make(map[string]*NotifierPlugin)
 type NotifierPlugin struct {
 	Type               string
 	Factory            NotifierFactory
-	ValidateCreateData func(cred mcclient.IIdentityProvider, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error)
+	ValidateCreateData func(cred mcclient.IIdentityProvider, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error)
 }
 
 func RegisterNotifier(plugin *NotifierPlugin) {

@@ -48,7 +48,8 @@ func init() {
 type IMeterAlertDriver interface {
 	GetType() string
 	GetName() string
-	ToAlertCreateInput(input monitor.MeterAlertCreateInput, notificatoins []string, allAccountIds []string) monitor.AlertCreateInput
+	GetFor() time.Duration
+	ToAlertCreateInput(input monitor.MeterAlertCreateInput, dsId string, allAccountIds []string, level string) monitor.AlertCreateInput
 }
 
 type SMeterAlertManager struct {
@@ -139,18 +140,6 @@ func (man *SMeterAlertManager) ValidateCreateData(
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
 	}
-	if data.Recipients == "" {
-		return nil, httperrors.NewInputParameterError("recipients is empty")
-	}
-	notification, err := man.CreateNotification(ctx, userCred, data.Type, data.Channel, data.Recipients)
-	if err != nil {
-		return nil, errors.Wrap(err, "create notification")
-	}
-
-	if data.ProjectId == "" {
-		return nil, httperrors.NewInputParameterError("project_id is empty")
-	}
-
 	drv := man.GetDriver(data.Type)
 	if drv == nil {
 		return nil, httperrors.NewInputParameterError("not support type %q", data.Type)
@@ -166,15 +155,22 @@ func (man *SMeterAlertManager) ValidateCreateData(
 			return nil, err
 		}
 	}
-	alertInput := drv.ToAlertCreateInput(
-		data, []string{notification.GetId()},
-		allAccountIds)
+	if data.Recipients == "" {
+		return nil, httperrors.NewInputParameterError("recipients is empty")
+	}
+
+	ds, err := DataSourceManager.GetDefaultSource()
+	if err != nil {
+		return nil, err
+	}
+
+	alertInput := drv.ToAlertCreateInput(data, ds.GetId(), allAccountIds, data.Level)
 	alertInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
 	if err != nil {
 		return nil, err
 	}
 	data.Name = name
-	data.AlertCreateInput = &alertInput
+	data.AlertCreateInput = alertInput
 	return &data, nil
 }
 
@@ -188,16 +184,23 @@ func (_ *sMeterDailyFee) GetName() string {
 	return "日消费"
 }
 
+func (_ *sMeterDailyFee) GetFor() time.Duration {
+	return 12 * time.Hour
+}
+
 func (f *sMeterDailyFee) ToAlertCreateInput(
 	input monitor.MeterAlertCreateInput,
-	notifications []string,
+	dsId string,
 	allAccountIds []string,
+	level string,
 ) monitor.AlertCreateInput {
 	freq, _ := time.ParseDuration(input.Window)
 	ret := monitor.AlertCreateInput{
 		Name:      f.GetName(),
+		Level:     level,
 		Frequency: int64(freq / time.Second),
-		Settings: GetMeterAlertSetting(input, notifications,
+		Settings: GetMeterAlertSetting(input,
+			dsId,
 			"account_daily_resfee",
 			"meter_db", allAccountIds, "sumDate"),
 	}
@@ -214,16 +217,23 @@ func (_ *sMeterMonthFee) GetName() string {
 	return "月消费"
 }
 
+func (_ *sMeterMonthFee) GetFor() time.Duration {
+	return 24 * time.Hour
+}
+
 func (f *sMeterMonthFee) ToAlertCreateInput(
 	input monitor.MeterAlertCreateInput,
-	notifications []string,
+	dsId string,
 	allAccountIds []string,
+	level string,
 ) monitor.AlertCreateInput {
 	freq, _ := time.ParseDuration(input.Window)
 	ret := monitor.AlertCreateInput{
 		Name:      f.GetName(),
+		Level:     level,
 		Frequency: int64(freq / time.Second),
-		Settings: GetMeterAlertSetting(input, notifications,
+		Settings: GetMeterAlertSetting(input,
+			dsId,
 			"account_month_resfee",
 			"meter_db", allAccountIds, "sumMonth"),
 	}
@@ -232,7 +242,7 @@ func (f *sMeterMonthFee) ToAlertCreateInput(
 
 func GetMeterAlertSetting(
 	input monitor.MeterAlertCreateInput,
-	ns []string,
+	dsId string,
 	measurement string,
 	db string,
 	accountIds []string,
@@ -240,16 +250,15 @@ func GetMeterAlertSetting(
 ) monitor.AlertSetting {
 	q, reducer, eval := GetMeterAlertQuery(input, measurement, db, accountIds, groupByStr)
 	return monitor.AlertSetting{
-		Level:         input.Level,
-		Notifications: ns,
 		Conditions: []monitor.AlertCondition{
 			{
 				Type:     "query",
 				Operator: "and",
 				Query: monitor.AlertQuery{
-					Model: q,
-					From:  input.Period,
-					To:    "now",
+					Model:        q,
+					From:         input.Period,
+					To:           "now",
+					DataSourceId: dsId,
 				},
 				Reducer:   reducer,
 				Evaluator: eval,
@@ -306,7 +315,7 @@ func GetMeterAlertQuery(
 		})
 	}
 
-	log.Debugf("==alertType: %s", alertType)
+	log.Debugf("meteralert alertType: %s", alertType)
 
 	if input.ProjectId != "" {
 		filters = append(filters, monitor.MetricQueryTag{
@@ -342,6 +351,18 @@ func (man *SMeterAlertManager) GetAlert(id string) (*SMeterAlert, error) {
 		return nil, err
 	}
 	return obj.(*SMeterAlert), nil
+}
+
+func (man *SMeterAlertManager) ListItemFilter(
+	ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.MeterAlertListInput) (*sqlchemy.SQuery, error) {
+	q, err := AlertManager.ListItemFilter(ctx, q, userCred, monitor.AlertListInput{})
+	if err != nil {
+		return nil, err
+	}
+	q.Equals("used_by", AlertNotificationUsedByMeterAlert)
+	return q, nil
 }
 
 func (man *SMeterAlertManager) CustomizeFilterList(
@@ -395,6 +416,17 @@ func (man *SMeterAlertManager) CustomizeFilterList(
 	}
 
 	return filters, nil
+}
+
+func (alert *SMeterAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+		return err
+	}
+	input := new(monitor.MeterAlertCreateInput)
+	if err := data.Unmarshal(input); err != nil {
+		return err
+	}
+	return alert.SV1Alert.CustomizeCreate(ctx, userCred, input.Type, input.Channel, input.Recipients, AlertNotificationUsedByMeterAlert)
 }
 
 func (alert *SMeterAlert) setType(ctx context.Context, userCred mcclient.TokenCredential, t string) error {
@@ -458,12 +490,16 @@ func (alert *SMeterAlert) PostCreate(ctx context.Context,
 			log.Errorf("set project_id: %v", err)
 		}
 	}
+	forTime := MeterAlertManager.GetDriver(alert.getType()).GetFor()
+	if err := alert.SetFor(forTime); err != nil {
+		log.Errorf("set for error: %v", err)
+	}
 }
 
 func (alert *SMeterAlert) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (monitor.MeterAlertDetails, error) {
 	var err error
 	out := monitor.MeterAlertDetails{}
-	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList)
+	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList, AlertNotificationUsedByMeterAlert)
 	if err != nil {
 		return out, err
 	}
@@ -475,4 +511,67 @@ func (alert *SMeterAlert) GetExtraDetails(ctx context.Context, userCred mcclient
 	out.AccountId = alert.getAccountId()
 
 	return out, nil
+}
+
+func (alert *SMeterAlert) ValidateUpdateData(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input monitor.MeterAlertUpdateInput) (*jsonutils.JSONDict, error) {
+	ret := new(monitor.AlertUpdateInput)
+	details, err := alert.GetExtraDetails(ctx, userCred, query, false)
+	if err != nil {
+		return nil, err
+	}
+	if input.Threshold != nil && *input.Threshold != details.Threshold {
+		details.Threshold = *input.Threshold
+	}
+
+	if input.Comparator != nil && *input.Comparator != details.Comparator {
+		details.Comparator = *input.Comparator
+	}
+
+	ds, err := DataSourceManager.GetDefaultSource()
+	if err != nil {
+		return nil, errors.Wrap(err, "get default data source")
+	}
+	// hack: update notification here
+	if err := alert.UpdateNotification(AlertNotificationUsedByMeterAlert, input.Channel, input.Recipients); err != nil {
+		return nil, errors.Wrap(err, "update notification")
+	}
+	allAccountIds := []string{}
+	if details.AccountId == "" {
+		allAccountIds, err = MeterAlertManager.getAllBillAccountIds(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	tmpS := alert.getUpdateSetting(details, ds.GetId(), allAccountIds)
+	ret.Settings = &tmpS
+	return alert.SAlert.ValidateUpdateData(ctx, userCred, query, *ret)
+}
+
+func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, dsId string, accountIds []string) monitor.AlertSetting {
+	drv := MeterAlertManager.GetDriver(alert.getType())
+	input := monitor.MeterAlertCreateInput{
+		ResourceAlertV1CreateInput: monitor.ResourceAlertV1CreateInput{
+			Period:     details.Period,
+			Window:     details.Window,
+			Comparator: details.Comparator,
+			Threshold:  details.Threshold,
+			Channel:    details.Channel,
+			Recipients: details.Recipients,
+		},
+		Type:      details.Type,
+		Provider:  details.Provider,
+		ProjectId: details.ProjectId,
+		AccountId: details.AccountId,
+	}
+	input.Level = details.Level
+	out := drv.ToAlertCreateInput(input, dsId, accountIds, details.Level)
+	return out.Settings
+}
+
+func (alert *SMeterAlert) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return alert.SV1Alert.CustomizeDelete(ctx, userCred, query, data)
 }

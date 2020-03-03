@@ -24,8 +24,9 @@ import (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
-	db.RegisterModelManager(db.UserCacheManager)
 	db.RegisterModelManager(db.TenantCacheManager)
+	db.RegisterModelManager(db.UserCacheManager)
+	db.RegistUserCredCacheUpdater()
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
 		db.Metadata,
@@ -33,11 +34,18 @@ func InitHandlers(app *appsrv.Application) {
 		models.AlertManager,
 		models.NodeAlertManager,
 		models.MeterAlertManager,
-		models.AlertNotificationManager,
-		models.AlertNotificationStateManager,
+		models.NotificationManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
 		dispatcher.AddModelDispatcher("", app, handler)
+	}
+
+	for _, manager := range []db.IJointModelManager{
+		models.AlertNotificationManager,
+	} {
+		db.RegisterModelManager(manager)
+		handler := db.NewJointModelHandler(manager)
+		dispatcher.AddJointModelDispatcher("", app, handler)
 	}
 }

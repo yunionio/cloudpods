@@ -78,9 +78,9 @@ func (v1man *SV1AlertManager) CreateNotification(
 	userCred mcclient.TokenCredential,
 	alertName string,
 	channel string,
-	recipients string) (*SAlertNotification, error) {
+	recipients string) (*SNotification, error) {
 	userIds := strings.Split(recipients, ",")
-	return AlertNotificationManager.CreateOneCloudNotification(ctx, userCred, alertName, channel, userIds)
+	return NotificationManager.CreateOneCloudNotification(ctx, userCred, alertName, channel, userIds)
 }
 
 func (man *SNodeAlertManager) ValidateCreateData(
@@ -107,10 +107,6 @@ func (man *SNodeAlertManager) ValidateCreateData(
 	if data.Recipients == "" {
 		return nil, httperrors.NewInputParameterError("recipients is empty")
 	}
-	notification, err := man.CreateNotification(ctx, userCred, data.Metric, data.Channel, data.Recipients)
-	if err != nil {
-		return nil, errors.Wrap(err, "create notification")
-	}
 	if data.NodeId == "" {
 		return nil, httperrors.NewInputParameterError("node_id is empty")
 	}
@@ -123,12 +119,12 @@ func (man *SNodeAlertManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	alertInput := data.ToAlertCreateInput(name, field, measurement, "telegraf", []string{notification.GetId()})
+	alertInput := data.ToAlertCreateInput(name, field, measurement, "telegraf")
 	alertInput, err = AlertManager.ValidateCreateData(ctx, userCred, ownerId, query, alertInput)
 	if err != nil {
 		return nil, err
 	}
-	data.AlertCreateInput = &alertInput
+	data.AlertCreateInput = alertInput
 	return &data, nil
 }
 
@@ -187,11 +183,16 @@ func (man *SNodeAlertManager) ValidateListConditions(ctx context.Context, userCr
 	return query, nil
 }
 
-func (man *SV1AlertManager) ListItemFilter(
+func (man *SNodeAlertManager) ListItemFilter(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query monitor.NodeAlertListInput) (*sqlchemy.SQuery, error) {
-	return AlertManager.ListItemFilter(ctx, q, userCred, query.ToAlertListInput())
+	q, err := AlertManager.ListItemFilter(ctx, q, userCred, query.ToAlertListInput())
+	if err != nil {
+		return nil, err
+	}
+	q.Equals("used_by", AlertNotificationUsedByNodeAlert)
+	return q, nil
 }
 
 func (man *SNodeAlertManager) GetAlert(id string) (*SNodeAlert, error) {
@@ -236,7 +237,7 @@ func (man *SNodeAlertManager) CustomizeFilterList(
 		}
 		mF := func(obj *SNodeAlert) (bool, error) {
 			settings := new(monitor.AlertSetting)
-			if err := obj.Settings.Unmarshal(settings, "settings"); err != nil {
+			if err := obj.Settings.Unmarshal(settings); err != nil {
 				return false, errors.Wrapf(err, "alert %s unmarshal", obj.GetId())
 			}
 			for _, s := range settings.Conditions {
@@ -271,6 +272,38 @@ func (man *SNodeAlertManager) CustomizeFilterList(
 	}
 
 	return filters, nil
+}
+
+func (alert *SV1Alert) CustomizeCreate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	notiName, channel, recipients, usedBy string) error {
+	noti, err := NodeAlertManager.CreateNotification(ctx, userCred, notiName, channel, recipients)
+	if err != nil {
+		return errors.Wrap(err, "create notification")
+	}
+	if alert.Id == "" {
+		alert.Id = db.DefaultUUIDGenerator()
+	}
+	alert.UsedBy = usedBy
+	_, err = alert.AttachNotification(
+		ctx, userCred, noti,
+		monitor.AlertNotificationStateUnknown,
+		usedBy)
+	return err
+}
+
+func (alert *SNodeAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+		return err
+	}
+	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
+		return err
+	}
+	input := new(monitor.NodeAlertCreateInput)
+	if err := data.Unmarshal(input); err != nil {
+		return err
+	}
+	return alert.SV1Alert.CustomizeCreate(ctx, userCred, input.Metric, input.Channel, input.Recipients, AlertNotificationUsedByNodeAlert)
 }
 
 func (alert *SNodeAlert) getNodeId() string {
@@ -320,7 +353,13 @@ func (alert *SNodeAlert) PostCreate(ctx context.Context,
 	}
 }
 
-func (alert *SV1Alert) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (monitor.AlertV1Details, error) {
+func (alert *SV1Alert) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+	usedBy string,
+) (monitor.AlertV1Details, error) {
 	var err error
 	out := monitor.AlertV1Details{}
 	out.VirtualResourceDetails, err = alert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
@@ -349,15 +388,23 @@ func (alert *SV1Alert) GetExtraDetails(ctx context.Context, userCred mcclient.To
 	case "lt":
 		cmp = "<="
 	}
-	out.Level = setting.Level
+	out.Level = alert.Level
 	out.Comparator = cmp
 	out.Threshold = cond.Evaluator.Params[0]
 	out.Period = cond.Query.From
 
-	notification := alert.GetNotificationBySetting(setting)
-	if notification != nil {
-		out.Recipients = strings.Join(notification.UserIds, ",")
-		out.Channel = notification.Channel
+	noti, err := alert.GetNotification(usedBy)
+	if err != nil {
+		return out, err
+	}
+	if noti != nil {
+		out.NotifierId = noti.GetId()
+		settings := new(monitor.NotificationSettingOneCloud)
+		if err := noti.Settings.Unmarshal(settings); err != nil {
+			return out, err
+		}
+		out.Recipients = strings.Join(settings.UserIds, ",")
+		out.Channel = settings.Channel
 	}
 
 	q := cond.Query
@@ -367,20 +414,13 @@ func (alert *SV1Alert) GetExtraDetails(ctx context.Context, userCred mcclient.To
 	out.Measurement = measurement
 	out.Field = field
 	out.DB = db
-	noti, err := alert.GetNotification()
-	if err != nil {
-		return out, err
-	}
-	if noti != nil {
-		out.NotifierId = noti.GetId()
-	}
 	return out, nil
 }
 
 func (alert *SNodeAlert) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (monitor.NodeAlertDetails, error) {
 	var err error
 	out := monitor.NodeAlertDetails{}
-	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList)
+	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList, AlertNotificationUsedByNodeAlert)
 	if err != nil {
 		return out, err
 	}
@@ -402,26 +442,24 @@ func (alert *SNodeAlert) GetExtraDetails(ctx context.Context, userCred mcclient.
 	return out, nil
 }
 
-func (alert *SV1Alert) GetNotification() (*SAlertNotification, error) {
-	setting, err := alert.GetSettings()
+func (alert *SV1Alert) GetNotification(usedby string) (*SNotification, error) {
+	alertNotis, err := alert.GetNotifications()
 	if err != nil {
 		return nil, err
 	}
-	nIds := setting.Notifications
-	if len(nIds) == 0 {
+	if len(alertNotis) == 0 {
 		return nil, nil
 	}
-	// only get first notification setting
-	nId := nIds[0]
-	obj, err := AlertNotificationManager.GetNotification(nId)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Get notificatoin %s", nId)
+	for _, an := range alertNotis {
+		if an.GetUsedBy() == usedby {
+			return an.GetNotification()
+		}
 	}
-	return obj, nil
+	return nil, httperrors.NewNotFoundError("not found alert notification used by %s", usedby)
 }
 
-func (alert *SV1Alert) UpdateNotification(channel, recipients *string) error {
-	obj, err := alert.GetNotification()
+func (alert *SV1Alert) UpdateNotification(usedBy string, channel, recipients *string) error {
+	obj, err := alert.GetNotification(usedBy)
 	if err != nil {
 		return errors.Wrap(err, "Get notification when update")
 	}
@@ -445,30 +483,7 @@ func (alert *SV1Alert) UpdateNotification(channel, recipients *string) error {
 	return err
 }
 
-func (alert *SV1Alert) GetNotificationBySetting(setting *monitor.AlertSetting) *monitor.NotificationSettingOneCloud {
-	nIds := setting.Notifications
-	if len(nIds) == 0 {
-		return nil
-	}
-	// only get first notification setting
-	nId := nIds[0]
-	obj, err := AlertNotificationManager.GetNotification(nId)
-	if err != nil {
-		log.Errorf("Get notification by %s: %v", nId, err)
-		return nil
-	}
-	if obj == nil {
-		return nil
-	}
-	ocSetting := new(monitor.NotificationSettingOneCloud)
-	if err := obj.Settings.Unmarshal(ocSetting); err != nil {
-		log.Errorf("Unmarshal notification %s setting: %v", nId, err)
-		return nil
-	}
-	return ocSetting
-}
-
-func (alert *SNodeAlert) CustomizeDelete(
+func (alert *SV1Alert) CustomizeDelete(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	notis, err := alert.GetNotifications()
@@ -476,10 +491,19 @@ func (alert *SNodeAlert) CustomizeDelete(
 		return err
 	}
 	for _, noti := range notis {
-		if err := noti.CustomizeDelete(ctx, userCred, query, data); err != nil {
+		conf, err := noti.GetNotification()
+		if err != nil {
 			return err
 		}
-		if err := noti.Delete(ctx, userCred); err != nil {
+		if !conf.IsDefault {
+			if err := conf.CustomizeDelete(ctx, userCred, query, data); err != nil {
+				return err
+			}
+			if err := conf.Delete(ctx, userCred); err != nil {
+				return err
+			}
+		}
+		if err := noti.Detach(ctx, userCred); err != nil {
 			return err
 		}
 	}
@@ -498,7 +522,6 @@ func (alert *SNodeAlert) ValidateUpdateData(
 	nameChange := false
 	if input.NodeId != nil && *input.NodeId != details.NodeId {
 		nameChange = true
-		ret.ResourceId = input.NodeId
 		details.NodeId = *input.NodeId
 		if err := alert.setNodeId(ctx, userCred, details.NodeId); err != nil {
 			return nil, err
@@ -506,7 +529,6 @@ func (alert *SNodeAlert) ValidateUpdateData(
 	}
 	if input.Type != nil && *input.Type != details.Type {
 		nameChange = true
-		ret.ResourceType = input.Type
 		details.Type = *input.Type
 		if err := alert.setType(ctx, userCred, details.Type); err != nil {
 			return nil, err
@@ -573,15 +595,10 @@ func (alert *SNodeAlert) ValidateUpdateData(
 		return nil, errors.Wrap(err, "get default data source")
 	}
 	// hack: update notification here
-	if err := alert.UpdateNotification(input.Channel, input.Recipients); err != nil {
+	if err := alert.UpdateNotification(AlertNotificationUsedByNodeAlert, input.Channel, input.Recipients); err != nil {
 		return nil, errors.Wrap(err, "update notification")
 	}
 	tmpS := alert.getUpdateSetting(name, details, ds.GetId())
-	os, err := alert.GetSettings()
-	if err != nil {
-		return nil, errors.Wrap(err, "get origin setting")
-	}
-	tmpS.Notifications = os.Notifications
 	ret.Settings = &tmpS
 	return alert.SAlert.ValidateUpdateData(ctx, userCred, query, ret)
 }
@@ -597,7 +614,6 @@ func (alert *SNodeAlert) getUpdateSetting(
 			Window:     details.Window,
 			Comparator: details.Comparator,
 			Threshold:  details.Threshold,
-			Level:      details.Level,
 			Channel:    details.Channel,
 			Recipients: details.Recipients,
 		},
@@ -605,7 +621,14 @@ func (alert *SNodeAlert) getUpdateSetting(
 		Type:   details.Type,
 		NodeId: details.NodeId,
 	}
-	out := data.ToAlertCreateInput(name, details.Field, details.Measurement, details.DB, []string{details.NotifierId})
+	data.Level = details.Level
+	out := data.ToAlertCreateInput(name, details.Field, details.Measurement, details.DB)
 	out.Settings = *setAlertDefaultSetting(&out.Settings, dsId)
 	return out.Settings
+}
+
+func (alert *SNodeAlert) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return alert.SV1Alert.CustomizeDelete(ctx, userCred, query, data)
 }

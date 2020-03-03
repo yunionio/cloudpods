@@ -41,7 +41,7 @@ func init() {
 	alerting.RegisterNotifier(&alerting.NotifierPlugin{
 		Type:    monitor.AlertNotificationTypeDingding,
 		Factory: newDingdingNotifier,
-		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error) {
+		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error) {
 			settings := new(monitor.NotificationSettingDingding)
 			if err := input.Settings.Unmarshal(settings); err != nil {
 				return input, errors.Wrap(err, "unmarshal setting")
