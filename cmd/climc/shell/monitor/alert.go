@@ -46,6 +46,20 @@ func init() {
 			return nil
 		})
 
+	R(&options.AlertUpdateOptions{}, aN("update"), "Update a alert rule",
+		func(s *mcclient.ClientSession, args *options.AlertUpdateOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := monitor.Alerts.Update(s, args.ID, params.JSON(params))
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
+
 	R(&options.AlertDeleteOptions{}, aN("delete"), "Delete alerts",
 		func(s *mcclient.ClientSession, args *options.AlertDeleteOptions) error {
 			ret := monitor.Alerts.BatchDelete(s, args.ID, nil)

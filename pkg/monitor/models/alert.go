@@ -21,11 +21,13 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
@@ -76,19 +78,27 @@ type SAlert struct {
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
 	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
 	Enabled   bool                 `nullable:"false" default:"false" list:"user" create:"optional"`
+	Level     string               `charset:"ascii" width:"36"nullable:"false" default:"normal" list:"user"`
+	Message   string               `charset:"utf8" list:"user" update:"user"`
+	UsedBy    string               `charset:"ascii" list:"user"`
 
-	Message string `charset:"utf8" list:"user" update:"user"`
-	State   string `width:"36" charset:"ascii" list:"user"`
 	// Silenced       bool
-	ExecutionError string `charset:"utf8" list:"user"`
-	For            int64  `nullable:"false" list:"user"`
+	ExecutionError      string               `charset:"utf8" list:"user"`
+	For                 int64                `nullable:"false" list:"user"`
+	EvalData            jsonutils.JSONObject `list:"user" list:"user"`
+	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user"`
+	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"pending" list:"user"`
+	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" list:"user"`
+	LastStateChange     time.Time            `list:"user"`
+	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
+}
 
-	EvalData        jsonutils.JSONObject `list:"user"`
-	LastStateChange time.Time            `json:"last_state_change" list:"user"`
-	StateChanges    int                  `default:"0" nullable:"false" list:"user" json:"state_changes"`
-
-	NoDataState         string `charset:"utf8" list:"user"`
-	ExecutionErrorState string `charset:"utf8" list:"user"`
+func (alert *SAlert) SetUsedBy(usedBy string) error {
+	_, err := db.Update(alert, func() error {
+		alert.UsedBy = usedBy
+		return nil
+	})
+	return err
 }
 
 func (alert *SAlert) IsEnable() bool {
@@ -254,22 +264,6 @@ func (alert *SAlert) PerformDisable(ctx context.Context, userCred mcclient.Token
 	return db.PerformDisable(alert, userCred)
 }
 
-func (alert *SAlert) GetNotifications() ([]SAlertNotification, error) {
-	settings, err := alert.GetSettings()
-	if err != nil {
-		return nil, errors.Wrap(err, "get settings")
-	}
-	nIds := settings.Notifications
-	notis, err := AlertNotificationManager.GetNotifications(nIds)
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return notis, nil
-}
-
 const (
 	ErrAlertChannotChangeStateOnPaused = errors.Error("Cannot change state on pause alert")
 )
@@ -299,10 +293,115 @@ func (alert *SAlert) SetState(input AlertSetStateInput) error {
 }
 
 func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input monitor.AlertUpdateInput) (*jsonutils.JSONDict, error) {
-	if input.Enabled == nil {
-		enable := true
-		input.Enabled = &enable
+	if input.Settings != nil {
+		if err := jsonutils.Update(alert.Settings, jsonutils.Marshal(input.Settings)); err != nil {
+			return nil, err
+		}
+		if err := jsonutils.Update(input.Settings, alert.Settings); err != nil {
+			return nil, err
+		}
 	}
-	input.Settings = setAlertDefaultSetting(input.Settings, "")
 	return alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.JSON(input))
+}
+
+func (alert *SAlert) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := new(monitor.AlertUpdateInput)
+	if err := data.Unmarshal(input); err != nil {
+		log.Errorf("update unmarshal error: %v", err)
+		return
+	}
+	if _, err := db.Update(alert, func() error {
+		alert.Settings = jsonutils.Marshal(input)
+		return nil
+	}); err != nil {
+		log.Errorf("update setting error: %v", err)
+	}
+}
+
+func (alert *SAlert) IsAttachNotification(noti *SNotification) (bool, error) {
+	q := AlertNotificationManager.Query().Equals("notification_id", noti.GetId()).Equals("alert_id", alert.GetId())
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return cnt > 0, nil
+}
+
+func (alert *SAlert) GetNotificationsQuery() *sqlchemy.SQuery {
+	return AlertNotificationManager.Query().Equals("alert_id", alert.GetId())
+}
+
+func (alert *SAlert) GetNotifications() ([]SAlertnotification, error) {
+	notis := make([]SAlertnotification, 0)
+	q := alert.GetNotificationsQuery().Asc("index")
+	if err := db.FetchModelObjects(AlertNotificationManager, q, &notis); err != nil {
+		return nil, err
+	}
+	return notis, nil
+}
+
+func (alert *SAlert) getNotificationIndex() (int8, error) {
+	notis, err := alert.GetNotifications()
+	if err != nil {
+		return -1, err
+	}
+	var max uint
+	for i := 0; i < len(notis); i++ {
+		if uint(notis[i].Index) > max {
+			max = uint(notis[i].Index)
+		}
+	}
+
+	idxs := make([]int, max+1)
+	for i := 0; i < len(notis); i++ {
+		idxs[notis[i].Index] = 1
+	}
+
+	// find first idx not set
+	for i := 0; i < len(idxs); i++ {
+		if idxs[i] != 1 {
+			return int8(i), nil
+		}
+	}
+
+	return int8(max + 1), nil
+}
+
+func (alert *SAlert) AttachNotification(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	noti *SNotification,
+	state monitor.AlertNotificationStateType,
+	usedBy string) (*SAlertnotification, error) {
+	attached, err := alert.IsAttachNotification(noti)
+	if err != nil {
+		return nil, err
+	}
+	if attached {
+		return nil, httperrors.NewNotAcceptableError("alert already attached to notification")
+	}
+
+	defer lockman.ReleaseObject(ctx, alert)
+	lockman.LockObject(ctx, alert)
+	alertNoti := new(SAlertnotification)
+	alertNoti.AlertId = alert.GetId()
+	alertNoti.Index, err = alert.getNotificationIndex()
+	alertNoti.NotificationId = noti.GetId()
+	if err != nil {
+		return nil, err
+	}
+	alertNoti.State = string(state)
+	alertNoti.UsedBy = usedBy
+	if err := alertNoti.DoSave(ctx, userCred); err != nil {
+		return nil, err
+	}
+	return alertNoti, nil
+}
+
+func (alert *SAlert) SetFor(forTime time.Duration) error {
+	_, err := db.Update(alert, func() error {
+		alert.For = int64(forTime)
+		return nil
+	})
+	return err
 }

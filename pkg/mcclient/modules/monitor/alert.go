@@ -20,21 +20,21 @@ import (
 )
 
 var (
-	Alerts             modulebase.ResourceManager
-	AlertNotifications modulebase.ResourceManager
+	Alerts        modulebase.ResourceManager
+	Notifications modulebase.ResourceManager
 )
 
 func init() {
 	Alerts = modules.NewMonitorV2Manager("alert", "alerts",
-		[]string{"id", "name", "settings"},
+		[]string{"id", "name", "state", "frequency", "enabled", "settings"},
 		[]string{})
-	AlertNotifications = modules.NewMonitorV2Manager(
+	Notifications = modules.NewMonitorV2Manager(
 		"alert_notification", "alert_notifications",
 		[]string{"id", "name", "type", "is_default", "disable_resolve_message", "send_reminder", "settings"},
 		[]string{})
 	for _, m := range []modulebase.ResourceManager{
 		Alerts,
-		AlertNotifications,
+		Notifications,
 	} {
 		modules.Register(&m)
 	}
