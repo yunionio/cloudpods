@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -32,6 +33,8 @@ const (
 	ApiChatList = "https://open.feishu.cn/open-apis/chat/v4/list"
 	// 机器人发送消息
 	ApiRobotSendMessage = "https://open.feishu.cn/open-apis/message/v4/send/"
+	// 使用手机号或邮箱获取用户ID
+	ApiFetchUserID = "https://open.feishu.cn/open-apis/user/v1/batch_get_id"
 )
 
 var (
@@ -75,7 +78,10 @@ func GetTenantAccessTokenInternal(appId string, appSecret string) (*TenantAccess
 }
 
 type Tenant struct {
+	AppId       string
+	AppSecret   string
 	AccessToken string
+	Cache       ICache
 }
 
 func BuildTokenHeader(token string) http.Header {
@@ -85,13 +91,34 @@ func BuildTokenHeader(token string) http.Header {
 }
 
 func NewTenant(appId, appSecret string) (*Tenant, error) {
-	resp, err := GetTenantAccessTokenInternal(appId, appSecret)
-	if err != nil {
-		return nil, err
+	t := &Tenant{
+		AppId:       appId,
+		AppSecret:   appSecret,
+		AccessToken: "",
+		Cache:       nil,
 	}
-	return &Tenant{
-		AccessToken: resp.TenantAccessToken,
-	}, nil
+	t.Cache = NewFileCache(fmt.Sprintf(".%s_auth_file", appId))
+	err := t.RefreshAccessToken()
+	return t, err
+}
+
+// RefreshAccessToken is to get a valid access token
+func (t *Tenant) RefreshAccessToken() error {
+	var data TenantAccesstoken
+	err := t.Cache.Get(&data)
+	if err == nil {
+		t.AccessToken = data.TenantAccessToken
+		return nil
+	}
+
+	tokenResp, err := GetTenantAccessTokenInternal(t.AppId, t.AppSecret)
+	if err == nil {
+		t.AccessToken = tokenResp.TenantAccessToken
+		data = tokenResp.TenantAccesstoken
+		data.Created = time.Now().Unix()
+		err = t.Cache.Set(&data)
+	}
+	return err
 }
 
 func (t *Tenant) request(method httputils.THttpMethod, url string, data jsonutils.JSONObject, out CommonResponser) error {
@@ -104,7 +131,13 @@ func (t *Tenant) request(method httputils.THttpMethod, url string, data jsonutil
 }
 
 func (t *Tenant) get(url string, query jsonutils.JSONObject, out CommonResponser) error {
-	return t.request(httputils.GET, url, query, out)
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			url = fmt.Sprintf("%s?%s", url, qs)
+		}
+	}
+	return t.request(httputils.GET, url, nil, out)
 }
 
 func (t *Tenant) post(url string, body jsonutils.JSONObject, out CommonResponser) error {
@@ -129,4 +162,24 @@ func (t *Tenant) SendMessage(msg MsgReq) (*MsgResp, error) {
 	resp := new(MsgResp)
 	err := t.post(ApiRobotSendMessage, body, resp)
 	return resp, err
+}
+
+// UserIdByMobile query the open id of user by mobile number. https://open.feishu.cn/document/ukTMukTMukTM/uUzMyUjL1MjM14SNzITN
+func (t *Tenant) UserIdByMobile(mobile string) (string, error) {
+	query := jsonutils.NewDict()
+	query.Set("mobiles", jsonutils.NewString(mobile))
+	resp := new(UserIDResp)
+	err := t.get(ApiFetchUserID, query, resp)
+	if err != nil {
+		return "", err
+	}
+	if len(resp.Data.MobilesNotExist) != 0 {
+		return "", errors.Wrapf(errors.ErrNotFound, "no such user whose mobile is %s", mobile)
+	}
+	list, err := resp.Data.MobileUsers.GetArray(mobile)
+	if err != nil {
+		return "", errors.Wrap(err, "jsonutils.JSONObject.GetArray")
+	}
+	// len(list) must be positive
+	return list[0].GetString("open_id")
 }
