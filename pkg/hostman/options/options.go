@@ -111,9 +111,9 @@ type SHostOptions struct {
 	ExecutorSocketPath        string `help:"Executor socket path" default:"/var/run/exec.sock"`
 	CommonConfigFile          string `help:"common config file for container"`
 
-	OvnSouthDatabase     string `help:"address for accessing ovn south database" default:"unix:/var/run/openvswitch/ovnsb_db.sock"`
-	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc"`
-	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route"`
+	OvnSouthDatabase     string `help:"address for accessing ovn south database" default:"$HOST_OVN_SOUTH_DATABASE|unix:/var/run/openvswitch/ovnsb_db.sock"`
+	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
+	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route" default:"$HOST_OVN_ENCAP_IP"`
 }
 
 var HostOptions SHostOptions
