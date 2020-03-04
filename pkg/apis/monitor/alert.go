@@ -121,8 +121,9 @@ type AlertUpdateInput struct {
 	// 报警设置
 	Settings *AlertSetting `json:"settings"`
 	// 启用报警
-	Enabled *bool   `json:"enabled"`
-	Message *string `json:"message"`
+	Enabled *bool `json:"enabled"`
+	// 报警级别
+	Level *string `json:"level"`
 }
 
 type AlertListInput struct {
