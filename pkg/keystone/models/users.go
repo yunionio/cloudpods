@@ -422,7 +422,11 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 		}
-		err = PasswordManager.validatePassword(usrExt.LocalId, passwd)
+		skipHistoryCheck := false
+		if user.IsSystemAccount.Bool() {
+			skipHistoryCheck = true
+		}
+		err = PasswordManager.validatePassword(usrExt.LocalId, passwd, skipHistoryCheck)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
