@@ -82,7 +82,7 @@ func (self *SRpcService) InitAll() error {
 		}
 	}
 	if self.SendServices.Len() == 0 {
-		log.Errorf("No available send service.")
+		log.Infof("No available send service.")
 	} else {
 		log.Infof("Total %d send service init successful", self.SendServices.Len())
 	}
@@ -285,12 +285,14 @@ func (self *SRpcService) startNewService(ctx context.Context, serviceName string
 	_, err = sendService.UpdateConfig(ctx, &args)
 	if err != nil {
 		st := status.Convert(err)
-		if st.Code() == codes.Unavailable {
+		if st.Code() == codes.FailedPrecondition {
 			// no such rpc serve
-			os.Remove(filename)
-			return nil, fmt.Errorf("no such rpc serve")
+			err = fmt.Errorf(st.Message())
 		}
-		return nil, fmt.Errorf(st.Message())
+		if st.Code() == codes.Unavailable {
+			err = fmt.Errorf("service is unavailable for now: %s", st.Message())
+		}
+		return nil, errors.Wrap(err, "UpdateConfig")
 	}
 
 	return sendService, nil
