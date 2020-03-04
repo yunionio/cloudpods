@@ -45,7 +45,7 @@ func (this *ContactsManager) DoBatchDeleteContacts(s *mcclient.ClientSession, pa
 	return modulebase.Post(this.ResourceManager, s, path, params, this.Keyword)
 }
 
-func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSession, id string, action string,
+func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSession, id, action, pull string,
 	params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
 	body := jsonutils.NewDict()
@@ -53,7 +53,10 @@ func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSes
 		body.Add(params, this.Keyword)
 	}
 	path := fmt.Sprintf("/%s/%s/%s?uname=true", this.ContextPath(nil), url.PathEscape(id), url.PathEscape(action))
-	return modulebase.Post(this.ResourceManager, session, path, params, this.KeywordPlural)
+	if len(pull) > 0 {
+		path += fmt.Sprintf("&pull=%s", pull)
+	}
+	return modulebase.Post(this.ResourceManager, session, path, body, this.KeywordPlural)
 }
 
 func (this *ContactsManager) CustomizedGet(session *mcclient.ClientSession, id string,

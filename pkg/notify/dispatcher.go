@@ -379,7 +379,7 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 
 // UpdateContacts analysis the data and update corresponding contacts if they exist in the database create new ones.
 func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr string, query jsonutils.JSONObject,
-	datas []jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) error {
+	datas []jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 
 	type pair struct {
 		contact string
@@ -406,7 +406,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 
 	records, err := models.ContactManager.FetchByUIDAndCType(idstr, contactTypes)
 	if err != nil {
-		return httperrors.NewGeneralError(err)
+		return nil, httperrors.NewGeneralError(err)
 	}
 
 	// updateFailed record the information of failed update
@@ -482,13 +482,29 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 			errInfoBuffer.WriteString(" create failed. ")
 		}
 		errInfo := errInfoBuffer.String()
-		return httperrors.NewGeneralError(errors.Error(errInfo))
+		return nil, httperrors.NewGeneralError(errors.Error(errInfo))
 	}
 
-	if query.Contains("update_dingtalk") {
-		models.UpdateDingtalk(idstr)
+	if query.Contains("pull") {
+		cType, _ := query.GetString("pull")
+		models.PullContact(idstr, cType)
 	}
-	return nil
+
+	// keep the return value same as this of the GET interface
+	ret := jsonutils.NewDict()
+	contact, err := models.ContactManager.FetchByUIDs(ctx, []string{idstr}, false)
+	if err != nil {
+		log.Errorf(err.Error())
+		return ret, nil
+	}
+	outDetails, err := contact[0].GetExtraDetails(ctx, userCred, ret, false)
+	if err != nil {
+		log.Errorf(err.Error())
+		return ret, nil
+	}
+	out := jsonutils.Marshal(outDetails)
+	out.(*jsonutils.JSONDict).Set("created_at", jsonutils.NewString(contact[0].CreatedAt.String()))
+	return out, nil
 }
 
 func (self *NotifyModelDispatcher) UpdateTemplate(ctx context.Context, ctype string, query jsonutils.JSONObject,
