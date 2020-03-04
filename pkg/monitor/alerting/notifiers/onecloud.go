@@ -37,7 +37,7 @@ func init() {
 	alerting.RegisterNotifier(&alerting.NotifierPlugin{
 		Type:    monitor.AlertNotificationTypeOneCloud,
 		Factory: newOneCloudNotifier,
-		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error) {
+		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error) {
 			settings := new(monitor.NotificationSettingOneCloud)
 			if err := input.Settings.Unmarshal(settings); err != nil {
 				return input, errors.Wrap(err, "unmarshal setting")
@@ -99,6 +99,8 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 	if ctx.Rule.State == monitor.AlertStateOK {
 		isRecovery = true
 		topic = fmt.Sprintf("%s %s 告警已恢复", topic, ctx.GetRuleTitle())
+	} else if ctx.NoDataFound {
+		topic = fmt.Sprintf("%s %s 暂无数据", topic, ctx.GetRuleTitle())
 	} else {
 		topic = fmt.Sprintf("%s %s 发生告警", topic, ctx.GetRuleTitle())
 	}
@@ -128,7 +130,6 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext) error {
 		Msg:         content,
 	}
 
-	log.Errorf("---send msg: %s", jsonutils.Marshal(msg))
 	return notify.Notifications.Send(oc.session, msg)
 }
 

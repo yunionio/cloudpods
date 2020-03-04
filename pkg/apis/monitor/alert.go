@@ -78,9 +78,7 @@ func (s ExecutionErrorOption) ToAlertState() AlertStateType {
 
 // AlertSettings contains alert conditions
 type AlertSetting struct {
-	Conditions    []AlertCondition `json:"conditions"`
-	Notifications []string         `json:"notifications"`
-	Level         string           `json:"level"`
+	Conditions []AlertCondition `json:"conditions"`
 }
 
 type AlertCondition struct {
@@ -101,22 +99,30 @@ type AlertQuery struct {
 type AlertCreateInput struct {
 	apis.Meta
 
-	Name      string       `json:"name"`
-	Frequency int64        `json:"frequency"`
-	Settings  AlertSetting `json:"settings"`
-	Enabled   *bool        `json:"enabled"`
+	// 报警名称
+	Name string `json:"name"`
+	// 报警执行频率
+	Frequency int64 `json:"frequency"`
+	// 报警设置
+	Settings AlertSetting `json:"settings"`
+	// 启用报警
+	Enabled *bool `json:"enabled"`
+	// 报警级别
+	Level string `json:"level"`
 }
 
 type AlertUpdateInput struct {
 	apis.Meta
 
-	Name         *string       `json:"name"`
-	Frequency    *int64        `json:"frequency"`
-	Settings     *AlertSetting `json:"settings"`
-	ResourceId   *string       `json:"resource_id"`
-	ResourceType *string       `json:"resource_type"`
-	Message      *string       `json:"message"`
-	Enabled      *bool         `json:"enabled"`
+	// 报警名称
+	Name *string `json:"name"`
+	// 报警执行频率
+	Frequency *int64 `json:"frequency"`
+	// 报警设置
+	Settings *AlertSetting `json:"settings"`
+	// 启用报警
+	Enabled *bool   `json:"enabled"`
+	Message *string `json:"message"`
 }
 
 type AlertListInput struct {
@@ -124,6 +130,7 @@ type AlertListInput struct {
 
 	// 监控指标名称
 	Metric string `json:"metric"`
+
 	// 以报警是否启用/禁用过滤列表
 	Enabled *bool `json:"enabled"`
 }

@@ -50,5 +50,5 @@ type Notifier interface {
 	Notify(evalContext *EvalContext) error
 
 	// ShouldNotify checks this evaluation should send an alert notification
-	ShouldNotify(ctx context.Context, evalContext *EvalContext, notificationState *models.SAlertNotificationState) bool
+	ShouldNotify(ctx context.Context, evalContext *EvalContext, notificationState *models.SAlertnotification) bool
 }

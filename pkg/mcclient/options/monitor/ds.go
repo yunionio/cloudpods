@@ -41,6 +41,10 @@ type NotificationShowOptions struct {
 	ID string `help:"ID or name of the alert notification config" json:"-"`
 }
 
+type NotificationDeleteOptions struct {
+	ID []string `help:"ID or name of the alert notification config" json:"-"`
+}
+
 type NotificationFields struct {
 	Frequency             string `help:"notify frequency, e.g. 5m, 1h"`
 	IsDefault             *bool  `help:"set as default notification"`
@@ -53,8 +57,8 @@ type NotificationCreateOptions struct {
 	NotificationFields
 }
 
-func (opt NotificationCreateOptions) Params() (*monitor.AlertNotificationCreateInput, error) {
-	ret := &monitor.AlertNotificationCreateInput{
+func (opt NotificationCreateOptions) Params() (*monitor.NotificationCreateInput, error) {
+	ret := &monitor.NotificationCreateInput{
 		Name:                  opt.NAME,
 		SendReminder:          opt.SendReminder,
 		DisableResolveMessage: opt.DisableResolveMessage,
@@ -71,7 +75,7 @@ type NotificationDingDingCreateOptions struct {
 	MsgType string `help:"message type" choices:"markdown|actionCard" default:"markdown"`
 }
 
-func (opt NotificationDingDingCreateOptions) Params() (*monitor.AlertNotificationCreateInput, error) {
+func (opt NotificationDingDingCreateOptions) Params() (*monitor.NotificationCreateInput, error) {
 	out, err := opt.NotificationCreateOptions.Params()
 	if err != nil {
 		return nil, err
@@ -90,7 +94,7 @@ type NotificationFeishuCreateOptions struct {
 	APPSECRET string `help:"feishu robt appSecret"`
 }
 
-func (opt NotificationFeishuCreateOptions) Params() (*monitor.AlertNotificationCreateInput, error) {
+func (opt NotificationFeishuCreateOptions) Params() (*monitor.NotificationCreateInput, error) {
 	out, err := opt.NotificationCreateOptions.Params()
 	if err != nil {
 		return nil, err
@@ -112,7 +116,7 @@ type NotificationUpdateOptions struct {
 	DisableSendReminder *bool  `help:"disable send reminder" json:"-"`
 }
 
-func (opt NotificationUpdateOptions) Params() (*monitor.AlertNotificationUpdateInput, error) {
+func (opt NotificationUpdateOptions) Params() (*monitor.NotificationUpdateInput, error) {
 	if opt.DisableDefault != nil && *opt.DisableDefault {
 		tmp := false
 		opt.IsDefault = &tmp
@@ -125,22 +129,10 @@ func (opt NotificationUpdateOptions) Params() (*monitor.AlertNotificationUpdateI
 		tmp := false
 		opt.SendReminder = &tmp
 	}
-	ret := &monitor.AlertNotificationUpdateInput{
+	ret := &monitor.NotificationUpdateInput{
 		IsDefault:             opt.IsDefault,
 		DisableResolveMessage: opt.DisableResolveMessage,
 		SendReminder:          opt.SendReminder,
 	}
 	return ret, nil
-}
-
-type AlertListOptions struct {
-	options.BaseListOptions
-}
-
-type AlertShowOptions struct {
-	ID string `help:"ID or name of the alert" json:"-"`
-}
-
-type AlertDeleteOptions struct {
-	ID []string `help:"ID of alert to delete"`
 }

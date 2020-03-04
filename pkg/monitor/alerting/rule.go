@@ -121,8 +121,16 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 		return nil, err
 	}
 
-	model.Level = settings.Level
-	model.Notifications = settings.Notifications
+	model.Level = ruleDef.Level
+	nIds := []string{}
+	notis, err := ruleDef.GetNotifications()
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range notis {
+		nIds = append(nIds, n.NotificationId)
+	}
+	model.Notifications = nIds
 	// model.AlertRuleTags = ruleDef.GetTagsFromSettings()
 
 	for index, condition := range settings.Conditions {

@@ -48,7 +48,7 @@ func NewNotifierBase(config alerting.NotificationConfig) NotifierBase {
 }
 
 // ShouldNotify checks this evaluation should send an alert notification
-func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalContext, state *models.SAlertNotificationState) bool {
+func (n *NotifierBase) ShouldNotify(_ context.Context, evalCtx *alerting.EvalContext, state *models.SAlertnotification) bool {
 	prevState := evalCtx.PrevAlertState
 	newState := evalCtx.Rule.State
 

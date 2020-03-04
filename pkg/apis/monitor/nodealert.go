@@ -26,7 +26,7 @@ const (
 )
 
 type ResourceAlertV1CreateInput struct {
-	*AlertCreateInput
+	AlertCreateInput
 
 	// 查询指标周期
 	Period string `json:"period"`
@@ -36,8 +36,6 @@ type ResourceAlertV1CreateInput struct {
 	Comparator string `json:"comparator"`
 	// 报警阀值
 	Threshold float64 `json:"threshold"`
-	// 报警级别
-	Level string `json:"level"`
 	// 通知方式, 比如: email, mobile
 	Channel string `json:"channel"`
 	// 通知接受者
@@ -61,15 +59,13 @@ func (input NodeAlertCreateInput) ToAlertCreateInput(
 	name string,
 	field string,
 	measurement string,
-	db string,
-	notifications []string) AlertCreateInput {
+	db string) AlertCreateInput {
 	freq, _ := time.ParseDuration(input.Window)
 	ret := AlertCreateInput{
 		Name:      name,
 		Frequency: int64(freq / time.Second),
+		Level:     input.Level,
 		Settings: AlertSetting{
-			Level:         input.Level,
-			Notifications: notifications,
 			Conditions: []AlertCondition{
 				{
 					Type:     "query",
@@ -157,7 +153,6 @@ type NodeAlertListInput struct {
 func (input NodeAlertListInput) ToAlertListInput() AlertListInput {
 	return AlertListInput{
 		VirtualResourceListInput: input.VirtualResourceListInput,
-		Metric:                   input.Metric,
 	}
 }
 
