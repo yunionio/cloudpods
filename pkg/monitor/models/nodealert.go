@@ -547,6 +547,7 @@ func (alert *SNodeAlert) ValidateUpdateData(
 	}
 	if input.Level != nil && *input.Level != details.Level {
 		details.Level = *input.Level
+		ret.Level = input.Level
 	}
 
 	if input.Window != nil && *input.Window != details.Window {

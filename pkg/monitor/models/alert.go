@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -78,7 +77,7 @@ type SAlert struct {
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
 	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
 	Enabled   bool                 `nullable:"false" default:"false" list:"user" create:"optional"`
-	Level     string               `charset:"ascii" width:"36"nullable:"false" default:"normal" list:"user"`
+	Level     string               `charset:"ascii" width:"36"nullable:"false" default:"normal" list:"user" update:"user"`
 	Message   string               `charset:"utf8" list:"user" update:"user"`
 	UsedBy    string               `charset:"ascii" list:"user"`
 
@@ -294,28 +293,15 @@ func (alert *SAlert) SetState(input AlertSetStateInput) error {
 
 func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input monitor.AlertUpdateInput) (*jsonutils.JSONDict, error) {
 	if input.Settings != nil {
-		if err := jsonutils.Update(alert.Settings, jsonutils.Marshal(input.Settings)); err != nil {
-			return nil, err
-		}
-		if err := jsonutils.Update(input.Settings, alert.Settings); err != nil {
+		updateSettings := jsonutils.NewDict()
+		updateSettings.Update(alert.Settings)
+		updateSettings.Update(jsonutils.Marshal(input.Settings))
+		input.Settings = new(monitor.AlertSetting)
+		if err := updateSettings.Unmarshal(input.Settings); err != nil {
 			return nil, err
 		}
 	}
 	return alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.JSON(input))
-}
-
-func (alert *SAlert) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	input := new(monitor.AlertUpdateInput)
-	if err := data.Unmarshal(input); err != nil {
-		log.Errorf("update unmarshal error: %v", err)
-		return
-	}
-	if _, err := db.Update(alert, func() error {
-		alert.Settings = jsonutils.Marshal(input)
-		return nil
-	}); err != nil {
-		log.Errorf("update setting error: %v", err)
-	}
 }
 
 func (alert *SAlert) IsAttachNotification(noti *SNotification) (bool, error) {
