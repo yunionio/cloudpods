@@ -26,14 +26,15 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceParameterManager struct {
 	db.SStandaloneResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 var DBInstanceParameterManager *SDBInstanceParameterManager
@@ -53,10 +54,14 @@ func init() {
 type SDBInstanceParameter struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	SDBInstanceResourceBase
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
-	Key   string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Value string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	// 数据库参数名称
+	Key string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required" json:"key"`
+
+	// 数据库参数值
+	Value string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required" json:"value"`
 }
 
 func (manager *SDBInstanceParameterManager) GetContextManagers() [][]db.IModelManager {
@@ -65,35 +70,53 @@ func (manager *SDBInstanceParameterManager) GetContextManagers() [][]db.IModelMa
 	}
 }
 
-func (self *SDBInstanceParameterManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDBInstanceParameterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDBInstanceParameter) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstanceParameter) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDBInstanceParameter) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (manager *SDBInstanceParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceParameterListInput) (*sqlchemy.SQuery, error) {
+// 列出数据参数
+func (manager *SDBInstanceParameterManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceParameterListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-	})
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceParameterManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceParameterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceParameterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SDBInstanceParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -180,4 +203,31 @@ func (manager *SDBInstanceParameterManager) newFromCloudDBInstanceParameter(ctx 
 		return errors.Wrapf(err, "newFromCloudDBInstanceParameter.Insert")
 	}
 	return nil
+}
+
+func (self *SDBInstanceParameter) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceparameterDetails, error) {
+	return api.DBInstanceparameterDetails{}, nil
+}
+
+func (manager *SDBInstanceParameterManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceparameterDetails {
+	rows := make([]api.DBInstanceparameterDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.DBInstanceparameterDetails{
+			StandaloneResourceDetails: stdRows[i],
+			DBInstanceResourceInfo:    dbRows[i],
+		}
+	}
+
+	return rows
 }

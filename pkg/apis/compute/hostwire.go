@@ -14,11 +14,9 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type HostwireDetails struct {
-	apis.JoinModelBaseDetails
-	HostJointsDetails
+	HostJointResourceDetails
+
 	SHostwire
 
 	// 二层网络名称

@@ -44,13 +44,15 @@ type ServerListOptions struct {
 	WithEip            *bool  `help:"Show Servers with EIP"`
 	WithoutEip         *bool  `help:"Show Servers without EIP"`
 	OsType             string `help:"OS Type" choices:"linux|windows|vmware"`
-	OrderByDisk        string `help:"Order by disk size" choices:"asc|desc"`
-	OrderByHost        string `help:"Order by host name" choices:"asc|desc"`
 	Vpc                string `help:"Vpc id or name"`
 	UsableServerForEip string `help:"Eip id or name"`
 	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
 	Group              string `help:"Instance Group ID or Name"`
 	HostSn             string `help:"Host SN"`
+
+	OrderByDisk    string `help:"Order by disk size" choices:"asc|desc"`
+	OrderByHost    string `help:"Order by host name" choices:"asc|desc"`
+	OrderByNetwork string `help:"Order by network name" choices:"asc|desc"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 

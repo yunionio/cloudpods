@@ -35,10 +35,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SVpcManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
+	SGlobalVpcResourceBaseManager
 }
 
 var VpcManager *SVpcManager
@@ -61,6 +65,10 @@ type SVpc struct {
 
 	SManagedResourceBase
 
+	SCloudregionResourceBase
+
+	SGlobalVpcResourceBase
+
 	// 是否是默认VPC
 	// example: true
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
@@ -70,35 +78,17 @@ type SVpc struct {
 	CidrBlock string `charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
 	// 区域Id
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"admin_required" default:"default"`
+
 	// 全局VPC Id
-	GlobalvpcId string `width:"36" charset:"ascii" list:"user"`
+	// GlobalvpcId string `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
 }
 
 func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{CloudregionManager},
+		{GlobalVpcManager},
 	}
-}
-
-func (self *SVpcManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SVpcManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SVpc) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SVpc) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SVpc) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SVpc) GetCloudRegionId() string {
@@ -152,7 +142,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
@@ -197,14 +187,13 @@ func (manager *SVpcManager) NewVpcForClassicNetwork(host *SHost) (*SVpc, error) 
 	if errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "db.FetchByExternalId")
 	}
-	vpc := &SVpc{
-		IsDefault:     false,
-		CloudregionId: region.Id,
-	}
+	vpc := &SVpc{}
+	vpc.IsDefault = false
+	vpc.CloudregionId = region.Id
 	vpc.SetModelManager(manager, vpc)
 	vpc.Name = fmt.Sprintf("emulated vpc for %s %s classic network", region.Name, cloudprovider.Name)
 	vpc.IsEmulated = true
-	vpc.Enabled = false
+	vpc.SetEnabled(false)
 	vpc.Status = api.VPC_STATUS_UNAVAILABLE
 	vpc.ExternalId = externalId
 	vpc.ManagerId = host.ManagerId
@@ -247,11 +236,10 @@ func (self *SVpc) getMoreDetails(out api.VpcDetails) api.VpcDetails {
 	out.NetworkCount, _ = self.GetNetworkCount()
 	out.RoutetableCount, _ = self.GetRouteTableCount()
 	out.NatgatewayCount, _ = self.GetNatgatewayCount()
-	out.CloudproviderInfo = self.getCloudProviderInfo()
 	return out
 }
 
-func (self *SVpc) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SVpc) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
@@ -260,7 +248,7 @@ func (self *SVpc) getCloudProviderInfo() api.CloudproviderInfo {
 func (self *SVpc) GetRegion() (*SCloudregion, error) {
 	region, err := CloudregionManager.FetchById(self.CloudregionId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CloudregionManager.FetchById")
 	}
 	return region.(*SCloudregion), nil
 }
@@ -285,14 +273,38 @@ func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
 	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
 }
 
-func (self *SVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.VpcDetails, error) {
-	var err error
-	out := api.VpcDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SVpc) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.VpcDetails, error) {
+	return api.VpcDetails{}, nil
+}
+
+func (manager *SVpcManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.VpcDetails {
+	rows := make([]api.VpcDetails, len(objs))
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	globalVpcRows := manager.SGlobalVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.VpcDetails{
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:                    managerRows[i],
+			CloudregionResourceInfo:                regionRows[i],
+			GlobalVpcResourceInfo:                  globalVpcRows[i],
+		}
+		rows[i] = objs[i].(*SVpc).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(out), nil
+	return rows
 }
 
 func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SVpc, error) {
@@ -404,7 +416,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
 		self.markAllNetworksUnknown(userCred)
-		_, err = self.PerformDisable(ctx, userCred, nil, nil)
+		_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 		if err == nil {
 			err = self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 		}
@@ -451,7 +463,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 			if err != nil {
 				return errors.Wrap(err, "db.GenerateName")
 			}
-			gv.Enabled = true
+			gv.SetEnabled(true)
 			gv.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
 			gv.SetModelManager(GlobalVpcManager, gv)
 			err = GlobalVpcManager.TableSpec().Insert(gv)
@@ -768,7 +780,7 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	provider := self.GetCloudprovider()
 	if provider != nil {
-		if provider.Enabled {
+		if provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge vpc on enabled cloud provider")
 		}
 	}
@@ -777,21 +789,32 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 // 列出VPC
-func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.VpcListInput) (*sqlchemy.SQuery, error) {
+func (manager *SVpcManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.VpcListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SGlobalVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GlobalVpcResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.ListItemFilter")
 	}
 
 	usable := (query.Usable != nil && *query.Usable)
@@ -806,16 +829,15 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 				sqlchemy.In(cloudproviders.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS),
 			),
 		)
-		q = q.Join(regions, sqlchemy.Equals(q.Field("cloudregion_id"), regions.Field("id"))).
-			Filter(
-				sqlchemy.AND(
-					sqlchemy.Equals(regions.Field("status"), api.CLOUD_REGION_STATUS_INSERVER),
-					sqlchemy.OR(
-						sqlchemy.In(q.Field("manager_id"), providerSQ.SubQuery()),
-						sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-					),
+		q = q.Join(regions, sqlchemy.Equals(q.Field("cloudregion_id"), regions.Field("id"))).Filter(
+			sqlchemy.AND(
+				sqlchemy.Equals(regions.Field("status"), api.CLOUD_REGION_STATUS_INSERVER),
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("manager_id"), providerSQ.SubQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
 				),
-			)
+			),
+		)
 
 		if usable {
 			wires := WireManager.Query().SubQuery()
@@ -829,22 +851,65 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		}
 	}
 
-	globalVpcStr := query.Globalvpc
-	if len(globalVpcStr) > 0 {
-		globalVpc, err := GlobalVpcManager.FetchByIdOrName(userCred, globalVpcStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("globaalvpc %s not found", globalVpcStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Equals("globalvpc_id", globalVpc.GetId())
-	}
-
 	return q, nil
 }
 
 func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "vpc":
+		q = q.AppendField(q.Field("name").Label("vpc")).Distinct()
+		return q, nil
+	default:
+		var err error
+		q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+		if err == nil {
+			return q, nil
+		}
+
+		q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+		if err == nil {
+			return q, nil
+		}
+
+		q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+		if err == nil {
+			return q, nil
+		}
+
+		q, err = manager.SGlobalVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+		if err == nil {
+			return q, nil
+		}
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SVpcManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.VpcListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SGlobalVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GlobalVpcResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGlobalVpcResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+/*func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
@@ -867,7 +932,7 @@ func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
-}
+}*/
 
 func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ivpc, err := self.GetIVpc()
@@ -913,24 +978,13 @@ func (vpc *SVpc) StartVpcSyncstatusTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (vpc *SVpc) GetGlobalVpc() (*SGlobalVpc, error) {
-	if len(vpc.GlobalvpcId) == 0 {
-		return nil, fmt.Errorf("vpc does not belong to any globalvpc")
-	}
-	gv, err := GlobalVpcManager.FetchById(vpc.GlobalvpcId)
-	if err != nil {
-		return nil, err
-	}
-	return gv.(*SGlobalVpc), nil
-}
-
 func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 	wire := &SWire{
-		VpcId:     self.Id,
-		ZoneId:    zone.Id,
 		Bandwidth: 10000,
 		Mtu:       1500,
 	}
+	wire.VpcId = self.Id
+	wire.ZoneId = zone.Id
 	wire.IsEmulated = true
 	wire.Name = fmt.Sprintf("vpc-%s", self.Name)
 	wire.SetModelManager(WireManager, wire)

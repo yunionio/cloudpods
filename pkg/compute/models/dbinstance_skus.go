@@ -109,7 +109,12 @@ func (manager *SDBInstanceSkuManager) fetchDBInstanceSkus(provider string, regio
 }
 
 // RDS套餐类型列表
-func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceSkuListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDBInstanceSkuManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceSkuListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
@@ -134,6 +139,33 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sql
 	}
 
 	return q, nil
+}
+
+func (manager *SDBInstanceSkuManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceSkuListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SDBInstanceSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SDBInstanceSkuManager) GetDBStringArray(q *sqlchemy.SQuery) ([]string, error) {

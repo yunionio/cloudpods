@@ -22,6 +22,8 @@ import (
 
 type StoragecacheDetails struct {
 	apis.StandaloneResourceDetails
+	ManagedResourceInfo
+
 	SStoragecache
 
 	// 存储列表

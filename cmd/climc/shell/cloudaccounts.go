@@ -31,6 +31,8 @@ func init() {
 	type CloudaccountListOptions struct {
 		options.BaseListOptions
 		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
+
+		DistinctField string `help:"distinct field"`
 	}
 	R(&CloudaccountListOptions{}, "cloud-account-list", "List cloud accounts", func(s *mcclient.ClientSession, args *CloudaccountListOptions) error {
 		var params *jsonutils.JSONDict
@@ -43,6 +45,15 @@ func init() {
 			if len(args.Capability) > 0 {
 				params.Add(jsonutils.NewStringArray(args.Capability), "capability")
 			}
+		}
+		if len(args.DistinctField) > 0 {
+			params.Add(jsonutils.NewString(args.DistinctField), "extra_field")
+			result, err := modules.Cloudaccounts.Get(s, "distinct-field", params)
+			if err != nil {
+				return err
+			}
+			fmt.Println(result)
+			return nil
 		}
 		result, err := modules.Cloudaccounts.List(s, params)
 		if err != nil {

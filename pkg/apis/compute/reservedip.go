@@ -38,11 +38,11 @@ type ReservedipListInput struct {
 }
 
 type ReservedipDetails struct {
-	apis.ModelBaseDetails
+	apis.ResourceBaseDetails
+	NetworkResourceInfo
+
 	SReservedip
 
-	// IP子网名称
-	Network string `json:"network"`
 	// 是否过期
 	Expired bool `json:"expired"`
 }

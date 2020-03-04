@@ -17,6 +17,9 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type ElasticcacheSkuDetails struct {
-	apis.StandaloneResourceDetails
+	apis.StatusStandaloneResourceDetails
+	CloudregionResourceInfo
+	ZoneResourceInfoBase
+
 	SElasticcacheSku
 }

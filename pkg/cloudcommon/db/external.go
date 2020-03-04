@@ -24,7 +24,7 @@ import (
 
 type SExternalizedResourceBase struct {
 	// 外部Id, 对用公有云私有资源自身的Id
-	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional" update:"admin"`
+	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional" update:"admin" json:"external_id"`
 }
 
 func (model SExternalizedResourceBase) GetExternalId() string {

@@ -16,9 +16,40 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type LoadbalancerCusterDetails struct {
+type LoadbalancerClusterDetails struct {
 	apis.StandaloneResourceDetails
-	SLoadbalancerCluster
+	ZoneResourceInfo
+	WireResourceInfoBase
 
-	ZoneInfo
+	SLoadbalancerCluster
+}
+
+type LoadbalancerClusterResourceInfo struct {
+	ZoneResourceInfo
+
+	WireResourceInfoBase
+
+	// VPC ID
+	VpcId string `json:"vpc_id"`
+
+	// VPC名称
+	Vpc string `json:"vpc"`
+
+	// 负载均衡集群名称
+	Cluster string `json:"cluster"`
+}
+
+type LoadbalancerClusterFilterListInput struct {
+	ZonalFilterListInput
+	WireFilterListBase
+
+	// 负载均衡集群ID或名称
+	Cluster string `json:"cluster"`
+
+	// swagger:ignore
+	// Deprecated
+	ClusterId string `json:"cluster_id" deprecated-by:"cluster"`
+
+	// 以负载均衡集群排序
+	OrderByCluster string `json:"order_by_cluster"`
 }

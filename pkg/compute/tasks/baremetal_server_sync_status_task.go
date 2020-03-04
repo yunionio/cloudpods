@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -84,14 +85,18 @@ func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context
 }
 
 func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	kwargs := jsonutils.NewDict()
-	kwargs.Set("status", jsonutils.NewString(api.VM_UNKNOWN))
-	guest.PerformStatus(ctx, self.UserCred, nil, kwargs)
+	input := apis.PerformStatusInput{
+		Status: api.VM_UNKNOWN,
+	}
+	guest.PerformStatus(ctx, self.UserCred, nil, input)
 }
 
 func (self *BaremetalServerSyncStatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest) {
 	kwargs := jsonutils.NewDict()
 	kwargs.Set("status", jsonutils.NewString(api.VM_UNKNOWN))
-	guest.PerformStatus(ctx, self.UserCred, nil, kwargs)
+	input := apis.PerformStatusInput{
+		Status: api.VM_UNKNOWN,
+	}
+	guest.PerformStatus(ctx, self.UserCred, nil, input)
 	self.SetStageComplete(ctx, nil)
 }

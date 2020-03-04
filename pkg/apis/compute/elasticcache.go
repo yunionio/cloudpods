@@ -18,13 +18,64 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type ElasticcacheDetails struct {
 	apis.VirtualResourceDetails
+	VpcResourceInfo
+	ZoneResourceInfoBase
 
 	SElasticcache
 
-	CloudproviderInfo
-
-	// 虚拟私有网络名称
-	Vpc string `json:"vpc"`
 	// IP子网名称
 	Network string `json:"network"`
+}
+
+type ElasticcacheResourceInfo struct {
+	// 弹性缓存实例名称
+	Elasticcache string `json:"elasticcache"`
+
+	// 引擎
+	Engine string `json:"engine"`
+	// 引擎版本
+	EngineVersion string `json:"engine_version"`
+
+	// 归属VPC ID
+	VpcId string `json:"vpc_id"`
+
+	VpcResourceInfo
+
+	// 归属Zone ID
+	ZoneId string `json:"zone_id"`
+
+	ZoneResourceInfoBase
+}
+
+type ElasticcacheFilterListInput struct {
+	// 以弹性缓存实例过滤
+	Elasticcache string `json:"elasticcache"`
+
+	// 以弹性缓存实例名称排序
+	OrderByElasticcache string `json:"order_by_elasticcache"`
+
+	VpcFilterListInput
+
+	ZonalFilterListBase
+}
+
+type ElasticcacheAccountDetails struct {
+	apis.StatusStandaloneResourceDetails
+	ElasticcacheResourceInfo
+
+	SElasticcacheAccount
+}
+
+type ElasticcacheAclDetails struct {
+	apis.StandaloneResourceDetails
+	ElasticcacheResourceInfo
+
+	SElasticcacheAcl
+}
+
+type ElasticcacheParameterDetails struct {
+	apis.StandaloneResourceDetails
+	ElasticcacheResourceInfo
+
+	SElasticcacheParameter
 }

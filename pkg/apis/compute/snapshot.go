@@ -69,8 +69,9 @@ type SSnapshotPolicyCreateInternalInput struct {
 
 type SnapshotListInput struct {
 	apis.VirtualResourceListInput
-
 	ManagedResourceListInput
+	RegionalFilterListInput
+
 	StorageShareFilterListInput
 
 	// filter snapshot that is fake deleted
@@ -89,9 +90,10 @@ type InstanceSnapshotListInput struct {
 
 type SnapshotDetails struct {
 	apis.VirtualResourceDetails
-	SSnapshot
+	ManagedResourceInfo
+	CloudregionResourceInfo
 
-	CloudproviderInfo
+	SSnapshot
 
 	// 存储类型
 	StorageType string `json:"storage_type"`

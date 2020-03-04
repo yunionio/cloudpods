@@ -90,7 +90,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			}
 		}
 		baremetal := bmObj.(*SHost)
-		if !baremetal.Enabled {
+		if !baremetal.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
 

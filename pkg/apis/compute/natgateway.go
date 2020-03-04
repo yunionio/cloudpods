@@ -39,7 +39,7 @@ const (
 )
 
 type NatGetewayListInput struct {
-	apis.StandaloneResourceListInput
+	apis.StatusStandaloneResourceListInput
 
 	VpcFilterListInput
 	RegionalFilterListInput
@@ -47,23 +47,44 @@ type NatGetewayListInput struct {
 }
 
 type NatEntryListInput struct {
-	apis.StandaloneResourceListInput
-
+	apis.StatusStandaloneResourceListInput
+	NatGatewayFilterListInput
 	ManagedResourceListInput
 }
 
 type NatDEntryListInput struct {
 	NatEntryListInput
-
-	// filter by natgateway
-	Natgateway string `json:"natgateway"`
 }
 
 type NatSEntryListInput struct {
 	NatEntryListInput
+	NetworkFilterListBase
+}
 
-	// filter by natgateway
+type NatGatewayResourceInfo struct {
+	// NAT网关名称
 	Natgateway string `json:"natgateway"`
-	// filter by network
-	Network string `json:"network"`
+
+	// 归属VPC ID
+	VpcId string `json:"vpc_id"`
+
+	VpcResourceInfo
+}
+
+type NatGatewayFilterListInput struct {
+	// 以NAT网关过滤
+	Natgateway string `json:"natgateway"`
+
+	// 以NAT网关名字排序
+	OrderByNatgateway string `json:"order_by_natgateway"`
+
+	VpcFilterListInput
+}
+
+type NatEntryDetails struct {
+	apis.StatusStandaloneResourceDetails
+	NatGatewayResourceInfo
+
+	// NAT ENTRY的真实名称？？
+	RealName string `json:"real_name"`
 }

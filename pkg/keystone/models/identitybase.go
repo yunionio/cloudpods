@@ -22,8 +22,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -117,15 +119,35 @@ func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.I
 	return db.FetchByIdOrName(manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
-func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IdentityBaseResourceListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (manager *SIdentityBaseResourceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityBaseResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	// override manager.SDomainizedResourceBaseManager.ListItemFilter()
+	if len(query.ProjectDomains) > 0 {
+		domains := DomainManager.Query().SubQuery()
+		subq := domains.Query(domains.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(domains.Field("id"), query.ProjectDomains),
+			sqlchemy.In(domains.Field("name"), query.ProjectDomains),
+		))
+		q = q.In("domain_id", subq.SubQuery())
 	}
 	return q, nil
 }
 
-func (manager *SEnabledIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.EnabledIdentityBaseResourceListInput) (*sqlchemy.SQuery, error) {
+func (manager *SEnabledIdentityBaseResourceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.EnabledIdentityBaseResourceListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
@@ -140,12 +162,17 @@ func (manager *SEnabledIdentityBaseResourceManager) ListItemFilter(ctx context.C
 	return q, nil
 }
 
-func (manager *SIdentityBaseResourceManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+func (manager *SIdentityBaseResourceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityBaseResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, err
 	}
-	orderByDomain, _ := query.GetString("order_by_domain")
+	orderByDomain := query.OrderByDomain
 	if sqlchemy.SQL_ORDER_ASC.Equals(orderByDomain) || sqlchemy.SQL_ORDER_DESC.Equals(orderByDomain) {
 		domains := DomainManager.Query().SubQuery()
 		q = q.LeftJoin(domains, sqlchemy.Equals(q.Field("domain_id"), domains.Field("id")))
@@ -156,6 +183,44 @@ func (manager *SIdentityBaseResourceManager) OrderByExtraFields(ctx context.Cont
 		}
 	}
 	return q, nil
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.EnabledIdentityBaseResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SIdentityBaseResourceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	if field == "domain" {
+		domainQuery := DomainManager.Query("name", "id").Distinct().SubQuery()
+		q.AppendField(domainQuery.Field("name", "domain"))
+		q = q.Join(domainQuery, sqlchemy.Equals(q.Field("domain_id"), domainQuery.Field("id")))
+		q.GroupBy(domainQuery.Field("name"))
+		return q, nil
+	}
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -206,30 +271,84 @@ func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacSco
 	return rbacutils.ScopeSystem
 }
 
-func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	if len(fields) == 0 || fields.Contains("project_domain") {
-		domainIds := stringutils2.SSortedStrings{}
-		for i := range objs {
-			idStr := objs[i].GetOwnerId().GetProjectDomainId()
-			if idStr != api.KeystoneDomainRoot {
-				domainIds = stringutils2.Append(domainIds, idStr)
-			}
+func (model *SIdentityBaseResource) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.IdentityBaseResourceDetails, error) {
+	return api.IdentityBaseResourceDetails{}, nil
+}
+
+func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.IdentityBaseResourceDetails {
+	rows := make([]api.IdentityBaseResourceDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	domainIds := stringutils2.SSortedStrings{}
+	for i := range rows {
+		rows[i] = api.IdentityBaseResourceDetails{
+			StandaloneResourceDetails: stdRows[i],
+			DomainizedResourceInfo:    apis.DomainizedResourceInfo{},
 		}
+		var base *SIdentityBaseResource
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && len(base.DomainId) > 0 && base.DomainId != api.KeystoneDomainRoot {
+			domainIds = stringutils2.Append(domainIds, base.DomainId)
+		}
+	}
+
+	if len(fields) == 0 || fields.Contains("project_domain") {
 		domains := fetchDomain(domainIds)
 		if domains != nil {
 			for i := range rows {
-				idStr := objs[i].GetOwnerId().GetProjectDomainId()
-				if idStr != api.KeystoneDomainRoot {
-					if domain, ok := domains[idStr]; ok {
-						if len(fields) == 0 || fields.Contains("project_domain") {
-							rows[i].Add(jsonutils.NewString(domain.Name), "project_domain")
-						}
+				var base *SIdentityBaseResource
+				reflectutils.FindAnonymouStructPointer(objs[i], &base)
+				if base != nil && len(base.DomainId) > 0 && base.DomainId != api.KeystoneDomainRoot {
+					if domain, ok := domains[base.DomainId]; ok {
+						rows[i].ProjectDomain = domain.Name
 					}
 				}
 			}
 		}
 	}
+	return rows
+}
+
+func (model *SEnabledIdentityBaseResource) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.EnabledIdentityBaseResourceDetails, error) {
+	return api.EnabledIdentityBaseResourceDetails{}, nil
+}
+
+func (manager *SEnabledIdentityBaseResourceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.EnabledIdentityBaseResourceDetails {
+	rows := make([]api.EnabledIdentityBaseResourceDetails, len(objs))
+
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.EnabledIdentityBaseResourceDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+	}
+
 	return rows
 }
 

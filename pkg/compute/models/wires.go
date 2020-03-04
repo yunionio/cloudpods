@@ -37,10 +37,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SWireManager struct {
 	db.SStandaloneResourceBaseManager
+	SVpcResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var WireManager *SWireManager
@@ -61,18 +64,22 @@ type SWire struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	SVpcResourceBase
+	SZoneResourceBase
+
 	// 带宽大小, 单位Mbps
 	// example: 1000
-	Bandwidth int `list:"admin" update:"admin" nullable:"false" create:"admin_required"`
+	Bandwidth int `list:"admin" update:"admin" nullable:"false" create:"admin_required" json:"bandwidth"`
 	// MTU
 	// example: 1500
-	Mtu int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
+	Mtu int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500" json:"mtu"`
 	// swagger:ignore
-	ScheduleRank int `list:"admin" update:"admin"`
+	ScheduleRank int `list:"admin" update:"admin" json:"schedule_rank"`
+
 	// 可用区Id
-	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 	// VPC Id
-	VpcId string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// VpcId string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
 func (manager *SWireManager) GetContextManagers() [][]db.IModelManager {
@@ -80,26 +87,6 @@ func (manager *SWireManager) GetContextManagers() [][]db.IModelManager {
 		{ZoneManager},
 		{VpcManager},
 	}
-}
-
-func (self *SWireManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SWireManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SWire) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SWire) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.WireCreateInput) (*jsonutils.JSONDict, error) {
@@ -223,10 +210,9 @@ func (manager *SWireManager) NewWireForClassicNetwork(vpc *SVpc, zone *SZone) (*
 	if errors.Cause(err) != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "db.FetchByExternalId")
 	}
-	wire := &SWire{
-		VpcId:  vpc.Id,
-		ZoneId: zoneId,
-	}
+	wire := &SWire{}
+	wire.VpcId = vpc.Id
+	wire.ZoneId = zoneId
 	wire.SetModelManager(manager, wire)
 	wire.ExternalId = externalId
 	wire.IsEmulated = true
@@ -356,7 +342,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	vpc := self.getVpc()
+	vpc := self.GetVpc()
 	cloudprovider := vpc.GetCloudprovider()
 	if self.ExternalId == WireManager.getWireExternalIdForClassicNetwork(cloudprovider.Provider, self.VpcId, self.ZoneId) {
 		return nil
@@ -728,14 +714,6 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 	}
 }
 
-func (self *SWire) GetZone() *SZone {
-	if self.ZoneId == "" {
-		return nil
-	}
-
-	return ZoneManager.FetchZoneById(self.ZoneId)
-}
-
 func (manager *SWireManager) InitializeData() error {
 	wires := make([]SWire, 0)
 	q := manager.Query()
@@ -790,17 +768,8 @@ func (wire *SWire) clearHostSchedDescCache() error {
 	return nil
 }
 
-func (wire *SWire) getVpc() *SVpc {
-	vpcObj, err := VpcManager.FetchById(wire.VpcId)
-	if err != nil {
-		log.Errorf("getVpc fail %s", err)
-		return nil
-	}
-	return vpcObj.(*SVpc)
-}
-
 func (self *SWire) GetIWire() (cloudprovider.ICloudWire, error) {
-	vpc := self.getVpc()
+	vpc := self.GetVpc()
 	if vpc == nil {
 		log.Errorf("Cannot find VPC for wire???")
 		return nil, fmt.Errorf("No VPC?????")
@@ -835,54 +804,30 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 }
 
 // 二层网络列表
-func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.WireListInput) (*sqlchemy.SQuery, error) {
+func (manager *SWireManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.WireListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
-		vpcs := VpcManager.Query().SubQuery()
-		subq := vpcs.Query(vpcs.Field("id"))
-		return subq
-	})
+
+	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "vpc_id", func() *sqlchemy.SQuery {
-		vpcs := VpcManager.Query().SubQuery()
-		subq := vpcs.Query(vpcs.Field("id"))
-		return subq
-	})
+	zoneQuery := api.ZonalFilterListInput{
+		ZonalFilterListBase: query.ZonalFilterListBase,
+	}
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, zoneQuery)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
-	}
-
-	vpcStr := query.Vpc
-	if len(vpcStr) > 0 {
-		vpc, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("vpc %s query fail %s", vpcStr, err)
-			}
-		}
-		q = q.Equals("vpc_id", vpc.GetId())
-	}
-
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "vpc_id", func() *sqlchemy.SQuery {
-		return VpcManager.Query("id")
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-	}
-
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
 	hostStr := query.Host
@@ -898,7 +843,53 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
-func (self *SWire) getRegion() *SCloudregion {
+func (manager *SWireManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.WireListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+	zoneQuery := api.ZonalFilterListInput{
+		ZonalFilterListBase: query.ZonalFilterListBase,
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, zoneQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SWireManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+/*func (self *SWire) getRegion() *SCloudregion {
 	zone := self.GetZone()
 	if zone != nil {
 		return zone.GetRegion()
@@ -911,31 +902,37 @@ func (self *SWire) getRegion() *SCloudregion {
 	}
 
 	return nil
-}
+}*/
 
 func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.WireDetails, error) {
-	var err error
-	out := api.WireDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return self.getMoreDetails(out), nil
+	return api.WireDetails{}, nil
 }
 
-func (self *SWire) getMoreDetails(out api.WireDetails) api.WireDetails {
-	out.Networks, _ = self.NetworkCount()
-	zone := self.GetZone()
-	if zone != nil {
-		out.Zone = zone.Name
+func (manager *SWireManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.WireDetails {
+	rows := make([]api.WireDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.WireDetails{
+			StandaloneResourceDetails: stdRows[i],
+			VpcResourceInfo:           vpcRows[i],
+			ZoneResourceInfoBase:      zoneRows[i].ZoneResourceInfoBase,
+		}
+		wire := objs[i].(*SWire)
+		rows[i].Networks, _ = wire.NetworkCount()
 	}
-	vpc := self.getVpc()
-	if vpc != nil {
-		out.Vpc = vpc.Name
-		out.VpcExtId = vpc.GetExternalId()
-		out.CloudproviderInfo = vpc.getCloudProviderInfo()
-	}
-	return out
+
+	return rows
 }
 
 func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc) error {

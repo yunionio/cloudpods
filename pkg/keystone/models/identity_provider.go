@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SIdentityProviderManager struct {
@@ -105,7 +106,7 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 	sqldrv.SetModelManager(manager, &sqldrv)
 	sqldrv.Id = api.DEFAULT_IDP_ID
 	sqldrv.Name = api.IdentityDriverSQL
-	sqldrv.Enabled = true
+	sqldrv.SetEnabled(true)
 	sqldrv.Status = api.IdentityDriverStatusConnected
 	sqldrv.Driver = api.IdentityDriverSQL
 	sqldrv.Description = "Default sql identity provider"
@@ -137,7 +138,7 @@ func (manager *SIdentityProviderManager) InitializeData() error {
 		drv.SetModelManager(manager, &drv)
 		drv.Id = domains[i].Id // identical ID with domain, for backward compatibility
 		drv.Name = domains[i].Name
-		drv.Enabled = domains[i].Enabled.Bool()
+		drv.SetEnabled(domains[i].Enabled.Bool())
 		drv.Status = api.IdentityDriverStatusDisconnected
 		drv.Driver = driver
 		drv.Description = domains[i].Description
@@ -216,7 +217,7 @@ func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred
 }
 
 func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	if ident.Status == api.IdentityDriverStatusConnected && ident.Enabled {
+	if ident.Status == api.IdentityDriverStatusConnected && ident.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when enabled and connected")
 	}
 	if ident.SyncStatus != api.IdentitySyncStatusIdle {
@@ -312,7 +313,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context,
 }
 
 func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	ident.Enabled = true
+	ident.SetEnabled(true)
 	return ident.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -389,7 +390,7 @@ func (self *SIdentityProvider) AllowPerformSync(ctx context.Context, userCred mc
 }
 
 func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 	if self.CanSync() {
@@ -398,14 +399,34 @@ func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
-func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.IdentityProviderDetails, error) {
-	var err error
-	out := api.IdentityProviderDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SIdentityProvider) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.IdentityProviderDetails, error) {
+	return api.IdentityProviderDetails{}, nil
+}
+
+func (manager *SIdentityProviderManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.IdentityProviderDetails {
+	rows := make([]api.IdentityProviderDetails, len(objs))
+
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.IdentityProviderDetails{
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+		}
+		rows[i] = objs[i].(*SIdentityProvider).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(out), nil
+
+	return rows
 }
 
 func (self *SIdentityProvider) getMoreDetails(out api.IdentityProviderDetails) api.IdentityProviderDetails {
@@ -810,6 +831,44 @@ func (manager *SIdentityProviderManager) FetchPasswordProtectedIdpIdsQuery() *sq
 	return q.SubQuery()
 }
 
-func (manager *SIdentityProviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.IdentityProviderListInput) (*sqlchemy.SQuery, error) {
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+func (manager *SIdentityProviderManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityProviderListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SIdentityProviderManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.IdentityProviderListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SIdentityProviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

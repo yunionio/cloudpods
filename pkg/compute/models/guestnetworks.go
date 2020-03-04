@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -99,16 +100,47 @@ func (joint *SGuestnetwork) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGuestnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GuestnetworkDetails, error) {
-	var err error
-	out := api.GuestnetworkDetails{}
-	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SGuestnetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestnetworkDetails, error) {
+	return api.GuestnetworkDetails{}, nil
+}
+
+func (manager SGuestnetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestnetworkDetails {
+	rows := make([]api.GuestnetworkDetails, len(objs))
+
+	guestRows := manager.SGuestJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GuestnetworkDetails{
+			GuestJointResourceDetails: guestRows[i],
+		}
+		netIds[i] = objs[i].(*SGuestnetwork).NetworkId
 	}
-	out.Server, out.Network = db.JointModelExtra(self)
-	out.Guest = out.Server
-	return out, nil
+
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -766,19 +798,19 @@ func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId st
 }
 
 func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
+	desc := api.GuestnetworkShortDesc{}
 	if len(self.IpAddr) > 0 {
-		desc.Add(jsonutils.NewString(self.IpAddr), "ip_addr")
-		desc.Add(jsonutils.NewBool(self.IsExit()), "is_exit")
+		desc.IpAddr = self.IpAddr
+		desc.IsExit = self.IsExit()
 	}
 	if len(self.Ip6Addr) > 0 {
-		desc.Add(jsonutils.NewString(self.Ip6Addr), "ip6_addr")
+		desc.Ip6Addr = self.Ip6Addr
 	}
-	desc.Add(jsonutils.NewString(self.MacAddr), "mac")
+	desc.Mac = self.MacAddr
 	if len(self.TeamWith) > 0 {
-		desc.Add(jsonutils.NewString(self.TeamWith), "team_with")
+		desc.TeamWith = self.TeamWith
 	}
-	return desc
+	return jsonutils.Marshal(desc).(*jsonutils.JSONDict)
 }
 
 func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {

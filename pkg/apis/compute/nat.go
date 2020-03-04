@@ -41,21 +41,18 @@ type SNatDCreateInput struct {
 }
 
 type NatDEntryDetails struct {
-	apis.StandaloneResourceDetails
-	// SNatDEntry
+	NatEntryDetails
 
-	Natgateway string `json:"natgateway"`
-	RealName   string `json:"real_name"`
+	// SNatDEntry
 }
 
 type NatSEntryDetails struct {
-	apis.StandaloneResourceDetails
+	NatEntryDetails
+
 	// SNatSEntry
 
-	Natgateway string `json:"natgateway"`
-	// RealName identifies the local name of SNAT record
-	RealName string        `json:"real_name"`
-	Network  SimpleNetwork `json:"network"`
+	// SNAT归属网络
+	Network SimpleNetwork `json:"network"`
 }
 
 type SimpleNetwork struct {
@@ -68,11 +65,11 @@ type SimpleNetwork struct {
 }
 
 type NatgatewayDetails struct {
-	apis.StandaloneResourceDetails
-	SNatGateway
+	apis.StatusStandaloneResourceDetails
 
-	CloudproviderInfo
-	Vpc string `json:"vpc"`
+	VpcResourceInfo
+
+	SNatGateway
 
 	NatSpec string `json:"nat_spec"`
 }

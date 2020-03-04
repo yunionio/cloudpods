@@ -230,7 +230,7 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	if host == nil {
 		host = guest.GetHost()
 	}
-	if host != nil && host.Enabled && host.HostStatus == api.HOST_ONLINE {
+	if host != nil && host.GetEnabled() && host.HostStatus == api.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
 	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {

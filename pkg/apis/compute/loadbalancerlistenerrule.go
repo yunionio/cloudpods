@@ -18,9 +18,9 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type LoadbalancerListenerRuleDetails struct {
 	apis.VirtualResourceDetails
+	LoadbalancerListenerResourceInfo
+
 	SLoadbalancerListenerRule
 
 	BackendGroup string `json:"backend_group"`
-
-	CloudregionInfo
 }

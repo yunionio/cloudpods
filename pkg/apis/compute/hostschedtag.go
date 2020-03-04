@@ -14,12 +14,10 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type HostschedtagDetails struct {
-	apis.JoinModelBaseDetails
-	HostJointsDetails
-	SHostschedtag
+	SchedtagJointResourceDetails
 
-	Schedtag string `json:"string"`
+	HostJointResourceDetailsBase
+
+	SHostschedtag
 }

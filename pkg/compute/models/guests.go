@@ -66,6 +66,11 @@ import (
 
 type SGuestManager struct {
 	db.SVirtualResourceBaseManager
+
+	SHostResourceBaseManager
+	SBillingResourceBaseManager
+	SNetworkResourceBaseManager
+	SDiskResourceBaseManager
 }
 
 var GuestManager *SGuestManager
@@ -91,6 +96,8 @@ type SGuest struct {
 	SBillingResourceBase
 	SDeletePreventableResourceBase
 
+	SHostResourceBase
+
 	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
 	// 内存大小, 单位Mb
@@ -107,7 +114,8 @@ type SGuest struct {
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 宿主机Id
-	HostId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
+	//HostId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
+
 	// 备份机所在宿主机Id
 	BackupHostId string `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user"`
 
@@ -147,33 +155,45 @@ func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mccli
 }
 
 // 云主机实例列表
-func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerListInput) (*sqlchemy.SQuery, error) {
+func (manager *SGuestManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ServerListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "host_id", func() *sqlchemy.SQuery {
-		hosts := HostManager.Query().SubQuery()
-		return hosts.Query(hosts.Field("id"))
-	})
+
+	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
 	}
 
-	billingTypeStr := query.BillingType
-	if len(billingTypeStr) > 0 {
-		if billingTypeStr == billing_api.BILLING_TYPE_POSTPAID {
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
-					sqlchemy.Equals(q.Field("billing_type"), billingTypeStr),
-				),
-			)
-		} else {
-			q = q.Equals("billing_type", billingTypeStr)
-		}
+	q, err = manager.SBillingResourceBaseManager.ListItemFilter(ctx, q, userCred, query.BillingResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SBillingResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	netQ := GuestnetworkManager.Query("guest_id").Snapshot()
+	netQ, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, netQ, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+	if netQ.IsAltered() {
+		q = q.In("id", netQ.SubQuery())
+	}
+
+	diskQ := GuestdiskManager.Query("guest_id").Snapshot()
+	diskQ, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, diskQ, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	}
+	if diskQ.IsAltered() {
+		q = q.In("id", diskQ.SubQuery())
 	}
 
 	hypervisorList := query.Hypervisor
@@ -238,7 +258,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 
 		isAdmin := false
-		admin := (query.Admin != nil && *query.Admin)
+		admin := (query.VirtualResourceListInput.Admin != nil && *query.VirtualResourceListInput.Admin)
 		if consts.IsRbacEnabled() {
 			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {
@@ -294,69 +314,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "host_id", func() *sqlchemy.SQuery {
-		hostTable := HostManager.Query().SubQuery()
-		zoneTable := ZoneManager.Query().SubQuery()
-		sq := hostTable.Query(hostTable.Field("id"))
-		sq = sq.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id")))
-		return sq
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-	}
-
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "host_id", func() *sqlchemy.SQuery {
-		hostTable := HostManager.Query().SubQuery()
-		return hostTable.Query(hostTable.Field("id"))
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
-	}
-
-	wireFilter := query.Wire
-	if len(wireFilter) > 0 {
-		wire, _ := WireManager.FetchByIdOrName(nil, wireFilter)
-		if wire == nil {
-			return nil, httperrors.NewResourceNotFoundError("wire %s not found", wireFilter)
-		}
-		hostTable := HostManager.Query().SubQuery()
-		hostWire := HostwireManager.Query().SubQuery()
-		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire, sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), wire.GetId())).SubQuery()
-		q = q.In("host_id", sq)
-	}
-
-	networkFilter := query.Network
-	if len(networkFilter) > 0 {
-		netI, _ := NetworkManager.FetchByIdOrName(userCred, networkFilter)
-		if netI == nil {
-			return nil, httperrors.NewResourceNotFoundError("network %s not found", networkFilter)
-		}
-		net := netI.(*SNetwork)
-		hostTable := HostManager.Query().SubQuery()
-		hostWire := HostwireManager.Query().SubQuery()
-		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire,
-			sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), net.WireId)).SubQuery()
-		q = q.In("host_id", sq)
-	}
-
-	vpcFilter := query.Vpc
-	if len(vpcFilter) > 0 {
-		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
-		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("Vpc %s not found", vpcFilter)
-		}
-		vpc := IVpc.(*SVpc)
-		guestnetwork := GuestnetworkManager.Query().SubQuery()
-		network := NetworkManager.Query().SubQuery()
-		wire := WireManager.Query().SubQuery()
-		sq := guestnetwork.Query(guestnetwork.Field("guest_id")).Join(network,
-			sqlchemy.Equals(guestnetwork.Field("network_id"), network.Field("id"))).
-			Join(wire, sqlchemy.Equals(network.Field("wire_id"), wire.Field("id"))).
-			Filter(sqlchemy.Equals(wire.Field("vpc_id"), vpc.Id)).SubQuery()
-		q = q.In("id", sq)
-	}
-
-	diskFilter := query.Disk
+	/*diskFilter := query.Disk
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {
@@ -381,7 +339,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
-	}
+	}*/
 
 	withEip := (query.WithEip != nil && *query.WithEip)
 	withoutEip := (query.WithoutEip != nil && *query.WithoutEip)
@@ -421,7 +379,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Join(ggSub, sqlchemy.Equals(ggSub.Field("guest_id"), q.Field("id")))
 	}
 
-	orderByDisk := query.OrderByDisk
+	/*orderByDisk := query.OrderByDisk
 	if orderByDisk == "asc" || orderByDisk == "desc" {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		disks := DiskManager.Query().SubQuery()
@@ -440,24 +398,10 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		case "desc":
 			q = q.Desc(guestdiskSQ.Field("disks_size"))
 		}
-	}
+	}*/
 
-	hostSNFilter := query.HostSn
-	if len(hostSNFilter) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("sn"), hostSNFilter)).SubQuery()
-		q = q.In("host_id", sq)
-	}
-
-	orderByHost := query.OrderByHost
-	if orderByHost == "asc" {
-		hosts := HostManager.Query().SubQuery()
-		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).
-			Asc(hosts.Field("name"))
-	} else if orderByHost == "desc" {
-		hosts := HostManager.Query().SubQuery()
-		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).
-			Desc(hosts.Field("name"))
+	if len(query.OsType) > 0 {
+		q = q.Equals("os_type", query.OsType)
 	}
 
 	return q, nil
@@ -476,25 +420,36 @@ func (manager *SGuestManager) ExtraSearchConditions(ctx context.Context, q *sqlc
 	return nil
 }
 
-func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ServerListInput) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	orderByAccount, _ := query.GetString("order_by_account")
-	if sqlchemy.SQL_ORDER_ASC.Equals(orderByAccount) || sqlchemy.SQL_ORDER_DESC.Equals(orderByAccount) {
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query().SubQuery()
-		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
-		q = q.Join(cloudproviders, sqlchemy.Equals(hosts.Field("manager_id"), cloudproviders.Field("id")))
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
-		if sqlchemy.SQL_ORDER_ASC.Equals(orderByAccount) {
-			q = q.Asc(cloudaccounts.Field("name"))
-		} else {
-			q = q.Desc(cloudaccounts.Field("name"))
+	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	fields := manager.SNetworkResourceBaseManager.GetOrderByFields(query.NetworkFilterListInput)
+	if db.NeedOrderQuery(fields) {
+		netQ := GuestnetworkManager.Query("guest_id", "network_id").SubQuery()
+		q = q.LeftJoin(netQ, sqlchemy.Equals(q.Field("id"), netQ.Field("guest_id"))).Distinct()
+		q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
 		}
 	}
+	fields = manager.SDiskResourceBaseManager.GetOrderByFields(query.DiskFilterListInput)
+	if db.NeedOrderQuery(fields) {
+		diskQ := GuestdiskManager.Query("guest_id", "disk_id").SubQuery()
+		q = q.LeftJoin(diskQ, sqlchemy.Equals(q.Field("id"), diskQ.Field("guest_id"))).Distinct()
+		q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+		}
+	}
+
 	return q, nil
 }
 
@@ -504,20 +459,23 @@ func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field 
 	if err == nil {
 		return q, nil
 	}
-	switch field {
-	case "account":
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
-		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
-		q = q.Join(cloudproviders, sqlchemy.Equals(hosts.Field("manager_id"), cloudproviders.Field("id")))
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
-		q.GroupBy(cloudaccounts.Field("name"))
-		q.AppendField(cloudaccounts.Field("name", "account"))
-	default:
-		return q, httperrors.NewBadRequestError("unsupport field %s", field)
+	q, err = manager.SHostResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
 	}
-	return q, nil
+	guestnets := GuestnetworkManager.Query("guest_id", "network_id").SubQuery()
+	q = q.LeftJoin(guestnets, sqlchemy.Equals(q.Field("id"), guestnets.Field("guest_id")))
+	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	guestdisks := GuestdiskManager.Query("guest_id", "disk_id").SubQuery()
+	q = q.LeftJoin(guestdisks, sqlchemy.Equals(q.Field("id"), guestdisks.Field("guest_id")))
+	q, err = manager.SDiskResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (guest *SGuest) GetHypervisor() string {
@@ -557,7 +515,7 @@ func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
 	host := guest.GetHost()
 	if host != nil && guest.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
-		if !host.Enabled {
+		if !host.GetEnabled() {
 			return httperrors.NewInputParameterError("Cannot delete server on disabled host")
 		}
 		if host.HostStatus != api.HOST_ONLINE {
@@ -1611,79 +1569,16 @@ func (self *SGuest) getExtBandwidth() int {
 	return self.getBandwidth(true)
 }
 
-func (self *SGuest) moreExtraInfo(out api.ServerDetails, fields stringutils2.SSortedStrings) api.ServerDetails {
+func (self *SGuest) moreExtraInfo(
+	out api.ServerDetails,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) api.ServerDetails {
 	// extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
 
-	out.IsPrepaidRecycle = self.IsPrepaidRecycle()
-
-	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
-		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		if len(fields) == 0 || fields.Contains("backup_host_name") {
-			out.BackupHostName = backupHost.Name
-		}
-		if len(fields) == 0 || fields.Contains("backup_host_status") {
-			out.BackupHostStatus = backupHost.HostStatus
-		}
-	}
-
-	if len(fields) == 0 || fields.Contains("host") || fields.ContainsAny(providerInfoFields...) || fields.Contains("host_sn") {
-		host := self.GetHost()
-		if host != nil {
-			if len(fields) == 0 || fields.Contains("host") {
-				out.Host = host.Name
-			}
-			if len(fields) == 0 || fields.ContainsAny(providerInfoFields...) {
-				info := host.getCloudProviderInfo()
-				if len(fields) == 0 {
-					out.CloudproviderInfo = info
-				} else {
-					jsonutils.Update(&out, jsonutils.Marshal(&info).(*jsonutils.JSONDict).CopyIncludes([]string(fields)...))
-				}
-			}
-			if len(fields) == 0 || fields.Contains("host_sn") {
-				out.HostSN = host.SN
-			}
-		}
-	}
-
-	if len(fields) == 0 || fields.Contains("can_recycle") {
-		err := self.CanPerformPrepaidRecycle()
-		if err == nil {
-			out.CanRecycle = true
-		}
-	}
-
-	if len(fields) == 0 || fields.Contains("auto_delete_at") {
-		if self.PendingDeleted {
-			pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-			out.AutoDeleteAt = pendingDeletedAt
-		}
-	}
-
-	out.Metadata, _ = db.GetVisiableMetadata(self, nil)
-	out.DiskCount = self.GetDisksQuery().Count()
-	out.CdromSupport, _ = self.GetDriver().IsSupportCdrom(self)
-
-	return out
-}
-
-func (self *SGuest) GetMetadataHideKeys() []string {
-	return []string{
-		api.VM_METADATA_CREATE_PARAMS,
-	}
-}
-
-func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServerDetails, error) {
-	var err error
-	out := api.ServerDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-
-	var fields stringutils2.SSortedStrings
 	if isList {
-		fields = stringutils2.NewSortedStrings(jsonutils.GetQueryStringArray(query, "field"))
 		if query.Contains("group") {
 			groupId, _ := query.GetString("group")
 			q := GroupguestManager.Query().Equals("group_id", groupId).Equals("guest_id", self.Id)
@@ -1713,12 +1608,51 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 
 	}
-	return self.moreExtraInfo(out, fields), nil
+
+	out.IsPrepaidRecycle = self.IsPrepaidRecycle()
+
+	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		if len(fields) == 0 || fields.Contains("backup_host_name") {
+			out.BackupHostName = backupHost.Name
+		}
+		if len(fields) == 0 || fields.Contains("backup_host_status") {
+			out.BackupHostStatus = backupHost.HostStatus
+		}
+	}
+
+	if len(fields) == 0 || fields.Contains("can_recycle") {
+		err := self.CanPerformPrepaidRecycle()
+		if err == nil {
+			out.CanRecycle = true
+		}
+	}
+
+	if len(fields) == 0 || fields.Contains("auto_delete_at") {
+		if self.PendingDeleted {
+			pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+			out.AutoDeleteAt = pendingDeletedAt
+		}
+	}
+
+	out.CdromSupport, _ = self.GetDriver().IsSupportCdrom(self)
+
+	return out
+}
+
+func (self *SGuestManager) GetMetadataHiddenKeys() []string {
+	return []string{
+		api.VM_METADATA_CREATE_PARAMS,
+	}
+}
+
+func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServerDetails, error) {
+	return api.ServerDetails{}, nil
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SModelBaseManager.ListItemExportKeys(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1809,7 +1743,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 }
 
 func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
-	res := manager.SStatusStandaloneResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
+	res := manager.SVirtualResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
 	exportKeys, _ := query.GetString("export_keys")
 	keys := strings.Split(exportKeys, ",")
 	if ips, ok := rowMap["concat_ip_addr"]; ok && len(ips) > 0 {
@@ -4030,7 +3964,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	if host != nil {
 		desc.Set("host", jsonutils.NewString(host.Name))
 		desc.Set("host_id", jsonutils.NewString(host.Id))
-		billingInfo.CloudproviderInfo = host.getCloudProviderInfo()
+		billingInfo.SCloudProviderInfo = host.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {

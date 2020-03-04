@@ -14,6 +14,50 @@
 
 package apis
 
+type DomainizedResourceListInput struct {
+	// swagger:ignore
+	// Is an admin call? equivalent to scope=system
+	// Deprecated
+	Admin *bool `json:"admin"`
+
+	// 指定查询的权限范围，可能值为project, domain or system
+	Scope string `json:"scope"`
+
+	DomainizedResourceInput
+
+	// 对具有域属性的资源，严格匹配域ID
+	ProjectDomains []string `json:"project_domains"`
+
+	// 按domain名称排序，可能值为asc|desc
+	// pattern: asc|desc
+	OrderByDomain string `json:"order_by_domain"`
+}
+
+type ProjectizedResourceListInput struct {
+	DomainizedResourceListInput
+
+	ProjectizedResourceInput
+
+	// 对具有项目属性的资源，严格匹配项目ID
+	Projects []string `json:"projects"`
+
+	// 按project名称排序，可能值为asc|desc
+	// pattern: asc|desc
+	OrderByProject string `json:"order_by_project"`
+	// swagger:ignore
+	// Deprecated
+	OrderByTenant string `json:"order_by_tenant" deprecated-by:"order_by_project"`
+}
+
+type UserResourceListInput struct {
+	// 查询指定的用户（ID或名称）拥有的资源
+	User string `json:"user"`
+	// swagger:ignore
+	// Deprecated
+	// Filter by userId
+	UserId string `json:"user_id" deprecated-by:"user"`
+}
+
 type ModelBaseListInput struct {
 	Meta
 
@@ -80,7 +124,6 @@ type IncrementalListInput struct {
 
 type VirtualResourceListInput struct {
 	StatusStandaloneResourceListInput
-
 	ProjectizedResourceListInput
 
 	// 列表中包含标记为"系统资源"的资源
@@ -94,11 +137,6 @@ type VirtualResourceListInput struct {
 
 type ResourceBaseListInput struct {
 	ModelBaseListInput
-}
-
-type SharableResourceListInput struct {
-	// 根据资源是否共享过滤列表
-	IsPublic *bool `json:"is_public"`
 }
 
 type SharableVirtualResourceListInput struct {
@@ -137,16 +175,42 @@ type StandaloneResourceListInput struct {
 	Ids []string `json:"id"`
 }
 
-type StatusStandaloneResourceListInput struct {
-	StandaloneResourceListInput
-
+type StatusResourceBaseListInput struct {
 	// 以资源的状态过滤列表
 	Status []string `json:"status"`
 }
 
-type EnabledStatusStandaloneResourceListInput struct {
-	StatusStandaloneResourceListInput
-
+type EnabledResourceBaseListInput struct {
 	// 以资源是否启用/禁用过滤列表
 	Enabled *bool `json:"enabled"`
+}
+
+type SharableResourceBaseListInput struct {
+	// 以资源是否共享过滤列表
+	IsPublic *bool `json:"is_public"`
+}
+
+type DomainLevelResourceListInput struct {
+	StandaloneResourceListInput
+	DomainizedResourceListInput
+}
+
+type StatusStandaloneResourceListInput struct {
+	StandaloneResourceListInput
+	StatusResourceBaseListInput
+}
+
+type EnabledStatusStandaloneResourceListInput struct {
+	StatusStandaloneResourceListInput
+	EnabledResourceBaseListInput
+}
+
+type StatusDomainLevelResourceListInput struct {
+	DomainLevelResourceListInput
+	StatusResourceBaseListInput
+}
+
+type EnabledStatusDomainLevelResourceListInput struct {
+	StatusDomainLevelResourceListInput
+	EnabledResourceBaseListInput
 }

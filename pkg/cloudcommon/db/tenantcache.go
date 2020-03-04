@@ -49,6 +49,10 @@ func NewTenant(idStr string, name string, domainId string, domainName string) ST
 	return STenant{SKeystoneCacheObject: NewKeystoneCacheObject(idStr, name, domainId, domainName)}
 }
 
+func NewDomain(idStr, name string) STenant {
+	return NewTenant(idStr, name, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
+}
+
 func (tenant *STenant) GetModelManager() IModelManager {
 	return TenantCacheManager
 }
@@ -96,12 +100,20 @@ func (manager *STenantCacheManager) updateTenantCache(userCred mcclient.TokenCre
 		userCred.GetProjectDomainId(), userCred.GetProjectDomain())
 }
 
+func (manager *STenantCacheManager) GetTenantQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.Query(fields...).NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+}
+
+func (manager *STenantCacheManager) GetDomainQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.Query(fields...).Equals("domain_id", identityapi.KeystoneDomainRoot)
+}
+
 func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr string, isDomain bool, noExpireCheck bool, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*STenant, error) {
-	q := manager.Query()
+	var q *sqlchemy.SQuery
 	if isDomain {
-		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
+		q = manager.GetDomainQuery()
 	} else {
-		q = q.NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+		q = manager.GetTenantQuery()
 	}
 	q = filter(q)
 	tobj, err := NewModelObject(manager)
@@ -226,7 +238,7 @@ func (manager *STenantCacheManager) FetchDomainByName(ctx context.Context, idStr
 
 func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
 	if len(idStr) == 0 {
-		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
+		log.Debugf("fetch empty domain!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")

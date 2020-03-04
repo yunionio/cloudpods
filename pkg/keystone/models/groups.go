@@ -76,7 +76,12 @@ func (manager *SGroupManager) GetContextManagers() [][]db.IModelManager {
 }
 
 // 用户组列表
-func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.GroupListInput) (*sqlchemy.SQuery, error) {
+func (manager *SGroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
 		return nil, err
@@ -113,6 +118,32 @@ func (manager *SGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	return q, nil
 }
 
+func (manager *SGroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
 func (group *SGroup) GetUserCount() (int, error) {
 	q := UsergroupManager.Query().Equals("group_id", group.Id)
 	return q.CountWithError()
@@ -144,20 +175,40 @@ func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredenti
 	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GroupDetails, error) {
-	var err error
-	out := api.GroupDetails{}
-	out.StandaloneResourceDetails, err = group.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return groupExtra(group, out), nil
+func (group *SGroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GroupDetails, error) {
+	return api.GroupDetails{}, nil
 }
 
-func groupExtra(group *SGroup, out api.GroupDetails) api.GroupDetails {
-	out.UserCount, _ = group.GetUserCount()
-	out.ProjectCount, _ = group.GetProjectCount()
-	return out
+func (manager *SGroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GroupDetails {
+	rows := make([]api.GroupDetails, len(objs))
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	idList := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GroupDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+		group := objs[i].(*SGroup)
+		idList[i] = group.Id
+		rows[i].UserCount, _ = group.GetUserCount()
+		rows[i].ProjectCount, _ = group.GetProjectCount()
+	}
+	idpRows := expandIdpAttributes(api.IdMappingEntityGroup, idList, fields)
+	for i := range rows {
+		rows[i].IdpResourceInfo = idpRows[i]
+	}
+	return rows
 }
 
 func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId string, domainId string, groupId string, groupName string) (*SGroup, error) {
@@ -254,11 +305,6 @@ func (group *SGroup) LinkedWithIdp(idpId string) bool {
 		return true
 	}
 	return false
-}
-
-func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
 }
 
 func (manager *SGroupManager) FetchGroupsInDomain(domainId string, excludes []string) ([]SGroup, error) {

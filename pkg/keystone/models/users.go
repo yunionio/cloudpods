@@ -313,10 +313,15 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 }
 
 // 用户列表
-func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.UserListInput) (*sqlchemy.SQuery, error) {
+func (manager *SUserManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.UserListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ListItemFilter")
 	}
 
 	groupStr := query.Group
@@ -362,6 +367,33 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	return q, nil
+}
+
+func (manager *SUserManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.UserListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.EnabledIdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SUserManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -478,14 +510,43 @@ func (user *SUser) GetCredentialCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.UserDetails, error) {
-	var err error
-	out := api.UserDetails{}
-	out.StandaloneResourceDetails, err = user.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SUserManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.UserDetails {
+	rows := make([]api.UserDetails, len(objs))
+
+	identRows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	userIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = api.UserDetails{
+			EnabledIdentityBaseResourceDetails: identRows[i],
+		}
+		userIds[i] = objs[i].(*SUser).Id
+		rows[i] = userExtra(objs[i].(*SUser), rows[i])
 	}
-	return userExtra(user, out), nil
+
+	idpRows := expandIdpAttributes(api.IdMappingEntityUser, userIds, fields)
+
+	for i := range rows {
+		rows[i].IdpResourceInfo = idpRows[i]
+	}
+
+	return rows
+}
+
+func (user *SUser) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.UserDetails, error) {
+	return api.UserDetails{}, nil
 }
 
 func userExtra(user *SUser, out api.UserDetails) api.UserDetails {
@@ -709,11 +770,6 @@ func (user *SUser) LinkedWithIdp(idpId string) bool {
 		return true
 	}
 	return false
-}
-
-func (manager *SUserManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityUser)
 }
 
 func (manager *SUserManager) FetchUsersInDomain(domainId string, excludes []string) ([]SUser, error) {

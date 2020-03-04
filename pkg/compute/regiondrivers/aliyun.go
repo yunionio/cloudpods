@@ -296,8 +296,8 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 
 	data.Set("address", jsonutils.NewString(address))
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -380,8 +380,8 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 		return nil, httperrors.NewInputParameterError("backend group type must be normal")
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
@@ -1263,7 +1263,7 @@ func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, 
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetIRegion")
 		}
 
-		iprovider, err := db.FetchById(models.CloudproviderManager, ec.ManagerId)
+		iprovider, err := db.FetchById(models.CloudproviderManager, ec.GetCloudproviderId())
 		if err != nil {
 			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetProvider")
 		}

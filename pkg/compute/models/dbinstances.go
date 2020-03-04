@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -47,6 +48,9 @@ import (
 
 type SDBInstanceManager struct {
 	db.SVirtualResourceBaseManager
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
+	SVpcResourceBaseManager
 }
 
 var DBInstanceManager *SDBInstanceManager
@@ -109,9 +113,11 @@ type SDBInstance struct {
 	// 安全组Id
 	// example: default
 	SecgroupId string `width:"128" charset:"ascii" list:"user" default:"default" create:"optional"`
+
 	// 虚拟私有网络Id
 	// example: ed20d84e-3158-41b1-870c-1725e412e8b6
 	VpcId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+
 	// 外部连接地址
 	ConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	// 内部连接地址
@@ -130,63 +136,100 @@ type SDBInstance struct {
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
-		{CloudregionManager},
+		{VpcManager},
 	}
-}
-
-func (self *SDBInstanceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDBInstanceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDBInstance) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstance) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDBInstance) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 // RDS实例列表
-func (man *SDBInstanceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceListInput) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+func (man *SDBInstanceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-	})
+
+	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, err
-	}
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
+	if len(query.Zone) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.Zone)
+			} else {
+				return nil, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
+			}
+		}
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("zone1"), zoneObj.GetId()),
+			sqlchemy.Equals(q.Field("zone2"), zoneObj.GetId()),
+			sqlchemy.Equals(q.Field("zone3"), zoneObj.GetId()),
+		))
+	}
+
+	return q, nil
+}
+
+func (man *SDBInstanceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
+}
+
+func (man *SDBInstanceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.DBInstanceCreateInput) (*jsonutils.JSONDict, error) {
@@ -235,7 +278,7 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 	if cloudprovider == nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed to get vpc %s(%s) cloudprovider", vpc.Name, vpc.Id))
 	}
-	if !cloudprovider.Enabled {
+	if !cloudprovider.GetEnabled() {
 		return nil, httperrors.NewInputParameterError("cloudprovider %s(%s) disabled", cloudprovider.Name, cloudprovider.Id)
 	}
 
@@ -365,14 +408,38 @@ func (self *SDBInstance) PostCreate(ctx context.Context, userCred mcclient.Token
 	task.ScheduleRun(nil)
 }
 
-func (self *SDBInstance) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceDetails, error) {
-	var err error
-	out := api.DBInstanceDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SDBInstance) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DBInstanceDetails, error) {
+	return api.DBInstanceDetails{}, nil
+}
+
+func (manager *SDBInstanceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceDetails {
+	rows := make([]api.DBInstanceDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.DBInstanceDetails{
+			VirtualResourceDetails: virtRows[i],
+			VpcResourceInfo:        vpcRows[i],
+		}
+		rows[i].ManagedResourceInfo = manRows[i]
+		rows[i].CloudregionResourceInfo = regRows[i]
+		rows[i] = objs[i].(*SDBInstance).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(ctx, userCred, query, out), nil
+	return rows
 }
 
 func (self *SDBInstance) GetVpc() (*SVpc, error) {
@@ -457,39 +524,14 @@ func fetchDBInstanceZones(rdsIds []string) map[string][]sDBInstanceZone {
 	return result
 }
 
-func (manager *SDBInstanceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	rdsIds := make([]string, len(objs))
-	for i := range objs {
-		rdsIds[i] = objs[i].GetId()
-	}
-	if len(fields) == 0 || fields.Contains("zone") {
-		zoneInfo := fetchDBInstanceZones(rdsIds)
-		if zoneInfo != nil {
-			for i := range rows {
-				if zones, ok := zoneInfo[objs[i].GetId()]; ok {
-					for _, zone := range zones {
-						rows[i].Add(jsonutils.NewString(zone.Name), zone.Id)
-					}
-				}
-			}
-		}
-	}
-	return rows
-}
-
-func (self *SDBInstance) getProviderInfo() api.CloudproviderInfo {
-	provider := self.GetCloudprovider()
+func (self *SDBInstance) getProviderInfo() SCloudProviderInfo {
+	vpc, _ := self.GetVpc()
+	provider := vpc.GetCloudprovider()
 	region := self.GetRegion()
 	return MakeCloudProviderInfo(region, nil, provider)
 }
 
-func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.DBInstanceDetails) api.DBInstanceDetails {
-	out.CloudproviderInfo = self.getProviderInfo()
-	vpc, _ := self.GetVpc()
-	if vpc != nil {
-		out.Vpc = vpc.Name
-	}
+func (self *SDBInstance) getMoreDetails(out api.DBInstanceDetails) api.DBInstanceDetails {
 	if len(self.SecgroupId) > 0 {
 		if secgroup, _ := self.GetSecgroup(); secgroup != nil {
 			out.Secgroup = secgroup.Name
@@ -504,8 +546,6 @@ func (self *SDBInstance) getMoreDetails(ctx context.Context, userCred mcclient.T
 	if network != nil {
 		out.Network = network.Name
 	}
-
-	out.Metadata, _ = self.GetAllMetadata(userCred)
 	return out
 }
 
@@ -525,18 +565,6 @@ func (self *SDBInstance) GetMasterInstance() (*SDBInstance, error) {
 	return instance.(*SDBInstance), nil
 }
 
-func (self *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	driver, err := self.GetDriver()
-	if err != nil {
-		return nil, err
-	}
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to found region for rds %s(%s)", self.Name, self.Id)
-	}
-	return driver.GetIRegionById(region.ExternalId)
-}
-
 func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error) {
 	iregion, err := self.GetIRegion()
 	if err != nil {
@@ -545,19 +573,18 @@ func (self *SDBInstance) GetIDBInstance() (cloudprovider.ICloudDBInstance, error
 	return iregion.GetIDBInstanceById(self.ExternalId)
 }
 
-func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dataCopy := jsonutils.DeepCopy(data)
+func (self *SDBInstance) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	backups, err := self.GetDBInstanceBackups()
 	if err != nil {
 		return nil, httperrors.NewGeneralError(fmt.Errorf("failed get backups: %v", err))
 	}
 	for i := range backups {
-		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, dataCopy)
+		_, err := backups[i].PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	return self.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
 func (self *SDBInstance) AllowPerformRecovery(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1417,7 +1444,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 		return nil, errors.Wrapf(err, "newFromCloudDBInstance.Insert")
 	}
 
-	SyncCloudProject(userCred, &instance, ownerId, extInstance, instance.ManagerId)
+	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
@@ -1456,4 +1483,16 @@ func (dbinstance *SDBInstance) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (dbinstance *SDBInstance) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region := dbinstance.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	}
+	provider, err := dbinstance.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return provider.GetIRegionById(region.GetExternalId())
 }

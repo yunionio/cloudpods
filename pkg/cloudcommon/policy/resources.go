@@ -23,7 +23,6 @@ var (
 		"storages",
 		"wires",
 		"globalvpcs",
-		"vpcs",
 		"route_tables",
 		"cloudregions",
 		"serverskus",
@@ -46,6 +45,8 @@ var (
 		"cloudaccounts",
 		"cloudproviders",
 		"recyclebins",
+		// migrate system resources to domain resources
+		"vpcs",
 	}
 	computeUserResources = []string{
 		"keypairs",

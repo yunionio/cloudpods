@@ -18,7 +18,14 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type CachedLoadbalancerAclDetails struct {
 	apis.SharableVirtualResourceDetails
-	SCachedLoadbalancerAcl
+	CloudregionResourceInfo
+	ManagedResourceInfo
 
-	CloudproviderInfo
+	SCachedLoadbalancerAcl
+}
+
+type CachedLoadbalancerAclListInput struct {
+	apis.SharableVirtualResourceListInput
+	RegionalFilterListInput
+	ManagedResourceListInput
 }

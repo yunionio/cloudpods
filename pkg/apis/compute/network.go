@@ -18,51 +18,86 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type VpcFilterListInput struct {
+type VpcFilterListInputBase struct {
 	// 过滤关联此VPC(ID或Name)的资源
 	Vpc string `json:"vpc"`
 	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
 	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
+
+	// 按VPC名称排序
+	// pattern:asc|desc
+	OrderByVpc string `json:"order_by_vpc"`
 }
 
-type WireFilterListInput struct {
-	VpcFilterListInput
+type VpcFilterListInput struct {
+	VpcFilterListInputBase
+	RegionalFilterListInput
+	ManagedResourceListInput
+}
 
+type WireFilterListBase struct {
 	// 过滤连接此二层网络(ID或Name)的资源
 	Wire string `json:"wire"`
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
 	WireId string `json:"wire_id" deprecated-by:"wire"`
+
+	// 以二层网络名称排序
+	OrderByWire string `json:"order_by_wire"`
 }
 
-type NetworkFilterListInput struct {
-	WireFilterListInput
+type WireFilterListInput struct {
+	VpcFilterListInput
+	ZonalFilterListBase
 
-	// 过滤关联此网络（ID或Name）的资源
+	WireFilterListBase
+}
+
+type NetworkFilterListBase struct {
+	// 过滤关联此IP子网（ID或Name）的资源
 	Network string `json:"network"`
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
 	NetworkId string `json:"network_id" deprecated-by:"network"`
+
+	// 以IP子网的名称排序
+	OrderByNetwork string `json:"order_by_network"`
+}
+
+type NetworkFilterListInput struct {
+	WireFilterListInput
+	NetworkFilterListBase
 }
 
 type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
+	WireFilterListInput
 
-	HostFilterListInput
-
-	ManagedResourceListInput
+	HostResourceInput
 
 	UsableResourceListInput
-
-	WireFilterListInput
 
 	// description: search ip address in network.
 	// example: 10.168.222.1
 	Ip string `json:"ip"`
+}
+
+type NetworkResourceInfoBase struct {
+	// IP子网名称
+	Network string `json:"network"`
+}
+
+type NetworkResourceInfo struct {
+	NetworkResourceInfoBase
+
+	// 二层网络ID
+	WireId string `json:"wire_id"`
+
+	WireResourceInfo
 }
 
 type NetworkCreateInput struct {
@@ -120,12 +155,10 @@ type NetworkCreateInput struct {
 
 type NetworkDetails struct {
 	apis.SharableVirtualResourceDetails
+	WireResourceInfo
 
-	CloudproviderInfo
 	SNetwork
 
-	// 二层网络名称
-	Wire string `json:"wire"`
 	// 是否是内网
 	Exit bool `json:"exit"`
 	// 端口数量
@@ -143,12 +176,6 @@ type NetworkDetails struct {
 	GroupVnics int `json:"group_vnics"`
 	// 预留IP数量
 	ReserveVnics int `json:"reserve_vnics"`
-	// 虚拟私有网络名称
-	Vpc string `json:"vpc"`
-	// 虚拟私有网络Id
-	VpcId string `json:"vpc_id"`
-	// 虚拟私有网络外部Id
-	VpcExtId string `json:"vpc_ext_id"`
 
 	// 路由信息
 	Routes    [][]string                 `json:"routes"`
@@ -218,14 +245,4 @@ type NetworkTryCreateNetworkInput struct {
 
 type NetworkSyncInput struct {
 	apis.Meta
-}
-
-type NetworkStatusInput struct {
-	apis.Meta
-
-	// description: network status
-	// required: true
-	// example: available
-	// enum: available,unavailable
-	Status string `json:"status"`
 }

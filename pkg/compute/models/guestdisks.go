@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGuestdiskManager struct {
@@ -109,28 +110,55 @@ func (joint *SGuestdisk) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (self *SGuestdisk) getExtraInfo(out api.GuestDiskDetails) api.GuestDiskDetails {
-	disk := self.GetDisk()
-	if storage := disk.GetStorage(); storage != nil {
-		out.StorageType = storage.StorageType
-		out.MediumType = storage.MediumType
-	}
-	out.DiskSize = disk.DiskSize
-	out.Status = disk.Status
-	out.DiskType = disk.DiskType
-	return out
+func (self *SGuestdisk) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestDiskDetails, error) {
+	return api.GuestDiskDetails{}, nil
 }
 
-func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GuestDiskDetails, error) {
-	var err error
-	out := api.GuestDiskDetails{}
-	out.ModelBaseDetails, err = self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SGuestdiskManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestDiskDetails {
+	rows := make([]api.GuestDiskDetails, len(objs))
+
+	guestRows := manager.SGuestJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	diskIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GuestDiskDetails{
+			GuestJointResourceDetails: guestRows[i],
+		}
+		diskIds[i] = objs[i].(*SGuestdisk).DiskId
 	}
-	out.Guest, out.Disk = db.JointModelExtra(self)
-	out.Server = out.Guest
-	return self.getExtraInfo(out), nil
+
+	disks := make(map[string]SDisk)
+	err := db.FetchStandaloneObjectsByIds(DiskManager, diskIds, &disks)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if disk, ok := disks[diskIds[i]]; ok {
+			rows[i].Disk = disk.Name
+			rows[i].DiskSize = disk.DiskSize
+			rows[i].DiskType = disk.DiskType
+			storage := disk.GetStorage()
+			if storage != nil {
+				rows[i].StorageType = storage.StorageType
+				rows[i].MediumType = storage.MediumType
+			}
+		}
+	}
+
+	return rows
 }
 
 func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) error {

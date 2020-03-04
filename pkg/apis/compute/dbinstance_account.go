@@ -80,7 +80,9 @@ type DBInstancePrivilege struct {
 }
 
 type DBInstanceAccountDetails struct {
-	apis.StandaloneResourceDetails
+	apis.StatusStandaloneResourceDetails
+	DBInstanceResourceInfo
+
 	SDBInstanceAccount
 
 	// 账号权限列表

@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SServiceManager struct {
@@ -108,19 +109,35 @@ func (service *SService) ValidateDeleteCondition(ctx context.Context) error {
 	return service.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (service *SService) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ServiceDetails, error) {
-	var err error
-	out := api.ServiceDetails{}
-	out.StandaloneResourceDetails, err = service.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SServiceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ServiceDetails {
+	rows := make([]api.ServiceDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ServiceDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		rows[i].EndpointCount, _ = objs[i].(*SService).GetEndpointCount()
 	}
-	return serviceExtra(service, out), nil
+
+	return rows
 }
 
-func serviceExtra(service *SService, out api.ServiceDetails) api.ServiceDetails {
-	out.EndpointCount, _ = service.GetEndpointCount()
-	return out
+func (service *SService) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ServiceDetails, error) {
+	return api.ServiceDetails{}, nil
 }
 
 func (service *SService) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -205,10 +222,42 @@ func (manager *SServiceManager) fetchServiceByType(typeStr string) (*SService, e
 }
 
 // 服务列表
-func (manager *SServiceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.RegionListInput) (*sqlchemy.SQuery, error) {
+func (manager *SServiceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SServiceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.RegionListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SServiceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

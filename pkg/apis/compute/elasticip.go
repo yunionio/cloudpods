@@ -70,9 +70,10 @@ type SElasticipCreateInput struct {
 
 type ElasticipDetails struct {
 	apis.VirtualResourceDetails
-	SElasticip
+	ManagedResourceInfo
+	CloudregionResourceInfo
 
-	CloudproviderInfo
+	SElasticip
 
 	// 绑定资源名称
 	AssociateName string `json:"associate_name"`

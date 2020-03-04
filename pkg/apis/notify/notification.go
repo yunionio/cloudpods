@@ -21,7 +21,7 @@ import (
 )
 
 type NotificationDetails struct {
-	apis.ModelBaseDetails
+	apis.ResourceBaseDetails
 
 	Id   string `json:"id"`
 	Name string `json:"name"`

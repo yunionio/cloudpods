@@ -32,10 +32,6 @@ type ModelBaseDetails struct {
 	UpdateFailReason string `json:"update_fail_reason"`
 }
 
-type JoinModelBaseDetails struct {
-	ModelBaseDetails
-}
-
 type ModelBaseShortDescDetail struct {
 	ResName string `json:"res_name"`
 }
@@ -51,6 +47,10 @@ type SharableVirtualResourceDetails struct {
 	SharedProjects []SharedProject `json:"shared_projects"`
 }
 
+type AdminSharableVirtualResourceDetails struct {
+	SharableVirtualResourceDetails
+}
+
 type StandaloneResourceShortDescDetail struct {
 	ModelBaseShortDescDetail
 
@@ -58,10 +58,70 @@ type StandaloneResourceShortDescDetail struct {
 	Name string `json:"name"`
 }
 
+type EnabledStatusDomainLevelResourceDetails struct {
+	StatusDomainLevelResourceDetails
+}
+
+type StatusDomainLevelResourceDetails struct {
+	DomainLevelResourceDetails
+}
+
+type DomainLevelResourceDetails struct {
+	StandaloneResourceDetails
+
+	DomainizedResourceInfo
+}
+
 type VirtualResourceDetails struct {
+	StatusStandaloneResourceDetails
+
+	ProjectizedResourceInfo
+}
+
+type VirtualJointResourceBaseDetails struct {
+	JointResourceBaseDetails
+}
+
+type JointResourceBaseDetails struct {
+	ResourceBaseDetails
+}
+
+type ResourceBaseDetails struct {
+	ModelBaseDetails
+}
+
+type EnabledStatusStandaloneResourceDetails struct {
+	StatusStandaloneResourceDetails
+}
+
+type StatusStandaloneResourceDetails struct {
 	StandaloneResourceDetails
 }
 
 type StandaloneResourceDetails struct {
-	ModelBaseDetails
+	ResourceBaseDetails
+
+	// 标签
+	Metadata map[string]string `json:"metadata"`
+}
+
+type DomainizedResourceInfo struct {
+	// 资源归属项目的域名称
+	ProjectDomain string `json:"project_domain"`
+}
+
+type ProjectizedResourceInfo struct {
+	DomainizedResourceInfo
+
+	// 资源归属项目的名称
+	// alias:project
+	Project string `json:"tenant"`
+
+	// 资源归属项目的ID(向后兼容别名）
+	// Deprecated
+	TenantId string `json:"project_id"`
+
+	// 资源归属项目的名称（向后兼容别名）
+	// Deprecated
+	Tenant string `json:"project"`
 }

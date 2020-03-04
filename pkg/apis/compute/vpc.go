@@ -17,9 +17,12 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type VpcDetails struct {
-	apis.StandaloneResourceDetails
 	SVpc
-	CloudproviderInfo
+
+	apis.EnabledStatusStandaloneResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
+	GlobalVpcResourceInfo
 
 	// 二层网络数量
 	// example: 1
@@ -33,4 +36,22 @@ type VpcDetails struct {
 	// NAT网关个数
 	// example: 0
 	NatgatewayCount int `json:"natgateway_count"`
+}
+
+type VpcResourceInfo struct {
+	// Vpc Name
+	Vpc string `json:"vpc"`
+
+	// VPC外部Id
+	VpcExtId string `json:"vpc_ext_id"`
+
+	// VPC归属区域ID
+	CloudregionId string `json:"cloudregion_id"`
+
+	CloudregionResourceInfo
+
+	// VPC归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
 }

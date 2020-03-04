@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCachedimageManager struct {
@@ -83,26 +84,6 @@ type SCachedimage struct {
 	// 镜像类型, system: 公有云镜像, customized: 自定义镜像
 	// example: system
 	ImageType string `width:"16" default:"customized" list:"user"`
-}
-
-func (self *SCachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SCachedimageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SCachedimage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SCachedimage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SCachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
@@ -160,6 +141,21 @@ func (self *SCachedimage) GetStatus() string {
 
 func (self *SCachedimage) GetOSType() string {
 	osType, _ := self.Info.GetString("properties", "os_type")
+	return osType
+}
+
+func (self *SCachedimage) GetOSDistribution() string {
+	osType, _ := self.Info.GetString("properties", "os_distribution")
+	return osType
+}
+
+func (self *SCachedimage) GetOSVersion() string {
+	osType, _ := self.Info.GetString("properties", "os_version")
+	return osType
+}
+
+func (self *SCachedimage) GetHypervisor() string {
+	osType, _ := self.Info.GetString("properties", "hypervisor")
 	return osType
 }
 
@@ -307,23 +303,32 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 }
 
 func (self *SCachedimage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CachedimageDetails, error) {
-	var err error
-	out := api.CachedimageDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return self.getMoreDetails(out), nil
+	return api.CachedimageDetails{}, nil
 }
 
-func (self *SCachedimage) getMoreDetails(out api.CachedimageDetails) api.CachedimageDetails {
-	out.Status = self.GetStatus()
-	properties, _ := self.Info.Get("properties")
-	if properties != nil {
-		jsonutils.Update(&out, properties)
+func (manager *SCachedimageManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CachedimageDetails {
+	rows := make([]api.CachedimageDetails, len(objs))
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		ci := objs[i].(*SCachedimage)
+		rows[i] = api.CachedimageDetails{
+			StandaloneResourceDetails: stdRows[i],
+			Status:                    ci.GetStatus(),
+			OsType:                    ci.GetOSType(),
+			OsDistribution:            ci.GetOSDistribution(),
+			OsVersion:                 ci.GetOSVersion(),
+			Hypervisor:                ci.GetHypervisor(),
+		}
+		rows[i].CachedCount, _ = ci.getStoragecacheCount()
 	}
-	out.CachedCount, _ = self.getStoragecacheCount()
-	return out
+	return rows
 }
 
 func (self *SCachedimage) AllowPerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -610,7 +615,12 @@ func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 }
 
 // 缓存镜像列表
-func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CachedimageListInput) (*sqlchemy.SQuery, error) {
+func (manager *SCachedimageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedimageListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
 
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "id", func() *sqlchemy.SQuery {
@@ -665,4 +675,31 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 	}
 
 	return q, nil
+}
+
+func (manager *SCachedimageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCachedimageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

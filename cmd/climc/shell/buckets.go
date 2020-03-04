@@ -32,11 +32,21 @@ import (
 func init() {
 	type BucketListOptions struct {
 		options.BaseListOptions
+		DistinctField string `help:"query specified distinct field"`
 	}
 	R(&BucketListOptions{}, "bucket-list", "List all buckets", func(s *mcclient.ClientSession, args *BucketListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
+		}
+		if len(args.DistinctField) > 0 {
+			params.Add(jsonutils.NewString(args.DistinctField), "extra_field")
+			result, err := modules.Buckets.Get(s, "distinct-field", params)
+			if err != nil {
+				return err
+			}
+			fmt.Println(result)
+			return nil
 		}
 		result, err := modules.Buckets.List(s, params)
 		if err != nil {

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	computeapis "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -33,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -47,14 +49,27 @@ type SGuestTemplateManager struct {
 type SGuestTemplate struct {
 	db.SSharableVirtualResourceBase
 
-	VcpuCount  int    `nullable:"false" default:"1" create:"optional"`
-	VmemSize   int    `nullable:"false" create:"optional"`
-	OsType     string `width:"36" charset:"ascii" nullable:"true" create:"optional"`
-	ImageType  string `width:"10" charset:"ascii" nullabel:"true" default:"normal" create:"optional"`
-	ImageId    string `width:"128" charset:"ascii" create:"optional"`
-	Hypervisor string `width:"16" charset:"ascii" default:"kvm" create:"optional"`
+	// 虚拟机CPU数量
+	VcpuCount int `nullable:"false" default:"1" create:"optional" json:"vcpu_count"`
 
-	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional"`
+	// 虚拟机内存大小（MB）
+	VmemSize int `nullable:"false" create:"optional" json:"vmem_size"`
+
+	// 虚拟机操作系统类型
+	// pattern:Linux|Windows|VMWare
+	OsType string `width:"36" charset:"ascii" nullable:"true" create:"optional" json:"os_type"`
+
+	// 镜像类型
+	ImageType string `width:"10" charset:"ascii" nullabel:"true" default:"normal" create:"optional" json:"image_type"`
+
+	// 镜像ID
+	ImageId string `width:"128" charset:"ascii" create:"optional" json:"image_id"`
+
+	// 虚拟机技术
+	Hypervisor string `width:"16" charset:"ascii" default:"kvm" create:"optional" json:"hypervisor"`
+
+	// 其他配置信息
+	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional" json:"content"`
 }
 
 var GuestTemplateManager *SGuestTemplateManager
@@ -177,15 +192,34 @@ func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mccli
 	return gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (gt *SGuestTemplate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, isList bool) (computeapis.GuesttemplateDetails, error) {
-	var err error
-	out := computeapis.GuesttemplateDetails{}
-	out.SharableVirtualResourceDetails, err = gt.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SGuestTemplateManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []computeapis.GuesttemplateDetails {
+	rows := make([]computeapis.GuesttemplateDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = computeapis.GuesttemplateDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+		}
+		rows[i], _ = objs[i].(*SGuestTemplate).getMoreDetails(ctx, userCred, rows[i])
 	}
-	return gt.getMoreDetails(ctx, userCred, out)
+
+	return rows
+}
+
+func (gt *SGuestTemplate) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (computeapis.GuesttemplateDetails, error) {
+	return computeapis.GuesttemplateDetails{}, nil
 }
 
 func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
@@ -331,7 +365,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 }
 
 func (gt *SGuestTemplate) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	query jsonutils.JSONObject, data apis.PerformProjectPublicInput) (jsonutils.JSONObject, error) {
 
 	// image, network, secgroup, instancegroup
 	input, err := cmdline.FetchServerCreateInputByJSON(gt.Content)
@@ -351,7 +385,7 @@ func (gt *SGuestTemplate) PerformPublic(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	targetScopeStr, _ := data.GetString("scope")
+	targetScopeStr := data.Scope
 	targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
 
 	// check if secgroup is public
@@ -443,10 +477,43 @@ func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 // 主机模板列表
-func (manager *SGuestTemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input computeapis.GuestTemplateListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
+func (manager *SGuestTemplateManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input computeapis.GuestTemplateListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SGuestTemplateManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input computeapis.GuestTemplateListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestTemplateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

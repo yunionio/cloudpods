@@ -18,13 +18,16 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDomainizedResourceBaseManager struct {
@@ -63,4 +66,86 @@ func ValidateCreateDomainId(domainId string) error {
 		return httperrors.NewForbiddenError("project in non-default domain is prohibited")
 	}
 	return nil
+}
+
+func (manager *SDomainizedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "domain":
+		tenantCacheQuery := TenantCacheManager.GetDomainQuery("name", "id").SubQuery()
+		q = q.AppendField(tenantCacheQuery.Field("name", "domain")).Distinct()
+		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("domain_id"), tenantCacheQuery.Field("id")))
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SDomainizedResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.DomainizedResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	if len(query.ProjectDomains) > 0 {
+		tenants := TenantCacheManager.GetDomainQuery().SubQuery()
+		subq := tenants.Query(tenants.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.In(tenants.Field("id"), query.ProjectDomains),
+			sqlchemy.In(tenants.Field("name"), query.ProjectDomains),
+		)).SubQuery()
+		q = q.In("domain_id", subq)
+	}
+	return q, nil
+}
+
+func (manager *SDomainizedResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.DomainizedResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	subq := TenantCacheManager.GetDomainQuery("id", "name").SubQuery()
+	if NeedOrderQuery([]string{query.OrderByDomain}) {
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("domain_id"), subq.Field("id")))
+		q = OrderByFields(q, []string{query.OrderByDomain}, []sqlchemy.IQueryField{subq.Field("name")})
+		return q, nil
+	}
+	return q, nil
+}
+
+func (manager *SDomainizedResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.DomainizedResourceInfo {
+	ret := make([]apis.DomainizedResourceInfo, len(objs))
+	for i := range objs {
+		ret[i] = apis.DomainizedResourceInfo{}
+	}
+	if len(fields) == 0 || fields.Contains("project_domain") {
+		domainIds := stringutils2.SSortedStrings{}
+		for i := range objs {
+			var base *SDomainizedResourceBase
+			reflectutils.FindAnonymouStructPointer(objs[i], &base)
+			if base != nil && len(base.DomainId) > 0 {
+				domainIds = stringutils2.Append(domainIds, base.DomainId)
+			}
+		}
+		domains := FetchProjects(domainIds, true)
+		if domains != nil {
+			for i := range objs {
+				var base *SDomainizedResourceBase
+				reflectutils.FindAnonymouStructPointer(objs[i], &base)
+				if base != nil && len(base.DomainId) > 0 {
+					if proj, ok := domains[base.DomainId]; ok {
+						if len(fields) == 0 || fields.Contains("project_domain") {
+							ret[i].ProjectDomain = proj.Name
+						}
+					}
+				}
+			}
+		}
+	}
+	return ret
 }

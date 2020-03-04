@@ -73,10 +73,11 @@ type HostListInput struct {
 }
 
 type HostDetails struct {
-	apis.StandaloneResourceDetails
-	SHost
+	apis.EnabledStatusStandaloneResourceDetails
+	ManagedResourceInfo
+	ZoneResourceInfo
 
-	CloudproviderInfo
+	SHost
 
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 
@@ -123,4 +124,60 @@ type HostDetails struct {
 
 	// 标签
 	Metadata map[string]string `json:"metadata"`
+}
+
+type HostResourceInfo struct {
+	// 归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
+
+	// 归属可用区ID
+	ZoneId string `json:"zone_id"`
+
+	ZoneResourceInfo
+
+	// 宿主机名称
+	Host string `json:"host"`
+
+	// 宿主机序列号
+	HostSN string `json:"host_sn"`
+
+	// 宿主机状态
+	HostStatus string `json:"host_status"`
+
+	// 宿主机服务状态`
+	HostServiceStatus string `json:"host_service_status"`
+
+	// 宿主机类型
+	HostType string `json:"host_type"`
+}
+
+type HostFilterListInput struct {
+	ZonalFilterListInput
+	ManagedResourceListInput
+
+	HostFilterListInputBase
+}
+
+type HostFilterListInputBase struct {
+	HostResourceInput
+
+	// 以宿主机序列号过滤
+	HostSN string `json:"host_sn"`
+
+	// 以宿主机名称排序
+	OrderByHost string `json:"order_by_host"`
+
+	// 以宿主机序列号名称排序
+	OrderByHostSN string `json:"order_by_host_sn"`
+}
+
+type HostResourceInput struct {
+	// 宿主机或物理机（ID或Name）
+	Host string `json:"host"`
+	// swagger:ignore
+	// Deprecated
+	// filter by host_id
+	HostId string `json:"host_id" deprecated-by:"host"`
 }

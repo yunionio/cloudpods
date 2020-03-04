@@ -19,4 +19,10 @@ import "yunion.io/x/onecloud/pkg/apis"
 type EndpointDetails struct {
 	apis.StandaloneResourceDetails
 	SEndpoint
+
+	// 服务名称,例如keystone, glance, region等
+	ServiceName string `json:"service_name"`
+
+	// 服务类型,例如identity, image, compute等
+	ServiceType string `json:"service_type"`
 }

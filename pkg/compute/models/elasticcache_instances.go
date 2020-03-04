@@ -44,10 +44,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SElasticcacheManager struct {
 	db.SVirtualResourceBaseManager
+	SVpcResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var ElasticcacheManager *SElasticcacheManager
@@ -68,36 +71,77 @@ type SElasticcache struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	SBillingResourceBase
-	SManagedResourceBase
 	SDeletePreventableResourceBase
+	SVpcResourceBase
+	SZoneResourceBase
 
-	SCloudregionResourceBase
-	SZoneResourceBase        // 主可用区.
-	SlaveZones        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"` //  备可用区
+	// 备可用区
+	SlaveZones string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"slave_zones"`
 
-	InstanceType  string `width:"96" charset:"ascii" nullable:"true" list:"user" create:"optional"`  // redis.master.micro.default
-	CapacityMB    int    `nullable:"false" list:"user" create:"optional"`                            //  1024
-	LocalCategory string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 对应Sku local_category
-	NodeType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
-	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // Redis | Memcache
-	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"` // 4.0 5.0
+	// 实例规格
+	// example: redis.master.micro.default
+	InstanceType string `width:"96" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"instance_type"`
 
-	VpcId           string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"` // CLASSIC（经典网络）  VPC（专有网络）
-	NetworkId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	SecurityGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	// 容量
+	// example: 1024
+	CapacityMB int `nullable:"false" list:"user" create:"optional" json:"capacity_mb"`
 
-	PrivateDNS         string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"` //  内网DNS
-	PrivateIpAddr      string `width:"17" charset:"ascii" list:"user" create:"optional"`                  //  内网IP地址
-	PrivateConnectPort int    `nullable:"true" list:"user" create:"optional"`                             // 内网访问端口
-	PublicDNS          string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	PublicIpAddr       string `width:"17" charset:"ascii" list:"user" create:"optional"` //
-	PublicConnectPort  int    `nullable:"true" list:"user" create:"optional"`            // 外网访问端口
+	// 对应Sku
+	LocalCategory string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"local_category"`
 
-	MaintainStartTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional"` // HH:mmZ eg. 02:00Z
-	MaintainEndTime   string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	// 类型
+	// single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
+	NodeType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"node_type"`
 
-	AuthMode string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional"` // 访问密码？ on （开启密码）|off （免密码访问）
+	// 后端存储引擎
+	// Redis | Memcache
+	// example: redis
+	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" json:"engine"`
+
+	// 后端存储引擎版本
+	// example: 4.0
+	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" json:"engine_version"`
+
+	// VpcId           string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+
+	// 网络类型, CLASSIC（经典网络）  VPC（专有网络）
+	// example: CLASSIC
+	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"network_type"`
+
+	// 所属网络ID
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"network_id"`
+
+	// 安全组
+	SecurityGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"security_group_id"`
+
+	//  内网DNS
+	PrivateDNS string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"private_dns"`
+
+	//  内网IP地址
+	PrivateIpAddr string `width:"17" charset:"ascii" list:"user" create:"optional" json:"private_ip_addr"`
+
+	// 内网访问端口
+	PrivateConnectPort int `nullable:"true" list:"user" create:"optional" json:"private_connect_port"`
+
+	// 公网DNS
+	PublicDNS string `width:"256" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"public_dns"`
+
+	// 公网IP地址
+	PublicIpAddr string `width:"17" charset:"ascii" list:"user" create:"optional" json:"public_ip_addr"`
+
+	// 外网访问端口
+	PublicConnectPort int `nullable:"true" list:"user" create:"optional" json:"public_connect_port"`
+
+	// 维护开始时间，格式为HH:mmZ
+	// example: 02:00Z
+	MaintainStartTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_start_time"`
+
+	// 维护结束时间
+	MaintainEndTime string `width:"8" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"maintain_end_time"`
+
+	// 访问密码？ on （开启密码）|off （免密码访问）
+	AuthMode string `width:"8" charset:"ascii" nullable:"false" list:"user" create:"optional" json:"auth_mode"`
+
 	// AutoRenew // 自动续费
 	// AutoRenewPeriod // 自动续费周期
 }
@@ -140,38 +184,55 @@ func elasticcacheSubResourceFetchOwner(q *sqlchemy.SQuery, userCred mcclient.IId
 	return q
 }
 
-func (self *SElasticcache) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SElasticcache) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	zone := self.GetZone()
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SElasticcache) updateExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, out api.ElasticcacheDetails) api.ElasticcacheDetails {
-	out.CloudproviderInfo = self.getCloudProviderInfo()
-
-	vpc, err := VpcManager.FetchById(self.VpcId)
-	if err == nil {
-		out.Vpc = vpc.GetName()
-	}
-
-	network, err := NetworkManager.FetchById(self.NetworkId)
-	if err == nil {
-		out.Network = network.GetName()
-	}
-
-	return out
+func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheDetails, error) {
+	return api.ElasticcacheDetails{}, nil
 }
 
-func (self *SElasticcache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheDetails, error) {
-	var err error
-	out := api.ElasticcacheDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SElasticcacheManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheDetails {
+	rows := make([]api.ElasticcacheDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	netIds := make([]string, len(objs))
+	for i := range rows {
+		rows[i] = api.ElasticcacheDetails{
+			VirtualResourceDetails: virtRows[i],
+			VpcResourceInfo:        vpcRows[i],
+			ZoneResourceInfoBase:   zoneRows[i].ZoneResourceInfoBase,
+		}
+		netIds[i] = objs[i].(*SElasticcache).NetworkId
 	}
 
-	return self.updateExtraDetails(ctx, userCred, out), nil
+	networks := make(map[string]SNetwork)
+	err := db.FetchStandaloneObjectsByIds(NetworkManager, netIds, &networks)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if net, ok := networks[netIds[i]]; ok {
+			rows[i].Network = net.Name
+		}
+	}
+
+	return rows
 }
 
 func (self *SElasticcache) GetElasticcacheParameters() ([]SElasticcacheParameter, error) {
@@ -242,25 +303,76 @@ func (manager *SElasticcacheManager) GetOwnerIdByElasticcacheId(elasticcacheId s
 }
 
 // 列出弹性缓存（redis等）
-func (manager *SElasticcacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+func (manager *SElasticcacheManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticcacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+	zoneQuery := api.ZonalFilterListInput{
+		ZonalFilterListBase: query.ZonalFilterListBase,
+	}
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, zoneQuery)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
+
 	return q, nil
+}
+
+func (manager *SElasticcacheManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticcacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+	zoneQuery := api.ZonalFilterListInput{
+		ZonalFilterListBase: query.ZonalFilterListBase,
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, zoneQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SElasticcacheManager) SyncElasticcaches(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, region *SCloudregion, cloudElasticcaches []cloudprovider.ICloudElasticcache) ([]SElasticcache, []cloudprovider.ICloudElasticcache, compare.SyncResult) {
@@ -376,8 +488,8 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	}
 	instance.Name = newName
 	instance.ExternalId = extInstance.GetGlobalId()
-	instance.CloudregionId = region.Id
-	instance.ManagerId = provider.Id
+	// instance.CloudregionId = region.Id
+	// instance.ManagerId = provider.Id
 	instance.IsEmulated = extInstance.IsEmulated()
 	instance.Status = extInstance.GetStatus()
 
@@ -442,7 +554,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 		return nil, errors.Wrapf(err, "newFromCloudElasticcache.Insert")
 	}
 
-	SyncCloudProject(userCred, &instance, ownerId, extInstance, instance.ManagerId)
+	SyncCloudProject(userCred, &instance, ownerId, extInstance, provider.Id)
 	db.OpsLog.LogEvent(&instance, db.ACT_CREATE, instance.GetShortDesc(ctx), userCred)
 
 	return &instance, nil
@@ -477,7 +589,7 @@ func (manager *SElasticcacheManager) ValidateCreateData(ctx context.Context, use
 		if err != nil {
 			return nil, fmt.Errorf("getting network failed")
 		}
-		region = network.(*SNetwork).getRegion()
+		region = network.(*SNetwork).GetRegion()
 	}
 
 	if region == nil {
@@ -524,7 +636,7 @@ func (self *SElasticcache) StartElasticcacheCreateTask(ctx context.Context, user
 	return nil
 }
 
-func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
+/*func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", self.Name, err)
@@ -534,7 +646,7 @@ func (self *SElasticcache) GetIRegion() (cloudprovider.ICloudRegion, error) {
 		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
 	}
 	return provider.GetIRegionById(region.ExternalId)
-}
+}*/
 
 func (self *SElasticcache) GetCreateAliyunElasticcacheParams(data *jsonutils.JSONDict) (*cloudprovider.SCloudElasticCacheInput, error) {
 	input := &cloudprovider.SCloudElasticCacheInput{}
@@ -698,7 +810,7 @@ func (self *SElasticcache) GetCreateHuaweiElasticcacheParams(data *jsonutils.JSO
 
 	// fill security group here
 	if len(self.SecurityGroupId) > 0 {
-		sgCache, err := SecurityGroupCacheManager.GetSecgroupCache(context.Background(), nil, self.SecurityGroupId, self.VpcId, self.CloudregionId, self.ManagerId)
+		sgCache, err := SecurityGroupCacheManager.GetSecgroupCache(context.Background(), nil, self.SecurityGroupId, self.VpcId, self.GetRegion().Id, self.GetCloudprovider().Id)
 		if err != nil {
 			return nil, errors.Wrap(err, "elasticcache.GetCreateHuaweiElasticcacheParams.SecurityGroup")
 		}
@@ -786,8 +898,9 @@ func (self *SElasticcache) ValidatorChangeSpecData(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("provider mismatch: %s instance can't use %s sku", self.GetProviderName(), sku.Provider)
 	}
 
-	if sku.CloudregionId != self.CloudregionId {
-		return nil, httperrors.NewInputParameterError("region mismatch: instance region %s, sku region %s", self.CloudregionId, sku.CloudregionId)
+	region := self.GetRegion()
+	if sku.CloudregionId != region.Id {
+		return nil, httperrors.NewInputParameterError("region mismatch: instance region %s, sku region %s", region.Id, sku.CloudregionId)
 	}
 
 	if sku.ZoneId != "" && sku.ZoneId != self.ZoneId {
@@ -1254,9 +1367,11 @@ func (man *SElasticcacheManager) TotalCount(
 	providers []string, brands []string, cloudEnv string,
 ) (int, error) {
 	q := man.Query()
+	vpcs := VpcManager.Query().SubQuery()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, vpcs.Field("cloudregion_id"), nil, vpcs.Field("manager_id"))
 	return q.CountWithError()
 }
 

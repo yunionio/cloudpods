@@ -123,8 +123,27 @@ func (manager *SModelBaseManager) ValidateListConditions(ctx context.Context, us
 	return query, nil
 }
 
-func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.ModelBaseListInput) (*sqlchemy.SQuery, error) {
+func (manager *SModelBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.ModelBaseListInput,
+) (*sqlchemy.SQuery, error) {
 	return q, nil
+}
+
+func (manager *SModelBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.ModelBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	return q, nil
+}
+
+func (manager *SModelBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	// no field match
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SModelBaseManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*CustomizeListFilters, error) {
@@ -227,10 +246,6 @@ func (manager *SModelBaseManager) ListItemExportKeys(ctx context.Context, q *sql
 	return q, nil
 }
 
-func (manager *SModelBaseManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	return q, nil
-}
-
 func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
 	return jsonutils.NewDict()
 }
@@ -266,10 +281,21 @@ func (manager *SModelBaseManager) GetSkipLog(ctx context.Context, userCred mccli
 	return false
 }
 
-func (manager *SModelBaseManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	ret := make([]*jsonutils.JSONDict, len(objs))
+func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ModelBaseDetails, error) {
+	return apis.ModelBaseDetails{}, nil
+}
+
+func (manager *SModelBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.ModelBaseDetails {
+	ret := make([]apis.ModelBaseDetails, len(objs))
 	for i := range objs {
-		ret[i] = jsonutils.NewDict()
+		ret[i] = getModelExtraDetails(objs[i].(IModel), ctx)
 	}
 	return ret
 }
@@ -288,10 +314,6 @@ func (manager *SModelBaseManager) NamespaceScope() rbacutils.TRbacScope {
 
 func (manager *SModelBaseManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
-}
-
-func (manager *SModelBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	return q, httperrors.NewBadRequestError("unsupport field %s", field)
 }
 
 func (manager *SModelBaseManager) AllowGetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -361,10 +383,10 @@ func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, 
 		fe, _ := efs[i].GetString()
 		nqp, err := im.QueryDistinctExtraField(&nq, fe)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		ef, err := nqp.AllStringMap()
-		if err == sql.ErrNoRows {
+		if errors.Cause(err) == sql.ErrNoRows {
 			continue
 		}
 		efa := make([]string, len(ef))
@@ -454,10 +476,6 @@ func (model *SModelBase) GetShortDescV2(ctx context.Context) *apis.ModelBaseShor
 // get hooks
 func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
-}
-
-func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ModelBaseDetails, error) {
-	return getModelExtraDetails(model.GetIModel(), ctx), nil
 }
 
 func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {

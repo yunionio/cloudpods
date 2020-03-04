@@ -31,12 +31,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SExternalProjectManager struct {
 	db.SStandaloneResourceBaseManager
-
 	db.SProjectizedResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var ExternalProjectManager *SExternalProjectManager
@@ -55,11 +56,9 @@ func init() {
 
 type SExternalProject struct {
 	db.SStandaloneResourceBase
-	SManagedResourceBase
-
 	db.SProjectizedResourceBase
-
 	db.SExternalizedResourceBase
+	SManagedResourceBase
 }
 
 func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -79,29 +78,43 @@ func (manager *SExternalProjectManager) getProjectsByProviderId(providerId strin
 	return projects, nil
 }
 
-func (self *SExternalProject) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SExternalProject) getCloudProviderInfo() SCloudProviderInfo {
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(nil, nil, provider)
 }
 
-func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out api.ExternalProjectDetails) api.ExternalProjectDetails {
-	out.CloudproviderInfo = self.getCloudProviderInfo()
-
-	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
-	if err == nil {
-		out.Tenant = tenant.GetName()
-	}
-	return out
+func (self *SExternalProject) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ExternalProjectDetails, error) {
+	return api.ExternalProjectDetails{}, nil
 }
 
-func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ExternalProjectDetails, error) {
-	var err error
-	out := api.ExternalProjectDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SExternalProjectManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ExternalProjectDetails {
+	rows := make([]api.ExternalProjectDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ExternalProjectDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:       manRows[i],
+			ProjectizedResourceInfo:   projRows[i],
+		}
 	}
-	return self.getMoreDetails(ctx, userCred, query, out), nil
+
+	return rows
 }
 
 func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {
@@ -272,17 +285,69 @@ func (self *SExternalProject) PerformChangeProject(ctx context.Context, userCred
 }
 
 // 云平台导入项目列表
-func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ExternalProjectListInput) (*sqlchemy.SQuery, error) {
+func (manager *SExternalProjectManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ExternalProjectListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SProjectizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.ListItemFilter")
+	}
 
 	return q, nil
+}
+
+func (manager *SExternalProjectManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ExternalProjectListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SProjectizedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ProjectizedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SProjectizedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SExternalProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SProjectizedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -48,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 var (
@@ -56,6 +58,7 @@ var (
 
 type SNetworkManager struct {
 	db.SSharableVirtualResourceBaseManager
+	SWireResourceBaseManager
 }
 
 var NetworkManager *SNetworkManager
@@ -75,6 +78,7 @@ func init() {
 type SNetwork struct {
 	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
+	SWireResourceBase
 
 	IfnameHint string `width:"9" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
@@ -104,7 +108,7 @@ type SNetwork struct {
 	VlanId int `nullable:"false" default:"1" list:"user" update:"user" create:"optional"`
 
 	// 二层网络Id
-	WireId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// WireId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	// 服务器类型
 	// example: server
@@ -120,22 +124,6 @@ func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{WireManager},
 	}
-}
-
-func (self *SNetwork) GetWire() *SWire {
-	w, _ := WireManager.FetchById(self.WireId)
-	if w != nil {
-		return w.(*SWire)
-	}
-	return nil
-}
-
-func (self *SNetwork) GetVpc() *SVpc {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.getVpc()
-	}
-	return nil
 }
 
 func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -251,7 +239,7 @@ func (self *SNetwork) ValidateElbNetwork(ipAddr net.IP) (*SCloudregion, *SZone, 
 		return nil, nil, nil, nil, fmt.Errorf("getting wire failed")
 	}
 
-	vpc := wire.getVpc()
+	vpc := wire.GetVpc()
 	if vpc == nil {
 		return nil, nil, nil, nil, fmt.Errorf("getting vpc failed")
 	}
@@ -264,7 +252,7 @@ func (self *SNetwork) ValidateElbNetwork(ipAddr net.IP) (*SCloudregion, *SZone, 
 		}
 	}
 
-	region := wire.getRegion()
+	region := wire.GetRegion()
 	if region == nil {
 		return nil, nil, nil, nil, fmt.Errorf("getting region failed")
 	}
@@ -314,9 +302,9 @@ func (manager *SNetworkManager) NewClassicNetwork(wire *SWire) (*SNetwork, error
 		GuestIpEnd:   "255.255.255.255",
 		GuestIpMask:  0,
 		GuestGateway: "0.0.0.0",
-		WireId:       wire.Id,
 		ServerType:   api.NETWORK_TYPE_GUEST,
 	}
+	network.WireId = wire.Id
 	network.SetModelManager(manager, &network)
 	network.Name = fmt.Sprintf("emulate network for classic network with wire %s", wire.Id)
 	network.ExternalId = wire.Id
@@ -662,7 +650,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 }
 
 func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider) error {
-	vpc := self.GetWire().getVpc()
+	vpc := self.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
 		self.Status = extNet.GetStatus()
@@ -719,7 +707,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		return nil, err
 	}
 
-	vpc := wire.getVpc()
+	vpc := wire.GetVpc()
 	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
@@ -961,39 +949,11 @@ func IsExitNetworkInfo(netConfig *api.NetworkConfig) bool {
 	return false
 }
 
-func (self *SNetwork) getZone() *SZone {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.GetZone()
-	}
-	return nil
-}
-
-func (self *SNetwork) getVpc() *SVpc {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.getVpc()
-	}
-	return nil
-}
-
-func (self *SNetwork) getRegion() *SCloudregion {
-	wire := self.GetWire()
-	if wire != nil {
-		return wire.getRegion()
-	}
-	return nil
-}
-
 func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
 func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails, isList bool) (api.NetworkDetails, error) {
-	wire := self.GetWire()
-	if wire != nil {
-		out.Wire = wire.Name
-	}
 	out.Exit = false
 	if self.IsExitNetwork() {
 		out.Exit = true
@@ -1008,33 +968,42 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, out api.NetworkDetails
 	out.GroupVnics, _ = self.GetGroupNicsCount()
 	out.ReserveVnics, _ = self.GetReservedNicsCount()
 
-	vpc := self.getVpc()
-	if vpc != nil {
-		out.Vpc = vpc.Name
-		out.VpcId = vpc.Id
-		out.VpcExtId = vpc.ExternalId
-		out.CloudproviderInfo = vpc.getCloudProviderInfo()
-	}
-	if len(out.Zone) == 0 {
-		zone := self.getZone()
-		if zone != nil {
-			out.Zone = zone.Name
-			out.ZoneId = zone.Id
-		}
-	}
 	out.Routes = self.GetRoutes()
 	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
 	return out, nil
 }
 
-func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkDetails, error) {
-	var err error
-	out := api.NetworkDetails{}
-	out.SharableVirtualResourceDetails, err = self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SNetwork) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NetworkDetails, error) {
+	return api.NetworkDetails{}, nil
+}
+
+func (manager *SNetworkManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NetworkDetails {
+	rows := make([]api.NetworkDetails, len(objs))
+
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	wireRows := manager.SWireResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.NetworkDetails{
+			SharableVirtualResourceDetails: virtRows[i],
+			WireResourceInfo:               wireRows[i],
+		}
+		rows[i], _ = objs[i].(*SNetwork).getMoreDetails(ctx, rows[i], isList)
 	}
-	return self.getMoreDetails(ctx, out, isList)
+
+	return rows
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1210,7 +1179,7 @@ func (manager *SNetworkManager) validateEnsureWire(ctx context.Context, userCred
 		return
 	}
 	w = wObj.(*SWire)
-	v = w.getVpc()
+	v = w.GetVpc()
 	crObj, err := CloudregionManager.FetchById(v.CloudregionId)
 	if err != nil {
 		err = errors.Wrapf(err, "cloudregion %s", v.CloudregionId)
@@ -1646,8 +1615,8 @@ func (self *SNetwork) isManaged() bool {
 }
 
 func (self *SNetwork) isOneCloudVpcNetwork() bool {
-	vpc := self.getVpc()
-	region := self.getRegion()
+	vpc := self.GetVpc()
+	region := self.GetRegion()
 	if region.Provider == api.CLOUD_PROVIDER_ONECLOUD && vpc.Id != api.DEFAULT_VPC_ID {
 		return true
 	}
@@ -1674,92 +1643,23 @@ func parseIpToIntArray(ip string) ([]int, error) {
 }
 
 // IP子网列表
-func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.NetworkListInput) (*sqlchemy.SQuery, error) {
+func (manager *SNetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.NetworkListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-
-	q, err = managedResourceFilterByAccount(q, input.ManagedResourceListInput, "wire_id", func() *sqlchemy.SQuery {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		return subq
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SharableVirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	zoneList := input.ZoneList()
-	if len(zoneList) > 0 {
-		zq := ZoneManager.Query().SubQuery()
-		regions := CloudregionManager.Query().SubQuery()
-		zoneQ := zq.Query(zq.Field("id"), regions.Field("id"), regions.Field("provider")).
-			Join(regions, sqlchemy.Equals(zq.Field("cloudregion_id"), regions.Field("id"))).
-			Filter(
-				sqlchemy.OR(
-					sqlchemy.In(zq.Field("id"), zoneList),
-					sqlchemy.In(zq.Field("name"), zoneList),
-				),
-			)
-		rows, err := zoneQ.Rows()
-		if err != nil {
-			return nil, err
-		}
-
-		defer rows.Close()
-
-		regionIds := []string{}
-		zoneIds := []string{}
-		for rows.Next() {
-			var zoneId, regionId, provider sql.NullString
-			err = rows.Scan(&zoneId, &regionId, &provider)
-			if err != nil {
-				return nil, err
-			}
-			if len(provider.String) > 0 && utils.IsInStringArray(provider.String, api.REGIONAL_NETWORK_PROVIDERS) {
-				if !utils.IsInStringArray(regionId.String, regionIds) {
-					regionIds = append(regionIds, regionId.String)
-				}
-			} else {
-				zoneIds = append(zoneIds, zoneId.String)
-			}
-		}
-
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		sq := wires.Query(wires.Field("id")).
-			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-			Filter(
-				sqlchemy.OR(
-					sqlchemy.In(wires.Field("zone_id"), zoneIds),
-					sqlchemy.In(vpcs.Field("cloudregion_id"), regionIds),
-				),
-			)
-		q = q.In("wire_id", sq.SubQuery())
+	q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, input.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
 	}
-
-	vpcStr := input.Vpc
-	if len(vpcStr) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
-		if err != nil {
-			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
-		}
-		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
-	}
-
-	q, err = managedResourceFilterByRegion(q, input.RegionalFilterListInput, "wire_id", func() *sqlchemy.SQuery {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		sq := wires.Query(wires.Field("id")).
-			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		return sq
-	})
 
 	if input.Usable != nil && *input.Usable {
 		wires := WireManager.Query().SubQuery()
@@ -1824,29 +1724,37 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	return q, nil
 }
 
+func (manager *SNetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.NetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SharableVirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SWireResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
 func (manager *SNetworkManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
-	switch field {
-	case "account":
-		vpcs := VpcManager.Query().SubQuery()
-		wires := WireManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
-		q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
-		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		q = q.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
-		q.GroupBy(cloudaccounts.Field("name"))
-		q.AppendField(cloudaccounts.Field("name", "account"))
-	default:
-		return q, httperrors.NewBadRequestError("unsupport field %s", field)
+	q, err = manager.SWireResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
 	}
-
-	return q, nil
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SNetworkManager) InitializeData() error {
@@ -1906,7 +1814,7 @@ func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenC
 	vpc := self.GetVpc()
 	if vpc != nil && len(vpc.ExternalId) > 0 {
 		provider := vpc.GetCloudprovider()
-		if provider != nil && provider.Enabled {
+		if provider != nil && provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge network on enabled cloud provider")
 		}
 	}
@@ -2268,8 +2176,8 @@ func (network *SNetwork) ClearSchedDescCache() error {
 	return wire.clearHostSchedDescCache()
 }
 
-func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret, err := network.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	ret, err := network.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -2510,12 +2418,12 @@ func (net *SNetwork) StartNetworkSyncstatusTask(ctx context.Context, userCred mc
 	return nil
 }
 
-func (net *SNetwork) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (net *SNetwork) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
 	return net.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, net, "status")
 }
 
 // 更改IP子网状态
-func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input *api.NetworkStatusInput) (jsonutils.JSONObject, error) {
+func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	if len(input.Status) == 0 {
 		return nil, httperrors.NewMissingParameterError("status")
 	}
@@ -2526,5 +2434,5 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	if !utils.IsInStringArray(input.Status, []string{api.NETWORK_STATUS_AVAILABLE, api.NETWORK_STATUS_UNAVAILABLE}) {
 		return nil, httperrors.NewInputParameterError("invalid status %s", input.Status)
 	}
-	return net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, input.JSON(input))
+	return net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 }

@@ -291,7 +291,7 @@ func (provider SCloudprovider) GetExternalId() string {
 }
 
 func (provider *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
-	if !provider.Enabled {
+	if !provider.GetEnabled() {
 		return nil, errors.Error("Cloud provider is not enabled")
 	}
 	accessUrl := provider.getAccessUrl()

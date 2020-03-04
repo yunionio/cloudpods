@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type IDynamicResourceManager interface {
@@ -44,6 +45,7 @@ type IDynamicResource interface {
 
 type SDynamicschedtagManager struct {
 	db.SStandaloneResourceBaseManager
+	SSchedtagResourceBaseManager
 
 	StandaloneResourcesManager map[string]IDynamicResourceManager
 	VirtualResourcesManager    map[string]IDynamicResourceManager
@@ -99,31 +101,16 @@ func (man *SDynamicschedtagManager) InitializeData() error {
 //
 type SDynamicschedtag struct {
 	db.SStandaloneResourceBase
+	SSchedtagResourceBase
 
-	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
-	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
+	// 动态调度标间的匹配条件
+	// example: host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"
+	Condition string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
+
+	// 动态调度标签对应的调度标签
+	// SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
 	Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
-}
-
-func (self *SDynamicschedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDynamicschedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDynamicschedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) error {
@@ -183,36 +170,36 @@ func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (self *SDynamicschedtag) GetSchedtag() *SSchedtag {
-	return self.getSchedtag()
+func (self *SDynamicschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.DynamicschedtagDetails, error) {
+	return api.DynamicschedtagDetails{}, nil
 }
 
-func (self *SDynamicschedtag) getSchedtag() *SSchedtag {
-	obj, err := SchedtagManager.FetchById(self.SchedtagId)
-	if err != nil {
-		log.Errorf("fail to fetch sched tag by id %s", err)
-		return nil
-	}
-	return obj.(*SSchedtag)
-}
+func (manager *SDynamicschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DynamicschedtagDetails {
+	rows := make([]api.DynamicschedtagDetails, len(objs))
 
-func (self *SDynamicschedtag) getMoreColumns(out api.DynamicschedtagDetails) api.DynamicschedtagDetails {
-	schedtag := self.getSchedtag()
-	if schedtag != nil {
-		out.Schedtag = schedtag.GetName()
-		out.ResourceType = schedtag.ResourceType
-	}
-	return out
-}
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	tagRows := manager.SSchedtagResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
-func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DynamicschedtagDetails, error) {
-	var err error
-	out := api.DynamicschedtagDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	for i := range rows {
+		rows[i] = api.DynamicschedtagDetails{
+			StandaloneResourceDetails: stdRows[i],
+			SchedtagResourceInfo:      tagRows[i],
+		}
 	}
-	return self.getMoreColumns(out), nil
+
+	return rows
 }
 
 func (manager *SDynamicschedtagManager) GetEnabledDynamicSchedtagsByResource(resType string) []SDynamicschedtag {
@@ -303,10 +290,58 @@ func FetchDynamicResourceObject(man IDynamicResourceManager, userCred mcclient.T
 }
 
 // 动态调度标签列表
-func (manager *SDynamicschedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input api.DynamicschedtagListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
+func (manager *SDynamicschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.DynamicschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SSchedtagResourceBaseManager.ListItemFilter(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (manager *SDynamicschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input api.DynamicschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SSchedtagResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.OrderByExtraFields(")
+	}
+
+	return q, nil
+}
+
+func (manager *SDynamicschedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SSchedtagResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

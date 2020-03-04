@@ -16,10 +16,7 @@ package compute
 
 import "yunion.io/x/onecloud/pkg/apis"
 
-type CloudregionDetails struct {
-	apis.StandaloneResourceDetails
-	SCloudregion
-
+type SCloudregionUsage struct {
 	// 虚拟私有网络数量
 	// example: 2
 	VpcCount int `json:"vpc_count,allowempty"`
@@ -37,10 +34,21 @@ type CloudregionDetails struct {
 	GuestIncrementCount int `json:"guest_increment_count,allowempty"`
 }
 
-type CloudregionInfo struct {
+type CloudregionDetails struct {
+	apis.EnabledStatusStandaloneResourceDetails
+
+	SCloudregionUsage
+
+	SCloudregion
+}
+
+type CloudregionResourceInfo struct {
 	// 区域的名称
 	// example: Default
 	Region string `json:"region"`
+
+	// 区域的名称
+	Cloudregion string `json:"cloudregion"`
 
 	// 区域的Id
 	// example: default

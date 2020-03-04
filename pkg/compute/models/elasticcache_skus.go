@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -38,6 +37,8 @@ import (
 
 type SElasticcacheSkuManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SCloudregionResourceBaseManager
+	SZoneResourceBaseManager
 }
 
 var ElasticcacheSkuManager *SElasticcacheSkuManager
@@ -59,9 +60,10 @@ type SElasticcacheSku struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	SCloudregionResourceBase        // 区域
-	SZoneResourceBase               // 主可用区
-	SlaveZoneId              string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 备可用区
+	SCloudregionResourceBase // 区域
+	SZoneResourceBase        // 主可用区
+
+	SlaveZoneId string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 备可用区
 
 	InstanceSpec  string `width:"96" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	EngineArch    string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
@@ -98,10 +100,32 @@ func (self SElasticcacheSku) GetGlobalId() string {
 }
 
 func (self *SElasticcacheSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticcacheSkuDetails, error) {
-	var err error
-	out := api.ElasticcacheSkuDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	return out, err
+	return api.ElasticcacheSkuDetails{}, nil
+}
+
+func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticcacheSkuDetails {
+	rows := make([]api.ElasticcacheSkuDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ElasticcacheSkuDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			CloudregionResourceInfo:         regRows[i],
+			ZoneResourceInfoBase:            zoneRows[i].ZoneResourceInfoBase,
+		}
+	}
+
+	return rows
 }
 
 func (manager *SElasticcacheSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
@@ -110,7 +134,7 @@ func (manager *SElasticcacheSkuManager) GetSkuCountByRegion(regionId string) (in
 	return q.CountWithError()
 }
 
-func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+/*func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	regions := map[string]string{}
 	for i := range objs {
 		cloudregionId := objs[i].(*SElasticcacheSku).CloudregionId
@@ -169,13 +193,31 @@ func (manager *SElasticcacheSkuManager) FetchCustomizeColumns(ctx context.Contex
 	}
 
 	return ret
-}
+}*/
 
 // 弹性缓存套餐规格列表
-func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticcacheSkuListInput) (*sqlchemy.SQuery, error) {
+func (manager *SElasticcacheSkuManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticcacheSkuListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
+	zoneQuery := api.ZonalFilterListInput{
+		ZonalFilterListBase: query.ZonalFilterListBase,
+	}
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, zoneQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Usable != nil && *query.Usable {
@@ -193,11 +235,6 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 		}
 	}
 
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
-	}
-
 	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
@@ -210,11 +247,6 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 	}
 	q = listItemDomainFilter(q, query.Providers, query.ProjectDomain)
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
-	}
-
 	// 按区间查询内存, 避免0.75G这样的套餐不好过滤
 	memSizeMB := query.MemorySizeMb
 	if memSizeMB > 0 {
@@ -224,6 +256,49 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(ctx context.Context, q *s
 	}
 
 	return q, nil
+}
+
+func (manager *SElasticcacheSkuManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticcacheSkuListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SElasticcacheSkuManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 // 获取region下所有Available状态的sku id

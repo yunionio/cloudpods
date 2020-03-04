@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -92,7 +93,8 @@ type SCloudprovider struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 	// 云账号的密码信息，例如密码，access key secret等。该字段在数据库加密存储。Google需要存储秘钥证书,需要此字段比较长
 	Secret string `length:"0" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
-	// 该云账号在云平台的唯一账号ID
+
+	// 归属云账号ID
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"domain"`
@@ -103,33 +105,13 @@ type SCloudprovider struct {
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 }
 
-func (self *SCloudproviderManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SCloudproviderManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SCloudprovider) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SCloudprovider) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SCloudprovider) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	// allow delete cloudprovider if it is disabled
 	// account := self.GetCloudaccount()
 	// if account != nil && account.EnableAutoSync {
 	// 	return httperrors.NewInvalidStatusError("auto syncing is enabled on account")
 	// }
-	if self.Enabled {
+	if self.GetEnabled() {
 		return httperrors.NewInvalidStatusError("provider is enabled")
 	}
 	if self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
@@ -515,11 +497,11 @@ func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mccli
 }
 
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
 	}
 	account := self.GetCloudaccount()
-	if !account.Enabled {
+	if !account.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cloudaccount disabled")
 	}
 	if account.EnableAutoSync {
@@ -742,7 +724,7 @@ func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFa
 }
 
 func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Cloud provider is not enabled")
 	}
 
@@ -791,14 +773,14 @@ func (manager *SCloudproviderManager) IsProviderAccountEnabled(providerId string
 	if providerObj == nil {
 		return false
 	}
-	if !providerObj.Enabled {
+	if !providerObj.GetEnabled() {
 		return false
 	}
 	account := providerObj.GetCloudaccount()
 	if account == nil {
 		return false
 	}
-	return account.Enabled
+	return account.GetEnabled()
 }
 
 func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
@@ -812,52 +794,8 @@ func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId st
 	return providerObj.(*SCloudprovider)
 }
 
-type SCloudproviderUsage struct {
-	GuestCount        int
-	HostCount         int
-	VpcCount          int
-	StorageCount      int
-	StorageCacheCount int
-	EipCount          int
-	SnapshotCount     int
-	LoadbalancerCount int
-	ProjectCount      int
-	SyncRegionCount   int
-}
-
-func (usage *SCloudproviderUsage) isEmpty() bool {
-	if usage.HostCount > 0 {
-		return false
-	}
-	if usage.VpcCount > 0 {
-		return false
-	}
-	if usage.StorageCount > 0 {
-		return false
-	}
-	if usage.StorageCacheCount > 0 {
-		return false
-	}
-	if usage.EipCount > 0 {
-		return false
-	}
-	if usage.SnapshotCount > 0 {
-		return false
-	}
-	if usage.LoadbalancerCount > 0 {
-		return false
-	}
-	/*if usage.ProjectCount > 0 {
-		return false
-	}
-	if usage.SyncRegionCount > 0 {
-		return false
-	}*/
-	return true
-}
-
-func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
-	usage := SCloudproviderUsage{}
+func (self *SCloudprovider) getUsage() api.SCloudproviderUsage {
+	usage := api.SCloudproviderUsage{}
 
 	usage.GuestCount, _ = self.GetGuestCount()
 	usage.HostCount, _ = self.GetHostCount()
@@ -870,7 +808,7 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.ProjectCount, _ = self.getExternalProjectCount()
 	usage.SyncRegionCount, _ = self.getSyncRegionCount()
 
-	return &usage
+	return usage
 }
 
 func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
@@ -878,30 +816,57 @@ func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
 	return proj
 }
 
-func (self *SCloudprovider) getMoreDetails(ctx context.Context, out api.CloudproviderDetails) api.CloudproviderDetails {
-	jsonutils.Update(&out, self.getUsage())
-	account := self.GetCloudaccount()
-	if account != nil {
-		// 此字段不能删除，公有云日志同步需要这个字段
-		out.Brand = account.Brand
-		out.Cloudaccount = account.GetName()
-	}
-	out.SyncStatus2 = self.getSyncStatus2()
-	capabilities, _ := CloudproviderCapabilityManager.getCapabilities(self.Id)
-	if len(capabilities) > 0 {
-		out.Capabilities = capabilities
-	}
-	return out
+func (self *SCloudprovider) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CloudproviderDetails, error) {
+	return api.CloudproviderDetails{}, nil
 }
 
-func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudproviderDetails, error) {
-	var err error
-	out := api.CloudproviderDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SCloudproviderManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudproviderDetails {
+	rows := make([]api.CloudproviderDetails, len(objs))
+
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	projRows := manager.SProjectizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	accountIds := make([]string, len(objs))
+	for i := range rows {
+		provider := objs[i].(*SCloudprovider)
+		rows[i] = api.CloudproviderDetails{
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			ProjectizedResourceInfo:                projRows[i],
+			SCloudproviderUsage:                    provider.getUsage(),
+			SyncStatus2:                            provider.getSyncStatus2(),
+		}
+		capabilities, _ := CloudproviderCapabilityManager.getCapabilities(provider.Id)
+		if len(capabilities) > 0 {
+			rows[i].Capabilities = capabilities
+		}
 	}
-	return self.getMoreDetails(ctx, out), nil
+
+	accounts := make(map[string]SCloudaccount)
+	err := db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if account, ok := accounts[accountIds[i]]; ok {
+			rows[i].Cloudaccount = account.Name
+			rows[i].Brand = account.Brand
+		}
+	}
+
+	return rows
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {
@@ -982,7 +947,12 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 }
 
 // 云订阅列表
-func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CloudproviderListInput) (*sqlchemy.SQuery, error) {
+func (manager *SCloudproviderManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudproviderListInput,
+) (*sqlchemy.SQuery, error) {
 	accountStr := query.Cloudaccount
 	if len(accountStr) > 0 {
 		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
@@ -1030,6 +1000,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 	if err != nil {
 		return nil, err
 	}
+
 	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
@@ -1072,6 +1043,38 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 	}
 
 	return q, nil
+}
+
+func (manager *SCloudproviderManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudproviderListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCloudproviderManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	if field == "manager" {
+		q = q.AppendField(q.Field("name").Label("manager")).Distinct()
+		return q, nil
+	}
+
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, userCred mcclient.TokenCredential, reason string) error {
@@ -1163,7 +1166,7 @@ func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Con
 }
 
 func (self *SCloudprovider) IsAvailable() bool {
-	if !self.Enabled {
+	if !self.GetEnabled() {
 		return false
 	}
 	if !utils.IsInStringArray(self.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
@@ -1253,8 +1256,8 @@ func (self *SCloudprovider) ClearSchedDescCache() error {
 	return nil
 }
 
-func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,19 +1266,20 @@ func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient
 		allEnabled := true
 		providers := account.GetCloudproviders()
 		for i := range providers {
-			if !providers[i].Enabled {
+			if !providers[i].GetEnabled() {
 				allEnabled = false
+				break
 			}
 		}
-		if allEnabled && !account.Enabled {
-			return account.PerformEnable(ctx, userCred, nil, nil)
+		if allEnabled && !account.GetEnabled() {
+			return account.PerformEnable(ctx, userCred, nil, input)
 		}
 	}
 	return nil, nil
 }
 
-func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -1284,42 +1288,16 @@ func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclien
 		allDisable := true
 		providers := account.GetCloudproviders()
 		for i := range providers {
-			if providers[i].Enabled {
+			if providers[i].GetEnabled() {
 				allDisable = false
+				break
 			}
 		}
-		if allDisable && account.Enabled {
-			return account.PerformDisable(ctx, userCred, nil, nil)
+		if allDisable && account.GetEnabled() {
+			return account.PerformDisable(ctx, userCred, nil, input)
 		}
 	}
 	return nil, nil
-}
-
-func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
-	rows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	projectIds := stringutils2.SSortedStrings{}
-	for i := range objs {
-		idStr := objs[i].GetOwnerId().GetProjectId()
-		projectIds = stringutils2.Append(projectIds, idStr)
-	}
-	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
-		projects := db.FetchProjects(projectIds, false)
-		if projects != nil {
-			for i := range rows {
-				idStr := objs[i].GetOwnerId().GetProjectId()
-				if proj, ok := projects[idStr]; ok {
-					if len(fields) == 0 || fields.Contains("domain") {
-						rows[i].Add(jsonutils.NewString(proj.Domain), "domain")
-					}
-					if len(fields) == 0 || fields.Contains("tenant") {
-						rows[i].Add(jsonutils.NewString(proj.Name), "tenant")
-					}
-				}
-
-			}
-		}
-	}
-	return rows
 }
 
 func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {

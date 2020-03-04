@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCredentialManager struct {
@@ -166,14 +167,35 @@ func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (self *SCredential) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CredentialDetails, error) {
-	var err error
-	out := api.CredentialDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SCredential) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CredentialDetails, error) {
+	return api.CredentialDetails{}, nil
+}
+
+func (manager *SCredentialManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CredentialDetails {
+	rows := make([]api.CredentialDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.CredentialDetails{
+			StandaloneResourceDetails: stdRows[i],
+		}
+		rows[i] = credentialExtra(objs[i].(*SCredential), rows[i])
 	}
-	return credentialExtra(self, out), nil
+
+	return rows
 }
 
 func credentialExtra(cred *SCredential, out api.CredentialDetails) api.CredentialDetails {
@@ -259,6 +281,43 @@ func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonut
 }
 
 // 用户信用凭证列表
-func (manager *SCredentialManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.CredentialListInput) (*sqlchemy.SQuery, error) {
-	return manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (manager *SCredentialManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CredentialListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SCredentialManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CredentialListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCredentialManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

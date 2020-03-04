@@ -18,10 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStorageschedtagManager struct {
@@ -70,12 +72,47 @@ func (joint *SStorageschedtag) Master() db.IStandaloneModel {
 	return joint.SSchedtagJointsBase.master(joint)
 }
 
-func (joint *SStorageschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StorageschedtagDetails, error) {
-	var err error
-	out := api.StorageschedtagDetails{}
-	out.JoinModelBaseDetails, err = joint.SSchedtagJointsBase.getExtraDetails(joint, ctx, userCred, query, isList)
-	out.Storage, out.Schedtag = db.JointModelExtra(joint)
-	return out, err
+func (joint *SStorageschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.StorageschedtagDetails, error) {
+	return api.StorageschedtagDetails{}, nil
+}
+
+func (manager *SStorageschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StorageschedtagDetails {
+	rows := make([]api.StorageschedtagDetails, len(objs))
+
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storageIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.StorageschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		storageIds[i] = objs[i].(*SStorageschedtag).StorageId
+	}
+
+	storageIdMaps, err := db.FetchIdNameMap2(StorageManager, storageIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 hostIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := storageIdMaps[storageIds[i]]; ok {
+			rows[i].Storage = name
+		}
+	}
+
+	return rows
 }
 
 func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

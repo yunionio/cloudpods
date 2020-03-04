@@ -34,7 +34,8 @@ func (lblis *SLoadbalancerListener) AllowGetDetailsBackendStatus(ctx context.Con
 }
 
 func (lblis *SLoadbalancerListener) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if lblis.ManagerId != "" {
+	provider := lblis.GetCloudprovider()
+	if provider != nil {
 		return jsonutils.NewArray(), nil
 	}
 	if lblis.BackendGroupId == "" {
@@ -55,7 +56,8 @@ func (lbr *SLoadbalancerListenerRule) AllowGetDetailsBackendStatus(ctx context.C
 }
 
 func (lbr *SLoadbalancerListenerRule) GetDetailsBackendStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if lbr.ManagerId != "" {
+	provider := lbr.GetCloudprovider()
+	if provider != nil {
 		return jsonutils.NewArray(), nil
 	}
 	lblis := lbr.GetLoadbalancerListener()

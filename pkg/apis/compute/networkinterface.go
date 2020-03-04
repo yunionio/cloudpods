@@ -30,10 +30,11 @@ type NetworkInterfaceNetworkInfo struct {
 }
 
 type NetworkInterfaceDetails struct {
-	apis.StandaloneResourceDetails
-	SNetworkInterface
+	apis.StatusStandaloneResourceDetails
+	ManagedResourceInfo
+	CloudregionResourceInfo
 
-	CloudproviderInfo
+	SNetworkInterface
 
 	// 弹性网卡网络信息
 	Networks []NetworkInterfaceNetworkInfo `json:"networks"`

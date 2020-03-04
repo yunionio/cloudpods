@@ -28,6 +28,7 @@ type CachedImageUncacheImageInput struct {
 
 type CachedimageDetails struct {
 	apis.StandaloneResourceDetails
+
 	SCachedimage
 
 	// 镜像状态, 和info里面的status一致

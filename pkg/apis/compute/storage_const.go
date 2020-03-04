@@ -145,6 +145,15 @@ type StorageFilterListInput struct {
 	// Deprecated
 	// filter by storage_id
 	StorageId string `json:"storage_id" deprecated-by:"storage"`
+
+	// 以存储名称排序
+	// pattern:asc|desc
+	OrderByStorage string `json:"order_by_storage"`
+
+	StorageShareFilterListInput
+
+	ZonalFilterListInput
+	ManagedResourceListInput
 }
 
 type StorageShareFilterListInput struct {
@@ -155,11 +164,11 @@ type StorageShareFilterListInput struct {
 }
 
 type StorageListInput struct {
-	apis.StandaloneResourceListInput
-	apis.DomainizedResourceListInput
+	apis.EnabledStatusStandaloneResourceListInput
 
 	ManagedResourceListInput
 	ZonalFilterListInput
+
 	UsableResourceListInput
 	StorageShareFilterListInput
 }

@@ -14,9 +14,8 @@
 
 package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type PolicyDetails struct {
-	apis.StandaloneResourceDetails
+	EnabledIdentityBaseResourceDetails
+
 	SPolicy
 }

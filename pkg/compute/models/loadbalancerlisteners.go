@@ -35,11 +35,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerListenerManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	SLoadbalancerResourceBaseManager
 }
 
 var LoadbalancerListenerManager *SLoadbalancerListenerManager
@@ -62,7 +64,7 @@ type SLoadbalancerHTTPRateLimiter struct {
 }
 
 type SLoadbalancerRateLimiter struct {
-	EgressMbps int `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
+	EgressMbps int `nullable:"true" list:"user" get:"user" create:"optional" update:"user" json:"egress_mbps"`
 }
 
 type SLoadbalancerHealthCheck struct {
@@ -121,10 +123,9 @@ type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SManagedResourceBase
-	SCloudregionResourceBase
+	SLoadbalancerResourceBase
+	//LoadbalancerId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ListenerPort      int    `nullable:"false" list:"user" create:"required"`
 	BackendGroupId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user"`
@@ -205,24 +206,25 @@ func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, 
 }
 
 // 负载均衡监听器Listener列表
-func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerListenerListInput) (*sqlchemy.SQuery, error) {
+func (man *SLoadbalancerListenerManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerListenerListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+	q, err = man.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
 	}
 
 	// userProjId := userCred.GetProjectId()
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
+		// {Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
 		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
 		{Key: "acl", ModelKeyword: "cachedloadbalanceracl", OwnerId: userCred},
 		// {Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
@@ -232,6 +234,41 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 		return nil, err
 	}
 	return q, nil
+}
+
+func (man *SLoadbalancerListenerManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerListenerListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SLoadbalancerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerListenerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SLoadbalancerResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -262,9 +299,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
 
-	if len(lb.ManagerId) > 0 {
-		data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	}
+	// if len(lb.ManagerId) > 0 {
+	//	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
+	// }
 
 	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroupV.Model)
 }
@@ -299,12 +336,12 @@ func (man *SLoadbalancerListenerManager) ValidateAcl(aclStatusV *validators.Vali
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) bool {
 	return lblis.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lblis, "status")
 }
 
-func (lblis *SLoadbalancerListener) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if _, err := lblis.SVirtualResourceBase.PerformStatus(ctx, userCred, query, data); err != nil {
+func (lblis *SLoadbalancerListener) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	if _, err := lblis.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input); err != nil {
 		return nil, err
 	}
 	if lblis.Status == api.LB_STATUS_ENABLED {
@@ -405,23 +442,16 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx contex
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerListenerDetails, error) {
-	var err error
-	out := api.LoadbalancerListenerDetails{}
-	out.VirtualResourceDetails, err = lblis.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
+func (lblis *SLoadbalancerListener) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerListenerDetails, error) {
+	return api.LoadbalancerListenerDetails{}, nil
+}
 
-	{
-		lb, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
-		if err != nil {
-			log.Errorf("loadbalancer listener %s(%s): fetch loadbalancer (%s) error: %s",
-				lblis.Name, lblis.Id, lblis.LoadbalancerId, err)
-			return out, err
-		}
-		out.Loadbalancer = lb.GetName()
-	}
+func (lblis *SLoadbalancerListener) getMoreDetails(out api.LoadbalancerListenerDetails) (api.LoadbalancerListenerDetails, error) {
 	{
 		if lblis.BackendGroupId != "" {
 			lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
@@ -445,9 +475,32 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 			out.OriginCertificateId = cert.CertificateId
 		}
 	}
-	out.CloudregionInfo = lblis.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
 
 	return out, nil
+}
+
+func (manager *SLoadbalancerListenerManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerListenerDetails {
+	rows := make([]api.LoadbalancerListenerDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerListenerDetails{
+			VirtualResourceDetails:   virtRows[i],
+			LoadbalancerResourceInfo: lbRows[i],
+		}
+		rows[i], _ = objs[i].(*SLoadbalancerListener).getMoreDetails(rows[i])
+	}
+
+	return rows
 }
 
 func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -690,8 +743,13 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() (*SCachedLoadba
 		return nil, nil
 	}
 
+	region := lblis.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancer listener is not attached to any region")
+	}
+
 	ret := &SCachedLoadbalancerCertificate{}
-	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).Equals("cloudregion_id", lblis.CloudregionId).IsFalse("pending_deleted").First(ret)
+	err := CachedLoadbalancerCertificateManager.Query().Equals("id", lblis.CachedCertificateId).Equals("cloudregion_id", region.Id).IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -813,7 +871,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], syncOwnerId)
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -824,7 +882,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], syncOwnerId)
+		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -838,8 +896,8 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 }
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
-	lblis.ManagerId = lb.ManagerId
-	lblis.CloudregionId = lb.CloudregionId
+	// lblis.ManagerId = lb.ManagerId
+	// lblis.CloudregionId = lb.CloudregionId
 	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.EgressMbps = extListener.GetEgressMbps()
@@ -1058,7 +1116,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	return err
 }
 
-func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider) error {
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, lblis, func() error {
 		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 		return nil
@@ -1074,12 +1132,12 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 
 	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
 
-	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, lblis.ManagerId)
+	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, provider.Id)
 
 	return nil
 }
 
-func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerListener, error) {
+func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SLoadbalancerListener, error) {
 	lblis := &SLoadbalancerListener{}
 	lblis.SetModelManager(man, lblis)
 
@@ -1104,7 +1162,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 		return nil, errors.Wrap(err, "LoadbalancerListener.newFromCloudLoadbalancerListener")
 	}
 
-	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, lblis.ManagerId)
+	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, provider.Id)
 
 	db.OpsLog.LogEvent(lblis, db.ACT_CREATE, lblis.GetShortDesc(ctx), userCred)
 
@@ -1112,7 +1170,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 }
 
 func (manager *SLoadbalancerListenerManager) InitializeData() error {
-	listeners := []SLoadbalancerListener{}
+	/*listeners := []SLoadbalancerListener{}
 	q := manager.Query()
 	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(manager, q, &listeners); err != nil {
@@ -1130,7 +1188,7 @@ func (manager *SLoadbalancerListenerManager) InitializeData() error {
 				log.Errorf("failed to update loadbalancer listener %s cloudregion_id", listener.Name)
 			}
 		}
-	}
+	}*/
 	return nil
 }
 

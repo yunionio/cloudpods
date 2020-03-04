@@ -118,7 +118,7 @@ func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudproviderregionDetails, error) {
 	var err error
 	out := api.CloudproviderregionDetails{}
-	out.ModelBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	out.JointResourceBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if err != nil {
 		return out, err
 	}
@@ -140,7 +140,7 @@ func (self *SCloudproviderregion) getExtraDetails(out api.CloudproviderregionDet
 		out.Cloudaccount = account.Name
 		out.CloudaccountDomainId = account.DomainId
 		out.EnableAutoSync = false
-		if account.Enabled && account.EnableAutoSync {
+		if account.GetEnabled() && account.EnableAutoSync {
 			out.EnableAutoSync = true
 		}
 		out.SyncIntervalSeconds = self.getSyncIntervalSeconds(account)

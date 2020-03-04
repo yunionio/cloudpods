@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -32,11 +34,22 @@ func init() {
 		Service   string `help:"List regions which service has available skus" choices:"dbinstances|servers"`
 
 		City string `help:"List regions in the specified city"`
+
+		DistinctField string `help:"list the specified distinct field, e.g. city, region"`
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, opts *CloudregionListOptions) error {
 		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
+		}
+		if len(opts.DistinctField) > 0 {
+			params.Add(jsonutils.NewString(opts.DistinctField), "extra_field")
+			result, err := modules.Cloudregions.Get(s, "distinct-field", params)
+			if err != nil {
+				return err
+			}
+			fmt.Println(result)
+			return nil
 		}
 		result, err := modules.Cloudregions.List(s, params)
 		if err != nil {

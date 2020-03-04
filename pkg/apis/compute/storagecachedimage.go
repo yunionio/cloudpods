@@ -21,7 +21,7 @@ import (
 )
 
 type StoragecachedimageDetails struct {
-	apis.JoinModelBaseDetails
+	apis.JointResourceBaseDetails
 
 	// 存储缓存名称
 	Storagecache string `json:"storagecache"`

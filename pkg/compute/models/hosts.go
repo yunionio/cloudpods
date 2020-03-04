@@ -54,10 +54,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	SZoneResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var HostManager *SHostManager
@@ -78,7 +81,7 @@ func init() {
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-
+	SZoneResourceBase
 	SManagedResourceBase
 	SBillingResourceBase
 
@@ -146,7 +149,7 @@ type SHost struct {
 
 	// 可用区Id
 	// example: zone1
-	ZoneId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// ZoneId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
 	// 宿主机类型
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
@@ -179,37 +182,23 @@ func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SHostManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SHostManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SHost) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SHost) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 // 宿主机/物理机列表
-func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.HostListInput) (*sqlchemy.SQuery, error) {
+func (manager *SHostManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
 	resType := query.ResourceType
@@ -283,18 +272,6 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		} else {
 			q = q.NotIn("id", scopeQuery)
 		}
-	}
-
-	q, err = managedResourceFilterByZone(q, query.ZonalFilterListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByZone")
-	}
-
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "zone_id", func() *sqlchemy.SQuery {
-		return ZoneManager.Query("id")
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
 	hypervisorStr := query.Hypervisor
@@ -372,6 +349,45 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	return q, nil
+}
+
+func (manager *SHostManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SHostManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SHostManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
@@ -493,7 +509,7 @@ func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) erro
 	if !purge && self.IsBaremetal && self.HostType != api.HOST_TYPE_BAREMETAL {
 		return httperrors.NewInvalidStatusError("Host is a converted baremetal, should be unconverted before delete")
 	}
-	if self.Enabled {
+	if self.GetEnabled() {
 		return httperrors.NewInvalidStatusError("Host is not disabled")
 	}
 	cnt, err := self.GetGuestCount()
@@ -902,7 +918,7 @@ func (man *SHostManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bo
 
 func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
-		if !self.Enabled {
+		if !self.GetEnabled() {
 			return nil
 		}
 		if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_PREPARE_FAIL, api.BAREMETAL_PREPARE}) ||
@@ -1436,7 +1452,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		err = self.SetStatus(userCred, api.HOST_OFFLINE, "sync to delete")
 		if err == nil {
-			_, err = self.PerformDisable(ctx, userCred, nil, nil)
+			_, err = self.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 		}
 		guests := self.GetGuests()
 		for _, guest := range guests {
@@ -1483,7 +1499,7 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		}
 
 		self.IsEmulated = extHost.IsEmulated()
-		self.Enabled = extHost.GetEnabled()
+		self.SetEnabled(extHost.GetEnabled())
 
 		self.IsMaintenance = extHost.GetIsMaintenance()
 		self.Version = extHost.GetVersion()
@@ -1561,7 +1577,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 
 	host.Status = extHost.GetStatus()
 	host.HostStatus = extHost.GetHostStatus()
-	host.Enabled = extHost.GetEnabled()
+	host.SetEnabled(extHost.GetEnabled())
 
 	host.AccessIp = extHost.GetAccessIp()
 	host.AccessMac = extHost.GetAccessMac()
@@ -2351,7 +2367,6 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 }
 
 func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.HostDetails {
-	out.CloudproviderInfo = self.getCloudProviderInfo()
 
 	server := self.GetBaremetalServer()
 	if server != nil {
@@ -2434,22 +2449,35 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.
 	return out
 }
 
-func (self *SHost) GetMetadataHideKeys() []string {
+func (self *SHost) GetMetadataHiddenKeys() []string {
 	return []string{}
 }
 
 func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.HostDetails, error) {
-	var err error
-	out := api.HostDetails{}
-	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.HostDetails{}, nil
+}
+
+func (manager *SHostManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostDetails {
+	rows := make([]api.HostDetails, len(objs))
+	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.HostDetails{
+			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:                    managerRows[i],
+			ZoneResourceInfo:                       zoneRows[i],
+		}
+		rows[i] = objs[i].(*SHost).getMoreDetails(ctx, rows[i])
 	}
-	out.Metadata, err = db.GetVisiableMetadata(self, nil)
-	if err != nil {
-		return out, err
-	}
-	return self.getMoreDetails(ctx, out), nil
+	return rows
 }
 
 func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -2728,7 +2756,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 				return nil, errors.Wrap(err, "net.reserveIpWithDuration")
 			}
 		}
-		zoneObj := net.getZone()
+		zoneObj := net.GetZone()
 		if zoneObj == nil {
 			return nil, httperrors.NewInputParameterError("IPMI network has no zone???")
 		}
@@ -2794,7 +2822,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 				return nil, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
 			}
 
-			zoneObj := accessNet.getZone()
+			zoneObj := accessNet.GetZone()
 			if zoneObj == nil {
 				return nil, httperrors.NewInputParameterError("Access network has no zone???")
 			}
@@ -2868,7 +2896,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			if net == nil {
 				return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 			}
-			zoneObj := net.getZone()
+			zoneObj := net.GetZone()
 			if zoneObj == nil {
 				return nil, httperrors.NewInputParameterError("IPMI network has not zone???")
 			}
@@ -3872,21 +3900,21 @@ func (self *SHost) AllowPerformEnable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input apis.PerformEnableInput,
 ) bool {
-	return self.SEnabledStatusStandaloneResourceBase.AllowPerformEnable(ctx, userCred, query, data)
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformEnable(ctx, userCred, query, input)
 }
 
 func (self *SHost) PerformEnable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input apis.PerformEnableInput,
 ) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
-		_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+	if !self.GetEnabled() {
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformEnable")
 		}
 		self.SyncAttachedStorageStatus()
 	}
@@ -3897,16 +3925,16 @@ func (self *SHost) AllowPerformDisable(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input apis.PerformDisableInput,
 ) bool {
-	return self.SEnabledStatusStandaloneResourceBase.AllowPerformDisable(ctx, userCred, query, data)
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformDisable(ctx, userCred, query, input)
 }
 
-func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Enabled {
-		_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	if self.GetEnabled() {
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformDisable")
 		}
 		self.SyncAttachedStorageStatus()
 	}
@@ -4052,7 +4080,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 	if self.HostType == api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewNotAcceptableError("Not being convert to hypervisor")
 	}
-	if self.Enabled {
+	if self.GetEnabled() {
 		return nil, httperrors.NewNotAcceptableError("Host should be disabled")
 	}
 	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
@@ -4326,7 +4354,7 @@ func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
 	return host.(*SHost), nil
 }
 
-func (self *SHost) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
 	zone := self.GetZone()
 	if zone != nil {
@@ -4392,10 +4420,10 @@ func (host *SHost) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(host).(*jsonutils.JSONDict)
 }
 
-func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret, err := host.SEnabledStatusStandaloneResourceBase.PerformStatus(ctx, userCred, query, data)
+func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
+	ret, err := host.SEnabledStatusStandaloneResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformStatus")
 	}
 	host.ClearSchedDescCache()
 	return ret, nil

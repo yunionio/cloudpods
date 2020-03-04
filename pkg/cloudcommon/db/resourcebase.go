@@ -24,7 +24,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SResourceBase struct {
@@ -116,12 +118,41 @@ func (manager *SResourceBaseManager) ValidateCreateData(ctx context.Context, use
 	return input, nil
 }
 
-func (manager *SResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.ResourceBaseListInput) (*sqlchemy.SQuery, error) {
+func (manager *SResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.ResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, query.ModelBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.ResourceBaseListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SModelBaseManager.OrderByExtraFields(ctx, q, userCred, query.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SModelBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (model *SResourceBase) GetUpdateVersion() int {
@@ -134,4 +165,32 @@ func (model *SResourceBase) GetUpdatedAt() time.Time {
 
 func (model *SResourceBase) GetDeleted() bool {
 	return model.Deleted
+}
+
+func (manager *SResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.ResourceBaseDetails {
+	ret := make([]apis.ResourceBaseDetails, len(objs))
+	upperRet := manager.SModelBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.ResourceBaseDetails{
+			ModelBaseDetails: upperRet[i],
+		}
+	}
+	return ret
+}
+
+func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ResourceBaseDetails, error) {
+	var err error
+	out := apis.ResourceBaseDetails{}
+	out.ModelBaseDetails, err = model.SModelBase.GetExtraDetails(ctx, userCred, query, isList)
+	if err != nil {
+		return out, errors.Wrap(err, "SModelBase.GetExtraDetails")
+	}
+	return out, nil
 }

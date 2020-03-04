@@ -27,11 +27,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNetworkInterfaceManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var NetworkInterfaceManager *SNetworkInterfaceManager
@@ -68,54 +72,84 @@ func (manager *SNetworkInterfaceManager) GetContextManagers() [][]db.IModelManag
 	}
 }
 
-func (self *SNetworkInterfaceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SNetworkInterfaceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SNetworkInterface) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 // 虚拟网卡列表
-func (manager *SNetworkInterfaceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NetworkInterfaceListInput) (*sqlchemy.SQuery, error) {
+func (manager *SNetworkInterfaceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkInterfaceListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
 
 	return q, nil
 }
 
-func (self *SNetworkInterface) GetExterDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkInterfaceDetails, error) {
+func (manager *SNetworkInterfaceManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkInterfaceListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	out := api.NetworkInterfaceDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return out, err
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
 
-	provider := self.GetCloudprovider()
-	region := self.GetRegion()
-	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+	return q, nil
+}
 
+func (manager *SNetworkInterfaceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (self *SNetworkInterface) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NetworkInterfaceDetails, error) {
+	return api.NetworkInterfaceDetails{}, nil
+}
+
+func (self *SNetworkInterface) getMoreDetails(out api.NetworkInterfaceDetails) (api.NetworkInterfaceDetails, error) {
 	networks, err := self.GetNetworks()
 	if err != nil {
 		log.Errorf("failed to get network for networkinterface %s(%s) error: %v", self.Name, self.Id, err)
@@ -136,6 +170,32 @@ func (self *SNetworkInterface) GetExterDetails(ctx context.Context, userCred mcc
 		})
 	}
 	return out, nil
+}
+
+func (manager *SNetworkInterfaceManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NetworkInterfaceDetails {
+	rows := make([]api.NetworkInterfaceDetails, len(objs))
+
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.NetworkInterfaceDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:             manRows[i],
+			CloudregionResourceInfo:         regRows[i],
+		}
+		rows[i], _ = objs[i].(*SNetworkInterface).getMoreDetails(rows[i])
+	}
+
+	return rows
 }
 
 func (manager *SNetworkInterfaceManager) getNetworkInterfacesByProviderId(providerId string) ([]SNetworkInterface, error) {

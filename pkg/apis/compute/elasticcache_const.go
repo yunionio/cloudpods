@@ -109,25 +109,30 @@ const (
 
 type ElasticcacheListInput struct {
 	apis.VirtualResourceListInput
-
-	ZonalFilterListInput
 	VpcFilterListInput
-
-	ManagedResourceListInput
+	ZonalFilterListBase
 }
 
 type ElasticcacheAccountListInput struct {
 	apis.StatusStandaloneResourceListInput
+
+	ElasticcacheFilterListInput
 }
 
 type ElasticcacheAclListInput struct {
 	apis.StandaloneResourceListInput
+
+	ElasticcacheFilterListInput
 }
 
 type ElasticcacheBackupListInput struct {
 	apis.StatusStandaloneResourceListInput
+
+	ElasticcacheFilterListInput
 }
 
 type ElasticcacheParameterListInput struct {
 	apis.StandaloneResourceListInput
+
+	ElasticcacheFilterListInput
 }

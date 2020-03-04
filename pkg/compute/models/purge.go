@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -78,7 +79,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	_, err := host.PerformDisable(ctx, userCred, nil, nil)
+	_, err := host.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{})
 	if err != nil {
 		return err
 	}
@@ -1184,7 +1185,7 @@ func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCreden
 	return nat.Delete(ctx, userCred)
 }
 
-func (manager *SNatGetewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+func (manager *SNatGatewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	nats, err := manager.getNatgatewaysByProviderId(providerId)
 	if err != nil {
 		return err

@@ -48,10 +48,12 @@ type UsableVpcResourceListInput struct {
 }
 
 type VpcListInput struct {
-	apis.StatusStandaloneResourceListInput
-	apis.DomainizedResourceListInput
+	apis.EnabledStatusStandaloneResourceListInput
 
 	ManagedResourceListInput
+	RegionalFilterListInput
+	GlobalVpcResourceListInput
+
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
@@ -61,11 +63,12 @@ type VpcListInput struct {
 
 type WireListInput struct {
 	apis.StandaloneResourceListInput
-	apis.DomainizedResourceListInput
 
-	ManagedResourceListInput
 	VpcFilterListInput
-	HostFilterListInput
+
+	ZonalFilterListBase
+
+	HostResourceInput
 }
 
 type GlobalVpcListInput struct {

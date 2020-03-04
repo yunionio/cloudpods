@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
@@ -1317,7 +1318,7 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 		return nil, err
 	}
 	host := self.GetHost()
-	if host != nil && host.Enabled {
+	if host != nil && host.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Cannot purge server on enabled host")
 	}
 	err = self.StartDeleteGuestTask(ctx, userCred, "", true, false, false)
@@ -2637,14 +2638,14 @@ func (self *SGuest) isNotRunningStatus(status string) bool {
 	return false
 }
 
-func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	preStatus := self.Status
-	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, data)
+	_, err := self.SVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
 
-	status, _ := data.GetString("status")
+	status := input.Status
 	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
 		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
 			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
@@ -3980,27 +3981,26 @@ func (self *SGuest) PerformSyncFixNics(ctx context.Context,
 	return nil, nil
 }
 
-func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (guest *SGuest) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
 	guestdisks := guest.GetDisks()
-	dataCopy := jsonutils.DeepCopy(data)
 	for i := range guestdisks {
 		disk := guestdisks[i].GetDisk()
 		if disk == nil {
 			return nil, httperrors.NewInternalServerError("some disk missing!!!")
 		}
-		_, err := disk.PerformChangeOwner(ctx, userCred, query, dataCopy)
+		_, err := disk.PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if eip, _ := guest.GetEip(); eip != nil {
-		_, err := eip.PerformChangeOwner(ctx, userCred, query, dataCopy)
+		_, err := eip.PerformChangeOwner(ctx, userCred, query, input)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	return guest.SVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }
 
 func (guest *SGuest) AllowPerformResizeDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

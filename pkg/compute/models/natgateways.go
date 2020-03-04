@@ -23,25 +23,28 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-type SNatGetewayManager struct {
+type SNatGatewayManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SVpcResourceBaseManager
+	// SManagedResourceBaseManager
 }
 
-var NatGatewayManager *SNatGetewayManager
+var NatGatewayManager *SNatGatewayManager
 
 func init() {
-	NatGatewayManager = &SNatGetewayManager{
+	NatGatewayManager = &SNatGatewayManager{
 		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SNatGateway{},
 			"natgateways_tbl",
@@ -55,62 +58,65 @@ func init() {
 type SNatGateway struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SManagedResourceBase
-	SCloudregionResourceBase
+	// SManagedResourceBase
 	SBillingResourceBase
+	SVpcResourceBase
 
-	VpcId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	NatSpec string `list:"user" create:"optional"` // NAT规格
 }
 
-func (manager *SNatGetewayManager) GetContextManagers() [][]db.IModelManager {
+func (manager *SNatGatewayManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
-		{CloudregionManager},
+		{CloudregionManager, VpcManager},
 	}
-}
-
-func (self *SNatGetewayManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SNatGetewayManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SNatGateway) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SNatGateway) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SNatGateway) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 // NAT网关列表
-func (man *SNatGetewayManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatGetewayListInput) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (man *SNatGatewayManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatGetewayListInput) (*sqlchemy.SQuery, error) {
+	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusDomainLevelResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
+	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
-		return nil, err
-	}
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
 }
 
-func (man *SNatGetewayManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+// NAT网关列表
+func (man *SNatGatewayManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatGetewayListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusDomainLevelResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (man *SNatGatewayManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (man *SNatGatewayManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
@@ -194,15 +200,7 @@ func (self *SNatGateway) extractEipAddr(q *sqlchemy.SQuery) ([]string, error) {
 	return ips, nil
 }
 
-func (self *SNatGateway) GetVpc() (*SVpc, error) {
-	_vpc, err := VpcManager.FetchById(self.VpcId)
-	if err != nil {
-		return nil, err
-	}
-	return _vpc.(*SVpc), nil
-}
-
-func (manager *SNatGetewayManager) getNatgatewaysByProviderId(providerId string) ([]SNatGateway, error) {
+func (manager *SNatGatewayManager) getNatgatewaysByProviderId(providerId string) ([]SNatGateway, error) {
 	nats := []SNatGateway{}
 	err := fetchByManagerId(manager, providerId, &nats)
 	if err != nil {
@@ -244,26 +242,28 @@ func (self *SNatGateway) GetDTableSize(filter func(q *sqlchemy.SQuery) *sqlchemy
 }
 
 func (self *SNatGateway) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatgatewayDetails, error) {
-	var err error
-	out := api.NatgatewayDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	if isList {
-		region := self.GetRegion()
-		provider := self.GetCloudprovider()
-		out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+	return api.NatgatewayDetails{}, nil
+}
 
-		vpc, err := self.GetVpc()
-		if err != nil {
-			log.Errorf("failed to found vpc info for nat gateway %s(%s) error: %v", self.Name, self.Id, err)
-			return out, err
+func (manager SNatGatewayManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NatgatewayDetails {
+	rows := make([]api.NatgatewayDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.NatgatewayDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			VpcResourceInfo:                 vpcRows[i],
 		}
-		out.Vpc = vpc.Name
+		rows[i], _ = objs[i].(*SNatGateway).getMoreDetails(ctx, userCred, rows[i])
 	}
-
-	return self.getMoreDetails(ctx, userCred, out)
+	return rows
 }
 
 func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
@@ -274,7 +274,7 @@ func (self *SNatGateway) getMoreDetails(ctx context.Context, userCred mcclient.T
 	return out, nil
 }
 
-func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
+func (manager *SNatGatewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 
@@ -363,18 +363,18 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 	return nil
 }
 
-func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, extNat cloudprovider.ICloudNatGateway) (*SNatGateway, error) {
+func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, extNat cloudprovider.ICloudNatGateway) (*SNatGateway, error) {
 	nat := SNatGateway{}
 	nat.SetModelManager(manager, &nat)
 
-	region, err := vpc.GetRegion()
+	/*region, err := vpc.GetRegion()
 	if err != nil {
-		return nil, err
-	}
+		return nil, errors.Wrap(err, "vpc.GetRegion")
+	}*/
 
 	newName, err := db.GenerateName(manager, ownerId, extNat.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "db.GenerateName")
 	}
 	nat.Name = newName
 	nat.VpcId = vpc.Id
@@ -384,8 +384,8 @@ func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, u
 		nat.CreatedAt = extNat.GetCreatedAt()
 	}
 	nat.ExternalId = extNat.GetGlobalId()
-	nat.CloudregionId = region.Id
-	nat.ManagerId = provider.Id
+	// nat.CloudregionId = region.Id
+	// nat.ManagerId = provider.Id
 	nat.IsEmulated = extNat.IsEmulated()
 
 	factory, _ := provider.GetProviderFactory()
@@ -397,7 +397,7 @@ func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, u
 	err = manager.TableSpec().Insert(&nat)
 	if err != nil {
 		log.Errorf("newFromCloudNatGateway fail %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Insert")
 	}
 
 	db.OpsLog.LogEvent(&nat, db.ACT_CREATE, nat.GetShortDesc(ctx), userCred)
@@ -511,19 +511,7 @@ func (self *SNatGateway) RealDelete(ctx context.Context, userCred mcclient.Token
 	return self.Delete(ctx, userCred)
 }
 
-func (self *SNatGateway) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	provider, err := self.GetDriver()
-	if err != nil {
-		return nil, fmt.Errorf("No cloudprovider for sp %s: %s", self.Name, err)
-	}
-	region := self.GetRegion()
-	if region == nil {
-		return nil, fmt.Errorf("failed to find region for sp %s", self.Name)
-	}
-	return provider.GetIRegionById(region.ExternalId)
-}
-
-func (nm *SNatGetewayManager) NatNameToReal(name string, natgatewayId string) string {
+func (nm *SNatGatewayManager) NatNameToReal(name string, natgatewayId string) string {
 	index := strings.Index(name, natgatewayId)
 	if index < 0 {
 		return name
@@ -531,7 +519,7 @@ func (nm *SNatGetewayManager) NatNameToReal(name string, natgatewayId string) st
 	return name[:index-1]
 }
 
-func (nm *SNatGetewayManager) NatNameFromReal(name string, natgatewayId string) string {
+func (nm *SNatGatewayManager) NatNameFromReal(name string, natgatewayId string) string {
 	return fmt.Sprintf("%s-%s", name, natgatewayId)
 }
 
@@ -544,17 +532,21 @@ type INatHelper interface {
 
 type SNatEntryManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SNatgatewayResourceBaseManager
 }
 
 func NewNatEntryManager(dt interface{}, tableName string, keyword string, keywordPlural string) SNatEntryManager {
-	return SNatEntryManager{db.NewStatusStandaloneResourceBaseManager(dt, tableName, keyword, keywordPlural)}
+	return SNatEntryManager{
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(dt, tableName, keyword, keywordPlural),
+	}
 }
 
 type SNatEntry struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	SNatgatewayResourceBase
+	// NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 func (manager *SNatEntryManager) GetContextManagers() [][]db.IModelManager {
@@ -563,47 +555,98 @@ func (manager *SNatEntryManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (self *SNatEntryManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SNatEntryManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SNatEntry) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SNatEntry) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SNatEntry) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
-func (self *SNatEntry) GetNatgateway() (*SNatGateway, error) {
-	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
-	if err != nil {
-		return nil, err
-	}
-	return model.(*SNatGateway), nil
-}
-
 // NAT网关转发规则列表
-func (man *SNatEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatEntryListInput) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (man *SNatEntryManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatEntryListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = man.SNatgatewayResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NatGatewayFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNatgatewayResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "natgateway_id", func() *sqlchemy.SQuery {
 		natgateways := NatGatewayManager.Query().SubQuery()
 		return natgateways.Query(natgateways.Field("id"))
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+	}
 
 	return q, nil
+}
+
+func (man *SNatEntryManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatEntryListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SNatgatewayResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NatGatewayFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNatgatewayResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (man *SNatEntryManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SNatgatewayResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (entry *SNatEntry) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NatEntryDetails, error) {
+	return api.NatEntryDetails{}, nil
+}
+
+func (manager *SNatEntryManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NatEntryDetails {
+	rows := make([]api.NatEntryDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	natRows := manager.SNatgatewayResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.NatEntryDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			NatGatewayResourceInfo:          natRows[i],
+		}
+		var base *SNatEntry
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && base.NatgatewayId != "" {
+			rows[i].RealName = NatGatewayManager.NatNameToReal(base.Name, base.NatgatewayId)
+		}
+	}
+	return rows
 }
 
 func (self *SNatEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {

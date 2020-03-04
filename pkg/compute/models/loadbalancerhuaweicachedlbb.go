@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -295,9 +296,18 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 	//	return nil, err
 	//}
 
+	lbbgRegion := loadbalancerBackendgroup.GetRegion()
+	if lbbgRegion == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any region")
+	}
+	lbbgProvider := loadbalancerBackendgroup.GetCloudprovider()
+	if lbbgProvider == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "loadbalancerBackendgroup is not attached to any cloudprovider")
+	}
+
 	man := LoadbalancerBackendManager
-	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", loadbalancerBackendgroup.Id).Equals("cloudregion_id", loadbalancerBackendgroup.CloudregionId)
-	q = q.Equals("manager_id", loadbalancerBackendgroup.ManagerId).Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
+	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", loadbalancerBackendgroup.Id).Equals("cloudregion_id", lbbgRegion.Id)
+	q = q.Equals("manager_id", lbbgProvider.Id).Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
 	q = q.Equals("backend_id", guest.Id)
 	//q = q.Equals("address", address)
 	lbbs := []SLoadbalancerBackend{}
@@ -315,8 +325,8 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 		lbb.BackendGroupId = loadbalancerBackendgroup.Id
 		lbb.ExternalId = ""
 
-		lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
-		lbb.ManagerId = loadbalancerBackendgroup.ManagerId
+		// lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
+		// lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
 		baseName := extLoadbalancerBackend.GetName()
 		if len(baseName) == 0 {
@@ -339,7 +349,7 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 			return nil, err
 		}
 
-		SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
+		SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, lbbgProvider.Id)
 
 		db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
 		return lbb, nil

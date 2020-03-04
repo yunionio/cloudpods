@@ -17,7 +17,7 @@ package notify
 import "yunion.io/x/onecloud/pkg/apis"
 
 type ContactDetails struct {
-	apis.ModelBaseDetails
+	apis.ResourceBaseDetails
 
 	Id      string `json:"id"`
 	Name    string `json:"name"`

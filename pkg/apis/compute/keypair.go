@@ -50,8 +50,6 @@ type KeypairDetails struct {
 	// 关联云主机次数
 	LinkedGuestCount int `json:"linked_guest_count"`
 
-	// 用户Id
-	OwnerId string `json:"owner_id"`
 	// 用户名称
 	OwnerName string `json:"owner_name"`
 }

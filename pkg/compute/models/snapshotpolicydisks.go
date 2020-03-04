@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSnapshotPolicyDiskManager struct {
@@ -95,20 +96,60 @@ func (sd *SSnapshotPolicyDisk) SetStatus(userCred mcclient.TokenCredential, stat
 	return nil
 }
 
-func (self *SSnapshotPolicyDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (compute.SnapshotPolicyDiskDetails, error) {
-	var err error
-	out := compute.SnapshotPolicyDiskDetails{}
-	out.ModelBaseDetails, err = self.SVirtualJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SSnapshotPolicyDisk) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (compute.SnapshotPolicyDiskDetails, error) {
+	return compute.SnapshotPolicyDiskDetails{}, nil
+}
+
+func (manager *SSnapshotPolicyDiskManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []compute.SnapshotPolicyDiskDetails {
+	rows := make([]compute.SnapshotPolicyDiskDetails, len(objs))
+
+	virtRows := manager.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	snapIds := make([]string, len(rows))
+	diskIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = compute.SnapshotPolicyDiskDetails{
+			VirtualJointResourceBaseDetails: virtRows[i],
+		}
+		snapIds[i] = objs[i].(*SSnapshotPolicyDisk).SnapshotpolicyId
+		diskIds[i] = objs[i].(*SSnapshotPolicyDisk).DiskId
 	}
-	_, out.Snapshotpolicy = db.JointModelExtra(self)
-	disk := DiskManager.FetchDiskById(self.DiskId)
-	out.Disk, err = disk.GetExtraDetails(ctx, userCred, query, isList)
+
+	snapIdMaps, err := db.FetchIdNameMap2(SnapshotPolicyManager, snapIds)
 	if err != nil {
-		return out, nil
+		log.Errorf("FetchIdNameMap2 fail for snapshot Ids %s", err)
+		return rows
 	}
-	return out, nil
+
+	disks := make(map[string]SDisk)
+	err = db.FetchStandaloneObjectsByIds(DiskManager, diskIds, &disks)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds for disks fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := snapIdMaps[snapIds[i]]; ok {
+			rows[i].Snapshotpolicy = name
+		}
+		if disk, ok := disks[diskIds[i]]; ok {
+			rows[i].Disk, _ = disk.GetExtraDetails(ctx, userCred, query, isList)
+		}
+	}
+
+	return rows
 }
 
 // ==================================================== fetch ==========================================================

@@ -269,8 +269,8 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -340,8 +340,8 @@ func (self *SAwsRegionDriver) validateCreateNetworkListenerData(ctx context.Cont
 	data.Set("health_check_fall", jsonutils.NewInt(healthCheckRise))
 	data.Set("sticky_session", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -443,8 +443,8 @@ func (self *SAwsRegionDriver) validateUpdateApplicationListenerData(ctx context.
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -501,8 +501,8 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 
 	data.Set("sticky_session", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -588,8 +588,8 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 	// data.Remove("domain")
 	// data.Remove("path")
 	data.Set("condition", jsonutils.NewString(condition))
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
@@ -703,8 +703,8 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 	}
 
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -756,8 +756,8 @@ func (self *SAwsRegionDriver) createLoadbalancerBackendGroup(ctx context.Context
 
 	// create loadbalancer backendgroup cache
 	cachedLbbg := &models.SAwsCachedLbbg{}
-	cachedLbbg.ManagerId = lb.ManagerId
-	cachedLbbg.CloudregionId = lb.CloudregionId
+	cachedLbbg.ManagerId = lb.GetCloudproviderId()
+	cachedLbbg.CloudregionId = lb.GetRegionId()
 	cachedLbbg.LoadbalancerId = lb.GetId()
 	cachedLbbg.BackendGroupId = lbbg.GetId()
 	cachedLbbg.ExternalId = iLoadbalancerBackendGroup.GetGlobalId()
@@ -881,7 +881,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 		}
 
 		if ibackend != nil {
-			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil); err != nil {
+			if err := lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, ibackend, nil, lb.GetCloudprovider()); err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestCreateLoadbalancerBackend.SyncWithCloudLoadbalancerBackend")
 			}
 		}
@@ -957,7 +957,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.GetCloudproviderId())
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1047,7 +1047,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.SetExternalId")
 		}
 
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId())
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, loadbalancer.GetOwnerId(), loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1094,7 +1094,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil, loadbalancer.GetCloudprovider())
 	})
 	return nil
 }
@@ -1264,7 +1264,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.GetCloudproviderId())
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -1322,7 +1322,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err := iListener.Refresh(); err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.Refresh")
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, loadbalancer.GetCloudprovider())
 	})
 	return nil
 }

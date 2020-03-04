@@ -21,7 +21,7 @@ import (
 )
 
 type StorageCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.EnabledStatusStandaloneResourceCreateInput
 
 	// 存储类型
 	//
@@ -113,7 +113,10 @@ type StorageCreateInput struct {
 }
 
 type StorageDetails struct {
-	apis.StandaloneResourceDetails
+	apis.EnabledStatusStandaloneResourceDetails
+	ManagedResourceInfo
+	ZoneResourceInfo
+
 	SStorage
 
 	// 容量大小, 单位Mb
@@ -129,9 +132,32 @@ type StorageDetails struct {
 	// 可使用容量
 	FreeCapacity int64 `json:"free_capacity"`
 
-	CloudproviderInfo
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 
 	// 超分比
 	CommitBound float32 `json:"commit_bound"`
+}
+
+type StorageResourceInfo struct {
+	// 归属云订阅ID
+	ManagerId string `json:"manager_id"`
+
+	ManagedResourceInfo
+
+	// 归属可用区ID
+	ZoneId string `json:"zone_id"`
+
+	ZoneResourceInfo
+
+	// 存储名称
+	Storage string `json:"storage"`
+
+	// 存储类型
+	StorageType string `json:"storage_type"`
+
+	// 存储介质类型
+	MediumType string `json:"medium_type"`
+
+	// 存储状态
+	StorageStatus string `json:"storage_status"`
 }

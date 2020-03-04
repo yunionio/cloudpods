@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func init() {
@@ -80,7 +81,12 @@ func (manager *SInstanceSnapshotManager) AllowCreateItem(
 }
 
 // 主机快照列表
-func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.InstanceSnapshotListInput) (*sqlchemy.SQuery, error) {
+func (manager *SInstanceSnapshotManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.InstanceSnapshotListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
@@ -102,11 +108,38 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(ctx context.Context, q *
 	return q, nil
 }
 
+func (manager *SInstanceSnapshotManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.InstanceSnapshotListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SInstanceSnapshotManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
 func (self *SInstanceSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
 }
 
-func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstnaceSnapshotDetails) api.InstnaceSnapshotDetails {
+func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential, out api.InstanceSnapshotDetails) api.InstanceSnapshotDetails {
 	if guest := GuestManager.FetchGuestById(self.GuestId); guest != nil {
 		out.Guest = guest.Name
 		out.GuestStatus = guest.Status
@@ -140,14 +173,30 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 	return out
 }
 
-func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.InstnaceSnapshotDetails, error) {
-	var err error
-	out := api.InstnaceSnapshotDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SInstanceSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.InstanceSnapshotDetails, error) {
+	return api.InstanceSnapshotDetails{}, nil
+}
+
+func (manager *SInstanceSnapshotManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.InstanceSnapshotDetails {
+	rows := make([]api.InstanceSnapshotDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.InstanceSnapshotDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+		rows[i] = objs[i].(*SInstanceSnapshot).getMoreDetails(userCred, rows[i])
 	}
-	return self.getMoreDetails(userCred, out), nil
+
+	return rows
 }
 
 func (self *SInstanceSnapshot) StartCreateInstanceSnapshotTask(

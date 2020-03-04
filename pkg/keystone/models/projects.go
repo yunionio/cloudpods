@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SProjectManager struct {
@@ -204,10 +205,17 @@ func (proj *SProject) FetchExtend() (*SProjectExtended, error) {
 }
 
 // 项目列表
-func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ProjectListInput) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
+func (manager *SProjectManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ProjectListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query.IdentityBaseResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.ListItemFilter")
 	}
 
 	userStr := query.User
@@ -239,6 +247,33 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	return q, nil
+}
+
+func (manager *SProjectManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ProjectListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.OrderByExtraFields(ctx, q, userCred, query.IdentityBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SIdentityBaseResourceManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SIdentityBaseResourceManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -289,14 +324,35 @@ func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ProjectDetails, error) {
-	var err error
-	out := api.ProjectDetails{}
-	out.StandaloneResourceDetails, err = proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SProjectManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ProjectDetails {
+	rows := make([]api.ProjectDetails, len(objs))
+
+	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.ProjectDetails{
+			IdentityBaseResourceDetails: identRows[i],
+		}
+		rows[i] = projectExtra(objs[i].(*SProject), rows[i])
 	}
-	return projectExtra(proj, out), nil
+
+	return rows
+}
+
+func (proj *SProject) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ProjectDetails, error) {
+	return api.ProjectDetails{}, nil
 }
 
 func projectExtra(proj *SProject, out api.ProjectDetails) api.ProjectDetails {

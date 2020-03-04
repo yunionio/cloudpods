@@ -16,6 +16,7 @@ package compute
 
 import (
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 const (
@@ -69,7 +70,7 @@ type ServerSkuListInput struct {
 	ManagedResourceListInput
 
 	ZonalFilterListInput
-	BillingFilterListInput
+	billing.BillingResourceListInput
 	UsableResourceListInput
 
 	// filter sku by memory size in MB
@@ -83,7 +84,8 @@ type ElasticcacheSkuListInput struct {
 	ManagedResourceListInput
 
 	UsableResourceListInput
-	BillingFilterListInput
+	billing.BillingResourceListInput
+
 	ZonalFilterListInput
 
 	// filter sku by memory size in MB
@@ -97,5 +99,5 @@ type DBInstanceSkuListInput struct {
 	ManagedResourceListInput
 
 	RegionalFilterListInput
-	BillingFilterListInput
+	billing.BillingResourceListInput
 }

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -36,10 +37,13 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SElasticipManager struct {
 	db.SVirtualResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var ElasticipManager *SElasticipManager
@@ -63,6 +67,8 @@ type SElasticip struct {
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
+	SCloudregionResourceBase
+
 	SBillingResourceBase
 
 	// IP子网Id, 仅私有云不为空
@@ -94,25 +100,31 @@ type SElasticip struct {
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional" update:"user"`
 
 	// 区域Id
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 // 弹性公网IP列表
-func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ElasticipListInput) (*sqlchemy.SQuery, error) {
+func (manager *SElasticipManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticipListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
 
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
 	associateType := query.UsableEipForAssociateType
@@ -155,6 +167,45 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
+func (manager *SElasticipManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ElasticipListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
 func (manager *SElasticipManager) getEipsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SElasticip, error) {
 	eips := make([]SElasticip, 0)
 	q := manager.Query().Equals("cloudregion_id", region.Id)
@@ -188,7 +239,7 @@ func (self *SElasticip) GetZone() *SZone {
 	if err != nil {
 		return nil
 	}
-	return network.getZone()
+	return network.GetZone()
 }
 
 func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -211,7 +262,7 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	billingInfo := SCloudBillingInfo{}
 
-	billingInfo.CloudproviderInfo = self.getCloudProviderInfo()
+	billingInfo.SCloudProviderInfo = self.getCloudProviderInfo()
 
 	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
 
@@ -1079,18 +1130,39 @@ func (self *SElasticip) StartEipSyncstatusTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.ElasticipDetails, error) {
-	var err error
-	out := api.ElasticipDetails{}
-	out.VirtualResourceDetails, err = self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (self *SElasticip) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.ElasticipDetails, error) {
+	return api.ElasticipDetails{}, nil
+}
+
+func (manager *SElasticipManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ElasticipDetails {
+	rows := make([]api.ElasticipDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.ElasticipDetails{
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     managerRows[i],
+			CloudregionResourceInfo: regionRows[i],
+		}
+		rows[i] = objs[i].(*SElasticip).getMoreDetails(rows[i])
 	}
-	return self.getMoreDetails(out), nil
+	return rows
 }
 
 func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDetails {
-	out.CloudproviderInfo = self.getCloudProviderInfo()
 	instance := self.GetAssociateResource()
 	if instance != nil {
 		out.AssociateName = instance.GetName()
@@ -1115,7 +1187,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	eip.ChargeType = chargeType
 	eip.DomainId = vm.DomainId
 	eip.ProjectId = vm.ProjectId
-	eip.ProjectSrc = string(db.PROJECT_SOURCE_LOCAL)
+	eip.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
 	eip.ManagerId = host.ManagerId
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
@@ -1285,7 +1357,7 @@ func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.Toke
 	}
 	provider := self.GetCloudprovider()
 	if provider != nil {
-		if provider.Enabled {
+		if provider.GetEnabled() {
 			return nil, httperrors.NewInvalidStatusError("Cannot purge elastic_ip on enabled cloud provider")
 		}
 	}
@@ -1301,7 +1373,7 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 	self.Dissociate(ctx, userCred)
 }
 
-func (self *SElasticip) getCloudProviderInfo() api.CloudproviderInfo {
+func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
@@ -1323,7 +1395,7 @@ func (eip *SElasticip) GetUsages() []db.IUsage {
 	}
 }
 
-func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+/*func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
@@ -1341,4 +1413,4 @@ func (manager *SElasticipManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 		return q, httperrors.NewBadRequestError("unsupport field %s", field)
 	}
 	return q, nil
-}
+}*/

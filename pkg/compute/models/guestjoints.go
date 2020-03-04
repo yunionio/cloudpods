@@ -14,7 +14,18 @@
 
 package models
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/db"
+import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/reflectutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
 
 type SGuestJointsManager struct {
 	db.SVirtualJointResourceBaseManager
@@ -46,4 +57,53 @@ func (self *SGuestJointsBase) getGuest() *SGuest {
 
 func (manager *SGuestJointsManager) GetMasterFieldName() string {
 	return "guest_id"
+}
+
+func (self *SGuestJointsBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestJointResourceDetails, error) {
+	return api.GuestJointResourceDetails{}, nil
+}
+
+func (manager *SGuestJointsManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestJointResourceDetails {
+	rows := make([]api.GuestJointResourceDetails, len(objs))
+
+	jointRows := manager.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	guestIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.GuestJointResourceDetails{
+			VirtualJointResourceBaseDetails: jointRows[i],
+		}
+		var base *SGuestJointsBase
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && len(base.GuestId) > 0 {
+			guestIds[i] = base.GuestId
+		}
+	}
+
+	guestIdMaps, err := db.FetchIdNameMap2(GuestManager, guestIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := guestIdMaps[guestIds[i]]; ok {
+			rows[i].Guest = name
+			rows[i].Server = name
+		}
+	}
+
+	return rows
 }

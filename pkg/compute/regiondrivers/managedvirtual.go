@@ -181,7 +181,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil); err != nil {
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider()); err != nil {
 			return nil, err
 		}
 		//公网lb,需要同步public ip
@@ -595,7 +595,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err := db.SetExternalId(lbb, userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, nil)
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, nil, lb.GetCloudprovider())
 	})
 	return nil
 }
@@ -680,7 +680,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil, lb.GetCloudprovider())
 	})
 	return nil
 }
@@ -690,7 +690,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -725,7 +725,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		{
 			aclId, _ := task.GetParams().GetString("acl_id")
 			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -780,7 +780,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err := db.SetExternalId(lblis, userCred, iListener.GetGlobalId()); err != nil {
 			return nil, errors.Wrap(err, "db.SetExternalId")
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, lblis.GetCloudprovider())
 	})
 	return nil
 }
@@ -852,7 +852,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		{
 			certId, _ := task.GetParams().GetString("certificate_id")
 			if len(certId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -887,7 +887,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		{
 			aclId, _ := task.GetParams().GetString("acl_id")
 			if len(aclId) > 0 {
-				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				provider := lblis.GetCloudprovider()
 				if provider == nil {
 					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
 				}
@@ -951,7 +951,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		if err := iListener.Refresh(); err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.RefreshListener")
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil, lblis.GetCloudprovider())
 	})
 	return nil
 }
@@ -1048,7 +1048,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil, loadbalancer.GetCloudprovider())
 	})
 	return nil
 }

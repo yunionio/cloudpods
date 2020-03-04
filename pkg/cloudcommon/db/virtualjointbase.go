@@ -22,8 +22,10 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SVirtualJointResourceBase struct {
@@ -117,4 +119,31 @@ func (manager *SVirtualJointResourceBaseManager) FilterByHiddenSystemAttributes(
 	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
 	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
 	return q
+}
+
+func (model *SVirtualJointResourceBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (apis.VirtualJointResourceBaseDetails, error) {
+	return apis.VirtualJointResourceBaseDetails{}, nil
+}
+
+func (manager *SVirtualJointResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.VirtualJointResourceBaseDetails {
+	ret := make([]apis.VirtualJointResourceBaseDetails, len(objs))
+	upperRet := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.VirtualJointResourceBaseDetails{
+			JointResourceBaseDetails: upperRet[i],
+		}
+	}
+	return ret
 }

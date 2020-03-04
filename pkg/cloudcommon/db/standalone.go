@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
@@ -32,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type UUIDGenerator func() string
@@ -68,12 +70,39 @@ type SStandaloneResourceBaseManager struct {
 	NameLength       int
 }
 
-func NewStandaloneResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SStandaloneResourceBaseManager {
-	return SStandaloneResourceBaseManager{SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural)}
+func NewStandaloneResourceBaseManager(
+	dt interface{},
+	tableName string,
+	keyword string,
+	keywordPlural string,
+) SStandaloneResourceBaseManager {
+	return SStandaloneResourceBaseManager{
+		SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural),
+	}
 }
 
 func (manager *SStandaloneResourceBaseManager) IsStandaloneManager() bool {
 	return true
+}
+
+func (self *SStandaloneResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowList(userCred, self)
+}
+
+func (self *SStandaloneResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGet(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SStandaloneResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SStandaloneResourceBaseManager) GetIStandaloneModelManager() IStandaloneModelManager {
@@ -139,11 +168,18 @@ func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient
 	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.StandaloneResourceListInput) (*sqlchemy.SQuery, error) {
+func (manager *SStandaloneResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.StandaloneResourceListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ResourceBaseListInput)
 	if err != nil {
 		return q, errors.Wrap(err, "SResourceBaseManager.ListItemFilte")
 	}
+
+	// show_emulated is handled by FilterByHiddenSystemAttributes
 
 	if len(input.Names) > 0 {
 		q = q.In("name", input.Names)
@@ -205,6 +241,27 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 	return q, nil
 }
 
+func (manager *SStandaloneResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SStandaloneResourceBaseManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input apis.StandaloneResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.ResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
 func (model *SStandaloneResourceBase) StandaloneModelManager() IStandaloneModelManager {
 	return model.GetModelManager().(IStandaloneModelManager)
 }
@@ -237,16 +294,6 @@ func (model *SStandaloneResourceBase) GetShortDescV2(ctx context.Context) *apis.
 	desc.Name = model.GetName()
 	desc.Id = model.GetId()
 	return desc
-}
-
-func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.StandaloneResourceDetails, error) {
-	var err error
-	out := apis.StandaloneResourceDetails{}
-	out.ModelBaseDetails, err = model.SResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return out, nil
 }
 
 /*
@@ -429,22 +476,46 @@ func (manager *SStandaloneResourceBaseManager) ValidateCreateData(ctx context.Co
 	return input, nil
 }
 
-/*
-func (model SStandaloneResourceBase) GetExternalId() string {
-	return model.ExternalId
+func (model *SStandaloneResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.StandaloneResourceDetails, error) {
+	return apis.StandaloneResourceDetails{}, nil
 }
 
-func (model *SStandaloneResourceBase) SetExternalId(userCred mcclient.TokenCredential, idstr string) error {
-	if model.ExternalId != idstr {
-		diff, err := Update(model, func() error {
-			model.ExternalId = idstr
-			return nil
-		})
-		if err == nil {
-			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+func (manager *SStandaloneResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.StandaloneResourceDetails {
+	ret := make([]apis.StandaloneResourceDetails, len(objs))
+	resIds := make([]string, len(objs))
+	upperRet := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.StandaloneResourceDetails{
+			ResourceBaseDetails: upperRet[i],
 		}
-		return err
+		resIds[i] = GetObjectIdstr(objs[i].(IModel))
 	}
+
+	if fields == nil || fields.Contains("__meta__") {
+		q := Metadata.Query("id", "key", "value")
+		metaKeyValues := make(map[string][]SMetadata)
+		err := FetchQueryObjectsByIds(q, "id", resIds, &metaKeyValues)
+		if err != nil {
+			log.Errorf("FetchQueryObjectsByIds metadata fail %s", err)
+			return ret
+		}
+
+		for i := range objs {
+			if metaList, ok := metaKeyValues[resIds[i]]; ok {
+				ret[i].Metadata = metaList2Map(manager.GetIStandaloneModelManager(), userCred, metaList)
+			}
+		}
+	}
+	return ret
+}
+
+func (manager *SStandaloneResourceBaseManager) GetMetadataHiddenKeys() []string {
 	return nil
 }
-*/

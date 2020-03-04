@@ -16,13 +16,10 @@ package compute
 
 import (
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type HoststorageDetails struct {
-	apis.JoinModelBaseDetails
-	HostJointsDetails
+	HostJointResourceDetails
 
 	SHoststorage
 

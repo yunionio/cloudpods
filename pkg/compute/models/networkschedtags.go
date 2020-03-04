@@ -18,10 +18,12 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNetworkschedtagManager struct {
@@ -70,13 +72,47 @@ func (s *SNetworkschedtag) Master() db.IStandaloneModel {
 	return s.SSchedtagJointsBase.master(s)
 }
 
-func (s *SNetworkschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NetworkschedtagDetails, error) {
-	var err error
-	out := api.NetworkschedtagDetails{}
-	out.JoinModelBaseDetails, err = s.SSchedtagJointsBase.getExtraDetails(s, ctx, userCred, query, isList)
-	out.Network, out.Schedtag = db.JointModelExtra(s)
-	return out, err
+func (s *SNetworkschedtag) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NetworkschedtagDetails, error) {
+	return api.NetworkschedtagDetails{}, nil
+}
 
+func (manager *SNetworkschedtagManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NetworkschedtagDetails {
+	rows := make([]api.NetworkschedtagDetails, len(objs))
+
+	schedRows := manager.SSchedtagJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	netIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.NetworkschedtagDetails{
+			SchedtagJointResourceDetails: schedRows[i],
+		}
+		netIds[i] = objs[i].(*SNetworkschedtag).NetworkId
+	}
+
+	netIdMaps, err := db.FetchIdNameMap2(NetworkManager, netIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 netIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := netIdMaps[netIds[i]]; ok {
+			rows[i].Network = name
+		}
+	}
+
+	return rows
 }
 
 func (s *SNetworkschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

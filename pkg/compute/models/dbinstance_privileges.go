@@ -71,26 +71,6 @@ func (manager *SDBInstancePrivilegeManager) GetContextManagers() [][]db.IModelMa
 	}
 }
 
-func (self *SDBInstancePrivilegeManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SDBInstancePrivilegeManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SDBInstancePrivilege) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SDBInstancePrivilege) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SDBInstancePrivilege) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
-}
-
 func (self *SDBInstancePrivilege) GetDBInstanceAccount() (*SDBInstanceAccount, error) {
 	account, err := db.FetchById(DBInstanceAccountManager, self.DBInstanceaccountId)
 	if err != nil {

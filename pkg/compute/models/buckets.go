@@ -45,10 +45,13 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SBucketManager struct {
 	db.SVirtualResourceBaseManager
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var BucketManager *SBucketManager
@@ -68,10 +71,10 @@ func init() {
 type SBucket struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
-
+	SCloudregionResourceBase
 	SManagedResourceBase
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	StorageClass string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	Location     string `width:"36" charset:"ascii" nullable:"false" list:"user"`
@@ -519,13 +522,30 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 }
 
 func (bucket *SBucket) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.BucketDetails, error) {
-	var err error
-	out := api.BucketDetails{}
-	out.VirtualResourceDetails, err = bucket.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.BucketDetails{}, nil
+}
+
+func (manager *SBucketManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.BucketDetails {
+	rows := make([]api.BucketDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.BucketDetails{
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     managerRows[i],
+			CloudregionResourceInfo: regionRows[i],
+		}
+		rows[i] = objs[i].(*SBucket).getMoreDetails(rows[i])
 	}
-	return bucket.getMoreDetails(out), nil
+	return rows
 }
 
 func joinPath(ep, path string) string {
@@ -533,8 +553,6 @@ func joinPath(ep, path string) string {
 }
 
 func (bucket *SBucket) getMoreDetails(out api.BucketDetails) api.BucketDetails {
-	out.CloudproviderInfo = bucket.getCloudProviderInfo()
-
 	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", "public")
 	if len(s3gwUrl) > 0 {
 		accessUrls := make([]cloudprovider.SBucketAccessUrl, 0)
@@ -563,7 +581,7 @@ func (bucket *SBucket) getMoreDetails(out api.BucketDetails) api.BucketDetails {
 	return out
 }
 
-func (bucket *SBucket) getCloudProviderInfo() api.CloudproviderInfo {
+func (bucket *SBucket) getCloudProviderInfo() SCloudProviderInfo {
 	region, _ := bucket.GetRegion()
 	provider := bucket.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
@@ -573,14 +591,14 @@ func (bucket *SBucket) getCloudProviderInfo() api.CloudproviderInfo {
 func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
@@ -597,17 +615,35 @@ func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	if err == nil {
 		return q, nil
 	}
-	switch field {
-	case "account":
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
-		q = q.Join(cloudproviders, sqlchemy.Equals(q.Field("manager_id"), cloudproviders.Field("id")))
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
-		q.GroupBy(cloudaccounts.Field("name"))
-		q.AppendField(cloudaccounts.Field("name", "account"))
-	default:
-		return q, httperrors.NewBadRequestError("unsupport field %s", field)
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
 	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SBucketManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
 	return q, nil
 }
 

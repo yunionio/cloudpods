@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 type DiskCreateInput struct {
@@ -94,12 +95,9 @@ type SnapshotPolicyFilterListInput struct {
 
 type DiskListInput struct {
 	apis.VirtualResourceListInput
-
-	ManagedResourceListInput
-
-	BillingFilterListInput
+	billing.BillingResourceListInput
 	StorageFilterListInput
-	StorageShareFilterListInput
+
 	SnapshotPolicyFilterListInput
 	ServerFilterListInput
 
@@ -123,12 +121,18 @@ type DiskListInput struct {
 }
 
 type DiskFilterListInput struct {
+	StorageFilterListInput
+
 	// 以指定虚拟磁盘（ID或Name）过滤列表结果
 	Disk string `json:"disk"`
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
 	DiskId string `json:"disk_id" deprecated-by:"disk"`
+
+	// 以磁盘名称排序
+	// pattern:asc|desc
+	OrderByDisk string `json:"order_by_disk"`
 }
 
 type SimpleGuest struct {
@@ -144,17 +148,9 @@ type SimpleSnapshotPolicy struct {
 
 type DiskDetails struct {
 	apis.VirtualResourceDetails
-	SDisk
-	CloudproviderInfo
+	StorageResourceInfo
 
-	// 云平台
-	Provider string `json:"provider"`
-	// 存储名称
-	Storage string `json:"storage"`
-	// 存储类型
-	StorageType string `json:"storage_type"`
-	// 介质类型
-	MediumType string `json:"medium_type"`
+	SDisk
 
 	// 所挂载的虚拟机
 	Guests []SimpleGuest `json:"guests"`
@@ -177,4 +173,18 @@ type DiskDetails struct {
 	ManualSnapshotCount int `json:"manual_snapshot_count"`
 	// 最多可创建手动快照数量
 	MaxManualSnapshotCount int `json:"max_manual_snapshot_count"`
+}
+
+type DiskResourceInfoBase struct {
+	// 磁盘名称
+	Disk string `json:"disk"`
+}
+
+type DiskResourceInfo struct {
+	DiskResourceInfoBase
+
+	// 存储ID
+	StorageId string `json:"storage_id"`
+
+	StorageResourceInfo
 }

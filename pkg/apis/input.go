@@ -14,17 +14,14 @@
 
 package apis
 
-type DomainizedResourceListInput struct {
-	// swagger:ignore
-	// Is an admin call? equivalent to scope=system
-	// Deprecated
-	Admin *bool `json:"admin"`
-
-	// 指定查询的权限范围，可能值为project, domain or system
-	Scope string `json:"scope"`
-
-	// 查询指定的域（ID或名称）拥有的资源
+type DomainizedResourceInput struct {
+	// 指定项目归属域名称或ID
+	// required: false
 	ProjectDomain string `json:"project_domain"`
+
+	// swagger:ignore
+	// Deprecated
+	Domain string `json:"domain" deprecated-by:"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
@@ -35,20 +32,9 @@ type DomainizedResourceListInput struct {
 	DomainId string `json:"domain_id" deprecated-by:"project_domain"`
 }
 
-type DomainizedResourceCreateInput struct {
-	// description: the owner domain name or id
+type ProjectizedResourceInput struct {
+	// 指定项目的名称或ID
 	// required: false
-	Domain string `json:"project_domain"`
-
-	// description: the owner domain name or id, alias field of domain
-	// required: false
-	DomainId string `json:"domain_id"`
-}
-
-type ProjectizedResourceListInput struct {
-	DomainizedResourceListInput
-
-	// 查询指定的项目（ID或名称）拥有的资源
 	Project string `json:"project"`
 	// swagger:ignore
 	// Deprecated
@@ -64,35 +50,13 @@ type ProjectizedResourceListInput struct {
 	TenantId string `json:"tenant_id" deprecated-by:"project"`
 }
 
+type DomainizedResourceCreateInput struct {
+	DomainizedResourceInput
+}
+
 type ProjectizedResourceCreateInput struct {
-	DomainizedResourceCreateInput
-
-	// description: the owner project name or id
-	// required: false
-	Project string `json:"project"`
-
-	// description: the owner project name or id, alias field of project
-	// required: false
-	ProjectId string `json:"project_id"`
-}
-
-type UserResourceListInput struct {
-	// 查询指定的用户（ID或名称）拥有的资源
-	User string `json:"user"`
-	// swagger:ignore
-	// Deprecated
-	// Filter by userId
-	UserId string `json:"user_id" deprecated-by:"user"`
-}
-
-func (input UserResourceListInput) UserStr() string {
-	if len(input.User) > 0 {
-		return input.User
-	}
-	if len(input.UserId) > 0 {
-		return input.UserId
-	}
-	return ""
+	DomainizedResourceInput
+	ProjectizedResourceInput
 }
 
 type SharableVirtualResourceCreateInput struct {
@@ -116,20 +80,41 @@ type VirtualResourceCreateInput struct {
 	IsSystem *bool `json:"is_system"`
 }
 
-type EnabledStatusStandaloneResourceCreateInput struct {
-	StatusStandaloneResourceCreateInput
-
-	// description: indicate the resource is enabled/disabled by administrator
+type EnabledBaseResourceCreateInput struct {
+	// 该资源是否被管理员*人为*启用或者禁用
 	// required: false
 	Enabled *bool `json:"enabled"`
 }
 
-type StatusStandaloneResourceCreateInput struct {
-	StandaloneResourceCreateInput
-
-	// description: the status of the resource
+type StatusBaseResourceCreateInput struct {
+	// 用来存储资源的状态
 	// required: false
 	Status string `json:"status"`
+}
+
+type EnabledStatusDomainLevelResourceCreateInput struct {
+	StatusDomainLevelResourceCreateInput
+	EnabledBaseResourceCreateInput
+}
+
+type StatusDomainLevelResourceCreateInput struct {
+	DomainLevelResourceCreateInput
+	StatusBaseResourceCreateInput
+}
+
+type DomainLevelResourceCreateInput struct {
+	StandaloneResourceCreateInput
+	DomainizedResourceCreateInput
+}
+
+type EnabledStatusStandaloneResourceCreateInput struct {
+	StatusStandaloneResourceCreateInput
+	EnabledBaseResourceCreateInput
+}
+
+type StatusStandaloneResourceCreateInput struct {
+	StandaloneResourceCreateInput
+	StatusBaseResourceCreateInput
 }
 
 type StandaloneResourceCreateInput struct {
@@ -171,4 +156,45 @@ type ResourceBaseCreateInput struct {
 
 type ModelBaseCreateInput struct {
 	Meta
+}
+
+type PerformStatusInput struct {
+	// 更改的目标状态值
+	// required:true
+	Status string `json:"status"`
+
+	// 更改状态的原因描述
+	// required:false
+	Reason string `json:"reason"`
+}
+
+type GetDetailsStatusOutput struct {
+	// 状态
+	Status string `json:"status"`
+}
+
+type PerformProjectPublicInput struct {
+	// 共享项目资源的共享范围，可能的值为：project, domain和system
+	// pattern: project|domain|system
+	Scope string `json:"scope"`
+
+	// 如果共享范围为项目，则在此列表中指定共享的目标项目
+	SharedProjects []string `json:"shared_projects"`
+}
+
+type PerformProjectPrivateInput struct {
+}
+
+type PerformChangeProjectOwnerInput struct {
+	ProjectizedResourceInput
+}
+
+type PerformChangeDomainOwnerInput struct {
+	DomainizedResourceInput
+}
+
+type PerformEnableInput struct {
+}
+
+type PerformDisableInput struct {
 }

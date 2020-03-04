@@ -35,10 +35,12 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SStoragecacheManager struct {
 	db.SStandaloneResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var StoragecacheManager *SStoragecacheManager
@@ -63,26 +65,6 @@ type SStoragecache struct {
 
 	// 镜像存储地址
 	Path string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
-}
-
-func (self *SStoragecacheManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, self)
-}
-
-func (self *SStoragecacheManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, self)
-}
-
-func (self *SStoragecache) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, self)
-}
-
-func (self *SStoragecache) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, self)
-}
-
-func (self *SStoragecache) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SStoragecache) getStorages() []SStorage {
@@ -254,14 +236,49 @@ func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCr
 	return nil
 }
 
-func (self *SStoragecache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.StoragecacheDetails, error) {
-	var err error
-	out := api.StoragecacheDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (manager *SStoragecacheManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.StoragecacheDetails {
+	rows := make([]api.StoragecacheDetails, len(objs))
+
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.StoragecacheDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:       manRows[i],
+		}
+		rows[i] = objs[i].(*SStoragecache).getMoreDetails(ctx, rows[i])
 	}
-	return self.getMoreDetails(ctx, out), nil
+
+	return rows
+}
+
+func (self *SStoragecache) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.StoragecacheDetails, error) {
+	return api.StoragecacheDetails{}, nil
+}
+
+func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
+	out.Storages = self.getStorageNames()
+	out.Size = self.getCachedImageSize()
+	out.Count = self.getCachedImageCount()
+
+	host, _ := self.GetHost()
+	if host != nil {
+		out.Host = host.GetShortDesc(ctx)
+	}
+	return out
 }
 
 func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string, status []string) []SCachedimage {
@@ -323,18 +340,6 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 		}
 	}
 	return size
-}
-
-func (self *SStoragecache) getMoreDetails(ctx context.Context, out api.StoragecacheDetails) api.StoragecacheDetails {
-	out.Storages = self.getStorageNames()
-	out.Size = self.getCachedImageSize()
-	out.Count = self.getCachedImageCount()
-
-	host, _ := self.GetHost()
-	if host != nil {
-		out.Host = host.GetShortDesc(ctx)
-	}
-	return out
 }
 
 func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {
@@ -400,24 +405,62 @@ func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache,
 }
 
 // 镜像缓存存储列表
-func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.StoragecacheListInput) (*sqlchemy.SQuery, error) {
+func (manager *SStoragecacheManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecacheListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = managedResourceFilterByAccount(q, query.ManagedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByAccount")
-	}
-
-	q, err = managedResourceFilterByDomain(q, query.DomainizedResourceListInput, "", nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
-	}
 
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (manager *SStoragecacheManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SStoragecacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SStoragecacheManager) FetchStoragecacheById(storageCacheId string) *SStoragecache {

@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type IModelManager interface {
@@ -59,7 +58,8 @@ type IModelManager interface {
 	ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition
 	GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict
 	ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
-	OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
+	// OrderByExtraFields dynmically called by dispatcher
+	// OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
 
 	// fetch hook
 	Query(val ...string) *sqlchemy.SQuery
@@ -110,7 +110,8 @@ type IModelManager interface {
 	GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 
 	// list extend colums hook
-	FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict
+	// FetchCustomizeColumns dynamically called by dispatcher
+	// FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []interface{}, fields stringutils2.SSortedStrings, isList bool) []*jsonutils.JSONDict
 
 	// fetch owner Id from query when create resource
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
@@ -120,6 +121,7 @@ type IModelManager interface {
 	NamespaceScope() rbacutils.TRbacScope
 	ResourceScope() rbacutils.TRbacScope
 
+	// 如果error为非空，说明没有匹配的field，如果为空，说明匹配上了
 	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)
 
 	GetPagingConfig() *SPagingConfig
@@ -249,12 +251,16 @@ type IStandaloneModelManager interface {
 	// IsNewNameUnique(name string, projectId string) bool
 
 	// FetchByExternalId(idStr string) (IStandaloneModel, error)
+
+	GetMetadataHiddenKeys() []string
 }
 
 type IStandaloneModel interface {
 	IResourceModel
 	// IsAlterNameUnique(name string, projectId string) bool
 	// GetExternalId() string
+
+	StandaloneModelManager() IStandaloneModelManager
 
 	GetIStandaloneModel() IStandaloneModel
 	ClearSchedDescCache() error
@@ -271,11 +277,21 @@ type IStandaloneModel interface {
 	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
 }
 
-type IMetadataModel interface {
+type IDomainLevelModelManager interface {
+	IStandaloneModelManager
+
+	GetIDomainLevelModelManager() IDomainLevelModelManager
+	GetResourceCount() ([]SProjectResourceCount, error)
+}
+
+type IDomainLevelModel interface {
 	IStandaloneModel
 
-	// GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
-	GetMetadataHideKeys() []string
+	IsOwner(userCred mcclient.TokenCredential) bool
+
+	SyncCloudDomainId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
+
+	GetIDomainLevelModel() IDomainLevelModel
 }
 
 type IVirtualModelManager interface {

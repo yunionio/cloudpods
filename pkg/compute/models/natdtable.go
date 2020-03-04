@@ -29,10 +29,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SNatDEntryManager struct {
@@ -65,15 +65,41 @@ type SNatDEntry struct {
 }
 
 // NAT网关的目的地址转换规则列表
-func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatDEntryListInput) (*sqlchemy.SQuery, error) {
+func (man *SNatDEntryManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatDEntryListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SNatEntryManager.ListItemFilter(ctx, q, userCred, query.NatEntryListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SNatEntryManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "natgateway", ModelKeyword: "natgateway", OwnerId: userCred},
-	})
+	return q, nil
+}
+
+func (manager *SNatDEntryManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatDEntryListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SNatEntryManager.OrderByExtraFields(ctx, q, userCred, query.NatEntryListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNatEntryManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SNatDEntryManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SNatEntryManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -246,28 +272,31 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 	return &table, nil
 }
 
-func (self *SNatDEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.NatDEntryDetails, error) {
-	var err error
-	out := api.NatDEntryDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-
-	return self.getMoreDetails(ctx, userCred, out), nil
+func (self *SNatDEntry) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.NatDEntryDetails, error) {
+	return api.NatDEntryDetails{}, nil
 }
 
-func (self *SNatDEntry) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	out api.NatDEntryDetails) api.NatDEntryDetails {
-
-	natgateway, err := self.GetNatgateway()
-	if err != nil {
-		log.Errorf("failed to get naggateway %s for dtable %s(%s) error: %v", self.NatgatewayId, self.Name, self.Id, err)
-		return out
+func (manager *SNatDEntryManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.NatDEntryDetails {
+	rows := make([]api.NatDEntryDetails, len(objs))
+	entryRows := manager.SNatEntryManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.NatDEntryDetails{
+			NatEntryDetails: entryRows[i],
+		}
 	}
-	out.Natgateway = natgateway.Name
-	out.RealName = NatGatewayManager.NatNameToReal(self.Name, natgateway.GetId())
-	return out
+	return rows
 }
 
 func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

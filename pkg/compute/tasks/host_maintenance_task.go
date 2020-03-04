@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -51,7 +52,7 @@ func (self *HostMaintainTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 }
 
 func (self *HostMaintainTask) OnGuestsMigrate(ctx context.Context, host *models.SHost, data jsonutils.JSONObject) {
-	host.PerformDisable(ctx, self.UserCred, nil, nil)
+	host.PerformDisable(ctx, self.UserCred, nil, apis.PerformDisableInput{})
 	host.SetStatus(self.UserCred, api.BAREMETAL_MAINTAINING, "On host maintain task complete")
 	logclient.AddSimpleActionLog(host, logclient.ACT_HOST_MAINTAINING, "host maintain", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
@@ -62,7 +63,7 @@ func (self *HostMaintainTask) OnGuestsMigrateFailed(ctx context.Context, host *m
 }
 
 func (self *HostMaintainTask) TaskFailed(ctx context.Context, host *models.SHost, reason string) {
-	host.PerformDisable(ctx, self.UserCred, nil, nil)
+	host.PerformDisable(ctx, self.UserCred, nil, apis.PerformDisableInput{})
 	host.SetStatus(self.UserCred, api.BAREMETAL_MAINTAIN_FAIL, "On host maintain task complete failed")
 	logclient.AddSimpleActionLog(host, logclient.ACT_HOST_MAINTAINING, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

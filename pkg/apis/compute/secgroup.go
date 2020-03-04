@@ -136,10 +136,20 @@ type SecgroupListInput struct {
 	Equals string
 
 	ServerFilterListInput
+
+	// 按缓存数量排序
+	// pattern:asc|desc
+	OrderByCacheCnt string `json:"order_by_cache_cnt"`
+
+	// 按缓存关联主机数排序
+	// pattern:asc|desc
+	OrderByGuestCnt string `json:"order_by_guest_cnt"`
 }
 
 type SecurityGroupCacheListInput struct {
 	apis.StatusStandaloneResourceListInput
+	ManagedResourceListInput
+	RegionalFilterListInput
 
 	SecgroupFilterListInput
 }

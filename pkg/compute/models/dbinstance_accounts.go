@@ -29,16 +29,17 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceAccountManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SDBInstanceResourceBaseManager
 }
 
 var DBInstanceAccountManager *SDBInstanceAccountManager
@@ -59,10 +60,13 @@ type SDBInstanceAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
+	SDBInstanceResourceBase
+
 	// 数据库密码
 	Secret string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+
 	// RDS实例Id
-	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceAccountManager) GetContextManagers() [][]db.IModelManager {
@@ -160,25 +164,75 @@ func (self *SDBInstanceAccount) getMoreDetails(ctx context.Context, userCred mcc
 }
 
 func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceAccountDetails, error) {
-	var err error
-	out := api.DBInstanceAccountDetails{}
-	out.StandaloneResourceDetails, err = self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.DBInstanceAccountDetails{}, nil
+}
+
+func (manager *SDBInstanceAccountManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceAccountDetails {
+	rows := make([]api.DBInstanceAccountDetails, len(objs))
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dbRows := manager.SDBInstanceResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.DBInstanceAccountDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			DBInstanceResourceInfo:          dbRows[i],
+		}
+		rows[i], _ = objs[i].(*SDBInstanceAccount).getMoreDetails(ctx, userCred, rows[i])
 	}
-	return self.getMoreDetails(ctx, userCred, out)
+	return rows
 }
 
 // RDS账号列表
-func (manager *SDBInstanceAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstanceAccountListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDBInstanceAccountManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceAccountListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
-	})
+	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceAccountManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstanceAccountListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DBInstanceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceAccountManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SDBInstanceResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (manager *SDBInstanceAccountManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
@@ -284,14 +338,6 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountCreateTask(ctx context.Con
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SDBInstanceAccount) GetDBInstance() (*SDBInstance, error) {
-	instance, err := DBInstanceManager.FetchById(self.DBInstanceId)
-	if err != nil {
-		return nil, err
-	}
-	return instance.(*SDBInstance), nil
 }
 
 func (self *SDBInstanceAccount) AllowPerformGrantPrivilege(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

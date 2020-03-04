@@ -262,8 +262,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 	}
 
 	data.Set("name", jsonutils.NewString(name))
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -334,8 +334,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		return nil, err
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(listener.GetRegionId()))
+	data.Set("manager_id", jsonutils.NewString(listener.GetCloudproviderId()))
 	return data, nil
 }
 
@@ -493,8 +493,8 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		return nil, err
 	}
 
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return data, nil
 }
 
@@ -689,14 +689,14 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		for _, backend := range backends {
 			loadbalancerBackend := models.SLoadbalancerBackend{
-				BackendGroupId: lbbg.Id,
-				BackendId:      backend.ID,
-				BackendType:    backend.BackendType,
-				BackendRole:    backend.BackendRole,
-				Weight:         backend.Weight,
-				Address:        backend.Address,
-				Port:           backend.Port,
+				BackendId:   backend.ID,
+				BackendType: backend.BackendType,
+				BackendRole: backend.BackendRole,
+				Weight:      backend.Weight,
+				Address:     backend.Address,
+				Port:        backend.Port,
 			}
+			loadbalancerBackend.BackendGroupId = lbbg.Id
 			loadbalancerBackend.Status = api.LB_STATUS_ENABLED
 			loadbalancerBackend.ProjectId = userCred.GetProjectId()
 			loadbalancerBackend.DomainId = userCred.GetProjectDomainId()

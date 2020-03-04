@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/reflectutils"
 )
 
 type IQuery interface {
@@ -104,6 +104,8 @@ type SQuery struct {
 	offset   int
 
 	fieldCache map[string]IQueryField
+
+	snapshot string
 }
 
 type SSubQuery struct {
@@ -173,7 +175,7 @@ func (sq *SSubQuery) findField(id string) IQueryField {
 	for i := range queryFields {
 		if queryFields[i].Name() == id {
 			sq.referedFields[id] = sq.query.Field(queryFields[i].Name())
-			return queryFields[i]
+			return sq.referedFields[id]
 		}
 	}
 	return nil
@@ -693,4 +695,16 @@ func (q *SQuery) Row2Struct(row IRowScanner, dest interface{}) error {
 		return err
 	}
 	return q.RowMap2Struct(result, dest)
+}
+
+func (q *SQuery) Snapshot() *SQuery {
+	q.snapshot = q.String()
+	return q
+}
+
+func (q *SQuery) IsAltered() bool {
+	if len(q.snapshot) == 0 {
+		panic(fmt.Sprintf("Query %s has never been snapshot when IsAltered called", q.String()))
+	}
+	return q.String() != q.snapshot
 }

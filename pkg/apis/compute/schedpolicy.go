@@ -18,8 +18,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 
 type SchedpolicyDetails struct {
 	apis.StandaloneResourceDetails
-	SSchedpolicy
+	SchedtagResourceInfo
 
-	Schedtag     string `json:"schedtag"`
-	ResourceType string `json:"resource_type"`
+	SSchedpolicy
 }

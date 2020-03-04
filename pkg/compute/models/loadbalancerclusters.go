@@ -28,10 +28,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerClusterManager struct {
 	db.SStandaloneResourceBaseManager
+	SZoneResourceBaseManager
+	SWireResourceBaseManager
 }
 
 var LoadbalancerClusterManager *SLoadbalancerClusterManager
@@ -51,44 +54,82 @@ func init() {
 type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
-	WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
-}
-
-func (man *SLoadbalancerClusterManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowList(userCred, man)
-}
-
-func (man *SLoadbalancerClusterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowCreate(userCred, man)
-}
-
-func (lbc *SLoadbalancerCluster) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGet(userCred, lbc)
-}
-
-func (lbc *SLoadbalancerCluster) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return db.IsAdminAllowUpdate(userCred, lbc)
-}
-
-func (lbc *SLoadbalancerCluster) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowDelete(userCred, lbc)
+	SWireResourceBase
+	//WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 
 // 负载均衡集群列表
-func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerClusterListInput) (*sqlchemy.SQuery, error) {
-	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+func (man *SLoadbalancerClusterManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerClusterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "wire", ModelKeyword: "wire", OwnerId: userCred},
-	})
+	q, err = man.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
+	wireQuery := api.WireFilterListInput{
+		WireFilterListBase: query.WireFilterListBase,
+	}
+	q, err = man.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, wireQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
+}
+
+func (man *SLoadbalancerClusterManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerClusterListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = man.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SZoneResourceBaseManager.OrderByExtraFields")
+	}
+	wireQuery := api.WireFilterListInput{
+		WireFilterListBase: query.WireFilterListBase,
+	}
+	q, err = man.SWireResourceBaseManager.OrderByExtraFields(ctx, q, userCred, wireQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerClusterManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = man.SWireResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -172,15 +213,38 @@ func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) er
 	return lbc.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (lbc *SLoadbalancerCluster) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerCusterDetails, error) {
-	var err error
-	out := api.LoadbalancerCusterDetails{}
-	out.StandaloneResourceDetails, err = lbc.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (lbc *SLoadbalancerCluster) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerClusterDetails, error) {
+	return api.LoadbalancerClusterDetails{}, nil
+}
+
+func (man *SLoadbalancerClusterManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerClusterDetails {
+	rows := make([]api.LoadbalancerClusterDetails, len(objs))
+
+	stdRows := man.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneRows := man.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	wireRows := man.SWireResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerClusterDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ZoneResourceInfo:          zoneRows[i],
+			WireResourceInfoBase:      wireRows[i].WireResourceInfoBase,
+		}
 	}
-	out.ZoneInfo = lbc.SZoneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return out, nil
+
+	return rows
 }
 
 func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -253,10 +317,12 @@ func (man *SLoadbalancerClusterManager) getLoadbalancerAgents(clusterId string) 
 func (man *SLoadbalancerClusterManager) InitializeData() error {
 	// find existing lb with empty clusterid
 	lbs := []SLoadbalancer{}
-	lbQ := LoadbalancerManager.Query().
-		IsFalse("pending_deleted").
-		IsNullOrEmpty("manager_id").
-		IsNullOrEmpty("cluster_id")
+	lbQ := LoadbalancerManager.Query()
+	vpcs := VpcManager.Query().SubQuery()
+	lbQ = lbQ.Join(vpcs, sqlchemy.Equals(lbQ.Field("vpc_id"), vpcs.Field("id")))
+	lbQ = lbQ.Filter(sqlchemy.IsFalse(lbQ.Field("pending_deleted")))
+	lbQ = lbQ.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	lbQ = lbQ.Filter(sqlchemy.IsNullOrEmpty(lbQ.Field("cluster_id")))
 	if err := db.FetchModelObjects(LoadbalancerManager, lbQ, &lbs); err != nil {
 		return errors.Wrap(err, "find lb with empty cluster_id")
 	}

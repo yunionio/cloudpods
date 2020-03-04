@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SJointResourceBase struct {
@@ -227,4 +228,31 @@ func (manager *SJointResourceBaseManager) ValidateCreateData(ctx context.Context
 		return input, err
 	}
 	return input, nil
+}
+
+func (model *SJointResourceBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (apis.JointResourceBaseDetails, error) {
+	return apis.JointResourceBaseDetails{}, nil
+}
+
+func (manager *SJointResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.JointResourceBaseDetails {
+	ret := make([]apis.JointResourceBaseDetails, len(objs))
+	upperRet := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range objs {
+		ret[i] = apis.JointResourceBaseDetails{
+			ResourceBaseDetails: upperRet[i],
+		}
+	}
+	return ret
 }

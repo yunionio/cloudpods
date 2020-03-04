@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -402,43 +401,20 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 	return idMap, nil
 }
 
-func dbFetchIdNameMap(manager db.IStandaloneModelManager, idMap map[string]string) (map[string]string, error) {
-	q := manager.Query("id", "name").In("id", utils.MapKeys(idMap))
-	rows, err := q.Rows()
-	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
-			return idMap, nil
-		} else {
-			return idMap, errors.Wrap(err, "Query")
-		}
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		var name string
-		err := rows.Scan(&id, &name)
-		if err != nil {
-			return idMap, errors.Wrap(err, "rows.Scan")
-		}
-		idMap[id] = name
-	}
-	return idMap, nil
-}
-
 func fetchRegionNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudregionManager, idMap)
+	return db.FetchIdNameMap(CloudregionManager, idMap)
 }
 
 func fetchZoneNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(ZoneManager, idMap)
+	return db.FetchIdNameMap(ZoneManager, idMap)
 }
 
 func fetchAccountNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudaccountManager, idMap)
+	return db.FetchIdNameMap(CloudaccountManager, idMap)
 }
 
 func fetchManagerNames(idMap map[string]string) (map[string]string, error) {
-	return dbFetchIdNameMap(CloudproviderManager, idMap)
+	return db.FetchIdNameMap(CloudproviderManager, idMap)
 }
 
 type SComputeResourceKeys struct {

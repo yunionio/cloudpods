@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSharableVirtualResourceBase struct {
@@ -111,15 +112,14 @@ func (model *SSharableVirtualResourceBase) IsSharable(reqUsrId mcclient.IIdentit
 	return false
 }
 
-func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformProjectPublicInput) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
 }
 
-func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	targetScopeStr, _ := data.GetString("scope")
-	targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
+func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformProjectPublicInput) (jsonutils.JSONObject, error) {
+	targetScope := rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem)
 	if targetScope == rbacutils.ScopeProject {
-		if sharedProjects, err := data.GetArray("shared_projects"); err == nil {
+		if len(input.SharedProjects) > 0 {
 			delProjects := make([]*SSharedResource, 0)
 			addProjects := make([]string, 0)
 			ops := make(map[string]*SSharedResource, 0)
@@ -137,8 +137,8 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 			for i := 0; i < len(srs); i++ {
 				ops[srs[i].TargetProjectId] = &srs[i]
 			}
-			for i := 0; i < len(sharedProjects); i++ {
-				sharedProject, _ := sharedProjects[i].GetString()
+			for i := 0; i < len(input.SharedProjects); i++ {
+				sharedProject := input.SharedProjects[i]
 				tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, sharedProject)
 				if err != nil {
 					return nil, httperrors.NewBadRequestError("fetch tenant %s error %s", sharedProject, err)
@@ -215,11 +215,11 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 	return nil, nil
 }
 
-func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformProjectPrivateInput) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
 }
 
-func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformProjectPrivateInput) (jsonutils.JSONObject, error) {
 	if model.IsPublic {
 		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
 		requireScope := rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeSystem)
@@ -259,7 +259,7 @@ func (model *SSharableVirtualResourceBase) GetSharedProjects() []string {
 	return res
 }
 
-func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out apis.SharableVirtualResourceDetails) apis.SharableVirtualResourceDetails {
+/*func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, out apis.SharableVirtualResourceDetails) apis.SharableVirtualResourceDetails {
 	out.SharedProjects = []apis.SharedProject{}
 	projects := model.GetSharedProjects()
 	for i := 0; i < len(projects); i++ {
@@ -275,17 +275,7 @@ func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, u
 		out.SharedProjects = append(out.SharedProjects, project)
 	}
 	return out
-}
-
-func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.SharableVirtualResourceDetails, error) {
-	var err error
-	out := apis.SharableVirtualResourceDetails{}
-	out.VirtualResourceDetails, err = model.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	return model.getMoreDetails(ctx, userCred, query, out), nil
-}
+}*/
 
 func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.SharableVirtualResourceCreateInput) (apis.SharableVirtualResourceCreateInput, error) {
 	var err error
@@ -296,10 +286,74 @@ func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx conte
 	return input, nil
 }
 
-func (manager *SSharableVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.SharableVirtualResourceListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSharableVirtualResourceBaseManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query apis.SharableVirtualResourceListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
+}
+
+func (manager *SSharableVirtualResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
+}
+
+func (manager *SSharableVirtualResourceBaseManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query apis.SharableVirtualResourceListInput) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+	return q, nil
+}
+
+func (model *SSharableVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.SharableVirtualResourceDetails, error) {
+	return apis.SharableVirtualResourceDetails{}, nil
+}
+
+func (manager *SSharableVirtualResourceBaseManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.SharableVirtualResourceDetails {
+
+	rows := make([]apis.SharableVirtualResourceDetails, len(objs))
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	resIds := make([]string, len(objs))
+	for i := range rows {
+		resIds[i] = objs[i].(ISharableVirtualModel).GetId()
+		rows[i] = apis.SharableVirtualResourceDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+	}
+
+	tenants := TenantCacheManager.GetTenantQuery().SubQuery()
+	resources := SharedResourceManager.Query().Equals("resource_type", manager.Keyword()).SubQuery()
+	q := tenants.Query(tenants.Field("id"), tenants.Field("name"), resources.Field("resource_id"))
+	q = q.Join(resources, sqlchemy.Equals(q.Field("id"), resources.Field("target_project_id")))
+	projList := make(map[string][]apis.SharedProject)
+	err := FetchQueryObjectsByIds(q, "resource_id", resIds, &projList)
+	if err != nil {
+		log.Errorf("FetchQueryObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if projs, ok := projList[resIds[i]]; ok {
+			rows[i].SharedProjects = projs
+		}
+	}
+
+	return rows
 }

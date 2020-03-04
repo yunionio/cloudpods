@@ -32,10 +32,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSecurityGroupCacheManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 type SSecurityGroupCache struct {
@@ -77,11 +80,25 @@ func (self *SSecurityGroupCache) AllowUpdateItem(ctx context.Context, userCred m
 }
 
 // 安全组缓存列表
-func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.SecurityGroupCacheListInput) (*sqlchemy.SQuery, error) {
+func (manager *SSecurityGroupCacheManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SecurityGroupCacheListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
 	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
 		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
 		if err != nil {
@@ -94,6 +111,49 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q
 		q = q.Equals("secgroup_id", secgroup.GetId())
 	}
 	return q, nil
+}
+
+func (manager *SSecurityGroupCacheManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SecurityGroupCacheListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SSecurityGroupCacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -115,23 +175,42 @@ func (self *SSecurityGroupCache) GetVpc() (*SVpc, error) {
 	return vpc.(*SVpc), nil
 }
 
-func (self *SSecurityGroupCache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.SecurityGroupCacheDetails, error) {
-	var err error
-	out := api.SecurityGroupCacheDetails{}
-	out.StandaloneResourceDetails, err = self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
-	provider := self.GetCloudprovider()
-	region := self.GetRegion()
+func (self *SSecurityGroupCache) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SecurityGroupCacheDetails, error) {
+	return api.SecurityGroupCacheDetails{}, nil
+}
 
-	out.CloudproviderInfo = MakeCloudProviderInfo(region, nil, provider)
+func (manager *SSecurityGroupCacheManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SecurityGroupCacheDetails {
+	rows := make([]api.SecurityGroupCacheDetails, len(objs))
 
-	vpc, _ := self.GetVpc()
-	if vpc != nil {
-		out.Vpc = vpc.Name
+	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.SecurityGroupCacheDetails{
+			StatusStandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:             manRows[i],
+			CloudregionResourceInfo:         regRows[i],
+		}
+		vpc, _ := objs[i].(*SSecurityGroupCache).GetVpc()
+		if vpc != nil {
+			rows[i].Vpc = vpc.Name
+		}
 	}
-	return out, nil
+
+	return rows
 }
 
 func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) (*SSecurityGroupCache, error) {

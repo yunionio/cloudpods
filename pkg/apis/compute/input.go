@@ -52,6 +52,7 @@ type CachedimageListInput struct {
 
 type ExternalProjectListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ProjectizedResourceListInput
 
 	ManagedResourceListInput
 }
@@ -59,31 +60,28 @@ type ExternalProjectListInput struct {
 type RouteTableListInput struct {
 	apis.VirtualResourceListInput
 
-	ManagedResourceListInput
-	RegionalFilterListInput
 	VpcFilterListInput
 }
 
 type SnapshotPolicyCacheListInput struct {
-	apis.ResourceBaseListInput
+	apis.StatusStandaloneResourceListInput
+	ManagedResourceListInput
+	RegionalFilterListInput
 
 	// filter by snapshotpolicy Id or Name
 	Snapshotpolicy string `json:"snapshotpolicy"`
-}
-
-type BillingFilterListInput struct {
-	// filter by billing_type
-	BillingType string `json:"billing_type"`
 }
 
 type NetworkInterfaceListInput struct {
 	apis.StatusStandaloneResourceListInput
 
 	ManagedResourceListInput
+	RegionalFilterListInput
 }
 
 type BaremetalagentListInput struct {
 	apis.StandaloneResourceListInput
+	ZonalFilterListInput
 }
 
 type DnsRecordListInput struct {
@@ -92,6 +90,7 @@ type DnsRecordListInput struct {
 
 type DynamicschedtagListInput struct {
 	apis.StandaloneResourceListInput
+	SchedtagFilterListInput
 }
 
 type GuestTemplateListInput struct {
@@ -100,6 +99,7 @@ type GuestTemplateListInput struct {
 
 type SchedpolicyListInput struct {
 	apis.StandaloneResourceListInput
+	SchedtagFilterListInput
 }
 
 type ServiceCatalogListInput struct {
@@ -108,4 +108,10 @@ type ServiceCatalogListInput struct {
 
 type SnapshotPolicyListInput struct {
 	apis.VirtualResourceListInput
+}
+
+type DnsRecordDetails struct {
+	apis.AdminSharableVirtualResourceDetails
+
+	SDnsRecord
 }

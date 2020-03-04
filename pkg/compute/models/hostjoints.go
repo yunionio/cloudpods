@@ -19,8 +19,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SHostJointsManager struct {
@@ -70,4 +72,34 @@ func (self *SHostJointsBase) AllowUpdateItem(ctx context.Context, userCred mccli
 
 func (self *SHostJointsBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowDelete(userCred, self)
+}
+
+func (self *SHostJointsBase) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.HostJointResourceDetails, error) {
+	return api.HostJointResourceDetails{}, nil
+}
+
+func (manager *SHostJointsManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.HostJointResourceDetails {
+	rows := make([]api.HostJointResourceDetails, len(objs))
+
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.HostJointResourceDetails{
+			JointResourceBaseDetails: jointRows[i],
+		}
+	}
+
+	return rows
 }

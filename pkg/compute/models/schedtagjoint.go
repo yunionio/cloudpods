@@ -19,12 +19,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSchedtagJointsManager struct {
@@ -147,14 +151,55 @@ func (joint *SSchedtagJointsBase) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
 }
 
-func (joint *SSchedtagJointsBase) getExtraDetails(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.JoinModelBaseDetails, error) {
-	var err error
-	out := apis.JoinModelBaseDetails{}
-	out.ModelBaseDetails, err = joint.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+func (joint *SSchedtagJointsBase) GetExtraDetails(
+	obj db.IJointModel,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SchedtagJointResourceDetails, error) {
+	return api.SchedtagJointResourceDetails{}, nil
+}
+
+func (manager *SSchedtagJointsManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SchedtagJointResourceDetails {
+	rows := make([]api.SchedtagJointResourceDetails, len(objs))
+
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	tagIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i] = api.SchedtagJointResourceDetails{
+			JointResourceBaseDetails: jointRows[i],
+		}
+		var base *SSchedtagJointsBase
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && len(base.SchedtagId) > 0 {
+			tagIds[i] = base.SchedtagId
+		}
 	}
-	return out, nil
+
+	tags := make(map[string]SSchedtag)
+	err := db.FetchStandaloneObjectsByIds(SchedtagManager, tagIds, &tags)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if schedtag, ok := tags[tagIds[i]]; ok {
+			rows[i].Schedtag = schedtag.Name
+			rows[i].ResourceType = schedtag.ResourceType
+		}
+	}
+
+	return rows
 }
 
 func (joint *SSchedtagJointsBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SLoadbalancerCertificateManager struct {
@@ -65,8 +66,8 @@ type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SManagedResourceBase
-	SCloudregionResourceBase
+	// SManagedResourceBase
+	// SCloudregionResourceBase
 
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
@@ -122,11 +123,34 @@ func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred
 	lbcert.SetStatus(userCred, api.LB_STATUS_ENABLED, "")
 }
 
-func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.LoadbalancerCertificateDetails, error) {
-	var err error
-	out := api.LoadbalancerCertificateDetails{}
-	out.VirtualResourceDetails, err = lbcert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	return out, err
+func (lbcert *SLoadbalancerCertificate) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.LoadbalancerCertificateDetails, error) {
+	return api.LoadbalancerCertificateDetails{}, nil
+}
+
+func (manager *SLoadbalancerCertificateManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.LoadbalancerCertificateDetails {
+	rows := make([]api.LoadbalancerCertificateDetails, len(objs))
+
+	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.LoadbalancerCertificateDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+	}
+
+	return rows
 }
 
 func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
@@ -217,7 +241,12 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 	return data, nil
 }
 
-func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.LoadbalancerCertificateListInput) (*sqlchemy.SQuery, error) {
+func (man *SLoadbalancerCertificateManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerCertificateListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
@@ -256,6 +285,33 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 	}
 
 	return q, nil
+}
+
+func (man *SLoadbalancerCertificateManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancerCertificateListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SLoadbalancerCertificateManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -316,7 +372,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 	}
 
 	// sync certificate to  certificate cache
-	lbcerts = []SLoadbalancerCertificate{}
+	/*lbcerts = []SLoadbalancerCertificate{}
 	cachedCerts := CachedLoadbalancerCertificateManager.Query("certificate_id").SubQuery()
 	q2 := man.Query().IsNotEmpty("external_id").IsNotEmpty("cloudregion_id").NotIn("id", cachedCerts)
 	if err := q2.All(&lbcerts); err != nil {
@@ -337,7 +393,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 		if err != nil {
 			return err
 		}
-	}
+	}*/
 
 	return nil
 }
@@ -368,7 +424,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 		// usercred
 		cert.DomainId = userCred.GetProjectDomainId()
 		cert.ProjectId = userCred.GetProjectId()
-		cert.ProjectSrc = string(db.PROJECT_SOURCE_CLOUD)
+		cert.ProjectSrc = string(apis.OWNER_SOURCE_CLOUD)
 
 		err = man.TableSpec().Insert(cert)
 		if err != nil {

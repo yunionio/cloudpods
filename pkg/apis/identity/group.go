@@ -14,10 +14,11 @@
 
 package identity
 
-import "yunion.io/x/onecloud/pkg/apis"
-
 type GroupDetails struct {
-	apis.StandaloneResourceDetails
+	IdentityBaseResourceDetails
+
+	IdpResourceInfo
+
 	SGroup
 
 	// 用户数量
