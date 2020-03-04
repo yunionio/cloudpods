@@ -306,19 +306,13 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 
 	uid := params["<uid>"]
-	queryDict := mergeQueryParams(params, query)
-	update, _ := body.Bool(manager.Keyword(), "update_dingtalk")
-	if update {
-		dict := queryDict.(*jsonutils.JSONDict)
-		dict.Add(jsonutils.JSONTrue, "update_dingtalk")
-	}
-	err = manager.UpdateContacts(ctx, uid, queryDict, data, nil)
+	out, err := manager.UpdateContacts(ctx, uid, mergeQueryParams(params, query), data, nil)
 	if err != nil {
 		log.Errorf(err.Error())
 		httperrors.BadRequestError(w, "")
 		return
 	}
-	return
+	appsrv.SendJSON(w, wrap(out, manager.Keyword()))
 }
 
 // delete contact handler
