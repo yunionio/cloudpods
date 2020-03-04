@@ -46,7 +46,7 @@ type MeterAlertListInput struct {
 	Provider string `json:"provider"`
 	// 云账号 Id
 	AccountId string `json:"account_id"`
-	// 项目 Id string
+	// 项目 Id
 	ProjectId string `json:"project_id"`
 }
 
@@ -57,4 +57,17 @@ type MeterAlertDetails struct {
 	ProjectId string `json:"project_id"`
 	AccountId string `json:"account_id"`
 	Provider  string `json:"provider"`
+}
+
+type MeterAlertUpdateInput struct {
+	// 比较运算符, 比如: >, <, >=, <=
+	Comparator *string `json:"comparator"`
+	// 报警阀值
+	Threshold *float64 `json:"threshold"`
+	// 通知接受者
+	Recipients *string `json:"recipients"`
+	// 项目 Id
+	ProjectId *string `json:"project_id"`
+	// 通知方式, 比如: email, mobile
+	Channel *string `json:"channel"`
 }

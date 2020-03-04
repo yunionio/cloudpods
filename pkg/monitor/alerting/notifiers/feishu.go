@@ -34,7 +34,7 @@ func init() {
 	alerting.RegisterNotifier(&alerting.NotifierPlugin{
 		Type:    monitor.AlertNotificationTypeFeishu,
 		Factory: newFeishuNotifier,
-		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.AlertNotificationCreateInput) (monitor.AlertNotificationCreateInput, error) {
+		ValidateCreateData: func(cred mcclient.IIdentityProvider, input monitor.NotificationCreateInput) (monitor.NotificationCreateInput, error) {
 			settings := new(monitor.NotificationSettingFeishu)
 			if err := input.Settings.Unmarshal(settings); err != nil {
 				return input, errors.Wrap(err, "unmarshal setting")

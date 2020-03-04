@@ -24,6 +24,7 @@ type NotificationTemplateConfig struct {
 	Matches []EvalMatch `json:"matches"`
 	// PrevAlertState AlertStateType `json:"prev_alert_state"`
 	// State AlertStateType `json:"state"`
+	NoDataFound bool   `json:"no_data"`
 	StartTime   string `json:"start_time"`
 	EndTime     string `json:"end_time"`
 	Description string `json:"description"`

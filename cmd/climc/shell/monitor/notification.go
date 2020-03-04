@@ -28,11 +28,11 @@ func init() {
 			if err != nil {
 				return err
 			}
-			ret, err := monitor.AlertNotifications.List(s, params)
+			ret, err := monitor.Notifications.List(s, params)
 			if err != nil {
 				return err
 			}
-			printList(ret, monitor.AlertNotifications.GetColumns(s))
+			printList(ret, monitor.Notifications.GetColumns(s))
 			return nil
 		})
 
@@ -43,7 +43,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			ret, err := monitor.AlertNotifications.Create(s, params.JSON(params))
+			ret, err := monitor.Notifications.Create(s, params.JSON(params))
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			ret, err := monitor.AlertNotifications.Create(s, params.JSON(params))
+			ret, err := monitor.Notifications.Create(s, params.JSON(params))
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func init() {
 
 	R(&options.NotificationShowOptions{}, nN("show"), "Show alert notification",
 		func(s *mcclient.ClientSession, args *options.NotificationShowOptions) error {
-			ret, err := monitor.AlertNotifications.Get(s, args.ID, nil)
+			ret, err := monitor.Notifications.Get(s, args.ID, nil)
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			ret, err := monitor.AlertNotifications.Update(s, args.ID, params.JSON(params))
+			ret, err := monitor.Notifications.Update(s, args.ID, params.JSON(params))
 			if err != nil {
 				return err
 			}
@@ -90,13 +90,10 @@ func init() {
 			return nil
 		})
 
-	R(&options.NotificationShowOptions{}, nN("delete"), "Show delete notification",
-		func(s *mcclient.ClientSession, args *options.NotificationShowOptions) error {
-			ret, err := monitor.AlertNotifications.Delete(s, args.ID, nil)
-			if err != nil {
-				return err
-			}
-			printObject(ret)
+	R(&options.NotificationDeleteOptions{}, nN("delete"), "Show delete notification",
+		func(s *mcclient.ClientSession, args *options.NotificationDeleteOptions) error {
+			ret := monitor.Notifications.BatchDelete(s, args.ID, nil)
+			printBatchResults(ret, monitor.Notifications.GetColumns(s))
 			return nil
 		})
 }
