@@ -112,12 +112,12 @@ func validatePasswordComplexity(password string) error {
 	return nil
 }
 
-func (manager *SPasswordManager) validatePassword(localUserId int, password string) error {
+func (manager *SPasswordManager) validatePassword(localUserId int, password string, skipHistoryCheck bool) error {
 	err := validatePasswordComplexity(password)
 	if err != nil {
 		return errors.Wrap(err, "validatePasswordComplexity")
 	}
-	if o.Options.PasswordUniqueHistoryCheck > 0 {
+	if !skipHistoryCheck && o.Options.PasswordUniqueHistoryCheck > 0 {
 		shaPass := shaPassword(password)
 		histPasses, err := manager.fetchByLocaluserId(localUserId)
 		if err != nil {
