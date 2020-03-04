@@ -397,7 +397,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
-		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
 	}
