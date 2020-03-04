@@ -312,6 +312,9 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	details := ImageManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{self}, nil, false)
 	extra := jsonutils.Marshal(details[0]).(*jsonutils.JSONDict)
 	for _, k := range extra.SortedKeys() {
+		if k == "properties" {
+			continue
+		}
 		val, _ := extra.GetString(k)
 		if len(val) > 0 {
 			headers[fmt.Sprintf("%s%s", modules.IMAGE_META, k)] = val

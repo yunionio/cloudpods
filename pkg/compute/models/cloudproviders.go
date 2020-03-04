@@ -263,7 +263,25 @@ func (self *SCloudprovider) getSnapshotCount() (int, error) {
 }
 
 func (self *SCloudprovider) getLoadbalancerCount() (int, error) {
-	return LoadbalancerManager.Query().Equals("manager_id", self.Id).CountWithError()
+	vpcs := VpcManager.Query("id", "manager_id").SubQuery()
+	q := LoadbalancerManager.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.Id))
+	return q.CountWithError()
+}
+
+func (self *SCloudprovider) getDBInstanceCount() (int, error) {
+	q := DBInstanceManager.Query()
+	q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), self.Id))
+	return q.CountWithError()
+}
+
+func (self *SCloudprovider) getElasticcacheCount() (int, error) {
+	vpcs := VpcManager.Query("id", "manager_id").SubQuery()
+	q := ElasticcacheManager.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.Id))
+	return q.CountWithError()
 }
 
 func (self *SCloudprovider) getExternalProjectCount() (int, error) {
@@ -805,6 +823,8 @@ func (self *SCloudprovider) getUsage() api.SCloudproviderUsage {
 	usage.EipCount, _ = self.getEipCount()
 	usage.SnapshotCount, _ = self.getSnapshotCount()
 	usage.LoadbalancerCount, _ = self.getLoadbalancerCount()
+	usage.DBInstanceCount, _ = self.getDBInstanceCount()
+	usage.ElasticcacheCount, _ = self.getElasticcacheCount()
 	usage.ProjectCount, _ = self.getExternalProjectCount()
 	usage.SyncRegionCount, _ = self.getSyncRegionCount()
 

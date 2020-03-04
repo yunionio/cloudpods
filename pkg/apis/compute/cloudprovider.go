@@ -73,6 +73,12 @@ type SCloudproviderUsage struct {
 	// 负载均衡器数量
 	// example: 2
 	LoadbalancerCount int `json:"loadbalancer_count"`
+	// 数据库实例数量
+	// example: 2
+	DBInstanceCount int `json:"dbinstance_count"`
+	// 弹性缓存实例数量
+	// example: 2
+	ElasticcacheCount int `json:"elasticcache_count"`
 	// 项目数量
 	ProjectCount int `json:"project_count"`
 	// 同步区域数量
