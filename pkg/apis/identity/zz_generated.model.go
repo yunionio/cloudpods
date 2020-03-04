@@ -34,7 +34,7 @@ type SAssignment struct {
 type SConfigOption struct {
 	apis.SResourceBase
 	ResType string      `json:"res_type"`
-	ResId   string      `json:"res_id"`
+	ResId   string      `json:"domain_id"`
 	Group   string      `json:"group"`
 	Option  string      `json:"option"`
 	Value   interface{} `json:"value"`
@@ -122,8 +122,8 @@ type SIdentityProvider struct {
 type SIdmapping struct {
 	apis.SResourceBase
 	PublicId    string `json:"public_id"`
-	IdpId       string `json:"idp_id"`
-	IdpEntityId string `json:"idp_entity_id"`
+	IdpId       string `json:"domain_id"`
+	IdpEntityId string `json:"local_id"`
 	EntityType  string `json:"entity_type"`
 }
 
