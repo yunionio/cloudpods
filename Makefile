@@ -192,13 +192,13 @@ mod:
 	go mod vendor -v
 
 
-DOCKER_BUILD_IMAGE_VERSION?=latest
+DOCKER_BUILD_IMAGE_VERSION?=1.0-1
 
 define dockerCentOSBuildCmd
 set -o xtrace
 set -o errexit
 set -o pipefail
-cd /home/build/onecloud
+cd /root/onecloud
 export GOFLAGS=-mod=vendor
 make $(1)
 chown -R $(shell id -u):$(shell id -g) _output
@@ -210,8 +210,8 @@ docker-centos-build:
 	docker run \
 		--name onecloud-ci-build \
 		--rm \
-		--volume $(CURDIR):/home/build/onecloud \
-		yunionio/onecloud-ci:$(DOCKER_BUILD_IMAGE_VERSION) \
+		--volume $(CURDIR):/root/onecloud \
+		registry.cn-beijing.aliyuncs.com/yunionio/centos-build:$(DOCKER_BUILD_IMAGE_VERSION) \
 		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
 	ls -lh _output/bin
