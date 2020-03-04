@@ -396,7 +396,7 @@ func (self *SAwsClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
 		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
-		// cloudprovider.CLOUD_CAPABILITY_RDS,
+		cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 	}
 	return caps
