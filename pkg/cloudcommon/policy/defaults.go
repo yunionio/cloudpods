@@ -456,6 +456,18 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "users",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "groups",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{

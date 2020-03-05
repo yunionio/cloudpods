@@ -362,3 +362,13 @@ func (group *SGroup) PerformLeave(
 	}
 	return nil, nil
 }
+
+func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil && scope == rbacutils.ScopeProject {
+		// if user has project level privilege, returns all groups in user's project
+		subq := AssignmentManager.fetchProjectGroupIdsQuery(owner.GetProjectId())
+		q = q.In("id", subq.SubQuery())
+		return q
+	}
+	return manager.SIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+}

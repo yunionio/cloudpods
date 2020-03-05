@@ -366,9 +366,7 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 				requireScope = rbacutils.ScopeSystem
 			}
 		}
-	}
-
-	if ownerId == nil {
+	} else {
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
 		if len(reqScopeStr) > 0 {
@@ -380,10 +378,12 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		} else if action == policy.PolicyActionGet {
 			queryScope = allowScope
-		}
-		if resScope.HigherThan(queryScope) {
+		} else {
 			queryScope = resScope
 		}
+		// if resScope.HigherThan(queryScope) {
+		// 	queryScope = resScope
+		// }
 		requireScope = queryScope
 	}
 	if doCheckRbac && requireScope.HigherThan(allowScope) {
