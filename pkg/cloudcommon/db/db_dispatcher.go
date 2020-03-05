@@ -120,12 +120,15 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 	}
 	qdata, err := query.GetMap()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "query.GetMap %s", query.String())
 	}
 
 	listF := searchFields(manager, userCred)
 	for key := range qdata {
-		fn, op := parseSearchFieldkey(key)
+		if !strings.HasPrefix(key, "@") {
+			continue
+		}
+		fn, op := parseSearchFieldkey(key[1:])
 		if listF.Contains(fn) {
 			colSpec := manager.TableSpec().ColumnSpec(fn)
 			if colSpec != nil {
@@ -270,13 +273,16 @@ func listItemQueryFiltersRaw(manager IModelManager,
 			return nil, err
 		}
 	}
+
 	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-	// TURN OFF automatic query by column name!!!!
+	// TURN ON automatic filter by column name, ONLY if query key starts with @!!!!
+	// example: @name=abc&@city=111
 	// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-	/*q, err = listItemsQueryByColumn(manager, q, userCred, query)
+	q, err = listItemsQueryByColumn(manager, q, userCred, query)
 	if err != nil {
 		return nil, err
-	}*/
+	}
+
 	searches := jsonutils.GetQueryStringArray(query, "search")
 	if len(searches) > 0 {
 		q, err = applyListItemsSearchFilters(manager, ctx, q, userCred, searches)
