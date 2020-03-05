@@ -115,10 +115,15 @@ func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idS
 	user, err := modules.UsersV3.GetById(s, idStr, nil)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
-			return nil, sql.ErrNoRows
+			user, err = modules.UsersV3.GetByName(s, idStr, nil)
+			if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
+				return nil, sql.ErrNoRows
+			}
 		}
-		log.Errorf("fetch user %s fail %s", idStr, err)
-		return nil, errors.Wrap(err, "modules.UsersV3.Get")
+		if err != nil {
+			log.Errorf("fetch user %s fail %s", idStr, err)
+			return nil, errors.Wrap(err, "modules.UsersV3.Get")
+		}
 	}
 	id, _ := user.GetString("id")
 	name, _ := user.GetString("name")
@@ -133,7 +138,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 
 	objo, err := manager.FetchById(idStr)
 	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("FetchTenantbyId fail %s", err)
+		log.Errorf("FetchUserbyId fail %s", err)
 		return nil, err
 	}
 	if err == nil {

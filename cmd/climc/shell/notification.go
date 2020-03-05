@@ -29,7 +29,7 @@ func init() {
 	 */
 
 	type NotificationCreateOptions struct {
-		CONTACTTYPE string `help:"User's contacts type" choices:"email|mobile|dingtalk|webconsole"`
+		CONTACTTYPE string `help:"User's contacts type"`
 		TOPIC       string `help:"Title or topic of the notification"`
 		PRIORITY    string `help:"Priority of the notification" choices:"normal|important|fatal"`
 		MSG         string `help:"The content of the notification"`
