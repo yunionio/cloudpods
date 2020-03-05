@@ -14,10 +14,6 @@
 
 package monitor
 
-import (
-	"yunion.io/x/onecloud/pkg/apis"
-)
-
 const (
 	MeterAlertTypeBalance     = "balance"
 	MeterAlertTypeDailyResFee = "resFee"
@@ -38,7 +34,7 @@ type MeterAlertCreateInput struct {
 }
 
 type MeterAlertListInput struct {
-	apis.VirtualResourceListInput
+	V1AlertListInput
 
 	// 监控资源类型, 比如: balance, resFree, monthFee
 	Type string `json:"type"`

@@ -38,12 +38,16 @@ type VpcDetails struct {
 	NatgatewayCount int `json:"natgateway_count"`
 }
 
-type VpcResourceInfo struct {
+type VpcResourceInfoBase struct {
 	// Vpc Name
 	Vpc string `json:"vpc"`
 
 	// VPC外部Id
 	VpcExtId string `json:"vpc_ext_id"`
+}
+
+type VpcResourceInfo struct {
+	VpcResourceInfoBase
 
 	// VPC归属区域ID
 	CloudregionId string `json:"cloudregion_id"`
