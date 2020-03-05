@@ -221,7 +221,7 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	return ret, nil
 }
 
-func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
+func (self *SContact) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
