@@ -182,4 +182,6 @@ const (
 	ACT_INSTANCE_GROUP_UNBIND = "解绑主机组"
 
 	ACT_FLUSH_INSTANCE = "清空数据"
+
+	ACT_UPDATE_STATUS = "更新状态"
 )
