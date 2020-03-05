@@ -497,7 +497,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		log.Errorf(err.Error())
 		return ret, nil
 	}
-	outDetails, err := contact[0].GetExtraDetails(ctx, userCred, ret, false)
+	outDetails, err := contact[0].GetExtraDetails(ctx, userCred, ret)
 	if err != nil {
 		log.Errorf(err.Error())
 		return ret, nil
