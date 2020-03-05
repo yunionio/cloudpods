@@ -14,6 +14,8 @@
 
 package feishu
 
+import "yunion.io/x/jsonutils"
+
 type CommonResp struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
@@ -34,8 +36,21 @@ type CommonResponser interface {
 
 type TenantAccesstokenResp struct {
 	CommonResp
+	TenantAccesstoken
+}
+
+type TenantAccesstoken struct {
 	TenantAccessToken string `json:"tenant_access_token"`
 	Expire            int64  `json:"expire"`
+	Created           int64
+}
+
+func (t TenantAccesstoken) CreatedAt() int64 {
+	return t.Created
+}
+
+func (t TenantAccesstoken) ExpiresIn() int64 {
+	return t.Expire
 }
 
 type GroupListResp struct {
@@ -223,4 +238,17 @@ type MsgResp struct {
 
 type MsgRespData struct {
 	MessageId string `json:"message_id"`
+}
+
+type UserIDResp struct {
+	CommonResp
+
+	Data UserIDRespData `json:"data"`
+}
+
+type UserIDRespData struct {
+	EmailUsers      jsonutils.JSONObject `json:"email_users"`
+	EmailsNotExist  []string             `json:"emails_not_exist"`
+	MobileUsers     jsonutils.JSONObject `json:"mobile_users"`
+	MobilesNotExist []string             `json:"mobiles_not_exist"`
 }
