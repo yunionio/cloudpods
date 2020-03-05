@@ -1797,8 +1797,17 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
 		}
+		host := hostObj.(*SHost)
 		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		if len(host.OvnVersion) > 0 {
+			wireQuery := WireManager.Query("id").IsNotNull("vpc_id")
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.In(q.Field("wire_id"), wireQuery.SubQuery()),
+				sqlchemy.In(q.Field("wire_id"), sq.SubQuery())),
+			)
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		}
 	}
 
 	if len(input.Ip) > 0 {
