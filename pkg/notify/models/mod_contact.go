@@ -114,6 +114,8 @@ func (self *SContactManager) InitializeData() error {
 	return nil
 }
 
+// FetchByUIDs fetch all SContancts whose uid included in uids.
+// If some elements of uids are uname of users, setting param 'uname' as true will fetch correct results.
 func (self *SContactManager) FetchByUIDs(ctx context.Context, uids []string, uname bool) ([]SContact, error) {
 	var err error
 	if uname {
@@ -219,7 +221,7 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	return ret, nil
 }
 
-func (self *SContact) GetExtraDetail(ctx context.Context, userCred mcclient.TokenCredential,
+func (self *SContact) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {

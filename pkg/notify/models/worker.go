@@ -108,60 +108,60 @@ func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 	return nil
 }
 
-func UpdateDingtalk(uid string) {
+func PullContact(uid string, contactType string) {
 	workMan.Run(func() {
-		updateDingtalk(context.Background(), uid)
+		pullContact(context.Background(), uid, contactType)
 	}, nil, nil)
 }
 
-func updateDingtalk(ctx context.Context, uid string) {
-	contacts, err := ContactManager.FetchByUIDAndCType(uid, []string{MOBILE, DINGTALK})
+func pullContact(ctx context.Context, uid string, contactType string) {
+	contacts, err := ContactManager.FetchByUIDAndCType(uid, []string{MOBILE, contactType})
 	if err != nil {
 		log.Errorf("fetch contacts error")
 	}
 	if len(contacts) == 0 {
 		return
 	}
-	var mobileContact, dingtalkContact *SContact
+	var mobileContact, subContact *SContact
 	for i := range contacts {
 		if contacts[i].ContactType == MOBILE {
 			mobileContact = &contacts[i]
 		} else {
-			dingtalkContact = &contacts[i]
+			subContact = &contacts[i]
 		}
 	}
 	if mobileContact == nil {
 		return
 	}
 
-	userid, err := NotifyService.ContactByMobile(ctx, mobileContact.Contact, DINGTALK)
+	userid, err := NotifyService.ContactByMobile(ctx, mobileContact.Contact, contactType)
 	if err != nil {
-		log.Errorf("fetch dingtalk userid by mobile failed: %s", err.Error())
+		log.Errorf("fetch %s contact by mobile failed: %s", contactType, err.Error())
 	}
-	if dingtalkContact != nil {
-		dingtalkContact.SetModelManager(ContactManager, dingtalkContact)
-		origin := dingtalkContact.Contact
-		_, err := db.Update(dingtalkContact, func() error {
-			dingtalkContact.Contact = userid
+	if subContact != nil {
+		subContact.SetModelManager(ContactManager, subContact)
+		origin := subContact.Contact
+		_, err := db.Update(subContact, func() error {
+			subContact.Contact = userid
 			return nil
 		})
 		if err != nil {
-			log.Errorf("update dingtalk userid %s => %s failed", origin, userid)
+			log.Errorf("update %s contact userid %s => %s failed", contactType, origin, userid)
 		}
 		return
 	}
 
 	contact := SContact{
 		UID:         uid,
-		ContactType: DINGTALK,
+		ContactType: contactType,
 		Contact:     userid,
 		Enabled:     "1",
 		VerifiedAt:  time.Now(),
 	}
 	contact.Status = CONTACT_VERIFIED
 
-	err = ContactManager.TableSpec().InsertOrUpdate(&contact)
+	err = ContactManager.TableSpec().Insert(&contact)
 	if err != nil {
-		log.Errorf("create new dingtalk contact failed")
+		log.Errorf("create new %s contact failed", contactType)
 	}
 }
