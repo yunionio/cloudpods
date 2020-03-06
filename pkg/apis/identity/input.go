@@ -249,4 +249,7 @@ type RegionListInput struct {
 
 type ServiceListInput struct {
 	apis.StandaloneResourceListInput
+
+	// 以Service Type过滤
+	Type string `json:"type"`
 }
