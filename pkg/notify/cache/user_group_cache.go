@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -103,9 +104,15 @@ func (manager *SUserGroupCacheManager) Sync(ctx context.Context, ugCache []SUser
 	lockman.LockRawObject(ctx, manager.KeywordPlural(), groupId)
 	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), groupId)
 
-	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v3")
 	syncResult := compare.SyncResult{}
-	users, err := modules.Groups.GetUsers(s, groupId)
+
+	// It's to query all groups and their users.
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+	query.Set("system", jsonutils.JSONTrue)
+
+	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v3")
+	users, err := modules.Groups.GetUsers(s, groupId, query)
 	if err != nil {
 		return nil, syncResult, errors.Wrap(err, "fetch users by group id from keystone failed")
 	}
