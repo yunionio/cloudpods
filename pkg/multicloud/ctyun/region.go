@@ -35,6 +35,7 @@ type SRegion struct {
 	client       *SCtyunClient
 	storageCache *SStoragecache
 
+	RegionName     string
 	Description    string `json:"description"`
 	ID             string `json:"id"`
 	ParentRegionID string `json:"parent_region_id"`
@@ -162,7 +163,7 @@ func (self *SRegion) GetId() string {
 }
 
 func (self *SRegion) GetName() string {
-	return self.ID
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_CTYUN_CN, self.RegionName)
 }
 
 func (self *SRegion) GetGlobalId() string {

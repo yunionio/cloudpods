@@ -53,7 +53,7 @@ func (self *SZone) GetId() string {
 }
 
 func (self *SZone) GetName() string {
-	return self.ZoneName
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_CTYUN_CN, self.ZoneID)
 }
 
 func (self *SZone) GetGlobalId() string {
