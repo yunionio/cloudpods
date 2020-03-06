@@ -310,8 +310,9 @@ func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred m
 	if err != nil {
 		log.Warningf("loadbalancer backend %s(%s): get vpc: %v", lbb.Name, lbb.Id, err)
 		return out, err
+	} else if vpc != nil {
+		out.VpcId = vpc.Id
 	}
-	out.VpcId = vpc.Id
 	return out, nil
 }
 
