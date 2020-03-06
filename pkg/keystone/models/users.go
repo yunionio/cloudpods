@@ -937,3 +937,14 @@ func (manager *SUserManager) LockUser(uid string) error {
 	db.OpsLog.LogEvent(usr, db.ACT_UPDATE, diff, GetDefaultAdminCred())
 	return nil
 }
+
+func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	log.Debugf("owner: %s scope %s", jsonutils.Marshal(owner), scope)
+	if owner != nil && scope == rbacutils.ScopeProject {
+		// if user has project level privilege, returns all users in user's project
+		subq := AssignmentManager.fetchProjectUserIdsQuery(owner.GetProjectId())
+		q = q.In("id", subq.SubQuery())
+		return q
+	}
+	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+}
