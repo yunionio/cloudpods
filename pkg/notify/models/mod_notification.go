@@ -355,9 +355,9 @@ func (self *SNotificationManager) fetchUserDetailByClusterID(ctx context.Context
 	return ret, nil
 }
 
-func (self *SNotificationManager) FetchNotOK(lastTime time.Time) ([]SNotification, error) {
+func (self *SNotificationManager) FetchFailed(lastTime time.Time) ([]SNotification, error) {
 	q := self.Query()
-	q.Filter(sqlchemy.AND(sqlchemy.GE(q.Field("created_at"), lastTime), sqlchemy.NotEquals(q.Field("status"), NOTIFY_OK)))
+	q.Filter(sqlchemy.AND(sqlchemy.GE(q.Field("created_at"), lastTime), sqlchemy.Equals(q.Field("status"), NOTIFY_FAIL)))
 	records := make([]SNotification, 0, 10)
 	err := db.FetchModelObjects(self, q, &records)
 	if err != nil {
@@ -466,8 +466,8 @@ func sendWithoutUserCred(notifications []SNotification) {
 }
 
 func ReSend(seconds int) {
-	scope := time.Duration(seconds) * time.Second
-	notifications, err := NotificationManager.FetchNotOK(time.Now().Add(-scope))
+	scope := time.Duration(seconds+30) * time.Second
+	notifications, err := NotificationManager.FetchFailed(time.Now().Add(-scope))
 	if err != nil {
 		return
 	}
