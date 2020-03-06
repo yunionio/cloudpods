@@ -186,8 +186,13 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 		log.Debugf("fetch empty tenant!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
+
+	// It is to query all domain's project.
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	tenant, err := modules.Projects.GetById(s, idStr, nil)
+	tenant, err := modules.Projects.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 			return nil, sql.ErrNoRows
