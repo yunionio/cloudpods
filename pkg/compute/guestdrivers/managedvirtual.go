@@ -861,8 +861,10 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				disk.AccessPath = diskInfo[i].Path
 
 				if !recycle {
-					disk.BillingType = diskInfo[i].BillingType
-					disk.ExpiredAt = diskInfo[i].ExpiredAt
+					if len(diskInfo[i].BillingType) > 0 {
+						disk.BillingType = diskInfo[i].BillingType
+						disk.ExpiredAt = diskInfo[i].ExpiredAt
+					}
 				}
 
 				if len(diskInfo[i].StorageExternalId) > 0 {
