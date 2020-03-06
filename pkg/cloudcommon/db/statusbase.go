@@ -68,7 +68,7 @@ func statusBaseSetStatus(model IStatusBase, userCred mcclient.TokenCredential, s
 			notes = fmt.Sprintf("%s: %s", notes, reason)
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_DISABLE, nil, userCred, true)
+		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE_STATUS, notes, userCred, true)
 	}
 	return nil
 }
