@@ -226,11 +226,14 @@ func (manager *SServiceManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.RegionListInput,
+	query api.ServiceListInput,
 ) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
 	}
 	return q, nil
 }

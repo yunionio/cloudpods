@@ -43,10 +43,10 @@ func init() {
 			query.Add(jsonutils.NewInt(args.Offset), "offset")
 		}
 		if len(args.Name) > 0 {
-			query.Add(jsonutils.NewString(args.Name), "name__icontains")
+			query.Add(jsonutils.NewString(args.Name), "name")
 		}
 		if len(args.Type) > 0 {
-			query.Add(jsonutils.NewString(args.Type), "type__icontains")
+			query.Add(jsonutils.NewString(args.Type), "type")
 		}
 		if len(args.Search) > 0 {
 			query.Add(jsonutils.NewString(args.Search), "search")
