@@ -103,6 +103,7 @@ func (client *SCtyunClient) fetchRegions() error {
 				Description:    zone.ZoneName,
 				ID:             zone.RegionID,
 				ParentRegionID: zone.RegionID,
+				RegionName:     zone.ZoneName,
 				izones:         []cloudprovider.ICloudZone{&zone},
 			}
 
