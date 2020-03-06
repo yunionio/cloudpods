@@ -79,7 +79,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		users, err := modules.Groups.GetUsers(s, grpId)
+		users, err := modules.Groups.GetUsers(s, grpId, nil)
 		if err != nil {
 			return err
 		}
