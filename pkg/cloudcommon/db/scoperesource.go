@@ -44,9 +44,15 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	}
 	switch scope {
 	case rbacutils.ScopeDomain:
-		q = q.Filter(sqlchemy.Equals(q.Field("domain_id"), userCred.GetDomainId()))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("domain_id"), userCred.GetDomainId()),
+			sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
+		))
 	case rbacutils.ScopeProject:
-		q = q.Filter(sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
+			sqlchemy.IsNullOrEmpty(q.Field("tenant_id")),
+		))
 	}
 	return q
 }
