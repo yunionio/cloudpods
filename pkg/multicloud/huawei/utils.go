@@ -218,6 +218,11 @@ func DoUpdateWithSpec(updateFunc updateFunc2, id string, spec string, params jso
 	return err
 }
 
+func DoUpdateWithSpec2(updateFunc updateFunc2, id string, spec string, params jsonutils.JSONObject, result interface{}) error {
+	ret, err := updateFunc(nil, id, spec, params, "")
+	return unmarshalResult(ret, err, result, "PUT")
+}
+
 func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, result interface{}) error {
 	if len(id) == 0 {
 		return fmt.Errorf(" id should not be empty")
