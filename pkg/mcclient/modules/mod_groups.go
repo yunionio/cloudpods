@@ -17,6 +17,8 @@ package modules
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 )
@@ -25,8 +27,14 @@ type GroupManager struct {
 	modulebase.ResourceManager
 }
 
-func (this *GroupManager) GetUsers(s *mcclient.ClientSession, gid string) (*modulebase.ListResult, error) {
+func (this *GroupManager) GetUsers(s *mcclient.ClientSession, gid string, query jsonutils.JSONObject) (*modulebase.ListResult, error) {
 	url := fmt.Sprintf("/groups/%s/users", gid)
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			url = fmt.Sprintf("%s?%s", url, qs)
+		}
+	}
 	return modulebase.List(this.ResourceManager, s, url, "users")
 }
 
