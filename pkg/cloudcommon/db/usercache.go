@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -111,11 +112,17 @@ func (manager *SUserCacheManager) FetchUserFromKeystone(ctx context.Context, idS
 		log.Debugf("fetch empty user!!!!\n%s", debug.Stack())
 		return nil, fmt.Errorf("Empty idStr")
 	}
+
+	// It's to query the full list of users(contains other domain's ones and system ones)
+	query := jsonutils.NewDict()
+	query.Set("scope", jsonutils.NewString("system"))
+	query.Set("system", jsonutils.JSONTrue)
+
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	user, err := modules.UsersV3.GetById(s, idStr, nil)
+	user, err := modules.UsersV3.GetById(s, idStr, query)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
-			user, err = modules.UsersV3.GetByName(s, idStr, nil)
+			user, err = modules.UsersV3.GetByName(s, idStr, query)
 			if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 				return nil, sql.ErrNoRows
 			}
