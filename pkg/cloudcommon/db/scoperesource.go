@@ -44,7 +44,7 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 	switch scope {
 	case rbacutils.ScopeDomain:
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("domain_id"), userCred.GetDomainId()),
+			sqlchemy.Equals(q.Field("domain_id"), userCred.GetProjectDomainId()),
 			sqlchemy.IsNullOrEmpty(q.Field("domain_id")),
 		))
 	case rbacutils.ScopeProject:
@@ -54,6 +54,10 @@ func (m *SScopedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred 
 		))
 	}
 	return q
+}
+
+func (m *SScopedResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return FetchProjectInfo(ctx, data)
 }
 
 func (m *SScopedResourceBaseManager) ValidateCreateData(man IScopedResourceManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
