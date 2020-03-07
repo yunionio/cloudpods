@@ -82,13 +82,13 @@ func NewJointMonitorManager(keyword, keywordPlural string, columns, adminColumns
 
 func NewIdentityManager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("identity", "adminURL", "v2.0", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager("identity", "", "v2.0", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
 func NewIdentityV3Manager(keyword, keywordPlural string, columns, adminColumns []string) modulebase.ResourceManager {
 	return modulebase.ResourceManager{
-		BaseManager: *modulebase.NewBaseManager("identity", "adminURL", "v3", columns, adminColumns),
+		BaseManager: *modulebase.NewBaseManager("identity", "", "v3", columns, adminColumns),
 		Keyword:     keyword, KeywordPlural: keywordPlural}
 }
 
