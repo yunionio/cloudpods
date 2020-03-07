@@ -222,20 +222,18 @@ func (self *SIsolatedDevice) AllowDeleteItem(ctx context.Context, userCred mccli
 	return userCred.IsSystemAdmin()
 } */
 
-func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SModelBaseManager.ListItemExportKeys(ctx, q, userCred, query)
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, err
 	}
-	exportKeys, _ := query.GetString("export_keys")
-	keys := strings.Split(exportKeys, ",")
-	if utils.IsInStringArray("guest", keys) {
+	if keys.Contains("guest") {
 		guestNameQuery := GuestManager.Query("name", "id").SubQuery()
 		q.LeftJoin(guestNameQuery, sqlchemy.Equals(q.Field("guest_id"), guestNameQuery.Field("id")))
 		q.AppendField(guestNameQuery.Field("name", "guest"))
 	}
-	if utils.IsInStringArray("host", keys) {
+	if keys.Contains("host") {
 		hostNameQuery := HostManager.Query("name", "id").SubQuery()
 		q.LeftJoin(hostNameQuery, sqlchemy.Equals(q.Field("host_id"), hostNameQuery.Field("id")))
 		q.AppendField(hostNameQuery.Field("name", "host"))
@@ -243,8 +241,8 @@ func (manager *SIsolatedDeviceManager) ListItemExportKeys(ctx context.Context, q
 	return q, nil
 }
 
-func (manager *SIsolatedDeviceManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
-	res := manager.SStandaloneResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
+func (manager *SIsolatedDeviceManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SStandaloneResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
 	if guest, ok := rowMap["guest"]; ok && len(guest) > 0 {
 		res.Set("guest", jsonutils.NewString(guest))
 	}

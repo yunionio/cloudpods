@@ -268,7 +268,9 @@ func listItemQueryFiltersRaw(manager IModelManager,
 		return nil, err
 	}
 	if query.Contains("export_keys") {
-		q, err = manager.ListItemExportKeys(ctx, q, userCred, query)
+		exportKeys, _ := query.GetString("export_keys")
+		keys := stringutils2.NewSortedStrings(strings.Split(exportKeys, ","))
+		q, err = manager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, err
 		}
@@ -349,19 +351,26 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	defer rows.Close()
+
+	var exportKeys stringutils2.SSortedStrings
+	if query.Contains("export_keys") {
+		exportKeyStr, _ := query.GetString("export_keys")
+		exportKeys = stringutils2.NewSortedStrings(strings.Split(exportKeyStr, ","))
+	}
+
 	for rows.Next() {
 		item, err := NewModelObject(manager)
 		if err != nil {
 			return nil, err
 		}
 
-		if query.Contains("export_keys") {
+		if exportKeys != nil {
 			extraData := jsonutils.NewDict()
 			RowMap, err := q.Row2Map(rows)
 			if err != nil {
 				return nil, err
 			}
-			extraKeys := manager.GetExportExtraKeys(ctx, query, RowMap)
+			extraKeys := manager.GetExportExtraKeys(ctx, exportKeys, RowMap)
 			if extraKeys != nil {
 				extraData.Update(extraKeys)
 			}
@@ -386,7 +395,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		// jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
 		// jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		// jsonDict.Update(extraData)
-		// ignore GetExtraDetails
+		// ignore GetExtraDetails since release/3.2
 		/*if showDetails && !query.Contains("export_keys") {
 			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, true)
 			if extraDict != nil {
@@ -601,14 +610,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if orderBy == nil {
 		orderBy = []string{}
 	}
-	if primaryCol != nil && primaryCol.IsNumeric() {
-		orderBy = append(orderBy, primaryCol.Name())
-	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
-		orderBy = append(orderBy, "created_at")
-		if primaryCol != nil {
-			orderBy = append(orderBy, primaryCol.Name())
-		}
-	}
 	for _, orderByField := range orderBy {
 		if pagingConf != nil && utils.IsInStringArray(orderByField, pagingConf.MarkerFields) {
 			// skip markerField in pagingConf
@@ -621,6 +622,17 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			} else {
 				q = q.Desc(orderByField)
 			}
+		}
+	}
+	if primaryCol != nil && primaryCol.IsNumeric() {
+		orderBy = append(orderBy, primaryCol.Name())
+	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+		orderBy = append(orderBy, "created_at")
+		if manager.TableSpec().ColumnSpec("name") != nil {
+			orderBy = append(orderBy, "name")
+		}
+		if primaryCol != nil {
+			orderBy = append(orderBy, primaryCol.Name())
 		}
 	}
 
@@ -826,12 +838,11 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		return nil, nil
 	}
 	userCred := fetchUserCredential(ctx)
-	params := []reflect.Value{
-		reflect.ValueOf(ctx),
-		reflect.ValueOf(userCred),
-		reflect.ValueOf(query),
+	params := []interface{}{ctx, userCred, query}
+	outs, err := callFunc(funcValue, params...)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
 	}
-	outs := funcValue.Call(params)
 	if len(outs) != 1 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
@@ -840,12 +851,15 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 
 	funcValue = modelValue.MethodByName(funcName)
-	outs = funcValue.Call(params)
+	outs, err = callFunc(funcValue, params...)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
+	}
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
 
-	resVal := outs[0].Interface()
+	resVal := outs[0]
 	errVal := outs[1].Interface()
 	if !gotypes.IsNil(errVal) {
 		return nil, errVal.(error)
@@ -853,7 +867,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		if gotypes.IsNil(resVal) {
 			return nil, httperrors.NewBadRequestError("No return value, so why query?")
 		} else {
-			return resVal.(jsonutils.JSONObject), nil
+			return ValueToJSONObject(resVal), nil
 		}
 	}
 }

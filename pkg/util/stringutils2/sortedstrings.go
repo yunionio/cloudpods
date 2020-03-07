@@ -22,7 +22,7 @@ type SSortedStrings []string
 
 func NewSortedStrings(strs []string) SSortedStrings {
 	if strs == nil {
-		return nil
+		return SSortedStrings{}
 	}
 	sort.Strings(strs)
 	return SSortedStrings(strs)

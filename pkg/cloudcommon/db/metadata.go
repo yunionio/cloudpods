@@ -23,14 +23,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -44,6 +48,8 @@ const (
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
 
 	TAG_DELETE_RANGE_ALL = "all"
+
+	OBJECT_TYPE_ID_SEP = "::"
 )
 
 type SMetadataManager struct {
@@ -53,11 +59,31 @@ type SMetadataManager struct {
 type SMetadata struct {
 	SModelBase
 
-	Id        string    `width:"128" charset:"ascii" primary:"true" list:"user" get:"user"` // = Column(VARCHAR(128, charset='ascii'), primary_key=True)
-	Key       string    `width:"64" charset:"utf8" primary:"true" list:"user" get:"user"`   // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
-	Value     string    `charset:"utf8" list:"user" get:"user"`                             // = Column(TEXT(charset='utf8'), nullable=True)
-	UpdatedAt time.Time `nullable:"false" updated_at:"true"`                                // = Column(DateTime, default=get_utcnow, nullable=False, onupdate=get_utcnow)
-	Deleted   bool      `nullable:"false" default:"false" index:"true"`
+	// 资源类型
+	// example: network
+	ObjType string `width:"40" charset:"ascii" index:"true" list:"user" get:"user"`
+
+	// 资源ID
+	// example: 87321a70-1ecb-422a-8b0c-c9aa632a46a7
+	ObjId string `width:"88" charset:"ascii" index:"true" list:"user" get:"user"`
+
+	// 资源组合ID
+	// example: network::87321a70-1ecb-422a-8b0c-c9aa632a46a7
+	Id string `width:"128" charset:"ascii" primary:"true" list:"user" get:"user"`
+
+	// 标签KEY
+	// exmaple: 部门
+	Key string `width:"64" charset:"utf8" primary:"true" list:"user" get:"user"`
+
+	// 标签值
+	// example: 技术部
+	Value string `charset:"utf8" list:"user" get:"user"`
+
+	// 更新时间
+	UpdatedAt time.Time `nullable:"false" updated_at:"true"`
+
+	// 是否被删除
+	Deleted bool `nullable:"false" default:"false" index:"true"`
 }
 
 var Metadata *SMetadataManager
@@ -74,6 +100,35 @@ func init() {
 	Metadata.SetVirtualObject(Metadata)
 }
 
+func (manager *SMetadataManager) InitializeData() error {
+	q := manager.RawQuery()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("obj_type")),
+		sqlchemy.IsNullOrEmpty(q.Field("obj_id")),
+	))
+	mds := make([]SMetadata, 0)
+	err := FetchModelObjects(manager, q, &mds)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range mds {
+		_, err := Update(&mds[i], func() error {
+			parts := strings.Split(mds[i].Id, OBJECT_TYPE_ID_SEP)
+			if len(parts) == 2 {
+				mds[i].ObjType = parts[0]
+				mds[i].ObjId = parts[1]
+				return nil
+			} else {
+				return errors.Wrapf(httperrors.ErrInvalidFormat, "invlid id format %s", mds[i].Id)
+			}
+		})
+		if err != nil {
+			return errors.Wrap(err, "update")
+		}
+	}
+	return nil
+}
+
 func (m *SMetadata) GetId() string {
 	return fmt.Sprintf("%s-%s", m.Id, m.Key)
 }
@@ -87,7 +142,7 @@ func (m *SMetadata) GetModelManager() IModelManager {
 }
 
 func GetObjectIdstr(model IModel) string {
-	return fmt.Sprintf("%s::%s", model.GetModelManager().Keyword(), model.GetId())
+	return fmt.Sprintf("%s%s%s", model.GetModelManager().Keyword(), OBJECT_TYPE_ID_SEP, model.GetId())
 }
 
 func (manager *SMetadataManager) Query(fields ...string) *sqlchemy.SQuery {
@@ -107,75 +162,122 @@ func (m *SMetadata) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 	return DeleteModel(ctx, userCred, m)
 }
 
-func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, input apis.MetadataListInput) bool {
 	return true
 }
 
-func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q := manager.Query("id", "key", "value")
-	if key, _ := query.GetString("key"); len(key) > 0 {
-		q = q.Equals("key", key)
-	}
-	if value, _ := query.GetString("value"); len(value) > 0 {
-		q = q.Equals("value", value)
-	}
-	sql, err := manager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SMetadataManager) GetPropertyTagValuePairs(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	input apis.MetadataListInput,
+) (*modulebase.ListResult, error) {
+	var err error
+	q := manager.Query("key", "value")
+
+	q, err = manager.ListItemFilter(ctx, q, userCred, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ListItemFilter")
 	}
-	sql = sql.Asc("key").Asc("value")
-	metadatas := []struct {
-		Id    string
+
+	q = q.GroupBy(q.Field("key"), q.Field("value"))
+	if input.Order == string(sqlchemy.SQL_ORDER_DESC) {
+		q = q.Desc(q.Field("key")).Desc(q.Field("value"))
+	} else {
+		q = q.Asc(q.Field("key")).Asc(q.Field("value"))
+	}
+
+	totalCnt, err := q.CountWithError()
+	if err != nil {
+		return nil, errors.Wrap(err, "CountWithError")
+	}
+
+	if totalCnt == 0 {
+		emptyList := modulebase.ListResult{Data: []jsonutils.JSONObject{}}
+		return &emptyList, nil
+	}
+
+	var maxLimit int64 = consts.GetMaxPagingLimit()
+	limit := consts.GetDefaultPagingLimit()
+	if input.Limit != nil {
+		limit = int64(*input.Limit)
+	}
+	offset := int64(0)
+	if input.Offset != nil {
+		offset = int64(*input.Offset)
+	}
+	if offset < 0 {
+		offset = int64(totalCnt) + offset
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
+		limit = maxLimit
+	}
+	if limit > 0 {
+		q = q.Limit(int(limit))
+	}
+	if offset > 0 {
+		q = q.Offset(int(offset))
+	}
+
+	data, err := manager.metaDataQuery2List(q)
+	if err != nil {
+		return nil, errors.Wrap(err, "metadataQuery2List")
+	}
+	emptyList := modulebase.ListResult{
+		Data:   data,
+		Total:  totalCnt,
+		Limit:  int(limit),
+		Offset: int(offset),
+	}
+	return &emptyList, nil
+}
+
+func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery) ([]jsonutils.JSONObject, error) {
+	metadatas := make([]struct {
 		Key   string
 		Value string
-	}{}
-	err = sql.All(&metadatas)
+	}, 0)
+	err := q.All(&metadatas)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Query.All")
 	}
 
-	result := &struct {
-		Total int
-		Data  []*jsonutils.JSONDict `json:"data,allowempty"`
-	}{
-		Total: 0,
-		Data:  []*jsonutils.JSONDict{},
-	}
-
-	statistics := map[string]map[string]map[string][]string{} //map[key][value][resourcetype][]string{ids}
-	for _, metadata := range metadatas {
-		if _, ok := statistics[metadata.Key]; !ok {
-			statistics[metadata.Key] = map[string]map[string][]string{}
-		}
-		if _, ok := statistics[metadata.Key][metadata.Value]; !ok {
-			statistics[metadata.Key][metadata.Value] = map[string][]string{}
-		}
-		if resourceInfo := strings.Split(metadata.Id, "::"); len(resourceInfo) == 2 {
-			resourceType, resourceId := resourceInfo[0], resourceInfo[1]
-			if _, ok := statistics[metadata.Key][metadata.Value][resourceType]; !ok {
-				statistics[metadata.Key][metadata.Value][resourceType] = []string{}
-			}
-			statistics[metadata.Key][metadata.Value][resourceType] = append(statistics[metadata.Key][metadata.Value][resourceType], resourceId)
+	ret := make([]jsonutils.JSONObject, len(metadatas))
+	for i := range metadatas {
+		ret[i], err = manager.getKeyValueObjectCount(metadatas[i].Key, metadatas[i].Value)
+		if err != nil {
+			return nil, errors.Wrap(err, "getKeyValueObjectCount")
 		}
 	}
 
-	for key, v := range statistics {
-		for value, info := range v {
-			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString(key), "key")
-			data.Add(jsonutils.NewString(value), "value")
-			count := 0
-			for resourceType, ids := range info {
-				count += len(ids)
-				data.Add(jsonutils.NewInt(int64(len(ids))), fmt.Sprintf("%s_count", resourceType))
-			}
-			if count > 0 {
-				data.Add(jsonutils.NewInt(int64(count)), "count")
-				result.Data = append(result.Data, data)
-			}
-		}
+	return ret, nil
+}
+
+func (manager *SMetadataManager) getKeyValueObjectCount(key string, value string) (jsonutils.JSONObject, error) {
+	metadatas := manager.Query().SubQuery()
+	q := metadatas.Query(metadatas.Field("obj_type"), sqlchemy.COUNT("obj_count"))
+	q = q.Equals("key", key).Equals("value", value)
+	q = q.GroupBy("key", "value", "obj_type")
+
+	objectCount := make([]struct {
+		ObjType  string
+		ObjCount int64
+	}, 0)
+	err := q.All(&objectCount)
+	if err != nil {
+		return nil, errors.Wrap(err, "query.All")
 	}
-	return jsonutils.Marshal(result), nil
+
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(key), "key")
+	data.Add(jsonutils.NewString(value), "value")
+	for _, oc := range objectCount {
+		data.Add(jsonutils.NewInt(oc.ObjCount), fmt.Sprintf("%s_count", oc.ObjType))
+	}
+
+	return data, nil
 }
 
 func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -183,8 +285,27 @@ func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mc
 }
 
 // 元数据(标签)列表
-func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	resources := jsonutils.GetQueryStringArray(query, "resources")
+func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.MetadataListInput) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SModelBaseManager.ListItemFilter(ctx, q, userCred, input.ModelBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SModelBaseManager.ListItemFilter")
+	}
+
+	if len(input.Key) > 0 {
+		q = q.In("key", input.Key)
+	}
+	if len(input.Value) > 0 {
+		q = q.In("value", input.Value)
+	}
+	if len(input.Search) > 0 {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Contains(q.Field("key"), input.Search),
+			sqlchemy.Contains(q.Field("value"), input.Search),
+		))
+	}
+
+	resources := input.Resources
 	if len(resources) == 0 {
 		for resource := range globalTables {
 			resources = append(resources, resource)
@@ -200,9 +321,10 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 			continue
 		}
 		resourceView := man.Query().SubQuery()
-		prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
+		prefix := sqlchemy.NewStringField(fmt.Sprintf("%s%s", man.Keyword(), OBJECT_TYPE_ID_SEP))
 		field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
 		sq := resourceView.Query(field)
+		query := jsonutils.Marshal(input)
 		ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
 		if err != nil {
 			log.Warningf("FetchCheckQueryOwnerScope.%s error: %v", man.Keyword(), err)
@@ -216,18 +338,39 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
-	for args, prefix := range map[string]string{"sys_meta": SYS_TAG_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
+
+	if input.SysMeta != nil && *input.SysMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
+	}
+	if input.CloudMeta != nil && *input.CloudMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
+	}
+	if input.UserMeta != nil && *input.UserMeta {
+		q = q.Filter(sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
+	}
+
+	/*for args, prefix := range map[string]string{"sys_meta": SYS_TAG_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
 		if jsonutils.QueryBoolean(query, args, false) {
 			q = q.Filter(sqlchemy.Startswith(q.Field("key"), prefix))
 		}
-	}
+	}*/
 
 	withConditions := []sqlchemy.ICondition{}
-	for args, prefix := range map[string]string{"with_sys_meta": SYS_TAG_PREFIX, "with_cloud_meta": CLOUD_TAG_PREFIX, "with_user_meta": USER_TAG_PREFIX} {
+	if input.WithSysMeta != nil && *input.WithSysMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), SYS_TAG_PREFIX))
+	}
+	if input.WithCloudMeta != nil && *input.WithCloudMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX))
+	}
+	if input.WithUserMeta != nil && *input.WithUserMeta {
+		withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), USER_TAG_PREFIX))
+	}
+
+	/*for args, prefix := range map[string]string{"with_sys_meta": SYS_TAG_PREFIX, "with_cloud_meta": CLOUD_TAG_PREFIX, "with_user_meta": USER_TAG_PREFIX} {
 		if jsonutils.QueryBoolean(query, args, false) {
 			withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), prefix))
 		}
-	}
+	}*/
 
 	if len(withConditions) > 0 {
 		q = q.Filter(sqlchemy.OR(withConditions...))
@@ -316,50 +459,62 @@ func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IMode
 func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) ([]sMetadataChange, error) {
 	idStr := GetObjectIdstr(obj)
 
-	lockman.LockObject(ctx, obj)
-	defer lockman.ReleaseObject(ctx, obj)
+	// no need to lock
+	// lockman.LockObject(ctx, obj)
+	// defer lockman.ReleaseObject(ctx, obj)
 
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
 
+		record := SMetadata{}
+
+		err := manager.RawQuery().Equals("id", idStr).Equals("key", key).First(&record) //避免之前设置的tag被删除后再次设置时出现Duplicate entry error
+		if err != nil {
+			if errors.Cause(err) != sql.ErrNoRows {
+				return changes, errors.Wrap(err, "RawQuery")
+			} else {
+				record.Deleted = true
+			}
+		}
+
+		newRecord := SMetadata{}
+
+		newRecord.ObjId = obj.GetId()
+		newRecord.ObjType = obj.GetModelManager().Keyword()
+		newRecord.Id = idStr
+		newRecord.Key = key
+
 		valStr := stringutils.Interface2String(value)
 		valStrLower := strings.ToLower(valStr)
 		if valStrLower == "none" || valStrLower == "null" {
-			valStr = ""
+			newRecord.Value = record.Value
+			newRecord.Deleted = true
+		} else {
+			newRecord.Value = valStr
+			newRecord.Deleted = false
 		}
-		record := SMetadata{}
-		err := manager.RawQuery().Equals("id", idStr).Equals("key", key).First(&record) //避免之前设置的tag被删除后再次设置时出现Duplicate entry error
+
+		if record.Deleted == newRecord.Deleted && record.Value == newRecord.Value {
+			// no changes
+			continue
+		}
+
+		err = manager.TableSpec().InsertOrUpdate(&newRecord)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			return nil, errors.Wrapf(err, "InsertOrUpdate %s=%s", key, valStr)
+		}
+
+		if record.Deleted != newRecord.Deleted {
+			if record.Deleted {
+				// create
 				changes = append(changes, sMetadataChange{Key: key, NValue: valStr})
-				record.Id = idStr
-				record.Key = key
-				record.Value = valStr
-				err = manager.TableSpec().Insert(&record)
-				if err != nil {
-					return nil, err
-				}
 			} else {
-				return nil, err
+				// delete
+				changes = append(changes, sMetadataChange{Key: key, OValue: record.Value})
 			}
 		} else {
-			deleted := record.Deleted
-			oValue := record.Value
-			_, err := Update(&record, func() error {
-				record.Deleted = false
-				record.Value = valStr
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-			if deleted {
-				changes = append(changes, sMetadataChange{Key: key, NValue: valStr})
-			} else {
-				if oValue != valStr {
-					changes = append(changes, sMetadataChange{Key: key, OValue: oValue, NValue: valStr})
-				}
-			}
+			// change
+			changes = append(changes, sMetadataChange{Key: key, OValue: record.Value, NValue: valStr})
 		}
 	}
 	return changes, nil

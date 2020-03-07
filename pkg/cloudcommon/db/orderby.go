@@ -20,7 +20,6 @@ func NeedOrderQuery(fieldOrders []string) bool {
 	for _, field := range fieldOrders {
 		if sqlchemy.SQL_ORDER_ASC.Equals(field) || sqlchemy.SQL_ORDER_DESC.Equals(field) {
 			return true
-			break
 		}
 	}
 	return false

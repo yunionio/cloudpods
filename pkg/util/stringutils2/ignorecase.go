@@ -12,31 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package stringutils2
 
 import (
-	"yunion.io/x/log"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"strings"
 )
 
-func InitDB() error {
-	for _, manager := range []db.IModelManager{
-		/*
-		 * Important!!!
-		 * initialization order matters, do not change the order
-		 */
-		db.TenantCacheManager,
-		db.Metadata,
-
-		CloudproviderManager,
-		CloudeventManager,
-	} {
-		err := manager.InitializeData()
-		if err != nil {
-			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			// return err skip error table
-		}
+func HasSuffixIgnoreCase(str string, suffix string) bool {
+	if len(str) < len(suffix) {
+		return false
 	}
-	return nil
+	return strings.EqualFold(str[len(str)-len(suffix):len(str)], suffix)
+}
+
+func HasPrefixIgnoreCase(str string, prefix string) bool {
+	if len(str) < len(prefix) {
+		return false
+	}
+	return strings.EqualFold(str[0:len(prefix)], prefix)
 }
