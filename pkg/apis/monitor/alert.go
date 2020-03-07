@@ -133,3 +133,7 @@ type AlertListInput struct {
 	// 以报警是否启用/禁用过滤列表
 	// Enabled *bool `json:"enabled"`
 }
+
+type AlertDetails struct {
+	apis.VirtualResourceDetails
+}

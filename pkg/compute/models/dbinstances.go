@@ -429,16 +429,33 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	vpcIds := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.DBInstanceDetails{
-			VirtualResourceDetails: virtRows[i],
-			VpcResourceInfo:        vpcRows[i],
+			VirtualResourceDetails:  virtRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regRows[i],
 		}
-		rows[i].ManagedResourceInfo = manRows[i]
-		rows[i].CloudregionResourceInfo = regRows[i]
 		rows[i] = objs[i].(*SDBInstance).getMoreDetails(rows[i])
+		vpcIds[i] = objs[i].(*SDBInstance).VpcId
 	}
+
+	vpcs := make(map[string]SVpc)
+
+	err := db.FetchStandaloneObjectsByIds(VpcManager, vpcIds, &vpcs)
+	if err != nil {
+		log.Errorf("db.FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if vpc, ok := vpcs[vpcIds[i]]; ok {
+			rows[i].Vpc = vpc.Name
+			rows[i].VpcExtId = vpc.ExternalId
+		}
+	}
+
 	return rows
 }
 

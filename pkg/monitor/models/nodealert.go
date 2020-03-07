@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/options"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -183,16 +184,97 @@ func (man *SNodeAlertManager) ValidateListConditions(ctx context.Context, userCr
 	return query, nil
 }
 
+func (man *SV1AlertManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.V1AlertListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SAlertManager.ListItemFilter(ctx, q, userCred, query.AlertListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAlertManager.ListItemFilter")
+	}
+	return q, nil
+}
+
+func (man *SV1AlertManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.V1AlertListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SAlertManager.OrderByExtraFields(ctx, q, userCred, query.AlertListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAlertManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SV1AlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SAlertManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
 func (man *SNodeAlertManager) ListItemFilter(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query monitor.NodeAlertListInput) (*sqlchemy.SQuery, error) {
-	q, err := AlertManager.ListItemFilter(ctx, q, userCred, query.ToAlertListInput())
+	query monitor.NodeAlertListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SV1AlertManager.ListItemFilter(ctx, q, userCred, query.V1AlertListInput)
 	if err != nil {
 		return nil, err
 	}
-	q.Equals("used_by", AlertNotificationUsedByNodeAlert)
+	if len(query.Metric) > 0 {
+
+	}
+	if len(query.Type) > 0 {
+
+	}
+	if len(query.NodeId) > 0 {
+
+	}
+	if len(query.NodeName) > 0 {
+
+	}
+	q = q.Equals("used_by", AlertNotificationUsedByNodeAlert)
 	return q, nil
+}
+
+func (man *SNodeAlertManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.NodeAlertListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SV1AlertManager.OrderByExtraFields(ctx, q, userCred, query.V1AlertListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SV1AlertManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SNodeAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SV1AlertManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SNodeAlertManager) GetAlert(id string) (*SNodeAlert, error) {
@@ -292,10 +374,12 @@ func (alert *SV1Alert) CustomizeCreate(
 	return err
 }
 
-func (alert *SNodeAlert) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
-		return err
-	}
+func (alert *SNodeAlert) CustomizeCreate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) error {
 	if err := alert.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data); err != nil {
 		return err
 	}
@@ -353,6 +437,26 @@ func (alert *SNodeAlert) PostCreate(ctx context.Context,
 	}
 }
 
+func (man *SV1AlertManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.AlertV1Details {
+	rows := make([]monitor.AlertV1Details, len(objs))
+
+	alertRows := man.SAlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = monitor.AlertV1Details{
+			AlertDetails: alertRows[i],
+		}
+	}
+
+	return rows
+}
+
 func (alert *SV1Alert) GetExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -360,12 +464,10 @@ func (alert *SV1Alert) GetExtraDetails(
 	isList bool,
 	usedBy string,
 ) (monitor.AlertV1Details, error) {
-	var err error
-	out := monitor.AlertV1Details{}
-	out.VirtualResourceDetails, err = alert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
+	return monitor.AlertV1Details{}, nil
+}
+
+func (alert *SV1Alert) getMoreDetails(out monitor.AlertV1Details, usedBy string) (monitor.AlertV1Details, error) {
 	out.Name = alert.GetName()
 	if alert.Frequency < 60 {
 		out.Window = fmt.Sprintf("%ds", alert.Frequency)
@@ -417,14 +519,43 @@ func (alert *SV1Alert) GetExtraDetails(
 	return out, nil
 }
 
-func (alert *SNodeAlert) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (monitor.NodeAlertDetails, error) {
-	var err error
-	out := monitor.NodeAlertDetails{}
-	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList, AlertNotificationUsedByNodeAlert)
-	if err != nil {
-		return out, err
+func (man *SNodeAlertManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.NodeAlertDetails {
+	rows := make([]monitor.NodeAlertDetails, len(objs))
+
+	v1Rows := man.SV1AlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = monitor.NodeAlertDetails{
+			AlertV1Details: v1Rows[i],
+		}
+		rows[i], _ = objs[i].(*SNodeAlert).getMoreDetails(rows[i])
 	}
-	out.AlertV1Details = commonDetails
+
+	return rows
+}
+
+func (alert *SNodeAlert) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (monitor.NodeAlertDetails, error) {
+	return monitor.NodeAlertDetails{}, nil
+}
+
+func (alert *SNodeAlert) getMoreDetails(out monitor.NodeAlertDetails) (monitor.NodeAlertDetails, error) {
+	var err error
+	out.AlertV1Details, err = alert.SV1Alert.getMoreDetails(out.AlertV1Details, AlertNotificationUsedByNodeAlert)
+	if err != nil {
+		return out, errors.Wrap(err, "SV1Alert.getMoreDetails")
+	}
 
 	out.Type = alert.getType()
 	out.NodeId = alert.getNodeId()

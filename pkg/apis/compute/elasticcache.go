@@ -51,6 +51,10 @@ type ElasticcacheFilterListInput struct {
 	// 以弹性缓存实例过滤
 	Elasticcache string `json:"elasticcache"`
 
+	// swagger:ignore
+	// Deprecated
+	ElasticcacheId string `json:"elasticcache_id" deprecated-by:"elasticcache"`
+
 	// 以弹性缓存实例名称排序
 	OrderByElasticcache string `json:"order_by_elasticcache"`
 

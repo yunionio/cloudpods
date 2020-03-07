@@ -16,8 +16,6 @@ package monitor
 
 import (
 	"time"
-
-	"yunion.io/x/onecloud/pkg/apis"
 )
 
 const (
@@ -137,8 +135,12 @@ func GetNodeAlertEvaluator(comparator string, threshold float64) Condition {
 	}
 }
 
+type V1AlertListInput struct {
+	AlertListInput
+}
+
 type NodeAlertListInput struct {
-	apis.VirtualResourceListInput
+	V1AlertListInput
 
 	// 监控指标名称
 	Metric string `json:"metric"`
@@ -150,14 +152,8 @@ type NodeAlertListInput struct {
 	NodeId string `json:"node_id"`
 }
 
-func (input NodeAlertListInput) ToAlertListInput() AlertListInput {
-	return AlertListInput{
-		VirtualResourceListInput: input.VirtualResourceListInput,
-	}
-}
-
 type AlertV1Details struct {
-	apis.VirtualResourceDetails
+	AlertDetails
 
 	Name        string  `json:"name"`
 	Period      string  `json:"period"`

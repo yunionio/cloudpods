@@ -208,7 +208,10 @@ type DBInstanceAccountListInput struct {
 
 type DBInstanceDetails struct {
 	apis.VirtualResourceDetails
-	VpcResourceInfo
+	CloudregionResourceInfo
+	ManagedResourceInfo
+
+	VpcResourceInfoBase
 
 	SDBInstance
 

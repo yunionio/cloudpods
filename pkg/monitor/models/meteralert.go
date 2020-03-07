@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/monitor/options"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -354,15 +355,42 @@ func (man *SMeterAlertManager) GetAlert(id string) (*SMeterAlert, error) {
 }
 
 func (man *SMeterAlertManager) ListItemFilter(
-	ctx context.Context, q *sqlchemy.SQuery,
+	ctx context.Context,
+	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query monitor.MeterAlertListInput) (*sqlchemy.SQuery, error) {
-	q, err := AlertManager.ListItemFilter(ctx, q, userCred, monitor.AlertListInput{})
+	query monitor.MeterAlertListInput,
+) (*sqlchemy.SQuery, error) {
+	q, err := man.SV1AlertManager.ListItemFilter(ctx, q, userCred, query.V1AlertListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SV1AlertManager.ListItemFilter")
 	}
 	q.Equals("used_by", AlertNotificationUsedByMeterAlert)
 	return q, nil
+}
+
+func (man *SMeterAlertManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query monitor.MeterAlertListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SV1AlertManager.OrderByExtraFields(ctx, q, userCred, query.V1AlertListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SV1AlertManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SMeterAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = man.SV1AlertManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return q, httperrors.ErrNotFound
 }
 
 func (man *SMeterAlertManager) CustomizeFilterList(
@@ -496,14 +524,42 @@ func (alert *SMeterAlert) PostCreate(ctx context.Context,
 	}
 }
 
-func (alert *SMeterAlert) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (monitor.MeterAlertDetails, error) {
-	var err error
-	out := monitor.MeterAlertDetails{}
-	commonDetails, err := alert.SV1Alert.GetExtraDetails(ctx, userCred, query, isList, AlertNotificationUsedByMeterAlert)
-	if err != nil {
-		return out, err
+func (man *SMeterAlertManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.MeterAlertDetails {
+	rows := make([]monitor.MeterAlertDetails, len(objs))
+
+	v1Rows := man.SV1AlertManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = monitor.MeterAlertDetails{
+			AlertV1Details: v1Rows[i],
+		}
 	}
-	out.AlertV1Details = commonDetails
+
+	return rows
+}
+
+func (alert *SMeterAlert) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (monitor.MeterAlertDetails, error) {
+	return monitor.MeterAlertDetails{}, nil
+}
+
+func (alert *SMeterAlert) getMoreDetails(out monitor.MeterAlertDetails) (monitor.MeterAlertDetails, error) {
+	var err error
+	out.AlertV1Details, err = alert.SV1Alert.getMoreDetails(out.AlertV1Details, AlertNotificationUsedByMeterAlert)
+	if err != nil {
+		return out, errors.Wrap(err, "SV1Alert.getMoreDetails")
+	}
 
 	out.Type = alert.getType()
 	out.ProjectId = alert.getProjectId()

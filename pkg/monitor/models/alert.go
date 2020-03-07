@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -199,7 +200,12 @@ func (man *SAlertManager) ValidateCreateData(ctx context.Context, userCred mccli
 	return data, nil
 }
 
-func (man *SAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input monitor.AlertListInput) (*sqlchemy.SQuery, error) {
+func (man *SAlertManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input monitor.AlertListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
@@ -210,6 +216,60 @@ func (man *SAlertManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery
 	}
 
 	return q, nil
+}
+
+func (man *SAlertManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	input monitor.AlertListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (man *SAlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = man.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
+}
+
+func (a *SAlert) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (monitor.AlertDetails, error) {
+	return monitor.AlertDetails{}, nil
+}
+
+func (man *SAlertManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.AlertDetails {
+	rows := make([]monitor.AlertDetails, len(objs))
+	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = monitor.AlertDetails{
+			VirtualResourceDetails: virtRows[i],
+		}
+	}
+	return rows
 }
 
 func (man *SAlertManager) GetAlert(id string) (*SAlert, error) {
