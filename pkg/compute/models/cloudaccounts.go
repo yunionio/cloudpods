@@ -207,11 +207,15 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusDomainLevelResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudaccount) enableAccountOnly(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	return self.SEnabledStatusDomainLevelResourceBase.PerformEnable(ctx, userCred, query, input)
+}
+
 func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	if strings.Index(self.Status, "delet") >= 0 {
 		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")
 	}
-	_, err := self.SEnabledStatusDomainLevelResourceBase.PerformEnable(ctx, userCred, query, input)
+	_, err := self.enableAccountOnly(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
