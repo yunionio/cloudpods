@@ -296,6 +296,16 @@ func (manager *SSharableVirtualResourceBaseManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	if query.IsPublic != nil {
+		if *query.IsPublic {
+			q = q.IsTrue("is_public")
+		} else {
+			q = q.IsFalse("is_public")
+		}
+	}
+	if len(query.PublicScope) > 0 {
+		q = q.Equals("public_scope", query.PublicScope)
+	}
 	return q, nil
 }
 

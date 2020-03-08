@@ -562,6 +562,13 @@ func (manager *SGuestImageManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
+	if query.Protected != nil {
+		if *query.Protected {
+			q = q.IsTrue("protected")
+		} else {
+			q = q.IsFalse("protected")
+		}
+	}
 	return q, nil
 }
 

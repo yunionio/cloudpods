@@ -27,10 +27,25 @@ type ImageListInput struct {
 	DiskFormats []string `json:"disk_formats"`
 	// 列出是否支持UEFI启动的镜像
 	Uefi *bool `json:"uefi"`
+
+	// 是否为标准镜像
+	IsStandard *bool `json:"is_standard"`
+
+	// 是否删除保护
+	Protected *bool `json:"protected"`
+
+	// 是否为主机镜像的子镜像
+	IsGuestImage *bool `json:"is_guest_image"`
+
+	// 是否为数据盘
+	IsData *bool `json:"is_data"`
 }
 
 type GuestImageListInput struct {
 	apis.SharableVirtualResourceListInput
+
+	// 是否删除保护
+	Protected *bool `json:"protected"`
 }
 
 type ImageDetails struct {

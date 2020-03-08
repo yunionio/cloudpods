@@ -324,6 +324,30 @@ func (manager *SUserManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ListItemFilter")
 	}
 
+	if len(query.Email) > 0 {
+		q = q.Equals("email", query.Email)
+	}
+	if len(query.Mobile) > 0 {
+		q = q.Equals("mobile", query.Mobile)
+	}
+	if len(query.Displayname) > 0 {
+		q = q.Equals("displayname", query.Displayname)
+	}
+	if query.AllowWebConsole != nil {
+		if *query.AllowWebConsole {
+			q = q.IsTrue("allow_web_console")
+		} else {
+			q = q.IsFalse("allow_web_console")
+		}
+	}
+	if query.EnableMfa != nil {
+		if *query.EnableMfa {
+			q = q.IsTrue("enable_mfa")
+		} else {
+			q = q.IsFalse("enable_mfa")
+		}
+	}
+
 	groupStr := query.Group
 	if len(groupStr) > 0 {
 		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupStr)

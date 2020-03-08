@@ -87,6 +87,10 @@ func (manager *SGroupManager) ListItemFilter(
 		return nil, err
 	}
 
+	if len(query.Displayname) > 0 {
+		q = q.Equals("displayname", query.Displayname)
+	}
+
 	userIdStr := query.User
 	if len(userIdStr) > 0 {
 		user, err := UserManager.FetchById(userIdStr)
