@@ -100,7 +100,7 @@ func (self *CloudAccountSyncSkusTask) OnInit(ctx context.Context, obj db.IStanda
 			syncFunc = models.ServerSkuManager.SyncServerSkus
 		case models.ElasticcacheSkuManager.Keyword():
 			syncFunc = models.ElasticcacheSkuManager.SyncElasticcacheSkus
-		case models.ElasticcacheSkuManager.Keyword():
+		case models.DBInstanceSkuManager.Keyword():
 			syncFunc = models.DBInstanceSkuManager.SyncDBInstanceSkus
 		}
 
