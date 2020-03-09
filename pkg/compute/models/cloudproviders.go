@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -1277,22 +1278,17 @@ func (self *SCloudprovider) ClearSchedDescCache() error {
 }
 
 func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	if strings.Index(self.Status, "delet") >= 0 {
+		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")
+	}
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
 	account := self.GetCloudaccount()
 	if account != nil {
-		allEnabled := true
-		providers := account.GetCloudproviders()
-		for i := range providers {
-			if !providers[i].GetEnabled() {
-				allEnabled = false
-				break
-			}
-		}
-		if allEnabled && !account.GetEnabled() {
-			return account.PerformEnable(ctx, userCred, nil, input)
+		if !account.GetEnabled() {
+			return account.enableAccountOnly(ctx, userCred, nil, input)
 		}
 	}
 	return nil, nil
