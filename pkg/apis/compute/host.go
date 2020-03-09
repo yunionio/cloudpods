@@ -219,3 +219,10 @@ type HostResourceInput struct {
 	// filter by host_id
 	HostId string `json:"host_id" deprecated-by:"host"`
 }
+
+type HostRegisterMetadata struct {
+	apis.Meta
+
+	OnKubernetes bool   `json:"on_kubernetes"`
+	Hostname     string `json:"hostname"`
+}

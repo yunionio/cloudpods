@@ -224,6 +224,12 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 	return input.JSON(input), nil
 }
 
+func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	self.SetEnabled(true)
+	self.SetStatus(userCred, api.STORAGE_OFFLINE, "CustomizeCreate")
+	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.GetHostCount()
 	if err != nil {
