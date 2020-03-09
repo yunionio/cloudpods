@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -220,6 +221,16 @@ func (manager *SQuotaBaseManager) checkQuota(ctx context.Context, request IQuota
 
 func (manager *SQuotaBaseManager) __checkQuota(ctx context.Context, quota IQuota, request IQuota) error {
 	keys := quota.GetKeys()
+
+	if !consts.GetNonDefaultDomainProjects() {
+		ownerId := keys.OwnerId()
+		if len(ownerId.GetProjectDomainId()) > 0 && len(ownerId.GetProjectId()) == 0 {
+			// if non_default_domain_projects == false
+			// skip domain quota check
+			return nil
+		}
+	}
+
 	used := manager.newQuota()
 	err := manager.usageStore.GetQuota(ctx, keys, used)
 	if err != nil {
