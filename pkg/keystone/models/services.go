@@ -235,6 +235,13 @@ func (manager *SServiceManager) ListItemFilter(
 	if len(query.Type) > 0 {
 		q = q.Equals("type", query.Type)
 	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
 	return q, nil
 }
 

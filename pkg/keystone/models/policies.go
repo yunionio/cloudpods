@@ -222,6 +222,9 @@ func (manager *SPolicyManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableBaseResourceManager.ListItemFilter")
 	}
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
+	}
 	return q, nil
 }
 

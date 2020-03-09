@@ -181,6 +181,15 @@ func (manager *SDomainManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	q = q.NotEquals("id", api.KeystoneDomainRoot)
+
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
 	return q, nil
 }
 

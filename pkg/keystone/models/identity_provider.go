@@ -842,7 +842,15 @@ func (manager *SIdentityProviderManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
-
+	if len(query.Driver) > 0 {
+		q = q.Equals("driver", query.Driver)
+	}
+	if len(query.Template) > 0 {
+		q = q.Equals("template", query.Template)
+	}
+	if len(query.SyncStatus) > 0 {
+		q = q.Equals("sync_status", query.SyncStatus)
+	}
 	return q, nil
 }
 

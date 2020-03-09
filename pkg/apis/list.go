@@ -141,7 +141,7 @@ type ResourceBaseListInput struct {
 
 type SharableVirtualResourceListInput struct {
 	VirtualResourceListInput
-
+	SharableResourceBaseListInput
 	// 根据资源的共享范围过滤列表，可能值为：system, domain, project
 	PublicScope string `json:"public_scope"`
 }

@@ -37,6 +37,8 @@ import (
 
 type SCredentialManager struct {
 	db.SStandaloneResourceBaseManager
+	SUserResourceBaseManager
+	SProjectResourceBaseManager
 }
 
 var CredentialManager *SCredentialManager
@@ -291,6 +293,24 @@ func (manager *SCredentialManager) ListItemFilter(
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SUserResourceBaseManager.ListItemFilter(ctx, q, userCred, query.UserFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SUserResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SProjectResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ProjectFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SProjectResourceBaseManager.ListItemFilter")
+	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+	if len(query.Type) > 0 {
+		q = q.Equals("type", query.Type)
 	}
 	return q, nil
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
@@ -35,6 +36,8 @@ import (
 
 type SEndpointManager struct {
 	db.SStandaloneResourceBaseManager
+	SServiceResourceBaseManager
+	SRegionResourceBaseManager
 }
 
 var EndpointManager *SEndpointManager
@@ -351,18 +354,27 @@ func (manager *SEndpointManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-	svcStr := query.Service
-	if len(svcStr) > 0 {
-		svcObj, err := ServiceManager.FetchByIdOrName(userCred, svcStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), svcStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+	q, err = manager.SServiceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ServiceFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SServiceResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SRegionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegionResourceBaseManager.ListItemFilter")
+	}
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
 		}
-		subq := ServiceManager.Query("id").Equals("id", svcObj.GetId())
-		q = q.Equals("service_id", subq.SubQuery())
+	}
+	if len(query.Interface) > 0 {
+		infType := query.Interface
+		if strings.HasSuffix(infType, "URL") {
+			infType = infType[0 : len(infType)-3]
+		}
+		q = q.Equals("interface", infType)
 	}
 	return q, nil
 }

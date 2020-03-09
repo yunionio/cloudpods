@@ -1149,6 +1149,34 @@ func (manager *SImageManager) ListItemFilter(
 			Equals("name", api.IMAGE_UEFI_SUPPORT).Equals("value", "true").SubQuery()
 		q = q.Join(imagePropertyQ, sqlchemy.Equals(q.Field("id"), imagePropertyQ.Field("image_id")))
 	}
+	if query.IsStandard != nil {
+		if *query.IsStandard {
+			q = q.IsTrue("is_standard")
+		} else {
+			q = q.IsFalse("is_standard")
+		}
+	}
+	if query.Protected != nil {
+		if *query.Protected {
+			q = q.IsTrue("protected")
+		} else {
+			q = q.IsFalse("protected")
+		}
+	}
+	if query.IsGuestImage != nil {
+		if *query.IsGuestImage {
+			q = q.IsTrue("is_guest_image")
+		} else {
+			q = q.IsFalse("is_guest_image")
+		}
+	}
+	if query.IsData != nil {
+		if *query.IsData {
+			q = q.IsTrue("is_data")
+		} else {
+			q = q.IsFalse("is_data")
+		}
+	}
 	return q, nil
 }
 

@@ -21,10 +21,9 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
