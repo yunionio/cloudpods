@@ -47,16 +47,18 @@ type AddMachineOptions struct {
 }
 
 type KubeClusterCreateOptions struct {
-	NAME          string `help:"Name of cluster"`
-	ClusterType   string `help:"Cluster cluster type" choices:"default|serverless"`
-	ResourceType  string `help:"Cluster cluster type" choices:"host|guest"`
-	CloudType     string `help:"Cluster cloud type" choices:"private|public|hybrid"`
-	Mode          string `help:"Cluster mode type" choices:"customize|managed|import"`
-	Provider      string `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud|system"`
-	ServiceCidr   string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
-	ServiceDomain string `help:"Cluster service domain, e.g. cluster.local"`
-	Vip           string `help:"Cluster api server static loadbalancer vip"`
-	Version       string `help:"Cluster kubernetes version"`
+	NAME              string `help:"Name of cluster"`
+	ClusterType       string `help:"Cluster cluster type" choices:"default|serverless"`
+	ResourceType      string `help:"Cluster cluster type" choices:"host|guest"`
+	CloudType         string `help:"Cluster cloud type" choices:"private|public|hybrid"`
+	Mode              string `help:"Cluster mode type" choices:"customize|managed|import"`
+	Provider          string `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud|system"`
+	ServiceCidr       string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
+	ServiceDomain     string `help:"Cluster service domain, e.g. cluster.local"`
+	Vip               string `help:"Cluster api server static loadbalancer vip"`
+	Version           string `help:"Cluster kubernetes version"`
+	ImageRepo         string `help:"Image repository, e.g. registry-1.docker.io/yunion"`
+	ImageRepoInsecure bool   `help:"Image repostiory is insecure"`
 
 	AddMachineOptions
 }
@@ -136,11 +138,19 @@ func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if o.Vip != "" {
 		params.Add(jsonutils.NewString(o.Vip), "vip")
 	}
+	imageRepo := jsonutils.NewDict()
+	if o.ImageRepo != "" {
+		imageRepo.Add(jsonutils.NewString(o.ImageRepo), "url")
+	}
+	if o.ImageRepoInsecure {
+		imageRepo.Add(jsonutils.JSONTrue, "insecure")
+	}
 	machineObjs, err := o.AddMachineOptions.Params()
 	if err != nil {
 		return nil, err
 	}
 	params.Add(machineObjs, "machines")
+	params.Add(imageRepo, "image_repository")
 	return params, nil
 }
 
