@@ -1082,6 +1082,35 @@ func (manager *SCloudaccountManager) InitializeData() error {
 	if err != nil {
 		return err
 	}
+
+	// init accountid
+	q = manager.Query().Equals("provider", api.CLOUD_PROVIDER_VMWARE)
+	cloudaccounts := make([]SCloudaccount, 0)
+	err = db.FetchModelObjects(manager, q, &cloudaccounts)
+	if err != nil {
+		return errors.Wrap(err, "fetch vmware cloudaccount fail")
+	}
+	for i := range cloudaccounts {
+		account := cloudaccounts[i]
+		if len(account.AccountId) != 0 && account.Account != account.AccountId {
+			continue
+		}
+		url, err := url.Parse(account.AccessUrl)
+		if err != nil {
+			return errors.Wrapf(err, "parse vmware account's accessurl %s", account.AccessUrl)
+		}
+		hostPort := url.Host
+		if i := strings.IndexByte(hostPort, ':'); i < 0 {
+			hostPort = fmt.Sprintf("%s:%d", hostPort, 443)
+		}
+		_, err = db.Update(&account, func() error {
+			account.AccountId = fmt.Sprintf("%s@%s", account.Account, hostPort)
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "db.Update for account")
+		}
+	}
 	return nil
 }
 
