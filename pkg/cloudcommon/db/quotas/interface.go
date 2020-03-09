@@ -28,6 +28,8 @@ type IQuotaKeys interface {
 	Fields() []string
 	Values() []string
 	Compare(IQuotaKeys) int
+
+	OwnerId() mcclient.IIdentityProvider
 }
 
 type IQuota interface {
