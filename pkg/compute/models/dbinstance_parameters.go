@@ -85,6 +85,14 @@ func (manager *SDBInstanceParameterManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.Key) > 0 {
+		q = q.In("key", query.Key)
+	}
+	if len(query.Value) > 0 {
+		q = q.In("value", query.Value)
+	}
+
 	return q, nil
 }
 

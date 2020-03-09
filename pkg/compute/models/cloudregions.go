@@ -751,6 +751,11 @@ func (manager *SCloudregionManager) ListItemFilter(
 	} else if len(cityStr) > 0 {
 		q = q.Equals("city", cityStr)
 	}
+
+	if len(query.Environment) > 0 {
+		q = q.Equals("environment", query.Environment)
+	}
+
 	return q, nil
 }
 

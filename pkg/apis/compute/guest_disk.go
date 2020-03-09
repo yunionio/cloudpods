@@ -38,3 +38,15 @@ type GuestDiskDetails struct {
 	// example: ssd
 	MediumType string `json:"medium_type"`
 }
+
+type GuestdiskListInput struct {
+	GuestJointsListInput
+
+	DiskFilterListInput
+
+	Driver []string `json:"driver"`
+
+	CacheMode []string `json:"cache_mode"`
+
+	AioMode []string `json:"aio_mode"`
+}

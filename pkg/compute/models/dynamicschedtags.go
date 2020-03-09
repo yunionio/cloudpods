@@ -307,6 +307,14 @@ func (manager *SDynamicschedtagManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
 	}
 
+	if input.Enabled != nil {
+		if *input.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
 	return q, nil
 }
 

@@ -126,6 +126,9 @@ func (sm *SGroupManager) ListItemFilter(
 	if len(input.ServiceType) > 0 {
 		q = q.Equals("service_type", input.ServiceType)
 	}
+	if len(input.SchedStrategy) > 0 {
+		q = q.Equals("sched_strategy", input.SchedStrategy)
+	}
 
 	return q, nil
 }

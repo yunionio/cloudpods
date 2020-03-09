@@ -125,6 +125,19 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
 	}
 
+	if len(query.Engine) > 0 {
+		q = q.Equals("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.Equals("engine_version", query.EngineVersion)
+	}
+	if len(query.BackupMode) > 0 {
+		q = q.Equals("backup_mode", query.BackupMode)
+	}
+	if len(query.DBNames) > 0 {
+		q = q.Contains("db_names", query.DBNames)
+	}
+
 	return q, nil
 }
 

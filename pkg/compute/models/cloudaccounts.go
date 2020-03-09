@@ -1235,6 +1235,22 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if len(query.SyncStatus) > 0 {
+		q = q.In("sync_status", query.SyncStatus)
+	}
+	if len(query.HealthStatus) > 0 {
+		q = q.In("health_status", query.HealthStatus)
+	}
+	if len(query.ShareMode) > 0 {
+		q = q.In("share_mode", query.ShareMode)
+	}
+	if len(query.Providers) > 0 {
+		q = q.In("provider", query.Providers)
+	}
+	if len(query.Brands) > 0 {
+		q = q.In("brand", query.Brands)
+	}
+
 	return q, nil
 }
 

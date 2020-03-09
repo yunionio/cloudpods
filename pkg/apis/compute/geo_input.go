@@ -80,6 +80,9 @@ type CloudregionListInput struct {
 	City string `json:"city"`
 	// 过滤提供特定服务的区域
 	Service string `json:"service"`
+
+	// 云环境
+	Environment string `json:"environment"`
 }
 
 type ZoneListInput struct {

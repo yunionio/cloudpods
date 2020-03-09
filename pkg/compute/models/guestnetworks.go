@@ -52,6 +52,7 @@ const (
 
 type SGuestnetworkManager struct {
 	SGuestJointsManager
+	SNetworkResourceBaseManager
 }
 
 var GuestnetworkManager *SGuestnetworkManager
@@ -75,16 +76,26 @@ func init() {
 type SGuestnetwork struct {
 	SGuestJointsBase
 
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" `             // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	MacAddr   string `width:"32" charset:"ascii" nullable:"false" list:"user"`              // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	IpAddr    string `width:"16" charset:"ascii" nullable:"false" list:"user"`              // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	Ip6Addr   string `width:"64" charset:"ascii" nullable:"true" list:"user"`               // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	Driver    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	BwLimit   int    `nullable:"false" default:"0" list:"user"`                             // Column(Integer, nullable=False, default=0) # Mbps
-	Index     int8   `nullable:"false" default:"0" list:"user" update:"user"`               // Column(TINYINT, nullable=False, default=0)
-	Virtual   bool   `default:"false" list:"user"`                                          // Column(Boolean, default=False)
-	Ifname    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" `
 
+	// MAC地址
+	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user"`
+	// IPv4地址
+	IpAddr  string `width:"16" charset:"ascii" nullable:"false" list:"user"`
+	// IPv6地址
+	Ip6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
+	// 虚拟网卡驱动
+	Driver  string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
+	// 带宽限制，单位mbps
+	BwLimit int    `nullable:"false" default:"0" list:"user"`
+	// 网卡序号
+	Index   int8   `nullable:"false" default:"0" list:"user" update:"user"`
+	// 是否为虚拟接口（无IP）
+	Virtual bool   `default:"false" list:"user"`
+	// 虚拟网卡设备名称
+	Ifname  string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
+
+	// bind配对网卡MAC地址
 	TeamWith string `width:"32" charset:"ascii" nullable:"false" list:"user"`
 }
 
@@ -832,4 +843,63 @@ func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
 		NetType: net.ServerType,
 	}
 	return ret
+}
+
+func (manager *SGuestnetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemFilter(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.MacAddr) > 0 {
+		q = q.In("mac_addr", query.MacAddr)
+	}
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+	if len(query.Ip6Addr) > 0 {
+		q = q.In("ip6_addr", query.Ip6Addr)
+	}
+	if len(query.Driver) > 0 {
+		q = q.In("driver", query.Driver)
+	}
+	if len(query.Ifname) > 0 {
+		q = q.In("ifname", query.Ifname)
+	}
+	if len(query.TeamWith) > 0 {
+		q = q.In("team_with", query.TeamWith)
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestnetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.OrderByExtraFields(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

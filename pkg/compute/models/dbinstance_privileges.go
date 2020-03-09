@@ -104,11 +104,21 @@ func (self *SDBInstancePrivilege) GetPrivilege() (api.DBInstancePrivilege, error
 	return out, nil
 }
 
-func (manager *SDBInstancePrivilegeManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.DBInstancePrivilegeListInput) (*sqlchemy.SQuery, error) {
+func (manager *SDBInstancePrivilegeManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.DBInstancePrivilegeListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.Privilege) > 0 {
+		q = q.Equals("privilege", query.Privilege)
+	}
+
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "dbinstanceaccount", ModelKeyword: "dbinstanceaccount", OwnerId: userCred},

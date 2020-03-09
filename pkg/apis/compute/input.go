@@ -48,6 +48,10 @@ type CachedimageListInput struct {
 
 	ManagedResourceListInput
 	ZonalFilterListInput
+
+	// 镜像类型，可能值为: system(公有云公共镜像), customized(自定义镜像)
+	// example: system
+	ImageType string `json:"image_type"`
 }
 
 type ExternalProjectListInput struct {
@@ -82,6 +86,13 @@ type NetworkInterfaceListInput struct {
 type BaremetalagentListInput struct {
 	apis.StandaloneResourceListInput
 	ZonalFilterListInput
+
+	// 以状态过滤
+	Status string `json:"status"`
+	// 以IP地址过滤
+	AccessIp string `json:"access_ip"`
+	// 以AgentType过滤
+	AgentType string `json:"agent_type"`
 }
 
 type DnsRecordListInput struct {
@@ -91,6 +102,9 @@ type DnsRecordListInput struct {
 type DynamicschedtagListInput struct {
 	apis.StandaloneResourceListInput
 	SchedtagFilterListInput
+
+	// filter by enabled status
+	Enabled *bool `json:"enabled"`
 }
 
 type GuestTemplateListInput struct {

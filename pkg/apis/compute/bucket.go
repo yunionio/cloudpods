@@ -100,4 +100,13 @@ type BucketListInput struct {
 	apis.VirtualResourceListInput
 	ManagedResourceListInput
 	RegionalFilterListInput
+
+	// STORAGE_CLASS
+	StorageClass string `json:"storage_class"`
+
+	// 位置
+	Location string `json:"location"`
+
+	// ACL
+	Acl string `json:"acl"`
 }

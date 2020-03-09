@@ -118,6 +118,26 @@ type DiskListInput struct {
 	// | volume      | 容器volumn盘   |
 	//
 	DiskType string `json:"disk_type"`
+
+	DiskFormat string `json:"disk_format"`
+
+	DiskSize int `json:"disk_size"`
+
+	AutoDelete *bool `json:"auto_delete"`
+
+	FsFormat string `json:"fs_format"`
+
+	// 镜像
+	Template string `json:"template"`
+	// swagger:ignore
+	// Deprecated
+	TemplateId string `json:"template_id" deprecated-by:"template"`
+
+	// 快照
+	Snapshot string `json:"snapshot"`
+	// swagger:ignore
+	// Deprecated
+	SnapshotId string `json:"snapshot_id" deprecated-by:"snapshot"`
 }
 
 type DiskFilterListInput struct {

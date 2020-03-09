@@ -51,6 +51,7 @@ type SElasticcacheManager struct {
 	db.SVirtualResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
+	SNetworkResourceBaseManager
 }
 
 var ElasticcacheManager *SElasticcacheManager
@@ -324,6 +325,54 @@ func (manager *SElasticcacheManager) ListItemFilter(
 	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, zoneQuery)
 	if err != nil {
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.InstanceType) > 0 {
+		q = q.In("instance_type", query.InstanceType)
+	}
+	if len(query.LocalCategory) > 0 {
+		q = q.In("local_category", query.LocalCategory)
+	}
+	if len(query.NodeType) > 0 {
+		q = q.In("node_type", query.NodeType)
+	}
+	if len(query.Engine) > 0 {
+		q = q.In("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.In("engine_version", query.EngineVersion)
+	}
+	if len(query.NetworkType) > 0 {
+		q = q.In("network_type", query.NetworkType)
+	}
+	netQuery := api.NetworkFilterListInput {
+		NetworkFilterListBase: query.NetworkFilterListBase,
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, netQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.PrivateDNS) > 0 {
+		q = q.In("private_dns", query.PrivateDNS)
+	}
+	if len(query.PrivateIpAddr) > 0 {
+		q = q.In("private_ip_addr", query.PrivateIpAddr)
+	}
+	if len(query.PrivateConnectPort) > 0 {
+		q = q.In("private_connect_port", query.PrivateConnectPort)
+	}
+	if len(query.PublicDNS) > 0 {
+		q = q.In("public_dns", query.PublicDNS)
+	}
+	if len(query.PublicIpAddr) > 0 {
+		q = q.In("public_ip_addr", query.PublicIpAddr)
+	}
+	if len(query.PublicConnectPort) > 0 {
+		q = q.In("public_connect_port", query.PublicConnectPort)
+	}
+	if len(query.AuthMode) > 0 {
+		q = q.In("auth_mode", query.AuthMode)
 	}
 
 	return q, nil

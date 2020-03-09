@@ -138,6 +138,26 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 		return nil, errors.Wrap(err, "managedResourceFilterByRegion")
 	}
 
+	// StorageType
+	if len(query.StorageType) > 0 {
+		q = q.Equals("storage_type", query.StorageType)
+	}
+	if query.VcpuCount > 0 {
+		q = q.Equals("vcpu_count", query.VcpuCount)
+	}
+	if query.VmemSizeMb > 0 {
+		q = q.Equals("vmem_size_mb", query.VmemSizeMb)
+	}
+	if len(query.Category) > 0 {
+		q = q.Equals("category", query.Category)
+	}
+	if len(query.Engine) > 0 {
+		q = q.Equals("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.Equals("engine_version", query.EngineVersion)
+	}
+
 	return q, nil
 }
 

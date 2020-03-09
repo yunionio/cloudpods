@@ -167,8 +167,23 @@ type DBInstanceListInput struct {
 
 	VpcFilterListInput
 
-	// 以可用区过滤数据库实例
-	Zone string `json:"zone"`
+	ZoneResourceInput
+
+	MasterInstance string `json:"master_instance"`
+
+	VcpuCount int `json:"vcpu_count"`
+
+	VmemSizeMb int `json:"vmem_size_mb"`
+
+	StorageType string `json:"storage_type"`
+
+	Category string `json:"category"`
+
+	Engine string `json:"engine"`
+
+	EngineVersion string `json:"engine_version"`
+
+	InstanceType string `json:"instance_type"`
 }
 
 type DBInstanceBackupListInput struct {
@@ -177,6 +192,20 @@ type DBInstanceBackupListInput struct {
 	RegionalFilterListInput
 
 	DBInstanceFilterListInputBase
+
+	// RDS引擎
+	// example: MySQL
+	Engine string `json:"engine"`
+
+	// RDS引擎版本
+	// example: 5.7
+	EngineVersion string `json:"engine_version"`
+
+	// 备份模式
+	BackupMode string `json:"backup_mode"`
+
+	// 数据库名称
+	DBNames string `json:"db_names"`
 }
 
 type DBInstancePrivilegeListInput struct {
@@ -186,18 +215,30 @@ type DBInstancePrivilegeListInput struct {
 	Dbinstanceaccount string `json:"dbinstanceaccount"`
 	// filter by dbinstancedatabase
 	Dbinstancedatabase string `json:"dbinstancedatabase"`
+
+	// 权限
+	Privilege string `json:"privilege"`
 }
 
 type DBInstanceParameterListInput struct {
 	apis.StandaloneResourceListInput
 
 	DBInstanceFilterListInput
+
+	// 参数名称
+	Key []string `json:"key"`
+
+	// 参数值
+	Value []string `json:"value"`
 }
 
 type DBInstanceDatabaseListInput struct {
 	apis.StatusStandaloneResourceListInput
 
 	DBInstanceFilterListInput
+
+	// 数据库字符集
+	CharacterSet []string `json:"character_set"`
 }
 
 type DBInstanceAccountListInput struct {

@@ -1063,6 +1063,21 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		q = q.In("id", subq)
 	}
 
+	if len(query.SyncStatus) > 0 {
+		q = q.In("sync_status", query.SyncStatus)
+	}
+	if len(query.HealthStatus) > 0 {
+		q = q.In("health_status", query.HealthStatus)
+	}
+	if len(query.Providers) > 0 {
+		subq := CloudaccountManager.Query("id").In("provider", query.Providers).SubQuery()
+		q = q.In("cloudaccount_id", subq)
+	}
+	if len(query.Brands) > 0 {
+		subq := CloudaccountManager.Query("id").In("brand", query.Brands).SubQuery()
+		q = q.In("cloudaccount_id", subq)
+	}
+
 	return q, nil
 }
 

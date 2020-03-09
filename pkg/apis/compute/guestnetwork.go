@@ -35,3 +35,21 @@ type GuestnetworkShortDesc struct {
 	// Bonding的配对网卡MAC
 	TeamWith string `json:"team_with"`
 }
+
+type GuestnetworkListInput struct {
+	GuestJointsListInput
+
+	NetworkFilterListInput
+
+	MacAddr []string `json:"mac_addr"`
+
+	IpAddr []string `json:"ip_addr"`
+
+	Ip6Addr []string `json:"ip6_addr"`
+
+	Driver []string `json:"driver"`
+
+	Ifname []string `json:"ifname"`
+
+	TeamWith []string `json:"team_with"`
+}

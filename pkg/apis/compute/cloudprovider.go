@@ -215,6 +215,12 @@ type CloudproviderListInput struct {
 	UsableResourceListInput
 
 	CapabilityListInput
+
+	// 同步状态
+	SyncStatus []string `json:"sync_status"`
+
+	// 账号健康状态
+	HealthStatus []string `json:"health_status"`
 }
 
 func (input *CapabilityListInput) AfterUnmarshal() {

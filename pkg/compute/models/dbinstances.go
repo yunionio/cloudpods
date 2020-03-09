@@ -184,6 +184,39 @@ func (man *SDBInstanceManager) ListItemFilter(
 		))
 	}
 
+	if len(query.MasterInstance) > 0 {
+		instObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.MasterInstance)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.MasterInstance)
+			} else {
+				return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("master_instance_id", instObj.GetId())
+	}
+	if query.VcpuCount > 0 {
+		q = q.Equals("vcpu_count", query.VcpuCount)
+	}
+	if query.VmemSizeMb > 0 {
+		q = q.Equals("vmem_size_mb", query.VmemSizeMb)
+	}
+	if len(query.StorageType) > 0 {
+		q = q.Equals("storage_type", query.StorageType)
+	}
+	if len(query.Category) > 0 {
+		q = q.Equals("category", query.Category)
+	}
+	if len(query.Engine) > 0 {
+		q = q.Equals("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.Equals("engine_version", query.EngineVersion)
+	}
+	if len(query.InstanceType) > 0 {
+		q = q.Equals("instance_type", query.InstanceType)
+	}
+
 	return q, nil
 }
 

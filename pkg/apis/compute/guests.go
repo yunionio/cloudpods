@@ -68,11 +68,11 @@ type ServerListInput struct {
 	WithoutEip *bool `json:"without_eip"`
 	// 列出操作系统为指定值的主机
 	// enum: linux,windows,vmware
-	OsType string `json:"os_type"`
+	OsType []string `json:"os_type"`
 
 	// 对列表结果按照磁盘进行排序
 	// enum: asc,desc
-	OrderByDisk string `json:"order_by_disk"`
+	// OrderByDisk string `json:"order_by_disk"`
 
 	// 列出可以挂载指定EIP的主机
 	UsableServerForEip string `json:"usable_server_for_eip"`
@@ -85,6 +85,26 @@ type ServerListInput struct {
 
 	// 根据宿主机 SN 过滤
 	// HostSn string `json:"host_sn"`
+
+	VcpuCount []int `json:"vcpu_count"`
+
+	VmemSize []int `json:"vmem_size"`
+
+	BootOrder []string `json:"boot_order"`
+
+	Vga []string `json:"vga"`
+
+	Vdi []string `json:"vdi"`
+
+	Machine []string `json:"machine"`
+
+	Bios []string `json:"bios"`
+
+	SrcIpCheck *bool `json:"src_ip_check"`
+
+	SrcMacCheck *bool `json:"src_mac_check"`
+
+	InstanceType []string `json:"instance_type"`
 }
 
 func (input *ServerListInput) AfterUnmarshal() {
@@ -223,4 +243,43 @@ type GuestJointResourceDetails struct {
 	Guest string `json:"guest"`
 	// 云主机名称
 	Server string `json:"server"`
+}
+
+type GuestJointsListInput struct {
+	apis.VirtualJointResourceBaseListInput
+
+	GuestFilterListInput
+}
+
+type GuestResourceInfo struct {
+	// 虚拟机名称
+	Guest string `json:"guest"`
+
+	// 虚拟机状态
+	GuestStatus string `json:"guest_status"`
+
+	// 宿主机ID
+	HostId string `json:"host_id"`
+
+	HostResourceInfo
+}
+
+type GuestFilterListInput struct {
+	HostFilterListInput
+
+	// 以指定虚拟主机（ID或Name）过滤列表结果
+	Server string `json:"server"`
+	// swagger:ignore
+	// Deprecated
+	ServerId string `json:"server_id" deprecated-by:"server"`
+	// swagger:ignore
+	// Deprecated
+	Guest string `json:"guest" deprecated-by:"server"`
+	// swagger:ignore
+	// Deprecated
+	GuestId string `json:"guest_id" deprecated-by:"server"`
+
+	// 以虚拟主机名称排序
+	// pattern:asc|desc
+	OrderByServer string `json:"order_by_server"`
 }
