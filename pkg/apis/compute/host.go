@@ -124,3 +124,10 @@ type HostDetails struct {
 	// 标签
 	Metadata map[string]string `json:"metadata"`
 }
+
+type HostRegisterMetadata struct {
+	apis.Meta
+
+	OnKubernetes bool   `json:"on_kubernetes"`
+	Hostname     string `json:"hostname"`
+}
