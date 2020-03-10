@@ -1199,20 +1199,33 @@ func (host *SHost) FileUrlPathToDsPath(path string) (string, error) {
 }
 
 func (host *SHost) FindNetworkByVlanID(vlanID int32) (IVMNetwork, error) {
-	if vlanID > 1 && vlanID < 4095 {
-		return host.findVlanDVPG(int32(vlanID))
+	if vlanID >= 1 && vlanID < 4095 {
+		net, err := host.findBasicNetwork(vlanID)
+		if err != nil {
+			return nil, errors.Wrap(err, "findBasicNetwork error")
+		}
+		if net != nil {
+			return net, nil
+		}
+
+		// no found in basic network
+		dvpg, err := host.findVlanDVPG(vlanID)
+		if err != nil {
+			return nil, errors.Wrap(err, "findVlanDVPG")
+		}
+		return dvpg, nil
 	}
-	n, err := host.findNovlanDVPG()
+	n, err := host.findBasicNetwork(vlanID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "find Basic network")
 	}
 	if n != nil {
 		return n, err
 	}
-	return host.findBasicNetwork()
+	return host.findNovlanDVPG()
 }
 
-func (host *SHost) findBasicNetwork() (*SNetwork, error) {
+func (host *SHost) findBasicNetwork(vlanID int32) (*SNetwork, error) {
 	nets, err := host.GetNetwork()
 	if err != nil {
 		return nil, err
@@ -1220,7 +1233,15 @@ func (host *SHost) findBasicNetwork() (*SNetwork, error) {
 	if len(nets) == 0 {
 		return nil, nil
 	}
-	return &nets[0], nil
+	if vlanID < 1 || vlanID >= 4095 {
+		return &nets[0], nil
+	}
+	for i := range nets {
+		if nets[i].GetVlanId() == vlanID {
+			return &nets[i], nil
+		}
+	}
+	return nil, nil
 }
 
 func (host *SHost) GetNetwork() ([]SNetwork, error) {
@@ -1236,6 +1257,23 @@ func (host *SHost) GetNetwork() ([]SNetwork, error) {
 	nets := make([]SNetwork, len(moNets))
 	for i := range moNets {
 		nets[i] = *NewNetwork(host.manager, &moNets[i], host.datacenter)
+	}
+
+	// network map
+	netMap := make(map[string]*SNetwork)
+	for i := range nets {
+		netMap[nets[i].GetName()] = &nets[i]
+	}
+
+	// fetch all portgroup
+	portgroups := host.getHostSystem().Config.Network.Portgroup
+	for _, pg := range portgroups {
+		net, ok := netMap[pg.Spec.Name]
+		if !ok {
+			log.Infof("SNetwork corresponding to the portgroup whose name is %s could not be found", pg.Spec.Name)
+			continue
+		}
+		net.HostPortGroup = pg
 	}
 	host.networks = nets
 	return host.networks, nil
@@ -1266,11 +1304,20 @@ func (host *SHost) findVlanDVPG(vlanId int32) (*SDistributedVirtualPortgroup, er
 	}
 	for _, net := range nets {
 		dvpg, ok := net.(*SDistributedVirtualPortgroup)
-		if !ok || !dvpg.ContainHost(host) || len(dvpg.GetActivePorts()) == 0 {
+		if !ok || len(dvpg.GetActivePorts()) == 0 {
 			continue
 		}
 		nvlan := dvpg.GetVlanId()
 		if nvlan == vlanId {
+			if dvpg.ContainHost(host) {
+				return dvpg, nil
+			}
+			// add host to dvg
+			log.Debugf("Find dvpg with correct vlan but it didn't contain this host")
+			err := dvpg.AddHostToDVS(host)
+			if err != nil {
+				return nil, errors.Wrapf(err, "dvpg %s add host to dvs error", dvpg.GetName())
+			}
 			return dvpg, nil
 		}
 	}
