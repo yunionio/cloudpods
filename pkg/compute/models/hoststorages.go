@@ -37,6 +37,7 @@ const ErrStorageInUse = errors.Error("StorageInUse")
 
 type SHoststorageManager struct {
 	SHostJointsManager
+	SStorageResourceBaseManager
 }
 
 var HoststorageManager *SHoststorageManager
@@ -45,6 +46,7 @@ func init() {
 	db.InitManager(func() {
 		HoststorageManager = &SHoststorageManager{
 			SHostJointsManager: NewHostJointsManager(
+				"host_id",
 				SHoststorage{},
 				"hoststorages_tbl",
 				"hoststorage",
@@ -59,13 +61,13 @@ func init() {
 type SHoststorage struct {
 	SHostJointsBase
 
-	// 挂载点
-	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required" json:"mount_point"`
-
 	// 宿主机Id
 	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required" json:"host_id"`
 	// 存储Id
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required" json:"storage_id"`
+
+	// 挂载点
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required" json:"mount_point"`
 
 	// 配置信息
 	Config *jsonutils.JSONArray `nullable:"true" get:"admin" json:"config"`
@@ -326,4 +328,44 @@ func (self *SHoststorage) syncWithCloudHostStorage(userCred mcclient.TokenCreden
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
+}
+
+func (manager *SHoststorageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HoststorageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SHoststorageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HoststorageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

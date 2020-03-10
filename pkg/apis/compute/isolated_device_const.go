@@ -14,10 +14,6 @@
 
 package compute
 
-import (
-	"yunion.io/x/onecloud/pkg/apis"
-)
-
 const (
 	DIRECT_PCI_TYPE = "PCI"
 	GPU_HPC_TYPE    = "GPU-HPC" // # for compute
@@ -41,18 +37,4 @@ var ID_VENDOR_MAP = map[string]string{
 var VENDOR_ID_MAP = map[string]string{
 	"NVIDIA": NVIDIA_VENDOR_ID,
 	"AMD":    AMD_VENDOR_ID,
-}
-
-type IsolatedDeviceListInput struct {
-	apis.StandaloneResourceListInput
-	apis.DomainizedResourceListInput
-
-	HostFilterListInput
-
-	// 只列出GPU直通设备
-	Gpu *bool `json:"gpu"`
-	// 只列出USB直通设备
-	Usb *bool `json:"usb"`
-	// 只列出未使用的直通设备
-	Unused *bool `json:"unused"`
 }

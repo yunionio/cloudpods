@@ -16,6 +16,8 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 
@@ -27,9 +29,10 @@ import (
 
 type SHostJointsManager struct {
 	db.SJointResourceBaseManager
+	SHostResourceBaseManager
 }
 
-func NewHostJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IStandaloneModelManager) SHostJointsManager {
+func NewHostJointsManager(hostIdFieldName string, dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IStandaloneModelManager) SHostJointsManager {
 	return SHostJointsManager{
 		SJointResourceBaseManager: db.NewJointResourceBaseManager(
 			dt,
@@ -39,6 +42,9 @@ func NewHostJointsManager(dt interface{}, tableName string, keyword string, keyw
 			HostManager,
 			slave,
 		),
+		SHostResourceBaseManager: SHostResourceBaseManager{
+			hostIdFieldName:hostIdFieldName,
+		},
 	}
 }
 
@@ -102,4 +108,44 @@ func (manager *SHostJointsManager) FetchCustomizeColumns(
 	}
 
 	return rows
+}
+
+func (manager *SHostJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SHostJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SHostResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.HostFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

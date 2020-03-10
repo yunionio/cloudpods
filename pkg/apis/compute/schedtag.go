@@ -98,3 +98,8 @@ type SchedtagJointResourceDetails struct {
 	// 调度标签管理的资源类型
 	ResourceType string `json:"resource_type"`
 }
+
+type SchedtagJointsListInput struct {
+	apis.JointResourceBaseListInput
+	SchedtagFilterListInput
+}

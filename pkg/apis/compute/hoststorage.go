@@ -52,3 +52,9 @@ type HoststorageDetails struct {
 
 	GuestDiskCount int `json:"guest_disk_count,allowempty"`
 }
+
+type HoststorageListInput struct {
+	HostJointsListInput
+
+	StorageFilterListInput
+}

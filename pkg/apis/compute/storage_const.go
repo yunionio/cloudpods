@@ -172,10 +172,3 @@ type StorageListInput struct {
 	UsableResourceListInput
 	StorageShareFilterListInput
 }
-
-type StoragecacheListInput struct {
-	apis.StandaloneResourceListInput
-	apis.DomainizedResourceListInput
-
-	ManagedResourceListInput
-}

@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 	"fmt"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -33,6 +35,7 @@ import (
 
 type SSchedtagJointsManager struct {
 	db.SJointResourceBaseManager
+	SSchedtagResourceBaseManager
 }
 
 func NewSchedtagJointsManager(
@@ -216,4 +219,44 @@ func (joint *SSchedtagJointsBase) Detach(ctx context.Context, userCred mcclient.
 
 func (joint *SSchedtagJointsBase) detach(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, obj)
+}
+
+func (manager *SSchedtagJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SSchedtagJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SchedtagJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SSchedtagResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

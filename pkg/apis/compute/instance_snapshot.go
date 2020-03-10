@@ -47,3 +47,12 @@ type InstanceSnapshotDetails struct {
 	Snapshots  []SimpleSnapshot  `json:"snapshots"`
 	Properties map[string]string `json:"properties"`
 }
+
+type InstanceSnapshotListInput struct {
+	apis.VirtualResourceListInput
+
+	ServerFilterListInput
+
+	// 操作系统类型
+	OsType []string `json:"os_type"`
+}

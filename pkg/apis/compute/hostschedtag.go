@@ -21,3 +21,8 @@ type HostschedtagDetails struct {
 
 	SHostschedtag
 }
+
+type HostschedtagListInput struct {
+	SchedtagJointsListInput
+	HostFilterListInput
+}

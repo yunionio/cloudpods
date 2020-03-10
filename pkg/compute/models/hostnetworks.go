@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +30,7 @@ import (
 
 type SHostnetworkManager struct {
 	SHostJointsManager
+	SNetworkResourceBaseManager
 }
 
 var HostnetworkManager *SHostnetworkManager
@@ -37,6 +39,7 @@ func init() {
 	db.InitManager(func() {
 		HostnetworkManager = &SHostnetworkManager{
 			SHostJointsManager: NewHostJointsManager(
+				"baremetal_id",
 				SHostnetwork{},
 				"baremetalnetworks_tbl",
 				"baremetalnetwork",
@@ -51,14 +54,18 @@ func init() {
 type SHostnetwork struct {
 	SHostJointsBase
 
-	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	IpAddr      string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
-	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                  // Column(VARCHAR(18, charset='ascii'))
+	// 宿主机ID
+	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	// 网络ID
+	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	// IP地址
+	IpAddr      string `width:"16" charset:"ascii" list:"admin"`
+	// MAC地址
+	MacAddr     string `width:"18" charset:"ascii" list:"admin"`
 }
 
 func (manager *SHostnetworkManager) GetMasterFieldName() string {
-	return "baremetal_id"
+	return manager.getHostIdFieldName()
 }
 
 func (manager *SHostnetworkManager) GetSlaveFieldName() string {
@@ -206,4 +213,51 @@ func (man *SHostnetworkManager) GetHostByAddress(addr string) *SHost {
 		return host
 	}
 	return nil
+}
+
+func (manager *SHostnetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+	if len(query.MacAddr) > 0 {
+		q = q.In("mac_addr", query.MacAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SHostnetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

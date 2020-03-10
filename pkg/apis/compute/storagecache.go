@@ -35,3 +35,13 @@ type StoragecacheDetails struct {
 	// 通过一致性哈希获取的一个管理宿主机信息
 	Host *jsonutils.JSONDict `json:"host"`
 }
+
+type StoragecacheListInput struct {
+	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
+	ManagedResourceListInput
+
+	// 路径过滤
+	Path []string `json:"path"`
+}
