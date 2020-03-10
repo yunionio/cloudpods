@@ -18,11 +18,13 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 func init() {
@@ -662,6 +664,46 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type HostSSHLoginOptions struct {
+		ID   string `help:"ID or name of host"`
+		Port int    `help:"SSH service port" default:"22"`
+	}
+	R(&HostSSHLoginOptions{}, "host-ssh", "SSH login of a host", func(s *mcclient.ClientSession, args *HostSSHLoginOptions) error {
+		srvid, e := modules.Hosts.GetId(s, args.ID, nil)
+		if e != nil {
+			return e
+		}
+		i, e := modules.Hosts.GetLoginInfo(s, srvid, nil)
+		if e != nil {
+			return e
+		}
+		host, err := i.GetString("ip")
+		if err != nil {
+			return err
+		}
+		user, err := i.GetString("username")
+		if err != nil {
+			return err
+		}
+		passwd, err := i.GetString("password")
+		if err != nil {
+			return err
+		}
+		port := 22
+		if args.Port != 22 {
+			port = args.Port
+		}
+		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+		if err != nil {
+			return err
+		}
+		log.Infof("ssh %s:%d", host, port)
+		if err := sshCli.RunTerminal(); err != nil {
+			return err
+		}
 		return nil
 	})
 }

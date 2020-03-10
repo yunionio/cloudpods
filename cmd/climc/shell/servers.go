@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
 func init() {
@@ -1215,6 +1216,79 @@ func init() {
 			return fileutils2.FilePutContents(args.Save, jnlp, false)
 		} else {
 			fmt.Println(jnlp)
+		}
+		return nil
+	})
+
+	R(&options.ServerSSHLoginOptions{}, "server-ssh", "Use SSH login a server", func(s *mcclient.ClientSession, opts *options.ServerSSHLoginOptions) error {
+		srv, err := modules.Servers.Get(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+
+		srvid, err := srv.GetString("id")
+		if err != nil {
+			return err
+		}
+
+		address := make([]string, 0)
+		nics, err := srv.GetArray("nics")
+		if err != nil {
+			return err
+		}
+		for _, nic := range nics {
+			if addr, err := nic.GetString("ip_addr"); err == nil {
+				address = append(address, addr)
+			}
+		}
+		if len(address) == 0 {
+			return fmt.Errorf("Not found ip address from server %s", opts.ID)
+		}
+
+		params := jsonutils.NewDict()
+		if len(opts.Key) > 0 {
+			privateKey, e := ioutil.ReadFile(opts.Key)
+			if e != nil {
+				return e
+			}
+			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
+		}
+
+		i, e := modules.Servers.GetLoginInfo(s, srvid, params)
+		if e != nil {
+			return e
+		}
+		passwd, err := i.GetString("password")
+		if err != nil {
+			return err
+		}
+		if opts.Password != "" {
+			passwd = opts.Password
+		}
+		user, err := i.GetString("username")
+		if err != nil {
+			return err
+		}
+		if opts.User != "" {
+			user = opts.User
+		}
+
+		host := address[0]
+		if opts.Host != "" {
+			host = opts.Host
+		}
+		port := 22
+		if opts.Port != 22 {
+			port = opts.Port
+		}
+
+		sshCli, err := ssh.NewClient(host, port, user, passwd, "")
+		if err != nil {
+			return err
+		}
+		log.Infof("ssh %s:%d", host, port)
+		if err := sshCli.RunTerminal(); err != nil {
+			return err
 		}
 		return nil
 	})
