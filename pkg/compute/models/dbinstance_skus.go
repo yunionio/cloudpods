@@ -32,10 +32,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SDBInstanceSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var DBInstanceSkuManager *SDBInstanceSkuManager
@@ -139,6 +141,47 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	}
 
 	return q, nil
+}
+
+func (manager *SDBInstanceSkuManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.DBInstanceSkuDetails {
+	rows := make([]api.DBInstanceSkuDetails, len(objs))
+	enableRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	zoneIds := map[string]string{}
+	for i := range rows {
+		rows[i] = api.DBInstanceSkuDetails{
+			EnabledStatusStandaloneResourceDetails: enableRows[i],
+			CloudregionResourceInfo:                regionRows[i],
+		}
+		sku := objs[i].(*SDBInstanceSku)
+		for _, zoneId := range []string{sku.Zone1, sku.Zone2, sku.Zone3} {
+			if _, ok := zoneIds[zoneId]; !ok {
+				zoneIds[zoneId] = ""
+			}
+		}
+	}
+	var err error
+	zoneIds, err = db.FetchIdNameMap(ZoneManager, zoneIds)
+	if err != nil {
+		log.Errorf("db.FetchIdNameMap fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		sku := objs[i].(*SDBInstanceSku)
+		rows[i].Zone1Name, _ = zoneIds[sku.Zone1]
+		rows[i].Zone2Name, _ = zoneIds[sku.Zone2]
+		rows[i].Zone3Name, _ = zoneIds[sku.Zone3]
+	}
+
+	return rows
 }
 
 func (manager *SDBInstanceSkuManager) OrderByExtraFields(
