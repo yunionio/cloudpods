@@ -199,7 +199,6 @@ func (manager *SDiskManager) ListItemFilter(
 		q = q.In("id", sq)
 	}
 
-
 	if len(query.DiskFormat) > 0 {
 		q = q.Equals("disk_format", query.DiskFormat)
 	}

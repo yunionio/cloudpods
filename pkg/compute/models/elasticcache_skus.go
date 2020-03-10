@@ -279,7 +279,7 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(
 	if len(query.EngineArch) > 0 {
 		q = q.In("engine_arch", query.EngineArch)
 	}
-	if len(query.LocalCategory)> 0 {
+	if len(query.LocalCategory) > 0 {
 		q = q.In("local_category", query.LocalCategory)
 	}
 	if len(query.PrepaidStatus) > 0 {

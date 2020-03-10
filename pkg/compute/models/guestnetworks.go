@@ -81,19 +81,19 @@ type SGuestnetwork struct {
 	// MAC地址
 	MacAddr string `width:"32" charset:"ascii" nullable:"false" list:"user"`
 	// IPv4地址
-	IpAddr  string `width:"16" charset:"ascii" nullable:"false" list:"user"`
+	IpAddr string `width:"16" charset:"ascii" nullable:"false" list:"user"`
 	// IPv6地址
 	Ip6Addr string `width:"64" charset:"ascii" nullable:"true" list:"user"`
 	// 虚拟网卡驱动
-	Driver  string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
+	Driver string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
 	// 带宽限制，单位mbps
-	BwLimit int    `nullable:"false" default:"0" list:"user"`
+	BwLimit int `nullable:"false" default:"0" list:"user"`
 	// 网卡序号
-	Index   int8   `nullable:"false" default:"0" list:"user" update:"user"`
+	Index int8 `nullable:"false" default:"0" list:"user" update:"user"`
 	// 是否为虚拟接口（无IP）
-	Virtual bool   `default:"false" list:"user"`
+	Virtual bool `default:"false" list:"user"`
 	// 虚拟网卡设备名称
-	Ifname  string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
+	Ifname string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`
 
 	// bind配对网卡MAC地址
 	TeamWith string `width:"32" charset:"ascii" nullable:"false" list:"user"`

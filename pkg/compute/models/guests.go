@@ -430,10 +430,10 @@ func (manager *SGuestManager) ListItemFilter(
 		} else {
 			q = q.IsFalse("src_ip_check")
 		}
- 	}
- 	if query.SrcMacCheck != nil {
- 		if *query.SrcMacCheck {
- 			q = q.IsTrue("src_mac_check")
+	}
+	if query.SrcMacCheck != nil {
+		if *query.SrcMacCheck {
+			q = q.IsTrue("src_mac_check")
 		} else {
 			q = q.IsFalse("src_mac_check")
 		}

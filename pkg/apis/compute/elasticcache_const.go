@@ -137,7 +137,7 @@ type ElasticcacheListInput struct {
 	NetworkType []string `json:"network_type"`
 
 	NetworkFilterListBase
-	
+
 	//  内网DNS
 	PrivateDNS []string `json:"private_dns"`
 

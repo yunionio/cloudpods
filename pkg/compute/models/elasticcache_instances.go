@@ -345,7 +345,7 @@ func (manager *SElasticcacheManager) ListItemFilter(
 	if len(query.NetworkType) > 0 {
 		q = q.In("network_type", query.NetworkType)
 	}
-	netQuery := api.NetworkFilterListInput {
+	netQuery := api.NetworkFilterListInput{
 		NetworkFilterListBase: query.NetworkFilterListBase,
 	}
 	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, netQuery)
