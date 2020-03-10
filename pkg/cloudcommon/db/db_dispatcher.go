@@ -403,7 +403,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchCustomizeColumns")
 		}
-		// log.Debugf("manager.FetchCustomizeColumns: %s %s", extraRows, listF)
 		if len(extraRows) == len(results) {
 			for i := range results {
 				extraRows[i].Update(results[i])
@@ -794,7 +793,8 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		return nil, errors.Wrap(err, "FetchCustomizeColumns")
 	}
 	if len(extraRows) == 1 {
-		extraDict.Update(extraRows[0])
+		extraRows[0].Update(extraDict)
+		extraDict = extraRows[0]
 	}
 
 	return extraDict, nil
