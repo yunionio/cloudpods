@@ -38,6 +38,8 @@ func init() {
 
 	type HostShowOptions struct {
 		IP string `help:"Host IP"`
+
+		Debug bool `help:"show debug info"`
 	}
 	shellutils.R(&HostShowOptions{}, "host-show", "Show details of a host by IP", func(cli *esxi.SESXiClient, args *HostShowOptions) error {
 		host, err := cli.FindHostByIp(args.IP)
@@ -66,7 +68,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		nics, err := host.GetIHostNics()
+		nics, err := host.GetIHostNicsInternal(args.Debug)
 		if err != nil {
 			return err
 		}
