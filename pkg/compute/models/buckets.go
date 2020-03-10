@@ -588,7 +588,12 @@ func (bucket *SBucket) getCloudProviderInfo() SCloudProviderInfo {
 }
 
 // 对象存储的存储桶列表
-func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
+func (manager *SBucketManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.BucketListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
 
 	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
@@ -604,6 +609,16 @@ func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.StorageClass) > 0 {
+		q = q.Equals("storage_class", query.StorageClass)
+	}
+	if len(query.Location) > 0 {
+		q = q.Equals("location", query.Location)
+	}
+	if len(query.Acl) > 0 {
+		q = q.Equals("acl", query.Acl)
 	}
 
 	return q, nil
@@ -626,7 +641,12 @@ func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field
 	return q, httperrors.ErrNotFound
 }
 
-func (manager *SBucketManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.BucketListInput) (*sqlchemy.SQuery, error) {
+func (manager *SBucketManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.BucketListInput,
+) (*sqlchemy.SQuery, error) {
 	var err error
 
 	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)

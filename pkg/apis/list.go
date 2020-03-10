@@ -214,3 +214,11 @@ type EnabledStatusDomainLevelResourceListInput struct {
 	StatusDomainLevelResourceListInput
 	EnabledResourceBaseListInput
 }
+
+type JointResourceBaseListInput struct {
+	ResourceBaseListInput
+}
+
+type VirtualJointResourceBaseListInput struct {
+	JointResourceBaseListInput
+}

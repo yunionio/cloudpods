@@ -401,7 +401,45 @@ func (manager *SGuestManager) ListItemFilter(
 	}*/
 
 	if len(query.OsType) > 0 {
-		q = q.Equals("os_type", query.OsType)
+		q = q.In("os_type", query.OsType)
+	}
+	if len(query.VcpuCount) > 0 {
+		q = q.In("vcpu_count", query.VcpuCount)
+	}
+	if len(query.VmemSize) > 0 {
+		q = q.In("vmem_size", query.VmemSize)
+	}
+	if len(query.BootOrder) > 0 {
+		q = q.In("boot_order", query.BootOrder)
+	}
+	if len(query.Vga) > 0 {
+		q = q.In("vga", query.Vga)
+	}
+	if len(query.Vdi) > 0 {
+		q = q.In("vdi", query.Vdi)
+	}
+	if len(query.Machine) > 0 {
+		q = q.In("machine", query.Machine)
+	}
+	if len(query.Bios) > 0 {
+		q = q.In("bios", query.Bios)
+	}
+	if query.SrcIpCheck != nil {
+		if *query.SrcIpCheck {
+			q = q.IsTrue("src_ip_check")
+		} else {
+			q = q.IsFalse("src_ip_check")
+		}
+	}
+	if query.SrcMacCheck != nil {
+		if *query.SrcMacCheck {
+			q = q.IsTrue("src_mac_check")
+		} else {
+			q = q.IsFalse("src_mac_check")
+		}
+	}
+	if len(query.InstanceType) > 0 {
+		q = q.In("instance_type", query.InstanceType)
 	}
 
 	return q, nil

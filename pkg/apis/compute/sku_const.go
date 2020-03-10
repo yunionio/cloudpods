@@ -90,6 +90,34 @@ type ElasticcacheSkuListInput struct {
 
 	// filter sku by memory size in MB
 	MemorySizeMb int `json:"memory_size_mb"`
+
+	InstanceSpec []string `json:"instance_spec"`
+
+	EngineArch []string `json:"engine_arch"`
+
+	LocalCategory []string `json:"local_category"`
+
+	PrepaidStatus []string `json:"prepaid_status"`
+
+	PostpaidStatus []string `json:"postpaid_sStatus"`
+
+	// 引擎 redis|memcached
+	Engine []string `json:"engine"`
+
+	// 引擎版本 3.0
+	EngineVersion []string `json:"engine_version"`
+
+	// CPU 架构 x86|ARM
+	CpuArch []string `json:"cpu_arch"`
+
+	// 存储类型 DRAM|SCM
+	StorageType []string `json:"storage_type"`
+
+	// standrad|enhanced
+	PerformanceType []string `json:"performance_type"`
+
+	// single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
+	NodeType []string `json:"node_type"`
 }
 
 type DBInstanceSkuListInput struct {
@@ -100,4 +128,17 @@ type DBInstanceSkuListInput struct {
 
 	RegionalFilterListInput
 	billing.BillingResourceListInput
+
+	// StorageType
+	StorageType string `json:"storage_type"`
+
+	VcpuCount int `json:"vcpu_count"`
+
+	VmemSizeMb int `json:"vmem_size_mb"`
+
+	Category string `json:"category"`
+
+	Engine string `json:"engine"`
+
+	EngineVersion string `json:"engine_version"`
 }

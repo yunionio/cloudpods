@@ -146,6 +146,11 @@ func (manager *SDBInstanceDatabaseManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.CharacterSet) > 0 {
+		q = q.In("character_set", query.CharacterSet)
+	}
+
 	return q, nil
 }
 

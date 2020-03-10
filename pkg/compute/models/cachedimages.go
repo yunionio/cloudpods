@@ -674,6 +674,10 @@ func (manager *SCachedimageManager) ListItemFilter(
 		return nil, errors.Wrap(err, "managedResourceFilterByZone")
 	}
 
+	if len(query.ImageType) > 0 {
+		q = q.Equals("image_type", query.ImageType)
+	}
+
 	return q, nil
 }
 

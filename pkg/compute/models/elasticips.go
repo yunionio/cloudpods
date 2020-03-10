@@ -74,8 +74,11 @@ type SElasticip struct {
 	// IP子网Id, 仅私有云不为空
 	NetworkId string `width:"36" charset:"ascii" nullable:"true" get:"user" list:"user" create:"optional"`
 	// 标识弹性或非弹性
-	// public_ip: 公网IP
-	// elastic_ip: 弹性公网IP
+	// | Mode       | 说明       |
+	// |------------|------------|
+	// | public_ip  | 公网IP     |
+	// | elastic_ip | 弹性公网IP |
+	//
 	// example: elastic_ip
 	Mode string `width:"32" charset:"ascii" list:"user"`
 
@@ -162,6 +165,32 @@ func (manager *SElasticipManager) ListItemFilter(
 	if query.Usable != nil && *query.Usable {
 		q = q.Equals("status", api.EIP_STATUS_READY)
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
+	}
+
+	if len(query.Mode) > 0 {
+		q = q.In("mode", query.Mode)
+	}
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+	if len(query.AssociateType) > 0 {
+		q = q.In("associate_type", query.AssociateType)
+	}
+	if len(query.AssociateId) > 0 {
+		q = q.In("associate_id", query.AssociateId)
+	}
+	if len(query.ChargeType) > 0 {
+		q = q.In("charge_type", query.ChargeType)
+	}
+	if len(query.BgpType) > 0 {
+		q = q.In("bgp_type", query.BgpType)
+	}
+	if query.AutoDellocate != nil {
+		if *query.AutoDellocate {
+			q = q.IsTrue("auto_dellocate")
+		} else {
+			q = q.IsFalse("auto_dellocate")
+		}
 	}
 
 	return q, nil

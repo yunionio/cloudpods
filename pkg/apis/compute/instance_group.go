@@ -29,6 +29,9 @@ type InstanceGroupListInput struct {
 	ServiceType string `json:"service_type"`
 	// 以parent_id过滤列表结果
 	ParentId string `json:"parent_id"`
+
+	// 调度策略
+	SchedStrategy string `json:"sched_strategy"`
 }
 
 type InstanceGroupDetail struct {

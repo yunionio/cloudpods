@@ -278,6 +278,15 @@ func (manager *SBaremetalagentManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
+	if len(query.Status) > 0 {
+		q = q.Equals("status", query.Status)
+	}
+	if len(query.AccessIp) > 0 {
+		q = q.Equals("access_ip", query.AccessIp)
+	}
+	if len(query.AgentType) > 0 {
+		q = q.Equals("agent_type", query.AgentType)
+	}
 	return q, nil
 }
 

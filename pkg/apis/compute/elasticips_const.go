@@ -64,4 +64,34 @@ type ElasticipListInput struct {
 	UsableEipForAssociateType string `json:"usable_eip_for_associate_type"`
 	// filter usable eip for given associate id
 	UsableEipForAssociateId string `json:"usable_eip_for_associate_id"`
+
+	NetworkFilterListBase
+
+	// 标识弹性或非弹性
+	// | Mode       | 说明       |
+	// |------------|------------|
+	// | public_ip  | 公网IP     |
+	// | elastic_ip | 弹性公公网网IP |
+	//
+	// example: elastic_ip
+	Mode string `json:"mode"`
+
+	// IP地址
+	IpAddr string `json:"ip_addr"`
+
+	// 绑定资源类型
+	AssociateType string `json:"associate_type"`
+
+	// 绑定资源Id
+	AssociateId string `json:"associate_id"`
+
+	// 计费类型: 流量、带宽
+	// example: bandwidth
+	ChargeType []string `json:"charge_type"`
+
+	// 目前只有华为云此字段是必需填写的
+	BgpType []string `json:"bgp_type"`
+
+	// 是否跟随主机删除而自动释放
+	AutoDellocate *bool `json:"auto_dellocate"`
 }

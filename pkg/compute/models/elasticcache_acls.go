@@ -348,6 +348,10 @@ func (manager *SElasticcacheAclManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
 	}
 
+	if len(input.IpList) > 0 {
+		q = q.Contains("ip_list", input.IpList)
+	}
+
 	return q, nil
 }
 

@@ -198,6 +198,47 @@ func (manager *SDiskManager) ListItemFilter(
 		sq := SnapshotPolicyDiskManager.Query("disk_id").Equals("snapshotpolicy_id", snapshotpolicyId)
 		q = q.In("id", sq)
 	}
+
+	if len(query.DiskFormat) > 0 {
+		q = q.Equals("disk_format", query.DiskFormat)
+	}
+
+	if query.DiskSize > 0 {
+		q = q.Equals("disk_size", query.DiskSize)
+	}
+
+	if query.AutoDelete != nil {
+		if *query.AutoDelete {
+			q = q.IsTrue("auto_delete")
+		} else {
+			q = q.IsFalse("auto_delete")
+		}
+	}
+
+	if len(query.FsFormat) > 0 {
+		q = q.Equals("fs_format", query.FsFormat)
+	}
+
+	if len(query.Template) > 0 {
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, query.Template, false)
+		if err != nil {
+			return nil, errors.Wrap(err, "CachedimageManager.getImageInfo")
+		}
+		q = q.Equals("template_id", img.Id)
+	}
+
+	if len(query.Snapshot) > 0 {
+		snapObj, err := SnapshotManager.FetchByIdOrName(userCred, query.Snapshot)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(SnapshotManager.Keyword(), query.Snapshot)
+			} else {
+				return nil, errors.Wrap(err, "SnapshotManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("snapshot_id", snapObj.GetId())
+	}
+
 	return q, nil
 }
 

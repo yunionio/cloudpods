@@ -267,6 +267,13 @@ func (manager *SElasticcacheParameterManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
 	}
 
+	if len(input.Key) > 0 {
+		q = q.In("key", input.Key)
+	}
+	if len(input.Value) > 0 {
+		q = q.In("value", input.Value)
+	}
+
 	return q, nil
 }
 

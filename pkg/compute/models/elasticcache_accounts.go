@@ -467,6 +467,14 @@ func (manager *SElasticcacheAccountManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
 	}
+
+	if len(input.AccountType) > 0 {
+		q = q.In("account_type", input.AccountType)
+	}
+	if len(input.AccountPrivilege) > 0 {
+		q = q.In("account_privilege", input.AccountPrivilege)
+	}
+
 	return q, nil
 }
 

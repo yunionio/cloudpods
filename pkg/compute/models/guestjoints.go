@@ -19,7 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,6 +31,7 @@ import (
 
 type SGuestJointsManager struct {
 	db.SVirtualJointResourceBaseManager
+	SGuestResourceBaseManager
 }
 
 func NewGuestJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SGuestJointsManager {
@@ -106,4 +109,44 @@ func (manager *SGuestJointsManager) FetchCustomizeColumns(
 	}
 
 	return rows
+}
+
+func (manager *SGuestJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GuestFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GuestFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

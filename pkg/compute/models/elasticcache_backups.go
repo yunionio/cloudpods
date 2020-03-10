@@ -360,6 +360,13 @@ func (manager *SElasticcacheBackupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemFilter")
 	}
 
+	if len(input.BackupType) > 0 {
+		q = q.In("backup_type", input.BackupType)
+	}
+	if len(input.BackupMode) > 0 {
+		q = q.In("backup_mode", input.BackupMode)
+	}
+
 	return q, nil
 }
 

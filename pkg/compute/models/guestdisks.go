@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -31,6 +32,7 @@ import (
 
 type SGuestdiskManager struct {
 	SGuestJointsManager
+	SDiskResourceBaseManager
 }
 
 var GuestdiskManager *SGuestdiskManager
@@ -55,6 +57,7 @@ func init() {
 type SGuestdisk struct {
 	SGuestJointsBase
 
+	// SDiskResourceBase `list:"user" create:"required"`
 	DiskId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	ImagePath string `width:"256" charset:"ascii" nullable:"false" get:"user" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
@@ -321,4 +324,54 @@ func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
 	conf := disk.ToDiskConfig()
 	conf.Index = int(self.Index)
 	return conf
+}
+
+func (manager *SGuestdiskManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestdiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemFilter(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemFilter")
+	}
+	q, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Driver) > 0 {
+		q = q.In("driver", query.Driver)
+	}
+	if len(query.CacheMode) > 0 {
+		q = q.In("cache_mode", query.CacheMode)
+	}
+	if len(query.AioMode) > 0 {
+		q = q.In("aio_mode", query.AioMode)
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestdiskManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestdiskListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.OrderByExtraFields(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

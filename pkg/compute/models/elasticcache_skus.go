@@ -72,27 +72,45 @@ type SElasticcacheSku struct {
 	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"`
 	PostpaidStatus string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"`
 
-	Engine          string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 引擎	redis|memcached
-	EngineVersion   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 引擎版本	3.0
-	CpuArch         string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // CPU 架构 x86|ARM
-	StorageType     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 存储类型	DRAM|SCM
-	PerformanceType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // standrad|enhanced
-	NodeType        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
+	// 引擎	redis|memcached
+	Engine string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 引擎版本	3.0
+	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// CPU 架构 x86|ARM
+	CpuArch string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 存储类型	DRAM|SCM
+	StorageType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// standrad|enhanced
+	PerformanceType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// single（单副本） | double（双副本) | readone (单可读) | readthree （3可读） | readfive（5只读）
+	NodeType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
-	MemorySizeMB   int `nullable:"false" list:"user" create:"admin_required" update:"admin"` // 内存容量
-	DiskSizeGB     int `nullable:"false" list:"user" create:"admin_required" update:"admin"` // 套餐附带硬盘容量
-	ShardNum       int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最小分片数量
-	MaxShardNum    int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最大分片数量
-	ReplicasNum    int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最小副本数量
-	MaxReplicasNum int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最大副本数量
+	// 内存容量
+	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
+	// 套餐附带硬盘容量
+	DiskSizeGB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
+	// 最小分片数量
+	ShardNum int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 最大分片数量
+	MaxShardNum int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 最小副本数量
+	ReplicasNum int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 最大副本数量
+	MaxReplicasNum int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
-	MaxClients       int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最大客户端数
-	MaxConnections   int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最大连接数
-	MaxInBandwidthMb int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 最大内网带宽
-	MaxMemoryMB      int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 实际可使用的最大内存
-	QPS              int `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // QPS参考值
+	// 最大客户端数
+	MaxClients int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 最大连接数
+	MaxConnections int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 最大内网带宽
+	MaxInBandwidthMb int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// 实际可使用的最大内存
+	MaxMemoryMB int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// QPS参考值
+	QPS int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
-	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"` // 公有云厂商	Aliyun/Azure/AWS/Qcloud/...
+	// 公有云厂商	Aliyun/Azure/AWS/Qcloud/...
+	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 }
 
 func (self SElasticcacheSku) GetGlobalId() string {
@@ -253,6 +271,44 @@ func (manager *SElasticcacheSkuManager) ListItemFilter(
 		s, e := intervalMem(int(memSizeMB))
 		q.GT("memory_size_mb", s)
 		q.LE("memory_size_mb", e)
+	}
+
+	if len(query.InstanceSpec) > 0 {
+		q = q.In("instance_spec", query.InstanceSpec)
+	}
+	if len(query.EngineArch) > 0 {
+		q = q.In("engine_arch", query.EngineArch)
+	}
+	if len(query.LocalCategory) > 0 {
+		q = q.In("local_category", query.LocalCategory)
+	}
+	if len(query.PrepaidStatus) > 0 {
+		q = q.In("prepaid_status", query.PrepaidStatus)
+	}
+	if len(query.PostpaidStatus) > 0 {
+		q = q.In("postpaid_sStatus", query.PostpaidStatus)
+	}
+	if len(query.Engine) > 0 {
+		q = q.In("engine", query.Engine)
+	}
+	if len(query.EngineVersion) > 0 {
+		q = q.In("engine_version", query.EngineVersion)
+	}
+	if len(query.CpuArch) > 0 {
+		q = q.In("cpu_arch", query.CpuArch)
+	}
+	if len(query.StorageType) > 0 {
+		q = q.In("storage_type", query.StorageType)
+	}
+	if len(query.PerformanceType) > 0 {
+		q = q.In("performance_type", query.PerformanceType)
+	}
+	if len(query.NodeType) > 0 {
+		q = q.In("node_type", query.NodeType)
+	}
+
+	if len(query.Providers) > 0 {
+		q = q.In("provider", query.Providers)
 	}
 
 	return q, nil
