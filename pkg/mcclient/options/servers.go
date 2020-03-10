@@ -70,6 +70,14 @@ type ServerLoginInfoOptions struct {
 	Key string `help:"File name of private key, if password is encrypted by key"`
 }
 
+type ServerSSHLoginOptions struct {
+	ServerLoginInfoOptions
+	Host     string `help:"IP address or hostname of the server"`
+	Port     int    `help:"SSH service port" default:"22"`
+	User     string `help:"SSH login user"`
+	Password string `help:"SSH password"`
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }
