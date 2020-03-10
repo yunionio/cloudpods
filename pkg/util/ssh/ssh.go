@@ -18,10 +18,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -167,4 +169,58 @@ func ParseOutput(output []byte) []string {
 
 func (s *Client) Close() {
 	s.client.Close()
+}
+
+func (s *Client) RunTerminal() error {
+	defer s.Close()
+	session, err := s.client.NewSession()
+	if err != nil {
+		return errors.Wrap(err, "open new session")
+	}
+	defer session.Close()
+
+	fd := int(os.Stdin.Fd())
+	state, err := terminal.MakeRaw(fd)
+	if err != nil {
+		return errors.Wrap(err, "make raw terminal")
+	}
+	defer terminal.Restore(fd, state)
+
+	w, h, err := terminal.GetSize(fd)
+	if err != nil {
+		return errors.Wrap(err, "get terminal size")
+	}
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+
+	term := os.Getenv("TERM")
+	if term == "" {
+		term = "xterm-256color"
+	}
+	if err := session.RequestPty(term, h, w, modes); err != nil {
+		return errors.Wrap(err, "session xterm")
+	}
+
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
+	session.Stdin = os.Stdin
+
+	if err := session.Shell(); err != nil {
+		return errors.Wrap(err, "session shell")
+	}
+
+	if err := session.Wait(); err != nil {
+		if e, ok := err.(*ssh.ExitError); ok {
+			switch e.ExitStatus() {
+			case 130:
+				return nil
+			}
+		}
+		return errors.Wrap(err, "ssh wait")
+	}
+	return nil
 }
