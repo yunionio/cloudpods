@@ -590,7 +590,12 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
+	vpcs := VpcManager.Query().SubQuery()
+	q := man.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.Id))
+	q = q.IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
 		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -914,7 +919,12 @@ func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SProjectResourceCo
 
 func (manager *SLoadbalancerManager) FetchByExternalId(providerId string, extId string) (*SLoadbalancer, error) {
 	ret := []SLoadbalancer{}
-	q := manager.Query().Equals("manager_id", providerId).Equals("external_id", extId)
+	vpcs := VpcManager.Query().SubQuery()
+	q := manager.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), providerId))
+	q = q.Equals("external_id", extId)
+	q = q.IsFalse("pending_deleted")
 	err := db.FetchModelObjects(manager, q, &ret)
 	if err != nil {
 		return nil, err
