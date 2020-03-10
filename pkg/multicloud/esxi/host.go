@@ -313,7 +313,7 @@ func findHostNicByMac(nicInfoList []SHostNicInfo, mac string) *SHostNicInfo {
 }
 
 func (self *SHost) getAdminNic() *SHostNicInfo {
-	nics := self.getNicInfo()
+	nics := self.getNicInfo(false)
 	for i := 0; i < len(nics); i += 1 {
 		if nics[i].NicType == api.NIC_TYPE_ADMIN {
 			return &nics[i]
@@ -327,18 +327,22 @@ func (self *SHost) getAdminNic() *SHostNicInfo {
 	return nil
 }
 
-func (self *SHost) getNicInfo() []SHostNicInfo {
+func (self *SHost) getNicInfo(debug bool) []SHostNicInfo {
 	if self.nicInfo == nil {
-		self.nicInfo = self.fetchNicInfo()
+		self.nicInfo = self.fetchNicInfo(debug)
 	}
 	return self.nicInfo
 }
 
-func (self *SHost) fetchNicInfo() []SHostNicInfo {
+func (self *SHost) fetchNicInfo(debug bool) []SHostNicInfo {
 	moHost := self.getHostSystem()
 
 	if moHost.Config == nil || moHost.Config.Network == nil {
 		return nil
+	}
+
+	if debug {
+		log.Debugf("%s", jsonutils.Marshal(moHost.Config.Network).PrettyString())
 	}
 
 	nicInfoList := make([]SHostNicInfo, 0)
@@ -386,6 +390,29 @@ func (self *SHost) fetchNicInfo() []SHostNicInfo {
 				pnic.LinkUp = true
 				pnic.Mtu = nic.Spec.Mtu
 				break
+			}
+		}
+		if len(pnic.IpAddr) == 0 {
+			// find default route vnic
+			defRouteDev := make([]string, 0)
+			for _, r := range moHost.Config.Network.RouteTableInfo.IpRoute {
+				if r.Network == "0.0.0.0" && r.PrefixLength == 0 {
+					// default route
+					defRouteDev = append(defRouteDev, r.DeviceName)
+				}
+			}
+			if len(defRouteDev) == 1 {
+				for _, nic := range vnics {
+					if nic.Device == defRouteDev[0] {
+						pnic.NicType = api.NIC_TYPE_ADMIN
+						pnic.IpAddr = nic.Spec.Ip.IpAddress
+						pnic.LinkUp = true
+						pnic.Mtu = nic.Spec.Mtu
+						break
+					}
+				}
+			} else {
+				log.Errorf("find default route interfaces fail: %s", defRouteDev)
 			}
 		}
 	}
@@ -1020,7 +1047,11 @@ func (host *SHost) isVersion50() bool {
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
-	nics := host.getNicInfo()
+	return host.GetIHostNicsInternal(false)
+}
+
+func (host *SHost) GetIHostNicsInternal(debug bool) ([]cloudprovider.ICloudHostNetInterface, error) {
+	nics := host.getNicInfo(debug)
 	inics := make([]cloudprovider.ICloudHostNetInterface, len(nics))
 	for i := 0; i < len(nics); i += 1 {
 		inics[i] = &nics[i]
