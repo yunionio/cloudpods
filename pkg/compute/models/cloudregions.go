@@ -191,9 +191,12 @@ func (self *SCloudregion) GetDBInstanceBackups(provider *SCloudprovider, instanc
 func (self *SCloudregion) GetElasticcaches(provider *SCloudprovider) ([]SElasticcache, error) {
 	instances := []SElasticcache{}
 	// .IsFalse("pending_deleted")
-	q := ElasticcacheManager.Query().Equals("cloudregion_id", self.Id)
+	vpcs := VpcManager.Query().SubQuery()
+	q := ElasticcacheManager.Query()
+	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))
 	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
+		q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.Id))
 	}
 	err := db.FetchModelObjects(ElasticcacheManager, q, &instances)
 	if err != nil {
