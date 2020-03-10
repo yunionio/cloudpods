@@ -312,7 +312,7 @@ func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, cannedAcl 
 	return *output.UploadId, nil
 }
 
-func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64) (string, error) {
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	s3cli, err := b.region.GetS3Client()
 	if err != nil {
 		return "", errors.Wrap(err, "GetS3Client")

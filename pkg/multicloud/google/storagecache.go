@@ -17,6 +17,7 @@ package google
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"unicode"
 
@@ -120,7 +121,7 @@ func (region *SRegion) checkAndCreateBucket(bucketName string) (*SBucket, error)
 	bucket, err := region.GetBucket(bucketName)
 	if err != nil {
 		if errors.Cause(err) == cloudprovider.ErrNotFound {
-			bucket, err = region.CreateBucket(bucketName, "")
+			bucket, err = region.CreateBucket(bucketName, "", cloudprovider.ACLPrivate)
 			if err != nil {
 				return nil, errors.Wrapf(err, "region.CreateBucket(%s)", bucketName)
 			}
@@ -156,7 +157,7 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 
 	defer cache.region.DeleteBucket(bucket.Name)
 
-	err = cache.region.PutObject(bucketName, info.Name, reader, "", info.Size, cloudprovider.ACLPublicRead)
+	err = cache.region.PutObject(bucketName, info.Name, reader, info.Size, cloudprovider.ACLPublicRead, http.Header{})
 	if err != nil {
 		return "", errors.Wrap(err, "region.PutObject")
 	}

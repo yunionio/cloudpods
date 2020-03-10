@@ -181,7 +181,7 @@ func (self *SGoogleProvider) GetIProjects() ([]cloudprovider.ICloudProject, erro
 
 func (self *SGoogleProvider) GetStorageClasses(regionId string) []string {
 	return []string{
-		"Standard", "IA", "Archive",
+		"STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE",
 	}
 }
 

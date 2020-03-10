@@ -263,7 +263,7 @@ func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, canne
 	return result.UploadID, nil
 }
 
-func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64, offset, totalSize int64) (string, error) {
 	part, err := bucket.client.S3Client().UploadPart(ctx, bucket.Name, key, uploadId, input, partIndex, "", "", partSize, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "UploadPart")

@@ -32,7 +32,6 @@ import (
 type SRegion struct {
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
-	multicloud.SNoObjectStorageRegion
 	client *SGoogleClient
 
 	Description       string
@@ -85,11 +84,59 @@ func (region *SRegion) GetStatus() string {
 	return api.CLOUD_REGION_STATUS_OUTOFSERVICE
 }
 
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
+	_, err := region.CreateBucket(name, storageClassStr, cloudprovider.TBucketACLType(acl))
+	return err
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	return region.DeleteBucket(name)
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	//{"error":{"code":403,"details":"200420163731-compute@developer.gserviceaccount.com does not have storage.buckets.get access to test."}}
+	//{"error":{"code":404,"details":"Not Found"}}
+	_, err := region.GetBucket(name)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Cause(err) == cloudprovider.ErrNotFound || strings.Contains(err.Error(), "storage.buckets.get access") {
+		return false, nil
+	}
+	return false, err
+}
+
+func (region *SRegion) GetIBucketById(id string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, id)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	iBuckets, err := region.client.getIBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIBuckets")
+	}
+	ret := []cloudprovider.ICloudBucket{}
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
+			continue
+		}
+		ret = append(ret, iBuckets[i])
+	}
+	return ret, nil
+}
+
 func (region *SRegion) IsEmulated() bool {
 	return false
 }
 
 func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudZone{}, nil
+	}
 	zones, err := region.GetZones(region.Name, 0, "")
 	if err != nil {
 		return nil, err
@@ -103,6 +150,10 @@ func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 }
 
 func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	zones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
@@ -116,6 +167,10 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudVpc{}, nil
+	}
+
 	globalnetworks, err := region.client.fetchGlobalNetwork()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchGlobalNetwork")
@@ -129,6 +184,10 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	ivpcs, err := region.GetIVpcs()
 	if err != nil {
 		return nil, err
@@ -142,6 +201,10 @@ func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 }
 
 func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotSupported
+	}
+
 	globalnetwork, err := region.CreateGlobalNetwork(name, desc)
 	if err != nil {
 		return nil, errors.Wrap(err, "region.CreateGlobalNetwork")
@@ -151,6 +214,10 @@ func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudp
 }
 
 func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	storage, err := region.GetStorage(id)
 	if err != nil {
 		return nil, err
@@ -164,8 +231,12 @@ func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, 
 	return storage, nil
 }
 
-func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	izones, err := self.GetIZones()
+func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
+	izones, err := region.GetIZones()
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +256,10 @@ func (region *SRegion) GetProjectId() string {
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudEIP{}, nil
+	}
+
 	eips, err := region.GetEips("", 0, "")
 	if err != nil {
 		return nil, err
@@ -198,6 +273,10 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	ivm, err := region.GetInstance(id)
 	if err != nil {
 		return nil, err
@@ -206,6 +285,10 @@ func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 }
 
 func (region *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	disk, err := region.GetDisk(id)
 	if err != nil {
 		return nil, err
@@ -214,6 +297,10 @@ func (region *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error)
 }
 
 func (region *SRegion) GetIEipById(id string) (cloudprovider.ICloudEIP, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	eip, err := region.GetEip(id)
 	if err != nil {
 		return nil, err
@@ -261,6 +348,10 @@ func (region *SRegion) fetchSnapshots() error {
 }
 
 func (region *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudSnapshot{}, nil
+	}
+
 	region.fetchSnapshots()
 	isnapshots := []cloudprovider.ICloudSnapshot{}
 	if snapshots, ok := region.client.snapshots[region.Name]; ok {
@@ -273,6 +364,10 @@ func (region *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (region *SRegion) GetISnapshotById(id string) (cloudprovider.ICloudSnapshot, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	snapshot, err := region.GetSnapshot(id)
 	if err != nil {
 		return nil, err
@@ -364,6 +459,10 @@ func (region *SRegion) StorageList(resource string, params map[string]string, ma
 
 func (region *SRegion) StorageGet(id string, retval interface{}) error {
 	return region.client.storageGet(id, retval)
+}
+
+func (region *SRegion) StoragePut(id string, body jsonutils.JSONObject, retval interface{}) error {
+	return region.client.storagePut(id, body, retval)
 }
 
 func (region *SRegion) StorageDo(id string, action string, params map[string]string, body jsonutils.JSONObject) error {
@@ -483,6 +582,10 @@ func (region *SRegion) fetchResourcePolicies() ([]SResourcePolicy, error) {
 }
 
 func (region *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudSnapshotPolicy{}, nil
+	}
+
 	policies, err := region.fetchResourcePolicies()
 	if err != nil {
 		return nil, err
@@ -498,6 +601,10 @@ func (region *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPol
 }
 
 func (region *SRegion) GetISnapshotPolicyById(id string) (cloudprovider.ICloudSnapshotPolicy, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	policy, err := region.GetResourcePolicy(id)
 	if err != nil {
 		return nil, err
@@ -509,6 +616,10 @@ func (region *SRegion) GetISnapshotPolicyById(id string) (cloudprovider.ICloudSn
 }
 
 func (region *SRegion) CreateEIP(args *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotSupported
+	}
+
 	eip, err := region.CreateEip(args.Name, "")
 	if err != nil {
 		return nil, err

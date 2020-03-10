@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -61,6 +62,11 @@ const (
 	MAX_RETRY = 3
 )
 
+var (
+	MultiRegions []string = []string{"us", "eu", "asia"}
+	DualRegions  []string = []string{"nam4", "eur4"}
+)
+
 type SGoogleClient struct {
 	providerId      string
 	providerName    string
@@ -74,7 +80,8 @@ type SGoogleClient struct {
 	globalnetworks  []SGlobalNetwork
 	resourcepolices []SResourcePolicy
 
-	client *http.Client
+	client   *http.Client
+	iBuckets []cloudprovider.ICloudBucket
 
 	Debug bool
 }
@@ -126,7 +133,53 @@ func (self *SGoogleClient) fetchRegions() error {
 		regions[i].client = self
 		self.iregions = append(self.iregions, &regions[i])
 	}
+	for _, region := range MultiRegions {
+		_region := SRegion{
+			Name:   region,
+			client: self,
+		}
+		self.iregions = append(self.iregions, &_region)
+	}
+	for _, region := range DualRegions {
+		_region := SRegion{
+			Name:   region,
+			client: self,
+		}
+		self.iregions = append(self.iregions, &_region)
+	}
 	return nil
+}
+
+func (self *SGoogleClient) fetchBuckets() error {
+	buckets := []SBucket{}
+	params := map[string]string{
+		"project": self.projectId,
+	}
+	err := self.storageListAll("b", params, &buckets)
+	if err != nil {
+		return errors.Wrap(err, "storageList")
+	}
+	self.iBuckets = []cloudprovider.ICloudBucket{}
+	for i := range buckets {
+		region := self.GetRegion(buckets[i].GetLocation())
+		if region == nil {
+			log.Errorf("failed to found region for bucket %s", buckets[i].GetName())
+			continue
+		}
+		buckets[i].region = region
+		self.iBuckets = append(self.iBuckets, &buckets[i])
+	}
+	return nil
+}
+
+func (self *SGoogleClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return self.iBuckets, nil
 }
 
 func jsonRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion, resource string, params map[string]string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
@@ -272,8 +325,56 @@ func (self *SGoogleClient) storageInsert(resource string, body jsonutils.JSONObj
 	return nil
 }
 
-func (self *SGoogleClient) storageUpload(resource string, header http.Header, body io.Reader) error {
-	return rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+func (self *SGoogleClient) storageUpload(resource string, header http.Header, body io.Reader) (*http.Response, error) {
+	resp, err := rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return resp, nil
+}
+
+func (self *SGoogleClient) storageUploadPart(resource string, header http.Header, body io.Reader) (*http.Response, error) {
+	resp, err := rawRequest(self.client, "PUT", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return resp, nil
+}
+
+func (self *SGoogleClient) storageAbortUpload(resource string) error {
+	resp, err := rawRequest(self.client, "DELETE", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.Debug)
+	if err != nil {
+		return errors.Wrap(err, "rawRequest")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return nil
+}
+
+func (self *SGoogleClient) storageDownload(resource string, header http.Header) (io.ReadCloser, error) {
+	resp, err := rawRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, nil, self.Debug)
+	if err != nil {
+		return nil, errors.Wrap(err, "rawRequest")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("StatusCode: %d %s", resp.StatusCode, string(msg))
+	}
+	return resp.Body, err
 }
 
 func (self *SGoogleClient) storageList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -310,6 +411,20 @@ func (self *SGoogleClient) storageListAll(resource string, params map[string]str
 
 func (self *SGoogleClient) storageGet(resource string, retval interface{}) error {
 	resp, err := jsonRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.Debug)
+	if err != nil {
+		return err
+	}
+	if retval != nil {
+		err = resp.Unmarshal(retval)
+		if err != nil {
+			return errors.Wrap(err, "resp.Unmarshal")
+		}
+	}
+	return nil
+}
+
+func (self *SGoogleClient) storagePut(resource string, body jsonutils.JSONObject, retval interface{}) error {
+	resp, err := jsonRequest(self.client, "PUT", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, body, self.Debug)
 	if err != nil {
 		return err
 	}
@@ -432,11 +547,10 @@ func (self *SGoogleClient) monitorListAll(resource string, params map[string]str
 	return timeSeries.Unmarshal(retval)
 }
 
-func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion string, resource string, header http.Header, body io.Reader, debug bool) error {
+func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion string, resource string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
 	resource = strings.TrimPrefix(resource, fmt.Sprintf("%s/%s/", domain, apiVersion))
 	resource = fmt.Sprintf("%s/%s/%s", domain, apiVersion, resource)
-	_, err := httputils.Request(client, context.Background(), method, resource, header, body, debug)
-	return err
+	return httputils.Request(client, context.Background(), method, resource, header, body, debug)
 }
 
 func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string, body jsonutils.JSONObject, debug bool) (jsonutils.JSONObject, error) {
@@ -565,7 +679,7 @@ func (self *SGoogleClient) GetCapabilities() []string {
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,
-		// cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
 		// cloudprovider.CLOUD_CAPABILITY_RDS,
 		// cloudprovider.CLOUD_CAPABILITY_CACHE,
 		// cloudprovider.CLOUD_CAPABILITY_EVENT,
