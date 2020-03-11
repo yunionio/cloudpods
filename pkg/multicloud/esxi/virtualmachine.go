@@ -876,6 +876,12 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		ctlKey += int32(index / 2)
 	}
 
+	// By default, the virtual SCSI controller is assigned to virtual device node (z:7),
+	// so that device node is unavailable for hard disks or other devices.
+	if index >= 7 && driver == "scsi" {
+		index++
+	}
+
 	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey, "", true)
 }
 
