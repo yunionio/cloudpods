@@ -17,8 +17,10 @@ package utils
 import (
 	"context"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/cache"
 )
 
@@ -28,8 +30,22 @@ func GetUserByIDOrName(ctx context.Context, idStr string) (*cache.SUser, error) 
 
 func GetUsersWithoutRemote(ctx context.Context, idStr []string) ([]cache.SUser, error) {
 	q := cache.UserCacheManager.Query()
-	q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idStr), sqlchemy.In(q.Field("name"), idStr)))
+	q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), idStr), sqlchemy.In(q.Field("name"), idStr))).Desc("updated_at")
 	return cache.UserCacheManager.FetchUserFromLoaclCache(ctx, q)
+}
+
+func DeleteUsers(ctx context.Context, userCred mcclient.TokenCredential, ids []string) error {
+	users, err := GetUsersWithoutRemote(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range users {
+		err := users[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "delete cache.SUser %s error", users[i].Id)
+		}
+	}
+	return nil
 }
 
 func GetUserIdsLikeName(ctx context.Context, name string) ([]string, error) {

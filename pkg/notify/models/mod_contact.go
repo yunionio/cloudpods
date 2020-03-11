@@ -56,7 +56,7 @@ func init() {
 type SContact struct {
 	SStatusStandaloneResourceBase
 
-	UID         string    `width:"128" nullable:"false" create:"required" update:"user"`
+	UID         string    `width:"128" nullable:"false" create:"required" update:"user" list:"user" get:"user"`
 	ContactType string    `width:"16" nullable:"false" create:"required" update:"user"`
 	Contact     string    `width:"64" nullable:"false" create:"required" update:"user"`
 	Enabled     string    `width:"5" nullable:"false" default:"1" create:"optional" update:"user"`
@@ -164,6 +164,7 @@ func (self *SContactManager) _UIDsFromUIDOrName(ctx context.Context, uidStrs []s
 	for _, uid = range uidSet.UnsortedList() {
 		uids = append(uids, uid)
 	}
+	log.Debugf("uids %s => %s", uidStrs, uids)
 	return uids, nil
 }
 
@@ -205,7 +206,7 @@ func (self *SContact) getMoreDetail(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return out, errors.Wrapf(err, "fetch Contacts of uid %s error", self.UID)
 	}
-	out.Id = self.UID
+	out.UID = self.UID
 	out.Name = uname
 	out.Details = jsonutils.Marshal(contacts).String()
 
@@ -224,13 +225,16 @@ func (manager *SContactManager) FetchCustomizeColumns(
 
 	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
+	var err error
 	for i := range rows {
 		rows[i] = api.ContactDetails{
 			ResourceBaseDetails: stdRows[i],
 		}
-		rows[i], _ = objs[i].(*SContact).getMoreDetail(ctx, userCred, rows[i])
+		rows[i], err = objs[i].(*SContact).getMoreDetail(ctx, userCred, rows[i])
+		if err != nil {
+			log.Errorf(err.Error())
+		}
 	}
-
 	return rows
 }
 
@@ -281,16 +285,60 @@ func (self *SContactManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if !scope.HigherEqual(rbacutils.ScopeSystem) {
 		q = q.Equals("uid", userCred.GetUserId())
 	}
-	q = q.GroupBy("uid")
+	q = q.GroupBy("uid").Desc("created_at")
 
 	return q, nil
+}
+
+// Contacts query all contacts by uids and contactType
+func (self *SContactManager) Contacts(uids []string, contactType string) ([]SContact, error) {
+	contacts := make([]SContact, 0, len(uids))
+	if contactType == WEBCONSOLE {
+		for _, uid := range uids {
+			contacts = append(contacts, SContact{
+				UID:         uid,
+				ContactType: WEBCONSOLE,
+				Contact:     uid,
+			})
+		}
+		return contacts, nil
+	}
+
+	queryCon := contactType
+	if strings.Contains(contactType, ROBOT) {
+		queryCon = MOBILE
+	}
+	q := self.Query().Equals("contact_type", queryCon).Equals("enabled", "1").In("uid", uids)
+	err := db.FetchModelObjects(self, q, &contacts)
+	if err != nil {
+		return nil, err
+	}
+
+	// For Robot Sender, only one message of the same content is sent for multiple users,
+	// so the user's contact information is a collection of all contact information
+	if strings.Contains(contactType, ROBOT) {
+		// hack
+		contactVals := make([]string, len(contacts))
+		uidVals := make([]string, len(contacts))
+		for i := range contacts {
+			contactVals[i] = contacts[i].Contact
+			uidVals[i] = contacts[i].UID
+		}
+		contacts = []SContact{
+			{
+				UID:         strings.Join(uidVals, ","),
+				ContactType: contactType,
+				Contact:     strings.Join(contactVals, ","),
+			},
+		}
+	}
+	return contacts, nil
 }
 
 func (self *SContactManager) GetAllNotify(ctx context.Context, ids []string, contactType string, group bool) ([]SContact, error) {
 	var uids []string
 	var err error
 
-	q := self.Query()
 	if !group {
 		if v := ctx.Value("uname"); v != nil {
 			ids, err = self._UIDsFromUIDOrName(ctx, ids)
@@ -310,26 +358,7 @@ func (self *SContactManager) GetAllNotify(ctx context.Context, ids []string, con
 		}
 		uids = uid
 	}
-	q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("uid"), uids), sqlchemy.Equals(q.Field("contact_type"),
-		contactType), sqlchemy.Equals(q.Field("status"), CONTACT_VERIFIED)))
-
-	if contactType == WEBCONSOLE {
-		ret := make([]SContact, len(uids))
-		for i := range uids {
-			ret[i] = SContact{
-				UID:         uids[i],
-				ContactType: WEBCONSOLE,
-				Contact:     uids[i],
-			}
-		}
-		return ret, nil
-	}
-	contacts := make([]SContact, 0, 2)
-	err = db.FetchModelObjects(self, q, &contacts)
-	if err != nil {
-		return nil, err
-	}
-	return contacts, nil
+	return self.Contacts(uids, contactType)
 }
 
 type SContactResponse struct {

@@ -19,7 +19,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 type ContactDetails struct {
 	apis.ResourceBaseDetails
 
-	Id      string `json:"id"`
+	UID     string `json:"uid"`
 	Name    string `json:"name"`
 	Details string `json:"details"`
 }
