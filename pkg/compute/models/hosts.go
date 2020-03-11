@@ -718,6 +718,7 @@ func (self *SHost) PerformUpdateStorage(
 		storage.MediumType = self.StorageType
 		storage.Cmtbound = 1.0
 		storage.Status = api.STORAGE_ONLINE
+		storage.Enabled = tristate.True
 		storage.ZoneId = zoneId
 		storage.StoragecacheId = storageCacheId
 		err := StorageManager.TableSpec().Insert(&storage)
@@ -745,6 +746,7 @@ func (self *SHost) PerformUpdateStorage(
 	diff, err := db.Update(storage, func() error {
 		storage.Capacity = capacity
 		storage.StoragecacheId = storageCacheId
+		storage.Enabled = tristate.True
 		return nil
 	})
 	if err != nil {
