@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -155,6 +156,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 			obj.Name = name
 			obj.Domain = domain
 			obj.DomainId = domainId
+			obj.LastCheck = time.Now().UTC()
 			return nil
 		})
 		if err != nil {
@@ -169,7 +171,8 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		obj.Name = name
 		obj.Domain = domain
 		obj.DomainId = domainId
-		err = manager.TableSpec().Insert(obj)
+		obj.LastCheck = time.Now().UTC()
+		err = manager.TableSpec().InsertOrUpdate(obj)
 		if err != nil {
 			return nil, err
 		} else {

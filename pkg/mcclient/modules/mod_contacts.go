@@ -40,22 +40,17 @@ func (this *ContactsManager) PerformActionWithArrayParams(s *mcclient.ClientSess
 }
 
 func (this *ContactsManager) DoBatchDeleteContacts(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	path := "/contacts/delete-contact"
+	path := "/contacts/delete-contact?uname=true"
 
 	return modulebase.Post(this.ResourceManager, s, path, params, this.Keyword)
 }
 
-func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSession, id, action, pull string,
-	params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
+func (this *ContactsManager) CustomizedPerformAction(session *mcclient.ClientSession, id, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	body := jsonutils.NewDict()
 	if params != nil {
 		body.Add(params, this.Keyword)
 	}
 	path := fmt.Sprintf("/%s/%s/%s?uname=true", this.ContextPath(nil), url.PathEscape(id), url.PathEscape(action))
-	if len(pull) > 0 {
-		path += fmt.Sprintf("&pull=%s", pull)
-	}
 	return modulebase.Post(this.ResourceManager, session, path, body, this.KeywordPlural)
 }
 
