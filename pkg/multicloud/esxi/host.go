@@ -748,6 +748,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, data *jsonuti
 			ctrlKey = 1000
 			index = scsiIdx
 			scsiIdx += 1
+			if scsiIdx == 7 {
+				scsiIdx++
+			}
 		} else {
 			ctrlKey = 200 + ideIdx/2
 			index = ideIdx % 2
