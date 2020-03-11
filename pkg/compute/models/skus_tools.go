@@ -39,15 +39,15 @@ server: 虚拟机
 elasticcache: 弹性缓存(redis&memcached)
 */
 type SSkuResourcesMeta struct {
-	region            *SCloudregion
-	caches            map[string][]jsonutils.JSONObject
-	regionalSkuCaches map[string]map[string][]jsonutils.JSONObject
-	zoneCaches        map[string]*SZone
-	regionCaches      map[string]*SCloudregion
+	region       *SCloudregion
+	caches       map[string][]jsonutils.JSONObject
+	zoneCaches   map[string]*SZone
+	regionCaches map[string]*SCloudregion
 
-	Server       string
-	ElasticCache string
-	DBInstance   string `json:"dbinstance"`
+	Server         string
+	ElasticCache   string
+	DBInstance     string `json:"dbinstance"`
+	DBInstanceBase string `json:"dbinstance_base"`
 }
 
 // todo: 待测试
@@ -70,7 +70,7 @@ func (self *SSkuResourcesMeta) GetServerSkus() ([]SServerSku, error) {
 
 func (self *SSkuResourcesMeta) GetDBInstanceSkusByRegion(regionId string) ([]SDBInstanceSku, error) {
 	result := []SDBInstanceSku{}
-	objs, err := self.getSkusByRegion(self.DBInstance, regionId)
+	objs, err := self.getSkusByRegion(self.DBInstanceBase, regionId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getSkusByRegion")
 	}
@@ -208,30 +208,13 @@ func (self *SSkuResourcesMeta) get(url string) ([]jsonutils.JSONObject, error) {
 	return self.filterByRegion(items), nil
 }
 
-func (self *SSkuResourcesMeta) getSkusByRegion(url string, region string) ([]jsonutils.JSONObject, error) {
-	items, err := self.get(url)
+func (self *SSkuResourcesMeta) getSkusByRegion(base string, region string) ([]jsonutils.JSONObject, error) {
+	url := fmt.Sprintf("%s/%s.json", base, region)
+	items, err := self._get(url)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getSkusByRegion.get")
 	}
-
-	if self.regionalSkuCaches == nil {
-		self.regionalSkuCaches = map[string]map[string][]jsonutils.JSONObject{}
-		self.regionalSkuCaches[url] = map[string][]jsonutils.JSONObject{}
-		for i := range items {
-			cloudregion, _ := items[i].GetString("cloudregion_id")
-			if len(cloudregion) > 0 {
-				if _, ok := self.regionalSkuCaches[url][cloudregion]; !ok {
-					self.regionalSkuCaches[url][cloudregion] = []jsonutils.JSONObject{}
-				}
-				self.regionalSkuCaches[url][cloudregion] = append(self.regionalSkuCaches[url][cloudregion], items[i])
-			}
-		}
-	}
-
-	if skus, ok := self.regionalSkuCaches[url][region]; ok {
-		return skus, nil
-	}
-	return []jsonutils.JSONObject{}, nil
+	return items, nil
 }
 
 func (self *SSkuResourcesMeta) _get(url string) ([]jsonutils.JSONObject, error) {
