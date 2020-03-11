@@ -38,6 +38,14 @@ type SHostResourceBase struct {
 type SHostResourceBaseManager struct {
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
+	hostIdFieldName string
+}
+
+func (manager *SHostResourceBaseManager) getHostIdFieldName() string {
+	if len(manager.hostIdFieldName) > 0 {
+		return manager.hostIdFieldName
+	}
+	return "host_id"
 }
 
 func (self *SHostResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.HostResourceInfo {
@@ -113,11 +121,11 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 				return nil, errors.Wrap(err, "HostManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("host_id", hostObj.GetId())
+		q = q.Equals(manager.getHostIdFieldName(), hostObj.GetId())
 	}
 	if len(query.HostSN) > 0 {
 		sq := HostManager.Query("id").Equals("sn", query.HostSN).SubQuery()
-		q = q.In("host_id", sq)
+		q = q.In(manager.getHostIdFieldName(), sq)
 	}
 	subq := HostManager.Query("id").Snapshot()
 	subq, err := manager.SZoneResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.ZonalFilterListInput)
@@ -129,7 +137,7 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 	if subq.IsAltered() {
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
+		q = q.Filter(sqlchemy.In(q.Field(manager.getHostIdFieldName()), subq.SubQuery()))
 	}
 	return q, nil
 }
@@ -139,22 +147,22 @@ func (manager *SHostResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	case "host":
 		hostQuery := HostManager.Query("name", "id").Distinct().SubQuery()
 		q.AppendField(hostQuery.Field("name", field))
-		q = q.Join(hostQuery, sqlchemy.Equals(q.Field("host_id"), hostQuery.Field("id")))
+		q = q.Join(hostQuery, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), hostQuery.Field("id")))
 		q.GroupBy(hostQuery.Field("name"))
 		return q, nil
 	case "host_type":
 		hostQuery := HostManager.Query(field, "id").Distinct().SubQuery()
 		q.AppendField(hostQuery.Field(field))
-		q = q.Join(hostQuery, sqlchemy.Equals(q.Field("host_id"), hostQuery.Field("id")))
+		q = q.Join(hostQuery, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), hostQuery.Field("id")))
 		q.GroupBy(hostQuery.Field(field))
 		return q, nil
 	case "manager", "account", "provider", "brand":
 		hosts := HostManager.Query("id", "manager_id").SubQuery()
-		q = q.LeftJoin(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+		q = q.LeftJoin(hosts, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), hosts.Field("id")))
 		return manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
 	default:
 		hosts := HostManager.Query("id", "zone_id").SubQuery()
-		q = q.LeftJoin(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+		q = q.LeftJoin(hosts, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), hosts.Field("id")))
 		q, err := manager.SZoneResourceBaseManager.QueryDistinctExtraField(q, field)
 		if err == nil {
 			return q, nil
@@ -205,7 +213,7 @@ func (manager *SHostResourceBaseManager) GetOrderBySubQuery(
 	}
 	if db.NeedOrderQuery(manager.GetOrderByFields(query)) {
 		subq := hostQ.SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("host_id"), subq.Field("id")))
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), subq.Field("id")))
 		if db.NeedOrderQuery([]string{query.OrderByHost, query.OrderByHostSN}) {
 			orders = append(orders, query.OrderByHost, query.OrderByHostSN)
 			fields = append(fields, subq.Field("name"), subq.Field("sn"))

@@ -86,12 +86,14 @@ type SHost struct {
 	SBillingResourceBase
 
 	// 机架
-	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	Rack string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	// 机位
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
 
+	// 管理口MAC
 	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin"`
 
-	// Ip地址
+	// 管理口Ip地址
 	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"`
 
 	// 管理地址
@@ -99,7 +101,7 @@ type SHost struct {
 
 	// 系统信息
 	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`
-	// SN信息
+	// 物理机序列号信息
 	SN string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
 	// CPU大小
@@ -154,7 +156,9 @@ type SHost struct {
 	// 宿主机类型
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
-	Version    string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
+	// host服务软件版本
+	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
+	// OVN软件版本
 	OvnVersion string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
 
 	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`
@@ -164,15 +168,20 @@ type SHost struct {
 
 	LastPingAt time.Time ``
 
-	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional" default:"shared"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional" default:"shared"`
 
 	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
 
+	// 是否为导入的宿主机
 	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
 
+	// 是否允许PXE启动
 	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"admin" create:"admin_optional" update:"admin"`
 
-	Uuid     string `width:"64" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// 主机UUID
+	Uuid string `width:"64" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+
+	// 主机启动模式, 可能值位PXE和ISO
 	BootMode string `width:"8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
@@ -346,6 +355,73 @@ func (manager *SHostManager) ListItemFilter(
 		} else {
 			q = q.NotEquals("host_type", api.HOST_TYPE_BAREMETAL)
 		}
+	}
+
+	if len(query.Rack) > 0 {
+		q = q.In("rack", query.Rack)
+	}
+	if len(query.Slots) > 0 {
+		q = q.In("slots", query.Slots)
+	}
+	if len(query.AccessMac) > 0 {
+		q = q.In("access_mac", query.AccessMac)
+	}
+	if len(query.AccessIp) > 0 {
+		q = q.In("access_ip", query.AccessIp)
+	}
+	if len(query.SN) > 0 {
+		q = q.In("sn", query.SN)
+	}
+	if len(query.CpuCount) > 0 {
+		q = q.In("cpu_count", query.CpuCount)
+	}
+	if len(query.MemSize) > 0 {
+		q = q.In("mem_size", query.MemSize)
+	}
+	if len(query.StorageType) > 0 {
+		q = q.In("storage_type", query.StorageType)
+	}
+	if len(query.IpmiIp) > 0 {
+		q = q.In("ipmi_ip", query.IpmiIp)
+	}
+	if len(query.HostStatus) > 0 {
+		q = q.In("host_status", query.HostStatus)
+	}
+	if len(query.HostType) > 0 {
+		q = q.In("host_type", query.HostType)
+	}
+	if len(query.Version) > 0 {
+		q = q.In("version", query.Version)
+	}
+	if len(query.OvnVersion) > 0 {
+		q = q.In("ovn_version", query.OvnVersion)
+	}
+	if query.IsMaintenance != nil {
+		if *query.IsMaintenance {
+			q = q.IsTrue("is_maintenance")
+		} else {
+			q = q.IsFalse("is_maintenance")
+		}
+	}
+	if query.IsImport != nil {
+		if *query.IsImport {
+			q = q.IsTrue("is_import")
+		} else {
+			q = q.IsFalse("is_import")
+		}
+	}
+	if query.EnablePxeBoot != nil {
+		if *query.EnablePxeBoot {
+			q = q.IsTrue("enable_pxe_boot")
+		} else {
+			q = q.IsFalse("enable_pxe_boot")
+		}
+	}
+	if len(query.Uuid) > 0 {
+		q = q.In("uuid", query.Uuid)
+	}
+	if len(query.BootMode) > 0 {
+		q = q.In("boot_mode", query.BootMode)
 	}
 
 	return q, nil

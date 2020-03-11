@@ -222,3 +222,8 @@ type JointResourceBaseListInput struct {
 type VirtualJointResourceBaseListInput struct {
 	JointResourceBaseListInput
 }
+
+type ExternalizedResourceBaseListInput struct {
+	// 以资源外部ID过滤
+	ExternalId string `json:"external_id"`
+}

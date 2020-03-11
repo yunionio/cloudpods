@@ -105,6 +105,10 @@ func (manager *SInstanceSnapshotManager) ListItemFilter(
 		q = q.Equals("guest_id", guestObj.GetId())
 	}
 
+	if len(query.OsType) > 0 {
+		q = q.In("os_type", query.OsType)
+	}
+
 	return q, nil
 }
 

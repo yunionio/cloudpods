@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -30,6 +31,7 @@ import (
 
 type SHostwireManager struct {
 	SHostJointsManager
+	SWireResourceBaseManager
 }
 
 var HostwireManager *SHostwireManager
@@ -38,6 +40,7 @@ func init() {
 	db.InitManager(func() {
 		HostwireManager = &SHostwireManager{
 			SHostJointsManager: NewHostJointsManager(
+				"host_id",
 				SHostwire{},
 				"hostwires_tbl",
 				"hostwire",
@@ -193,4 +196,61 @@ func (manager *SHostwireManager) FetchByHostIdAndMac(hostId string, mac string) 
 		return nil, err
 	}
 	return hw.(*SHostwire), nil
+}
+
+func (manager *SHostwireManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostwireListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemFilter(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, query.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Bridge) > 0 {
+		q = q.In("bridge", query.Bridge)
+	}
+	if len(query.Interface) > 0 {
+		q = q.In("interface", query.Interface)
+	}
+	if query.IsMaster != nil {
+		if *query.IsMaster {
+			q = q.IsTrue("is_master")
+		} else {
+			q = q.IsFalse("is_master")
+		}
+	}
+	if len(query.MacAddr) > 0 {
+		q = q.In("mac_addr", query.MacAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SHostwireManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.HostwireListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.OrderByExtraFields(ctx, q, userCred, query.HostJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SWireResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.WireFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SWireResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

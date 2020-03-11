@@ -29,3 +29,9 @@ type HostJointResourceDetails struct {
 
 	HostJointResourceDetailsBase
 }
+
+type HostJointsListInput struct {
+	apis.JointResourceBaseListInput
+
+	HostFilterListInput
+}

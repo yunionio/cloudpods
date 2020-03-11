@@ -166,6 +166,19 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(
 		q = q.IsEmpty("guest_id")
 	}
 
+	if len(query.DevType) > 0 {
+		q = q.In("dev_type", query.DevType)
+	}
+	if len(query.Model) > 0 {
+		q = q.In("model", query.Model)
+	}
+	if len(query.Addr) > 0 {
+		q = q.In("addr", query.Addr)
+	}
+	if len(query.VendorDeviceId) > 0 {
+		q = q.In("vendor_device_id", query.VendorDeviceId)
+	}
+
 	return q, nil
 }
 

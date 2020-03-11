@@ -82,12 +82,6 @@ type SnapshotListInput struct {
 	IsInstanceSnapshot *bool `json:"is_instance_snapshot"`
 }
 
-type InstanceSnapshotListInput struct {
-	apis.VirtualResourceListInput
-
-	ServerFilterListInput
-}
-
 type SnapshotDetails struct {
 	apis.VirtualResourceDetails
 	ManagedResourceInfo

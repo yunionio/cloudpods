@@ -70,6 +70,44 @@ type HostListInput struct {
 	IsEmpty *bool `json:"is_empty"`
 	// filter host that is baremetal
 	Baremetal *bool `json:"baremetal"`
+
+	// 机架
+	Rack []string `json:"rack"`
+	// 机位
+	Slots []string `json:"slots"`
+	// 管理口MAC
+	AccessMac []string `json:"access_mac"`
+	// 管理口Ip地址
+	AccessIp []string `json:"access_ip"`
+	// 物理机序列号信息
+	SN []string `json:"sn"`
+	// CPU大小
+	CpuCount []int `json:"cpu_count"`
+	// 内存大小,单位Mb
+	MemSize []int `json:"mem_size"`
+	// 存储类型
+	StorageType []string `json:"storage_type"`
+	// IPMI地址
+	IpmiIp []string `json:"ipmi_ip"`
+	// 宿主机状态
+	// example: online
+	HostStatus []string `json:"host_status"`
+	// 宿主机类型
+	HostType []string `json:"host_type"`
+	// host服务软件版本
+	Version []string `json:"version"`
+	// OVN软件版本
+	OvnVersion []string `json:"ovn_version"`
+	// 是否处于维护状态
+	IsMaintenance *bool `json:"is_maintenance"`
+	// 是否为导入的宿主机
+	IsImport *bool `json:"is_import"`
+	// 是否允许PXE启动
+	EnablePxeBoot *bool `json:"enable_pxe_boot"`
+	// 主机UUID
+	Uuid []string `json:"uuid"`
+	// 主机启动模式, 可能值位PXE和ISO
+	BootMode []string `json:"boot_mode"`
 }
 
 type HostDetails struct {
