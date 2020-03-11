@@ -15,8 +15,6 @@
 package esxi
 
 import (
-	"strings"
-
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -49,6 +47,7 @@ var DVPORTGROUP_PROPS = []string{"name", "parent", "summary", "host", "vm", "con
 
 type SNetwork struct {
 	SManagedObject
+	HostPortGroup types.HostPortGroup
 }
 
 type SDistributedVirtualPortgroup struct {
@@ -76,7 +75,7 @@ func (net *SNetwork) GetType() string {
 }
 
 func (net *SNetwork) GetVlanId() int32 {
-	return -1
+	return net.HostPortGroup.Spec.VlanId
 }
 
 func (net *SNetwork) GetVlanMode() string {
@@ -224,51 +223,21 @@ func (net *SDistributedVirtualPortgroup) AddHostToDVS(host *SHost) (err error) {
 		return errors.Error("no pnic in this host")
 	}
 
-	// try one by one
-	// have some bug
-	for i := 0; i < len(pnics); i++ {
-		backing.PnicSpec = []types.DistributedVirtualSwitchHostMemberPnicSpec{
-			{
-				PnicDevice: pnics[i].Device,
-			},
-		}
-		config.Host = []types.DistributedVirtualSwitchHostMemberConfigSpec{
-			{
-				Operation: "add",
-				Host:      moHost.Reference(),
-				Backing:   backing,
-			},
-		}
-		var task *object.Task
-		dvs := object.NewDistributedVirtualSwitch(net.manager.client.Client, s.Reference())
-		task, err = dvs.Reconfigure(net.manager.context, config)
-		if err != nil {
-			return errors.Wrapf(err, "dvs.Reconfigure")
-		}
-		err = task.Wait(net.manager.context)
-		if err == nil {
-			return nil
-		}
-		if strings.Contains(err.Error(), "concurrent modification") {
-			i -= 1
-		}
+	config.Host = []types.DistributedVirtualSwitchHostMemberConfigSpec{
+		{
+			Operation: "add",
+			Host:      moHost.Reference(),
+			Backing:   backing,
+		},
+	}
+	dvs := object.NewDistributedVirtualSwitch(net.manager.client.Client, s.Reference())
+	task, err := dvs.Reconfigure(net.manager.context, config)
+	if err != nil {
+		return errors.Wrapf(err, "dvs.Reconfigure")
+	}
+	err = task.Wait(net.manager.context)
+	if err == nil {
+		return nil
 	}
 	return err
-}
-
-func FindVlanDistVswitch(nets []IVMNetwork, vlanID int32) IVMNetwork {
-	for _, net := range nets {
-		_, ok := net.(*SDistributedVirtualPortgroup)
-		if !ok {
-			continue
-		}
-		if len(net.GetActivePorts()) == 0 {
-			continue
-		}
-		nvlan := net.GetVlanId()
-		if nvlan == vlanID {
-			return net
-		}
-	}
-	return nil
 }

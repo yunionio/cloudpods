@@ -132,7 +132,7 @@ func NewVNICDev(host *SHost, mac, driver string, vlanId int32, key, ctlKey, inde
 	if err != nil {
 		return nil, errors.Wrap(err, "SHost.FindNetworkByVlanID")
 	}
-	if inet == nil {
+	if inet == nil || reflect.ValueOf(inet).IsNil() {
 		return nil, errors.Error(fmt.Sprintf("VLAN %d not found", vlanId))
 	}
 
