@@ -271,15 +271,6 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 	return errors.Wrap(err, "guest image cancel delete error")
 }
 
-type sPair struct {
-	ID         string
-	Name       string
-	MinDiskMB  int32
-	DiskFormat string
-	Size       int64
-	Status     string
-}
-
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	out api.GuestImageDetails) api.GuestImageDetails {
 
@@ -296,27 +287,42 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		out.Size = size
 		return out
 	}
-	dataImages := make([]sPair, 0, len(images)-1)
-	var rootImage sPair
+	dataImages := make([]api.SubImageInfo, 0, len(images)-1)
+	var rootImage api.SubImageInfo
 	for i := range images {
 		image := images[i]
 		size += image.Size
 		if !image.IsData.IsTrue() {
-			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat, image.Size, image.Status}
+			rootImage = api.SubImageInfo{
+				ID:         image.Id,
+				Name:       image.Name,
+				MinDiskMB:  image.MinDiskMB,
+				DiskFormat: image.DiskFormat,
+				Size:       image.Size,
+				Status:     image.Status,
+				CreatedAt:  image.CreatedAt,
+			}
 			out.MinRamMb = image.MinRamMB
 			out.DiskFormat = image.DiskFormat
 			continue
 		}
-		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat, image.Size,
-			image.Status})
+		dataImages = append(dataImages, api.SubImageInfo{
+			ID:         image.Id,
+			Name:       image.Name,
+			MinDiskMB:  image.MinDiskMB,
+			DiskFormat: image.DiskFormat,
+			Size:       image.Size,
+			Status:     image.Status,
+			CreatedAt:  image.CreatedAt,
+		})
 	}
 	// make sure that the sort of dataimage is fixed
 	sort.Slice(dataImages, func(i, j int) bool {
 		return dataImages[i].Name < dataImages[j].Name
 	})
 	out.Size = size
-	out.RootImage = jsonutils.Marshal(rootImage)
-	out.DataImages = jsonutils.Marshal(dataImages)
+	out.RootImage = rootImage
+	out.DataImages = dataImages
 	// properties of root image
 	properties, err := ImagePropertyManager.GetProperties(rootImage.ID)
 	if err != nil {
