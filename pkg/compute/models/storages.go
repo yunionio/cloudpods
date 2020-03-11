@@ -44,6 +44,7 @@ import (
 
 type SStorageManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SZoneResourceBaseManager
 }
@@ -63,7 +64,7 @@ func init() {
 }
 
 type SStorage struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SEnabledStatusStandaloneResourceBase `"status->default":"offline" "status->update":"admin" "enabled->default":"true"`
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
@@ -1162,6 +1163,11 @@ func (manager *SStorageManager) ListItemFilter(
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)

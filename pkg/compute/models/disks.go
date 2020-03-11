@@ -55,6 +55,7 @@ import (
 
 type SDiskManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SStorageResourceBaseManager
 	SBillingResourceBaseManager
 }
@@ -78,7 +79,7 @@ type SDisk struct {
 	db.SExternalizedResourceBase
 
 	SBillingResourceBase
-	SStorageResourceBase
+	SStorageResourceBase `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 
 	// 磁盘存储类型
 	// example: qcow2
@@ -145,6 +146,11 @@ func (manager *SDiskManager) ListItemFilter(
 	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SBillingResourceBaseManager.ListItemFilter(ctx, q, userCred, query.BillingResourceListInput)

@@ -93,6 +93,14 @@ func (manager *SKeypairManager) ListItemFilter(
 	} else {
 		q = q.Equals("owner_id", userCred.GetUserId())
 	}
+
+	if len(query.Scheme) > 0 {
+		q = q.In("scheme", query.Scheme)
+	}
+	if len(query.Fingerprint) > 0 {
+		q = q.In("fingerprint", query.Fingerprint)
+	}
+
 	return q, nil
 }
 

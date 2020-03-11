@@ -49,6 +49,7 @@ type UsableVpcResourceListInput struct {
 
 type VpcListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	RegionalFilterListInput
@@ -59,10 +60,19 @@ type VpcListInput struct {
 
 	// filter by globalvpc
 	Globalvpc string `json:"globalvpc"`
+
+	// 是否是默认VPC
+	// example: true
+	IsDefault *bool `json:"is_default"`
+
+	// CIDR地址段
+	// example: 192.168.222.0/24
+	CidrBlock []string `json:"cidr_block"`
 }
 
 type WireListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	VpcFilterListInput
 

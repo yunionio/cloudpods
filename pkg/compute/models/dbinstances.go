@@ -48,6 +48,9 @@ import (
 
 type SDBInstanceManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDeletePreventableResourceBaseManager
+
 	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 	SVpcResourceBaseManager
@@ -152,17 +155,22 @@ func (man *SDBInstanceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-
 	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
-
 	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")

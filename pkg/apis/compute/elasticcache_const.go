@@ -109,6 +109,8 @@ const (
 
 type ElasticcacheListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
 	VpcFilterListInput
 	ZonalFilterListBase
 
@@ -162,6 +164,7 @@ type ElasticcacheListInput struct {
 
 type ElasticcacheAccountListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ElasticcacheFilterListInput
 
@@ -174,6 +177,7 @@ type ElasticcacheAccountListInput struct {
 
 type ElasticcacheAclListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ElasticcacheFilterListInput
 
@@ -183,6 +187,7 @@ type ElasticcacheAclListInput struct {
 
 type ElasticcacheBackupListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ElasticcacheFilterListInput
 
@@ -195,6 +200,7 @@ type ElasticcacheBackupListInput struct {
 
 type ElasticcacheParameterListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ElasticcacheFilterListInput
 

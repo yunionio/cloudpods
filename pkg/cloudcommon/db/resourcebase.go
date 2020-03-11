@@ -81,18 +81,6 @@ func (model *SResourceBase) GetIResourceModel() IResourceModel {
 	return model.GetVirtualObject().(IResourceModel)
 }
 
-/*
-func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SModelBase.GetExtraDetails(ctx, userCred, query)
-	canDelete := CanDelete(model, ctx)
-	if canDelete {
-		extra.Add(jsonutils.JSONTrue, "can_delete")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "can_delete")
-	}
-	return extra
-}*/
-
 func (model *SResourceBase) MarkDelete() error {
 	model.Deleted = true
 	model.DeletedAt = timeutils.UtcNow()
@@ -186,11 +174,5 @@ func (manager *SResourceBaseManager) FetchCustomizeColumns(
 }
 
 func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ResourceBaseDetails, error) {
-	var err error
-	out := apis.ResourceBaseDetails{}
-	out.ModelBaseDetails, err = model.SModelBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, errors.Wrap(err, "SModelBase.GetExtraDetails")
-	}
-	return out, nil
+	return apis.ResourceBaseDetails{}, nil
 }

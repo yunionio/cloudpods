@@ -22,3 +22,8 @@ type NetworkschedtagDetails struct {
 	// IP子网名称
 	Network string `json:"network"`
 }
+
+type NetworkschedtagListInput struct {
+	SchedtagJointsListInput
+	NetworkFilterListInput
+}

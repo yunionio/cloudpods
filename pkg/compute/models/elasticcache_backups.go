@@ -40,6 +40,7 @@ import (
 // SElasticcache.Backup
 type SElasticcacheBackupManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SElasticcacheResourceBaseManager
 }
 
@@ -60,7 +61,7 @@ func init() {
 type SElasticcacheBackup struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SElasticcacheResourceBase
+	SElasticcacheResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
@@ -353,6 +354,11 @@ func (manager *SElasticcacheBackupManager) ListItemFilter(
 	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)

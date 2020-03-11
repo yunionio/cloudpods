@@ -40,6 +40,7 @@ import (
 
 type SStoragecachedimageManager struct {
 	db.SJointResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var StoragecachedimageManager *SStoragecachedimageManager
@@ -62,6 +63,7 @@ func init() {
 
 type SStoragecachedimage struct {
 	db.SJointResourceBase
+	db.SExternalizedResourceBase
 
 	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
@@ -69,7 +71,7 @@ type SStoragecachedimage struct {
 	CachedimageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 
 	// 外部Id
-	ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
+	// ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
 
 	// 镜像状态
 	Status string `width:"32" charset:"ascii" nullable:"false" default:"init" list:"admin" update:"admin" create:"admin_required"`
@@ -152,8 +154,7 @@ func (self *SStoragecachedimage) GetExtraDetails(
 	query jsonutils.JSONObject,
 	isList bool,
 ) (api.StoragecachedimageDetails, error) {
-	out := api.StoragecachedimageDetails{}
-	return self.getExtraDetails(ctx, out), nil
+	return api.StoragecachedimageDetails{}, nil
 }
 
 func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
@@ -172,6 +173,7 @@ func (manager *SStoragecachedimageManager) FetchCustomizeColumns(
 		rows[i] = api.StoragecachedimageDetails{
 			JointResourceBaseDetails: jointRows[i],
 		}
+		rows[i] = objs[i].(*SStoragecachedimage).getExtraDetails(ctx, rows[i])
 	}
 
 	return rows
@@ -487,4 +489,67 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 		return fmt.Errorf("register cached image fail")
 	}
 	return scimg.SetExternalId(image.GetGlobalId())
+}
+
+func (manager *SStoragecachedimageManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Storagecache) > 0 {
+		storageCacheObj, err := StoragecacheManager.FetchByIdOrName(userCred, query.Storagecache)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(StoragecacheManager.Keyword(), query.Storagecache)
+			} else {
+				return nil, errors.Wrap(err, "StoragecacheManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("storagecache_id", storageCacheObj.GetId())
+	}
+	if len(query.Cachedimage) > 0 {
+		cachedImageObj, err := CachedimageManager.FetchByIdOrName(userCred, query.Cachedimage)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), query.Cachedimage)
+			} else {
+				return nil, errors.Wrap(err, "CachedimageManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("cachedimage_id", cachedImageObj.GetId())
+	}
+
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
+	}
+
+	return q, nil
+}
+
+func (manager *SStoragecachedimageManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StoragecachedimageListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

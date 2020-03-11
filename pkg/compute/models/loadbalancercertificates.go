@@ -42,6 +42,7 @@ import (
 type SLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var LoadbalancerCertificateManager *SLoadbalancerCertificateManager
@@ -251,6 +252,10 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 
 	if query.Usable != nil && *query.Usable {
 		region := query.Cloudregion
@@ -282,6 +287,13 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(
 		} else {
 			q = q.IsNotEmpty("certificate").IsNotEmpty("private_key")
 		}
+	}
+
+	if len(query.CommonName) > 0 {
+		q = q.In("common_name", query.CommonName)
+	}
+	if len(query.SubjectAlternativeNames) > 0 {
+		q = q.In("subject_alternative_names", query.SubjectAlternativeNames)
 	}
 
 	return q, nil

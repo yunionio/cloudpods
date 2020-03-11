@@ -75,11 +75,13 @@ type ServerSkuListInput struct {
 
 	// filter sku by memory size in MB
 	MemorySizeMb int `json:"memory_size_mb"`
+	// filter sku by CPU core count
+	CpuCoreCount []int `json:"cpu_core_count"`
 }
 
 type ElasticcacheSkuListInput struct {
 	apis.StatusStandaloneResourceListInput
-	apis.DomainizedResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 
@@ -122,6 +124,7 @@ type ElasticcacheSkuListInput struct {
 
 type DBInstanceSkuListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	apis.DomainizedResourceListInput
 
 	ManagedResourceListInput
@@ -130,15 +133,15 @@ type DBInstanceSkuListInput struct {
 	billing.BillingResourceListInput
 
 	// StorageType
-	StorageType string `json:"storage_type"`
+	StorageType []string `json:"storage_type"`
 
-	VcpuCount int `json:"vcpu_count"`
+	VcpuCount []int `json:"vcpu_count"`
 
-	VmemSizeMb int `json:"vmem_size_mb"`
+	VmemSizeMb []int `json:"vmem_size_mb"`
 
-	Category string `json:"category"`
+	Category []string `json:"category"`
 
-	Engine string `json:"engine"`
+	Engine []string `json:"engine"`
 
-	EngineVersion string `json:"engine_version"`
+	EngineVersion []string `json:"engine_version"`
 }

@@ -37,6 +37,7 @@ import (
 type SExternalProjectManager struct {
 	db.SStandaloneResourceBaseManager
 	db.SProjectizedResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 }
 
@@ -296,6 +297,10 @@ func (manager *SExternalProjectManager) ListItemFilter(
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {

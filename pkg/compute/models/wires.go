@@ -42,6 +42,7 @@ import (
 
 type SWireManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
 }
@@ -64,8 +65,8 @@ type SWire struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	SVpcResourceBase
-	SZoneResourceBase
+	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
 	// 带宽大小, 单位Mbps
 	// example: 1000
@@ -815,6 +816,11 @@ func (manager *SWireManager) ListItemFilter(
 	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	zoneQuery := api.ZonalFilterListInput{

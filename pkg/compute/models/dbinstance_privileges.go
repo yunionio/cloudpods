@@ -33,6 +33,7 @@ import (
 
 type SDBInstancePrivilegeManager struct {
 	db.SResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var DBInstancePrivilegeManager *SDBInstancePrivilegeManager
@@ -114,9 +115,13 @@ func (manager *SDBInstancePrivilegeManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 
 	if len(query.Privilege) > 0 {
-		q = q.Equals("privilege", query.Privilege)
+		q = q.In("privilege", query.Privilege)
 	}
 
 	data := jsonutils.Marshal(query).(*jsonutils.JSONDict)

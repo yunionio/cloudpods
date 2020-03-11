@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
@@ -27,6 +28,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -34,6 +36,8 @@ import (
 
 type SLoadbalancernetworkManager struct {
 	db.SVirtualJointResourceBaseManager
+	SLoadbalancerResourceBaseManager
+	SNetworkResourceBaseManager
 }
 
 var LoadbalancernetworkManager *SLoadbalancernetworkManager
@@ -292,4 +296,75 @@ func totalLBNicCount(
 	q = rangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"))
 	q = CloudProviderFilter(q, lbs.Field("manager_id"), providers, brands, cloudEnv)
 	return q.CountWithError()
+}
+
+func (manager *SLoadbalancernetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancernetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SLoadbalancernetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.LoadbalancernetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SLoadbalancernetworkManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SLoadbalancerResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SNetworkResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

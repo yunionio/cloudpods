@@ -58,6 +58,7 @@ var (
 
 type SNetworkManager struct {
 	db.SSharableVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SWireResourceBaseManager
 }
 
@@ -1655,7 +1656,10 @@ func (manager *SNetworkManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
-
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SWireResourceBaseManager.ListItemFilter(ctx, q, userCred, input.WireFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemFilter")
@@ -1728,6 +1732,58 @@ func (manager *SNetworkManager) ListItemFilter(
 
 		ipCondtion := sqlchemy.OR(sqlchemy.Between(ipField, ipStart, ipEnd), sqlchemy.Contains(q.Field("guest_ip_start"), input.Ip), sqlchemy.Contains(q.Field("guest_ip_end"), input.Ip))
 		q = q.Filter(ipCondtion)
+	}
+
+	if len(input.IfnameHint) > 0 {
+		q = q.In("ifname_hint", input.IfnameHint)
+	}
+	if len(input.GuestIpStart) > 0 {
+		q = q.In("guest_ip_start", input.GuestIpStart)
+	}
+	if len(input.GuestIpEnd) > 0 {
+		q = q.In("guest_ip_end", input.GuestIpEnd)
+	}
+	if len(input.GuestIpMask) > 0 {
+		q = q.In("guest_ip_mask", input.GuestIpMask)
+	}
+	if len(input.GuestGateway) > 0 {
+		q = q.In("guest_gateway", input.GuestGateway)
+	}
+	if len(input.GuestDns) > 0 {
+		q = q.In("guest_dns", input.GuestDns)
+	}
+	if len(input.GuestDhcp) > 0 {
+		q = q.In("guest_dhcp", input.GuestDhcp)
+	}
+	if len(input.GuestDomain) > 0 {
+		q = q.In("guest_domain", input.GuestDomain)
+	}
+	if len(input.GuestIp6Start) > 0 {
+		q = q.In("guest_ip6_start", input.GuestIp6Start)
+	}
+	if len(input.GuestIp6End) > 0 {
+		q = q.In("guest_ip6_end", input.GuestIp6End)
+	}
+	if len(input.GuestIp6Mask) > 0 {
+		q = q.In("guest_ip6_mask", input.GuestIp6Mask)
+	}
+	if len(input.GuestGateway6) > 0 {
+		q = q.In("guest_gateway6", input.GuestGateway6)
+	}
+	if len(input.GuestDns6) > 0 {
+		q = q.In("guest_dns6", input.GuestDns6)
+	}
+	if len(input.GuestDomain6) > 0 {
+		q = q.In("guest_domain6", input.GuestDomain6)
+	}
+	if len(input.VlanId) > 0 {
+		q = q.In("vlan_id", input.VlanId)
+	}
+	if len(input.ServerType) > 0 {
+		q = q.In("server_type", input.ServerType)
+	}
+	if len(input.AllocPolicy) > 0 {
+		q = q.In("alloc_policy", input.AllocPolicy)
 	}
 
 	return q, nil

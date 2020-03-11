@@ -146,9 +146,19 @@ func (manager *SSchedtagManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SScopedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.ListItemFilter")
+	}
+
 	if resType := query.ResourceType; resType != "" {
 		q = q.Equals("resource_type", resType)
 	}
+
+	if len(query.DefaultStrategy) > 0 {
+		q = q.In("default_strategy", query.DefaultStrategy)
+	}
+
 	return q, nil
 }
 
@@ -164,6 +174,10 @@ func (manager *SSchedtagManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SScopedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ScopedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScopedResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -172,6 +186,10 @@ func (manager *SSchedtagManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	var err error
 
 	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SScopedResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -393,10 +411,11 @@ func (manager *SSchedtagManager) FetchCustomizeColumns(
 	rows := make([]api.SchedtagDetails, len(objs))
 
 	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	scopedRows := manager.SScopedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.SchedtagDetails{
 			StandaloneResourceDetails: stdRows[i],
+			ScopedResourceBaseInfo:    scopedRows[i],
 		}
 		rows[i] = objs[i].(*SSchedtag).getMoreColumns(rows[i])
 	}

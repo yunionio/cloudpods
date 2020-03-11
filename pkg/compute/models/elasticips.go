@@ -42,6 +42,7 @@ import (
 
 type SElasticipManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 }
@@ -63,11 +64,10 @@ func init() {
 
 type SElasticip struct {
 	db.SVirtualResourceBase
-
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	SBillingResourceBase
 
@@ -118,6 +118,11 @@ func (manager *SElasticipManager) ListItemFilter(
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)

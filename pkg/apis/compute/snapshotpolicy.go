@@ -28,3 +28,8 @@ type SnapshotPolicyDetails struct {
 
 	BindingDiskCount int `json:"binding_disk_count"`
 }
+
+type SnapshotPolicyResourceInfo struct {
+	// 快照策略名称
+	Snapshotpolicy string `json:"snapshotpolicy"`
+}

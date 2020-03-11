@@ -43,8 +43,11 @@ import (
 
 type SSnapshotManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+	SDiskResourceBaseManager
+	SStorageResourceBaseManager
 }
 
 type SSnapshot struct {
@@ -52,7 +55,7 @@ type SSnapshot struct {
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 磁盘Id
 	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user" index:"true"`
@@ -111,12 +114,14 @@ func (manager *SSnapshotManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
-
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
-
 	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
@@ -156,6 +161,32 @@ func (manager *SSnapshotManager) ListItemFilter(
 		}
 	}
 
+	diskInput := api.DiskFilterListInput{
+		DiskFilterListInputBase: query.DiskFilterListInputBase,
+	}
+	q, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, q, userCred, diskInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	}
+	storageInput := api.StorageFilterListInput{
+		StorageFilterListInputBase: query.StorageFilterListInputBase,
+	}
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, storageInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	if query.OutOfChain != nil {
+		if *query.OutOfChain {
+			q = q.IsTrue("out_of_chain")
+		} else {
+			q = q.IsFalse("out_of_chain")
+		}
+	}
+	if len(query.OsType) > 0 {
+		q = q.In("os_type", query.OsType)
+	}
+
 	return q, nil
 }
 
@@ -180,6 +211,21 @@ func (manager *SSnapshotManager) OrderByExtraFields(
 	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+
+	diskInput := api.DiskFilterListInput{
+		DiskFilterListInputBase: query.DiskFilterListInputBase,
+	}
+	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, diskInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+	}
+	storageInput := api.StorageFilterListInput{
+		StorageFilterListInputBase: query.StorageFilterListInputBase,
+	}
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, storageInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil

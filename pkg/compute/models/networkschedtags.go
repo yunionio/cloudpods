@@ -19,6 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -28,6 +30,7 @@ import (
 
 type SNetworkschedtagManager struct {
 	*SSchedtagJointsManager
+	SNetworkResourceBaseManager
 }
 
 var NetworkschedtagManager *SNetworkschedtagManager
@@ -121,4 +124,44 @@ func (s *SNetworkschedtag) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (s *SNetworkschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return s.SSchedtagJointsBase.detach(s, ctx, userCred)
+}
+
+func (manager *SNetworkschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.ListItemFilter(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SNetworkschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NetworkschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

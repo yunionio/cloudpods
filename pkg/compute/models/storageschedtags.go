@@ -19,6 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -28,6 +30,7 @@ import (
 
 type SStorageschedtagManager struct {
 	*SSchedtagJointsManager
+	SStorageResourceBaseManager
 }
 
 var StorageschedtagManager *SStorageschedtagManager
@@ -121,4 +124,44 @@ func (joint *SStorageschedtag) Delete(ctx context.Context, userCred mcclient.Tok
 
 func (joint *SStorageschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return joint.SSchedtagJointsBase.detach(joint, ctx, userCred)
+}
+
+func (manager *SStorageschedtagManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.ListItemFilter(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.ListItemFilter")
+	}
+	q, err = manager.SStorageResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SStorageschedtagManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.StorageschedtagListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSchedtagJointsManager.OrderByExtraFields(ctx, q, userCred, query.SchedtagJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSchedtagJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SStorageResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StorageFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStorageResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

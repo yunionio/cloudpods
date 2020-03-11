@@ -59,6 +59,7 @@ import (
 
 type SHostManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
 }
@@ -199,6 +200,11 @@ func (manager *SHostManager) ListItemFilter(
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SZoneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ZonalFilterListInput)

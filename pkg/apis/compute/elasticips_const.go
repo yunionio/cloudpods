@@ -55,6 +55,7 @@ var (
 
 type ElasticipListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	RegionalFilterListInput

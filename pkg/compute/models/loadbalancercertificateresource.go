@@ -152,5 +152,5 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) GetOrderBySubQuery(
 }
 
 func (manager *SLoadbalancerCertificateResourceBaseManager) GetOrderByFields(query api.LoadbalancerCertificateFilterListInput) []string {
-	return []string{query.Certificate}
+	return []string{query.OrderByCertificate}
 }

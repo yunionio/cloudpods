@@ -92,6 +92,14 @@ func (man *SNatSEntryManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.IP) > 0 {
+		q = q.In("ip", query.IP)
+	}
+	if len(query.SourceCIDR) > 0 {
+		q = q.In("source_cidr", query.SourceCIDR)
+	}
+
 	return q, nil
 }
 

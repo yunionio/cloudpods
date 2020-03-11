@@ -33,47 +33,86 @@ const (
 
 type LoadbalancerListenerListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	LoadbalancerFilterListInput
 
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
 	// filter by acl
 	Acl string `json:"acl"`
+
+	ListenerType []string `json:"listener_type"`
+	ListenerPort []int    `json:"listener_port"`
+
+	Scheduler []string `json:"scheduler"`
+
+	SendProxy []string `json:"send_proxy"`
+
+	AclStatus []string `json:"acl_status"`
+	AclType   []string `json:"acl_type"`
 }
 
 type LoadbalancerListenerRuleListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	LoadbalancerListenerFilterListInput
 
 	// filter by backend_group
 	BackendGroup string `json:"backend_group"`
+
+	// 默认转发策略，目前只有aws用到其它云都是false
+	IsDefault *bool `json:"is_default"`
+
+	Domain []string `json:"domain"`
+	Path   []string `json:"path"`
 }
 
 type LoadbalancerListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
 	VpcFilterListInput
 	ZonalFilterListBase
 	NetworkFilterListBase
 
 	// filter by cluster
 	Cluster string `json:"cluster"`
+
+	Address []string `json:"address"`
+	// 地址类型
+	AddressType []string `json:"address_type"`
+	// 网络类型
+	NetworkType []string `json:"network_type"`
+	// 计费类型
+	ChargeType []string `json:"charge_type"`
+	// 套餐名称
+	LoadbalancerSpec []string `json:"loadbalancer_spec"`
 }
 
 type LoadbalancerAgentListInput struct {
 	apis.StandaloneResourceListInput
 	LoadbalancerClusterFilterListInput
+
+	Version []string `json:"version"`
+	IP      []string `json:"ip"`
+	HaState []string `json:"ha_state"`
 }
 
 type LoadbalancerCertificateListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	UsableResourceListInput
 	RegionalFilterListInput
 	ManagedResourceListInput
+
+	CommonName              []string `json:"common_name"`
+	SubjectAlternativeNames []string `json:"subject_alternative_names"`
 }
 
 type LoadbalancerBackendListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	LoadbalancerBackendGroupFilterListInput
 
@@ -82,15 +121,25 @@ type LoadbalancerBackendListInput struct {
 
 	// filter by backend group
 	// BackendGroup string `json:"backend_group"`
+
+	BackendType []string `json:"backend_type"`
+	BackendRole []string `json:"backend_role"`
+	Address     []string `json:"address"`
+
+	SendProxy []string `json:"send_proxy"`
+	Ssl       []string `json:"ssl"`
 }
 
 type LoadbalancerBackendGroupListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	LoadbalancerFilterListInput
 
 	// filter LoadbalancerBackendGroup with no reference
 	NoRef *bool `json:"no_ref"`
+
+	Type []string `json:"type"`
 }
 
 type LoadbalancerClusterListInput struct {
@@ -102,9 +151,13 @@ type LoadbalancerClusterListInput struct {
 
 type LoadbalancerAclListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	RegionalFilterListInput
+
+	//
+	Fingerprint string `json:"fingerprint"`
 }
 
 type LoadbalancerDetails struct {

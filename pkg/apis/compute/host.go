@@ -48,7 +48,7 @@ type DiskSpec struct {
 
 type HostListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
-	apis.DomainizedResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	ZonalFilterListInput

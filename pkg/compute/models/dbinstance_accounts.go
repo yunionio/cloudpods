@@ -39,6 +39,7 @@ import (
 
 type SDBInstanceAccountManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SDBInstanceResourceBaseManager
 }
 
@@ -60,7 +61,7 @@ type SDBInstanceAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	SDBInstanceResourceBase
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// 数据库密码
 	Secret string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
@@ -198,6 +199,10 @@ func (manager *SDBInstanceAccountManager) ListItemFilter(
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -29,6 +30,7 @@ import (
 
 type SGroupguestManager struct {
 	SGroupJointsManager
+	SGuestResourceBaseManager
 }
 
 var GroupguestManager *SGroupguestManager
@@ -151,4 +153,48 @@ func (self *SGroupguestManager) Attach(ctx context.Context, groupId, guestId str
 	}
 	joint.SetModelManager(self, joint)
 	return joint, nil
+}
+
+func (manager *SGroupguestManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupguestListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.ListItemFilter(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemFilter")
+	}
+	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GuestFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Tag) > 0 {
+		q = q.In("tag", query.Tag)
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupguestManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupguestListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.OrderByExtraFields(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GuestFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

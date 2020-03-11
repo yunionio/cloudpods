@@ -50,6 +50,7 @@ import (
 
 type SBucketManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
 }
@@ -71,7 +72,7 @@ func init() {
 type SBucket struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	SManagedResourceBase
 
 	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -601,6 +602,11 @@ func (manager *SBucketManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -612,13 +618,13 @@ func (manager *SBucketManager) ListItemFilter(
 	}
 
 	if len(query.StorageClass) > 0 {
-		q = q.Equals("storage_class", query.StorageClass)
+		q = q.In("storage_class", query.StorageClass)
 	}
 	if len(query.Location) > 0 {
-		q = q.Equals("location", query.Location)
+		q = q.In("location", query.Location)
 	}
 	if len(query.Acl) > 0 {
-		q = q.Equals("acl", query.Acl)
+		q = q.In("acl", query.Acl)
 	}
 
 	return q, nil

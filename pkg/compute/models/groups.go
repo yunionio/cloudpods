@@ -66,26 +66,26 @@ func init() {
 type SGroup struct {
 	db.SVirtualResourceBase
 
-	SZoneResourceBase
+	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
-	db.SEnabledResourceBase
+	db.SEnabledResourceBase `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 
 	// 服务类型
-	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"service_type"`
-	ParentId    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"parent_id"`
+	ServiceType string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
+	ParentId    string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
 	// 可用区Id
 	// example: zone1
-	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional" json:"zone_id"`
+	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`
 
 	// 调度策略
-	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional" json:"sched_strategy"`
+	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"`
 
 	// the upper limit number of guests with this group in a host
-	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1" json:"granularity"`
-	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true" json:"force_dispersion"`
+	Granularity     int               `nullable:"false" list:"user" get:"user" create:"optional" update:"user" default:"1"`
+	ForceDispersion tristate.TriState `list:"user" get:"user" create:"optional" update:"user" default:"true"`
 	// 是否启用
-	// Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user" json:"enabled"`
+	// Enabled tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 }
 
 // 主机组列表

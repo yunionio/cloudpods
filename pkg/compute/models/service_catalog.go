@@ -181,6 +181,17 @@ func (manager *SServiceCatalogManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
+	if len(input.GuestTemplate) > 0 {
+		gtObj, err := GuestTemplateManager.FetchByIdOrName(userCred, input.GuestTemplate)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(GuestTemplateManager.Keyword(), input.GuestTemplate)
+			} else {
+				return nil, errors.Wrap(err, "GuestTemplateManager.FetchByIdOrName")
+			}
+		}
+		q = q.Equals("guest_template_id", gtObj.GetId())
+	}
 	return q, nil
 }
 

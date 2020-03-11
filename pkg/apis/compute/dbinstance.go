@@ -164,6 +164,8 @@ type SDBInstanceRecoveryConfigInput struct {
 
 type DBInstanceListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
 
 	VpcFilterListInput
 
@@ -188,6 +190,7 @@ type DBInstanceListInput struct {
 
 type DBInstanceBackupListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	ManagedResourceListInput
 	RegionalFilterListInput
 
@@ -195,14 +198,14 @@ type DBInstanceBackupListInput struct {
 
 	// RDS引擎
 	// example: MySQL
-	Engine string `json:"engine"`
+	Engine []string `json:"engine"`
 
 	// RDS引擎版本
 	// example: 5.7
-	EngineVersion string `json:"engine_version"`
+	EngineVersion []string `json:"engine_version"`
 
 	// 备份模式
-	BackupMode string `json:"backup_mode"`
+	BackupMode []string `json:"backup_mode"`
 
 	// 数据库名称
 	DBNames string `json:"db_names"`
@@ -210,6 +213,7 @@ type DBInstanceBackupListInput struct {
 
 type DBInstancePrivilegeListInput struct {
 	apis.ResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
 
 	// filter by dbinstanceaccount
 	Dbinstanceaccount string `json:"dbinstanceaccount"`
@@ -217,12 +221,12 @@ type DBInstancePrivilegeListInput struct {
 	Dbinstancedatabase string `json:"dbinstancedatabase"`
 
 	// 权限
-	Privilege string `json:"privilege"`
+	Privilege []string `json:"privilege"`
 }
 
 type DBInstanceParameterListInput struct {
 	apis.StandaloneResourceListInput
-
+	apis.ExternalizedResourceBaseListInput
 	DBInstanceFilterListInput
 
 	// 参数名称
@@ -234,6 +238,7 @@ type DBInstanceParameterListInput struct {
 
 type DBInstanceDatabaseListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	DBInstanceFilterListInput
 
@@ -243,6 +248,7 @@ type DBInstanceDatabaseListInput struct {
 
 type DBInstanceAccountListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	DBInstanceFilterListInput
 }

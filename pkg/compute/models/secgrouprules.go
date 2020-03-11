@@ -40,6 +40,7 @@ import (
 
 type SSecurityGroupRuleManager struct {
 	db.SResourceBaseManager
+	SSecurityGroupResourceBaseManager
 }
 
 var SecurityGroupRuleManager *SSecurityGroupRuleManager
@@ -58,6 +59,8 @@ func init() {
 
 type SSecurityGroupRule struct {
 	db.SResourceBase
+	SSecurityGroupResourceBase `create:"required"`
+
 	Id          string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Priority    int64  `default:"1" list:"user" update:"user" list:"user"`
 	Protocol    string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
@@ -66,7 +69,7 @@ type SSecurityGroupRule struct {
 	CIDR        string `width:"256" charset:"ascii" list:"user" update:"user" create:"required"`
 	Action      string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	Description string `width:"256" charset:"utf8" list:"user" update:"user" create:"optional"`
-	SecgroupID  string `width:"128" charset:"ascii" create:"required"`
+	// SecgroupID  string `width:"128" charset:"ascii" create:"required"`
 }
 
 func (self *SSecurityGroupRule) GetId() string {
@@ -147,12 +150,12 @@ func (self *SSecurityGroupRule) AllowDeleteItem(ctx context.Context, userCred mc
 	return false
 }
 
-func (self *SSecurityGroupRule) GetSecGroup() *SSecurityGroup {
-	if secgroup, _ := SecurityGroupManager.FetchById(self.SecgroupID); secgroup != nil {
+/*func (self *SSecurityGroupRule) GetSecGroup() *SSecurityGroup {
+	if secgroup, _ := SecurityGroupManager.FetchById(self.SecgroupI); secgroup != nil {
 		return secgroup.(*SSecurityGroup)
 	}
 	return nil
-}
+}*/
 
 func (manager *SSecurityGroupRuleManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
 	return q.Equals("id", idStr)
@@ -169,13 +172,17 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
-	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
+	sql, err = manager.SSecurityGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
+	}
+	/*if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
 		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
 			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
 		}
-	}
+	}*/
 	if len(query.Direction) > 0 {
 		sql = sql.Equals("direction", query.Direction)
 	}
@@ -200,6 +207,10 @@ func (manager *SSecurityGroupRuleManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SSecurityGroupResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -208,6 +219,10 @@ func (manager *SSecurityGroupRuleManager) QueryDistinctExtraField(q *sqlchemy.SQ
 	var err error
 
 	q, err = manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SSecurityGroupResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -414,8 +429,8 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 		CIDR:        cidr,
 		Action:      string(rule.Action),
 		Description: rule.Description,
-		SecgroupID:  secgroup.Id,
 	}
+	secrule.SecgroupId = secgroup.Id
 
 	err := manager.TableSpec().Insert(secrule)
 	if err != nil {

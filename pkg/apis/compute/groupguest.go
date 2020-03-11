@@ -25,6 +25,11 @@ type GroupJointResourceDetails struct {
 	Instancegroup string `json:"instance_group"`
 }
 
+type GroupJointsListInput struct {
+	apis.VirtualJointResourceBaseListInput
+	GroupFilterListInput
+}
+
 type GroupguestDetails struct {
 	GroupJointResourceDetails
 
@@ -32,4 +37,12 @@ type GroupguestDetails struct {
 	Guest  string
 
 	SGroupguest
+}
+
+type GroupguestListInput struct {
+	GroupJointsListInput
+	GuestFilterListInput
+
+	// 标签
+	Tag []string `json:"tag"`
 }

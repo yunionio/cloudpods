@@ -41,46 +41,71 @@ type KeypairListInput struct {
 
 	// list in admin mode
 	Admin *bool `json:"admin"`
+
+	// 加密类型
+	// example: RSA
+	Scheme []string `json:"scheme"`
+
+	// 指纹信息
+	// example: 1d:3a:83:4a:a1:f3:75:97:ec:d1:ef:f8:3f:a7:5d:9e
+	Fingerprint []string `json:"fingerprint"`
 }
 
 type CachedimageListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	ZonalFilterListInput
 
 	// 镜像类型，可能值为: system(公有云公共镜像), customized(自定义镜像)
 	// example: system
-	ImageType string `json:"image_type"`
+	ImageType []string `json:"image_type"`
 }
 
 type ExternalProjectListInput struct {
 	apis.StandaloneResourceListInput
 	apis.ProjectizedResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 }
 
 type RouteTableListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	VpcFilterListInput
+
+	// filter by type
+	Type []string `json:"type"`
 }
 
 type SnapshotPolicyCacheListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
 	ManagedResourceListInput
 	RegionalFilterListInput
+	SnapshotPolicyFilterListInput
 
 	// filter by snapshotpolicy Id or Name
-	Snapshotpolicy string `json:"snapshotpolicy"`
+	//Snapshotpolicy string `json:"snapshotpolicy"`
 }
 
 type NetworkInterfaceListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
 	RegionalFilterListInput
+
+	// MAC地址
+	Mac []string `json:"mac"`
+	// 绑定资源类型
+	AssociateType []string `json:"associate_type"`
+	// 绑定资源Id
+	AssociateId []string `json:"associate_id"`
 }
 
 type BaremetalagentListInput struct {
@@ -88,11 +113,11 @@ type BaremetalagentListInput struct {
 	ZonalFilterListInput
 
 	// 以状态过滤
-	Status string `json:"status"`
+	Status []string `json:"status"`
 	// 以IP地址过滤
-	AccessIp string `json:"access_ip"`
+	AccessIp []string `json:"access_ip"`
 	// 以AgentType过滤
-	AgentType string `json:"agent_type"`
+	AgentType []string `json:"agent_type"`
 }
 
 type DnsRecordListInput struct {
@@ -114,14 +139,33 @@ type GuestTemplateListInput struct {
 type SchedpolicyListInput struct {
 	apis.StandaloneResourceListInput
 	SchedtagFilterListInput
+
+	//
+	Strategy []string `json:"strategy"`
+
+	//
+	Enabled *bool `json:"enabled"`
+}
+
+type GuestTemplateFilterListInput struct {
+	// 主机镜像
+	GuestTemplate string `json:"guest_template"`
+	// swagger:ignore
+	// Deprecated
+	GuestTemplateId string `json:"guest_template_id" deprecated-by:"guest_template"`
 }
 
 type ServiceCatalogListInput struct {
 	apis.SharableVirtualResourceListInput
+
+	GuestTemplateFilterListInput
 }
 
 type SnapshotPolicyListInput struct {
 	apis.VirtualResourceListInput
+
+	// 是否启用？
+	IsActivated *bool `json:"is_activated"`
 }
 
 type DnsRecordDetails struct {

@@ -39,6 +39,7 @@ import (
 
 type SCloudregionManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var CloudregionManager *SCloudregionManager
@@ -632,6 +633,8 @@ func (manager *SCloudregionManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.CloudregionListInput,
 ) (*sqlchemy.SQuery, error) {
+	var err error
+
 	providerStrs := query.Providers
 	if len(providerStrs) > 0 {
 		subq := queryCloudregionIdsByProviders("provider", providerStrs)
@@ -644,9 +647,14 @@ func (manager *SCloudregionManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "")
 	}
 
 	cloudEnvStr := query.CloudEnv
@@ -756,7 +764,7 @@ func (manager *SCloudregionManager) ListItemFilter(
 	}
 
 	if len(query.Environment) > 0 {
-		q = q.Equals("environment", query.Environment)
+		q = q.In("environment", query.Environment)
 	}
 
 	return q, nil

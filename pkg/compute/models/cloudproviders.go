@@ -49,6 +49,8 @@ import (
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SProjectizedResourceBaseManager
+
+	SSyncableBaseResourceManager
 }
 
 var CloudproviderManager *SCloudproviderManager
@@ -1019,7 +1021,11 @@ func (manager *SCloudproviderManager) ListItemFilter(
 
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
 	}
 
 	managerStr := query.Cloudprovider
@@ -1063,9 +1069,6 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		q = q.In("id", subq)
 	}
 
-	if len(query.SyncStatus) > 0 {
-		q = q.In("sync_status", query.SyncStatus)
-	}
 	if len(query.HealthStatus) > 0 {
 		q = q.In("health_status", query.HealthStatus)
 	}

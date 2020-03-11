@@ -53,7 +53,7 @@ func init() {
 
 type SReservedip struct {
 	db.SResourceBase
-	SNetworkResourceBase
+	SNetworkResourceBase `width:"36" charset:"ascii" nullable:"false" list:"admin"`
 
 	// 自增Id
 	Id int64 `primary:"true" auto_increment:"true" list:"admin"`
@@ -246,6 +246,13 @@ func (manager *SReservedipManager) ListItemFilter(
 			sqlchemy.IsNullOrEmpty(q.Field("expired_at")),
 			sqlchemy.GT(q.Field("expired_at"), time.Now().UTC()),
 		))
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+	if len(query.Status) > 0 {
+		q = q.In("status", query.Status)
 	}
 
 	return q, nil

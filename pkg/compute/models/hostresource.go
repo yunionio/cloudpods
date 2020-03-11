@@ -32,7 +32,7 @@ import (
 )
 
 type SHostResourceBase struct {
-	HostId string `width:"36" charset:"ascii" nullable:"true" list:"user" index:"true" create:"optional"`
+	HostId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 type SHostResourceBaseManager struct {

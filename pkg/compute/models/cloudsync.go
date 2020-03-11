@@ -41,6 +41,8 @@ type SSyncableBaseResource struct {
 	LastSyncEndAt time.Time `list:"domain"`
 }
 
+type SSyncableBaseResourceManager struct{}
+
 func (self *SSyncableBaseResource) CanSync() bool {
 	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 1800*time.Second {
@@ -51,6 +53,18 @@ func (self *SSyncableBaseResource) CanSync() bool {
 	} else {
 		return true
 	}
+}
+
+func (manager *SSyncableBaseResourceManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.SyncableBaseResourceListInput,
+) (*sqlchemy.SQuery, error) {
+	if len(query.SyncStatus) > 0 {
+		q = q.In("sync_status", query.SyncStatus)
+	}
+	return q, nil
 }
 
 type sStoragecacheSyncPair struct {

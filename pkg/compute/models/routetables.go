@@ -97,6 +97,7 @@ func (routes *SRoutes) Validate(data *jsonutils.JSONDict) error {
 
 type SRouteTableManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
 }
 
@@ -140,9 +141,18 @@ func (man *SRouteTableManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Type) > 0 {
+		q = q.In("type", query.Type)
 	}
 
 	return q, nil

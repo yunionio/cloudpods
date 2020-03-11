@@ -212,8 +212,7 @@ type CloudaccountListInput struct {
 
 	CapabilityListInput
 
-	// 同步状态
-	SyncStatus []string `json:"sync_status"`
+	SyncableBaseResourceListInput
 
 	// 账号健康状态
 	HealthStatus []string `json:"health_status"`

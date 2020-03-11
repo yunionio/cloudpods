@@ -26,3 +26,12 @@ type LoadbalancernetworkDetails struct {
 	// IP子网名称
 	Network string `json:"network"`
 }
+
+type LoadbalancernetworkListInput struct {
+	apis.VirtualJointResourceBaseListInput
+
+	LoadbalancerFilterListInput
+	NetworkFilterListInput
+
+	IpAddr []string `json:"ip_addr"`
+}

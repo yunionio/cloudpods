@@ -322,7 +322,7 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	}
 
 	jsonDict := jsonutils.Marshal(self).(*jsonutils.JSONDict)
-	fields := db.GetDetailFields(self.GetModelManager(), userCred)
+	fields, _ := db.GetDetailFields(self.GetModelManager(), userCred)
 	for _, k := range jsonDict.SortedKeys() {
 		if utils.IsInStringArray(k, fields) {
 			val, _ := jsonDict.GetString(k)

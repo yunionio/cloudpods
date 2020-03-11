@@ -58,6 +58,7 @@ type SchedtagFilterListInput struct {
 
 type SchedtagListInput struct {
 	apis.StandaloneResourceListInput
+	apis.ScopedResourceBaseListInput
 
 	// fitler by resource_type
 	ResourceType string `json:"resource_type"`
@@ -65,19 +66,23 @@ type SchedtagListInput struct {
 	// Deprecated
 	// filter by type, alias for resource_type
 	Type string `json:"type" deprecated-by:"resource_type"`
+
+	DefaultStrategy []string `json:"default_strategy"`
 }
 
 type SchedtagDetails struct {
 	apis.StandaloneResourceDetails
+	apis.ScopedResourceBaseInfo
+
 	SSchedtag
 
-	DynamicSchedtagCount int    `json:"dynamic_schedtag_count"`
-	SchedpolicyCount     int    `json:"schedpolicy_count"`
-	ProjectId            string `json:"project_id"`
-	HostCount            int    `json:"host_count"`
-	ServerCount          int    `json:"server_count"`
-	OtherCount           int    `json:"other_count"`
-	JoinModelKeyword     string `json:"join_model_keyword"`
+	DynamicSchedtagCount int `json:"dynamic_schedtag_count"`
+	SchedpolicyCount     int `json:"schedpolicy_count"`
+	// ProjectId            string `json:"project_id"`
+	HostCount        int    `json:"host_count"`
+	ServerCount      int    `json:"server_count"`
+	OtherCount       int    `json:"other_count"`
+	JoinModelKeyword string `json:"join_model_keyword"`
 }
 
 type SchedtagResourceInfo struct {

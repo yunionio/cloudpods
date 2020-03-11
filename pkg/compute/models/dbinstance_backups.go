@@ -39,6 +39,7 @@ import (
 
 type SDBInstanceBackupManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SDBInstanceResourceBaseManager
@@ -64,7 +65,7 @@ type SDBInstanceBackup struct {
 	SManagedResourceBase
 	db.SExternalizedResourceBase
 
-	SDBInstanceResourceBase
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// RDS引擎
 	// example: MySQL
@@ -107,6 +108,11 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -126,13 +132,13 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(
 	}
 
 	if len(query.Engine) > 0 {
-		q = q.Equals("engine", query.Engine)
+		q = q.In("engine", query.Engine)
 	}
 	if len(query.EngineVersion) > 0 {
-		q = q.Equals("engine_version", query.EngineVersion)
+		q = q.In("engine_version", query.EngineVersion)
 	}
 	if len(query.BackupMode) > 0 {
-		q = q.Equals("backup_mode", query.BackupMode)
+		q = q.In("backup_mode", query.BackupMode)
 	}
 	if len(query.DBNames) > 0 {
 		q = q.Contains("db_names", query.DBNames)

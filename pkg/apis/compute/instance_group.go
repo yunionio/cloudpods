@@ -48,7 +48,15 @@ type GroupFilterListInput struct {
 	// 以指定实例组（ID或Name）过滤列表结果
 	Group string `json:"group"`
 	// swagger:ignore
-	// deprecated: true
+	// Deprecated
 	// Filter by instance group Id
 	GroupId string `json:"group_id" deprecated-by:"group"`
+
+	// 按组名排序
+	OrderByGroup string `json:"order_by_group"`
+}
+
+type GroupResourceInfo struct {
+	// 实例组名称
+	Group string `json:"group"`
 }

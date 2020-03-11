@@ -37,6 +37,7 @@ import (
 
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SCloudregionResourceBaseManager
 }
 
@@ -58,7 +59,7 @@ func init() {
 type SZone struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
 	Location   string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"`
 	Contacts   string `width:"256" charset:"utf8" get:"user" update:"admin"`
@@ -490,10 +491,19 @@ func NetworkUsableZoneQueries(field sqlchemy.IQueryField, usableNet, usableVpc b
 }
 
 // 可用区列表
-func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.ZoneListInput) (*sqlchemy.SQuery, error) {
+func (manager *SZoneManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.ZoneListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	cloudEnvStr := query.CloudEnv
@@ -581,6 +591,13 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "", nil)
+
+	if len(query.Location) > 0 {
+		q = q.In("location", query.Location)
+	}
+	if len(query.Contacts) > 0 {
+		q = q.In("contacts", query.Contacts)
+	}
 
 	return q, nil
 }

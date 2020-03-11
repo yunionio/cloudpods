@@ -41,6 +41,7 @@ import (
 type SLoadbalancerBackendManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SLoadbalancerBackendgroupResourceBaseManager
 }
 
@@ -64,7 +65,7 @@ type SLoadbalancerBackend struct {
 
 	//SManagedResourceBase
 	//SCloudregionResourceBase
-	SLoadbalancerBackendgroupResourceBase
+	SLoadbalancerBackendgroupResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	BackendId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
@@ -97,6 +98,10 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SLoadbalancerBackendgroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerBackendGroupFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerBackendgroupResourceBaseManager.ListItemFilter")
@@ -113,6 +118,23 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(
 	if err != nil {
 		return nil, err
 	}
+
+	if len(query.BackendType) > 0 {
+		q = q.In("backend_type", query.BackendType)
+	}
+	if len(query.BackendRole) > 0 {
+		q = q.In("backend_role", query.BackendRole)
+	}
+	if len(query.Address) > 0 {
+		q = q.In("address", query.Address)
+	}
+	if len(query.SendProxy) > 0 {
+		q = q.In("send_proxy", query.SendProxy)
+	}
+	if len(query.Ssl) > 0 {
+		q = q.In("ssl", query.Ssl)
+	}
+
 	return q, nil
 }
 

@@ -246,7 +246,9 @@ func FetchCustomizeColumns(
 	}
 	retVal := make([]*jsonutils.JSONDict, ret[0].Len())
 	for i := 0; i < ret[0].Len(); i += 1 {
-		retVal[i] = ValueToJSONDict(ret[0].Index(i))
+		jsonDict := ValueToJSONDict(ret[0].Index(i))
+		jsonDict.Update(jsonutils.Marshal(objs[i]))
+		retVal[i] = jsonDict
 	}
 	return retVal, nil
 }

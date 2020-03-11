@@ -41,6 +41,7 @@ import (
 type SLoadbalancerListenerManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SLoadbalancerResourceBaseManager
 }
 
@@ -123,7 +124,7 @@ type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SLoadbalancerResourceBase
+	SLoadbalancerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	//LoadbalancerId    string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -216,6 +217,10 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
@@ -233,6 +238,26 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(
 	if err != nil {
 		return nil, err
 	}
+
+	if len(query.ListenerType) > 0 {
+		q = q.In("listener_type", query.ListenerType)
+	}
+	if len(query.ListenerPort) > 0 {
+		q = q.In("listener_port", query.ListenerPort)
+	}
+	if len(query.Scheduler) > 0 {
+		q = q.In("scheduler", query.Scheduler)
+	}
+	if len(query.SendProxy) > 0 {
+		q = q.In("send_proxy", query.SendProxy)
+	}
+	if len(query.AclStatus) > 0 {
+		q = q.In("acl_status", query.AclStatus)
+	}
+	if len(query.AclType) > 0 {
+		q = q.In("acl_type", query.AclType)
+	}
+
 	return q, nil
 }
 

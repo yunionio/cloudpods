@@ -144,13 +144,19 @@ type SecgroupListInput struct {
 	// 按缓存关联主机数排序
 	// pattern:asc|desc
 	OrderByGuestCnt string `json:"order_by_guest_cnt"`
+
+	// 是否被修改
+	IsDirty *bool `json:"is_dirty"`
 }
 
 type SecurityGroupCacheListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
 	ManagedResourceListInput
 	RegionalFilterListInput
 
+	VpcFilterListInput
 	SecgroupFilterListInput
 }
 
@@ -173,6 +179,9 @@ type SecgroupFilterListInput struct {
 	// Deprecated
 	// filter by secgroup_id
 	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
+
+	// 以安全组排序
+	OrderBySecgroup string `json:"order_by_secgroup"`
 }
 
 type SecgroupDetails struct {
@@ -189,4 +198,14 @@ type SecgroupDetails struct {
 	InRules string `json:"in_rules"`
 	// 出方向规则信息
 	OutRules string `json:"out_rules"`
+}
+
+type SecurityGroupResourceInfo struct {
+	// 安全组名称
+	Secgroup string `json:"secgroup"`
+}
+
+type GuestsecgroupListInput struct {
+	GuestJointsListInput
+	SecgroupFilterListInput
 }

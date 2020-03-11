@@ -54,7 +54,7 @@ func init() {
 type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
-	SWireResourceBase
+	SWireResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 	//WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 

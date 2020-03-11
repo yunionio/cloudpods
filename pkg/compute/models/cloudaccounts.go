@@ -54,6 +54,7 @@ import (
 
 type SCloudaccountManager struct {
 	db.SEnabledStatusDomainLevelResourceBaseManager
+	SSyncableBaseResourceManager
 }
 
 var CloudaccountManager *SCloudaccountManager
@@ -1251,6 +1252,11 @@ func (manager *SCloudaccountManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusDomainLevelResourceBaseManager")
 	}
+	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
+	}
+
 	managerStr := query.Cloudprovider
 	if len(managerStr) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
@@ -1288,9 +1294,6 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.In("id", subq.SubQuery())
 	}
 
-	if len(query.SyncStatus) > 0 {
-		q = q.In("sync_status", query.SyncStatus)
-	}
 	if len(query.HealthStatus) > 0 {
 		q = q.In("health_status", query.HealthStatus)
 	}
