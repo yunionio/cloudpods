@@ -787,6 +787,9 @@ func (self *SHost) DoCreateVM(ctx context.Context, ds *SDatastore, params SCreat
 			ctrlKey = 1000
 			index = scsiIdx
 			scsiIdx += 1
+			if scsiIdx == 7 {
+				scsiIdx++
+			}
 		} else {
 			ctrlKey = 200 + ideIdx/2
 			index = ideIdx % 2
@@ -951,6 +954,9 @@ func (host *SHost) CloneVM(ctx context.Context, from *SVirtualMachine, ds *SData
 			var key int32 = 2000
 			sameDisk := from.FindDiskByDriver("scsi", "pvscsi")
 			index += int32(len(sameDisk))
+			if index >= 7 {
+				index++
+			}
 			if len(sameDisk) > 0 {
 				key = minDiskKey(sameDisk)
 			}
