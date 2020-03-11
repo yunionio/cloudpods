@@ -51,7 +51,7 @@ type HoststorageDetails struct {
 	// 镜像缓存路径
 	ImagecachePath string `json:"imagecache_path"`
 	// 存储缓存Id
-	StoragecacheId string `json:"storagecached_id"`
+	StoragecacheId string `json:"storagecache_id"`
 
 	GuestDiskCount int `json:"guest_disk_count,allowempty"`
 }
