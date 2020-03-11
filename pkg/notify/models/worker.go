@@ -39,8 +39,9 @@ func init() {
 func Send(notifications []*SNotification, userCred mcclient.TokenCredential, contacts []string) {
 
 	for i := range notifications {
+		notification, contact := notifications[i], contacts[i]
 		workMan.Run(func() {
-			sendone(context.Background(), userCred, notifications[i], contacts[i])
+			sendone(context.Background(), userCred, notification, contact)
 		}, nil, nil)
 	}
 }
@@ -108,10 +109,13 @@ func SendVerifyMessage(ctx context.Context, userCred mcclient.TokenCredential, v
 	return nil
 }
 
-func PullContact(uid string, contactType string) {
-	workMan.Run(func() {
-		pullContact(context.Background(), uid, contactType)
-	}, nil, nil)
+func PullContact(uid string, contactTypes []string) {
+	for i := range contactTypes {
+		ct := contactTypes[i]
+		workMan.Run(func() {
+			pullContact(context.Background(), uid, ct)
+		}, nil, nil)
+	}
 }
 
 func pullContact(ctx context.Context, uid string, contactType string) {
@@ -143,6 +147,10 @@ func pullContact(ctx context.Context, uid string, contactType string) {
 		origin := subContact.Contact
 		_, err := db.Update(subContact, func() error {
 			subContact.Contact = userid
+			subContact.VerifiedAt = time.Now()
+			if subContact.Status != CONTACT_VERIFIED {
+				subContact.Status = CONTACT_VERIFIED
+			}
 			return nil
 		})
 		if err != nil {

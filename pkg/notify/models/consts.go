@@ -18,7 +18,9 @@ const (
 	EMAIL      = "email"
 	MOBILE     = "mobile"
 	DINGTALK   = "dingtalk"
+	FEISHU     = "feishu"
 	WEBCONSOLE = "webconsole"
+	ROBOT      = "robot"
 
 	NOTIFY_RECEIVED = "received"  // Received a task about sending a notification
 	NOTIFY_SENT     = "sent"      // Nofity module has sent notification, but result unkown
@@ -40,5 +42,6 @@ const (
 // In webconsole, uid is the same as contact.
 var UpdateNotAllow = map[string]struct{}{
 	DINGTALK:   {},
+	FEISHU:     {},
 	WEBCONSOLE: {},
 }
