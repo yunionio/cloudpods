@@ -31,7 +31,7 @@ import (
 )
 
 type SZoneResourceBase struct {
-	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"zone_id"`
+	ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional" update:"user" json:"zone_id"`
 }
 
 type SZoneResourceBaseManager struct {
