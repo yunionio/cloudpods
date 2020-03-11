@@ -41,7 +41,7 @@ func init() {
 		NotificationCreateOptions
 	}
 
-	R(&NotificationCreateSingleOptions{}, "notify", "Send a notification to someones", func(s *mcclient.ClientSession,
+	R(&NotificationCreateSingleOptions{}, "notify", "Send a notification to someone", func(s *mcclient.ClientSession,
 		args *NotificationCreateSingleOptions) error {
 
 		msg := notify.SNotifyMessage{}
