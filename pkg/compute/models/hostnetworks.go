@@ -16,10 +16,10 @@ package models
 
 import (
 	"context"
-	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -57,11 +57,11 @@ type SHostnetwork struct {
 	// 宿主机ID
 	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
 	// 网络ID
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
 	// IP地址
-	IpAddr      string `width:"16" charset:"ascii" list:"admin"`
+	IpAddr string `width:"16" charset:"ascii" list:"admin"`
 	// MAC地址
-	MacAddr     string `width:"18" charset:"ascii" list:"admin"`
+	MacAddr string `width:"18" charset:"ascii" list:"admin"`
 }
 
 func (manager *SHostnetworkManager) GetMasterFieldName() string {

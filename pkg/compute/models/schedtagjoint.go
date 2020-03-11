@@ -17,13 +17,13 @@ package models
 import (
 	"context"
 	"fmt"
-	"yunion.io/x/pkg/errors"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
