@@ -722,6 +722,133 @@ func init() {
 		return nil
 	})
 
+	R(&options.SVMwareCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-vmware", "Update credential of a VMware cloud account", func(s *mcclient.ClientSession, args *options.SVMwareCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAliyunCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-aliyun", "Update credential of an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAzureCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-azure", "Update credential of an Azure cloud account", func(s *mcclient.ClientSession, args *options.SAzureCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SQcloudCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-qcloud", "Update credential of a Qcloud cloud account", func(s *mcclient.ClientSession, args *options.SQcloudCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAWSCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-aws", "Update credential of an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SOpenStackCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-openstack", "Update credential of an OpenStack cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SHuaweiCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-huawei", "Update credential of an Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SUcloudCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-ucloud", "Update credential of a Ucloud cloud account", func(s *mcclient.ClientSession, args *options.SUcloudCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SZStackCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-zstack", "Update credential of a ZStack cloud account", func(s *mcclient.ClientSession, args *options.SZStackCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SGoogleCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-google", "Update credential of a Google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountUpdateCredentialOptions) error {
+		data, err := ioutil.ReadFile(args.GoogleJsonFile)
+		if err != nil {
+			return err
+		}
+		params, err := jsonutils.Parse(data)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SS3CloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-s3", "Update credential of a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SCtyunCloudAccountUpdateCredentialOptions{}, "cloud-account-test-connectivity-ctyun", "Update credential of an Ctyun cloud account", func(s *mcclient.ClientSession, args *options.SCtyunCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "test-connectivity", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudaccountSyncOptions struct {
 		ID       string   `help:"ID or Name of cloud account"`
 		Force    bool     `help:"Force sync no matter what"`

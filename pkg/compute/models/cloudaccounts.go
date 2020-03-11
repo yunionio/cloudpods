@@ -453,6 +453,30 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 	return nil, err
 }
 
+func (self *SCloudaccount) AllowPerformTestConnectivity(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "test-connectivity")
+}
+
+// 测试账号连通性(更新秘钥信息时)
+func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input cloudprovider.SCloudaccountCredential) (jsonutils.JSONObject, error) {
+	providerDriver, err := self.GetProviderFactory()
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("failed to found provider factory error: %v", err)
+	}
+
+	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, input, self.Account)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
+	}
+
+	return nil, nil
+}
+
 func (self *SCloudaccount) AllowPerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "update-credential")
 }
