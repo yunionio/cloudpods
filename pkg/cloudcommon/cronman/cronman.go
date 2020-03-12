@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -295,6 +296,33 @@ func (self *SCronJobManager) next(now time.Time) {
 	for _, job := range self.jobs {
 		job.Next = job.Timer.Next(now)
 	}
+}
+
+func (self *SCronJobManager) Start2(ctx context.Context, electObj *elect.Elect) {
+	ctx, self.stopFunc = context.WithCancel(ctx)
+	if electObj == nil {
+		self.start(ctx)
+		return
+	}
+
+	go func() {
+		ch := make(chan elect.ElectEvent)
+		electObj.Subscribe(ch)
+		for {
+			select {
+			case ev := <-ch:
+				log.Infof("cronman: elect event %s: cronman", ev)
+				switch ev {
+				case elect.ElectEventWin:
+					self.start(ctx)
+				case elect.ElectEventLost:
+					self.Stop()
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 func (self *SCronJobManager) Start() {
