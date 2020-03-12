@@ -123,9 +123,9 @@ type SSubQueryField struct {
 
 func (sqf *SSubQueryField) Expression() string {
 	if len(sqf.alias) > 0 {
-		return fmt.Sprintf("%s.%s AS %s", sqf.query.alias, sqf.field.Name(), sqf.alias)
+		return fmt.Sprintf("`%s`.`%s` AS `%s`", sqf.query.alias, sqf.field.Name(), sqf.alias)
 	} else {
-		return fmt.Sprintf("%s.%s", sqf.query.alias, sqf.field.Name())
+		return fmt.Sprintf("`%s`.`%s`", sqf.query.alias, sqf.field.Name())
 	}
 }
 
