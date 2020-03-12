@@ -53,11 +53,11 @@ func InitDB(options *common_options.DBOptions) {
 	sqlchemy.SetDB(dbConn)
 
 	switch options.LockmanMethod {
-	case "inmemory", "":
+	case common_options.LockMethodInMemory, "":
 		log.Infof("using inmemory lockman")
 		lm := lockman.NewInMemoryLockManager()
 		lockman.Init(lm)
-	case "etcd":
+	case common_options.LockMethodEtcd:
 		log.Infof("using etcd lockman")
 		tlsCfg, err := options.GetEtcdTLSConfig()
 		if err != nil {

@@ -89,6 +89,11 @@ type BaseOptions struct {
 	structarg.BaseOptions
 }
 
+const (
+	LockMethodInMemory = "inmemory"
+	LockMethodEtcd     = "etcd"
+)
+
 type CommonOptions struct {
 	AuthURL            string `help:"Keystone auth URL" alias:"auth-uri"`
 	AdminUser          string `help:"Admin username"`
