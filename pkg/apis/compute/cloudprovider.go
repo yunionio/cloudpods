@@ -220,6 +220,12 @@ type CloudproviderListInput struct {
 
 	// 账号健康状态
 	HealthStatus []string `json:"health_status"`
+
+	// 域
+	Cloudregion string `json:"cloudregion"`
+
+	// 可用区
+	Zone string `json:"zone"`
 }
 
 func (input *CapabilityListInput) AfterUnmarshal() {

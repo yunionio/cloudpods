@@ -1069,6 +1069,15 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		q = q.In("id", subq)
 	}
 
+	if len(query.Zone) > 0 {
+		subq := ZoneManager.Query("cloudregion_id").Equals("id", query.Zone).SubQuery()
+		subq = CloudproviderRegionManager.Query("cloudprovider_id").In("cloudregion_id", subq).SubQuery()
+		q = q.In("id", subq)
+	} else if len(query.Cloudregion) > 0 {
+		subq := CloudproviderRegionManager.Query("cloudprovider_id").Equals("cloudregion_id", query.Cloudregion).SubQuery()
+		q = q.In("id", subq)
+	}
+
 	if len(query.HealthStatus) > 0 {
 		q = q.In("health_status", query.HealthStatus)
 	}
