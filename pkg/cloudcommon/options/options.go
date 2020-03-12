@@ -75,7 +75,7 @@ type BaseOptions struct {
 
 	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 300 seconds/5 minutes" default:"300"`
 
-	IsSlaveNode        bool `help:"Region service slave node"`
+	IsSlaveNode        bool `help:"Slave mode"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
 
 	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default" default:"default"`
