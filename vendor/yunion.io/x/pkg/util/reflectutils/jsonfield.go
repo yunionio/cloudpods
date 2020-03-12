@@ -17,30 +17,63 @@ package reflectutils
 import (
 	"reflect"
 	"strings"
+	"sync"
 
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 )
 
+// SStructFieldInfo describes struct field, especially behavior for (json)
+// marshal
 type SStructFieldInfo struct {
-	Ignore      bool
-	OmitEmpty   bool
-	OmitFalse   bool
-	OmitZero    bool
+	// True if the field has json tag `json:"-"`
+	Ignore    bool
+	OmitEmpty bool
+	OmitFalse bool
+	OmitZero  bool
+
+	// Name can take the following values, in descreasing preference
+	//
+	//  1. value of "name" tag, e.g. `name:"a-name"`
+	//  2. name of "json" tag, when it's not for ignoration
+	//  3. kebab form of FieldName concatenated with "_" when Ignore is false
+	//  4. empty string
 	Name        string
 	FieldName   string
 	ForceString bool
 	Tags        map[string]string
 }
 
+func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
+	scopy := SStructFieldInfo{
+		Ignore:      s.Ignore,
+		OmitEmpty:   s.OmitEmpty,
+		OmitFalse:   s.OmitFalse,
+		OmitZero:    s.OmitZero,
+		Name:        s.Name,
+		FieldName:   s.FieldName,
+		ForceString: s.ForceString,
+	}
+	tags := make(map[string]string, len(s.Tags))
+	for k, v := range s.Tags {
+		tags[k] = v
+	}
+	scopy.Tags = tags
+	return &scopy
+}
+
 func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
+	return ParseFieldJsonInfo(sf.Name, sf.Tag)
+}
+
+func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	info := SStructFieldInfo{}
-	info.FieldName = sf.Name
+	info.FieldName = name
 	info.OmitEmpty = true
 	info.OmitZero = false
 	info.OmitFalse = false
 
-	info.Tags = utils.TagMap(sf.Tag)
+	info.Tags = utils.TagMap(tag)
 	if val, ok := info.Tags["json"]; ok {
 		keys := strings.Split(val, ",")
 		if len(keys) > 0 {
@@ -78,9 +111,14 @@ func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
 	if val, ok := info.Tags["name"]; ok {
 		info.Name = val
 	}
+	if !info.Ignore && len(info.Name) == 0 {
+		info.Name = utils.CamelSplit(info.FieldName, "_")
+	}
 	return info
 }
 
+// MarshalName returns Name when it's not empty, otherwise it returns kebab
+// form of the field name concatenated with "_"
 func (info *SStructFieldInfo) MarshalName() string {
 	if len(info.Name) > 0 {
 		return info.Name
@@ -89,7 +127,7 @@ func (info *SStructFieldInfo) MarshalName() string {
 }
 
 type SStructFieldValue struct {
-	Info  SStructFieldInfo
+	Info  *SStructFieldInfo
 	Value reflect.Value
 }
 
@@ -103,9 +141,51 @@ func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValue
 	return fetchStructFieldValueSet(dataValue, true)
 }
 
+type sStructFieldInfoMap map[string]SStructFieldInfo
+
+func newStructFieldInfoMap(caps int) sStructFieldInfoMap {
+	return make(map[string]SStructFieldInfo, caps)
+}
+
+var structFieldInfoCache sync.Map
+
+func fetchCacheStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
+	if r, ok := structFieldInfoCache.Load(dataType); ok {
+		return r.(sStructFieldInfoMap)
+	}
+	infos := fetchStructFieldInfos(dataType)
+	structFieldInfoCache.Store(dataType, infos)
+	return infos
+}
+
+func fetchStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
+	smap := newStructFieldInfoMap(dataType.NumField())
+	for i := 0; i < dataType.NumField(); i += 1 {
+		sf := dataType.Field(i)
+		if !gotypes.IsFieldExportable(sf.Name) {
+			continue
+		}
+		if sf.Anonymous {
+			// call ParseStructFieldJsonInfo for sf if sft.Kind() is reflect.Interface:
+			// if the corresponding value is reflect.Struct, this item in fieldInfos will be ignored,
+			// otherwise this item in fieldInfos will be used correctly
+			sft := sf.Type
+			if sft.Kind() == reflect.Ptr {
+				sft = sft.Elem()
+			}
+			if sft.Kind() == reflect.Struct && sft != gotypes.TimeType {
+				continue
+			}
+		}
+		smap[sf.Name] = ParseStructFieldJsonInfo(sf)
+	}
+	return smap
+}
+
 func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
 	dataType := dataValue.Type()
+	fieldInfos := fetchCacheStructFieldInfos(dataType)
 	for i := 0; i < dataType.NumField(); i += 1 {
 		sf := dataType.Field(i)
 
@@ -143,10 +223,10 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStruct
 				continue
 			}
 		}
-		jsonInfo := ParseStructFieldJsonInfo(sf)
-		if !jsonInfo.Ignore {
+		fieldInfo := fieldInfos[sf.Name].deepCopy()
+		if !fieldInfo.Ignore {
 			fields = append(fields, SStructFieldValue{
-				Info:  jsonInfo,
+				Info:  fieldInfo,
 				Value: fv,
 			})
 		}
@@ -171,6 +251,30 @@ func (set SStructFieldValueSet) GetStructFieldIndex(name string) int {
 		}
 	}
 	return -1
+}
+
+func (set SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+	ret := make([]int, 0)
+	for i := 0; i < len(set); i += 1 {
+		jsonInfo := set[i].Info
+		if jsonInfo.MarshalName() == name {
+			ret = append(ret, i)
+			continue
+		}
+		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == name {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == utils.Capitalize(name) {
+			ret = append(ret, i)
+			continue
+		}
+	}
+	return ret
 }
 
 func (set SStructFieldValueSet) GetValue(name string) (reflect.Value, bool) {
