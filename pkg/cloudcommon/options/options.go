@@ -122,7 +122,7 @@ type DBOptions struct {
 	QueryOffsetOptimization bool `help:"apply query offset optimization"`
 
 	LockmanMethod  string   `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
-	EtcdLockPrefix string   `help:"prefix of etcd lock records" default:"/locks"`
+	EtcdLockPrefix string   `help:"prefix of etcd lock records"`
 	EtcdLockTTL    int      `help:"ttl of etcd lock records"`
 	EtcdEndpoints  []string `help:"endpoints of etcd cluster"`
 
