@@ -169,8 +169,8 @@ func (man *SMeterAlertManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	data.Name = name
 	data.AlertCreateInput = alertInput
+	data.Name = name
 	return &data, nil
 }
 
