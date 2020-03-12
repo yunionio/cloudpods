@@ -170,8 +170,8 @@ func (man *SMeterAlertManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
-	data.Name = name
 	data.AlertCreateInput = alertInput
+	data.Name = name
 	return &data, nil
 }
 
@@ -540,6 +540,7 @@ func (man *SMeterAlertManager) FetchCustomizeColumns(
 		rows[i] = monitor.MeterAlertDetails{
 			AlertV1Details: v1Rows[i],
 		}
+		rows[i], _ = objs[i].(*SMeterAlert).getMoreDetails(rows[i])
 	}
 
 	return rows
