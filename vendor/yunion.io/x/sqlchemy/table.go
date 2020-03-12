@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -119,7 +120,8 @@ func (tbl *STable) Field(name string, alias ...string) IQueryField {
 	name = utils.CamelSplit(name, "_")
 	spec := tbl.spec.ColumnSpec(name)
 	if spec == nil {
-		panic("column not found: " + name)
+		log.Warningf("column %s not found in table %s", name, tbl.spec.Name())
+		return nil
 	}
 	col := STableField{table: tbl, spec: spec}
 	if len(alias) > 0 {
