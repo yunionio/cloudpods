@@ -3309,11 +3309,20 @@ func (self *SGuest) AllowPerformCreateBackup(ctx context.Context, userCred mccli
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "create-backup")
 }
 
+func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
+	for _, gd := range self.GetDisks() {
+		if gd.GetDisk().GetStorage().StorageType != api.STORAGE_LOCAL {
+			return false
+		}
+	}
+	return true
+}
+
 func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
 		return nil, httperrors.NewBadRequestError("Already have backup server")
 	}
-	if self.getDefaultStorageType() != api.STORAGE_LOCAL {
+	if !self.guestDisksStorageTypeIsLocal() {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with shared storage")
 	}
 	if self.Hypervisor != api.HYPERVISOR_KVM {
