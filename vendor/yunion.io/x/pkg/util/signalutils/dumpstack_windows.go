@@ -1,0 +1,4 @@
+package signalutils
+
+func SetDumpStackSignal() {
+}

@@ -529,18 +529,23 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		return nil
 	}
 	visited[key] = true
-	index := fieldValues.GetStructFieldIndex(key)
-	if index < 0 {
+	indexes := fieldValues.GetStructFieldIndexes(key)
+	if len(indexes) == 0 {
 		// no field match k, ignore
 		return nil
 	}
-	err := v.unmarshalValue(fieldValues[index].Value)
-	if err != nil {
-		return errors.Wrap(err, "JSONDict.unmarshalStruct")
-	}
-	depInfo, ok := fieldValues[index].Info.Tags["deprecated-by"]
-	if ok {
-		return setStructFieldAt(depInfo, v, fieldValues, visited)
+	for _, index := range indexes {
+		err := v.unmarshalValue(fieldValues[index].Value)
+		if err != nil {
+			return errors.Wrap(err, "JSONDict.unmarshalStruct")
+		}
+		depInfo, ok := fieldValues[index].Info.Tags["deprecated-by"]
+		if ok {
+			err := setStructFieldAt(depInfo, v, fieldValues, visited)
+			if err != nil {
+				return errors.Wrap(err, "setStructFieldAt")
+			}
+		}
 	}
 	return nil
 }
