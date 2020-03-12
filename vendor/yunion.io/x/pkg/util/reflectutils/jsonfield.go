@@ -63,13 +63,17 @@ func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 }
 
 func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
+	return ParseFieldJsonInfo(sf.Name, sf.Tag)
+}
+
+func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	info := SStructFieldInfo{}
-	info.FieldName = sf.Name
+	info.FieldName = name
 	info.OmitEmpty = true
 	info.OmitZero = false
 	info.OmitFalse = false
 
-	info.Tags = utils.TagMap(sf.Tag)
+	info.Tags = utils.TagMap(tag)
 	if val, ok := info.Tags["json"]; ok {
 		keys := strings.Split(val, ",")
 		if len(keys) > 0 {
@@ -247,6 +251,30 @@ func (set SStructFieldValueSet) GetStructFieldIndex(name string) int {
 		}
 	}
 	return -1
+}
+
+func (set SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+	ret := make([]int, 0)
+	for i := 0; i < len(set); i += 1 {
+		jsonInfo := set[i].Info
+		if jsonInfo.MarshalName() == name {
+			ret = append(ret, i)
+			continue
+		}
+		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == name {
+			ret = append(ret, i)
+			continue
+		}
+		if jsonInfo.FieldName == utils.Capitalize(name) {
+			ret = append(ret, i)
+			continue
+		}
+	}
+	return ret
 }
 
 func (set SStructFieldValueSet) GetValue(name string) (reflect.Value, bool) {
