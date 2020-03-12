@@ -70,7 +70,7 @@ func init() {
 //
 type SLoadbalancerAgent struct {
 	db.SStandaloneResourceBase
-	SLoadbalancerClusterResourceBase
+	SLoadbalancerClusterResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	Version    string                    `width:"64" nullable:"true" list:"admin" update:"admin"`
 	IP         string                    `width:"32" nullable:"true" list:"admin" update:"admin"`
@@ -385,6 +385,17 @@ func (man *SLoadbalancerAgentManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerClusterResourceBaseManager.ListItemFilter")
 	}
+
+	if len(query.Version) > 0 {
+		q = q.In("version", query.Version)
+	}
+	if len(query.IP) > 0 {
+		q = q.In("ip", query.IP)
+	}
+	if len(query.HaState) > 0 {
+		q = q.In("ha_state", query.HaState)
+	}
+
 	return q, nil
 }
 

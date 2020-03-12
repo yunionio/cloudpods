@@ -148,6 +148,14 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		q = q.Filter(sqlchemy.OR(filters...))
 	}
 
+	if input.IsDirty != nil {
+		if *input.IsDirty {
+			q = q.IsTrue("is_dirty")
+		} else {
+			q = q.IsFalse("is_dirty")
+		}
+	}
+
 	return q, nil
 }
 
@@ -340,8 +348,8 @@ func (self *SSecurityGroup) PostCreate(ctx context.Context, userCred mcclient.To
 			CIDR:        r.CIDR,
 			Action:      r.Action,
 			Description: r.Description,
-			SecgroupID:  self.Id,
 		}
+		rule.SecgroupId = self.Id
 
 		SecurityGroupRuleManager.TableSpec().Insert(rule)
 	}
@@ -466,7 +474,8 @@ func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mc
 }
 
 func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	secgrouprule := &SSecurityGroupRule{SecgroupID: self.Id}
+	secgrouprule := &SSecurityGroupRule{}
+	secgrouprule.SecgroupId = self.Id
 	secgrouprule.SetModelManager(SecurityGroupRuleManager, secgrouprule)
 	if err := data.Unmarshal(secgrouprule); err != nil {
 		return nil, err
@@ -544,7 +553,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		secgrouprule.CIDR = rule.CIDR
 		secgrouprule.Action = rule.Action
 		secgrouprule.Description = rule.Description
-		secgrouprule.SecgroupID = secgroup.Id
+		secgrouprule.SecgroupId = secgroup.Id
 		if err := SecurityGroupRuleManager.TableSpec().Insert(secgrouprule); err != nil {
 			return nil, err
 		}
@@ -826,7 +835,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		defRule.Priority = 1
 		defRule.CIDR = "0.0.0.0/0"
 		defRule.Action = string(secrules.SecurityRuleAllow)
-		defRule.SecgroupID = "default"
+		defRule.SecgroupId = "default"
 		err = SecurityGroupRuleManager.TableSpec().Insert(&defRule)
 		if err != nil {
 			log.Errorf("Insert default secgroup rule fail %s", err)

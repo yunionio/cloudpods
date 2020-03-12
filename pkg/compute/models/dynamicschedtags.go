@@ -101,7 +101,7 @@ func (man *SDynamicschedtagManager) InitializeData() error {
 //
 type SDynamicschedtag struct {
 	db.SStandaloneResourceBase
-	SSchedtagResourceBase
+	SSchedtagResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"admin"`
 
 	// 动态调度标间的匹配条件
 	// example: host.sys_load > 1.5 || host.mem_used_percent > 0.7 => "high_load"

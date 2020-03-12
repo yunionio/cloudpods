@@ -40,6 +40,7 @@ const (
 
 type NatGetewayListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
 	VpcFilterListInput
 	RegionalFilterListInput
@@ -48,17 +49,28 @@ type NatGetewayListInput struct {
 
 type NatEntryListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	NatGatewayFilterListInput
 	ManagedResourceListInput
 }
 
 type NatDEntryListInput struct {
 	NatEntryListInput
+
+	ExternalIP   []string `json:"external_ip"`
+	ExternalPort []int    `json:"external_port"`
+
+	InternalIP   []string `json:"internal_ip"`
+	InternalPort []int    `json:"internal_port"`
+	IpProtocol   []string `json:"ip_protocol"`
 }
 
 type NatSEntryListInput struct {
 	NatEntryListInput
 	NetworkFilterListBase
+
+	IP         []string `json:"ip"`
+	SourceCIDR []string `json:"source_cidr"`
 }
 
 type NatGatewayResourceInfo struct {

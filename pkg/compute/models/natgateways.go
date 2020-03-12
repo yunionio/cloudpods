@@ -37,6 +37,7 @@ import (
 
 type SNatGatewayManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
 	// SManagedResourceBaseManager
 }
@@ -72,10 +73,19 @@ func (manager *SNatGatewayManager) GetContextManagers() [][]db.IModelManager {
 }
 
 // NAT网关列表
-func (man *SNatGatewayManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.NatGetewayListInput) (*sqlchemy.SQuery, error) {
+func (man *SNatGatewayManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.NatGetewayListInput,
+) (*sqlchemy.SQuery, error) {
 	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusDomainLevelResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
@@ -532,6 +542,7 @@ type INatHelper interface {
 
 type SNatEntryManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SNatgatewayResourceBaseManager
 }
 
@@ -545,7 +556,7 @@ type SNatEntry struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	SNatgatewayResourceBase
+	SNatgatewayResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	// NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
@@ -566,7 +577,10 @@ func (man *SNatEntryManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
-
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SNatgatewayResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NatGatewayFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SNatgatewayResourceBaseManager.ListItemFilter")

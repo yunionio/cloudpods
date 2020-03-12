@@ -42,7 +42,10 @@ import (
 
 type SLoadbalancerManager struct {
 	SLoadbalancerLogSkipper
+
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
 	SNetworkResourceBaseManager
@@ -76,11 +79,11 @@ type SLoadbalancer struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 	// LB must be in a VPC, vpc_id, manager_id, cloudregion_id
-	SVpcResourceBase
+	SVpcResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// zone_id
 	SZoneResourceBase
 	// optional network_id
-	SNetworkResourceBase
+	SNetworkResourceBase `width:"147" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	SLoadbalancerRateLimiter
 
@@ -126,6 +129,10 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
@@ -153,6 +160,22 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if len(query.Address) > 0 {
+		q = q.In("address", query.Address)
+	}
+	if len(query.AddressType) > 0 {
+		q = q.In("address_type", query.AddressType)
+	}
+	if len(query.NetworkType) > 0 {
+		q = q.In("network_type", query.NetworkType)
+	}
+	if len(query.ChargeType) > 0 {
+		q = q.In("charge_type", query.ChargeType)
+	}
+	if len(query.LoadbalancerSpec) > 0 {
+		q = q.In("loadbalancer_spec", query.LoadbalancerSpec)
 	}
 
 	return q, nil

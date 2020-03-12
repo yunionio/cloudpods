@@ -42,6 +42,8 @@ type ServerFilterListInput struct {
 
 type ServerListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+	apis.DeletePreventableResourceBaseListInput
 
 	HostFilterListInput
 

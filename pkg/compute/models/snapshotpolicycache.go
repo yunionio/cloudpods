@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -38,8 +37,10 @@ import (
 
 type SSnapshotPolicyCacheManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
+	SSnapshotPolicyResourceBaseManager
 }
 
 type SSnapshotPolicyCache struct {
@@ -47,8 +48,8 @@ type SSnapshotPolicyCache struct {
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
 	SManagedResourceBase
-
-	SnapshotpolicyId string `width:"128" charset:"ascii" create:"required"`
+	SSnapshotPolicyResourceBase `width:"128" charset:"ascii" create:"required"`
+	// SnapshotpolicyId string `width:"128" charset:"ascii" create:"required"`
 }
 
 var SnapshotPolicyCacheManager *SSnapshotPolicyCacheManager
@@ -67,10 +68,11 @@ func init() {
 
 func NewSSnapshotPolicyCache(snapshotpolicyId, cloudregionId, externalId string) *SSnapshotPolicyCache {
 	cache := SSnapshotPolicyCache{
-		SnapshotpolicyId:          snapshotpolicyId,
+		// SnapshotpolicyId:          snapshotpolicyId,
 		SCloudregionResourceBase:  SCloudregionResourceBase{cloudregionId},
 		SExternalizedResourceBase: db.SExternalizedResourceBase{externalId},
 	}
+	cache.SnapshotpolicyId = snapshotpolicyId
 	cache.SetModelManager(SnapshotPolicyCacheManager, &cache)
 	return &cache
 }
@@ -89,6 +91,11 @@ func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = spcm.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = spcm.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -99,7 +106,11 @@ func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
-	if snapshotpolicyIden := query.Snapshotpolicy; len(snapshotpolicyIden) > 0 {
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.ListItemFilter")
+	}
+	/*if snapshotpolicyIden := query.Snapshotpolicy; len(snapshotpolicyIden) > 0 {
 		snapshotpolicy, err := SnapshotPolicyManager.FetchByIdOrName(userCred, snapshotpolicyIden)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
@@ -109,7 +120,7 @@ func (spcm *SSnapshotPolicyCacheManager) ListItemFilter(
 			}
 		}
 		q = q.Equals("snapshotpolicy_id", snapshotpolicy.GetId())
-	}
+	}*/
 	return q, nil
 }
 
@@ -133,6 +144,10 @@ func (spcm *SSnapshotPolicyCacheManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SnapshotPolicyFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -149,6 +164,10 @@ func (spcm *SSnapshotPolicyCacheManager) QueryDistinctExtraField(q *sqlchemy.SQu
 		return q, nil
 	}
 	q, err = spcm.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = spcm.SSnapshotPolicyResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -189,12 +208,13 @@ func (spcm *SSnapshotPolicyCacheManager) FetchCustomizeColumns(
 	stdRows := spcm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := spcm.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := spcm.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
-
+	snapshotPolicyRows := spcm.SSnapshotPolicyResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.SnapshotPolicyCacheDetails{
 			StatusStandaloneResourceDetails: stdRows[i],
 			ManagedResourceInfo:             manRows[i],
 			CloudregionResourceInfo:         regionRows[i],
+			SnapshotPolicyResourceInfo:      snapshotPolicyRows[i],
 		}
 	}
 

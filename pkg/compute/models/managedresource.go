@@ -38,10 +38,19 @@ import (
 
 type SManagedResourceBase struct {
 	// 云订阅ID
-	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional" json:"manager_id"`
+	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 }
 
-type SManagedResourceBaseManager struct{}
+type SManagedResourceBaseManager struct {
+	managerIdFieldName string
+}
+
+func (manager *SManagedResourceBaseManager) getManagerIdFileName() string {
+	if len(manager.managerIdFieldName) > 0 {
+		return manager.managerIdFieldName
+	}
+	return "manager_id"
+}
 
 func (self *SManagedResourceBase) GetCloudprovider() *SCloudprovider {
 	if len(self.ManagerId) > 0 {
@@ -207,7 +216,7 @@ func (manager *SManagedResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.ManagedResourceListInput,
 ) (*sqlchemy.SQuery, error) {
-	return managedResourceFilterByAccount(q, query, "", nil)
+	return _managedResourceFilterByAccount(manager.getManagerIdFileName(), q, query, "", nil)
 }
 
 func (manager *SManagedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
@@ -215,20 +224,20 @@ func (manager *SManagedResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.
 	case "manager":
 		managerQuery := CloudproviderManager.Query("name", "id").SubQuery()
 		q.AppendField(managerQuery.Field("name", field)).Distinct()
-		q = q.Join(managerQuery, sqlchemy.Equals(q.Field("manager_id"), managerQuery.Field("id")))
+		q = q.Join(managerQuery, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), managerQuery.Field("id")))
 		return q, nil
 	case "account":
 		accountQuery := CloudaccountManager.Query("name", "id").SubQuery()
 		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
 		q.AppendField(accountQuery.Field("name", field)).Distinct()
-		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(providers, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), providers.Field("id")))
 		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
 		return q, nil
 	case "provider", "brand":
 		accountQuery := CloudaccountManager.Query(field, "id").Distinct().SubQuery()
 		providers := CloudproviderManager.Query("id", "cloudaccount_id").SubQuery()
 		q.AppendField(accountQuery.Field(field)).Distinct()
-		q = q.Join(providers, sqlchemy.Equals(q.Field("manager_id"), providers.Field("id")))
+		q = q.Join(providers, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), providers.Field("id")))
 		q = q.Join(accountQuery, sqlchemy.Equals(providers.Field("cloudaccount_id"), accountQuery.Field("id")))
 		return q, nil
 	}
@@ -269,7 +278,7 @@ func (manager *SManagedResourceBaseManager) GetOrderBySubQuery(
 			accounts,
 			sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")),
 		).SubQuery()
-		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("manager_id"), subq.Field("id")))
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), subq.Field("id")))
 		fields = []sqlchemy.IQueryField{
 			subq.Field("name"),
 			subq.Field("account"),
@@ -284,7 +293,7 @@ func (manager *SManagedResourceBaseManager) GetOrderByFields(query api.ManagedRe
 	return []string{query.OrderByManager, query.OrderByAccount, query.OrderByProvider, query.OrderByBrand}
 }
 
-func _managedResourceFilterByDomain(q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	domainStr := query.ProjectDomain
 	if len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
@@ -311,12 +320,12 @@ func _managedResourceFilterByDomain(q *sqlchemy.SQuery, query apis.DomainizedRes
 		))
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-				sqlchemy.In(q.Field("manager_id"), subq.SubQuery()),
+				sqlchemy.IsNullOrEmpty(q.Field(managerIdFieldName)),
+				sqlchemy.In(q.Field(managerIdFieldName), subq.SubQuery()),
 			))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.OR(sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()), sqlchemy.IsNullOrEmpty(sq.Field("manager_id"))))
+			sq = sq.Filter(sqlchemy.OR(sqlchemy.In(sq.Field(managerIdFieldName), subq.SubQuery()), sqlchemy.IsNullOrEmpty(sq.Field(managerIdFieldName))))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
@@ -336,7 +345,7 @@ func splitProviders(providers []string) (bool, []string) {
 	return oneCloud, others
 }
 
-func filterByProviderStrs(q *sqlchemy.SQuery, filterField string, subqFunc func() *sqlchemy.SQuery, fieldName string, providerStrs []string) *sqlchemy.SQuery {
+func _filterByProviderStrs(managerIdFieldName string, q *sqlchemy.SQuery, filterField string, subqFunc func() *sqlchemy.SQuery, fieldName string, providerStrs []string) *sqlchemy.SQuery {
 	oneCloud, providers := splitProviders(providerStrs)
 	sq := q
 	if len(filterField) > 0 {
@@ -351,10 +360,10 @@ func filterByProviderStrs(q *sqlchemy.SQuery, filterField string, subqFunc func(
 			account.Field("id"), providers.Field("cloudaccount_id"),
 		))
 		subq = subq.Filter(sqlchemy.In(account.Field(fieldName), providerStrs))
-		filters = append(filters, sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()))
+		filters = append(filters, sqlchemy.In(sq.Field(managerIdFieldName), subq.SubQuery()))
 	}
 	if oneCloud {
-		filters = append(filters, sqlchemy.IsNullOrEmpty(sq.Field("manager_id")))
+		filters = append(filters, sqlchemy.IsNullOrEmpty(sq.Field(managerIdFieldName)))
 	}
 	if len(filters) == 1 {
 		sq = sq.Filter(filters[0])
@@ -370,6 +379,10 @@ func filterByProviderStrs(q *sqlchemy.SQuery, filterField string, subqFunc func(
 }
 
 func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	return _managedResourceFilterByAccount("manager_id", q, input, filterField, subqFunc)
+}
+
+func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	cloudproviderStr := input.Cloudprovider
 	if len(cloudproviderStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, cloudproviderStr)
@@ -380,10 +393,10 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourc
 			return nil, httperrors.NewGeneralError(err)
 		}
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+			q = q.Filter(sqlchemy.Equals(q.Field(managerIdFieldName), provider.GetId()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.GetId()))
+			sq = sq.Filter(sqlchemy.Equals(sq.Field(managerIdFieldName), provider.GetId()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
@@ -399,25 +412,25 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, input api.ManagedResourc
 		}
 		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(managerIdFieldName), subq))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+			sq = sq.Filter(sqlchemy.In(sq.Field(managerIdFieldName), subq))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
 
 	if len(input.Providers) > 0 {
-		q = filterByProviderStrs(q, filterField, subqFunc, "provider", input.Providers)
+		q = _filterByProviderStrs(managerIdFieldName, q, filterField, subqFunc, "provider", input.Providers)
 	}
 
 	if len(input.Brands) > 0 {
-		q = filterByProviderStrs(q, filterField, subqFunc, "brand", input.Brands)
+		q = _filterByProviderStrs(managerIdFieldName, q, filterField, subqFunc, "brand", input.Brands)
 	}
 
-	q = filterByCloudType(q, input, filterField, subqFunc)
+	q = _filterByCloudType(managerIdFieldName, q, input, filterField, subqFunc)
 
-	q, err := _managedResourceFilterByDomain(q, input.DomainizedResourceListInput, filterField, subqFunc)
+	q, err := _managedResourceFilterByDomain(managerIdFieldName, q, input.DomainizedResourceListInput, filterField, subqFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "managedResourceFilterByDomain")
 	}
@@ -493,40 +506,40 @@ func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterL
 	return q, nil
 }
 
-func filterByCloudType(q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
+func _filterByCloudType(managerIdFieldName string, q *sqlchemy.SQuery, input api.ManagedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
 	cloudEnvStr := input.CloudEnv
 
 	switch cloudEnvStr {
 	case api.CLOUD_ENV_PUBLIC_CLOUD:
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(managerIdFieldName), CloudproviderManager.GetPublicProviderIdsQuery()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+			sq = sq.Filter(sqlchemy.In(sq.Field(managerIdFieldName), CloudproviderManager.GetPublicProviderIdsQuery()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	case api.CLOUD_ENV_PRIVATE_CLOUD:
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(managerIdFieldName), CloudproviderManager.GetPrivateProviderIdsQuery()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+			sq = sq.Filter(sqlchemy.In(sq.Field(managerIdFieldName), CloudproviderManager.GetPrivateProviderIdsQuery()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	case api.CLOUD_ENV_ON_PREMISE:
 		if len(filterField) == 0 {
 			q = q.Filter(
 				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+					sqlchemy.In(q.Field(managerIdFieldName), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field(managerIdFieldName)),
 				),
 			)
 		} else {
 			sq := subqFunc()
 			sq = sq.Filter(
 				sqlchemy.OR(
-					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
+					sqlchemy.In(sq.Field(managerIdFieldName), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(sq.Field(managerIdFieldName)),
 				),
 			)
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
@@ -535,16 +548,16 @@ func filterByCloudType(q *sqlchemy.SQuery, input api.ManagedResourceListInput, f
 		if len(filterField) == 0 {
 			q = q.Filter(
 				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateOrOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+					sqlchemy.In(q.Field(managerIdFieldName), CloudproviderManager.GetPrivateOrOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field(managerIdFieldName)),
 				),
 			)
 		} else {
 			sq := subqFunc()
 			sq = sq.Filter(
 				sqlchemy.OR(
-					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateOrOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
+					sqlchemy.In(sq.Field(managerIdFieldName), CloudproviderManager.GetPrivateOrOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(sq.Field(managerIdFieldName)),
 				),
 			)
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
@@ -553,10 +566,10 @@ func filterByCloudType(q *sqlchemy.SQuery, input api.ManagedResourceListInput, f
 
 	if input.IsManaged {
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.IsNotEmpty(q.Field("manager_id")))
+			q = q.Filter(sqlchemy.IsNotEmpty(q.Field(managerIdFieldName)))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.IsNotEmpty(sq.Field("manager_id")))
+			sq = sq.Filter(sqlchemy.IsNotEmpty(sq.Field(managerIdFieldName)))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}

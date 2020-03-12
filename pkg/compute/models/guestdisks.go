@@ -57,8 +57,8 @@ func init() {
 type SGuestdisk struct {
 	SGuestJointsBase
 
-	// SDiskResourceBase `list:"user" create:"required"`
-	DiskId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SDiskResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// DiskId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	ImagePath string `width:"256" charset:"ascii" nullable:"false" get:"user" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
@@ -151,6 +151,7 @@ func (manager *SGuestdiskManager) FetchCustomizeColumns(
 	for i := range rows {
 		if disk, ok := disks[diskIds[i]]; ok {
 			rows[i].Disk = disk.Name
+			rows[i].Status = disk.Status
 			rows[i].DiskSize = disk.DiskSize
 			rows[i].DiskType = disk.DiskType
 			storage := disk.GetStorage()

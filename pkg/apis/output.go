@@ -125,3 +125,7 @@ type ProjectizedResourceInfo struct {
 	// Deprecated
 	Tenant string `json:"project"`
 }
+
+type ScopedResourceBaseInfo struct {
+	ProjectizedResourceInfo
+}

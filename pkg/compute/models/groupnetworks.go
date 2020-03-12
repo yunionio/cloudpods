@@ -19,6 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -28,6 +30,7 @@ import (
 
 type SGroupnetworkManager struct {
 	SGroupJointsManager
+	SNetworkResourceBaseManager
 }
 
 var GroupnetworkManager *SGroupnetworkManager
@@ -130,4 +133,48 @@ func (self *SGroupnetwork) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SGroupnetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
+}
+
+func (manager *SGroupnetworkManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.ListItemFilter(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemFilter")
+	}
+	q, err = manager.SNetworkResourceBaseManager.ListItemFilter(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.IpAddr) > 0 {
+		q = q.In("ip_addr", query.IpAddr)
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupnetworkManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupnetworkListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.OrderByExtraFields(ctx, q, userCred, query.GroupJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SNetworkResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NetworkFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

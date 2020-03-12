@@ -323,6 +323,17 @@ func (manager *SSchedpolicyManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SSchedtagResourceBaseManager.ListItemFilter")
 	}
 
+	if len(input.Strategy) > 0 {
+		q = q.In("strategy", input.Strategy)
+	}
+	if input.Enabled != nil {
+		if *input.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
 	return q, nil
 }
 

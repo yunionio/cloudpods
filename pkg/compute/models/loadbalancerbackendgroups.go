@@ -41,6 +41,7 @@ import (
 type SLoadbalancerBackendGroupManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SLoadbalancerResourceBaseManager
 }
 
@@ -62,7 +63,7 @@ type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SLoadbalancerResourceBase
+	SLoadbalancerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	Type string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 
@@ -89,6 +90,11 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = man.SLoadbalancerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemFilter")
@@ -112,6 +118,11 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(
 			return nil, httperrors.NewInternalServerError("query backend group releated resource failed.")
 		}
 	}
+
+	if len(query.Type) > 0 {
+		q = q.In("type", query.Type)
+	}
+
 	return q, nil
 }
 

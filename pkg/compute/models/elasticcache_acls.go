@@ -41,6 +41,7 @@ import (
 // SElasticcache.Acl
 type SElasticcacheAclManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SElasticcacheResourceBaseManager
 }
 
@@ -61,7 +62,7 @@ func init() {
 type SElasticcacheAcl struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SElasticcacheResourceBase
+	SElasticcacheResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
@@ -341,6 +342,11 @@ func (manager *SElasticcacheAclManager) ListItemFilter(
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SElasticcacheResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ElasticcacheFilterListInput)

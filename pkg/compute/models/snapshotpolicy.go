@@ -863,6 +863,13 @@ func (manager *SSnapshotPolicyManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	if input.IsActivated != nil {
+		if *input.IsActivated {
+			q = q.IsTrue("is_activated")
+		} else {
+			q = q.IsFalse("is_activated")
+		}
+	}
 	return q, nil
 }
 

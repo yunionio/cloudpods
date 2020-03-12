@@ -330,9 +330,10 @@ func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2
 }
 
 func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject, delayFetch bool) ([]jsonutils.JSONObject, error) {
-	metaFields := listFields(manager, userCred)
+	metaFields, excludeFields := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	listF := mergeFields(metaFields, fieldFilter, IsAllowList(rbacutils.ScopeSystem, userCred, manager))
+	listExcludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), listF)
 
 	showDetails := false
 	showDetailsJson, _ := query.Get("details")
@@ -342,7 +343,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		showDetails = true
 	}
 	items := make([]interface{}, 0)
-	results := make([]jsonutils.JSONObject, 0)
+	extraResults := make([]jsonutils.JSONObject, 0)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -354,8 +355,8 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			return nil, err
 		}
 
-		extraData := jsonutils.NewDict()
 		if query.Contains("export_keys") {
+			extraData := jsonutils.NewDict()
 			RowMap, err := q.Row2Map(rows)
 			if err != nil {
 				return nil, err
@@ -368,6 +369,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			if err != nil {
 				return nil, err
 			}
+			extraResults = append(extraResults, extraData)
 		} else {
 			err = q.Row2Struct(rows, item)
 			if err != nil {
@@ -381,9 +383,9 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			}
 		}
 
-		jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
-		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
-		jsonDict.Update(extraData)
+		// jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
+		// jsonDict = jsonDict.CopyIncludes([]string(listF)...)
+		// jsonDict.Update(extraData)
 		// ignore GetExtraDetails
 		/*if showDetails && !query.Contains("export_keys") {
 			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, true)
@@ -394,9 +396,10 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			}
 			// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 		}*/
-		results = append(results, jsonDict)
+		// results = append(results, jsonDict)
 		items = append(items, item)
 	}
+	results := make([]jsonutils.JSONObject, len(items))
 	if showDetails && !query.Contains("export_keys") {
 		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter), true)
 
@@ -405,9 +408,18 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		}
 		if len(extraRows) == len(results) {
 			for i := range results {
-				extraRows[i].Update(results[i])
-				results[i] = extraRows[i]
+				results[i] = extraRows[i].CopyExcludes(listExcludes...)
 			}
+		} else {
+			return nil, httperrors.NewInternalServerError("FetchCustomizeColumns return incorrect number of results")
+		}
+	} else {
+		for i := range items {
+			jsonDict := jsonutils.Marshal(items[i]).(*jsonutils.JSONDict).CopyExcludes(listExcludes...)
+			if i < len(extraResults) {
+				jsonDict.Update(extraResults[i])
+			}
+			results[i] = jsonDict
 		}
 	}
 	return results, nil
@@ -727,7 +739,7 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 	return items, nil
 }
 
-func getModelExtraDetails(item IModel, ctx context.Context) apis.ModelBaseDetails {
+func getModelExtraDetails(item IModel, ctx context.Context, showReason bool) apis.ModelBaseDetails {
 	out := apis.ModelBaseDetails{
 		CanDelete: true,
 		CanUpdate: true,
@@ -735,12 +747,16 @@ func getModelExtraDetails(item IModel, ctx context.Context) apis.ModelBaseDetail
 	err := item.ValidateDeleteCondition(ctx)
 	if err != nil {
 		out.CanDelete = false
-		out.DeleteFailReason = err.Error()
+		if showReason {
+			out.DeleteFailReason = err.Error()
+		}
 	}
 	err = item.ValidateUpdateCondition(ctx)
 	if err != nil {
 		out.CanUpdate = false
-		out.UpdateFailReason = err.Error()
+		if showReason {
+			out.UpdateFailReason = err.Error()
+		}
 	}
 	return out
 }
@@ -779,13 +795,14 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		return nil, nil
 	}
 
-	metaFields := GetDetailFields(manager, userCred)
+	metaFields, excludeFields := GetDetailFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(rbacutils.ScopeSystem, userCred, item))
+	excludes, _, _ := stringutils2.Split(stringutils2.NewSortedStrings(excludeFields), getFields)
 
-	jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
-	jsonDict = jsonDict.CopyIncludes(getFields...)
-	extraDict.Update(jsonDict)
+	//jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
+	//jsonDict = jsonDict.CopyIncludes(getFields...)
+	// extraDict.Update(jsonDict)
 	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
 	extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, []interface{}{item}, stringutils2.NewSortedStrings(fieldFilter), false)
@@ -793,11 +810,10 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 		return nil, errors.Wrap(err, "FetchCustomizeColumns")
 	}
 	if len(extraRows) == 1 {
-		extraRows[0].Update(extraDict)
-		extraDict = extraRows[0]
+		return extraRows[0].CopyExcludes(excludes...), nil
 	}
-
-	return extraDict, nil
+	log.Errorf("FetchCustomizeColumns return incorrect number of objects %d", len(extraRows))
+	return nil, httperrors.NewInternalServerError("FetchCustomizeColumns returns incorrect results")
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

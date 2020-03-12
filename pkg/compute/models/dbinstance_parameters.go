@@ -34,6 +34,7 @@ import (
 
 type SDBInstanceParameterManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SDBInstanceResourceBaseManager
 }
 
@@ -54,7 +55,7 @@ func init() {
 type SDBInstanceParameter struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
-	SDBInstanceResourceBase
+	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// 数据库参数名称
@@ -80,6 +81,10 @@ func (manager *SDBInstanceParameterManager) ListItemFilter(
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SDBInstanceResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DBInstanceFilterListInput)
 	if err != nil {

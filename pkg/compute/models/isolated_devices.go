@@ -74,7 +74,7 @@ func init() {
 
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
-	SHostResourceBase
+	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
 
 	// 宿主机Id
 	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`

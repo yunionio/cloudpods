@@ -69,6 +69,8 @@ type SSnapshotPolicyCreateInternalInput struct {
 
 type SnapshotListInput struct {
 	apis.VirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
+
 	ManagedResourceListInput
 	RegionalFilterListInput
 
@@ -80,6 +82,12 @@ type SnapshotListInput struct {
 	DiskType string `json:"disk_type"`
 	// filter instance snapshot
 	IsInstanceSnapshot *bool `json:"is_instance_snapshot"`
+
+	DiskFilterListInputBase
+	StorageFilterListInputBase
+
+	OutOfChain *bool    `json:"out_of_chain"`
+	OsType     []string `json:"os_type"`
 }
 
 type SnapshotDetails struct {

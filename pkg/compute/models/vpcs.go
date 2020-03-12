@@ -40,6 +40,7 @@ import (
 
 type SVpcManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SGlobalVpcResourceBaseManager
@@ -65,9 +66,9 @@ type SVpc struct {
 
 	SManagedResourceBase
 
-	SCloudregionResourceBase
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"admin_required" default:"default"`
 
-	SGlobalVpcResourceBase
+	SGlobalVpcResourceBase `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
 
 	// 是否是默认VPC
 	// example: true
@@ -802,6 +803,11 @@ func (manager *SVpcManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -849,6 +855,17 @@ func (manager *SVpcManager) ListItemFilter(
 
 			q = q.In("id", sq.SubQuery())
 		}
+	}
+
+	if query.IsDefault != nil {
+		if *query.IsDefault {
+			q = q.IsTrue("is_default")
+		} else {
+			q = q.IsFalse("is_default")
+		}
+	}
+	if len(query.CidrBlock) > 0 {
+		q = q.In("cidr_block", query.CidrBlock)
 	}
 
 	return q, nil

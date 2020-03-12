@@ -40,6 +40,7 @@ import (
 type SLoadbalancerListenerRuleManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SLoadbalancerListenerResourceBaseManager
 }
 
@@ -61,7 +62,7 @@ type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
 
-	SLoadbalancerListenerResourceBase
+	SLoadbalancerListenerResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// 默认转发策略，目前只有aws用到其它云都是false
 	IsDefault bool `default:"false" nullable:"true" list:"user" create:"optional"`
@@ -395,6 +396,10 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = man.SLoadbalancerListenerResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerListenerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SLoadbalancerListenerResourceBaseManager.ListItemFilter")
@@ -409,6 +414,21 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(
 	if err != nil {
 		return nil, err
 	}
+
+	if query.IsDefault != nil {
+		if *query.IsDefault {
+			q = q.IsTrue("is_default")
+		} else {
+			q = q.IsFalse("is_default")
+		}
+	}
+	if len(query.Domain) > 0 {
+		q = q.In("domain", query.Domain)
+	}
+	if len(query.Path) > 0 {
+		q = q.In("path", query.Path)
+	}
+
 	return q, nil
 }
 

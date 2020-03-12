@@ -75,6 +75,7 @@ type NetworkFilterListInput struct {
 
 type NetworkListInput struct {
 	apis.SharableVirtualResourceListInput
+	apis.ExternalizedResourceBaseListInput
 	WireFilterListInput
 
 	HostResourceInput
@@ -84,6 +85,37 @@ type NetworkListInput struct {
 	// description: search ip address in network.
 	// example: 10.168.222.1
 	Ip string `json:"ip"`
+
+	IfnameHint []string `json:"ifname_hint"`
+	// 起始IP地址
+	GuestIpStart []string `json:"guest_ip_start"`
+	// 接收IP地址
+	GuestIpEnd []string `json:"guest_ip_end"`
+	// 掩码
+	GuestIpMask []int8 `json:"guest_ip_mask"`
+	// 网关地址
+	GuestGateway string `json:"guest_gateway"`
+	// DNS
+	GuestDns []string `json:"guest_dns"`
+	// allow multiple dhcp, seperated by ","
+	GuestDhcp []string `json:"guest_dhcp"`
+
+	GuestDomain []string `json:"guest_domain"`
+
+	GuestIp6Start []string `json:"guest_ip6_start"`
+	GuestIp6End   []string `json:"guest_ip6_end"`
+	GuestIp6Mask  []int8   `json:"guest_ip6_mask"`
+	GuestGateway6 []string `json:"guest_gateway6"`
+	GuestDns6     []string `json:"guest_dns6"`
+
+	GuestDomain6 []string `json:"guest_domain6"`
+	// vlanId 1~4096
+	VlanId []int `json:"vlan_id"`
+	// 服务器类型
+	// example: server
+	ServerType []string `json:"server_type"`
+	// 分配策略
+	AllocPolicy []string `json:"alloc_policy"`
 }
 
 type NetworkResourceInfoBase struct {

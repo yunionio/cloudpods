@@ -34,6 +34,7 @@ import (
 
 type SNetworkInterfaceManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 }
@@ -85,6 +86,10 @@ func (manager *SNetworkInterfaceManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -92,6 +97,16 @@ func (manager *SNetworkInterfaceManager) ListItemFilter(
 	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+
+	if len(query.Mac) > 0 {
+		q = q.In("mac", query.Mac)
+	}
+	if len(query.AssociateType) > 0 {
+		q = q.In("associate_type", query.AssociateType)
+	}
+	if len(query.AssociateId) > 0 {
+		q = q.In("associate_id", query.AssociateId)
 	}
 
 	return q, nil

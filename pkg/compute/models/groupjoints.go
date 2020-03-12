@@ -19,7 +19,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,6 +31,7 @@ import (
 
 type SGroupJointsManager struct {
 	db.SVirtualJointResourceBaseManager
+	SGroupResourceBaseManager
 }
 
 func NewGroupJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SGroupJointsManager {
@@ -105,4 +108,44 @@ func (manager *SGroupJointsManager) FetchCustomizeColumns(
 	}
 
 	return rows
+}
+
+func (manager *SGroupJointsManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SGroupJointsManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GroupJointsListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualJointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SGroupResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

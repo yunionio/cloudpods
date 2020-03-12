@@ -56,7 +56,7 @@ const DNS_RECORDS_SEPARATOR = ","
 
 type SDnsRecord struct {
 	db.SAdminSharableVirtualResourceBase
-	db.SEnabledResourceBase
+	db.SEnabledResourceBase `nullable:"false" default:"true" create:"optional" list:"user"`
 
 	// DNS记录的过期时间，单位为秒
 	// example: 60

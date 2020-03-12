@@ -19,7 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -27,6 +30,7 @@ import (
 
 type SGuestsecgroupManager struct {
 	SGuestJointsManager
+	SSecurityGroupResourceBaseManager
 }
 
 var GuestsecgroupManager *SGuestsecgroupManager
@@ -49,7 +53,8 @@ func init() {
 type SGuestsecgroup struct {
 	SGuestJointsBase
 
-	SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SSecurityGroupResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	// SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (manager *SGuestsecgroupManager) GetSlaveFieldName() string {
@@ -78,7 +83,8 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 		return nil, fmt.Errorf("security group %s has already been assigned to guest %s", secgroup.Name, guest.Name)
 	}
 
-	gs := SGuestsecgroup{SecgroupId: secgroup.Id}
+	gs := SGuestsecgroup{}
+	gs.SecgroupId = secgroup.Id
 	gs.SetModelManager(manager, &gs)
 	gs.GuestId = guest.Id
 
@@ -125,4 +131,44 @@ func (manager *SGuestsecgroupManager) DeleteGuestSecgroup(ctx context.Context, u
 
 func (self *SGuestsecgroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
+}
+
+func (manager *SGuestsecgroupManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestsecgroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemFilter(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemFilter")
+	}
+	q, err = manager.SSecurityGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestsecgroupManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.GuestsecgroupListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.OrderByExtraFields(ctx, q, userCred, query.GuestJointsListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.OrderByExtraFields")
+	}
+	q, err = manager.SSecurityGroupResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
 }

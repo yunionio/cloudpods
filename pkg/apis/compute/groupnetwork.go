@@ -22,3 +22,12 @@ type GroupnetworkDetails struct {
 	// IP子网名称
 	Network string
 }
+
+type GroupnetworkListInput struct {
+	GroupJointsListInput
+
+	NetworkFilterListInput
+
+	// IP地址
+	IpAddr []string `json:"ip_addr"`
+}

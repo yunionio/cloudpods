@@ -66,6 +66,8 @@ import (
 
 type SGuestManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDeletePreventableResourceBaseManager
 
 	SHostResourceBaseManager
 	SBillingResourceBaseManager
@@ -96,7 +98,7 @@ type SGuest struct {
 	SBillingResourceBase
 	SDeletePreventableResourceBase
 
-	SHostResourceBase
+	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
 
 	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
@@ -166,6 +168,16 @@ func (manager *SGuestManager) ListItemFilter(
 	q, err = manager.SHostResourceBaseManager.ListItemFilter(ctx, q, userCred, query.HostFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
+	q, err = manager.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SBillingResourceBaseManager.ListItemFilter(ctx, q, userCred, query.BillingResourceListInput)
@@ -1512,7 +1524,8 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	}
 	secgroups, _ := jsonutils.GetStringArray(data, "secgroups")
 	for _, secgroup := range secgroups {
-		gs := SGuestsecgroup{SecgroupId: secgroup}
+		gs := SGuestsecgroup{}
+		gs.SecgroupId = secgroup
 		gs.GuestId = guest.Id
 		GuestsecgroupManager.TableSpec().Insert(&gs)
 	}

@@ -22,3 +22,8 @@ type StorageschedtagDetails struct {
 	// 存储名称
 	Storage string `json:"storage"`
 }
+
+type StorageschedtagListInput struct {
+	SchedtagJointsListInput
+	StorageFilterListInput
+}

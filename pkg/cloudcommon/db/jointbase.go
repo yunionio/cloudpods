@@ -207,13 +207,6 @@ func (self *SJointResourceBase) AllowDetach(ctx context.Context, userCred mcclie
 	return false
 }
 
-/*
-func (joint *SJointResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := joint.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return JointModelExtra(joint, extra)
-}
-*/
-
 func (manager *SJointResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
 	return manager.GetMasterManager().ResourceScope()
 }

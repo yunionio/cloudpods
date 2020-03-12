@@ -216,8 +216,7 @@ type CloudproviderListInput struct {
 
 	CapabilityListInput
 
-	// 同步状态
-	SyncStatus []string `json:"sync_status"`
+	SyncableBaseResourceListInput
 
 	// 账号健康状态
 	HealthStatus []string `json:"health_status"`
@@ -227,4 +226,9 @@ func (input *CapabilityListInput) AfterUnmarshal() {
 	if input.HasObjectStorage != nil && *input.HasObjectStorage && !utils.IsInStringArray(cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE, input.Capability) {
 		input.Capability = append(input.Capability, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	}
+}
+
+type SyncableBaseResourceListInput struct {
+	// 同步状态
+	SyncStatus []string `json:"sync_status"`
 }

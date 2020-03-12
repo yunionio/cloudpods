@@ -37,6 +37,7 @@ import (
 
 type SDBInstanceSkuManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SCloudregionResourceBaseManager
 }
 
@@ -121,6 +122,10 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 
 	if domainStr := query.ProjectDomain; len(domainStr) > 0 {
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
@@ -142,22 +147,22 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 
 	// StorageType
 	if len(query.StorageType) > 0 {
-		q = q.Equals("storage_type", query.StorageType)
+		q = q.In("storage_type", query.StorageType)
 	}
-	if query.VcpuCount > 0 {
-		q = q.Equals("vcpu_count", query.VcpuCount)
+	if len(query.VcpuCount) > 0 {
+		q = q.In("vcpu_count", query.VcpuCount)
 	}
-	if query.VmemSizeMb > 0 {
-		q = q.Equals("vmem_size_mb", query.VmemSizeMb)
+	if len(query.VmemSizeMb) > 0 {
+		q = q.In("vmem_size_mb", query.VmemSizeMb)
 	}
 	if len(query.Category) > 0 {
-		q = q.Equals("category", query.Category)
+		q = q.In("category", query.Category)
 	}
 	if len(query.Engine) > 0 {
-		q = q.Equals("engine", query.Engine)
+		q = q.In("engine", query.Engine)
 	}
 	if len(query.EngineVersion) > 0 {
-		q = q.Equals("engine_version", query.EngineVersion)
+		q = q.In("engine_version", query.EngineVersion)
 	}
 
 	return q, nil

@@ -115,7 +115,10 @@ func (aclEntries *SLoadbalancerAclEntries) Fingerprint() string {
 
 type SLoadbalancerAclManager struct {
 	SLoadbalancerLogSkipper
+
 	db.SSharableVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
 }
@@ -454,6 +457,10 @@ func (manager *SLoadbalancerAclManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -462,6 +469,11 @@ func (manager *SLoadbalancerAclManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
+
+	if len(input.Fingerprint) > 0 {
+		q = q.In("fingerprint", input.Fingerprint)
+	}
+
 	return q, nil
 }
 

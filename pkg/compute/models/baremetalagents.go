@@ -40,7 +40,7 @@ type SBaremetalagentManager struct {
 
 type SBaremetalagent struct {
 	db.SStandaloneResourceBase
-	SZoneResourceBase
+	SZoneResourceBase `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
 	Status     string `width:"36" charset:"ascii" nullable:"false" default:"disable" list:"user" create:"optional"`
 	AccessIp   string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
@@ -279,13 +279,13 @@ func (manager *SBaremetalagentManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 	if len(query.Status) > 0 {
-		q = q.Equals("status", query.Status)
+		q = q.In("status", query.Status)
 	}
 	if len(query.AccessIp) > 0 {
-		q = q.Equals("access_ip", query.AccessIp)
+		q = q.In("access_ip", query.AccessIp)
 	}
 	if len(query.AgentType) > 0 {
-		q = q.Equals("agent_type", query.AgentType)
+		q = q.In("agent_type", query.AgentType)
 	}
 	return q, nil
 }

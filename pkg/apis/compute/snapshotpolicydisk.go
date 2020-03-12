@@ -25,3 +25,12 @@ type SnapshotPolicyDiskDetails struct {
 	Snapshotpolicy string      `json:"snapshotpolicy"`
 	Disk           DiskDetails `json:"disk"`
 }
+
+type SnapshotPolicyDiskListInput struct {
+	apis.VirtualJointResourceBaseListInput
+	SnapshotPolicyFilterListInput
+	DiskFilterListInput
+
+	// 状态
+	Status []string `json:"status"`
+}

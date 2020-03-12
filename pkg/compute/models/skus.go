@@ -818,8 +818,11 @@ func (manager *SServerSkuManager) ListItemFilter(
 	memSizeMB := query.MemorySizeMb
 	if memSizeMB > 0 {
 		s, e := intervalMem(int(memSizeMB))
-		q.GT("memory_size_mb", s)
-		q.LE("memory_size_mb", e)
+		q = q.GT("memory_size_mb", s)
+		q = q.LE("memory_size_mb", e)
+	}
+	if len(query.CpuCoreCount) > 0 {
+		q = q.In("cpu_core_count", query.CpuCoreCount)
 	}
 
 	return q, err

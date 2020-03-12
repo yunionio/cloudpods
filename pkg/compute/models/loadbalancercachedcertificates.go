@@ -66,7 +66,7 @@ type SCachedLoadbalancerCertificate struct {
 	SManagedResourceBase     // 云账号ID
 	SCloudregionResourceBase // Region ID
 
-	SLoadbalancerCertificateResourceBase
+	SLoadbalancerCertificateResourceBase `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"`
 	// CertificateId string `width:"128" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"certificate_id"` // 本地证书ID
 }
 

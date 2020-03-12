@@ -75,6 +75,23 @@ func (man *SNatDEntryManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SNatEntryManager.ListItemFilter")
 	}
+
+	if len(query.ExternalIP) > 0 {
+		q = q.In("external_ip", query.ExternalIP)
+	}
+	if len(query.ExternalPort) > 0 {
+		q = q.In("external_port", query.ExternalPort)
+	}
+	if len(query.InternalIP) > 0 {
+		q = q.In("internal_ip", query.InternalIP)
+	}
+	if len(query.InternalPort) > 0 {
+		q = q.In("internal_port", query.InternalPort)
+	}
+	if len(query.IpProtocol) > 0 {
+		q = q.In("ip_protocol", query.IpProtocol)
+	}
+
 	return q, nil
 }
 

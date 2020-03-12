@@ -32,10 +32,14 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudproviderregionManager struct {
 	db.SJointResourceBaseManager
+	SSyncableBaseResourceManager
+	SCloudregionResourceBaseManager
+	SManagedResourceBaseManager
 }
 
 var CloudproviderRegionManager *SCloudproviderregionManager
@@ -51,6 +55,9 @@ func init() {
 				CloudproviderManager,
 				CloudregionManager,
 			),
+			SManagedResourceBaseManager: SManagedResourceBaseManager{
+				managerIdFieldName: "cloudprovider_id",
+			},
 		}
 		CloudproviderRegionManager.SetVirtualObject(CloudproviderRegionManager)
 	})
@@ -61,9 +68,12 @@ type SCloudproviderregion struct {
 
 	SSyncableBaseResource
 
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain"`
+
 	// 云订阅ID
-	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"domain"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
+	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
+
+	//CloudregionId   string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 
 	Enabled bool `nullable:"false" list:"domain" update:"domain"`
 
@@ -116,14 +126,55 @@ func (self *SCloudproviderregion) GetRegion() *SCloudregion {
 }
 
 func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.CloudproviderregionDetails, error) {
-	var err error
-	out := api.CloudproviderregionDetails{}
-	out.JointResourceBaseDetails, err = self.SJointResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
+	return api.CloudproviderregionDetails{}, nil
+}
+
+func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudproviderregionDetails {
+	rows := make([]api.CloudproviderregionDetails, len(objs))
+
+	jointRows := manager.SJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	managerIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i].JointResourceBaseDetails = jointRows[i]
+		rows[i].CloudregionResourceInfo = regionRows[i]
+		managerIds[i] = objs[i].(*SCloudproviderregion).CloudproviderId
 	}
-	out.Cloudprovider, out.Cloudregion = db.JointModelExtra(self)
-	return self.getExtraDetails(out), nil
+
+	managers := make(map[string]SCloudprovider)
+	err := db.FetchStandaloneObjectsByIds(CloudproviderManager, managerIds, &managers)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if manager, ok := managers[managerIds[i]]; ok {
+			rows[i].Cloudprovider = manager.Name
+			account := manager.GetCloudaccount()
+			rows[i].EnableAutoSync = false
+			if account != nil {
+				rows[i].CloudaccountId = account.Id
+				rows[i].Cloudaccount = account.Name
+				rows[i].CloudaccountDomainId = account.DomainId
+				if account.GetEnabled() && account.EnableAutoSync {
+					rows[i].EnableAutoSync = true
+				}
+				rows[i].SyncIntervalSeconds = account.getSyncIntervalSeconds()
+			}
+		}
+	}
+
+	return rows
 }
 
 func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount) int {
@@ -131,21 +182,6 @@ func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount)
 		account = self.GetAccount()
 	}
 	return account.getSyncIntervalSeconds()
-}
-
-func (self *SCloudproviderregion) getExtraDetails(out api.CloudproviderregionDetails) api.CloudproviderregionDetails {
-	account := self.GetAccount()
-	if account != nil {
-		out.CloudaccountId = account.Id
-		out.Cloudaccount = account.Name
-		out.CloudaccountDomainId = account.DomainId
-		out.EnableAutoSync = false
-		if account.GetEnabled() && account.EnableAutoSync {
-			out.EnableAutoSync = true
-		}
-		out.SyncIntervalSeconds = self.getSyncIntervalSeconds(account)
-	}
-	return out
 }
 
 func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -450,4 +486,83 @@ func (cprm *SCloudproviderregionManager) fetchRecordsByCloudproviderId(providerI
 		return nil, err
 	}
 	return recs, nil
+}
+
+func (manager *SCloudproviderregionManager) ListItemFilter(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudproviderregionListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSyncableBaseResourceManager.ListItemFilter")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+
+	if query.Enabled != nil {
+		if *query.Enabled {
+			q = q.IsTrue("enabled")
+		} else {
+			q = q.IsFalse("enabled")
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SCloudproviderregionManager) OrderByExtraFields(
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query api.CloudproviderregionListInput,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.JointResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SCloudproviderregionManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SManagedResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+
+	return q, httperrors.ErrNotFound
 }

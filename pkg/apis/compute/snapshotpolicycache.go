@@ -20,6 +20,6 @@ type SnapshotPolicyCacheDetails struct {
 	apis.StatusStandaloneResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
-
+	SnapshotPolicyResourceInfo
 	SSnapshotPolicyCache
 }

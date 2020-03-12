@@ -41,6 +41,7 @@ import (
 
 type SCachedimageManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 }
 
 var CachedimageManager *SCachedimageManager
@@ -642,6 +643,11 @@ func (manager *SCachedimageManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+
 	q, err = managedResourceFilterByRegion(q, query.RegionalFilterListInput, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
@@ -675,7 +681,7 @@ func (manager *SCachedimageManager) ListItemFilter(
 	}
 
 	if len(query.ImageType) > 0 {
-		q = q.Equals("image_type", query.ImageType)
+		q = q.In("image_type", query.ImageType)
 	}
 
 	return q, nil

@@ -49,6 +49,8 @@ import (
 
 type SElasticcacheManager struct {
 	db.SVirtualResourceBaseManager
+	db.SExternalizedResourceBaseManager
+	SDeletePreventableResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
 	SNetworkResourceBaseManager
@@ -73,7 +75,7 @@ type SElasticcache struct {
 	db.SExternalizedResourceBase
 	SBillingResourceBase
 	SDeletePreventableResourceBase
-	SVpcResourceBase
+	SVpcResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	SZoneResourceBase
 
 	// 备可用区
@@ -314,6 +316,14 @@ func (manager *SElasticcacheManager) ListItemFilter(
 	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SDeletePreventableResourceBaseManager.ListItemFilter(ctx, q, userCred, query.DeletePreventableResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDeletePreventableResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {

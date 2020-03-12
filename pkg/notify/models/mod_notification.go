@@ -121,6 +121,7 @@ func (manager *SNotificationManager) FetchCustomizeColumns(
 		rows[i] = api.NotificationDetails{
 			ResourceBaseDetails: resRows[i],
 		}
+		rows[i], _ = objs[i].(*SNotification).getMoreDetails(ctx, query, rows[i])
 	}
 
 	return rows
@@ -132,8 +133,11 @@ func (self *SNotification) GetExtraDetails(
 	query jsonutils.JSONObject,
 	isList bool,
 ) (api.NotificationDetails, error) {
+	return api.NotificationDetails{}, nil
+}
+
+func (self *SNotification) getMoreDetails(ctx context.Context, query jsonutils.JSONObject, out api.NotificationDetails) (api.NotificationDetails, error) {
 	var err error
-	out := api.NotificationDetails{}
 
 	var scopeStr string
 	scopeStr, err = query.GetString("scope")

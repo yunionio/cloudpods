@@ -37,8 +37,11 @@ import (
 
 type SSecurityGroupCacheManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+	SVpcResourceBaseManager
+	SSecurityGroupResourceBaseManager
 }
 
 type SSecurityGroupCache struct {
@@ -46,9 +49,11 @@ type SSecurityGroupCache struct {
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
 	SManagedResourceBase
+	SSecurityGroupResourceBase
 
 	// 安全组Id
-	SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
+	// SecgroupId string `width:"128" charset:"ascii" list:"user" create:"required"`
+
 	// 虚拟私有网络外部Id
 	VpcId string `width:"128" charset:"ascii" list:"user" create:"required"`
 }
@@ -90,6 +95,10 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
+	}
 	q, err = manager.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
@@ -98,8 +107,16 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	}
+	q, err = manager.SSecurityGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemFilter")
+	}
 
-	if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
+	/*if defsecgroup := query.Secgroup; len(defsecgroup) > 0 {
 		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -109,7 +126,8 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(
 			}
 		}
 		q = q.Equals("secgroup_id", secgroup.GetId())
-	}
+	}*/
+
 	return q, nil
 }
 
@@ -133,6 +151,10 @@ func (manager *SSecurityGroupCacheManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SSecurityGroupResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SecgroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -140,6 +162,10 @@ func (manager *SSecurityGroupCacheManager) OrderByExtraFields(
 func (manager *SSecurityGroupCacheManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
+	q, err = manager.SSecurityGroupResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
@@ -252,10 +278,9 @@ func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCre
 		return nil, errors.Wrapf(err, "SecurityGroupManager.FetchById(%s)", secgroupId)
 	}
 
-	secgroupCache := &SSecurityGroupCache{
-		SecgroupId: secgroupId,
-		VpcId:      vpcId,
-	}
+	secgroupCache := &SSecurityGroupCache{}
+	secgroupCache.SecgroupId = secgroupId
+	secgroupCache.VpcId = vpcId
 	secgroupCache.ManagerId = providerId
 	secgroupCache.Status = api.SECGROUP_CACHE_STATUS_CACHING
 	secgroupCache.CloudregionId = regionId
