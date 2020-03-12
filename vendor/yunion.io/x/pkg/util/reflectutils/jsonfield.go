@@ -63,13 +63,17 @@ func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 }
 
 func ParseStructFieldJsonInfo(sf reflect.StructField) SStructFieldInfo {
+	return ParseFieldJsonInfo(sf.Name, sf.Tag)
+}
+
+func ParseFieldJsonInfo(name string, tag reflect.StructTag) SStructFieldInfo {
 	info := SStructFieldInfo{}
-	info.FieldName = sf.Name
+	info.FieldName = name
 	info.OmitEmpty = true
 	info.OmitZero = false
 	info.OmitFalse = false
 
-	info.Tags = utils.TagMap(sf.Tag)
+	info.Tags = utils.TagMap(tag)
 	if val, ok := info.Tags["json"]; ok {
 		keys := strings.Split(val, ",")
 		if len(keys) > 0 {
