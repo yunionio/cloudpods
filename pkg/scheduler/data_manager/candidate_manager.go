@@ -227,7 +227,9 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 
 	matchCloudprovider := func(r core.Candidater, managerId string) bool {
 		if managerId != "" {
-			if r.Getter().Cloudprovider().GetId() == managerId {
+			cloudProvier := r.Getter().Cloudprovider()
+			// r who belongs to Provider Onecloud doesn't have cloudprovider
+			if cloudProvier != nil && cloudProvier.GetId() == managerId {
 				return true
 			}
 			return false
