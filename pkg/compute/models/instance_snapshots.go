@@ -65,6 +65,8 @@ type SInstanceSnapshot struct {
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 	// 操作系统类型
 	OsType string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	// 套餐名称
+	InstanceType string `width:"64" charset:"utf8" nullable:"true" list:"user" create:"optional"`
 }
 
 type SInstanceSnapshotManager struct {
@@ -125,13 +127,12 @@ func (self *SInstanceSnapshot) getMoreDetails(userCred mcclient.TokenCredential,
 			DiskType:      snapshots[i].DiskType,
 			CloudregionId: snapshots[i].CloudregionId,
 			Size:          snapshots[i].Size,
+			Status:        snapshots[i].Status,
+			StorageType:   snapshots[i].GetStorageType(),
 		})
 
-		if len(snapshots[i].StorageId) > 0 {
-			storage := snapshots[i].GetStorage()
-			if storage != nil {
-				out.StorageType = storage.StorageType
-			}
+		if len(snapshots[i].StorageId) > 0 && out.StorageType == "" {
+			out.StorageType = snapshots[i].GetStorageType()
 		}
 	}
 	if len(osType) > 0 {
@@ -229,6 +230,7 @@ func (manager *SInstanceSnapshotManager) CreateInstanceSnapshot(
 	}
 	instanceSnapshot.OsType = guest.OsType
 	instanceSnapshot.ServerMetadata = serverMetadata
+	instanceSnapshot.InstanceType = guest.InstanceType
 	err := manager.TableSpec().Insert(instanceSnapshot)
 	if err != nil {
 		return nil, err
@@ -274,6 +276,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		sourceInput.Secgroups = inputSecgs
 	}
 	sourceInput.OsType = self.OsType
+	sourceInput.InstanceType = self.InstanceType
 	// sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
 }

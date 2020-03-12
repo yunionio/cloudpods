@@ -29,6 +29,10 @@ type SimpleSnapshot struct {
 	CloudregionId string `json:"cloudregion_id"`
 	// 快照大小
 	Size int `json:"size"`
+	// 快照状态
+	Status string `json:"status"`
+	// 存储类型
+	StorageType string `json:"storage_type"`
 }
 
 type InstnaceSnapshotDetails struct {
