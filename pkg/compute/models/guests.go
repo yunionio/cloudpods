@@ -4709,8 +4709,12 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	if genInput.PreferZone != "" {
 		userInput.PreferZone = genInput.PreferZone
 	}
-	// clean GenerateName
+	// clean some of user input
 	userInput.GenerateName = ""
+	userInput.Description = ""
+	userInput.BillingType = ""
+	userInput.BillingCycle = ""
+	userInput.Duration = ""
 	return userInput
 }
 

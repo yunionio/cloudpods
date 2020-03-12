@@ -572,6 +572,13 @@ func (self *SSnapshot) GetStorage() *SStorage {
 	return StorageManager.FetchStorageById(self.StorageId)
 }
 
+func (self *SSnapshot) GetStorageType() string {
+	if storage := self.GetStorage(); storage != nil {
+		return storage.StorageType
+	}
+	return ""
+}
+
 func (self *SSnapshot) GetRegionDriver() IRegionDriver {
 	return self.GetRegion().GetDriver()
 }
