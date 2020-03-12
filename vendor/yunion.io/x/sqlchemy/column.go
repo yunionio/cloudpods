@@ -34,6 +34,7 @@ type IColumnSpec interface {
 	Default() string
 	IsSupportDefault() bool
 	IsNullable() bool
+	SetNullable(on bool)
 	IsPrimary() bool
 	IsUnique() bool
 	IsIndex() bool
@@ -48,6 +49,7 @@ type IColumnSpec interface {
 	ConvertFromValue(val interface{}) interface{}
 	// ConvertToValue(str interface{}) interface{}
 	IsZero(val interface{}) bool
+	AllowZero() bool
 	// IsEqual(v1, v2 interface{}) bool
 	Tags() map[string]string
 
@@ -64,6 +66,7 @@ type SBaseColumn struct {
 	isPrimary     bool
 	isUnique      bool
 	isIndex       bool
+	isAllowZero   bool
 	tags          map[string]string
 }
 
@@ -93,6 +96,10 @@ func (c *SBaseColumn) IsSupportDefault() bool {
 
 func (c *SBaseColumn) IsNullable() bool {
 	return c.isNullable
+}
+
+func (c *SBaseColumn) SetNullable(on bool) {
+	c.isNullable = on
 }
 
 func (c *SBaseColumn) IsPrimary() bool {
@@ -125,6 +132,10 @@ func (c *SBaseColumn) IsSearchable() bool {
 
 func (c *SBaseColumn) IsNumeric() bool {
 	return false
+}
+
+func (c *SBaseColumn) AllowZero() bool {
+	return c.isAllowZero
 }
 
 func (c *SBaseColumn) ConvertFromString(str string) string {
@@ -166,7 +177,13 @@ func definitionBuffer(c IColumnSpec) bytes.Buffer {
 	}
 
 	def := c.Default()
-	if len(def) > 0 && c.IsSupportDefault() {
+	defOk := c.IsSupportDefault()
+	if def != "" {
+		if !defOk {
+			panic(fmt.Errorf("column %q type %q does not support having default value: %q",
+				c.Name(), c.ColType(), def,
+			))
+		}
 		def = c.ConvertFromString(def)
 		buf.WriteString(" DEFAULT ")
 		if c.IsText() {
@@ -217,6 +234,11 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 	if isPrimary {
 		isNullable = false
 	}
+	isAllowZero := false
+	tagmap, val, ok = utils.TagPop(tagmap, TAG_ALLOW_ZERO)
+	if ok {
+		isAllowZero = utils.ToBool(val)
+	}
 	return SBaseColumn{
 		name:          name,
 		dbName:        dbName,
@@ -228,6 +250,7 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPoin
 		isIndex:       isIndex,
 		tags:          tagmap,
 		isPointer:     isPointer,
+		isAllowZero:   isAllowZero,
 	}
 }
 
@@ -689,8 +712,7 @@ func (c *CompoundColumn) IsZero(val interface{}) bool {
 	if c.isPointer && reflect.ValueOf(val).IsNil() {
 		return true
 	}
-	json := val.(gotypes.ISerializable)
-	return json.IsZero()
+	return false
 }
 
 func (c *CompoundColumn) ConvertFromValue(val interface{}) interface{} {
@@ -706,77 +728,3 @@ func NewCompoundColumn(name string, tagmap map[string]string, isPointer bool) Co
 	dtc := CompoundColumn{NewTextColumn(name, tagmap, isPointer)}
 	return dtc
 }
-
-/*type JSONDictColumn struct {
-	JSONColumn
-}
-
-type JSONArrayColumn struct {
-	JSONColumn
-}
-
-func (c *JSONDictColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal, ok := val.(*jsonutils.JSONDict)
-	if ok && bVal != nil {
-		return bVal.String()
-	} else {
-		return nil
-	}
-}
-
-func (c *JSONDictColumn) ConvertToValue(val interface{}) interface{} {
-	iVal, ok := val.(string)
-	if ok && len(iVal) > 0 {
-		json, err := jsonutils.ParseString(iVal)
-		if err == nil {
-			return json.(*jsonutils.JSONDict)
-		}
-	}
-	return nil
-}
-
-func (c *JSONDictColumn) IsZero(val interface{}) bool {
-	if val == nil {
-		return true
-	}
-	dict := val.(*jsonutils.JSONDict)
-	return dict.Size() == 0
-}
-
-func (c *JSONArrayColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal, ok := val.(*jsonutils.JSONArray)
-	if ok && bVal != nil {
-		return bVal.String()
-	} else {
-		return nil
-	}
-}
-
-func (c *JSONArrayColumn) ConvertToValue(val interface{}) interface{} {
-	iVal, ok := val.(string)
-	if ok && len(iVal) > 0 {
-		json, err := jsonutils.ParseString(iVal)
-		if err == nil {
-			return json.(*jsonutils.JSONArray)
-		}
-	}
-	return nil
-}
-
-func (c *JSONArrayColumn) IsZero(val interface{}) bool {
-	if val == nil {
-		return true
-	}
-	dict := val.(*jsonutils.JSONArray)
-	return dict.Size() == 0
-}
-
-func NewJSONDictColumn(name string, tagmap map[string]string) JSONDictColumn {
-	dtc := JSONDictColumn{NewJSONColumn(name, tagmap)}
-	return dtc
-}
-
-func NewJSONArrayColumn(name string, tagmap map[string]string) JSONArrayColumn {
-	dtc := JSONArrayColumn{NewJSONColumn(name, tagmap)}
-	return dtc
-}*/

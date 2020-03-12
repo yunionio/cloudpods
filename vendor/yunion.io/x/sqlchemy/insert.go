@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/errors"
 )
 
 func (t *STableSpec) Insert(dt interface{}) error {
@@ -92,7 +92,7 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet,
 		}
 
 		_, isTextCol := c.(*STextColumn)
-		if c.IsSupportDefault() && (len(c.Default()) > 0 || isTextCol) && !gotypes.IsNil(ov) && c.IsZero(ov) { // empty text value
+		if c.IsSupportDefault() && (len(c.Default()) > 0 || isTextCol) && !gotypes.IsNil(ov) && c.IsZero(ov) && !c.AllowZero() { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
 			names = append(names, fmt.Sprintf("`%s`", k))
