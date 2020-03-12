@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/transport"
 )
 
 const (
@@ -71,7 +72,7 @@ func NewClientByContent(kubeConfig []byte, k8sWrapTransport WrapTransport) (*kub
 
 func setConfigField(c *rest.Config, tr WrapTransport) *rest.Config {
 	if tr != nil {
-		c.WrapTransport = tr
+		c.WrapTransport = transport.WrapperFunc(tr)
 	}
 	c.Timeout = time.Second * time.Duration(K8sWrapTransportTimeout)
 	return c

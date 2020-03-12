@@ -19,9 +19,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -33,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 )
 
 type SKVMHostDriver struct {
@@ -454,6 +459,16 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 		nets = append(nets, net)
 	}
 	params.Networks = nets
+
+	deployConfigs, err := self.getDeployConfig(host)
+	if err != nil {
+		return nil, err
+	}
+	params.DeployConfigs = deployConfigs
+	return params, nil
+}
+
+func (self *SKVMHostDriver) getDeployConfig(host *models.SHost) ([]*api.DeployConfig, error) {
 	deployConf := &api.DeployConfig{
 		Action: "create",
 		Path:   "/etc/sysconfig/yunionauth",
@@ -484,10 +499,18 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 	authInfo += fmt.Sprintf("YUNION_HOST_PASSWORD=%s\n", options.Options.AdminPassword)
 	authInfo += fmt.Sprintf("YUNION_HOST_PROJECT=%s\n", options.Options.AdminProject)
 	authInfo += fmt.Sprintf("YUNION_START=yes\n")
+	apiServer, err := tokens.GetControlPlaneEndpoint()
+	if err != nil {
+		log.Errorf("Failed to get kubernetes controlplane endpoint: %v", err)
+	}
+	joinToken, err := tokens.GetNodeJoinToken()
+	if err != nil {
+		log.Errorf("Failed to get kubernetes node join token: %v", err)
+	}
+	authInfo += fmt.Sprintf("API_SERVER=%s\n", apiServer)
+	authInfo += fmt.Sprintf("JOIN_TOKEN=%s\n", joinToken)
 	deployConf.Content = authInfo
-	params.DeployConfigs = []*api.DeployConfig{deployConf}
-	log.Infof("%v", params)
-	return params, nil
+	return []*api.DeployConfig{deployConf}, nil
 }
 
 func (self *SKVMHostDriver) PrepareUnconvert(host *models.SHost) error {
@@ -523,11 +546,31 @@ func (self *SKVMHostDriver) FinishUnconvert(ctx context.Context, userCred mcclie
 			}
 		}
 	}
+	onK8s := host.GetMetadata("on_kubernetes", userCred)
+	hostname := host.GetMetadata("hostname", userCred)
+	if strings.ToLower(onK8s) == "true" {
+		if err := self.tryCleanKubernetesData(host, hostname); err != nil {
+			log.Errorf("try clean kubernetes data: %v", err)
+		}
+	}
 	kwargs := make(map[string]interface{}, 0)
-	for _, k := range []string{"kernel_version", "nest", "os_distribution", "os_version",
-		"ovs_version", "qemu_version", "storage_type"} {
+	for _, k := range []string{
+		"kernel_version", "nest", "os_distribution", "os_version",
+		"ovs_version", "qemu_version", "storage_type", "on_kubernetes",
+	} {
 		kwargs[k] = "None"
 	}
 	host.SetAllMetadata(ctx, kwargs, userCred)
 	return self.SBaseHostDriver.FinishUnconvert(ctx, userCred, host)
+}
+
+func (self *SKVMHostDriver) tryCleanKubernetesData(host *models.SHost, hostname string) error {
+	cli, err := tokens.GetCoreClient()
+	if err != nil {
+		return errors.Wrap(err, "get k8s client")
+	}
+	if hostname == "" {
+		hostname = host.GetName()
+	}
+	return cli.Nodes().Delete(hostname, &metav1.DeleteOptions{})
 }

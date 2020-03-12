@@ -48,6 +48,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/k8s/tokens"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -910,10 +911,25 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 }
 
+func (h *SHostInfo) updateHostMetadata(hostname string) error {
+	onK8s, _ := tokens.IsInsideKubernetesCluster()
+	meta := api.HostRegisterMetadata{
+		OnKubernetes: onK8s,
+		Hostname:     hostname,
+	}
+
+	_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta.JSON(meta))
+	return err
+}
+
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
 	hostname, _ := hostbody.GetString("name")
 	h.setHostname(hostname)
+	if err := h.updateHostMetadata(hostname); err != nil {
+		h.onFail(err)
+		return
+	}
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {

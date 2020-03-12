@@ -149,10 +149,6 @@ type SHost struct {
 	// example: online
 	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"`
 
-	// 可用区Id
-	// example: zone1
-	// ZoneId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
-
 	// 宿主机类型
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 
