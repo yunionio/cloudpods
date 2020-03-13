@@ -1205,7 +1205,7 @@ func (host *SHost) FileUrlPathToDsPath(path string) (string, error) {
 }
 
 func (host *SHost) FindNetworkByVlanID(vlanID int32) (IVMNetwork, error) {
-	if vlanID >= 1 && vlanID < 4095 {
+	if host.IsActiveVlanID(vlanID) {
 		net, err := host.findBasicNetwork(vlanID)
 		if err != nil {
 			return nil, errors.Wrap(err, "findBasicNetwork error")
@@ -1231,6 +1231,14 @@ func (host *SHost) FindNetworkByVlanID(vlanID int32) (IVMNetwork, error) {
 	return host.findNovlanDVPG()
 }
 
+// IsActiveVlanID will detect if vlanID is active that means vlanID in (1, 4095).
+func (host *SHost) IsActiveVlanID(vlanID int32) bool {
+	if vlanID > 1 && vlanID < 4095 {
+		return true
+	}
+	return false
+}
+
 func (host *SHost) findBasicNetwork(vlanID int32) (*SNetwork, error) {
 	nets, err := host.GetNetwork()
 	if err != nil {
@@ -1239,7 +1247,7 @@ func (host *SHost) findBasicNetwork(vlanID int32) (*SNetwork, error) {
 	if len(nets) == 0 {
 		return nil, nil
 	}
-	if vlanID < 1 || vlanID >= 4095 {
+	if !host.IsActiveVlanID(vlanID) {
 		return &nets[0], nil
 	}
 	for i := range nets {
@@ -1296,7 +1304,7 @@ func (host *SHost) findNovlanDVPG() (*SDistributedVirtualPortgroup, error) {
 			continue
 		}
 		nvlan := dvpg.GetVlanId()
-		if nvlan <= 1 || nvlan >= 4095 {
+		if !host.IsActiveVlanID(nvlan) {
 			return dvpg, nil
 		}
 	}
