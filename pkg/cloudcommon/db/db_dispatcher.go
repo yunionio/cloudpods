@@ -1331,11 +1331,7 @@ func managerPerformCheckCreateData(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword())
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	bodyDict := body.(*jsonutils.JSONDict)
+	bodyDict := data.(*jsonutils.JSONDict)
 
 	if consts.IsRbacEnabled() {
 		err := isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionPerform, action)
