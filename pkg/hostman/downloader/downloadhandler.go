@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -65,7 +64,7 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	switch info.GetName(nil) {
 	case "disk_download", "download", "snapshot_download":
-		info.SetProcessTimeout(time.Minute * 60).SetWorkerManager(streamingWorkerMan)
+		info.SetProcessNoTimeout().SetWorkerManager(streamingWorkerMan)
 	}
 }
 
