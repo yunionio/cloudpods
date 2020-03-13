@@ -276,6 +276,7 @@ type sPair struct {
 	DiskFormat string
 	Size       int64
 	Status     string
+	CreatedAt  time.Time
 }
 
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -300,13 +301,27 @@ func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.T
 		image := images[i]
 		size += image.Size
 		if !image.IsData.IsTrue() {
-			rootImage = sPair{image.Id, images[i].Name, image.MinDiskMB, image.DiskFormat, image.Size, image.Status}
+			rootImage = sPair{
+				ID:         image.Id,
+				Name:       images[i].Name,
+				MinDiskMB:  image.MinDiskMB,
+				DiskFormat: image.DiskFormat,
+				Size:       image.Size,
+				Status:     image.Status,
+				CreatedAt:  image.CreatedAt,
+			}
 			extra.Add(jsonutils.NewInt(int64(image.MinRamMB)), "min_ram_mb")
 			extra.Add(jsonutils.NewString(image.DiskFormat), "disk_format")
-			continue
 		}
-		dataImages = append(dataImages, sPair{image.Id, image.Name, image.MinDiskMB, image.DiskFormat, image.Size,
-			image.Status})
+		dataImages = append(dataImages, sPair{
+			ID:         image.Id,
+			Name:       image.Name,
+			MinDiskMB:  image.MinDiskMB,
+			DiskFormat: image.DiskFormat,
+			Size:       image.Size,
+			Status:     image.Status,
+			CreatedAt:  image.CreatedAt,
+		})
 	}
 	// make sure that the sort of dataimage is fixed
 	sort.Slice(dataImages, func(i, j int) bool {
