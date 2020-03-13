@@ -989,9 +989,6 @@ func (manager *SGuestManager) validateCreateData(
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
-		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != api.DISK_TYPE_SYS {
-			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
-		}
 
 		// if len(diskConfig.Backend) == 0 {
 		// 	diskConfig.Backend = STORAGE_LOCAL
