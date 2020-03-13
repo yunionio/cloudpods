@@ -15,6 +15,7 @@
 package esxi
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -33,15 +34,14 @@ var (
 	metricSpecsMap    map[string][]string
 )
 
-func (client *SESXiClient) GetMonitorData(server jsonutils.JSONObject, metricSpecs map[string][]string, since time.Time,
-	until time.Time) (perfEntityMetricList []*types.PerfEntityMetric, IdNameTable map[int32]string, err error) {
+func (client *SESXiClient) GetMonitorData(serverOrHost jsonutils.JSONObject,
+	monType string, metricSpecs map[string][]string,
+	since time.Time, until time.Time) (perfEntityMetricList []*types.PerfEntityMetric, IdNameTable map[int32]string, err error) {
 	metricSpecsMap = metricSpecs
-	name, _ := server.GetString("name")
-	virtualMachines, err := client.getVirtualMachines()
+	managedEntity, err := client.getManagerEntiry(serverOrHost, monType)
 	if err != nil {
 		return nil, IdNameTable, err
 	}
-	managedEntity := getManagerEntiry(virtualMachines, name)
 
 	performanceManager := performance.NewManager(client.client.Client)
 	perfCounters, err := performanceManager.CounterInfo(client.context)
@@ -88,13 +88,51 @@ func (cli *SESXiClient) getVirtualMachines() ([]mo.VirtualMachine, error) {
 	return virtualMachines, nil
 }
 
-func getManagerEntiry(virtualMachines []mo.VirtualMachine, name string) *mo.ManagedEntity {
+func (cli *SESXiClient) GetHostSystem() ([]mo.HostSystem, error) {
+	var hostSystems []mo.HostSystem
+	err := cli.scanAllMObjects(HOST_SYSTEM_PROPS, &hostSystems)
+	if err != nil {
+		return hostSystems, errors.Wrap(err, "cli.scanAllMObjects host")
+	}
+	return hostSystems, nil
+}
+
+func (cli *SESXiClient) getManagerEntiry(serverOrHost jsonutils.JSONObject, monType string) (*mo.ManagedEntity, error) {
+	switch monType {
+	case "VirtualMachine":
+		return cli.getManagerEntityofVm(serverOrHost)
+	case "HostSystem":
+		return cli.getManagerEntityofHost(serverOrHost)
+	}
+	return nil, fmt.Errorf("monType error")
+}
+
+func (cli *SESXiClient) getManagerEntityofVm(server jsonutils.JSONObject) (*mo.ManagedEntity, error) {
+	name, _ := server.GetString("name")
+	virtualMachines, err := cli.getVirtualMachines()
+	if err != nil {
+		return nil, err
+	}
 	for _, virtualMachine := range virtualMachines {
 		if virtualMachine.Name == name {
-			return virtualMachine.Entity()
+			return virtualMachine.Entity(), nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("No ManagerEntiry for %s vm", name)
+}
+
+func (cli *SESXiClient) getManagerEntityofHost(host jsonutils.JSONObject) (*mo.ManagedEntity, error) {
+	name, _ := host.GetString("name")
+	hostSystems, err := cli.GetHostSystem()
+	if err != nil {
+		return nil, err
+	}
+	for _, hostSystem := range hostSystems {
+		if strings.Contains(hostSystem.Name, name) || strings.Contains(name, hostSystem.Name) {
+			return hostSystem.Entity(), nil
+		}
+	}
+	return nil, fmt.Errorf("No ManagerEntiry for %s host", name)
 }
 
 //根据perfCounterInfos装载metricIdTable、metricNameTable、metricIdNameTable
