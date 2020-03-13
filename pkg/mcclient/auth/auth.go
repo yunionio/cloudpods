@@ -232,6 +232,9 @@ func (a *authManager) isExpired() bool {
 }
 
 func (a *authManager) isAuthed() bool {
+	if a == nil {
+		return false
+	}
 	if a.adminCredential == nil || a.isExpired() {
 		return false
 	}
