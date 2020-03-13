@@ -1071,6 +1071,34 @@ func (bucket *SBucket) PerformAcl(
 	}
 }
 
+func (bucket *SBucket) AllowPerformSyncstatus(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+// 同步存储桶状态
+func (bucket *SBucket) PerformSyncstatus(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.BucketSyncstatusInput,
+) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(bucket, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("Bucket has %d task active, can't sync status", count)
+	}
+
+	bucket.SetStatus(userCred, api.BUCKET_STATUS_SYNCING_STATUS, "perform_syncstatus")
+	return nil, StartResourceSyncStatusTask(ctx, userCred, bucket, "BucketSyncstatusTask", "")
+}
+
 func (bucket *SBucket) AllowPerformSync(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,

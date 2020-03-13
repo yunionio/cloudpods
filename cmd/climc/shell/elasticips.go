@@ -170,6 +170,15 @@ func init() {
 		return nil
 	})
 
+	R(&EipSingleOptions{}, "eip-syncstatus", "Synchronize status of an EIP", func(s *mcclient.ClientSession, args *EipSingleOptions) error {
+		result, err := modules.Elasticips.PerformAction(s, args.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type ServerCreateEipOptions struct {
 		ID         string `help:"server ID or name"`
 		BW         int    `help:"EIP bandwidth in Mbps"`

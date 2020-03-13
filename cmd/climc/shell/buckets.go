@@ -56,11 +56,20 @@ func init() {
 		return nil
 	})
 
-	type BucketShowOptions struct {
+	type BucketIdOptions struct {
 		ID string `help:"ID or name of bucket"`
 	}
-	R(&BucketShowOptions{}, "bucket-show", "Show details of bucket", func(s *mcclient.ClientSession, args *BucketShowOptions) error {
+	R(&BucketIdOptions{}, "bucket-show", "Id details of bucket", func(s *mcclient.ClientSession, args *BucketIdOptions) error {
 		result, err := modules.Buckets.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&BucketIdOptions{}, "bucket-syncstatus", "Sync bucket statust", func(s *mcclient.ClientSession, args *BucketIdOptions) error {
+		result, err := modules.Buckets.PerformAction(s, args.ID, "syncstatus", nil)
 		if err != nil {
 			return err
 		}

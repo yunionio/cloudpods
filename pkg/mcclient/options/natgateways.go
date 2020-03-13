@@ -42,7 +42,7 @@ type NatSDeleteShowOptions struct {
 	ID string `help:"ID of the SNat"`
 }
 
-type NatGatewayShowOptions struct {
+type NatGatewayIdOptions struct {
 	ID string `help:"ID of Nat Gateway"`
 }
 

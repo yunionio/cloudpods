@@ -31,6 +31,7 @@ const (
 	DISK_DETACHING           = "detaching"
 	DISK_ATTACHING           = "attaching"
 	DISK_CLONING             = "cloning" // 硬盘克隆
+	DISK_SYNCING_STATUS      = "syncing" // 同步状态
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"

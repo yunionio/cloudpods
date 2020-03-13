@@ -80,6 +80,15 @@ func init() {
 		return nil
 	})
 
+	R(&DBInstanceBackupIdOptions{}, "dbinstance-backup-syncstatus", "Sync DB instance backup status", func(s *mcclient.ClientSession, opts *DBInstanceBackupIdOptions) error {
+		result, err := modules.DBInstanceBackups.PerformAction(s, opts.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&DBInstanceBackupIdOptions{}, "dbinstance-backup-delete", "Delete DB instance backup", func(s *mcclient.ClientSession, opts *DBInstanceBackupIdOptions) error {
 		result, err := modules.DBInstanceBackups.Delete(s, opts.ID, nil)
 		if err != nil {

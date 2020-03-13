@@ -112,3 +112,6 @@ type SnapshotDetails struct {
 	// 是否是子快照
 	IsSubSnapshot bool `json:"is_sub_snapshot,allowempty"`
 }
+
+type SnapshotSyncstatusInput struct {
+}

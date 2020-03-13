@@ -139,10 +139,10 @@ func init() {
 		return nil
 	})
 
-	type NetworkShowOptions struct {
+	type NetworkIdOptions struct {
 		ID string `help:"ID or Name of the zone to show"`
 	}
-	R(&NetworkShowOptions{}, "network-show", "Show network details", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+	R(&NetworkIdOptions{}, "network-show", "Show network details", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
 		result, err := modules.Networks.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -151,7 +151,7 @@ func init() {
 		return nil
 	})
 
-	R(&NetworkShowOptions{}, "network-metadata", "Show metadata of a network", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+	R(&NetworkIdOptions{}, "network-metadata", "Show metadata of a network", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
 		result, err := modules.Networks.GetMetadata(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -160,7 +160,7 @@ func init() {
 		return nil
 	})
 
-	R(&NetworkShowOptions{}, "network-private", "Make a network private", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+	R(&NetworkIdOptions{}, "network-private", "Make a network private", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
 		result, err := modules.Networks.PerformAction(s, args.ID, "private", nil)
 		if err != nil {
 			return err
@@ -169,8 +169,17 @@ func init() {
 		return nil
 	})
 
+	R(&NetworkIdOptions{}, "network-syncstatus", "Sync network status", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
+		result, err := modules.Networks.PerformAction(s, args.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type NetworkShareOptions struct {
-		NetworkShowOptions
+		NetworkIdOptions
 		Scope          string   `help:"sharing scope" choices:"system|domain"`
 		ShareToProject []string `help:"Share to prject"`
 	}
@@ -187,7 +196,7 @@ func init() {
 		return nil
 	})
 
-	R(&NetworkShowOptions{}, "network-delete", "Delete a network", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+	R(&NetworkIdOptions{}, "network-delete", "Delete a network", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
 		result, err := modules.Networks.Delete(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -196,7 +205,7 @@ func init() {
 		return nil
 	})
 
-	R(&NetworkShowOptions{}, "network-purge", "Purge a managed network, not delete the remote entity", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+	R(&NetworkIdOptions{}, "network-purge", "Purge a managed network, not delete the remote entity", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
 		result, err := modules.Networks.PerformAction(s, args.ID, "purge", nil)
 		if err != nil {
 			return err

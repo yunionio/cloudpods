@@ -28,6 +28,8 @@ const (
 
 	SNAPSHOT_POLICY_CREATING = "creating"
 
+	SNAPSHOT_SYNCING_STATUS = "syncing"
+
 	SNAPSHOT_POLICY_READY         = "ready"
 	SNAPSHOT_POLICY_UPDATING      = "updating"
 	SNAPSHOT_POLICY_UNKNOWN       = "unknown"

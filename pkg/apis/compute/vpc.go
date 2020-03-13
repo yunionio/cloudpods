@@ -59,3 +59,6 @@ type VpcResourceInfo struct {
 
 	ManagedResourceInfo
 }
+
+type VpcSyncstatusInput struct {
+}

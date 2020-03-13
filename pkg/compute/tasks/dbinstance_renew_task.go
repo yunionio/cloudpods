@@ -64,6 +64,6 @@ func (self *DBInstanceRenewTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	logclient.AddActionLogWithStartable(self, instance, logclient.ACT_RENEW, nil, self.UserCred, true)
 
-	instance.StartDBInstanceSyncStatusTask(ctx, self.UserCred, nil, self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, instance, "DBInstanceSyncStatusTask", self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }

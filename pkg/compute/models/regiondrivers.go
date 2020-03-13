@@ -127,6 +127,12 @@ type IRegionDriver interface {
 
 	IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool
 	GetSecgroupVpcid(vpcId string) string
+
+	RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, task taskman.ITask) error
+	RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *SSnapshot, task taskman.ITask) error
+	RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, natgateway *SNatGateway, task taskman.ITask) error
+	RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *SBucket, task taskman.ITask) error
+	RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *SDBInstanceBackup, task taskman.ITask) error
 }
 
 type IDBInstanceDriver interface {
@@ -177,6 +183,8 @@ type IElasticcacheDriver interface {
 	RequestElasticcacheFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 	RequestElasticcacheUpdateInstanceParameters(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 	RequestElasticcacheUpdateBackupPolicy(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
+
+	RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, task taskman.ITask) error
 }
 
 type IElasticcacheAccount interface {

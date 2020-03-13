@@ -216,3 +216,6 @@ type DiskResourceInfo struct {
 
 	StorageResourceInfo
 }
+
+type DiskSyncstatusInput struct {
+}

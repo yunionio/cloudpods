@@ -333,6 +333,44 @@ func (manager *SDBInstanceBackupManager) FetchCustomizeColumns(
 	return rows
 }
 
+func (self *SDBInstanceBackup) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+// 同步RDS备份状态
+func (self *SDBInstanceBackup) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskSyncstatusInput) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance backup has %d task active, can't sync status", count)
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceBackupSyncstatusTask", "")
+}
+
+func (backup *SDBInstanceBackup) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region := backup.GetRegion()
+	if region == nil {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "no valid cloudregion")
+	}
+	provider, err := backup.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	return provider.GetIRegionById(region.GetExternalId())
+}
+
+func (backup *SDBInstanceBackup) GetIDBInstanceBackup() (cloudprovider.ICloudDBInstanceBackup, error) {
+	iRegion, err := backup.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrap(err, "backup.GetIRegion")
+	}
+	return iRegion.GetIDBInstanceBackupById(backup.ExternalId)
+}
+
 func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, instance *SDBInstance, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))

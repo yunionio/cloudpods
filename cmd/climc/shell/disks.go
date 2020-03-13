@@ -133,6 +133,15 @@ func init() {
 		return nil
 	})
 
+	R(&DiskDetailOptions{}, "disk-syncstatus", "Sync status for disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
+		ret, e := modules.Disks.PerformAction(s, args.ID, "syncstatus", nil)
+		if e != nil {
+			return e
+		}
+		printObject(ret)
+		return nil
+	})
+
 	type DiskUpdateOptions struct {
 		ID           string `help:"ID or name of disk"`
 		Name         string `help:"New name of disk"`
