@@ -46,9 +46,11 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
+
 		db.UserCacheManager,
 		db.TenantCacheManager,
 		db.SharedResourceManager,
+
 		models.ImageTagManager,
 		models.ImageMemberManager,
 		models.ImagePropertyManager,

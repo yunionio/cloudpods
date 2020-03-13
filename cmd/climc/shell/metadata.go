@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
@@ -43,7 +44,12 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printObject(result)
+		listResult := modulebase.ListResult{}
+		err = result.Unmarshal(&listResult)
+		if err != nil {
+			return err
+		}
+		printList(&listResult, []string{})
 		return nil
 	})
 

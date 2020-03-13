@@ -27,6 +27,7 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 		db.TenantCacheManager,
+		db.Metadata,
 
 		QuotaManager,
 

@@ -234,6 +234,8 @@ type BaseListOptions struct {
 	IsManaged    *bool    `help:"List objects managed by external providers" token:"managed" json:"is_managed"`
 
 	PagingMarker string `help:"Marker for pagination" json:"paging_marker"`
+
+	OrderByTag string `help:"Order results by tag values, composed by a tag key and order, e.g user:部门:ASC"`
 }
 
 func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {

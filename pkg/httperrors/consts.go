@@ -34,6 +34,7 @@ const (
 
 	ErrServerStatus  = errors.Error("ServerStatusError")
 	ErrInvalidStatus = errors.ErrInvalidStatus
+	ErrInvalidFormat = errors.Error("InvalidFormatError")
 
 	ErrInputParameter   = errors.Error("InputParameterError")
 	ErrWeakPassword     = errors.Error("WeakPasswordError")
@@ -105,6 +106,7 @@ var (
 
 		ErrServerStatus:  400,
 		ErrInvalidStatus: 400,
+		ErrInvalidFormat: 400,
 
 		ErrInputParameter:   400,
 		ErrWeakPassword:     400,

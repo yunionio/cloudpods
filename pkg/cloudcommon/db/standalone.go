@@ -16,7 +16,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -200,7 +199,8 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 	}
 
 	if len(tags) > 0 {
-		metadataView := Metadata.Query()
+		metadataResQ := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		metadataView := metadataResQ.Query()
 		idx := 0
 		for key, values := range tags {
 			if idx == 0 {
@@ -209,7 +209,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 					metadataView = metadataView.In("value", values)
 				}
 			} else {
-				subMetataView := Metadata.Query().Equals("key", key)
+				subMetataView := metadataResQ.Query().Equals("key", key)
 				if len(values) > 0 {
 					subMetataView = subMetataView.In("value", values)
 				}
@@ -219,22 +219,13 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 			idx++
 		}
 		metadatas := metadataView.SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("id"), manager.Keyword()+"::%")).Distinct()
+		sq := metadatas.Query(metadatas.Field("obj_id")).Distinct().SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
 	}
 
 	if input.WithoutUserMeta {
-		metadatas := Metadata.Query().SubQuery()
-		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
-		metadataSQ := metadatas.Query(
-			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
-		)
-		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("key"), USER_TAG_PREFIX+"%")).Distinct()
-
+		metadatas := Metadata.Query().Equals("obj_type", manager.Keyword()).SubQuery()
+		sq := metadatas.Query(metadatas.Field("obj_id")).Startswith("key", USER_TAG_PREFIX).Distinct().SubQuery()
 		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
 	}
 
@@ -242,6 +233,14 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(
 }
 
 func (manager *SStandaloneResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	if strings.HasPrefix(field, "tag:") {
+		tagKey := field[4:]
+		metaQ := Metadata.Query("obj_id", "value").Equals("obj_type", manager.Keyword()).Equals("key", tagKey).SubQuery()
+		q = q.AppendField(metaQ.Field("value", field)).Distinct()
+		q = q.LeftJoin(metaQ, sqlchemy.Equals(q.Field("id"), metaQ.Field("obj_id")))
+		q = q.Asc(metaQ.Field("value"))
+		return q, nil
+	}
 	q, err := manager.SResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
@@ -259,6 +258,25 @@ func (manager *SStandaloneResourceBaseManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.OrderByExtraFields")
 	}
+
+	if len(input.OrderByTag) > 0 {
+		order := sqlchemy.SQL_ORDER_ASC
+		tagKey := input.OrderByTag
+		if stringutils2.HasSuffixIgnoreCase(input.OrderByTag, string(sqlchemy.SQL_ORDER_ASC)) {
+			tagKey = tagKey[0 : len(tagKey)-len(sqlchemy.SQL_ORDER_ASC)-1]
+		} else if stringutils2.HasSuffixIgnoreCase(input.OrderByTag, string(sqlchemy.SQL_ORDER_DESC)) {
+			tagKey = tagKey[0 : len(tagKey)-len(sqlchemy.SQL_ORDER_DESC)-1]
+			order = sqlchemy.SQL_ORDER_DESC
+		}
+		metaQ := Metadata.Query("obj_id", "value").Equals("obj_type", manager.Keyword()).Equals("key", tagKey).SubQuery()
+		q = q.LeftJoin(metaQ, sqlchemy.Equals(q.Field("id"), metaQ.Field("obj_id")))
+		if order == sqlchemy.SQL_ORDER_ASC {
+			q = q.Asc(metaQ.Field("value"))
+		} else {
+			q = q.Desc(metaQ.Field("value"))
+		}
+	}
+
 	return q, nil
 }
 
@@ -518,4 +536,39 @@ func (manager *SStandaloneResourceBaseManager) FetchCustomizeColumns(
 
 func (manager *SStandaloneResourceBaseManager) GetMetadataHiddenKeys() []string {
 	return nil
+}
+
+const (
+	TAG_EXPORT_KEY_PREFIX = "tag:"
+)
+
+func (manager *SStandaloneResourceBaseManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
+
+	for _, key := range keys {
+		if strings.HasPrefix(key, TAG_EXPORT_KEY_PREFIX) {
+			res.Add(jsonutils.NewString(rowMap[key]), key)
+		}
+	}
+
+	return res
+}
+
+func (manager *SStandaloneResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemExportKeys")
+	}
+
+	for _, key := range keys {
+		if strings.HasPrefix(key, TAG_EXPORT_KEY_PREFIX) {
+			tagKey := key[len(TAG_EXPORT_KEY_PREFIX):]
+			metaQ := Metadata.Query("obj_id", "value").Equals("obj_type", manager.Keyword()).Equals("key", tagKey).SubQuery()
+			q = q.LeftJoin(metaQ, sqlchemy.Equals(q.Field("id"), metaQ.Field("obj_id")))
+			q = q.AppendField(metaQ.Field("value", key))
+		}
+	}
+
+	return q, nil
 }

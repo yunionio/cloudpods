@@ -1698,17 +1698,17 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	return api.ServerDetails{}, nil
 }
 
-func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 	if err != nil {
 		return nil, err
 	}
 
-	exportKeys, _ := query.GetString("export_keys")
-	keys := strings.Split(exportKeys, ",")
+	// exportKeys, _ := query.GetString("export_keys")
+	// keys := strings.Split(exportKeys, ",")
 	// guest_id as filter key
-	if utils.IsInStringArray("ips", keys) {
+	if keys.Contains("ips") {
 		guestIpsQuery := GuestnetworkManager.Query("guest_id").GroupBy("guest_id")
 		guestIpsQuery.AppendField(sqlchemy.GROUP_CONCAT("concat_ip_addr", guestIpsQuery.Field("ip_addr")))
 		ipsSubQuery := guestIpsQuery.SubQuery()
@@ -1716,7 +1716,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.AppendField(ipsSubQuery.Field("concat_ip_addr"))
 	}
 
-	if utils.IsInStringArray("user_tags", keys) {
+	if keys.Contains("user_tags") {
 		guestUserTagsQuery := db.Metadata.Query().Startswith("id", "server::").
 			Startswith("key", db.USER_TAG_PREFIX).GroupBy("id")
 		guestUserTagsQuery.AppendField(sqlchemy.SubStr("guest_id", guestUserTagsQuery.Field("id"), len("server::")+1, 0))
@@ -1731,7 +1731,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.AppendField(subQ.Field("user_tags"))
 	}
 
-	if utils.IsInStringArray("disk", keys) {
+	if keys.Contains("disk") {
 		guestDisksQuery := GuestdiskManager.Query("guest_id", "disk_id").GroupBy("guest_id")
 		diskQuery := DiskManager.Query("id", "disk_size").SubQuery()
 		guestDisksQuery.Join(diskQuery, sqlchemy.Equals(diskQuery.Field("id"), guestDisksQuery.Field("disk_id")))
@@ -1740,21 +1740,21 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.LeftJoin(guestDisksSubQuery, sqlchemy.Equals(q.Field("id"), guestDisksSubQuery.Field("guest_id")))
 		q.AppendField(guestDisksSubQuery.Field("disk_size"))
 	}
-	if utils.IsInStringArray("eip", keys) {
+	if keys.Contains("eip") {
 		eipsQuery := ElasticipManager.Query("associate_id", "ip_addr").Equals("associate_type", "server").GroupBy("associate_id")
 		eipsSubQuery := eipsQuery.SubQuery()
 		q.LeftJoin(eipsSubQuery, sqlchemy.Equals(q.Field("id"), eipsSubQuery.Field("associate_id")))
 		q.AppendField(eipsSubQuery.Field("ip_addr", "eip"))
 	}
 
-	if utils.IsInStringArray("host", keys) {
+	if keys.Contains("host") {
 		hostQuery := HostManager.Query("id", "name").GroupBy("id")
 		hostSubQuery := hostQuery.SubQuery()
 		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
 		q.AppendField(hostSubQuery.Field("name", "host"))
 	}
 
-	if utils.IsInStringArray("zone", keys) {
+	if keys.Contains("zone") {
 		zoneQuery := ZoneManager.Query("id", "name").SubQuery()
 		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
 		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id")))
@@ -1765,7 +1765,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 	}
 
 	// host_id as filter key
-	if utils.IsInStringArray("region", keys) {
+	if keys.Contains("region") {
 		zoneQuery := ZoneManager.Query("id", "cloudregion_id").SubQuery()
 		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
 		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
@@ -1777,7 +1777,8 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
 		q.AppendField(hostSubQuery.Field("region"))
 	}
-	if utils.IsInStringArray("manager", keys) {
+
+	if keys.Contains("manager") {
 		hostQuery := HostManager.Query("id", "manager_id").GroupBy("id")
 		cloudProviderQuery := CloudproviderManager.Query("id", "name").SubQuery()
 		hostQuery.LeftJoin(cloudProviderQuery, sqlchemy.Equals(hostQuery.Field("manager_id"),
@@ -1790,10 +1791,10 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
-	res := manager.SVirtualResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
-	exportKeys, _ := query.GetString("export_keys")
-	keys := strings.Split(exportKeys, ",")
+func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SVirtualResourceBaseManager.GetExportExtraKeys(ctx, keys, rowMap)
+	// exportKeys, _ := query.GetString("export_keys")
+	// keys := strings.Split(exportKeys, ",")
 	if ips, ok := rowMap["concat_ip_addr"]; ok && len(ips) > 0 {
 		res.Set("ips", jsonutils.NewString(ips))
 	}
@@ -1818,7 +1819,7 @@ func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query json
 	if userTags, ok := rowMap["user_tags"]; ok && len(userTags) > 0 {
 		res.Set("user_tags", jsonutils.NewString(userTags))
 	}
-	if utils.IsInStringArray("tenant", keys) {
+	if keys.Contains("tenant") {
 		if projectId, ok := rowMap["tenant_id"]; ok {
 			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
 			if err == nil {
@@ -1826,7 +1827,7 @@ func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query json
 			}
 		}
 	}
-	if utils.IsInStringArray("os_distribution", keys) {
+	if keys.Contains("os_distribution") {
 		if osType, ok := rowMap["os_type"]; ok {
 			res.Set("os_distribution", jsonutils.NewString(osType))
 		}

@@ -14,14 +14,18 @@
 
 package apis
 
+type ScopedResourceInput struct {
+	// 指定查询的权限范围，可能值为project, domain or system
+	Scope string `json:"scope"`
+}
+
 type DomainizedResourceListInput struct {
 	// swagger:ignore
 	// Is an admin call? equivalent to scope=system
 	// Deprecated
 	Admin *bool `json:"admin"`
 
-	// 指定查询的权限范围，可能值为project, domain or system
-	Scope string `json:"scope"`
+	ScopedResourceInput
 
 	DomainizedResourceInput
 
@@ -164,10 +168,15 @@ type StandaloneResourceListInput struct {
 
 	// 通过标签过滤
 	Tags []STag `json:"tags"`
+
+	// 通过标签过滤
+	OrderByTag string `json:"order_by_tag"`
+
 	// 返回资源的标签不包含特定的用户标签
 	WithoutUserMeta bool `json:"without_user_meta"`
 	// 返回列表数据中包含资源的标签数据（Metadata）
 	WithMeta *bool `json:"with_meta"`
+
 	// 显示所有的资源，包括模拟的资源
 	ShowEmulated *bool `json:"show_emulated"`
 
