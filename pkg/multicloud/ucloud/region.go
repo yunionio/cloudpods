@@ -751,3 +751,7 @@ func (region *SRegion) GetIBucketById(bucketId string) (cloudprovider.ICloudBuck
 func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
 	return region.GetIBucketByName(name)
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

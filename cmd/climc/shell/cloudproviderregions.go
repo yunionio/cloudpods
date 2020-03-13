@@ -27,6 +27,8 @@ func init() {
 	type CloudproviderRegionListOptions struct {
 		options.BaseListOptions
 		Region string `help:"ID or Name of Host"`
+
+		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
 	}
 	R(&CloudproviderRegionListOptions{}, "cloud-provider-region-list", "List cloudprovider region synchronization status", func(s *mcclient.ClientSession, args *CloudproviderRegionListOptions) error {
 		var params *jsonutils.JSONDict

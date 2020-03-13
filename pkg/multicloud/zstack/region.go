@@ -401,3 +401,7 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 	}
 	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

@@ -520,3 +520,7 @@ func (self *SRegion) GetInstanceFlavors() ([]FlavorObj, error) {
 
 	return ret, nil
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

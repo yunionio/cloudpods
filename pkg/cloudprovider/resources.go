@@ -136,6 +136,8 @@ type ICloudRegion interface {
 	GetProvider() string
 
 	GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]ICloudEvent, error) //获取公有云操作日志接口
+
+	GetCapabilities() []string
 }
 
 type ICloudZone interface {

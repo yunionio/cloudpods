@@ -40,6 +40,10 @@ type CloudregionDetails struct {
 	SCloudregionUsage
 
 	SCloudregion
+
+	// 云类型, public, private or onpremise
+	// example: public
+	CloudEnv string `json:"cloud_env"`
 }
 
 type CloudregionResourceInfo struct {

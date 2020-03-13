@@ -50,3 +50,11 @@ const (
 	CLOUD_CAPABILITY_CACHE        = "cache"
 	CLOUD_CAPABILITY_EVENT        = "event"
 )
+
+const (
+	CLOUD_ENV_PUBLIC_CLOUD  = "public"
+	CLOUD_ENV_PRIVATE_CLOUD = "private"
+	CLOUD_ENV_ON_PREMISE    = "onpremise"
+
+	CLOUD_ENV_PRIVATE_ON_PREMISE = "private_or_onpremise"
+)

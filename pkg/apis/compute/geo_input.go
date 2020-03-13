@@ -77,6 +77,8 @@ type CloudregionListInput struct {
 	UsableResourceListInput
 	UsableVpcResourceListInput
 
+	CapabilityListInput
+
 	// 过滤位于指定城市的区域
 	City string `json:"city"`
 	// 过滤提供特定服务的区域

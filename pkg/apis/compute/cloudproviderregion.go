@@ -38,6 +38,9 @@ type CloudproviderregionDetails struct {
 	// 自动同步周期
 	// example: 300
 	SyncIntervalSeconds int `json:"sync_interval_seconds"`
+
+	// 支持服务列表
+	Capabilities []string `json:"capabilities"`
 }
 
 type CloudproviderregionListInput struct {
@@ -45,6 +48,7 @@ type CloudproviderregionListInput struct {
 	SyncableBaseResourceListInput
 	RegionalFilterListInput
 	ManagedResourceListInput
+	CapabilityListInput
 
 	// 是否启用
 	Enabled *bool `json:"enabled"`
