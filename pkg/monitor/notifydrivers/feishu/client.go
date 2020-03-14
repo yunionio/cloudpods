@@ -35,6 +35,8 @@ const (
 	ApiRobotSendMessage = "https://open.feishu.cn/open-apis/message/v4/send/"
 	// 使用手机号或邮箱获取用户ID
 	ApiFetchUserID = "https://open.feishu.cn/open-apis/user/v1/batch_get_id"
+	// 使用 webhook 机器人发送消息
+	ApiWebhookRobotSendMessage = "https://open.feishu.cn/open-apis/bot/hook/"
 )
 
 var (
@@ -182,4 +184,24 @@ func (t *Tenant) UserIdByMobile(mobile string) (string, error) {
 	}
 	// len(list) must be positive
 	return list[0].GetString("open_id")
+}
+
+// SendWebhookRobotMessage will send to message to Webhook address.
+// Webhook's format: https://open.feishu.cn/open-apis/bot/hook/xxxxxxxxxxxxxxxxxxxxxxxxxxx.
+// The hook represents the last part of webhook: 'xxxxxxxxxxxxxxxxxxxxxxxxxxx'.
+func SendWebhookRobotMessage(hook string, msg WebhookRobotMsgReq) (*WebhookRobotMsgResp, error) {
+	url := ApiWebhookRobotSendMessage + hook
+	obj, err := Request(httputils.POST, url, http.Header{}, jsonutils.Marshal(msg))
+	if err != nil {
+		return nil, err
+	}
+	resp := new(WebhookRobotMsgResp)
+	err = obj.Unmarshal(resp)
+	if err != nil {
+		return nil, errors.Wrap(err, "unmarshal json")
+	}
+	if !resp.Ok {
+		return resp, fmt.Errorf("response error, msg: %s", resp.Error)
+	}
+	return resp, err
 }
