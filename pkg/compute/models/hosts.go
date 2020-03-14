@@ -1066,11 +1066,15 @@ func (cap *SStorageCapacity) Add(cap2 SStorageCapacity) {
 	cap.VCapacity += cap2.VCapacity
 }
 
-func (cap *SStorageCapacity) ToJson() *jsonutils.JSONDict {
-	ret := jsonutils.Marshal(cap).(*jsonutils.JSONDict)
-	ret.Add(jsonutils.NewFloat(cap.GetCommitRate()), "commit_rate")
-	ret.Add(jsonutils.NewInt(int64(cap.GetFree())), "free_capacity")
-	return ret
+func (cap *SStorageCapacity) toCapacityInfo() api.SStorageCapacityInfo {
+	info := api.SStorageCapacityInfo{}
+	info.Capacity = cap.Capacity
+	info.UsedCapacity = cap.Used
+	info.WasteCapacity = cap.Wasted
+	info.VirtualCapacity = cap.VCapacity
+	info.CommitRate = cap.GetCommitRate()
+	info.FreeCapacity = cap.GetFree()
+	return info
 }
 
 func (self *SHost) GetAttachedLocalStorageCapacity() SStorageCapacity {
