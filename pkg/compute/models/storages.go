@@ -410,13 +410,7 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 
 func (self *SStorage) getMoreDetails(ctx context.Context, out api.StorageDetails) api.StorageDetails {
 	capa := self.getStorageCapacity()
-	out.Capacity = capa.Capacity
-	out.Used = capa.Used
-	out.Wasted = capa.Wasted
-	out.VCapacity = capa.VCapacity
-	out.CommitRate = capa.GetCommitRate()
-	out.FreeCapacity = capa.GetFree()
-
+	out.SStorageCapacityInfo = capa.toCapacityInfo()
 	out.CommitBound = self.GetOvercommitBound()
 	out.Schedtags = GetSchedtagsDetailsToResourceV2(self, ctx)
 
