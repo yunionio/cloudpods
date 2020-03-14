@@ -44,10 +44,11 @@ func newBackupSchedResult(
 ) *schedapi.ScheduleOutput {
 	ret := new(schedapi.ScheduleOutput)
 	apiResults := make([]*schedapi.CandidateResource, 0)
+	storageUsed := core.NewStorageUsed()
 	var wireHostMap map[string]core.SchedResultItems
 	for i := 0; i < int(count); i++ {
 		log.V(10).Debugf("Select backup host from result: %s", result)
-		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, sid, wireHostMap)
+		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, sid, wireHostMap, storageUsed)
 		if err != nil {
 			er := &schedapi.CandidateResource{Error: err.Error()}
 			apiResults = append(apiResults, er)
@@ -63,6 +64,7 @@ func getSchedBackupResult(
 	result *core.SchedResultItemList,
 	preferMasterHost, preferBackupHost string,
 	sid string, wireHostMap map[string]core.SchedResultItems,
+	storageUsed *core.StorageUsed,
 ) (*schedapi.CandidateResource, error) {
 	if wireHostMap == nil {
 		wireHostMap = buildWireHostMap(result)
@@ -81,8 +83,8 @@ func getSchedBackupResult(
 	markHostUsed(masterHost)
 	markHostUsed(backupHost)
 
-	ret := masterHost.ToCandidateResource()
-	ret.BackupCandidate = backupHost.ToCandidateResource()
+	ret := masterHost.ToCandidateResource(storageUsed)
+	ret.BackupCandidate = backupHost.ToCandidateResource(storageUsed)
 	ret.SessionId = sid
 	ret.BackupCandidate.SessionId = sid
 	return ret, nil
