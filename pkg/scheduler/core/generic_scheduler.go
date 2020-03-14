@@ -29,7 +29,9 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -184,6 +186,7 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		Data:              u.GetFiltedData(id, count),
 		Candidater:        c,
 		AllocatedResource: u.GetAllocatedResource(id),
+		SchedData:         u.SchedData(),
 	}
 
 	if showDetails {
@@ -250,15 +253,112 @@ type SchedResultItem struct {
 	Candidater Candidater `json:"-"`
 
 	*AllocatedResource
+
+	SchedData *api.SchedInfo
 }
 
-func (item *SchedResultItem) ToCandidateResource() *schedapi.CandidateResource {
+type StorageUsed struct {
+	used map[string]int64
+}
+
+func NewStorageUsed() *StorageUsed {
+	return &StorageUsed{
+		used: make(map[string]int64),
+	}
+}
+
+func (s *StorageUsed) Get(storageId string) int64 {
+	if used, ok := s.used[storageId]; ok {
+		return used
+	}
+	return 0
+}
+
+func (s *StorageUsed) Add(storageId string, used int64) {
+	if s.used == nil {
+		s.used = make(map[string]int64)
+	}
+	oUsed, ok := s.used[storageId]
+	if ok {
+		s.used[storageId] = oUsed + used
+	} else {
+		s.used[storageId] = used
+	}
+}
+
+func (item *SchedResultItem) ToCandidateResource(storageUsed *StorageUsed) *schedapi.CandidateResource {
 	return &schedapi.CandidateResource{
 		HostId: item.ID,
 		Name:   item.Name,
-		Disks:  item.Disks,
+		Disks:  item.getDisks(storageUsed),
 		Nets:   item.Nets,
 	}
+}
+
+func (item *SchedResultItem) getDisks(used *StorageUsed) []*schedapi.CandidateDisk {
+	inputs := item.SchedData.Disks
+	ret := make([]*schedapi.CandidateDisk, 0)
+	for idx, disk := range item.Disks {
+		ret = append(ret, &schedapi.CandidateDisk{
+			Index:      idx,
+			StorageIds: item.getSortStorageIds(used, inputs[idx], disk.Storages),
+		})
+	}
+	return ret
+}
+
+type sortStorage struct {
+	Id      string
+	FeeSize int64
+}
+
+type sortStorages []sortStorage
+
+func (s sortStorages) Len() int {
+	return len(s)
+}
+
+func (s sortStorages) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s sortStorages) Less(i, j int) bool {
+	s1 := s[i]
+	s2 := s[j]
+	return s1.FeeSize > s2.FeeSize
+}
+
+func (s sortStorages) getIds() []string {
+	ret := make([]string, 0)
+	for _, obj := range s {
+		ret = append(ret, obj.Id)
+	}
+	return ret
+}
+
+func (item *SchedResultItem) getSortStorageIds(
+	used *StorageUsed,
+	disk *compute.DiskConfig,
+	storages []*schedapi.CandidateStorage) []string {
+	reqSize := disk.SizeMb
+	ss := make([]sortStorage, 0)
+	for _, s := range storages {
+		ss = append(ss, sortStorage{
+			Id:      s.Id,
+			FeeSize: s.FreeCapacity - used.Get(s.Id),
+		})
+	}
+	toSort := sortStorages(ss)
+	sort.Sort(toSort)
+	sortedStorages := toSort.getIds()
+	ret := make([]string, 0)
+	for idx, id := range sortedStorages {
+		if idx == 0 {
+			used.Add(id, int64(reqSize))
+		}
+		ret = append(ret, id)
+	}
+	return ret
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {
