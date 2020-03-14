@@ -310,7 +310,7 @@ func (manager *SCredentialManager) ListItemFilter(
 		}
 	}
 	if len(query.Type) > 0 {
-		q = q.Equals("type", query.Type)
+		q = q.In("type", query.Type)
 	}
 	return q, nil
 }

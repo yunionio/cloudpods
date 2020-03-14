@@ -286,13 +286,13 @@ type IdentityProviderListInput struct {
 	apis.EnabledStatusStandaloneResourceListInput
 
 	// 以驱动类型过滤
-	Driver string `json:"driver"`
+	Driver []string `json:"driver"`
 
 	// 以模板过滤
-	Template string `json:"template"`
+	Template []string `json:"template"`
 
 	// 以同步状态过滤
-	SyncStatus string `json:"sync_status"`
+	SyncStatus []string `json:"sync_status"`
 }
 
 type CredentialListInput struct {
@@ -301,7 +301,7 @@ type CredentialListInput struct {
 	UserFilterListInput
 	ProjectFilterListInput
 
-	Type string `json:"type"`
+	Type []string `json:"type"`
 
 	Enabled *bool `json:"enabled"`
 }
@@ -311,7 +311,7 @@ type PolicyListInput struct {
 	apis.SharableResourceBaseListInput
 
 	// 以类型查询
-	Type string `json:"type"`
+	Type []string `json:"type"`
 }
 
 type RegionFilterListInput struct {
@@ -330,7 +330,7 @@ type ServiceListInput struct {
 	apis.StandaloneResourceListInput
 
 	// 以Service Type过滤
-	Type string `json:"type"`
+	Type []string `json:"type"`
 
 	// 是否启用/禁用
 	Enabled *bool `json:"enabled"`

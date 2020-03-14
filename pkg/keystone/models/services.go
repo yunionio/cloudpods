@@ -233,7 +233,7 @@ func (manager *SServiceManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
 	}
 	if len(query.Type) > 0 {
-		q = q.Equals("type", query.Type)
+		q = q.In("type", query.Type)
 	}
 	if query.Enabled != nil {
 		if *query.Enabled {

@@ -1140,9 +1140,8 @@ func (manager *SImageManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
-	fmtJsonArray := query.DiskFormats
-	if len(fmtJsonArray) > 0 {
-		q = q.In("disk_format", fmtJsonArray)
+	if len(query.DiskFormats) > 0 {
+		q = q.In("disk_format", query.DiskFormats)
 	}
 	if query.Uefi != nil && *query.Uefi {
 		imagePropertyQ := ImagePropertyManager.Query().
