@@ -93,6 +93,17 @@ type CandidateDisk struct {
 	StorageIds []string `json:"storage_ids"`
 }
 
+type CandidateDiskV2 struct {
+	Index    int                 `json:"index"`
+	Storages []*CandidateStorage `json:"storages"`
+}
+
+type CandidateStorage struct {
+	Id           string
+	Name         string
+	FreeCapacity int64
+}
+
 type CandidateNet struct {
 	Index      int      `json:"index"`
 	NetworkIds []string `json:"network_ids"`

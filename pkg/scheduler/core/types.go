@@ -194,13 +194,13 @@ type Priority interface {
 }
 
 type AllocatedResource struct {
-	Disks []*schedapi.CandidateDisk `json:"disks"`
-	Nets  []*schedapi.CandidateNet  `json:"nets"`
+	Disks []*schedapi.CandidateDiskV2 `json:"disks"`
+	Nets  []*schedapi.CandidateNet    `json:"nets"`
 }
 
 func NewAllocatedResource() *AllocatedResource {
 	return &AllocatedResource{
-		Disks: make([]*schedapi.CandidateDisk, 0),
+		Disks: make([]*schedapi.CandidateDiskV2, 0),
 		Nets:  make([]*schedapi.CandidateNet, 0),
 	}
 }
