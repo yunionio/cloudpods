@@ -17,7 +17,6 @@ package predicates
 import (
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
@@ -28,6 +27,7 @@ import (
 
 type DiskSchedtagPredicate struct {
 	*BaseSchedtagPredicate
+	storageUsed map[string]int64
 }
 
 func (p *DiskSchedtagPredicate) Name() string {
@@ -37,6 +37,7 @@ func (p *DiskSchedtagPredicate) Name() string {
 func (p *DiskSchedtagPredicate) Clone() core.FitPredicate {
 	return &DiskSchedtagPredicate{
 		BaseSchedtagPredicate: NewBaseSchedtagPredicate(),
+		storageUsed:           make(map[string]int64),
 	}
 }
 
@@ -145,19 +146,24 @@ func (p *DiskSchedtagPredicate) DoSelect(
 }
 
 func (p *DiskSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
-	return selectRes.(*api.CandidateStorage).GetFreeCapacity()
+	s := selectRes.(*api.CandidateStorage)
+	return s.GetFreeCapacity()
 }
 
-func (p *DiskSchedtagPredicate) AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
-	storageIds := []string{}
+func (p *DiskSchedtagPredicate) AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
+	storages := []*schedapi.CandidateStorage{}
 	for _, res := range selectRes {
-		storageIds = append(storageIds, res.GetId())
+		cs := res.(*api.CandidateStorage)
+		storages = append(storages, &schedapi.CandidateStorage{
+			Id:           cs.GetId(),
+			Name:         cs.GetName(),
+			FreeCapacity: cs.GetFreeCapacity(),
+		})
 	}
-	ret := &schedapi.CandidateDisk{
-		Index:      index,
-		StorageIds: storageIds,
+	ret := &schedapi.CandidateDiskV2{
+		Index:    index,
+		Storages: storages,
 	}
-	log.Debugf("Suggestion storages %v for disk%d", storageIds, index)
 	output.Disks = append(output.Disks, ret)
 }
 

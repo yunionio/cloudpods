@@ -317,12 +317,13 @@ func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo,
 func transToRegionSchedResult(result []*core.SchedResultItem, count int64, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0
+	storageUsed := core.NewStorageUsed()
 	for _, nr := range result {
 		for {
 			if nr.Count <= 0 {
 				break
 			}
-			tr := nr.ToCandidateResource()
+			tr := nr.ToCandidateResource(storageUsed)
 			tr.SessionId = sid
 			apiResults = append(apiResults, tr)
 			nr.Count--
