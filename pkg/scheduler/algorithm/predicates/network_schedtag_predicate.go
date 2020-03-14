@@ -266,7 +266,7 @@ func (p *NetworkSchedtagPredicate) DoSelect(
 	return sNets.Results()
 }
 
-func (p *NetworkSchedtagPredicate) AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
+func (p *NetworkSchedtagPredicate) AddSelectResult(index int, input ISchedtagCustomer, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
 	networkIds := []string{}
 	for _, res := range selectRes {
 		networkIds = append(networkIds, res.GetId())
