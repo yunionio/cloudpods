@@ -252,3 +252,13 @@ type UserIDRespData struct {
 	MobileUsers     jsonutils.JSONObject `json:"mobile_users"`
 	MobilesNotExist []string             `json:"mobiles_not_exist"`
 }
+
+type WebhookRobotMsgReq struct {
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
+type WebhookRobotMsgResp struct {
+	Error string `json:"error"`
+	Ok    bool   `json:"ok"`
+}
