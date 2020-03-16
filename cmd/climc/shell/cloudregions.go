@@ -35,6 +35,8 @@ func init() {
 
 		City string `help:"List regions in the specified city"`
 
+		Capability []string `help:"capability filter" choices:"project|compute|network|loadbalancer|objectstore|rds|cache|event"`
+
 		DistinctField string `help:"list the specified distinct field, e.g. city, region"`
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, opts *CloudregionListOptions) error {

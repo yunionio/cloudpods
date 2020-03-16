@@ -133,17 +133,23 @@ func (self *SGoogleClient) fetchRegions() error {
 		regions[i].client = self
 		self.iregions = append(self.iregions, &regions[i])
 	}
+
+	objectstoreCapability := []string{
+		cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE,
+	}
 	for _, region := range MultiRegions {
 		_region := SRegion{
-			Name:   region,
-			client: self,
+			Name:         region,
+			client:       self,
+			capabilities: objectstoreCapability,
 		}
 		self.iregions = append(self.iregions, &_region)
 	}
 	for _, region := range DualRegions {
 		_region := SRegion{
-			Name:   region,
-			client: self,
+			Name:         region,
+			client:       self,
+			capabilities: objectstoreCapability,
 		}
 		self.iregions = append(self.iregions, &_region)
 	}

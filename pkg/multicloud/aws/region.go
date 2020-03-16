@@ -1091,3 +1091,7 @@ func (self *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreat
 	}
 	return self.GetISecurityGroupById(groupId)
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

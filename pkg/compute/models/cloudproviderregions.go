@@ -147,6 +147,7 @@ func (manager *SCloudproviderregionManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i].JointResourceBaseDetails = jointRows[i]
 		rows[i].CloudregionResourceInfo = regionRows[i]
+		rows[i].Capabilities, _ = objs[i].(*SCloudproviderregion).getCapabilities()
 		managerIds[i] = objs[i].(*SCloudproviderregion).CloudproviderId
 	}
 
@@ -521,6 +522,15 @@ func (manager *SCloudproviderregionManager) ListItemFilter(
 		}
 	}
 
+	if len(query.Capability) > 0 {
+		subq := CloudproviderCapabilityManager.Query().SubQuery()
+		q = q.Join(subq, sqlchemy.AND(
+			sqlchemy.Equals(q.Field("cloudprovider_id"), subq.Field("cloudprovider_id")),
+			sqlchemy.Equals(q.Field("cloudregion_id"), subq.Field("cloudregion_id")),
+		))
+		q = q.Filter(sqlchemy.In(subq.Field("capability"), query.Capability))
+	}
+
 	return q, nil
 }
 
@@ -565,4 +575,16 @@ func (manager *SCloudproviderregionManager) QueryDistinctExtraField(q *sqlchemy.
 	}
 
 	return q, httperrors.ErrNotFound
+}
+
+func (cpr *SCloudproviderregion) setCapabilities(ctx context.Context, userCred mcclient.TokenCredential, capa []string) error {
+	return CloudproviderCapabilityManager.setRegionCapabilities(ctx, userCred, cpr.CloudproviderId, cpr.CloudregionId, capa)
+}
+
+func (cpr *SCloudproviderregion) removeCapabilities(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return CloudproviderCapabilityManager.removeRegionCapabilities(ctx, userCred, cpr.CloudproviderId, cpr.CloudregionId)
+}
+
+func (cpr *SCloudproviderregion) getCapabilities() ([]string, error) {
+	return CloudproviderCapabilityManager.getRegionCapabilities(cpr.CloudproviderId, cpr.CloudregionId)
 }

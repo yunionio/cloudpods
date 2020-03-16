@@ -324,6 +324,20 @@ func GetOnPremiseProviders() []string {
 	return providers
 }
 
+func GetProviderCloudEnv(provider string) string {
+	p, err := GetProviderFactory(provider)
+	if err != nil {
+		return ""
+	}
+	if p.IsPublicCloud() {
+		return CLOUD_ENV_PUBLIC_CLOUD
+	}
+	if p.IsOnPremise() {
+		return CLOUD_ENV_ON_PREMISE
+	}
+	return CLOUD_ENV_PRIVATE_CLOUD
+}
+
 type baseProviderFactory struct {
 }
 

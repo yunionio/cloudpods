@@ -14,6 +14,10 @@
 
 package compute
 
+import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
 const (
 	CLOUD_PROVIDER_INIT          = "init"
 	CLOUD_PROVIDER_CONNECTED     = "connected"
@@ -91,11 +95,11 @@ var (
 )
 
 const (
-	CLOUD_ENV_PUBLIC_CLOUD  = "public"
-	CLOUD_ENV_PRIVATE_CLOUD = "private"
-	CLOUD_ENV_ON_PREMISE    = "onpremise"
+	CLOUD_ENV_PUBLIC_CLOUD  = cloudprovider.CLOUD_ENV_PUBLIC_CLOUD
+	CLOUD_ENV_PRIVATE_CLOUD = cloudprovider.CLOUD_ENV_PRIVATE_CLOUD
+	CLOUD_ENV_ON_PREMISE    = cloudprovider.CLOUD_ENV_ON_PREMISE
 
-	CLOUD_ENV_PRIVATE_ON_PREMISE = "private_or_onpremise"
+	CLOUD_ENV_PRIVATE_ON_PREMISE = cloudprovider.CLOUD_ENV_PRIVATE_ON_PREMISE
 )
 
 const (

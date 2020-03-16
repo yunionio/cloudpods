@@ -34,6 +34,8 @@ type SRegion struct {
 	multicloud.SRegion
 	client *SGoogleClient
 
+	capabilities []string
+
 	Description       string
 	ID                string
 	Kind              string
@@ -625,4 +627,11 @@ func (region *SRegion) CreateEIP(args *cloudprovider.SEip) (cloudprovider.ICloud
 		return nil, err
 	}
 	return eip, nil
+}
+
+func (region *SRegion) GetCapabilities() []string {
+	if region.capabilities == nil {
+		return region.client.GetCapabilities()
+	}
+	return region.capabilities
 }

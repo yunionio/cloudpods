@@ -65,10 +65,10 @@ type SCloudregion struct {
 
 	// 云环境
 	// example: ChinaCloud
-	Environment string `width:"32" charset:"ascii" list:"user" json:"environment"`
+	Environment string `width:"32" charset:"ascii" list:"user"`
 	// 云平台
 	// example: Huawei
-	Provider string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud" json:"provider"`
+	Provider string `width:"64" charset:"ascii" list:"user" nullable:"false" default:"OneCloud"`
 }
 
 func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -277,6 +277,7 @@ func (manager *SCloudregionManager) FetchCustomizeColumns(
 		rows[i] = api.CloudregionDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			SCloudregionUsage:                      region.getUsage(),
+			CloudEnv:                               region.GetCloudEnv(),
 		}
 	}
 	return rows
@@ -376,6 +377,7 @@ func (manager *SCloudregionManager) SyncRegions(
 		} else {
 			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, commondb[i].Id)
+			cpr.setCapabilities(ctx, userCred, commonext[i].GetCapabilities())
 			cloudProviderRegions = append(cloudProviderRegions, *cpr)
 			localRegions = append(localRegions, commondb[i])
 			remoteRegions = append(remoteRegions, commonext[i])
@@ -389,6 +391,7 @@ func (manager *SCloudregionManager) SyncRegions(
 		} else {
 			syncMetadata(ctx, userCred, new, added[i])
 			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, new.Id)
+			cpr.setCapabilities(ctx, userCred, added[i].GetCapabilities())
 			cloudProviderRegions = append(cloudProviderRegions, *cpr)
 			localRegions = append(localRegions, *new)
 			remoteRegions = append(remoteRegions, added[i])
@@ -415,6 +418,9 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	cpr := CloudproviderRegionManager.FetchByIds(cloudProvider.Id, self.Id)
 	if cpr != nil {
 		err = cpr.Detach(ctx, userCred)
+		if err == nil {
+			err = cpr.removeCapabilities(ctx, userCred)
+		}
 	}
 
 	return err
@@ -541,16 +547,20 @@ func (manager *SCloudregionManager) InitializeData() error {
 			defRegion.Status = api.CLOUD_REGION_STATUS_INSERVER
 			defRegion.Provider = api.CLOUD_PROVIDER_ONECLOUD
 			err := manager.TableSpec().Insert(&defRegion)
-			return err
+			if err != nil {
+				return errors.Wrap(err, "insert default region")
+			}
+		} else {
+			return errors.Wrap(err, "fetch default region")
 		}
-		return err
-	}
-	if region := obj.(*SCloudregion); region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
+	} else if region := obj.(*SCloudregion); region.Provider != api.CLOUD_PROVIDER_ONECLOUD {
 		_, err := db.Update(region, func() error {
 			region.Provider = api.CLOUD_PROVIDER_ONECLOUD
 			return nil
 		})
-		return err
+		if err != nil {
+			return errors.Wrap(err, "update default region provider")
+		}
 	}
 	return nil
 }
@@ -767,6 +777,11 @@ func (manager *SCloudregionManager) ListItemFilter(
 		q = q.In("environment", query.Environment)
 	}
 
+	if len(query.Capability) > 0 {
+		subq := CloudproviderCapabilityManager.Query("cloudregion_id").In("capability", query.Capability).Distinct().SubQuery()
+		q = q.In("id", subq)
+	}
+
 	return q, nil
 }
 
@@ -804,6 +819,7 @@ func (self *SCloudregion) getCloudaccounts() []SCloudaccount {
 
 func (self *SCloudregion) GetRegionCloudenvInfo() api.CloudenvResourceInfo {
 	info := api.CloudenvResourceInfo{
+		CloudEnv:    self.GetCloudEnv(),
 		Provider:    self.Provider,
 		Environment: self.Environment,
 	}
@@ -870,4 +886,8 @@ func (self *SCloudregion) getMaxDataDiskCount() int {
 
 func (manager *SCloudregionManager) FetchDefaultRegion() *SCloudregion {
 	return manager.FetchRegionById(api.DEFAULT_REGION_ID)
+}
+
+func (self *SCloudregion) GetCloudEnv() string {
+	return cloudprovider.GetProviderCloudEnv(self.Provider)
 }

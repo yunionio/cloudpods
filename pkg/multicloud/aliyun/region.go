@@ -1123,3 +1123,7 @@ func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, er
 
 	return icaches, nil
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

@@ -534,3 +534,7 @@ func (region *SRegion) GetISecurityGroupByName(vpcId string, name string) (cloud
 func (region *SRegion) CreateISecurityGroup(conf *cloudprovider.SecurityGroupCreateInput) (cloudprovider.ICloudSecurityGroup, error) {
 	return region.CreateSecurityGroup(conf.Name, conf.Desc)
 }
+
+func (region *SRegion) GetCapabilities() []string {
+	return region.client.GetCapabilities()
+}

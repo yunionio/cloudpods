@@ -47,11 +47,16 @@ type SCloudproviderCapability struct {
 	db.SResourceBase
 
 	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" primary:"true"`
+	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" default:"" primary:"true"`
 	Capability      string `width:"18" charset:"ascii" nullable:"false" primary:"true"`
 }
 
 func (manager *SCloudproviderCapabilityManager) setCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string, capabilities []string) error {
-	oldCapabilities, err := manager.getCapabilities(cloudproviderId)
+	return manager.setRegionCapabilities(ctx, userCred, cloudproviderId, "", capabilities)
+}
+
+func (manager *SCloudproviderCapabilityManager) setRegionCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string, cloudregionId string, capabilities []string) error {
+	oldCapabilities, err := manager.getRegionCapabilities(cloudproviderId, cloudregionId)
 	if err != nil {
 		return errors.Wrap(err, "manager.getCapabilities")
 	}
@@ -61,6 +66,7 @@ func (manager *SCloudproviderCapabilityManager) setCapabilities(ctx context.Cont
 
 	cpc := SCloudproviderCapability{
 		CloudproviderId: cloudproviderId,
+		CloudregionId:   cloudregionId,
 	}
 	cpc.SetModelManager(manager, &cpc)
 
@@ -82,7 +88,11 @@ func (manager *SCloudproviderCapabilityManager) setCapabilities(ctx context.Cont
 }
 
 func (manager *SCloudproviderCapabilityManager) getCapabilities(cloudproviderId string) ([]string, error) {
-	q := manager.Query().Equals("cloudprovider_id", cloudproviderId)
+	return manager.getRegionCapabilities(cloudproviderId, "")
+}
+
+func (manager *SCloudproviderCapabilityManager) getRegionCapabilities(cloudproviderId string, cloudregionId string) ([]string, error) {
+	q := manager.Query().Equals("cloudprovider_id", cloudproviderId).Equals("cloudregion_id", cloudregionId)
 	capabilities := make([]SCloudproviderCapability, 0)
 	err := db.FetchModelObjects(manager, q, &capabilities)
 	if err != nil {
@@ -97,5 +107,9 @@ func (manager *SCloudproviderCapabilityManager) getCapabilities(cloudproviderId 
 }
 
 func (manager *SCloudproviderCapabilityManager) removeCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string) error {
-	return manager.setCapabilities(ctx, userCred, cloudproviderId, []string{})
+	return manager.removeRegionCapabilities(ctx, userCred, cloudproviderId, "")
+}
+
+func (manager *SCloudproviderCapabilityManager) removeRegionCapabilities(ctx context.Context, userCred mcclient.TokenCredential, cloudproviderId string, cloudregionId string) error {
+	return manager.setRegionCapabilities(ctx, userCred, cloudproviderId, cloudregionId, []string{})
 }
