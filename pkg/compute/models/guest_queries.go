@@ -207,6 +207,10 @@ func fetchGuestDiskSizes(guestIds []string) map[string]sGustDiskSize {
 	return ret
 }
 
+func (guest *SGuest) GetDisksSize() int {
+	return guest.getDiskSize()
+}
+
 func (guest *SGuest) getDiskSize() int {
 	result := fetchGuestDiskSizes([]string{guest.Id})
 	if result == nil {

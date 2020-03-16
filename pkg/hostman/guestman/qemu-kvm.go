@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -920,8 +921,27 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 	return nil
 }
 
+func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
+	if eid, _ := s.Desc.GetString("metadata", "__server_convert_from_esxi"); len(eid) > 0 {
+		disks, _ := s.Desc.GetArray("disks")
+		connections := new(deployapi.EsxiDisksConnectionInfo)
+		connections.Disks = make([]*deployapi.EsxiDiskInfo, len(disks))
+		for i := 0; i < len(disks); i++ {
+			fpath, _ := disks[i].GetString("esxi_flat_file_path")
+			connections.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: fpath}
+		}
+		_, err := deployclient.GetDeployClient().DisconnectEsxiDisks(ctx, connections)
+		log.Infof("Disconnect %s esxi disks failed %s", s.GetName(), err)
+		return err
+	}
+	return nil
+}
+
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
+		return err
+	}
+	if err := s.delFlatFiles(ctx); err != nil {
 		return err
 	}
 	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
@@ -1243,7 +1263,12 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 			d.Set("merge_snapshot", jsonutils.JSONFalse)
 		}
 	}
-	s.SaveDesc(s.Desc)
+	if err := s.SaveDesc(s.Desc); err != nil {
+		log.Errorf("save guest desc failed %s", err)
+	}
+	if err := s.delFlatFiles(ctx); err != nil {
+		log.Errorf("del flat files failed %s", err)
+	}
 	_, err := modules.Servers.PerformAction(hostutils.GetComputeSession(ctx),
 		s.Id, "stream-disks-complete", nil)
 	if err != nil {

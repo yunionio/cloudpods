@@ -239,6 +239,10 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 			desc.Set("merge_snapshot", jsonutils.JSONTrue)
 		}
 	}
+	if fpath := disk.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil); len(fpath) > 0 {
+		desc.Set("merge_snapshot", jsonutils.JSONTrue)
+		desc.Set("esxi_flat_file_path", jsonutils.NewString(fpath))
+	}
 	fs := disk.GetFsFormat()
 	if len(fs) > 0 {
 		desc.Add(jsonutils.NewString(fs), "fs")

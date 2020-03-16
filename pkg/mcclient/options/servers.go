@@ -78,6 +78,11 @@ type ServerSSHLoginOptions struct {
 	Password string `help:"SSH password"`
 }
 
+type ServerConvertToKvmOptions struct {
+	ID         string `help:"ID of the server" json:"-"`
+	PerferHost string `help:"Perfer host id or name" json:"perfer_host"`
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }

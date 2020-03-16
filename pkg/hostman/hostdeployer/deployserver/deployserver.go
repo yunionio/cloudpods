@@ -21,6 +21,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -196,6 +197,61 @@ func (*DeployerServer) ProbeImageInfo(ctx context.Context, req *deployapi.ProbeI
 	return imageInfo, nil
 }
 
+var connectedEsxiDisks = map[string]*diskutils.VDDKDisk{}
+
+func (*DeployerServer) ConnectEsxiDisks(
+	ctx context.Context, req *deployapi.ConnectEsxiDisksParams,
+) (*deployapi.EsxiDisksConnectionInfo, error) {
+	log.Infof("Connect esxi disks ...")
+	var (
+		err          error
+		flatFilePath string
+		ret          = new(deployapi.EsxiDisksConnectionInfo)
+	)
+	ret.Disks = make([]*deployapi.EsxiDiskInfo, len(req.AccessInfo))
+	for i := 0; i < len(req.AccessInfo); i++ {
+		disk := diskutils.NewVDDKDisk(req.VddkInfo, req.AccessInfo[i].DiskPath)
+		flatFilePath, err = disk.ConnectBlockDevice()
+		if err != nil {
+			err = errors.Wrapf(err, "disk %s connect block device", req.AccessInfo[i].DiskPath)
+			break
+		}
+		connectedEsxiDisks[req.AccessInfo[i].DiskPath] = disk
+		ret.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: flatFilePath}
+	}
+	if err != nil {
+		for i := 0; i < len(req.AccessInfo); i++ {
+			if disk, ok := connectedEsxiDisks[req.AccessInfo[i].DiskPath]; ok {
+				if e := disk.DisconnectBlockDevice(); e != nil {
+					log.Errorf("disconnect disk %s: %s", req.AccessInfo[i].DiskPath, e)
+				} else {
+					delete(connectedEsxiDisks, req.AccessInfo[i].DiskPath)
+				}
+			}
+		}
+		return ret, err
+	}
+	return ret, nil
+}
+
+func (*DeployerServer) DisconnectEsxiDisks(
+	ctx context.Context, req *deployapi.EsxiDisksConnectionInfo,
+) (*deployapi.Empty, error) {
+	log.Infof("Disconnect esxi disks ...")
+	for i := 0; i < len(req.Disks); i++ {
+		if disk, ok := connectedEsxiDisks[req.Disks[i].DiskPath]; ok {
+			if e := disk.DisconnectBlockDevice(); e != nil {
+				return new(deployapi.Empty), errors.Wrapf(e, "disconnect disk %s", req.Disks[i].DiskPath)
+			} else {
+				delete(connectedEsxiDisks, req.Disks[i].DiskPath)
+			}
+		} else {
+			return new(deployapi.Empty), fmt.Errorf("disk %s not connected", req.Disks[i].DiskPath)
+		}
+	}
+	return new(deployapi.Empty), nil
+}
+
 type SDeployService struct {
 	*service.SServiceBase
 }
@@ -298,7 +354,14 @@ func (s *SDeployService) InitService() {
 		log.Fatalf("missing deploy server socket path")
 	}
 	// TODO implentment func onExit
-	s.SignalTrap(nil)
+	s.SignalTrap(func() {
+		for {
+			if len(connectedEsxiDisks) > 0 {
+				log.Warningf("Waiting for esxi disks %d disconnect !!!", len(connectedEsxiDisks))
+				time.Sleep(time.Second * 1)
+			}
+		}
+	})
 }
 
 func (s *SDeployService) OnExitService() {}

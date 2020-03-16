@@ -156,10 +156,25 @@ message ImageInfo {
   bool is_installed_cloud_init = 7;
 }
 
+message EsxiDiskInfo {
+  string disk_path = 1;
+}
+
+message ConnectEsxiDisksParams {
+  VDDKConInfo vddk_info = 1;
+  repeated EsxiDiskInfo access_info = 2;
+}
+
+message EsxiDisksConnectionInfo {
+  repeated EsxiDiskInfo disks = 1;
+}
+
 service DeployAgent {
   rpc DeployGuestFs (DeployParams) returns (DeployGuestFsResponse);
   rpc ResizeFs (ResizeFsParams) returns (Empty);
   rpc FormatFs (FormatFsParams) returns (Empty);
   rpc SaveToGlance (SaveToGlanceParams) returns (SaveToGlanceResponse);
   rpc ProbeImageInfo(ProbeImageInfoPramas) returns (ImageInfo);
+  rpc ConnectEsxiDisks(ConnectEsxiDisksParams) returns (EsxiDisksConnectionInfo);
+  rpc DisconnectEsxiDisks(EsxiDisksConnectionInfo) returns (Empty);
 }

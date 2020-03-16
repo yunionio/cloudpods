@@ -3647,6 +3647,9 @@ func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcc
 			SnapshotManager.AddRefCount(d.SnapshotId, -1)
 			d.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
 		}
+		if len(d.GetMetadata(api.DISK_META_ESXI_FLAT_FILE_PATH, nil)) > 0 {
+			d.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, "", userCred)
+		}
 	}
 	return nil, nil
 }
@@ -3962,6 +3965,117 @@ func (self *SGuest) GenerateVirtInstallCommandLine(
 	// debug print
 	cmd += "-d"
 	return cmd, nil
+}
+
+func (self *SGuest) AllowPerformConvert(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "convert")
+}
+
+func (self *SGuest) PerformConvert(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data *api.ConvertEsxiToKvmInput,
+) (jsonutils.JSONObject, error) {
+	switch data.TargetHypervisor {
+	case api.HYPERVISOR_KVM:
+		return self.PerformConvertToKvm(ctx, userCred, query, data)
+	default:
+		return nil, httperrors.NewBadRequestError("not support hypervisor %s", data.TargetHypervisor)
+	}
+}
+
+func (self *SGuest) PerformConvertToKvm(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data *api.ConvertEsxiToKvmInput,
+) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_ESXI {
+		return nil, httperrors.NewBadRequestError("not support %s", self.Hypervisor)
+	}
+	if len(self.GetMetadata(api.SERVER_META_CONVERTED_SERVER, userCred)) > 0 {
+		return nil, httperrors.NewBadRequestError("guest has been converted")
+	}
+	perferHost := data.PerferHost
+	if len(perferHost) > 0 {
+		iHost, err := HostManager.FetchByIdOrName(userCred, perferHost)
+		if err != nil {
+			return nil, err
+		}
+		host := iHost.(*SHost)
+		if host.HostType != api.HOST_TYPE_HYPERVISOR {
+			return nil, httperrors.NewBadRequestError("host %s is not kvm host", perferHost)
+		}
+		perferHost = host.GetId()
+	}
+
+	if self.Status != api.VM_READY {
+		return nil, httperrors.NewBadRequestError("guest status must be ready")
+	}
+	newGuest, err := self.createConvertedServer(ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "create converted server")
+	}
+	return nil, self.StartConvertEsxiToKvmTask(ctx, userCred, perferHost, newGuest)
+}
+
+func (self *SGuest) StartConvertEsxiToKvmTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	perferHostId string, newGuest *SGuest,
+) error {
+	params := jsonutils.NewDict()
+	if len(perferHostId) > 0 {
+		params.Set("perfer_host_id", jsonutils.NewString(perferHostId))
+	}
+	params.Set("target_guest_id", jsonutils.NewString(newGuest.Id))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestConvertEsxiToKvmTask", self, userCred,
+		params, "", "", nil)
+	if err != nil {
+		return err
+	} else {
+		self.SetStatus(userCred, api.VM_CONVERTING, "esxi guest convert to kvm")
+		task.ScheduleRun(nil)
+		return nil
+	}
+}
+
+func (self *SGuest) createConvertedServer(
+	ctx context.Context, userCred mcclient.TokenCredential,
+) (*SGuest, error) {
+	// set guest pending usage
+	pendingUsage, pendingRegionUsage, err := self.getGuestUsage(1)
+	keys, err := self.GetQuotaKeys()
+	if err != nil {
+		return nil, err
+	}
+	pendingUsage.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+	}
+	regionKeys, err := self.GetRegionalQuotaKeys()
+	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		return nil, err
+	}
+	pendingRegionUsage.SetKeys(regionKeys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingRegionUsage)
+	if err != nil {
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		return nil, err
+	}
+	// generate guest create params
+	createInput := self.ToCreateInput(userCred)
+	createInput.Hypervisor = api.HYPERVISOR_KVM
+	createInput.GenerateName = fmt.Sprintf("%s-%s", self.Name, api.HYPERVISOR_KVM)
+	lockman.LockClass(ctx, GuestManager, userCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, GuestManager, userCred.GetProjectId())
+	newGuest, err := db.DoCreate(GuestManager, ctx, userCred, nil,
+		jsonutils.Marshal(createInput), self.GetOwnerId())
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	if err != nil {
+		return nil, err
+	}
+	return newGuest.(*SGuest), nil
 }
 
 func (self *SGuest) AllowPerformSyncFixNics(ctx context.Context,

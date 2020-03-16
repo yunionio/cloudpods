@@ -89,7 +89,6 @@ func deployHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	hostutils.DelayTask(ctx, esxi.EsxiAgent.AgentStorage.AgentDeployGuest, disk)
 	hostutils.ResponseOk(ctx, w)
-
 }
 
 func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {

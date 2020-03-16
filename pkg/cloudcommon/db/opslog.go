@@ -87,6 +87,10 @@ const (
 	ACT_MIGRATE      = "migrate"
 	ACT_MIGRATE_FAIL = "migrate_fail"
 
+	ACT_VM_CONVERT      = "vm_convert"
+	ACT_VM_CONVERTING   = "vm_converting"
+	ACT_VM_CONVERT_FAIL = "vm_convert_fail"
+
 	ACT_SPLIT = "net_split"
 	ACT_MERGE = "net_merge"
 

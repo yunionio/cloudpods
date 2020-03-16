@@ -686,6 +686,37 @@ func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	return guestnics, nil
 }
 
+func (guest *SGuest) ConvertNetworks(targetGuest *SGuest) error {
+	gns, err := guest.GetNetworks("")
+	if err != nil {
+		return err
+	}
+	var i int
+	for ; i < len(gns); i++ {
+		_, err = db.Update(&gns[i], func() error {
+			gns[i].GuestId = targetGuest.Id
+			return nil
+		})
+		if err != nil {
+			log.Errorf("update guestnetworks failed %s", err)
+			break
+		}
+	}
+	if err != nil {
+		for j := 0; j < i; j++ {
+			_, err = db.Update(&gns[j], func() error {
+				gns[j].GuestId = guest.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("update guestnetworks failed %s", err)
+				break
+			}
+		}
+	}
+	return err
+}
+
 func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, macAddr string) (*SGuestnetwork, error) {
 	q := guest.GetNetworksQuery("")
 	if len(ipAddr) > 0 {

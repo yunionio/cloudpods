@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -352,6 +353,68 @@ Loop:
 		return errors.Error(fmt.Sprintf("VDDKDisk read timeout, program blocked"))
 	}
 	return nil
+}
+
+// connect vddk disk as fuse block device on local host
+// return fuse device path, is null error
+func (vd *VDDKDisk) ConnectBlockDevice() (string, error) {
+	thumb, err := vd.getServerCertThumbSha1(fmt.Sprintf("%s:%d", vd.Host, vd.Port))
+	if err != nil {
+		return "", errors.Wrapf(err, "Fail contact server %s", vd.Host)
+	}
+	cmd := NewCommand(execpath(), "-info", "-connect-disk", "-host", vd.Host, "-port", strconv.Itoa(vd.Port), "-user", vd.User,
+		"-password", vd.Passwd, "-mode", "nbd", "-thumb", thumb, "-vm", fmt.Sprintf("moref=%s", vd.VmRef), vd.DiskPath)
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s", libdir()))
+	cmd.Env = env
+	vd.Proc = cmd
+	err = vd.Proc.Start()
+	if err != nil {
+		return "", errors.Wrap(err, "vd.Proc.Start")
+	}
+	vd.Pid = cmd.Process.Pid
+
+	var (
+		timeout  = time.After(30 * time.Second)
+		matchStr = "Log: Disk flat file mounted under"
+		flatFile string
+	)
+Loop:
+	for !vd.Proc.Exited() {
+		select {
+		case <-timeout:
+			break Loop
+		default:
+			if idx := strings.Index(vd.Proc.stdouterr.String(), matchStr); idx >= 0 {
+				output := vd.Proc.stdouterr.String()
+				output = output[idx+len(matchStr):]
+				if idx := strings.Index(output, "\n"); idx < 0 {
+					return "", fmt.Errorf("find disk flat file failed")
+				} else {
+					flatFile = strings.TrimSpace(output[:idx])
+				}
+				log.Infof("disk flat file mounted under %s", flatFile)
+				break Loop
+			}
+		}
+	}
+	if vd.Proc.Exited() {
+		log.Errorf("process is exited: %s", vd.Proc.stdouterr.String())
+		return "", vd.Proc.Wait()
+	}
+	vd.FUseDir = flatFile
+	return path.Join(flatFile, "flat"), nil
+}
+
+func (vd *VDDKDisk) DisconnectBlockDevice() error {
+	if vd.Proc != nil {
+		_, err := vd.Proc.stdin.Write([]byte("y\n"))
+		if err != nil {
+			return errors.Wrap(err, "send 'y' to VDDKDisk.Proc")
+		}
+		return vd.Umount()
+	}
+	return fmt.Errorf("vddk disk has not connected")
 }
 
 type VDDKPartition struct {

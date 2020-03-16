@@ -21,10 +21,10 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type SAgentDisk struct {
@@ -64,7 +64,7 @@ func (sd *SAgentDisk) ReSize(ctx context.Context, diskInfo interface{}) (jsonuti
 
 	type sResize struct {
 		SizeMb   int64 `json:"size"`
-		HostInfo models.SVCenterAccessInfo
+		HostInfo vcenter.SVCenterAccessInfo
 		VMId     string `json:"vm_private_id"`
 		DiskId   string `json:"disk_private_id"`
 	}

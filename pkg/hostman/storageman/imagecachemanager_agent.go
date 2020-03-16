@@ -26,9 +26,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 )
 
 type SAgentImageCacheManager struct {
@@ -45,8 +45,8 @@ type sImageCacheData struct {
 	HostIp             string
 	SrcHostIp          string
 	SrcPath            string
-	SrcDatastore       models.SVCenterAccessInfo
-	Datastore          models.SVCenterAccessInfo
+	SrcDatastore       vcenter.SVCenterAccessInfo
+	Datastore          vcenter.SVCenterAccessInfo
 	Format             string
 	IsForce            bool
 	StoragecacheId     string

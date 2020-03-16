@@ -294,3 +294,12 @@ type GuestAutoRenewInput struct {
 	// 若公有云本身不支持自动续费, 则在本地周期(默认三小时)检查快过期虚拟机并进行续费一个月
 	AutoRenew bool `json:"auto_renew"`
 }
+
+type ConvertEsxiToKvmInput struct {
+	apis.Meta
+
+	// target hypervisor
+	TargetHypervisor string `json:"target_hypervisor"`
+	// 指定转换的宿主机
+	PerferHost string `json:"perfer_host"`
+}

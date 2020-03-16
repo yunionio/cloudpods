@@ -1,0 +1,195 @@
+package tasks
+
+import (
+	"context"
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+)
+
+type GuestConvertEsxiToKvmTask struct {
+	SSchedTask
+}
+
+func init() {
+	taskman.RegisterTask(GuestConvertEsxiToKvmTask{})
+}
+
+func (self *GuestConvertEsxiToKvmTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	StartScheduleObjects(ctx, self, []db.IStandaloneModel{obj})
+}
+
+func (self *GuestConvertEsxiToKvmTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	obj := self.GetObject()
+	guest := obj.(*models.SGuest)
+	schedDesc := guest.ToSchedDesc()
+	if self.Params.Contains("prefer_host_id") {
+		preferHostId, _ := self.Params.GetString("prefer_host_id")
+		schedDesc.ServerConfig.PreferHost = preferHostId
+	}
+	schedDesc.Hypervisor = api.HYPERVISOR_KVM
+	return schedDesc, nil
+}
+
+func (self *GuestConvertEsxiToKvmTask) OnStartSchedule(obj IScheduleModel) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, api.VM_CONVERTING, "")
+	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERTING, "", self.UserCred)
+}
+
+func (self *GuestConvertEsxiToKvmTask) OnScheduleFailed(ctx context.Context, reason string) {
+	guest := self.GetObject().(*models.SGuest)
+	self.taskFailed(ctx, guest, reason)
+}
+
+func (self *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *models.SGuest, reason string) {
+	guest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason)
+	targetGuest := self.getTargetGuest()
+	targetGuest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason)
+	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, self.UserCred)
+	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, self.UserCred, false)
+	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestConvertEsxiToKvmTask) GenerateEsxiAcceessInfo(guest *models.SGuest) (*jsonutils.JSONDict, error) {
+	ret := jsonutils.NewDict()
+	host := guest.GetHost()
+	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo("")
+	if err != nil {
+		return nil, err
+	}
+	ret.Set("datastore", jsonutils.Marshal(accessInfo))
+	ret.Set("host_ip", jsonutils.NewString(host.AccessIp))
+	ret.Set("guest_ext_id", jsonutils.NewString(guest.ExternalId))
+	return ret, nil
+}
+
+func (self *GuestConvertEsxiToKvmTask) getTargetGuest() *models.SGuest {
+	guestId, _ := self.Params.GetString("target_guest_id")
+	return models.GuestManager.FetchGuestById(guestId)
+}
+
+// update database for convert esxi to kvm in the part of guest, guestdisks, guestnetworks
+func (self *GuestConvertEsxiToKvmTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource) {
+	guest := obj.(*models.SGuest)
+	targetGuest := self.getTargetGuest()
+	esxiAccessInfo, err := self.GenerateEsxiAcceessInfo(guest)
+	if err != nil {
+		self.taskFailed(ctx, guest, fmt.Sprintf("generate esxi access info %s", err))
+		return
+	}
+	err = targetGuest.SetHostId(self.UserCred, target.HostId)
+	if err != nil {
+		self.taskFailed(ctx, guest, fmt.Sprintf("update guest %s", err))
+		return
+	}
+	err = targetGuest.SetMetadata(ctx, api.SERVER_META_CONVERT_FROM_ESXI, guest.Id, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, guest, fmt.Sprintf("guest set metadata %s", err))
+		return
+	}
+	host := targetGuest.GetHost()
+
+	//pendingUsage := models.SQuota{}
+	input := guest.ToCreateInput(self.UserCred)
+	//pendingUsage.Storage = guest.GetDisksSize()
+	err = targetGuest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, nil,
+		true, true, target.Disks, nil, true)
+	if err != nil {
+		self.taskFailed(ctx, guest, fmt.Sprintf("guest create disks %s", err))
+		return
+	}
+
+	self.SetStage("OnHostCreateGuest", nil)
+	if err = self.RequestHostCreateGuestFromEsxi(ctx, targetGuest, esxiAccessInfo); err != nil {
+		self.taskFailed(ctx, guest, err.Error())
+		return
+	}
+	host.ClearSchedDescCache()
+}
+
+func (self *GuestConvertEsxiToKvmTask) RequestHostCreateGuestFromEsxi(
+	ctx context.Context, guest *models.SGuest, esxiAccessInfo *jsonutils.JSONDict,
+) error {
+	host := guest.GetHost()
+	params := jsonutils.NewDict()
+	params.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
+	params.Set("esxi_access_info", esxiAccessInfo)
+	url := fmt.Sprintf("%s/servers/%s/create-form-esxi", host.ManagerUri, guest.Id)
+	header := self.GetTaskRequestHeader()
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuest(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	targetGuest := self.getTargetGuest()
+	guestDisks := targetGuest.GetDisks()
+	for i := 0; i < len(guestDisks); i++ {
+		disk := guestDisks[i].GetDisk()
+		esxiFlatFilePath, _ := data.GetString(disk.Id, "esxi_flat_filepath")
+		diskPath, _ := data.GetString(disk.Id, "disk_path")
+		_, err := db.Update(disk, func() error {
+			disk.AccessPath = diskPath
+			disk.Status = api.DISK_READY
+			return nil
+		})
+		// TODO: update flat file path on guest start
+		err = disk.SetMetadata(ctx, api.DISK_META_ESXI_FLAT_FILE_PATH, esxiFlatFilePath, self.UserCred)
+		if err != nil {
+			log.Errorf("disk set metadata failed %s", err)
+			self.taskFailed(ctx, guest, err.Error())
+			return
+		}
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
+	}
+	if err := guest.ConvertNetworks(targetGuest); err != nil {
+		self.taskFailed(ctx, guest, err.Error())
+		return
+	}
+	self.TaskComplete(ctx, guest, targetGuest)
+}
+
+func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
+	ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject,
+) {
+	self.taskFailed(ctx, guest, data.String())
+}
+
+func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
+	guest.SetStatus(self.UserCred, api.VM_READY, "")
+	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, self.UserCred)
+	if osProfile := guest.GetMetadata("__os_profile__", self.UserCred); len(osProfile) > 0 {
+		guest.SetMetadata(ctx, "__os_profile__", osProfile, self.UserCred)
+	}
+	if account := guest.GetMetadata(api.VM_METADATA_LOGIN_ACCOUNT, self.UserCred); len(account) > 0 {
+		guest.SetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, account, self.UserCred)
+	}
+	if loginKey := guest.GetMetadata(api.VM_METADATA_LOGIN_KEY, self.UserCred); len(loginKey) > 0 {
+		passwd, _ := utils.DescryptAESBase64(guest.Id, loginKey)
+		if len(passwd) > 0 {
+			secret, err := utils.EncryptAESBase64(targetGuest.Id, passwd)
+			if err == nil {
+				guest.SetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, secret, self.UserCred)
+			}
+		}
+	}
+	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT, "", self.UserCred)
+	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, "", self.UserCred, true)
+	self.SetStageComplete(ctx, nil)
+	targetGuest.StartGueststartTask(ctx, self.UserCred, nil, "")
+}
