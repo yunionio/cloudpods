@@ -112,22 +112,27 @@ type StorageCreateInput struct {
 	NfsSharedDir string `json:"nfs_shared_dir"`
 }
 
-type StorageDetails struct {
-	apis.StandaloneResourceDetails
-	SStorage
-
+type SStorageCapacityInfo struct {
 	// 容量大小, 单位Mb
 	Capacity int64 `json:"capacity"`
 	// 已使用容量大小
-	Used int64 `json:"used"`
+	UsedCapacity int64 `json:"used_capacity"`
 	// 浪费容量大小(异常磁盘大小总和)
-	Wasted int64 `json:"wasted"`
+	WasteCapacity int64 `json:"waste_capacity"`
 	// 虚拟容量大小
-	VCapacity int64 `json:"vcapacity"`
+	VirtualCapacity int64 `json:"virtual_capacity"`
 	// 超分率
 	CommitRate float64 `json:"commit_rate"`
 	// 可使用容量
 	FreeCapacity int64 `json:"free_capacity"`
+}
+
+type StorageDetails struct {
+	apis.StandaloneResourceDetails
+
+	SStorageCapacityInfo
+
+	SStorage
 
 	CloudproviderInfo
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
