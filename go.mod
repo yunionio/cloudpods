@@ -129,7 +129,7 @@ require (
 	k8s.io/kubernetes v1.16.0
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
 	yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
-	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
+	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 	yunion.io/x/pkg v0.0.0-20200304112442-9dae9351325e
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
 	yunion.io/x/sqlchemy v0.0.0-20200310015557-9e9a49139db1
