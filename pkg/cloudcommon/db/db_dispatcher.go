@@ -410,7 +410,11 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	}
 	results := make([]jsonutils.JSONObject, len(items))
 	if showDetails && !query.Contains("export_keys") {
-		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter), true)
+		var sortedListFields stringutils2.SSortedStrings
+		if len(fieldFilter) > 0 {
+			sortedListFields = stringutils2.NewSortedStrings(fieldFilter)
+		}
+		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, sortedListFields, true)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchCustomizeColumns")
@@ -817,7 +821,11 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	// extraDict.Update(jsonDict)
 	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
-	extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, []interface{}{item}, stringutils2.NewSortedStrings(fieldFilter), false)
+	var sortedListFields stringutils2.SSortedStrings
+	if len(fieldFilter) > 0 {
+		sortedListFields = stringutils2.NewSortedStrings(fieldFilter)
+	}
+	extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, []interface{}{item}, sortedListFields, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchCustomizeColumns")
 	}
