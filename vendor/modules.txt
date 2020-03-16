@@ -1015,7 +1015,7 @@ yunion.io/x/executor/client
 yunion.io/x/executor/server
 # yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
 yunion.io/x/jsonutils
-# yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
+# yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
 yunion.io/x/log/hooks
 # yunion.io/x/pkg v0.0.0-20200304112442-9dae9351325e

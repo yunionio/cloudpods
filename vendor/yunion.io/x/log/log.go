@@ -149,9 +149,18 @@ func DisableColors() {
 }
 
 func AddHookFormatter(logger *logrus.Logger) {
-	pcs := make([]uintptr, 2)
-	runtime.Callers(0, pcs)
-	logrusPackage := hooks.GetPackageName(runtime.FuncForPC(pcs[1]).Name())
+	pcs := make([]uintptr, 1)
+	npcs := runtime.Callers(1, pcs)
+	frames := runtime.CallersFrames(pcs[:npcs])
+	var myName string
+	for {
+		f, more := frames.Next()
+		myName = f.Function
+		if !more {
+			break
+		}
+	}
+	logrusPackage := hooks.GetPackageName(myName)
 	logger.Hooks.Add(&hooks.CallerHook{logrusPackage})
 	logger.Formatter = &TextFormatter{
 		TimestampFormat: "060102 15:04:05",

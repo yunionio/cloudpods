@@ -44,10 +44,6 @@ type SStructFieldInfo struct {
 	Tags        map[string]string
 }
 
-func (s *SStructFieldInfo) updateTags(k, v string) {
-	s.Tags[k] = v
-}
-
 func (s SStructFieldInfo) deepCopy() *SStructFieldInfo {
 	scopy := SStructFieldInfo{
 		Ignore:      s.Ignore,
@@ -138,11 +134,11 @@ type SStructFieldValue struct {
 type SStructFieldValueSet []SStructFieldValue
 
 func FetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
-	return fetchStructFieldValueSet(dataValue, false, nil)
+	return fetchStructFieldValueSet(dataValue, false)
 }
 
 func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValueSet {
-	return fetchStructFieldValueSet(dataValue, true, nil)
+	return fetchStructFieldValueSet(dataValue, true)
 }
 
 type sStructFieldInfoMap map[string]SStructFieldInfo
@@ -186,7 +182,7 @@ func fetchStructFieldInfos(dataType reflect.Type) sStructFieldInfoMap {
 	return smap
 }
 
-func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags map[string]string) SStructFieldValueSet {
+func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
 	dataType := dataValue.Type()
 	fieldInfos := fetchCacheStructFieldInfos(dataType)
@@ -222,8 +218,7 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags ma
 			// different from how encoding/json handles struct
 			// field of interface type.
 			if fv.Kind() == reflect.Struct && sf.Type != gotypes.TimeType {
-				anonymousTags := utils.TagMap(sf.Tag)
-				subfields := fetchStructFieldValueSet(fv, allocatePtr, anonymousTags)
+				subfields := fetchStructFieldValueSet(fv, allocatePtr)
 				fields = append(fields, subfields...)
 				continue
 			}
@@ -234,23 +229,6 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags ma
 				Info:  fieldInfo,
 				Value: fv,
 			})
-		}
-	}
-	if len(tags) > 0 {
-		for i := range fields {
-			fieldName := fields[i].Info.MarshalName()
-			for k, v := range tags {
-				target := ""
-				pos := strings.Index(k, "->")
-				if pos > 0 {
-					target = k[:pos]
-					k = k[pos+2:]
-				}
-				if len(target) > 0 && target != fieldName {
-					continue
-				}
-				fields[i].Info.updateTags(k, v)
-			}
 		}
 	}
 	return fields
