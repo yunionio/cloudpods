@@ -15,6 +15,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
@@ -72,6 +74,24 @@ func StartService() {
 
 	models.InitSyncWorkers(options.Options.CloudSyncWorkerCount)
 
+	var (
+		electObj        *elect.Elect
+		ctx, cancelFunc = context.WithCancel(context.Background())
+	)
+	defer cancelFunc()
+
+	if opts.LockmanMethod == common_options.LockMethodEtcd {
+		cfg, err := elect.NewEtcdConfigFromDBOptions(dbOpts)
+		if err != nil {
+			log.Fatalf("etcd config for elect: %v", err)
+		}
+		electObj, err = elect.NewElect(cfg, "@master-role")
+		if err != nil {
+			log.Fatalf("new elect instance: %v", err)
+		}
+		go electObj.Start(ctx)
+	}
+
 	if !opts.IsSlaveNode {
 		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
 		cron.AddJobAtIntervals("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
@@ -98,8 +118,7 @@ func StartService() {
 		cron.AddJobEveryFewDays("SyncElasticCacheSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncElasticCacheSkus, true)
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
 
-		cron.Start()
-		defer cron.Stop()
+		go cron.Start2(ctx, electObj)
 	}
 
 	app_common.ServeForever(app, baseOpts)

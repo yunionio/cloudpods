@@ -75,7 +75,7 @@ type BaseOptions struct {
 
 	ConfigSyncPeriodSeconds int `help:"service config sync interval in seconds, default 300 seconds/5 minutes" default:"300"`
 
-	IsSlaveNode        bool `help:"Region service slave node"`
+	IsSlaveNode        bool `help:"Slave mode"`
 	CronJobWorkerCount int  `help:"Cron job worker count" default:"4"`
 
 	DefaultQuotaValue string `help:"default quota value" choices:"unlimit|zero|default" default:"default"`
@@ -88,6 +88,11 @@ type BaseOptions struct {
 
 	structarg.BaseOptions
 }
+
+const (
+	LockMethodInMemory = "inmemory"
+	LockMethodEtcd     = "etcd"
+)
 
 type CommonOptions struct {
 	AuthURL            string `help:"Keystone auth URL" alias:"auth-uri"`
@@ -117,7 +122,7 @@ type DBOptions struct {
 	QueryOffsetOptimization bool `help:"apply query offset optimization"`
 
 	LockmanMethod  string   `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
-	EtcdLockPrefix string   `help:"prefix of etcd lock records" default:"/locks"`
+	EtcdLockPrefix string   `help:"prefix of etcd lock records"`
 	EtcdLockTTL    int      `help:"ttl of etcd lock records"`
 	EtcdEndpoints  []string `help:"endpoints of etcd cluster"`
 

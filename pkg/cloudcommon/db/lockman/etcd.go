@@ -155,7 +155,7 @@ func (config *SEtcdLockManagerConfig) validate() error {
 	config.LockPrefix = strings.TrimSpace(config.LockPrefix)
 	config.LockPrefix = strings.TrimRight(config.LockPrefix, "/")
 	if config.LockPrefix == "" {
-		config.LockPrefix = "/"
+		return fmt.Errorf("empty etcd lock prefix")
 	}
 
 	return nil
