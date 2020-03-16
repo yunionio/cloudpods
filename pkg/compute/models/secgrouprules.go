@@ -239,6 +239,7 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 		CIDR:      self.CIDR,
 		Protocol:  self.Protocol,
 		Ports:     self.Ports,
+		Priority:  int(self.Priority),
 	}
 
 	err = jsonutils.Update(input, data)
