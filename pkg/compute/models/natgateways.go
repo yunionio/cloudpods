@@ -212,7 +212,7 @@ func (self *SNatGateway) extractEipAddr(q *sqlchemy.SQuery) ([]string, error) {
 
 func (manager *SNatGatewayManager) getNatgatewaysByProviderId(providerId string) ([]SNatGateway, error) {
 	nats := []SNatGateway{}
-	err := fetchByManagerId(manager, providerId, &nats)
+	err := fetchByVpcManagerId(manager, providerId, &nats)
 	if err != nil {
 		return nil, err
 	}

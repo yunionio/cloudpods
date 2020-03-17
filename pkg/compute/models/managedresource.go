@@ -689,3 +689,20 @@ func fetchByManagerId(manager db.IModelManager, providerId string, receiver inte
 	q := manager.Query().Equals("manager_id", providerId)
 	return db.FetchModelObjects(manager, q, receiver)
 }
+
+func fetchByVpcManagerId(manager db.IModelManager, providerId string, receiver interface{}) error {
+	vpc := VpcManager.Query().SubQuery()
+	q := manager.Query()
+	q = q.Join(vpc, sqlchemy.Equals(vpc.Field("id"), q.Field("vpc_id"))).Filter(sqlchemy.Equals(vpc.Field("manager_id"), providerId))
+	return db.FetchModelObjects(manager, q, receiver)
+}
+
+func fetchByLbVpcManagerId(manager db.IModelManager, providerId string, receiver interface{}) error {
+	vpc := VpcManager.Query().SubQuery()
+	lb := LoadbalancerManager.Query().SubQuery()
+	q := manager.Query()
+	q = q.Join(lb, sqlchemy.Equals(lb.Field("id"), q.Field("loadbalancer_id"))).
+		Join(vpc, sqlchemy.Equals(vpc.Field("id"), lb.Field("vpc_id"))).
+		Filter(sqlchemy.Equals(vpc.Field("manager_id"), providerId))
+	return db.FetchModelObjects(manager, q, receiver)
+}
