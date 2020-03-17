@@ -58,11 +58,10 @@ func call(obj interface{}, fName string, inputs ...interface{}) ([]reflect.Value
 
 func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	funcVal := modelVal.MethodByName(fName)
-	return callFunc(funcVal, inputs...)
+	return callFunc(funcVal, fName, inputs...)
 }
 
-func callFunc(funcVal reflect.Value, inputs ...interface{}) ([]reflect.Value, error) {
-	fName := funcVal.String()
+func callFunc(funcVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	if !funcVal.IsValid() || funcVal.IsNil() {
 		return nil, httperrors.NewActionNotFoundError(fmt.Sprintf("%s method not found", fName))
 	}
