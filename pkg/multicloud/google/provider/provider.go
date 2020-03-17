@@ -125,11 +125,25 @@ func (self *SGoogleProviderFactory) GetProvider(providerId, providerName, url, a
 	}, nil
 }
 
+func parseAccount(account, secret string) (projectId string, clientEmail string, privateKey string, privateKeyId string) {
+	accountInfo := strings.Split(account, "/")
+	if len(accountInfo) == 2 {
+		projectId, clientEmail = accountInfo[0], accountInfo[1]
+	}
+	secretInfo := strings.Split(secret, "/")
+	if len(secretInfo) >= 2 {
+		privateKeyId, privateKey = secretInfo[0], strings.Join(secretInfo[1:], "/")
+	}
+	return
+}
+
 func (self *SGoogleProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	projectId, clientEmail, privateKey, privateKeyId := parseAccount(account, secret)
 	return map[string]string{
-		"ALIYUN_ACCESS_KEY": account,
-		"ALIYUN_SECRET":     secret,
-		"ALIYUN_REGION":     google.GOOGLE_DEFAULT_REGION,
+		"GOOGLE_CLIENT_EMAIL":   clientEmail,
+		"GOOGLE_PROJECT_ID":     projectId,
+		"GOOGLE_PRIVATE_KEY_ID": privateKeyId,
+		"GOOGLE_PRIVATE_KEY":    privateKey,
 	}, nil
 }
 
