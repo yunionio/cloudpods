@@ -56,16 +56,15 @@ func (self *GuestRebuildRootTask) OnStopServerComplete(ctx context.Context, gues
 
 func (self *GuestRebuildRootTask) markFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, reason, self.UserCred, false)
+	guest.SetStatus(self.GetUserCred(), api.VM_REBUILD_ROOT_FAIL, reason)
 	self.SGuestBaseTask.SetStageFailed(ctx, reason)
 }
 
 func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, guest *models.SGuest) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILDING_ROOT, nil, self.UserCred)
 	gds := guest.CategorizeDisks()
-	imageId, _ := self.Params.GetString("image_id")
 	oldStatus := gds.Root.Status
 	_, err := db.Update(gds.Root, func() error {
-		gds.Root.TemplateId = imageId
 		gds.Root.Status = api.DISK_REBUILD
 		return nil
 	})
@@ -91,6 +90,17 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 }
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	gds := guest.CategorizeDisks()
+	imageId, _ := self.Params.GetString("image_id")
+	_, err := db.Update(gds.Root, func() error {
+		gds.Root.TemplateId = imageId
+		return nil
+	})
+	if err != nil {
+		self.markFailed(ctx, guest, err.Error())
+		return
+	}
+
 	allDisks := jsonutils.QueryBoolean(self.Params, "all_disks", false)
 	if allDisks {
 		guestdisks := guest.GetDisks()
@@ -229,6 +239,10 @@ func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, 
 	// logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, nil, self.UserCred, true)
 }
 
+func (self *KVMGuestRebuildRootTask) OnGuestDeployCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
+}
+
 type ManagedGuestRebuildRootTask struct {
 	SGuestBaseTask
 }
@@ -257,4 +271,8 @@ func (self *ManagedGuestRebuildRootTask) OnHostCacheImageCompleteFailed(ctx cont
 
 func (self *ManagedGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ManagedGuestRebuildRootTask) OnGuestDeployCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
 }
