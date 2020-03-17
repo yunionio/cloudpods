@@ -37,7 +37,7 @@ func (self *SCloudregionResourceBase) GetRegion() *SCloudregion {
 	return region.(*SCloudregion)
 }
 
-func (self *SCloudregionResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.CloudregionInfo {
+func (self *SCloudregionResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) api.CloudregionInfo {
 	out := api.CloudregionInfo{}
 	region := self.GetRegion()
 	if region == nil {

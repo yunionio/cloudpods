@@ -445,7 +445,7 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 			out.OriginCertificateId = cert.CertificateId
 		}
 	}
-	out.CloudregionInfo = lblis.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
+	out.CloudregionInfo = lblis.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 
 	return out, nil
 }

@@ -136,6 +136,14 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(ctx context.Context, q *sql
 	return q, nil
 }
 
+func (self *SDBInstanceSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.DBInstanceSkuDetails, error) {
+	var err error
+	out := api.DBInstanceSkuDetails{}
+	out.StandaloneResourceDetails, err = self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	out.CloudregionInfo = self.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query, isList)
+	return out, err
+}
+
 func (manager *SDBInstanceSkuManager) GetDBStringArray(q *sqlchemy.SQuery) ([]string, error) {
 	array := []string{}
 	rows, err := q.Rows()

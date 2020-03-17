@@ -400,7 +400,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, user
 		return out, err
 	}
 	out.Loadbalancer = lb.GetName()
-	out.CloudregionInfo = lbbg.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
+	out.CloudregionInfo = lbbg.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	return out, nil
 }
 
