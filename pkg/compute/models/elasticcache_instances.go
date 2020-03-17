@@ -621,7 +621,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 
 func (manager *SElasticcacheManager) getElasticcachesByProviderId(providerId string) ([]SElasticcache, error) {
 	instances := []SElasticcache{}
-	err := fetchByManagerId(manager, providerId, &instances)
+	err := fetchByVpcManagerId(manager, providerId, &instances)
 	if err != nil {
 		return nil, errors.Wrapf(err, "getElasticcachesByProviderId.fetchByManagerId")
 	}

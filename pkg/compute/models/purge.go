@@ -217,7 +217,7 @@ func (lbacl *SCachedLoadbalancerAcl) purge(ctx context.Context, userCred mcclien
 
 func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	lbbgs := make([]SLoadbalancerBackendGroup, 0)
-	err := fetchByManagerId(manager, providerId, &lbbgs)
+	err := fetchByLbVpcManagerId(manager, providerId, &lbbgs)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, u
 
 func (manager *SLoadbalancerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	lbs := make([]SLoadbalancer, 0)
-	err := fetchByManagerId(manager, providerId, &lbs)
+	err := fetchByVpcManagerId(manager, providerId, &lbs)
 	if err != nil {
 		return err
 	}
