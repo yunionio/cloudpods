@@ -792,12 +792,11 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		return nil, nil
 	}
 	userCred := fetchUserCredential(ctx)
-	params := []reflect.Value{
-		reflect.ValueOf(ctx),
-		reflect.ValueOf(userCred),
-		reflect.ValueOf(query),
+	params := []interface{}{ctx, userCred, query}
+	outs, err := callFunc(funcValue, allowFuncName, params...)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
 	}
-	outs := funcValue.Call(params)
 	if len(outs) != 1 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
@@ -806,7 +805,10 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 
 	funcValue = modelValue.MethodByName(funcName)
-	outs = funcValue.Call(params)
+	outs, err = callFunc(funcValue, funcName, params...)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
+	}
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
@@ -887,7 +889,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 			return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 		}
 
-		outs, err := callFunc(funcValue, params...)
+		outs, err := callFunc(funcValue, funcName, params...)
 		if err != nil {
 			return nil, err
 		}
@@ -905,7 +907,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 	}
 
-	outs, err := callFunc(funcValue, params...)
+	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -1470,7 +1472,7 @@ func reflectDispatcherInternal(
 			return nil, httperrors.NewActionNotFoundError(msg)
 		}
 
-		outs, err := callFunc(allowFuncValue, params...)
+		outs, err := callFunc(allowFuncValue, allowFuncName, params...)
 		if err != nil {
 			return nil, err
 		}
@@ -1483,7 +1485,7 @@ func reflectDispatcherInternal(
 		}
 	}
 
-	outs, err := callFunc(funcValue, params...)
+	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, err
 	}

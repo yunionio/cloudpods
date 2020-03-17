@@ -505,7 +505,7 @@ func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userC
 	if err != nil {
 		return out, err
 	}
-	out.CloudregionInfo = lbr.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query)
+	out.CloudregionInfo = lbr.SCloudregionResourceBase.GetExtraDetails(ctx, userCred, query, isList)
 	if lbr.BackendGroupId == "" {
 		log.Errorf("loadbalancer listener rule %s(%s): empty backend group field", lbr.Name, lbr.Id)
 		return out, nil
