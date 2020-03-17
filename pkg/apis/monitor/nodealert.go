@@ -171,6 +171,7 @@ type AlertV1Details struct {
 	Measurement string  `json:"measurement"`
 	Field       string  `json:"field"`
 	NotifierId  string  `json:"notifier_id"`
+	Status      string  `json:"status"`
 }
 
 type NodeAlertDetails struct {

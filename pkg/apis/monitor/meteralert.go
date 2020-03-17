@@ -70,4 +70,5 @@ type MeterAlertUpdateInput struct {
 	ProjectId *string `json:"project_id"`
 	// 通知方式, 比如: email, mobile
 	Channel *string `json:"channel"`
+	Status  *string `json:"status"`
 }
