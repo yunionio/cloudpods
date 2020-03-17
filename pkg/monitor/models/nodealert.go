@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -374,6 +375,15 @@ func (alert *SV1Alert) CustomizeCreate(
 	return err
 }
 
+func (alert *SV1Alert) PostUpdate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	if data.(*jsonutils.JSONDict).Contains("status") {
+		status, _ := data.(*jsonutils.JSONDict).GetString("status")
+		alert.UpdateIsEnabledStatus(ctx, userCred, &status)
+	}
+}
+
 func (alert *SNodeAlert) CustomizeCreate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
@@ -462,9 +472,20 @@ func (alert *SV1Alert) GetExtraDetails(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	isList bool,
-	usedBy string,
 ) (monitor.AlertV1Details, error) {
 	return monitor.AlertV1Details{}, nil
+}
+
+const (
+	V1AlertDisabledStatus = "Disabled"
+	V1AlertEnabledStatus  = "Enabled"
+)
+
+func (alert *SV1Alert) GetStatus() string {
+	if alert.IsEnable() {
+		return V1AlertEnabledStatus
+	}
+	return V1AlertDisabledStatus
 }
 
 func (alert *SV1Alert) getMoreDetails(out monitor.AlertV1Details, usedBy string) (monitor.AlertV1Details, error) {
@@ -516,6 +537,7 @@ func (alert *SV1Alert) getMoreDetails(out monitor.AlertV1Details, usedBy string)
 	out.Measurement = measurement
 	out.Field = field
 	out.DB = db
+	out.Status = alert.GetStatus()
 	return out, nil
 }
 
@@ -612,6 +634,33 @@ func (alert *SV1Alert) UpdateNotification(usedBy string, channel, recipients *st
 		return nil
 	})
 	return err
+}
+
+func (alert *SV1Alert) UpdateIsEnabledStatus(ctx context.Context, userCred mcclient.TokenCredential, status *string) error {
+	if status == nil {
+		return nil
+	}
+	if status != nil {
+		s := *status
+		if s == V1AlertDisabledStatus {
+			if _, err := alert.PerformDisable(ctx, userCred, nil, apis.PerformDisableInput{}); err != nil {
+				return err
+			}
+			db.Update(&alert.SAlert, func() error {
+				alert.SetStatus(userCred, V1AlertDisabledStatus, "")
+				return nil
+			})
+		} else {
+			if _, err := alert.PerformEnable(ctx, userCred, nil, apis.PerformEnableInput{}); err != nil {
+				return err
+			}
+			db.Update(&alert.SAlert, func() error {
+				alert.SetStatus(userCred, V1AlertEnabledStatus, "")
+				return nil
+			})
+		}
+	}
+	return nil
 }
 
 func (alert *SV1Alert) CustomizeDelete(
@@ -757,6 +806,12 @@ func (alert *SNodeAlert) getUpdateSetting(
 	out := data.ToAlertCreateInput(name, details.Field, details.Measurement, details.DB)
 	out.Settings = *setAlertDefaultSetting(&out.Settings, dsId)
 	return out.Settings
+}
+
+func (alert *SNodeAlert) PostUpdate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	alert.SV1Alert.PostUpdate(ctx, userCred, query, data)
 }
 
 func (alert *SNodeAlert) CustomizeDelete(

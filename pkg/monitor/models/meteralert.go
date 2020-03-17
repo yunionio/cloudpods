@@ -546,13 +546,17 @@ func (man *SMeterAlertManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (alert *SMeterAlert) GetExtraDetails(
+func (alert *SMeterAlert) getExtraDetails(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	isList bool,
 ) (monitor.MeterAlertDetails, error) {
-	return monitor.MeterAlertDetails{}, nil
+	ret := MeterAlertManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{alert}, nil, isList)
+	if len(ret) == 0 {
+		return monitor.MeterAlertDetails{}, errors.Error("empty meter alert details")
+	}
+	return ret[0], nil
 }
 
 func (alert *SMeterAlert) getMoreDetails(out monitor.MeterAlertDetails) (monitor.MeterAlertDetails, error) {
@@ -574,7 +578,7 @@ func (alert *SMeterAlert) ValidateUpdateData(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, input monitor.MeterAlertUpdateInput) (*jsonutils.JSONDict, error) {
 	ret := new(monitor.AlertUpdateInput)
-	details, err := alert.GetExtraDetails(ctx, userCred, query, false)
+	details, err := alert.getExtraDetails(ctx, userCred, query, false)
 	if err != nil {
 		return nil, err
 	}
@@ -625,6 +629,12 @@ func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, ds
 	input.Level = details.Level
 	out := drv.ToAlertCreateInput(input, dsId, accountIds, details.Level)
 	return out.Settings
+}
+
+func (alert *SMeterAlert) PostUpdate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	alert.SV1Alert.PostUpdate(ctx, userCred, query, data)
 }
 
 func (alert *SMeterAlert) CustomizeDelete(
