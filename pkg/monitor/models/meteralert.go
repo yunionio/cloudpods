@@ -570,6 +570,12 @@ func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, ds
 	return out.Settings
 }
 
+func (alert *SMeterAlert) PostUpdate(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	alert.SV1Alert.PostUpdate(ctx, userCred, query, data)
+}
+
 func (alert *SMeterAlert) CustomizeDelete(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
