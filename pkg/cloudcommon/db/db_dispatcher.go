@@ -847,7 +847,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 	userCred := fetchUserCredential(ctx)
 	params := []interface{}{ctx, userCred, query}
-	outs, err := callFunc(funcValue, params...)
+	outs, err := callFunc(funcValue, allowFuncName, params...)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", allowFuncName, err)
 	}
@@ -859,7 +859,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 
 	funcValue = modelValue.MethodByName(funcName)
-	outs, err = callFunc(funcValue, params...)
+	outs, err = callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("reflect call %s fail %s", funcName, err)
 	}
@@ -943,7 +943,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 			return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 		}
 
-		outs, err := callFunc(funcValue, params...)
+		outs, err := callFunc(funcValue, funcName, params...)
 		if err != nil {
 			return nil, err
 		}
@@ -961,7 +961,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 	}
 
-	outs, err := callFunc(funcValue, params...)
+	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -1526,7 +1526,7 @@ func reflectDispatcherInternal(
 			return nil, httperrors.NewActionNotFoundError(msg)
 		}
 
-		outs, err := callFunc(allowFuncValue, params...)
+		outs, err := callFunc(allowFuncValue, allowFuncName, params...)
 		if err != nil {
 			return nil, err
 		}
@@ -1539,7 +1539,7 @@ func reflectDispatcherInternal(
 		}
 	}
 
-	outs, err := callFunc(funcValue, params...)
+	outs, err := callFunc(funcValue, funcName, params...)
 	if err != nil {
 		return nil, err
 	}
