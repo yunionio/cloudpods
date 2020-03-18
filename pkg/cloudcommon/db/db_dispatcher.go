@@ -609,10 +609,21 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 	q, err = OrderByExtraFields(manager, ctx, q, userCred, orderQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "OrderByExtraFields")
 	}
 	if orderBy == nil {
 		orderBy = []string{}
+	}
+	if primaryCol != nil && primaryCol.IsNumeric() {
+		orderBy = append(orderBy, primaryCol.Name())
+	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+		orderBy = append(orderBy, "created_at")
+		if manager.TableSpec().ColumnSpec("name") != nil {
+			orderBy = append(orderBy, "name")
+		}
+		if primaryCol != nil {
+			orderBy = append(orderBy, primaryCol.Name())
+		}
 	}
 	for _, orderByField := range orderBy {
 		if pagingConf != nil && utils.IsInStringArray(orderByField, pagingConf.MarkerFields) {
@@ -626,17 +637,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			} else {
 				q = q.Desc(orderByField)
 			}
-		}
-	}
-	if primaryCol != nil && primaryCol.IsNumeric() {
-		orderBy = append(orderBy, primaryCol.Name())
-	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
-		orderBy = append(orderBy, "created_at")
-		if manager.TableSpec().ColumnSpec("name") != nil {
-			orderBy = append(orderBy, "name")
-		}
-		if primaryCol != nil {
-			orderBy = append(orderBy, primaryCol.Name())
 		}
 	}
 
