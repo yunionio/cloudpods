@@ -92,7 +92,7 @@ func (self *DBInstanceCreateTask) OnCreateDBInstanceComplete(ctx context.Context
 	}
 
 	self.SetStage("OnSyncDBInstanceStatusComplete", nil)
-	dbinstance.StartDBInstanceSyncStatusTask(ctx, self.UserCred, nil, self.GetTaskId())
+	models.StartResourceSyncStatusTask(ctx, self.UserCred, dbinstance, "DBInstanceSyncStatusTask", self.GetTaskId())
 }
 
 func (self *DBInstanceCreateTask) OnCreateDBInstanceCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

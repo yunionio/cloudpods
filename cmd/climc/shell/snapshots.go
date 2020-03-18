@@ -66,10 +66,10 @@ func init() {
 		printObject(result)
 		return nil
 	})
-	type SnapshotShowOptions struct {
+	type SnapshotIdOptions struct {
 		ID string `help:"ID or Name of snapshot"`
 	}
-	R(&SnapshotShowOptions{}, "snapshot-show", "Show snapshot details", func(s *mcclient.ClientSession, args *SnapshotShowOptions) error {
+	R(&SnapshotIdOptions{}, "snapshot-show", "Show snapshot details", func(s *mcclient.ClientSession, args *SnapshotIdOptions) error {
 		result, err := modules.Snapshots.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -78,10 +78,16 @@ func init() {
 		return nil
 	})
 
-	type SnapshotPurgeOptions struct {
-		ID string `help:"ID or name of Snapshot"`
-	}
-	R(&SnapshotPurgeOptions{}, "snapshot-purge", "Purge Snapshot db records", func(s *mcclient.ClientSession, args *SnapshotPurgeOptions) error {
+	R(&SnapshotIdOptions{}, "snapshot-syncstatus", "Sync snapshot status", func(s *mcclient.ClientSession, args *SnapshotIdOptions) error {
+		result, err := modules.Snapshots.PerformAction(s, args.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&SnapshotIdOptions{}, "snapshot-purge", "Purge Snapshot db records", func(s *mcclient.ClientSession, args *SnapshotIdOptions) error {
 		result, err := modules.Snapshots.PerformAction(s, args.ID, "purge", nil)
 		if err != nil {
 			return err

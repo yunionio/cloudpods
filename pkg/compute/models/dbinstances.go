@@ -733,12 +733,21 @@ func (self *SDBInstance) PerformReboot(ctx context.Context, userCred mcclient.To
 	return nil, self.StartDBInstanceRebootTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
+//同步RDS实例状态
+func (self *SDBInstance) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
+}
+
 func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync-status")
 }
 
 func (self *SDBInstance) PerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, self.StartDBInstanceSyncStatusTask(ctx, userCred, jsonutils.NewDict(), "")
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
 }
 
 func (self *SDBInstance) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -923,16 +932,6 @@ func (self *SDBInstance) StartDBInstanceDeleteTask(ctx context.Context, userCred
 func (self *SDBInstance) StartDBInstanceRebootTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
 	self.SetStatus(userCred, api.DBINSTANCE_REBOOTING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRebootTask", self, userCred, data, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SDBInstance) StartDBInstanceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, api.DBINSTANCE_SYNC_STATUS, "")
-	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSyncStatusTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}

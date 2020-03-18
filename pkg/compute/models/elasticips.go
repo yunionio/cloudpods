@@ -1136,6 +1136,19 @@ func (self *SElasticip) GetIEip() (cloudprovider.ICloudEIP, error) {
 	return iregion.GetIEipById(self.GetExternalId())
 }
 
+func (self *SElasticip) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
+}
+
+// 同步弹性公网IP状态
+func (self *SElasticip) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ElasticipSyncstatusInput) (jsonutils.JSONObject, error) {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
+		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
+	}
+
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
+}
+
 func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
@@ -1149,19 +1162,7 @@ func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
 
-	err := self.StartEipSyncstatusTask(ctx, userCred, "")
-	return nil, err
-}
-
-func (self *SElasticip) StartEipSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipSyncstatusTask", self, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		log.Errorf("create EipSyncstatusTask fail %s", err)
-		return err
-	}
-	self.SetStatus(userCred, "sync", "synchronize")
-	task.ScheduleRun(nil)
-	return nil
+	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "EipSyncstatusTask", "")
 }
 
 func (self *SElasticip) GetExtraDetails(

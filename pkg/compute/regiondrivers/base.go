@@ -314,3 +314,27 @@ func (self *SBaseRegionDriver) IsSupportedDBInstance() bool {
 func (self *SBaseRegionDriver) IsSupportedElasticcache() bool {
 	return false
 }
+
+func (self *SBaseRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncDiskStatus")
+}
+
+func (self *SBaseRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncSnapshotStatus")
+}
+
+func (self *SBaseRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, natgateway *models.SNatGateway, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncNatGatewayStatus")
+}
+
+func (self *SBaseRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncBucketStatus")
+}
+
+func (self *SBaseRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncDBInstanceBackupStatus")
+}
+
+func (self *SBaseRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncElasticcacheStatus")
+}

@@ -2647,3 +2647,85 @@ func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheBackupRestore
 func (self *SManagedVirtualizationRegionDriver) AllowUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, elasticcache *models.SElasticcache) error {
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iDisk, err := disk.GetIDisk()
+		if err != nil {
+			return nil, errors.Wrap(err, "disk.GetIDisk")
+		}
+
+		return nil, disk.SetStatus(userCred, iDisk.GetStatus(), "syncstatus")
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := snapshot.GetISnapshotRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "snapshot.GetISnapshotRegion")
+		}
+
+		iSnapshot, err := iRegion.GetISnapshotById(snapshot.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iRegion.GetISnapshotById(%s)", snapshot.ExternalId)
+		}
+
+		return nil, snapshot.SetStatus(userCred, iSnapshot.GetStatus(), "syncstatus")
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncNatGatewayStatus(ctx context.Context, userCred mcclient.TokenCredential, natgateway *models.SNatGateway, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iNat, err := natgateway.GetINatGateway()
+		if err != nil {
+			return nil, errors.Wrap(err, "natgateway.GetINatGateway")
+		}
+
+		return nil, natgateway.SetStatus(userCred, iNat.GetStatus(), "syncstatus")
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncBucketStatus(ctx context.Context, userCred mcclient.TokenCredential, bucket *models.SBucket, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iBucket, err := bucket.GetIBucket()
+		if err != nil {
+			return nil, errors.Wrap(err, "bucket.GetIBucket")
+		}
+
+		return nil, bucket.SetStatus(userCred, iBucket.GetStatus(), "syncstatus")
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncDBInstanceBackupStatus(ctx context.Context, userCred mcclient.TokenCredential, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iDBInstanceBackup, err := backup.GetIDBInstanceBackup()
+		if err != nil {
+			return nil, errors.Wrap(err, "backup.GetIDBInstanceBackup")
+		}
+
+		return nil, backup.SetStatus(userCred, iDBInstanceBackup.GetStatus(), "syncstatus")
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcacheStatus(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := elasticcache.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIRegion")
+		}
+
+		iElasticcache, err := iRegion.GetIElasticcacheById(elasticcache.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "elasticcache.GetIElasticcache")
+		}
+
+		return nil, elasticcache.SetStatus(userCred, iElasticcache.GetStatus(), "syncstatus")
+	})
+	return nil
+}

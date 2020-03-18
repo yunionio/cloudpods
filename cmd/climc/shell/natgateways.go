@@ -35,12 +35,21 @@ func init() {
 		return nil
 	})
 
-	R(&options.NatGatewayShowOptions{}, "natgateway-show", "Show a NAT gateway", func(s *mcclient.ClientSession, args *options.NatGatewayShowOptions) error {
+	R(&options.NatGatewayIdOptions{}, "natgateway-show", "Show a NAT gateway", func(s *mcclient.ClientSession, args *options.NatGatewayIdOptions) error {
 		results, err := modules.NatGateways.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
 		printObject(results)
+		return nil
+	})
+
+	R(&options.NatGatewayIdOptions{}, "natgateway-syncstatus", "Sync NAT gateway status", func(s *mcclient.ClientSession, args *options.NatGatewayIdOptions) error {
+		result, err := modules.NatGateways.PerformAction(s, args.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 

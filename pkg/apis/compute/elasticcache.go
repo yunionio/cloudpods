@@ -83,3 +83,6 @@ type ElasticcacheParameterDetails struct {
 
 	SElasticcacheParameter
 }
+
+type ElasticcacheSyncstatusInput struct {
+}

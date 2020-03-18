@@ -78,3 +78,6 @@ type ElasticipDetails struct {
 	// 绑定资源名称
 	AssociateName string `json:"associate_name"`
 }
+
+type ElasticipSyncstatusInput struct {
+}

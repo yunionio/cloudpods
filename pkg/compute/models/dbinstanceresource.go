@@ -26,7 +26,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -54,22 +53,6 @@ func (self *SDBInstanceResourceBase) GetVpc() (*SVpc, error) {
 		return nil, errors.Wrap(err, "GetDBInstance")
 	}
 	return nat.GetVpc()
-}
-
-func (self *SDBInstanceResourceBase) GetRegion() (*SCloudregion, error) {
-	vpc, err := self.GetVpc()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetVpc")
-	}
-	return vpc.GetRegion()
-}
-
-func (self *SDBInstanceResourceBase) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	vpc, err := self.GetVpc()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetVpc")
-	}
-	return vpc.GetIRegion()
 }
 
 func (self *SDBInstanceResourceBase) GetCloudprovider() *SCloudprovider {
