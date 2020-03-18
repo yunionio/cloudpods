@@ -86,9 +86,14 @@ func newClient(options *BaseOptions) (*huawei.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := huawei.NewHuaweiClient("", "", options.CloudEnv,
-		options.AccessKey, options.Secret, options.ProjectId,
-		options.Debug)
+	cli, err := huawei.NewHuaweiClient(
+		huawei.NewHuaweiClientConfig(
+			options.CloudEnv,
+			options.AccessKey,
+			options.Secret,
+			options.ProjectId,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,7 @@ type SDomain struct {
 }
 
 func (self *SHuaweiClient) GetDomains() ([]SDomain, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
 	domains := make([]SDomain, 0)
 	err := doListAll(huawei.Domains.List, nil, &domains)
 	return domains, err
