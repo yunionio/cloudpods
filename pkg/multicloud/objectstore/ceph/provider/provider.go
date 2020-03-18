@@ -33,8 +33,8 @@ func (self *SCephRadosProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_CEPH
 }
 
-func (self *SCephRadosProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := ceph.NewCephRados(providerId, providerName, url, account, secret, false)
+func (self *SCephRadosProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := ceph.NewCephRados(cfg.Id, cfg.Name, cfg.URL, cfg.Account, cfg.Secret, false)
 	if err != nil {
 		return nil, err
 	}

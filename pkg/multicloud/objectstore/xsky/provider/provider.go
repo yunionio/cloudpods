@@ -33,8 +33,8 @@ func (self *SXskyProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_XSKY
 }
 
-func (self *SXskyProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := xsky.NewXskyClient(providerId, providerName, url, account, secret, false)
+func (self *SXskyProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := xsky.NewXskyClient(cfg.Id, cfg.Name, cfg.URL, cfg.Account, cfg.Secret, false)
 	if err != nil {
 		return nil, err
 	}

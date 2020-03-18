@@ -101,8 +101,8 @@ func parseHostPort(host string, defPort int) (string, int, error) {
 	}
 }
 
-func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, account, secret string) (cloudprovider.ICloudProvider, error) {
-	parts, err := url.Parse(urlStr)
+func (self *SESXiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	parts, err := url.Parse(cfg.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, 
 		return nil, err
 	}
 
-	client, err := esxi.NewESXiClient(providerId, providerName, host, port, account, secret)
+	client, err := esxi.NewESXiClient(cfg.Id, cfg.Name, host, port, cfg.Account, cfg.Secret)
 	if err != nil {
 		return nil, err
 	}

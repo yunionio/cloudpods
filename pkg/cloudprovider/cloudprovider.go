@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -140,8 +141,22 @@ type SCloudaccount struct {
 	AccessUrl string `json:"access_url"`
 }
 
+type ProviderConfig struct {
+	// Id, Name are properties of Cloudprovider object
+	Id   string
+	Name string
+
+	// Vendor are names like Aliyun, OpenStack, etc.
+	Vendor  string
+	URL     string
+	Account string
+	Secret  string
+
+	ProxyFunc httputils.TransportProxyFunc
+}
+
 type ICloudProviderFactory interface {
-	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
+	GetProvider(cfg ProviderConfig) (ICloudProvider, error)
 
 	GetClientRC(url, account, secret string) (map[string]string, error)
 
@@ -240,12 +255,12 @@ func GetRegistedProviderIds() []string {
 	return providers
 }
 
-func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
-	driver, err := GetProviderFactory(provider)
+func GetProvider(cfg ProviderConfig) (ICloudProvider, error) {
+	driver, err := GetProviderFactory(cfg.Vendor)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetProviderFactory")
 	}
-	return driver.GetProvider(providerId, providerName, accessUrl, account, secret)
+	return driver.GetProvider(cfg)
 }
 
 func GetClientRC(accessUrl, account, secret, provider string) (map[string]string, error) {
@@ -261,10 +276,10 @@ func IsSupported(provider string) bool {
 	return ok
 }
 
-func IsValidCloudAccount(accessUrl, account, secret, provider string) (string, error) {
-	factory, ok := providerTable[provider]
+func IsValidCloudAccount(cfg ProviderConfig) (string, error) {
+	factory, ok := providerTable[cfg.Vendor]
 	if ok {
-		provider, err := factory.GetProvider("", "", accessUrl, account, secret)
+		provider, err := factory.GetProvider(cfg)
 		if err != nil {
 			return "", err
 		}

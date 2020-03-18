@@ -76,8 +76,8 @@ func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {
-	client, err := zstack.NewZStackClient(providerId, providerName, url, username, password, false)
+func (self *SZStackProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := zstack.NewZStackClient(cfg.Id, cfg.Name, cfg.URL, cfg.Account, cfg.Secret, false)
 	if err != nil {
 		return nil, err
 	}
