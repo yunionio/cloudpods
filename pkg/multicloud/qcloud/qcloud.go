@@ -425,7 +425,15 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 }
 
 func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	return common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
+
+	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
+	if err != nil {
+		return nil, err
+	}
+	cli.WithHttpTransport(httpClient.Transport)
+	return cli, nil
 }
 
 func (client *SQcloudClient) vpcRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
