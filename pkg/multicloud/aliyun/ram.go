@@ -28,7 +28,7 @@ func (self *SAliyunClient) ramRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params, self.Debug)
+	return jsonRequest(cli, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params, self.debug)
 }
 
 type SRole struct {

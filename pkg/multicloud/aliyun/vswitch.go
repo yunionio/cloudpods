@@ -246,7 +246,7 @@ func (self *SRegion) GetVSwitchAttributes(idstr string) (*SVSwitch, error) {
 		log.Errorf("DescribeVSwitchAttributes fail %s", err)
 		return nil, err
 	}
-	if self.client.Debug {
+	if self.client.debug {
 		log.Debugf("%s", body.PrettyString())
 	}
 	switches := SVSwitch{}

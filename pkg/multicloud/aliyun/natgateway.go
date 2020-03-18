@@ -207,7 +207,7 @@ func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit 
 		return nil, 0, err
 	}
 
-	if self.client.Debug {
+	if self.client.debug {
 		log.Debugf("%s", body.PrettyString())
 	}
 
