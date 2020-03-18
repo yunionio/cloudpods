@@ -16,6 +16,7 @@ package policy
 
 import (
 	"context"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -168,11 +169,6 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
-	err := manager.doSync()
-	if err != nil {
-		log.Errorf("doSync error %s", err)
-		return
-	}
 
 	manager.SyncOnce()
 }
@@ -182,9 +178,16 @@ func (manager *SPolicyManager) SyncOnce() {
 }
 
 func (manager *SPolicyManager) doSync() error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("policyManager doSync error %s", r)
+			debug.PrintStack()
+		}
+	}()
+
 	policies, err := DefaultPolicyFetcher()
 	if err != nil {
-		// log.Errorf("sync rbac policy failed: %s", err)
+		log.Errorf("sync rbac policy failed: %s", err)
 		return errors.Wrap(err, "DefaultPolicyFetcher")
 	}
 
