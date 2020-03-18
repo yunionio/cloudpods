@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -188,14 +189,16 @@ func (self *SAwsClient) fetchRegions() error {
 }
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
-	disableParamValidation := true
-	chainVerboseErrors := true
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
 	return session.NewSession(&sdk.Config{
-		Region:                 sdk.String(regionId),
-		Credentials:            credentials.NewStaticCredentials(client.accessKey, client.accessSecret, ""),
-		DisableParamValidation: &disableParamValidation,
-
-		CredentialsChainVerboseErrors: &chainVerboseErrors,
+		Region: sdk.String(regionId),
+		Credentials: credentials.NewStaticCredentials(
+			client.accessKey, client.accessSecret, "",
+		),
+		HTTPClient:                    httpClient,
+		DisableParamValidation:        sdk.Bool(true),
+		CredentialsChainVerboseErrors: sdk.Bool(true),
 	})
 }
 
