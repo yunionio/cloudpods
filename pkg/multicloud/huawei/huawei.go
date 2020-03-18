@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*
@@ -137,8 +138,34 @@ func (self *SHuaweiClient) initSigner() error {
 	return nil
 }
 
+func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
+	cli, err := client.NewClientWithAccessKey(regionId, self.projectId, self.accessKey, self.accessSecret, self.debug)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	cli.SetHttpClient(httpClient)
+
+	return cli, nil
+}
+
+func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
+	cli, err := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	cli.SetHttpClient(httpClient)
+
+	return cli, nil
+}
+
 func (self *SHuaweiClient) fetchRegions() error {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	regions := make([]SRegion, 0)
 	err := doListAll(huawei.Regions.List, nil, &regions)
 	if err != nil {
@@ -402,7 +429,7 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
 
 // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
 func (self *SHuaweiClient) queryDomainBalance(domainId string) (float64, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	huawei.Balances.SetDomainId(domainId)
 	balances := make([]SBalance, 0)
 	err := doListAll(huawei.Balances.List, nil, &balances)
