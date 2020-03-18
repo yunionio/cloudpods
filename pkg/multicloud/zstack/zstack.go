@@ -53,8 +53,6 @@ type SZStackClient struct {
 	password     string
 	authURL      string
 
-	sessionID string
-
 	iregions []cloudprovider.ICloudRegion
 
 	debug bool
@@ -177,10 +175,6 @@ func (cli *SZStackClient) listAll(resource string, params url.Values, retVal int
 }
 
 func (cli *SZStackClient) sign(uri, method string, header http.Header) error {
-	if len(cli.sessionID) > 0 {
-		header.Set("Authorization", "OAuth "+cli.sessionID)
-		return nil
-	}
 	url, err := getSignUrl(uri)
 	if err != nil {
 		return errors.Wrap(err, "sign.getSignUrl")
