@@ -84,7 +84,11 @@ func parseAccount(account string) (accessKey string, projectId string) {
 
 func (self *SUcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	accessKey, projectId := parseAccount(cfg.Account)
-	client, err := ucloud.NewUcloudClient(cfg.Id, cfg.Name, accessKey, cfg.Secret, projectId, false)
+	client, err := ucloud.NewUcloudClient(
+		ucloud.NewUcloudClientConfig(
+			accessKey, cfg.Secret,
+		).ProjectId(projectId).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
