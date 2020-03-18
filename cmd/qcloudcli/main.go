@@ -85,11 +85,12 @@ func newClient(options *BaseOptions) (*qcloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing SecretID")
 	}
 
-	if cli, err := qcloud.NewQcloudClient("", "",
-		options.SecretID,
-		options.SecretKey,
-		options.AppID,
-		options.Debug); err != nil {
+	if cli, err := qcloud.NewQcloudClient(
+		qcloud.NewQcloudClientConfig(
+			options.SecretID,
+			options.SecretKey,
+		).AppId(options.AppID).Debug(options.Debug),
+	); err != nil {
 		return nil, err
 	} else if region := cli.GetRegion(options.RegionId); region == nil {
 		return nil, fmt.Errorf("No such region %s", options.RegionId)

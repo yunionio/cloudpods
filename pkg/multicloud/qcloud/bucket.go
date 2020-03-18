@@ -135,7 +135,7 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 }
 
 func (b *SBucket) getFullName() string {
-	return fmt.Sprintf("%s-%s", b.Name, b.region.client.AppID)
+	return fmt.Sprintf("%s-%s", b.Name, b.region.client.appId)
 }
 
 func (b *SBucket) getBucketUrlHost() string {
@@ -393,8 +393,8 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 		return "", errors.Wrap(err, "GetCosClient")
 	}
 	url, err := coscli.Object.GetPresignedURL(context.Background(), method, key,
-		b.region.client.SecretID,
-		b.region.client.SecretKey,
+		b.region.client.secretId,
+		b.region.client.secretKey,
 		expire, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "coscli.Object.GetPresignedURL")
