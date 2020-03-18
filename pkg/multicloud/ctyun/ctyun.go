@@ -44,21 +44,51 @@ const (
 	CTYUN_API_VERSION = "2019-11-22"
 )
 
-type SCtyunClient struct {
-	httpClient *http.Client
-	debug      bool
+type CtyunClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	providerId   string
-	providerName string
-	projectId    string // 项目ID.
+	projectId    string
 	accessKey    string
-	secret       string
+	accessSecret string
 
-	iregions []cloudprovider.ICloudRegion
+	debug bool
 }
 
-func NewSCtyunClient(providerId string, providerName string, projectId string, accessKey string, secret string, debug bool) (*SCtyunClient, error) {
-	client := &SCtyunClient{httpClient: http.DefaultClient, providerId: providerId, providerName: providerName, projectId: projectId, accessKey: accessKey, secret: secret, debug: debug}
+func NewSCtyunClientConfig(accessKey, accessSecret string) *CtyunClientConfig {
+	cfg := &CtyunClientConfig{
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) ProjectId(projectId string) *CtyunClientConfig {
+	cfg.projectId = projectId
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *CtyunClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *CtyunClientConfig) Debug(debug bool) *CtyunClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SCtyunClient struct {
+	*CtyunClientConfig
+
+	httpClient *http.Client
+	iregions   []cloudprovider.ICloudRegion
+}
+
+func NewSCtyunClient(cfg *CtyunClientConfig) (*SCtyunClient, error) {
+	client := &SCtyunClient{
+		CtyunClientConfig: cfg,
+		httpClient:        http.DefaultClient,
+	}
 
 	err := client.init()
 	if err != nil {
@@ -156,7 +186,7 @@ func formRequest(client *SCtyunClient, method httputils.THttpMethod, apiName str
 		// EEE, d MMM yyyy HH:mm:ss z
 		// Mon, 2 Jan 2006 15:04:05 MST
 		requestDate := time.Now().Format("Mon, 2 Jan 2006 15:04:05 MST")
-		hashMac := hmac.New(sha1.New, []byte(client.secret))
+		hashMac := hmac.New(sha1.New, []byte(client.accessSecret))
 		hashRawString := strings.Join([]string{contentMd5, requestDate, apiName}, "\n")
 		hashMac.Write([]byte(hashRawString))
 		hsum := base64.StdEncoding.EncodeToString(hashMac.Sum(nil))
@@ -242,7 +272,7 @@ func (self *SCtyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 		iregion := self.iregions[i]
 
 		s := cloudprovider.SSubAccount{
-			Name:         fmt.Sprintf("%s-%s", self.providerName, iregion.GetId()),
+			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, iregion.GetId()),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, iregion.GetId()),
 			HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,

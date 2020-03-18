@@ -84,8 +84,11 @@ func newClient(options *BaseOptions) (*ctyun.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := ctyun.NewSCtyunClient("", "", "",
-		options.AccessKey, options.Secret, options.Debug)
+	cli, err := ctyun.NewSCtyunClient(
+		ctyun.NewSCtyunClientConfig(
+			options.AccessKey, options.Secret,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}
