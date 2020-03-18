@@ -35,15 +35,15 @@ func (self *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SLocalStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId(), self.storageType)
 }
 
 func (self *SLocalStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Name, self.zone.GetId(), self.storageType)
 }
 
 func (self *SLocalStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetGlobalId(), self.storageType)
 }
 
 func (self *SLocalStorage) IsEmulated() bool {
