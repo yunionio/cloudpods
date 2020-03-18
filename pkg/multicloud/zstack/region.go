@@ -58,11 +58,11 @@ func (region *SRegion) GetId() string {
 }
 
 func (region *SRegion) GetName() string {
-	return region.client.providerName
+	return region.client.cpcfg.Name
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.client.providerID)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.client.cpcfg.Id)
 }
 
 func (region *SRegion) IsEmulated() bool {

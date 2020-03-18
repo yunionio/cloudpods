@@ -89,7 +89,13 @@ func newClient(options *BaseOptions) (*zstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := zstack.NewZStackClient("", "", options.AuthURL, options.Username, options.Password, options.Debug)
+	cli, err := zstack.NewZStackClient(
+		zstack.NewZstackClientConfig(
+			options.AuthURL,
+			options.Username,
+			options.Password,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

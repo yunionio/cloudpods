@@ -41,11 +41,11 @@ func (scache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (scache *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s/%s", scache.region.client.providerID, scache.region.GetId(), scache.ZoneId)
+	return fmt.Sprintf("%s-%s/%s", scache.region.client.cpcfg.Id, scache.region.GetId(), scache.ZoneId)
 }
 
 func (scache *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s/%s", scache.region.client.providerName, scache.region.GetId(), scache.ZoneId)
+	return fmt.Sprintf("%s-%s/%s", scache.region.client.cpcfg.Name, scache.region.GetId(), scache.ZoneId)
 }
 
 func (scache *SStoragecache) GetStatus() string {
