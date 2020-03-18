@@ -82,7 +82,7 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 	}
 
 	if self.ecsClient == nil {
-		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret, self.client.debug)
+		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.accessSecret, self.client.debug)
 		if err != nil {
 			return nil, err
 		}

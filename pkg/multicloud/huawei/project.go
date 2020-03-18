@@ -49,7 +49,7 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
 	projects := make([]SProject, 0)
 	err := doListAll(huawei.Projects.List, nil, &projects)
 	return projects, err
