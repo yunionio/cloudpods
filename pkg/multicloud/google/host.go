@@ -44,7 +44,7 @@ func (host *SHost) GetGlobalId() string {
 }
 
 func (host *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", host.zone.region.client.providerName, host.zone.GetName())
+	return fmt.Sprintf("%s-%s", host.zone.region.client.cpcfg.Name, host.zone.GetName())
 }
 
 func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {

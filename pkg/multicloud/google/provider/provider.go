@@ -115,7 +115,12 @@ func (self *SGoogleProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig
 		return nil, fmt.Errorf("Invalid projectID or client email for google cloud %s", cfg.Account)
 	}
 	projectID, clientEmail = accountInfo[0], accountInfo[1]
-	client, err := google.NewGoogleClient(cfg.Id, cfg.Name, projectID, clientEmail, privateKeyID, privateKey, false)
+
+	client, err := google.NewGoogleClient(
+		google.NewGoogleClientConfig(
+			projectID, clientEmail, privateKeyID, privateKey,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
