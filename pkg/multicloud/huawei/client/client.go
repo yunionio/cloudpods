@@ -15,6 +15,8 @@
 package client
 
 import (
+	"net/http"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/modules"
@@ -81,9 +83,55 @@ type Client struct {
 	CloudEye           *modules.SCloudEyeManager
 }
 
-func (self *Client) Init() error {
-	// 从环境变量中初始化client
-	return nil
+func (self *Client) SetHttpClient(httpClient *http.Client) {
+	self.Servers.SetHttpClient(httpClient)
+	self.ServersV2.SetHttpClient(httpClient)
+	self.NovaServers.SetHttpClient(httpClient)
+	self.Snapshots.SetHttpClient(httpClient)
+	self.OsSnapshots.SetHttpClient(httpClient)
+	self.Images.SetHttpClient(httpClient)
+	self.OpenStackImages.SetHttpClient(httpClient)
+	self.Projects.SetHttpClient(httpClient)
+	self.Regions.SetHttpClient(httpClient)
+	self.Zones.SetHttpClient(httpClient)
+	self.Vpcs.SetHttpClient(httpClient)
+	self.Eips.SetHttpClient(httpClient)
+	self.Elasticcache.SetHttpClient(httpClient)
+	self.DcsAvailableZone.SetHttpClient(httpClient)
+	self.Disks.SetHttpClient(httpClient)
+	self.Domains.SetHttpClient(httpClient)
+	self.Keypairs.SetHttpClient(httpClient)
+	self.Elb.SetHttpClient(httpClient)
+	self.ElbBackend.SetHttpClient(httpClient)
+	self.ElbBackendGroup.SetHttpClient(httpClient)
+	self.ElbListeners.SetHttpClient(httpClient)
+	self.ElbCertificates.SetHttpClient(httpClient)
+	self.ElbHealthCheck.SetHttpClient(httpClient)
+	self.ElbL7policies.SetHttpClient(httpClient)
+	self.ElbPolicies.SetHttpClient(httpClient)
+	self.ElbWhitelist.SetHttpClient(httpClient)
+	self.Orders.SetHttpClient(httpClient)
+	self.SecurityGroupRules.SetHttpClient(httpClient)
+	self.SecurityGroups.SetHttpClient(httpClient)
+	self.NovaSecurityGroups.SetHttpClient(httpClient)
+	self.Subnets.SetHttpClient(httpClient)
+	self.Users.SetHttpClient(httpClient)
+	self.Interface.SetHttpClient(httpClient)
+	self.Jobs.SetHttpClient(httpClient)
+	self.Balances.SetHttpClient(httpClient)
+	self.Bandwidths.SetHttpClient(httpClient)
+	self.Port.SetHttpClient(httpClient)
+	self.Flavors.SetHttpClient(httpClient)
+	self.VpcRoutes.SetHttpClient(httpClient)
+	self.SNatRules.SetHttpClient(httpClient)
+	self.DNatRules.SetHttpClient(httpClient)
+	self.NatGateways.SetHttpClient(httpClient)
+	self.DBInstance.SetHttpClient(httpClient)
+	self.DBInstanceBackup.SetHttpClient(httpClient)
+	self.DBInstanceFlavor.SetHttpClient(httpClient)
+	self.DBInstanceJob.SetHttpClient(httpClient)
+	self.Traces.SetHttpClient(httpClient)
+	self.CloudEye.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithOptions(regionId, projectId string, credential auth.Credential) error {
@@ -165,11 +213,6 @@ func (self *Client) initManagers() {
 	}
 
 	self.init = true
-}
-
-// todo: init from envrioment
-func NewClient() (*Client, error) {
-	return nil, nil
 }
 
 func NewClientWithAccessKey(regionId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
