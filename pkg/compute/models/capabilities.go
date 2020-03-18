@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -58,8 +59,10 @@ type SCapabilities struct {
 	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
 	Specs                       jsonutils.JSONObject
 
-	StorageTypes2     map[string][]string `json:",allowempty"`
-	DataStorageTypes2 map[string][]string `json:",allowempty"`
+	StorageTypes2     map[string][]string                 `json:",allowempty"`
+	StorageTypes3     map[string]map[string][]StorageInfo `json:",allowempty"`
+	DataStorageTypes2 map[string][]string                 `json:",allowempty"`
+	DataStorageTypes3 map[string]map[string][]StorageInfo `json:",allowempty"`
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -91,10 +94,10 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	getBrands(region, zone, domainId, &capa)
 	// capa.Brands, capa.ComputeEngineBrands, capa.NetworkManageBrands, capa.ObjectStorageBrands = a, c, n, o
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
-	capa.StorageTypes = getStorageTypes(region, zone, true, domainId, "")
-	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId, "")
-	capa.StorageTypes2 = getStorageTypes2(region, zone, true, domainId, capa.Hypervisors)
-	capa.DataStorageTypes2 = getStorageTypes2(region, zone, false, domainId, capa.Hypervisors)
+	capa.StorageTypes, _ = getStorageTypes(region, zone, true, domainId, "")
+	capa.DataStorageTypes, _ = getStorageTypes(region, zone, false, domainId, "")
+	capa.StorageTypes2, capa.StorageTypes3 = getStorageTypes2and3(region, zone, true, domainId, capa.Hypervisors)
+	capa.DataStorageTypes2, capa.DataStorageTypes3 = getStorageTypes2and3(region, zone, false, domainId, capa.Hypervisors)
 	capa.GPUModels = getGPUs(region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
@@ -299,21 +302,62 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 	return resourceTypes
 }
 
-func getStorageTypes2(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hypervisors []string) map[string][]string {
+func getStorageTypes2and3(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hypervisors []string) (map[string][]string, map[string]map[string][]StorageInfo) {
 	ret := make(map[string][]string)
+	ret2 := make(map[string]map[string][]StorageInfo)
 	for _, hypervisor := range hypervisors {
 		hostType := api.HYPERVISOR_HOSTTYPE[hypervisor]
-		ret[hypervisor] = getStorageTypes(region, zone, isSysDisk, domainId, hostType)
+		ret[hypervisor], ret2[hypervisor] = getStorageTypes(region, zone, isSysDisk, domainId, hostType)
 	}
-	return ret
+	return ret, ret2
 }
 
-func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hostType string) []string {
+type StorageInfo struct {
+	Id              string
+	Name            string
+	VirtualCapacity int64
+	Capacity        int64
+	Reserved        int64
+	StorageType     string
+	MediumType      string
+	Cmtbound        float32
+	ZoneId          string
+	UsedCapacity    int64
+	WasteCapacity   int64
+	FreeCapacity    int64
+}
+
+func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hostType string) ([]string, map[string][]StorageInfo) {
 	storages := StorageManager.Query().SubQuery()
+	disks1 := DiskManager.Query().SubQuery()
+	usedDisk := disks1.Query(
+		disks1.Field("storage_id"),
+		sqlchemy.SUM("used_capacity", disks1.Field("disk_size")),
+	).Equals("status", api.DISK_READY).GroupBy("storage_id").SubQuery()
+	disks2 := DiskManager.Query().SubQuery()
+	failedDisk := disks2.Query(
+		disks2.Field("storage_id"),
+		sqlchemy.SUM("waste_capacity", disks2.Field("disk_size")),
+	).NotEquals("status", api.DISK_READY).GroupBy("storage_id").SubQuery()
+
 	hostStorages := HoststorageManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
-	q := storages.Query(storages.Field("storage_type"), storages.Field("medium_type"))
+	q := storages.Query(
+		storages.Field("id"),
+		storages.Field("name"),
+		storages.Field("capacity"),
+		storages.Field("reserved"),
+		storages.Field("storage_type"),
+		storages.Field("medium_type"),
+		storages.Field("cmtbound"),
+		storages.Field("zone_id"),
+		usedDisk.Field("used_capacity"),
+		failedDisk.Field("waste_capacity"),
+	)
+	q = q.LeftJoin(usedDisk, sqlchemy.Equals(usedDisk.Field("storage_id"), storages.Field("id")))
+	q = q.LeftJoin(failedDisk, sqlchemy.Equals(failedDisk.Field("storage_id"), storages.Field("id")))
+
 	q = q.Join(hostStorages, sqlchemy.Equals(
 		hostStorages.Field("storage_id"),
 		storages.Field("id"),
@@ -350,21 +394,42 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
 	}
 	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL))
-	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	defer rows.Close()
 	storageTypes := make([]string, 0)
+	storageInfos := map[string][]StorageInfo{}
 	for rows.Next() {
-		var storageType, mediumType string
-		rows.Scan(&storageType, &mediumType)
-		if len(storageType) > 0 && len(mediumType) > 0 {
-			storageTypes = append(storageTypes, fmt.Sprintf("%s/%s", storageType, mediumType))
+		var storage StorageInfo
+		rows.Scan(
+			&storage.Id,
+			&storage.Name,
+			&storage.Capacity,
+			&storage.Reserved,
+			&storage.StorageType,
+			&storage.MediumType,
+			&storage.Cmtbound,
+			&storage.ZoneId,
+			&storage.UsedCapacity,
+			&storage.WasteCapacity,
+		)
+		if len(storage.StorageType) > 0 && len(storage.MediumType) > 0 {
+			storageType := fmt.Sprintf("%s/%s", storage.StorageType, storage.MediumType)
+			if _, ok := storageInfos[storageType]; !ok {
+				storageInfos[storageType] = []StorageInfo{}
+				storageTypes = append(storageTypes, storageType)
+			}
+			if storage.Cmtbound == 0 {
+				storage.Cmtbound = options.Options.DefaultStorageOvercommitBound
+			}
+			storage.VirtualCapacity = int64(float32((storage.Capacity - storage.WasteCapacity)) * storage.Cmtbound)
+			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity - storage.WasteCapacity
+			storageInfos[storageType] = append(storageInfos[storageType], storage)
 		}
 	}
-	return storageTypes
+	return storageTypes, storageInfos
 }
 
 func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
