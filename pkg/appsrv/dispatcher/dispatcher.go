@@ -271,7 +271,8 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	result, err := manager.Get(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), false)
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		e := httperrors.NewGeneralError(err)
+		httperrors.JsonClientError(w, e)
 		return
 	}
 	if result != nil {
@@ -283,7 +284,8 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	result, err := manager.GetSpecific(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"))
 	if err != nil {
-		httperrors.GeneralServerError(w, err)
+		e := httperrors.NewGeneralError(err)
+		httperrors.JsonClientError(w, e)
 		return
 	}
 	if result != nil {
