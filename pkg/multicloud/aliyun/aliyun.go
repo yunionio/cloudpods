@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/pkg/errors"
@@ -186,8 +187,19 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 }
 
 func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
-	return sdk.NewClientWithAccessKey(ALIYUN_DEFAULT_REGION,
-		self.accessKey, self.accessSecret)
+	transport := httputils.GetTransport(true)
+	transport.Proxy = self.cpcfg.ProxyFunc
+	client, err := sdk.NewClientWithOptions(
+		ALIYUN_DEFAULT_REGION,
+		&sdk.Config{
+			HttpTransport: transport,
+		},
+		&credentials.BaseCredential{
+			AccessKeyId:     self.accessKey,
+			AccessKeySecret: self.accessSecret,
+		},
+	)
+	return client, err
 }
 
 func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -248,8 +260,10 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	// which can be used to whitelist ips, domains from http_proxy,
 	// https_proxy setting
 	// oss use no timeout client so as to send/download large files
+	httpClient := httputils.GetAdaptiveTimeoutClient()
+	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
 	cliOpts := []oss.ClientOption{
-		oss.HTTPClient(httputils.GetAdaptiveTimeoutClient()),
+		oss.HTTPClient(httpClient),
 	}
 	ep := getOSSExternalDomain(regionId)
 	cli, err := oss.New(ep, client.accessKey, client.accessSecret, cliOpts...)
