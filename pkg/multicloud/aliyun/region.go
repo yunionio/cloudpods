@@ -41,8 +41,6 @@ type SRegion struct {
 	sdkClient *sdk.Client
 	ossClient *oss.Client
 
-	Debug bool
-
 	RegionId  string
 	LocalName string
 
@@ -75,7 +73,7 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	if self.sdkClient == nil {
-		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.secret)
+		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.accessSecret)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +106,7 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.Debug)
+	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -116,7 +114,7 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_API_VERION_RDS, apiName, params, self.client.Debug)
+	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_API_VERION_RDS, apiName, params, self.client.debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -124,7 +122,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.Debug)
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.debug)
 }
 
 func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -132,7 +130,7 @@ func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.Debug)
+	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.debug)
 }
 
 type LBRegion struct {
@@ -182,7 +180,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 }
 
 func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.Debug)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.client.debug)
 }
 
 /////////////////////////////////////////////////////////////////////////////

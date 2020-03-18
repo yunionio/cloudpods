@@ -291,7 +291,7 @@ func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, p
 	if err != nil {
 		return "", errors.Wrap(err, "bucket.UploadPart")
 	}
-	if b.region.client.Debug {
+	if b.region.client.debug {
 		log.Debugf("upload part key:%s uploadId:%s partIndex:%d etag:%s", key, uploadId, partIndex, part.ETag)
 	}
 	return part.ETag, nil
@@ -322,7 +322,7 @@ func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploa
 	if err != nil {
 		return errors.Wrap(err, "bucket.CompleteMultipartUpload")
 	}
-	if b.region.client.Debug {
+	if b.region.client.debug {
 		log.Debugf("CompleteMultipartUpload bucket:%s key:%s etag:%s location:%s", result.Bucket, result.Key, result.ETag, result.Location)
 	}
 	return nil
