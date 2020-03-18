@@ -46,16 +46,39 @@ var (
 	SkipEsxi bool = true
 )
 
-type SZStackClient struct {
-	providerID   string
-	providerName string
-	username     string
-	password     string
-	authURL      string
+type ZstackClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	iregions []cloudprovider.ICloudRegion
+	authURL  string
+	username string
+	password string
 
 	debug bool
+}
+
+func NewZstackClientConfig(authURL, username, password string) *ZstackClientConfig {
+	cfg := &ZstackClientConfig{
+		authURL:  authURL,
+		username: username,
+		password: password,
+	}
+	return cfg
+}
+
+func (cfg *ZstackClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ZstackClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ZstackClientConfig) Debug(debug bool) *ZstackClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SZStackClient struct {
+	*ZstackClientConfig
+
+	iregions []cloudprovider.ICloudRegion
 }
 
 func getTime() string {
@@ -76,14 +99,9 @@ func getSignUrl(uri string) (string, error) {
 	return strings.TrimPrefix(u.Path, "/zstack"), nil
 }
 
-func NewZStackClient(providerID string, providerName string, authURL string, username string, password string, isDebug bool) (*SZStackClient, error) {
+func NewZStackClient(cfg *ZstackClientConfig) (*SZStackClient, error) {
 	cli := &SZStackClient{
-		providerID:   providerID,
-		providerName: providerName,
-		authURL:      authURL,
-		username:     username,
-		password:     password,
-		debug:        isDebug,
+		ZstackClientConfig: cfg,
 	}
 	if err := cli.connect(); err != nil {
 		return nil, err
@@ -93,13 +111,13 @@ func NewZStackClient(providerID string, providerName string, authURL string, use
 }
 
 func (cli *SZStackClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, cli.providerID)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, cli.cpcfg.Id)
 }
 
 func (cli *SZStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.username,
-		Name:         cli.providerName,
+		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
