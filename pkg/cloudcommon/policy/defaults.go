@@ -573,3 +573,7 @@ var (
 		},
 	}
 )
+
+func AppendDefaultPolicies(policies []rbacutils.SRbacPolicy) {
+	predefinedDefaultPolicies = append(predefinedDefaultPolicies, policies...)
+}
