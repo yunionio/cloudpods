@@ -43,17 +43,12 @@ const (
 )
 
 type SAzureClient struct {
-	client         autorest.Client
-	providerId     string
-	providerName   string
-	subscriptionId string
-	tenantId       string
-	clientId       string
-	clientScret    string
-	domain         string
-	baseUrl        string
-	// secret              string
-	envName             string
+	*AzureClientConfig
+
+	client  autorest.Client
+	domain  string
+	baseUrl string
+
 	ressourceGroups     []SResourceGroup
 	fetchResourceGroups bool
 	env                 azureenv.Environment
@@ -91,22 +86,53 @@ var DEFAULT_API_VERSION = map[string]string{
 	"microsoft.insights/eventtypes/management/values": "2017-03-01-preview",
 }
 
-func NewAzureClient(providerId string, providerName string, envName, tenantId, clientId, clientSecret, subscriptionId string, debug bool) (*SAzureClient, error) {
+type AzureClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
+	envName      string
+	tenantId     string
+	clientId     string
+	clientSecret string
+
+	subscriptionId string
+
+	debug bool
+}
+
+func NewAzureClientConfig(envName, tenantId, clientId, clientSecret string) *AzureClientConfig {
+	cfg := &AzureClientConfig{
+		envName:      envName,
+		tenantId:     tenantId,
+		clientId:     clientId,
+		clientSecret: clientSecret,
+	}
+	return cfg
+}
+
+func (cfg *AzureClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *AzureClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *AzureClientConfig) SubscriptionId(id string) *AzureClientConfig {
+	cfg.subscriptionId = id
+	return cfg
+}
+
+func (cfg *AzureClientConfig) Debug(debug bool) *AzureClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	client := SAzureClient{
-		providerId:     providerId,
-		providerName:   providerName,
-		envName:        envName,
-		tenantId:       tenantId,
-		clientId:       clientId,
-		clientScret:    clientSecret,
-		subscriptionId: subscriptionId,
-		debug:          debug,
+		AzureClientConfig: cfg,
 	}
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	if len(subscriptionId) > 0 {
+	if len(cfg.subscriptionId) > 0 {
 		err = client.fetchBuckets()
 		if err != nil {
 			return nil, errors.Wrap(err, "fetchBuckets")
@@ -117,7 +143,7 @@ func NewAzureClient(providerId string, providerName string, envName, tenantId, c
 
 func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 	client := autorest.NewClientWithUserAgent("Yunion API")
-	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
+	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientSecret, self.tenantId)
 	env, err := azureenv.EnvironmentFromName(self.envName)
 	if err != nil {
 		return nil, err
@@ -730,7 +756,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 /*func (self *SAzureClient) UpdateAccount(envName, tenantId, appId, appKey, subscriptionId string) error {
 	if self.tenantId != tenantId || self.secret != secret || self.envName != envName {
 		if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(tenantId, "/"); len(clientInfo) >= 2 && len(accountInfo) >= 1 {
-			self.clientId, self.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
+			self.clientId, self.clientSecret = clientInfo[0], strings.Join(clientInfo[1:], "/")
 			self.tenantId = accountInfo[0]
 			if len(accountInfo) == 2 {
 				self.subscriptionId = accountInfo[1]
@@ -741,7 +767,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 			}
 			return nil
 		} else {
-			return httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
+			return httperrors.NewUnauthorizedError("clientId、clientSecret or subscriptId input error")
 		}
 	}
 	return nil

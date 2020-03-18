@@ -35,7 +35,7 @@ func (self *SClassicHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SClassicHost) GetId() string {
-	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.providerId, self.zone.GetId())
+	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.cpcfg.Id, self.zone.GetId())
 }
 
 func (self *SClassicHost) GetName() string {
