@@ -43,7 +43,7 @@ func (self *SWire) GetGlobalId() string {
 }
 
 func (self *SWire) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.vpc.GetName())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Name, self.vpc.GetName())
 }
 
 func (self *SWire) IsEmulated() bool {

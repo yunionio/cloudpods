@@ -52,7 +52,7 @@ func (self *SStorage) GetId() string {
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, strings.ToLower(self.storageType))
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Name, strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetGlobalId() string {

@@ -113,7 +113,11 @@ func parseAccount(account, secret string) (tenantId string, appId string, appKey
 
 func (self *SAzureProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	tenantId, appId, appKey, subId := parseAccount(cfg.Account, cfg.Secret)
-	if client, err := azure.NewAzureClient(cfg.Id, cfg.Name, cfg.URL, tenantId, appId, appKey, subId, false); err != nil {
+	if client, err := azure.NewAzureClient(
+		azure.NewAzureClientConfig(
+			cfg.URL, tenantId, appId, appKey,
+		).SubscriptionId(subId).CloudproviderConfig(cfg),
+	); err != nil {
 		return nil, err
 	} else {
 		return &SAzureProvider{
