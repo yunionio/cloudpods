@@ -135,7 +135,13 @@ func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 		},
 		TokenURL: google.JWTTokenURL,
 	}
-	client.client = conf.Client(oauth2.NoContext)
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, cfg.cpcfg.ProxyFunc)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+
+	client.client = conf.Client(ctx)
 	return &client, client.fetchRegions()
 }
 
