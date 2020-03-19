@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSecurityGroupRuleManager struct {
@@ -193,6 +194,35 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(
 		sql = sql.Equals("protocol", query.Protocol)
 	}
 	return sql, nil
+}
+
+func (self *SSecurityGroupRule) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SecgroupRuleDetails, error) {
+	return api.SecgroupRuleDetails{}, nil
+}
+
+func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SecgroupRuleDetails {
+	rows := make([]api.SecgroupRuleDetails, len(objs))
+	bRows := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	secRows := manager.SSecurityGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i] = api.SecgroupRuleDetails{
+			ResourceBaseDetails:       bRows[i],
+			SecurityGroupResourceInfo: secRows[i],
+		}
+	}
+	return rows
 }
 
 func (manager *SSecurityGroupRuleManager) OrderByExtraFields(
