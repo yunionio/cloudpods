@@ -172,7 +172,8 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	input apis.MetadataListInput,
 ) (*modulebase.ListResult, error) {
 	var err error
-	q := manager.Query("key", "value")
+	sq := manager.Query().SubQuery()
+	q := sq.Query(sq.Field("key"), sq.Field("value"), sqlchemy.COUNT("count", sq.Field("key")))
 
 	q, err = manager.ListItemFilter(ctx, q, userCred, input)
 	if err != nil {
@@ -221,7 +222,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 		q = q.Offset(int(offset))
 	}
 
-	data, err := manager.metaDataQuery2List(q)
+	data, err := manager.metaDataQuery2List(q, input.Details)
 	if err != nil {
 		return nil, errors.Wrap(err, "metadataQuery2List")
 	}
@@ -234,10 +235,11 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	return &emptyList, nil
 }
 
-func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery) ([]jsonutils.JSONObject, error) {
+func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery, details *bool) ([]jsonutils.JSONObject, error) {
 	metadatas := make([]struct {
 		Key   string
 		Value string
+		Count int64
 	}, 0)
 	err := q.All(&metadatas)
 	if err != nil {
@@ -246,16 +248,20 @@ func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery) ([]jsonu
 
 	ret := make([]jsonutils.JSONObject, len(metadatas))
 	for i := range metadatas {
-		ret[i], err = manager.getKeyValueObjectCount(metadatas[i].Key, metadatas[i].Value)
-		if err != nil {
-			return nil, errors.Wrap(err, "getKeyValueObjectCount")
+		if details != nil && *details {
+			ret[i], err = manager.getKeyValueObjectCount(metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
+			if err != nil {
+				return nil, errors.Wrap(err, "getKeyValueObjectCount")
+			}
+		} else {
+			ret[i] = jsonutils.Marshal(metadatas[i])
 		}
 	}
 
 	return ret, nil
 }
 
-func (manager *SMetadataManager) getKeyValueObjectCount(key string, value string) (jsonutils.JSONObject, error) {
+func (manager *SMetadataManager) getKeyValueObjectCount(key string, value string, count int64) (jsonutils.JSONObject, error) {
 	metadatas := manager.Query().SubQuery()
 	q := metadatas.Query(metadatas.Field("obj_type"), sqlchemy.COUNT("obj_count"))
 	q = q.Equals("key", key).Equals("value", value)
@@ -273,6 +279,7 @@ func (manager *SMetadataManager) getKeyValueObjectCount(key string, value string
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(key), "key")
 	data.Add(jsonutils.NewString(value), "value")
+	data.Add(jsonutils.NewInt(count), "count")
 	for _, oc := range objectCount {
 		data.Add(jsonutils.NewInt(oc.ObjCount), fmt.Sprintf("%s_count", oc.ObjType))
 	}
@@ -320,10 +327,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		if !man.IsStandaloneManager() {
 			continue
 		}
-		resourceView := man.Query().SubQuery()
-		prefix := sqlchemy.NewStringField(fmt.Sprintf("%s%s", man.Keyword(), OBJECT_TYPE_ID_SEP))
-		field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
-		sq := resourceView.Query(field)
+		sq := man.Query("id")
 		query := jsonutils.Marshal(input)
 		ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, man, policy.PolicyActionList, true)
 		if err != nil {
@@ -333,7 +337,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		sq = man.FilterByOwner(sq, ownerId, queryScope)
 		sq = man.FilterBySystemAttributes(sq, userCred, query, queryScope)
 		sq = man.FilterByHiddenSystemAttributes(sq, userCred, query, queryScope)
-		conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
+		conditions = append(conditions, sqlchemy.In(q.Field("obj_id"), sq))
 	}
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
