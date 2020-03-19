@@ -26,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SXskyClient struct {
@@ -54,6 +55,8 @@ func NewXskyClient(cfg *objectstore.ObjectStoreClientConfig) (*SXskyClient, erro
 		cfg.GetEndpoint(),
 		cfg.GetDebug(),
 	)
+	httputils.SetClientProxyFunc(adminApi.httpClient(), cfg.GetCloudproviderConfig().ProxyFunc)
+
 	gwEp, err := adminApi.getS3GatewayEndpoint(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "adminApi.getS3GatewayIP")

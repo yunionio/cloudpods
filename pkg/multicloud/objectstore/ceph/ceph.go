@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SCephRadosClient struct {
@@ -50,6 +51,7 @@ func NewCephRados(cfg *objectstore.ObjectStoreClientConfig) (*SCephRadosClient, 
 		cfg.GetDebug(),
 		"",
 	)
+	httputils.SetClientProxyFunc(adminApi.httpClient(), cfg.GetCloudproviderConfig().ProxyFunc)
 
 	client := SCephRadosClient{
 		SObjectStoreClient: s3store,
