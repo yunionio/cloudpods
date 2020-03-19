@@ -124,6 +124,7 @@ func NewObjectStoreClientAndFetch(cfg *ObjectStoreClientConfig, doFetch bool) (*
 	}
 
 	tr := httputils.GetTransport(true)
+	tr.Proxy = cfg.cpcfg.ProxyFunc
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
