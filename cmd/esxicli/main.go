@@ -88,7 +88,14 @@ func newClient(options *BaseOptions) (*esxi.SESXiClient, error) {
 		return nil, fmt.Errorf("Missing password")
 	}
 
-	return esxi.NewESXiClient2("", "", options.Host, options.Port, options.Account, options.Password, false)
+	return esxi.NewESXiClient2(
+		esxi.NewESXiClientConfig(
+			options.Host,
+			options.Port,
+			options.Account,
+			options.Password,
+		),
+	)
 }
 
 func main() {

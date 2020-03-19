@@ -111,7 +111,11 @@ func (self *SESXiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) 
 		return nil, err
 	}
 
-	client, err := esxi.NewESXiClient(cfg.Id, cfg.Name, host, port, cfg.Account, cfg.Secret)
+	client, err := esxi.NewESXiClient(
+		esxi.NewESXiClientConfig(
+			host, port, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
