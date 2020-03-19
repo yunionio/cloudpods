@@ -19,13 +19,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"os"
+	"path/filepath"
 	"strings"
 	ptem "text/template"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
-	"yunion.io/x/onecloud/pkg/notify/template"
 )
 
 type STemplateManager struct {
@@ -58,6 +57,7 @@ const (
 	TEMPLATE_TYPE_TITLE   = "title"
 	TEMPLATE_TYPE_CONTENT = "content"
 	TEMPLATE_TYPE_REMOTE  = "remote"
+	CONTACTTYPE_ALL       = "all"
 )
 
 type STemplate struct {
@@ -75,58 +75,50 @@ func (tm *STemplateManager) GetEmailUrl() string {
 	return options.Options.VerifyEmailUrl
 }
 
-var initTemlateList []STemplate
+var templatePath = "/opt/yunion/share/template"
 
-func (tm *STemplateManager) defaultTemplate() []STemplate {
-	if len(initTemlateList) != 0 {
-		return initTemlateList
-	}
+func (tm *STemplateManager) defaultTemplate() ([]STemplate, error) {
+	templates := make([]STemplate, 0, 4)
 
-	initTemlateList = []STemplate{
-		{
-			ContactType:  "email",
-			Topic:        "IMAGE_ACTIVED",
-			TemplateType: TEMPLATE_TYPE_TITLE,
-			Content:      template.IMAGE_ACTIVED_TITLE,
-		},
-		{
-			ContactType:  "email",
-			Topic:        "IMAGE_ACTIVED",
-			TemplateType: TEMPLATE_TYPE_CONTENT,
-			Content:      template.IMAGE_ACTIVED_CONTENT,
-		},
-	}
-	content, err := ioutil.ReadFile(template.EMAIL_VERIFY_CONTENT_PATH)
-	if err == nil {
-		initTemlateList = append(initTemlateList,
-			STemplate{
-				ContactType:  "email",
-				Topic:        "VERIFY",
-				TemplateType: TEMPLATE_TYPE_CONTENT,
+	for _, templateType := range []string{"title", "content", "remote"} {
+		contactType, topic := CONTACTTYPE_ALL, ""
+		titleTemplatePath := fmt.Sprintf("%s/%s", templatePath, templateType)
+		files, err := ioutil.ReadDir(titleTemplatePath)
+		if err != nil {
+			return templates, errors.Wrapf(err, "Read Dir '%s'", titleTemplatePath)
+		}
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			spliteName := strings.Split(file.Name(), ".")
+			topic = spliteName[0]
+			if len(spliteName) > 1 {
+				contactType = spliteName[1]
+			}
+			fullPath := filepath.Join(titleTemplatePath, file.Name())
+			content, err := ioutil.ReadFile(fullPath)
+			if err != nil {
+				return templates, err
+			}
+			templates = append(templates, STemplate{
+				ContactType:  contactType,
+				Topic:        topic,
+				TemplateType: templateType,
 				Content:      string(content),
-			},
-			STemplate{
-				ContactType:  "email",
-				Topic:        "VERIFY",
-				TemplateType: TEMPLATE_TYPE_TITLE,
-				Content:      template.EMAIL_VERIFY_TITLE,
-			},
-		)
-	} else {
-		if os.IsNotExist(err) {
-			log.Errorf("The path of email verify template is invalid")
-		} else {
-			log.Errorf("open %s error: %s", template.EMAIL_VERIFY_CONTENT_PATH, err.Error())
+			})
 		}
 	}
-
-	return initTemlateList
+	return templates, nil
 }
 
 func (tm *STemplateManager) InitializeData() error {
-	for _, template := range tm.defaultTemplate() {
-		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type",
-			template.TemplateType)
+	templates, err := tm.defaultTemplate()
+	if err != nil {
+		return err
+	}
+	for _, template := range templates {
+		q := tm.Query().Equals("contact_type", template.ContactType).Equals("topic", template.Topic).Equals("template_type", template.TemplateType)
 		count, _ := q.CountWithError()
 		if count > 0 {
 			continue
@@ -144,7 +136,7 @@ func (tm *STemplateManager) InitializeData() error {
 func (tm *STemplateManager) NotifyFilter(contactType, topic, msg string) (params apis.SendParams, err error) {
 	params.Topic = topic
 	templates := make([]STemplate, 0, 3)
-	q := tm.Query().Equals("contact_type", contactType).Equals("topic", strings.ToUpper(topic))
+	q := tm.Query().Equals("topic", strings.ToUpper(topic)).In("contact_type", []string{CONTACTTYPE_ALL, contactType})
 	err = db.FetchModelObjects(tm, q, &templates)
 	if errors.Cause(err) == sql.ErrNoRows || len(templates) == 0 {
 		// no such template, return as is

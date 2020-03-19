@@ -268,7 +268,7 @@ func (self *NotifyModelDispatcher) Verify(ctx context.Context, params map[string
 	data := jsonutils.NewDict()
 	data.Set("status", jsonutils.NewString(models.VERIFICATION_VERIFIED))
 	data.Set("verified_at", jsonutils.NewTimeString(current))
-	_, err = self.Update(ctx, verifition.CID, jsonutils.JSONNull, data, nil)
+	_, err = self.Update(ctx, verifition.CID, jsonutils.NewDict(), data, nil)
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}
