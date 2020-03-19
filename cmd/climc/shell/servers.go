@@ -177,6 +177,19 @@ func init() {
 		},
 	)
 
+	R(&options.ServerCreateOptions{}, "server-check-create-data", "Check create server data", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		server, err := modules.Servers.PerformClassAction(s, "check-create-data", params.JSON(params))
+		if err != nil {
+			return err
+		}
+		printObject(server)
+		return nil
+	})
+
 	R(&options.ServerCreateOptions{}, "server-create", "Create a server", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
 		params, err := opts.Params()
 		if err != nil {
