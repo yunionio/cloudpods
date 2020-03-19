@@ -57,30 +57,60 @@ func init() {
 	defaultDc.ManagedEntity.ExtensibleManagedObject.Self.Value = defaultDcId
 }
 
+type ESXiClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
+	host     string
+	port     int
+	account  string
+	password string
+
+	managed bool
+}
+
+func NewESXiClientConfig(host string, port int, account, password string) *ESXiClientConfig {
+	cfg := &ESXiClientConfig{
+		host:     host,
+		port:     port,
+		account:  account,
+		password: password,
+	}
+	return cfg
+}
+
+func (cfg *ESXiClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ESXiClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ESXiClientConfig) Managed(managed bool) *ESXiClientConfig {
+	cfg.managed = managed
+	return cfg
+}
+
 type SESXiClient struct {
+	*ESXiClientConfig
+
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
 	multicloud.SNoObjectStorageRegion
 
-	providerId   string
-	providerName string
-	host         string
-	port         int
-	account      string
-	password     string
-	client       *govmomi.Client
-	context      context.Context
+	client  *govmomi.Client
+	context context.Context
 
 	datacenters []*SDatacenter
 }
 
-func NewESXiClient(providerId string, providerName string, host string, port int, account string, passwd string) (*SESXiClient, error) {
-	return NewESXiClient2(providerId, providerName, host, port, account, passwd, true)
+func NewESXiClient(cfg *ESXiClientConfig) (*SESXiClient, error) {
+	cfg.Managed(true)
+	return NewESXiClient2(cfg)
 }
 
-func NewESXiClient2(providerId string, providerName string, host string, port int, account string, passwd string, managed bool) (*SESXiClient, error) {
-	cli := &SESXiClient{providerId: providerId, providerName: providerName,
-		host: host, port: port, account: account, password: passwd, context: context.Background()}
+func NewESXiClient2(cfg *ESXiClientConfig) (*SESXiClient, error) {
+	cli := &SESXiClient{
+		ESXiClientConfig: cfg,
+		context:          context.Background(),
+	}
 
 	err := cli.connect()
 	if err != nil {
@@ -90,7 +120,7 @@ func NewESXiClient2(providerId string, providerName string, host string, port in
 	if !cli.IsVCenter() {
 		err := cli.checkHostManagedByVCenter()
 		if err != nil {
-			if managed {
+			if cfg.managed {
 				cli.disconnect()
 				return nil, err
 			} else {
@@ -118,7 +148,14 @@ func NewESXiClientFromAccessInfo(ctx context.Context, accessInfo *models.SVCente
 			accessInfo.Password = tmp
 		}
 	}
-	client, err := NewESXiClient("", "", accessInfo.Host, accessInfo.Port, accessInfo.Account, accessInfo.Password)
+	client, err := NewESXiClient(
+		NewESXiClientConfig(
+			accessInfo.Host,
+			accessInfo.Port,
+			accessInfo.Account,
+			accessInfo.Password,
+		).Managed(true),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +217,7 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	}
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.account,
-		Name:         cli.providerName,
+		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
@@ -382,8 +419,8 @@ func (cli *SESXiClient) FindHostByMoId(moId string) (cloudprovider.ICloudHost, e
 }
 
 func (cli *SESXiClient) getPrivateId(idStr string) string {
-	if len(cli.providerId) > 0 && strings.HasPrefix(idStr, cli.providerId) {
-		idStr = idStr[len(cli.providerId)+1:]
+	if len(cli.cpcfg.Id) > 0 && strings.HasPrefix(idStr, cli.cpcfg.Id) {
+		idStr = idStr[len(cli.cpcfg.Id)+1:]
 	}
 	return idStr
 }
