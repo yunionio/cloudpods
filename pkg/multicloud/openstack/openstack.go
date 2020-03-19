@@ -223,6 +223,7 @@ func (cli *SOpenStackClient) getVersion(region string, service string) (string, 
 
 func (cli *SOpenStackClient) connect() error {
 	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
+	cli.client.SetHttpTransportProxyFunc(cli.cpcfg.ProxyFunc)
 	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
 	if err != nil {
 		return err
