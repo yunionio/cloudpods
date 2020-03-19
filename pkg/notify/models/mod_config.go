@@ -56,7 +56,7 @@ type SConfig struct {
 
 	Type      string `width:"15" nullable:"false" create:"required" list:"user"`
 	KeyText   string `width:"30" nullable:"false" create:"required" list:"user"`
-	ValueText string `width:"100" nullable:"false" create:"required" list:"user"`
+	ValueText string `width:"256" nullable:"false" create:"required" list:"user"`
 }
 
 // ListItemFilter is a hook function belong to IModelManager interface when Listing.
