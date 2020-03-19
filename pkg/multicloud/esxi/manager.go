@@ -26,8 +26,10 @@ import (
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/view"
+	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
@@ -39,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -184,9 +187,20 @@ func (cli *SESXiClient) connect() error {
 		return fmt.Errorf("Illegal url %s: %s", cli.url(), err)
 	}
 
-	govmcli, err := govmomi.NewClient(cli.context, u, true)
-	if err != nil {
-		return err
+	var govmcli *govmomi.Client
+	{
+		insecure := true
+		soapCli := soap.NewClient(u, insecure)
+		httpClient := &soapCli.Client
+		httputils.SetClientProxyFunc(httpClient, cli.cpcfg.ProxyFunc)
+		vimCli, err := vim25.NewClient(cli.context, soapCli)
+		if err != nil {
+			return err
+		}
+		govmcli = &govmomi.Client{
+			Client:         vimCli,
+			SessionManager: session.NewManager(vimCli),
+		}
 	}
 
 	userinfo := url.UserPassword(cli.account, cli.password)
