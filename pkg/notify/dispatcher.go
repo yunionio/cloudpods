@@ -114,6 +114,7 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 			}
 		}
 	}
+	log.Debugf("update body: %s", data)
 	keys := data.SortedKeys()
 	config := make(map[string]string)
 	createDataList := make([]jsonutils.JSONObject, 0, len(keys))
@@ -131,6 +132,7 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 	}
 
 	// validate configs
+	log.Debugf("config: %#v", config)
 	isValid, message, err := models.NotifyService.ValidateConfig(ctx, contactType, config)
 	if err != nil {
 		if errors.Cause(err) != errors.ErrNotImplemented {
@@ -144,7 +146,7 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 
 	// create
 	for _, createData := range createDataList {
-		_, err := self.Create(ctx, jsonutils.JSONNull, createData, nil)
+		_, err := self.Create(ctx, jsonutils.NewDict(), createData, nil)
 		if err != nil {
 			return errors.Wrapf(err, "Create config %s for contact type %s failed", createData.String(), contactType)
 		}
@@ -155,31 +157,31 @@ func (self *NotifyModelDispatcher) UpdateConfig(ctx context.Context, body jsonut
 	return nil
 }
 
-func (self *NotifyModelDispatcher) ValidateConfig(ctx context.Context, contactType string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *NotifyModelDispatcher) ValidateConfig(ctx context.Context, contactType string, body jsonutils.JSONObject) error {
 	dict, ok := body.(*jsonutils.JSONDict)
 	if !ok {
-		return nil, httperrors.NewInputParameterError("")
+		return httperrors.NewInputParameterError("")
 	}
 	dict = models.ConfigManager.Display2Database(contactType, dict)
 	configs := make(map[string]string)
 	for _, key := range dict.SortedKeys() {
 		value, err := dict.GetString(key)
 		if err != nil {
-			return nil, errors.Wrap(err, "jsonutils.JsonDict.GetString")
+			return errors.Wrap(err, "jsonutils.JsonDict.GetString")
 		}
 		configs[key] = value
 	}
 	isValid, message, err := models.NotifyService.ValidateConfig(ctx, contactType, configs)
 	if err != nil {
 		if errors.Cause(err) == errors.ErrNotImplemented {
-			return nil, httperrors.NewNotImplementedError("validating config of %s", contactType)
+			return httperrors.NewNotImplementedError("validating config of %s", contactType)
 		}
-		return nil, err
+		return err
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewBool(isValid), "is_valid")
-	ret.Add(jsonutils.NewString(message), "message")
-	return ret, nil
+	if isValid == false {
+		return httperrors.NewInputParameterError(message)
+	}
+	return nil
 }
 
 // CreateNotification create new notifications and send them through rpc.RpcService.
@@ -229,7 +231,7 @@ func (self *NotifyModelDispatcher) getIds(data jsonutils.JSONObject, key string)
 		}
 		ret = append(ret, id)
 	}
-	return ret[:len(ret):len(ret)]
+	return ret
 }
 
 // Verify process:
@@ -348,12 +350,14 @@ func (self *NotifyModelDispatcher) VerifyTrigger(ctx context.Context, params map
 }
 
 // DeleteContacts delete a group of contacts
-func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []jsonutils.JSONObject) error {
+func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uidArray []jsonutils.JSONObject) error {
 	// Get all id of uid
-	uids := make([]string, len(uids2))
-	for i := range uids2 {
-		uids[i] = strings.Trim(uids2[i].String(), `"`)
+	uids := make([]string, len(uidArray))
+	log.Debugf("uidArray: %s", uidArray)
+	for i := range uidArray {
+		uids[i], _ = uidArray[i].GetString()
 	}
+	log.Debugf("uids: %#v", uids)
 	uname := false
 	if v := ctx.Value("uname"); v != nil {
 		uname = true
@@ -370,6 +374,8 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 			deleteFailed = append(deleteFailed, contact.ID)
 		}
 	}
+	// clean cache
+	noutils.DeleteUsers(ctx, userCred, uids)
 	if len(deleteFailed) != 0 {
 		errInfo := strings.Join(deleteFailed, ", ") + " ; these contact delete failed."
 		return errors.Error(errInfo)
@@ -379,7 +385,8 @@ func (self *NotifyModelDispatcher) DeleteContacts(ctx context.Context, uids2 []j
 
 // UpdateContacts analysis the data and update corresponding contacts if they exist in the database create new ones.
 func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr string, query jsonutils.JSONObject,
-	datas []jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
+	datas []jsonutils.JSONObject, pullCtypes []jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject,
+	error) {
 
 	type pair struct {
 		contact string
@@ -445,24 +452,56 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 	// createFailed record the information of failed creation
 	createFailed := make([]string, 0, 1)
 	// Create contact info
-	newDatas := make([]map[string]interface{}, 0, len(contactInfos))
+	type CreateData struct {
+		UID         string
+		ContactType string
+		Contact     string
+		Enabled     string
+	}
+	newDatas := make([]CreateData, 0, len(contactInfos))
 	for conType, conPair := range contactInfos {
-		tmpMap := map[string]interface{}{
-			"uid":          idstr,
-			"contact_type": conType,
-			"contact":      conPair.contact,
+		tmp := CreateData{
+			UID:         idstr,
+			ContactType: conType,
+			Contact:     conPair.contact,
 		}
 		if conPair.enabled != "-1" {
-			tmpMap["enabled"] = conPair.enabled
+			tmp.Enabled = conPair.enabled
 		}
-		newDatas = append(newDatas, tmpMap)
+		newDatas = append(newDatas, tmp)
 	}
 
+	pulls := make([]string, len(pullCtypes))
+	for i := range pullCtypes {
+		pulls[i], _ = pullCtypes[i].GetString()
+	}
+
+	if len(pulls) > 0 {
+		contacts, err := models.ContactManager.FetchByUIDAndCType(idstr, pulls)
+		if err != nil {
+			return nil, err
+		}
+		set := sets.NewString(pulls...)
+		for i := range contacts {
+			set.Delete(contacts[i].ContactType)
+		}
+		for _, ct := range set.UnsortedList() {
+			tmp := CreateData{
+				UID:         idstr,
+				ContactType: ct,
+				Enabled:     "1",
+				Contact:     "user_id",
+			}
+			newDatas = append(newDatas, tmp)
+		}
+	}
+	log.Debugf("newDatas: %s", newDatas)
+
 	for _, newData := range newDatas {
-		_, err := self.Create(ctx, jsonutils.JSONNull, jsonutils.Marshal(newData), ctxIds)
+		_, err := self.Create(ctx, jsonutils.NewDict(), jsonutils.Marshal(newData), ctxIds)
 		if err != nil {
 			createFailed = append(createFailed, fmt.Sprintf(`uid:%q, contact_type:%q, contact:%q`, idstr,
-				newData["contact_type"], newData["contact"]))
+				newData.ContactType, newData.Contact))
 		}
 	}
 
@@ -485,10 +524,7 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 		return nil, httperrors.NewGeneralError(errors.Error(errInfo))
 	}
 
-	if query.Contains("pull") {
-		cType, _ := query.GetString("pull")
-		models.PullContact(idstr, cType)
-	}
+	models.PullContact(idstr, pulls)
 
 	// keep the return value same as this of the GET interface
 	ret := jsonutils.NewDict()
@@ -496,6 +532,9 @@ func (self *NotifyModelDispatcher) UpdateContacts(ctx context.Context, idstr str
 	if err != nil {
 		log.Errorf(err.Error())
 		return ret, nil
+	}
+	if len(contact) == 0 {
+		return nil, nil
 	}
 	outDetails, err := contact[0].GetExtraDetails(ctx, userCred, ret)
 	if err != nil {

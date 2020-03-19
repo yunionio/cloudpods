@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -207,4 +208,21 @@ func (manager *STemplateManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewInputParameterError("no such support for tempalte type %s", ty)
 	}
 	return data, nil
+}
+
+func (self *STemplateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	queryDict := query.(*jsonutils.JSONDict)
+	if queryDict.Contains("topic") {
+		val, _ := queryDict.GetString("topic")
+		q = q.Equals("topic", val)
+	}
+	if queryDict.Contains("template_type") {
+		val, _ := queryDict.GetString("template_type")
+		q = q.Equals("template_type", val)
+	}
+	if queryDict.Contains("contact_type") {
+		val, _ := queryDict.GetString("contact_type")
+		q = q.Equals("contact_type", val)
+	}
+	return q, nil
 }
