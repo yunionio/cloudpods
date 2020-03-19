@@ -45,8 +45,6 @@ func (self *NetworkSyncstatusTask) taskFail(ctx context.Context, net *models.SNe
 func (self *NetworkSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	net := obj.(*models.SNetwork)
 
-	net.SetStatus(self.UserCred, api.NETWORK_STATUS_SYNCING, "synchronize")
-
 	extNet, err := net.GetINetwork()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ICloudNetwork for network %s", err)

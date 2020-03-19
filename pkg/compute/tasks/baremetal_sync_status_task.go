@@ -98,7 +98,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx cont
 	var guests = make([]models.SGuest, 0)
 	for _, guest := range baremetal.GetGuests() {
 		if guest.Status == api.VM_UNKNOWN && guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
-			guest.SetStatus(self.UserCred, api.VM_SYNCING_STATUS, "")
+			guest.SetStatus(self.UserCred, models.SYNC_STATUS, "")
 			guests = append(guests, guest)
 		}
 	}

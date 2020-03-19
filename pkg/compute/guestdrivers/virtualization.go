@@ -217,12 +217,7 @@ func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Conte
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncstatusTask", guest, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+	return models.StartResourceSyncStatusTask(ctx, userCred, guest, "GuestSyncstatusTask", parentTaskId)
 }
 
 func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
