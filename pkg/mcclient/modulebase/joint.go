@@ -114,7 +114,7 @@ func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid s
 
 func (this *JointResourceManager) Attach(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	result, err := this._post(s, path, this.params2Body(s, params), this.Keyword)
+	result, err := this._post(s, path, this.params2Body(s, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid str
 			path = fmt.Sprintf("%s?%s", path, queryStr)
 		}
 	}
-	result, err := this._put(s, path, this.params2Body(s, params), this.Keyword)
+	result, err := this._put(s, path, this.params2Body(s, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid stri
 			path = fmt.Sprintf("%s?%s", path, queryStr)
 		}
 	}
-	result, err := this._patch(s, path, this.params2Body(s, params), this.Keyword)
+	result, err := this._patch(s, path, this.params2Body(s, params, this.Keyword), this.Keyword)
 	if err != nil {
 		return nil, err
 	}
