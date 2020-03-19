@@ -119,3 +119,7 @@ func (ucm *SUserCacheManager) FetchUserFromLoaclCache(ctx context.Context, q *sq
 	}
 	return users, nil
 }
+
+func (u *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return u.SUser.Delete(ctx, userCred)
+}
