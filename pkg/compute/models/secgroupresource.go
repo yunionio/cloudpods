@@ -103,7 +103,7 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 				return nil, errors.Wrap(err, "SecurityGroupManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("secgroup", secgrpObj.GetId())
+		q = q.Equals("secgroup_id", secgrpObj.GetId())
 	}
 	return q, nil
 }
