@@ -754,13 +754,17 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	account := self.GetCloudaccount()
+
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
-		Id:      self.Id,
-		Name:    self.Name,
-		Vendor:  self.Provider,
-		URL:     accessUrl,
-		Account: self.Account,
-		Secret:  passwd,
+		Id:        self.Id,
+		Name:      self.Name,
+		Vendor:    self.Provider,
+		URL:       accessUrl,
+		Account:   self.Account,
+		Secret:    passwd,
+		ProxyFunc: account.proxyFunc(),
 	})
 }
 
@@ -852,7 +856,20 @@ func (self *SCloudprovider) GetExtraDetails(
 	query jsonutils.JSONObject,
 	isList bool,
 ) (api.CloudproviderDetails, error) {
-	return api.CloudproviderDetails{}, nil
+	r := api.CloudproviderDetails{}
+
+	account := self.GetCloudaccount()
+	if account != nil {
+		ps := account.proxySetting()
+		if ps != nil {
+			r.ProxySetting.Id = ps.Id
+			r.ProxySetting.Name = ps.Name
+			r.ProxySetting.HTTPProxy = ps.HTTPProxy
+			r.ProxySetting.HTTPSProxy = ps.HTTPSProxy
+			r.ProxySetting.NoProxy = ps.NoProxy
+		}
+	}
+	return r, nil
 }
 
 func (manager *SCloudproviderManager) FetchCustomizeColumns(
