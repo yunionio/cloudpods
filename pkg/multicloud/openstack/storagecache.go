@@ -42,11 +42,11 @@ func (cache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (cache *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerID, cache.region.GetId())
+	return fmt.Sprintf("%s-%s", cache.region.client.cpcfg.Id, cache.region.GetId())
 }
 
 func (cache *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerName, cache.region.GetId())
+	return fmt.Sprintf("%s-%s", cache.region.client.cpcfg.Name, cache.region.GetId())
 }
 
 func (cache *SStoragecache) GetStatus() string {
@@ -58,7 +58,7 @@ func (cache *SStoragecache) Refresh() error {
 }
 
 func (cache *SStoragecache) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", cache.region.client.providerID, cache.region.GetGlobalId())
+	return fmt.Sprintf("%s-%s", cache.region.client.cpcfg.Id, cache.region.GetGlobalId())
 }
 
 func (cache *SStoragecache) IsEmulated() bool {

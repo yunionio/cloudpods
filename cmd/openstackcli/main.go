@@ -93,7 +93,18 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.DomainName, options.ProjectDomain, options.Debug)
+	cli, err := openstack.NewOpenStackClient(
+		openstack.NewOpenstackClientConfig(
+			options.AuthURL,
+			options.Username,
+			options.Password,
+			options.Project,
+			options.ProjectDomain,
+		).
+			EndpointType(options.EndpointType).
+			DomainName(options.DomainName).
+			Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}
