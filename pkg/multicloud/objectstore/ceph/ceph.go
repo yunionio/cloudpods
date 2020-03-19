@@ -38,12 +38,18 @@ type SCephRadosClient struct {
 	userInfo    *SUserInfo
 }
 
-func NewCephRados(providerId string, providerName string, endpoint string, accessKey string, secret string, isDebug bool) (*SCephRadosClient, error) {
-	s3store, err := objectstore.NewObjectStoreClientAndFetch(providerId, providerName, endpoint, accessKey, secret, isDebug, false)
+func NewCephRados(cfg *objectstore.ObjectStoreClientConfig) (*SCephRadosClient, error) {
+	s3store, err := objectstore.NewObjectStoreClientAndFetch(cfg, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewObjectStoreClient")
 	}
-	adminApi := newCephAdminApi(accessKey, secret, endpoint, isDebug, "")
+	adminApi := newCephAdminApi(
+		cfg.GetAccessKey(),
+		cfg.GetAccessSecret(),
+		cfg.GetEndpoint(),
+		cfg.GetDebug(),
+		"",
+	)
 
 	client := SCephRadosClient{
 		SObjectStoreClient: s3store,
@@ -75,7 +81,7 @@ func NewCephRados(providerId string, providerName string, endpoint string, acces
 			log.Errorf("adminApi.GetUserInfo fail: %s", err)
 		}
 	}
-	if isDebug {
+	if cfg.GetDebug() {
 		log.Debugf("%#v %#v %#v", userQuota, bucketQuota, userInfo)
 	}
 	client.userQuota = userQuota
