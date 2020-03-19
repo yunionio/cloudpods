@@ -17,6 +17,7 @@ package provider
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore/ceph"
 	s3provider "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
 )
@@ -34,7 +35,11 @@ func (self *SCephRadosProviderFactory) GetName() string {
 }
 
 func (self *SCephRadosProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
-	client, err := ceph.NewCephRados(cfg.Id, cfg.Name, cfg.URL, cfg.Account, cfg.Secret, false)
+	client, err := ceph.NewCephRados(
+		objectstore.NewObjectStoreClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

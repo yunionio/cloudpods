@@ -46,9 +46,14 @@ func parseAccount(account string) (user string, accessKey string) {
 	return
 }
 
-func NewXskyClient(providerId string, providerName string, endpoint string, account string, password string, isDebug bool) (*SXskyClient, error) {
-	usrname, accessKey := parseAccount(account)
-	adminApi := newXskyAdminApi(usrname, password, endpoint, isDebug)
+func NewXskyClient(cfg *objectstore.ObjectStoreClientConfig) (*SXskyClient, error) {
+	usrname, accessKey := parseAccount(cfg.GetEndpoint())
+	adminApi := newXskyAdminApi(
+		usrname,
+		cfg.GetAccessSecret(),
+		cfg.GetEndpoint(),
+		cfg.GetDebug(),
+	)
 	gwEp, err := adminApi.getS3GatewayEndpoint(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "adminApi.getS3GatewayIP")
@@ -68,7 +73,12 @@ func NewXskyClient(providerId string, providerName string, endpoint string, acco
 		}
 	}
 
-	s3store, err := objectstore.NewObjectStoreClientAndFetch(providerId, providerName, gwEp, accessKey, key.SecretKey, isDebug, false)
+	s3store, err := objectstore.NewObjectStoreClientAndFetch(
+		objectstore.NewObjectStoreClientConfig(
+			gwEp, accessKey, key.SecretKey,
+		).Debug(cfg.GetDebug()).CloudproviderConfig(cfg.GetCloudproviderConfig()),
+		false,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewObjectStoreClient")
 	}
@@ -80,7 +90,7 @@ func NewXskyClient(providerId string, providerName string, endpoint string, acco
 	}
 
 	if len(accessKey) > 0 {
-		client.initAccount = account
+		client.initAccount = cfg.GetAccessKey()
 	}
 
 	client.SetVirtualObject(&client)
