@@ -24,7 +24,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
-type SSnapshot struct {
+type SDiskBackup struct {
 	region *SRegion
 
 	Status           string `json:"status"`
@@ -39,19 +39,19 @@ type SSnapshot struct {
 	CreatedAt        string `json:"created_at"`
 }
 
-func (self *SSnapshot) GetId() string {
+func (self *SDiskBackup) GetId() string {
 	return self.ID
 }
 
-func (self *SSnapshot) GetName() string {
+func (self *SDiskBackup) GetName() string {
 	return self.Name
 }
 
-func (self *SSnapshot) GetGlobalId() string {
+func (self *SDiskBackup) GetGlobalId() string {
 	return self.GetId()
 }
 
-func (self *SSnapshot) GetStatus() string {
+func (self *SDiskBackup) GetStatus() string {
 	switch self.Status {
 	case "available":
 		return api.SNAPSHOT_READY
@@ -68,8 +68,8 @@ func (self *SSnapshot) GetStatus() string {
 	}
 }
 
-func (self *SSnapshot) Refresh() error {
-	snapshot, err := self.region.GetSnapshot(self.VolumeID, self.GetId())
+func (self *SDiskBackup) Refresh() error {
+	snapshot, err := self.region.GetDiskBackup(self.VolumeID, self.GetId())
 	if err != nil {
 		return err
 	}
@@ -81,63 +81,58 @@ func (self *SSnapshot) Refresh() error {
 	return nil
 }
 
-func (self *SSnapshot) IsEmulated() bool {
+func (self *SDiskBackup) IsEmulated() bool {
 	return false
 }
 
-func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
+func (self *SDiskBackup) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SSnapshot) GetProjectId() string {
+func (self *SDiskBackup) GetProjectId() string {
 	return ""
 }
 
-func (self *SSnapshot) GetSizeMb() int32 {
+func (self *SDiskBackup) GetSizeMb() int32 {
 	return self.Size * 1024
 }
 
-func (self *SSnapshot) GetDiskId() string {
+func (self *SDiskBackup) GetDiskId() string {
 	return self.VolumeID
 }
 
-func (self *SSnapshot) GetDiskType() string {
+func (self *SDiskBackup) GetDiskType() string {
 	disk, err := self.region.GetDisk(self.VolumeID)
 	if err != nil {
-		log.Debugf("SSnapshot.GetDiskType.GetDisk %s", err)
+		log.Debugf("SDiskBackup.GetDiskType.GetDisk %s", err)
 		return ""
 	}
 
 	return disk.GetDiskType()
 }
 
-func (self *SSnapshot) Delete() error {
-	_, err := self.region.DeleteSnapshot(self.GetId())
-	if err != nil {
-		return errors.Wrap(err, "Snapshot.Delete.DeleteSnapshot")
-	}
-
-	return nil
+func (self *SDiskBackup) Delete() error {
+	return errors.ErrNotSupported
 }
 
-func (self *SRegion) GetSnapshot(diskId string, snapshotId string) (*SSnapshot, error) {
-	snapshots, err := self.GetSnapshots(diskId)
+func (self *SRegion) GetDiskBackup(diskId string, backupId string) (*SDiskBackup, error) {
+	backups, err := self.GetDiskBackups(diskId)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSnapshot.GetSnapshots")
+		return nil, errors.Wrap(err, "SRegion.GetSnapshot.GetDiskBackups")
 	}
 
-	for i := range snapshots {
-		snapshot := snapshots[i]
-		if snapshot.ID == snapshotId || snapshot.Container == snapshotId {
-			snapshot.region = self
-			return &snapshot, nil
+	for i := range backups {
+		backup := backups[i]
+		if backup.ID == backupId || backup.Container == backupId {
+			backup.region = self
+			return &backup, nil
 		}
 	}
 
-	return nil, errors.Wrap(errors.ErrNotFound, "SRegion.GetSnapshot")
+	return nil, errors.Wrap(errors.ErrNotFound, "SRegion.GetDiskBackup")
 }
 
-func (self *SRegion) GetSnapshots(diskId string) ([]SSnapshot, error) {
+func (self *SRegion) GetDiskBackups(diskId string) ([]SDiskBackup, error) {
 	params := map[string]string{
 		"regionId": self.GetId(),
 	}
@@ -148,13 +143,13 @@ func (self *SRegion) GetSnapshots(diskId string) ([]SSnapshot, error) {
 
 	resp, err := self.client.DoGet("/apiproxy/v3/ondemand/queryVBSDetails", params)
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSnapshots.DoGet")
+		return nil, errors.Wrap(err, "SRegion.GetDiskBackups.DoGet")
 	}
 
-	ret := make([]SSnapshot, 0)
+	ret := make([]SDiskBackup, 0)
 	err = resp.Unmarshal(&ret, "returnObj", "backups")
 	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetSnapshots.Unmarshal")
+		return nil, errors.Wrap(err, "SRegion.GetDiskBackups.Unmarshal")
 	}
 
 	for i := range ret {
@@ -164,7 +159,7 @@ func (self *SRegion) GetSnapshots(diskId string) ([]SSnapshot, error) {
 	return ret, nil
 }
 
-func (self *SRegion) DeleteSnapshot(vbsId string) (string, error) {
+func (self *SRegion) DeleteDiskBackup(vbsId string) (string, error) {
 	params := map[string]jsonutils.JSONObject{
 		"regionId": jsonutils.NewString(self.GetId()),
 		"vbsId":    jsonutils.NewString(vbsId),
@@ -172,20 +167,20 @@ func (self *SRegion) DeleteSnapshot(vbsId string) (string, error) {
 
 	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/deleteVBS", params)
 	if err != nil {
-		return "", errors.Wrap(err, "SRegion.DeleteSnapshot.DoPost")
+		return "", errors.Wrap(err, "SRegion.DeleteDiskBackup.DoPost")
 	}
 
 	var ok bool
 	err = resp.Unmarshal(&ok, "returnObj", "status")
 	if !ok {
 		msg, _ := resp.GetString("message")
-		return "", fmt.Errorf("SRegion.DeleteSnapshot.JobFailed %s", msg)
+		return "", fmt.Errorf("SRegion.DeleteDiskBackup.JobFailed %s", msg)
 	}
 
 	var jobId string
 	err = resp.Unmarshal(&jobId, "returnObj", "data")
 	if err != nil {
-		return "", errors.Wrap(err, "SRegion.DeleteSnapshot.Unmarshal")
+		return "", errors.Wrap(err, "SRegion.DeleteDiskBackup.Unmarshal")
 	}
 
 	return jobId, nil

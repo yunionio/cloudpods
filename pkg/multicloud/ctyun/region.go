@@ -330,32 +330,11 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, err := self.GetSnapshots("")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetISnapshots.GetSnapshots")
-	}
-
-	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
-	for i := range snapshots {
-		isnapshots[i] = &snapshots[i]
-	}
-
-	return isnapshots, nil
+	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	snapshots, err := self.GetSnapshots("")
-	if err != nil {
-		return nil, errors.Wrap(err, "SRegion.GetISnapshotById.GetSnapshots")
-	}
-
-	for i := range snapshots {
-		if snapshots[i].GetId() == snapshotId {
-			return &snapshots[i], nil
-		}
-	}
-
-	return nil, errors.Wrap(cloudprovider.ErrNotFound, "SRegion.GetISnapshotById")
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) CreateSnapshotPolicy(*cloudprovider.SnapshotPolicyInput) (string, error) {

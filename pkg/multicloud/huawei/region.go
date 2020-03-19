@@ -734,10 +734,11 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	return &secgroup, err
 }
 
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
+func (self *SRegion) syncSecgroupRules(secgroupId string, srules []secrules.SecurityRule) error {
 	var DeleteRules []secrules.SecurityRule
 	var AddRules []secrules.SecurityRule
 
+	rules := SecurityRuleSetToAllowSet(srules)
 	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
 		return errors.Wrapf(err, "syncSecgroupRules.GetSecurityGroupDetails(%s)", secgroupId)
 	} else {
