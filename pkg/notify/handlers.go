@@ -55,6 +55,7 @@ func middleware(f appsrv.FilterHandler) appsrv.FilterHandler {
 	hander := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if _, ok := r.URL.Query()["uname"]; ok {
 			// Uname
+			log.Debugf("url.Query has a uname")
 			params := appctx.AppContextParams(ctx)
 			if uid, ok := params["<uid>"]; ok {
 				userDetail, err := utils.GetUserByIDOrName(ctx, uid)
@@ -62,6 +63,7 @@ func middleware(f appsrv.FilterHandler) appsrv.FilterHandler {
 					httperrors.NotFoundError(w, "Uid or Uname Not Found")
 					return
 				}
+				log.Debugf("find userDetail, id: %s, name: %s", userDetail.Id, userDetail.Name)
 				params["<uid>"] = userDetail.Id
 			}
 			ctx = context.WithValue(ctx, "uname", true)
@@ -256,12 +258,11 @@ func configValidateHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 		httperrors.GeneralServerError(w, httperrors.NewInputParameterError("need config"))
 	}
 	ctype := params["<type>"]
-	res, err := manager.ValidateConfig(ctx, ctype, body)
+	err = manager.ValidateConfig(ctx, ctype, body)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, res)
 }
 
 func notificationHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -275,12 +276,11 @@ func notificationHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 		httperrors.MissingParameterError(w, "gid | uid")
 		return
 	}
-	ret, err := manager.CreateNotification(ctx, data)
+	_, err = manager.CreateNotification(ctx, data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, ret)
 }
 
 // verify handler
@@ -304,12 +304,18 @@ func contactUpdateHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 			manager.Keyword(), manager.KeywordPlural()))
 		return
 	}
+	log.Debugf("data: %s", data)
+	pullCtypes, _ := body.GetArray(manager.Keyword(), "pull")
+	log.Debugf("pullCtypes: %s", pullCtypes)
 
 	uid := params["<uid>"]
-	out, err := manager.UpdateContacts(ctx, uid, mergeQueryParams(params, query), data, nil)
+	out, err := manager.UpdateContacts(ctx, uid, mergeQueryParams(params, query), data, pullCtypes, nil)
 	if err != nil {
 		log.Errorf(err.Error())
 		httperrors.BadRequestError(w, "")
+		return
+	}
+	if out == nil {
 		return
 	}
 	appsrv.SendJSON(w, wrap(out, manager.Keyword()))

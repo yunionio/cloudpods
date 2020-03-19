@@ -29,11 +29,11 @@ func init() {
 	 * 操作用户的通信地址（如果用户的通信地址不存在则进行添加；如果已存在则进行修改；如果设置空则进行删除。）
 	 */
 	type ContactsUpdateOptions struct {
-		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type email|mobile" choices:"email|mobile|dingtalk"`
-		CONTACT     string `help:"The contacts details mobile number or email address or dingtalk's userid, if set it the empty str means delete"`
-		Status      string `help:"Enabled or disabled contact status" choices:"enable|disable"`
-		Pull        string `help:"pull some subcontacts(e.g., dingtalk, feishu, etc) related to mobile"`
+		UID         string   `help:"The user you wanna add contact to (Keystone User ID)"`
+		CONTACTTYPE string   `help:"The contact type email|mobile" choices:"email|mobile|dingtalk"`
+		CONTACT     string   `help:"The contacts details mobile number or email address or dingtalk's userid, if set it the empty str means delete"`
+		Status      string   `help:"Enabled or disabled contact status" choices:"enable|disable"`
+		Pull        []string `help:"pull some subcontacts(e.g., dingtalk, feishu, etc) related to mobile"`
 	}
 	R(&ContactsUpdateOptions{}, "contact-update", "Create, delete or update contact for user", func(s *mcclient.ClientSession, args *ContactsUpdateOptions) error {
 		arr := jsonutils.NewArray()
@@ -53,7 +53,13 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(arr, "contacts")
 
-		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", args.Pull, params)
+		pulls := jsonutils.NewArray()
+		for _, pull := range args.Pull {
+			pulls.Add(jsonutils.NewString(pull))
+		}
+		params.Add(pulls, "pull")
+
+		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", params)
 		if err != nil {
 			return err
 		}
@@ -69,7 +75,8 @@ func init() {
 	R(&ContactsPullOptions{}, "contact-pull", "Pull contact", func(s *mcclient.ClientSession, args *ContactsPullOptions) error {
 		params := jsonutils.NewDict()
 		params.Set("contacts", jsonutils.NewArray())
-		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", args.CONTACTTYPE, params)
+		params.Set("pull", jsonutils.NewArray(jsonutils.NewString(args.CONTACTTYPE)))
+		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", params)
 		if err != nil {
 			return err
 		}
@@ -89,7 +96,7 @@ func init() {
 		arr.Add(tmpObj)
 		params := jsonutils.NewDict()
 		params.Add(arr, "contacts")
-		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", "", params)
+		contact, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "update-contact", params)
 		if err != nil {
 			return err
 		}
@@ -180,7 +187,7 @@ func init() {
 		tmpDict := jsonutils.NewDict()
 		tmpDict.Add(jsonutils.NewString(args.CONTACT_TYPE), "contact_type")
 		tmpDict.Add(jsonutils.NewString(args.CONTACT), "contact")
-		_, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "verify", "", tmpDict)
+		_, err := modules.Contacts.CustomizedPerformAction(s, args.UID, "verify", tmpDict)
 		if err != nil {
 			return err
 		}
