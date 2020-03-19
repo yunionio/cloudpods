@@ -209,3 +209,10 @@ type GuestsecgroupListInput struct {
 	GuestJointsListInput
 	SecgroupFilterListInput
 }
+
+type SecurityGroupRuleDetails struct {
+	apis.ResourceBaseDetails
+	SecurityGroupResourceInfo
+
+	SSecurityGroupRule
+}

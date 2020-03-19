@@ -33,7 +33,7 @@ import (
 
 type SSecurityGroupResourceBase struct {
 	// 本地安全组ID
-	SecgroupId string `width:"36" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user" json:"secgroup_id"`
+	SecgroupId string `width:"36" charset:"ascii" nullable:"false" create:"required"  index:"true" list:"user"`
 }
 
 type SSecurityGroupResourceBaseManager struct{}
@@ -103,7 +103,7 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 				return nil, errors.Wrap(err, "SecurityGroupManager.FetchByIdOrName")
 			}
 		}
-		q = q.Equals("secgroup", secgrpObj.GetId())
+		q = q.Equals("secgroup_id", secgrpObj.GetId())
 	}
 	return q, nil
 }

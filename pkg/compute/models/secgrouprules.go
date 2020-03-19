@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSecurityGroupRuleManager struct {
@@ -450,4 +451,33 @@ func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
 
 func (manager *SSecurityGroupRuleManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
+}
+
+func (self *SSecurityGroupRule) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.SecurityGroupRuleDetails, error) {
+	return api.SecurityGroupRuleDetails{}, nil
+}
+
+func (manager *SSecurityGroupRuleManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.SecurityGroupRuleDetails {
+	rows := make([]api.SecurityGroupRuleDetails, len(objs))
+
+	resRows := manager.SResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	secgrpRows := manager.SSecurityGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	for i := range rows {
+		rows[i].ResourceBaseDetails = resRows[i]
+		rows[i].SecurityGroupResourceInfo = secgrpRows[i]
+	}
+
+	return rows
 }
