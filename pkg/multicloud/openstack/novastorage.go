@@ -32,7 +32,7 @@ func (storage *SNovaStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (storage *SNovaStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", storage.zone.region.client.providerID, storage.zone.GetGlobalId(), storage.GetName())
+	return fmt.Sprintf("%s-%s-%s", storage.zone.region.client.cpcfg.Id, storage.zone.GetGlobalId(), storage.GetName())
 }
 
 func (storage *SNovaStorage) GetName() string {

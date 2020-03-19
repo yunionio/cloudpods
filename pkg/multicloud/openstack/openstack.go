@@ -37,47 +37,75 @@ const (
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
 )
 
-type SOpenStackClient struct {
-	providerID      string
-	providerName    string
-	authURL         string
-	username        string
-	password        string
-	project         string
-	projectDomain   string
-	endpointType    string
-	domainName      string
-	client          *mcclient.Client
-	tokenCredential mcclient.TokenCredential
-	iregions        []cloudprovider.ICloudRegion
+type OpenstackClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	Debug bool
+	authURL       string
+	username      string
+	password      string
+	project       string
+	projectDomain string
+
+	domainName   string
+	endpointType string
+
+	debug bool
 }
 
-func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string, domainName string, projectDomainName string, isDebug bool) (*SOpenStackClient, error) {
-	cli := &SOpenStackClient{
-		providerID:    providerID,
-		providerName:  providerName,
-		authURL:       strings.TrimRight(authURL, "/"),
+func NewOpenstackClientConfig(authURL, username, password, project, projectDomain string) *OpenstackClientConfig {
+	cfg := &OpenstackClientConfig{
+		authURL:       authURL,
 		username:      username,
 		password:      password,
 		project:       project,
-		projectDomain: projectDomainName,
-		endpointType:  endpointType,
-		domainName:    domainName,
-		Debug:         isDebug,
+		projectDomain: projectDomain,
+	}
+	return cfg
+}
+
+func (cfg *OpenstackClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *OpenstackClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *OpenstackClientConfig) DomainName(domainName string) *OpenstackClientConfig {
+	cfg.domainName = domainName
+	return cfg
+}
+
+func (cfg *OpenstackClientConfig) EndpointType(endpointType string) *OpenstackClientConfig {
+	cfg.endpointType = endpointType
+	return cfg
+}
+
+func (cfg *OpenstackClientConfig) Debug(debug bool) *OpenstackClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SOpenStackClient struct {
+	*OpenstackClientConfig
+
+	client          *mcclient.Client
+	tokenCredential mcclient.TokenCredential
+	iregions        []cloudprovider.ICloudRegion
+}
+
+func NewOpenStackClient(cfg *OpenstackClientConfig) (*SOpenStackClient, error) {
+	cli := &SOpenStackClient{
+		OpenstackClientConfig: cfg,
 	}
 	return cli, cli.fetchRegions()
 }
 
 func (cli *SOpenStackClient) GetCloudRegionExternalIdPrefix() string {
-	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.providerID)
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.cpcfg.Id)
 }
 
 func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account: fmt.Sprintf("%s/%s", cli.project, cli.username),
-		Name:    cli.providerName,
+		Name:    cli.cpcfg.Name,
 	}
 	if len(cli.domainName) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", subAccount.Account, cli.domainName)
@@ -194,7 +222,7 @@ func (cli *SOpenStackClient) getVersion(region string, service string) (string, 
 }
 
 func (cli *SOpenStackClient) connect() error {
-	cli.client = mcclient.NewClient(cli.authURL, 5, cli.Debug, false, "", "")
+	cli.client = mcclient.NewClient(cli.authURL, 5, cli.debug, false, "", "")
 	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
 	if err != nil {
 		return err

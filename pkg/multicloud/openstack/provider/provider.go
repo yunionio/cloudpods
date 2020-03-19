@@ -111,7 +111,18 @@ func (self *SOpenStackProviderFactory) GetProvider(cfg cloudprovider.ProviderCon
 	if len(accountInfo) == 3 {
 		domainName, projectDomainName = accountInfo[2], accountInfo[2]
 	}
-	client, err := openstack.NewOpenStackClient(cfg.Id, cfg.Name, cfg.URL, username, cfg.Secret, project, endpointType, domainName, projectDomainName, false)
+	client, err := openstack.NewOpenStackClient(
+		openstack.NewOpenstackClientConfig(
+			cfg.URL,
+			username,
+			cfg.Secret,
+			project,
+			projectDomainName,
+		).
+			DomainName(domainName).
+			EndpointType(endpointType).
+			CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
