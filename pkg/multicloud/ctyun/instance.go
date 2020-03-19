@@ -189,6 +189,14 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
+
+	image, _ := self.GetImage()
+	if image != nil {
+		if meta := image.GetMetadata(); meta != nil {
+			data.Update(meta)
+		}
+	}
+
 	return data
 }
 
@@ -893,6 +901,27 @@ func (self *SRegion) GetVbsJob(jobId string) (jsonutils.JSONObject, error) {
 	err = resp.Unmarshal(&ret, "returnObj")
 	if err != nil {
 		return nil, errors.Wrap(err, "SRegion.GetVbsJob.Unmarshal")
+	}
+
+	return ret, nil
+}
+
+// 查询云硬盘JOB状态信息
+func (self *SRegion) GetVolumeJob(jobId string) (jsonutils.JSONObject, error) {
+	params := map[string]string{
+		"regionId": self.GetId(),
+		"jobId":    jobId,
+	}
+
+	resp, err := self.client.DoGet("/apiproxy/v3/queryVolumeJob", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetVolumeJob.DoGet")
+	}
+
+	ret := jsonutils.NewDict()
+	err = resp.Unmarshal(&ret, "returnObj")
+	if err != nil {
+		return nil, errors.Wrap(err, "SRegion.GetVolumeJob.Unmarshal")
 	}
 
 	return ret, nil
