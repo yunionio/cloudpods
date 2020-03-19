@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 )
 
 func InitDB() error {
@@ -28,6 +29,8 @@ func InitDB() error {
 		 */
 		db.TenantCacheManager,
 		db.Metadata,
+
+		proxy.ProxySettingManager,
 
 		CloudproviderManager,
 		CloudeventManager,
