@@ -23,8 +23,5 @@ import (
 type NotificationDetails struct {
 	apis.ResourceBaseDetails
 
-	Id   string `json:"id"`
-	Name string `json:"name"`
-
 	UserList jsonutils.JSONObject `json:"user_list"`
 }

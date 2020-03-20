@@ -96,7 +96,7 @@ type SNotification struct {
 	SendAt      time.Time `nullable:"false"`
 	SendBy      string    `width:"128" nullable:"false"`
 	// ClusterID identify message with same topic, msg, priority
-	ClusterID string `width:"128" charset:"ascii" primary:"true" create:"optional"`
+	ClusterID string `width:"128" charset:"ascii" primary:"true" create:"optional" list:"user" get:"user"`
 }
 
 type UserDetail struct {
@@ -165,7 +165,6 @@ func (self *SNotification) getMoreDetails(ctx context.Context, query jsonutils.J
 		userDetails = []UserDetail{userDetail}
 	}
 
-	out.Id = self.ClusterID
 	out.UserList = jsonutils.Marshal(userDetails)
 	return out, nil
 }
@@ -289,7 +288,7 @@ func (self *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("uid", userCred.GetUserId())
 	}
 
-	q = q.GroupBy("cluster_id")
+	q = q.GroupBy("cluster_id").Desc("received_at")
 	return q, nil
 }
 
