@@ -303,6 +303,15 @@ func (man *SDBInstanceManager) ValidateCreateData(ctx context.Context, userCred 
 		return nil, errors.Wrapf(err, "Unmarshal input failed: %v", err)
 	}
 
+	if len(input.Password) == 0 {
+		input.Password = seclib2.RandomPassword2(12)
+	}
+
+	// reset_password == flase 则置密码为空
+	if input.ResetPassword != nil && !*input.ResetPassword {
+		input.Password = ""
+	}
+
 	if len(input.Password) > 0 {
 		if !seclib2.MeetComplxity(input.Password) {
 			return nil, httperrors.NewWeakPasswordError()
@@ -742,6 +751,14 @@ func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclien
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
 }
 
+func (self *SDBInstance) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
+}
+
+func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, self.StartDBInstanceSyncTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
 func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync-status")
 }
@@ -932,6 +949,16 @@ func (self *SDBInstance) StartDBInstanceDeleteTask(ctx context.Context, userCred
 func (self *SDBInstance) StartDBInstanceRebootTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
 	self.SetStatus(userCred, api.DBINSTANCE_REBOOTING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceRebootTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SDBInstance) StartDBInstanceSyncTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, api.DBINSTANCE_SYNC_CONFIG, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "DBInstanceSyncTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -1393,6 +1420,16 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 
 		if createdAt := extInstance.GetCreatedAt(); !createdAt.IsZero() {
 			self.CreatedAt = createdAt
+		}
+
+		if len(self.VpcId) == 0 {
+			if vpcId := extInstance.GetIVpcId(); len(vpcId) > 0 {
+				vpc, err := db.FetchByExternalId(VpcManager, vpcId)
+				if err != nil {
+					return errors.Wrapf(err, "SyncWithCloudDBInstance.FetchVpcId")
+				}
+				self.VpcId = vpc.GetId()
+			}
 		}
 
 		factory, err := provider.GetProviderFactory()

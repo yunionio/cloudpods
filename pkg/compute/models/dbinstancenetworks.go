@@ -132,6 +132,9 @@ func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, us
 
 func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) compare.SyncResult {
 	result := compare.SyncResult{}
+	if network == nil {
+		return result
+	}
 
 	dbNetwork, err := dbinstance.GetDBNetwork()
 	if err != nil && err != sql.ErrNoRows {

@@ -51,7 +51,7 @@ func (self *DBInstanceDeleteTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *DBInstanceDeleteTask) DeleteDBInstance(ctx context.Context, dbinstance *models.SDBInstance) {
 	idbinstance, err := dbinstance.GetIDBInstance()
 	if err != nil {
-		if err == cloudprovider.ErrNotFound {
+		if errors.Cause(err) == cloudprovider.ErrNotFound {
 			self.DeleteDBInstanceComplete(ctx, dbinstance)
 			return
 		}

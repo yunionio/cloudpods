@@ -27,6 +27,7 @@ const (
 	DBINSTANCE_CLONING        = "cloning"       //克隆中
 	DBINSTANCE_DELETING       = "deleting"      //删除中
 	DBINSTANCE_DELETE_FAILED  = "delete_failed" //删除失败
+	DBINSTANCE_MAINTENANCE    = "maintenance"   //维护中
 	DBINSTANCE_UNKNOWN        = "unknown"
 
 	DBINSTANCE_CHANGE_CONFIG        = "change_config"        //调整配置
@@ -36,6 +37,7 @@ const (
 	DBINSTANCE_RENEW_FAILED = "renew_failed" //续费失败
 
 	DBINSTANCE_SYNC_STATUS = "sync_status" //同步状态
+	DBINSTANCE_SYNC_CONFIG = "sync_config" //同步配置
 
 	DBINSTANCE_REBOOT_FAILED = "reboot_failed" //重启失败
 	DBINSTANCE_CREATE_FAILED = "create_failed" //创建失败

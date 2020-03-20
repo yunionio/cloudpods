@@ -19,13 +19,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -150,5 +153,90 @@ func (self *SGoogleRegionDriver) RequestDeleteVpc(ctx context.Context, userCred 
 		return nil, nil
 	})
 	return nil
+}
 
+func (self *SGoogleRegionDriver) IsSupportedDBInstance() bool {
+	return true
+}
+
+func (self *SGoogleRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input api.DBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (api.DBInstanceCreateInput, error) {
+	if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+		return input, httperrors.NewInputParameterError("Google dbinstance not support prepaid billing type")
+	}
+
+	if input.DiskSizeGB < 10 || input.DiskSizeGB > 30720 {
+		return input, httperrors.NewInputParameterError("disk size gb must in range 10 ~ 30720 Gb")
+	}
+
+	if input.Engine != api.DBINSTANCE_TYPE_MYSQL && len(input.Password) == 0 {
+		return input, httperrors.NewMissingParameterError("password")
+	}
+
+	return input, nil
+}
+
+func (self *SGoogleRegionDriver) InitDBInstanceUser(instance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+	user := "root"
+	switch desc.Engine {
+	case api.DBINSTANCE_TYPE_POSTGRESQL:
+		user = "postgres"
+	case api.DBINSTANCE_TYPE_SQLSERVER:
+		user = "sqlserver"
+	default:
+		user = "root"
+	}
+
+	account := models.SDBInstanceAccount{}
+	account.DBInstanceId = instance.Id
+	account.Name = user
+	account.Status = api.DBINSTANCE_USER_AVAILABLE
+	account.ExternalId = user
+	account.SetModelManager(models.DBInstanceAccountManager, &account)
+	err := models.DBInstanceAccountManager.TableSpec().Insert(&account)
+	if err != nil {
+		return err
+	}
+
+	return account.SetPassword(desc.Password)
+}
+
+func (self *SGoogleRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceDatabaseCreateInput) (api.DBInstanceDatabaseCreateInput, error) {
+	return input, nil
+}
+
+func (self *SGoogleRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceBackupCreateInput) (api.DBInstanceBackupCreateInput, error) {
+	return input, nil
+}
+
+func (self *SGoogleRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input api.DBInstanceAccountCreateInput) (api.DBInstanceAccountCreateInput, error) {
+	return input, nil
+}
+
+func (self *SGoogleRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIDBInstance")
+		}
+
+		desc := &cloudprovider.SDBInstanceBackupCreateConfig{
+			Name:        backup.Name,
+			Description: backup.Description,
+		}
+
+		_, err = iRds.CreateIBackup(desc)
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.CreateBackup")
+		}
+
+		backups, err := iRds.GetIDBInstanceBackups()
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.GetIDBInstanceBackups")
+		}
+
+		result := models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, backup.GetCloudprovider(), instance, backup.GetRegion(), backups)
+		log.Infof("SyncDBInstanceBackups for dbinstance %s(%s) result: %s", instance.Name, instance.Id, result.Result())
+		return nil, nil
+	})
+	return nil
 }
