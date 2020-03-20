@@ -1273,6 +1273,11 @@ func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	if options.HostOptions.HugepagesOption == "native" {
 		meta.Set("__hugepage", jsonutils.NewString("native"))
 	}
+	if !options.HostOptions.HostCpuPassthrough || s.getOsname() == OS_NAME_MACOS {
+		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_QEMU))
+	} else {
+		meta.Set("__cpu_mode", jsonutils.NewString(compute.CPU_MODE_HOST))
+	}
 	if s.syncMeta != nil {
 		meta.Update(s.syncMeta)
 	}

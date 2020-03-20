@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -45,7 +46,7 @@ func (p *MigratePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return h.GetResult()
 	}
 
-	if schedData.LiveMigrate {
+	if schedData.LiveMigrate && schedData.CpuMode != compute.CPU_MODE_QEMU {
 		host := c.Getter().Host()
 		if schedData.CpuDesc != host.CpuDesc {
 			h.Exclude(predicates.ErrHostCpuModelIsNotMatchForLiveMigrate)
