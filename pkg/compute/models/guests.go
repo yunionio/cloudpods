@@ -3151,7 +3151,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
-	diskName := fmt.Sprintf("vdisk_%s_%d", self.Name, time.Now().UnixNano())
+	diskName := fmt.Sprintf("vdisk-%s-%d", self.Name, time.Now().UnixNano())
 
 	billingType := billing_api.BILLING_TYPE_POSTPAID
 	billingCycle := ""
