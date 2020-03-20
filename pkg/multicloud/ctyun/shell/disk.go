@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"context"
+
 	"yunion.io/x/onecloud/pkg/multicloud/ctyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -39,6 +41,42 @@ func init() {
 	}
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *ctyun.SRegion, args *DiskCreateOptions) error {
 		disk, e := cli.CreateDisk(args.ZoneId, args.Name, args.DiskType, args.Size)
+		if e != nil {
+			return e
+		}
+		printObject(disk)
+		return nil
+	})
+
+	type DiskResizeOptions struct {
+		DiskId string `help:"disk id"`
+		Size   int64  `help:"disk size GB"`
+	}
+	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Resize disk", func(cli *ctyun.SRegion, args *DiskResizeOptions) error {
+		disk, err := cli.GetDisk(args.DiskId)
+		if err != nil {
+			return err
+		}
+
+		e := disk.Resize(context.Background(), args.Size*1024)
+		if e != nil {
+			return e
+		}
+		printObject(disk)
+		return nil
+	})
+
+	type VDiskRestoreOptions struct {
+		DiskId     string `help:"disk id"`
+		SnapshotId string `help:"snapshot id"`
+	}
+	shellutils.R(&VDiskRestoreOptions{}, "disk-restore", "Restore disk", func(cli *ctyun.SRegion, args *VDiskRestoreOptions) error {
+		disk, err := cli.GetDisk(args.DiskId)
+		if err != nil {
+			return err
+		}
+
+		_, e := disk.Reset(context.Background(), args.SnapshotId)
 		if e != nil {
 			return e
 		}
