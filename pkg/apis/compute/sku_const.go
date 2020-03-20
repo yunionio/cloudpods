@@ -144,4 +144,8 @@ type DBInstanceSkuListInput struct {
 	Engine []string `json:"engine"`
 
 	EngineVersion []string `json:"engine_version"`
+
+	Zone1 []string `json:"zone1"`
+	Zone2 []string `json:"zone2"`
+	Zone3 []string `json:"zone3"`
 }

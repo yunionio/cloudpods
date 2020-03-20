@@ -165,6 +165,18 @@ func (manager *SDBInstanceSkuManager) ListItemFilter(
 		q = q.In("engine_version", query.EngineVersion)
 	}
 
+	zones := ZoneManager.Query().SubQuery()
+	for k, v := range map[string][]string{"zone1": query.Zone1, "zone2": query.Zone2, "zone3": query.Zone3} {
+		if len(v) > 0 {
+			q = q.Join(zones, sqlchemy.Equals(zones.Field("id"), q.Field(k))).Filter(
+				sqlchemy.OR(
+					sqlchemy.In(zones.Field("name"), v),
+					sqlchemy.In(zones.Field("id"), v),
+				),
+			)
+		}
+	}
+
 	return q, nil
 }
 
