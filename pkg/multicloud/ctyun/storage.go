@@ -123,7 +123,7 @@ func (self *SStorage) GetEnabled() bool {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	disk, err := self.zone.region.CreateDisk(self.zone.GetId(), self.GetName(), self.GetStorageType(), strconv.Itoa(sizeGb))
+	disk, err := self.zone.region.CreateDisk(self.zone.GetId(), name, self.GetStorageType(), strconv.Itoa(sizeGb))
 	if err != nil {
 		return nil, errors.Wrap(err, "Storage.CreateIDisk.CreateDisk")
 	}

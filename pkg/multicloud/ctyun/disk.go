@@ -225,6 +225,22 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
+	if len(self.Attachments) > 0 && len(self.Attachments[0].ServerID) > 0 {
+		server, err := self.storage.zone.region.GetVMById(self.Attachments[0].ServerID)
+		if err != nil {
+			log.Errorf("SDisk.GetTemplateId %s", err)
+			return ""
+		}
+
+		image, err := server.GetImage()
+		if err != nil {
+			log.Errorf("SDisk.GetImage %s", err)
+			return ""
+		}
+
+		return image.GetId()
+	}
+
 	return ""
 }
 
@@ -274,54 +290,17 @@ func (self *SDisk) Delete(ctx context.Context) error {
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	jobId, err := self.storage.zone.region.CreateSnapshot(name, self.GetId(), desc)
-	if err != nil {
-		return nil, errors.Wrap(err, "Disk.CreateISnapshot.CreateSnapshot")
-	}
-
-	snapshotId := ""
-	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
-		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
-		if err != nil {
-			log.Debugf("Ctyun.SDisk.CreateISnapshot.GetVbsJob %s", err)
-			return false, nil
-		}
-
-		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
-			snapshotId, _ = statusJson.GetString("entities", "snapshot_id")
-			return true, nil
-		} else if status == "FAILED" {
-			return false, fmt.Errorf("CreateSnapshot job %s failed", jobId)
-		} else {
-			return false, nil
-		}
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "Disk.CreateISnapshot.Wait")
-	}
-
-	return self.storage.zone.region.GetSnapshot(self.GetId(), snapshotId)
+	return nil, cloudprovider.ErrNotSupported
 }
 
 // POST http://ctyun-api-url/apiproxy/v3/ondemand/createVBS
 func (self *SDisk) GetISnapshot(idStr string) (cloudprovider.ICloudSnapshot, error) {
-	return self.storage.zone.region.GetSnapshot(self.GetId(), idStr)
+	return nil, cloudprovider.ErrNotFound
 }
 
-// GET http://ctyun-api-url/apiproxy/v3/ondemand/queryVBSs
+// no snapshot api opened
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, err := self.storage.zone.region.GetSnapshots(self.GetId())
-	if err != nil {
-		return nil, errors.Wrap(err, "SDisk.GetISnapshots")
-	}
-
-	isnapshots := []cloudprovider.ICloudSnapshot{}
-	for i := range snapshots {
-		isnapshots[i] = &snapshots[i]
-	}
-
-	return isnapshots, nil
+	return []cloudprovider.ICloudSnapshot{}, nil
 }
 
 // POST http://ctyun-api-url/apiproxy/v3/ondemand/updateDiskBackupPolicy
@@ -336,10 +315,10 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	}
 
 	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
+		statusJson, err := self.storage.zone.region.GetVolumeJob(jobId)
 		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
 		if err != nil {
-			log.Debugf("Ctyun.SDisk.Resize.GetVbsJob %s", err)
+			log.Debugf("Ctyun.SDisk.Resize.GetVolumeJob %s", err)
 			return false, nil
 		}
 
@@ -359,32 +338,7 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	jobId, err := self.storage.zone.region.RestoreDisk(self.GetId(), snapshotId)
-	if err != nil {
-		return "", errors.Wrap(err, "Disk.Reset")
-	}
-
-	err = cloudprovider.Wait(10*time.Second, 1800*time.Second, func() (b bool, err error) {
-		statusJson, err := self.storage.zone.region.GetVbsJob(jobId)
-		// ctyun 偶尔会报客户端错误，其实job已经到后台执行了
-		if err != nil {
-			log.Debugf("Ctyun.SDisk.Reset.GetVbsJob %s", err)
-			return false, nil
-		}
-
-		if status, _ := statusJson.GetString("status"); status == "SUCCESS" {
-			return true, nil
-		} else if status == "FAILED" {
-			return false, fmt.Errorf("Reset job %s failed", jobId)
-		} else {
-			return false, nil
-		}
-	})
-	if err != nil {
-		return "", errors.Wrap(err, "Disk.Reset.Wait")
-	}
-
-	return self.GetId(), nil
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
@@ -541,7 +495,7 @@ func (self *SRegion) CreateDisk(zoneId, name, diskType, size string) (*SDisk, er
 	return self.GetDisk(diskId)
 }
 
-func (self *SRegion) CreateSnapshot(name, volumeId, desc string) (string, error) {
+func (self *SRegion) CreateDiskBackup(name, volumeId, desc string) (string, error) {
 	params := map[string]jsonutils.JSONObject{
 		"regionId":    jsonutils.NewString(self.GetId()),
 		"volumeId":    jsonutils.NewString(volumeId),
@@ -551,13 +505,13 @@ func (self *SRegion) CreateSnapshot(name, volumeId, desc string) (string, error)
 
 	resp, err := self.client.DoPost("/apiproxy/v3/ondemand/createVBS", params)
 	if err != nil {
-		return "", errors.Wrap(err, "Region.CreateSnapshot.DoPost")
+		return "", errors.Wrap(err, "Region.CreateDiskBackup.DoPost")
 	}
 
 	var jobId string
 	err = resp.Unmarshal(&jobId, "returnObj", "data")
 	if err != nil {
-		return "", errors.Wrap(err, "Region.CreateSnapshot.Unmarshal")
+		return "", errors.Wrap(err, "Region.CreateDiskBackup.Unmarshal")
 	}
 
 	return jobId, nil
