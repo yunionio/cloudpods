@@ -66,6 +66,23 @@ func (ps *SProxySetting) HttpTransportProxyFunc() httputils.TransportProxyFunc {
 	}
 }
 
+func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
+	for _, man := range referrersMen {
+		t := man.TableSpec().Instance()
+		n, err := t.Query().
+			Equals("proxy_setting_id", ps.Id).
+			CountWithError()
+		if err != nil {
+			return httperrors.NewInternalServerError("get proxysetting refcount fail %s", err)
+		}
+		if n > 0 {
+			return httperrors.NewResourceBusyError("proxysetting %s is still referred to by %d %s",
+				ps.Id, n, man.KeywordPlural())
+		}
+	}
+	return nil
+}
+
 func (man *SProxySettingManager) InitializeData() error {
 	_, err := man.FetchById(proxyapi.ProxySettingId_DIRECT)
 	if err == nil {
@@ -87,4 +104,10 @@ func (man *SProxySettingManager) InitializeData() error {
 		return err
 	}
 	return nil
+}
+
+var referrersMen []db.IModelManager
+
+func RegisterReferrer(man db.IModelManager) {
+	referrersMen = append(referrersMen, man)
 }
