@@ -59,9 +59,14 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		schedDesc.LiveMigrate = true
-		host := guest.GetHost()
-		schedDesc.CpuDesc = host.CpuDesc
-		schedDesc.CpuMicrocode = host.CpuMicrocode
+		if guest.GetMetadata("__cpu_mode", self.UserCred) != api.CPU_MODE_QEMU {
+			host := guest.GetHost()
+			schedDesc.CpuDesc = host.CpuDesc
+			schedDesc.CpuMicrocode = host.CpuMicrocode
+			schedDesc.CpuMode = api.CPU_MODE_HOST
+		} else {
+			schedDesc.CpuMode = api.CPU_MODE_QEMU
+		}
 	}
 	return schedDesc, nil
 }
