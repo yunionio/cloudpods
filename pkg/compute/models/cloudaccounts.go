@@ -72,6 +72,8 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
+
+	proxy.RegisterReferrer(CloudaccountManager)
 }
 
 type SCloudaccount struct {
