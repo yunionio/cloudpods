@@ -136,6 +136,7 @@ func (vd *VDDKDisk) Connect() bool {
 }
 
 func (vd *VDDKDisk) Disconnect() bool {
+	vd.Proc.Cmd.ProcessState.Exited()
 	return true
 }
 

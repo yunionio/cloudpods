@@ -37,6 +37,7 @@ type ServerListInput struct {
 	GroupFilterListInput
 	SecgroupFilterListInput
 	DiskFilterListInput
+	ScalingGroupFilterListInput
 
 	// 只列出裸金属主机
 	Baremetal *bool `json:"baremetal"`
@@ -219,6 +220,9 @@ type ServerDetails struct {
 
 	// Cdrom信息
 	Cdrom string `json:"cdrom,allowempty"`
+
+	// 主机在伸缩组中的状态
+	ScalingStatus string `json:"scaling_status"`
 }
 
 type GuestJointResourceDetails struct {

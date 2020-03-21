@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
@@ -19,14 +22,17 @@ import (
 
 type SScalingPolicyManager struct {
 	db.SStatusStandaloneResourceBaseManager
+	SScalingGroupResourceBaseManager
+	db.SEnabledResourceBaseManager
 }
 
 type SScalingPolicy struct {
 	db.SStatusStandaloneResourceBase
+	SScalingGroupResourceBase
+	db.SEnabledResourceBase
 
-	ScalingGroupId string `width:"128" charset:"ascii"`
-	TriggerType    string `width:"16" charset:"ascii" default:"timing" create:"required" list:"user"`
-	TriggerId      string `width:"128" charset:"ascii"`
+	TriggerType string `width:"16" charset:"ascii" default:"timing" create:"required" list:"user"`
+	TriggerId   string `width:"128" charset:"ascii"`
 
 	// Action of scaling activity
 	Action string `width:"8" charset:"ascii" default:"set" create:"required" list:"user"`
@@ -36,63 +42,103 @@ type SScalingPolicy struct {
 	Unit string `width:"4" charset:"ascii" create:"required" list:"user"`
 
 	// Scaling activity triggered by alarms will be rejected during this period about CoolingTime
-	CooolingTime int `nullable:"false" default:"300" create:"required" list:"user"`
+	CoolingTime int `nullable:"false" default:"300" create:"required" list:"user"`
 }
 
 var ScalingPolicyManager *SScalingPolicyManager
 
 func init() {
 	ScalingPolicyManager = &SScalingPolicyManager{
-		db.NewStatusStandaloneResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SScalingPolicy{},
 			"scalingpolicies_tbl",
-			"scalingpolicies",
 			"scalingpolicy",
+			"scalingpolicies",
 		),
 	}
 	ScalingPolicyManager.SetVirtualObject(ScalingPolicyManager)
 }
 
-func (sp *SScalingPolicyManager) ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential,
+func (spm *SScalingPolicyManager) ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential,
 	query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	var err error
+	query, err = spm.SStandaloneResourceBaseManager.ValidateListConditions(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	if !query.Contains("scaling_group") {
 		return nil, httperrors.NewInputParameterError("every scaling policy belong to a scaling group")
 	}
 	return query, nil
 }
 
-func (sp *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
+func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, input api.ScalingPolicyListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = sp.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
-	if err == nil {
+	q, err = spm.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	if err != nil {
 		return q, err
 	}
-	model, err := ScalingGroupManager.FetchByIdOrName(userCred, input.ScalingGroup)
-	if errors.Cause(err) == sql.ErrNoRows {
-		return nil, httperrors.NewInputParameterError("so such scaling group %s", input.ScalingGroup)
-	}
-	if err == nil {
-		return q, errors.Wrap(err, "ScalingGropuManager.FetchByIdOrName")
-	}
-	q = q.Equals("scaling_group_id", model.GetId())
+	q, err = spm.SScalingGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ScalingGroupFilterListInput)
 	if len(input.TriggerType) != 0 {
 		q = q.Equals("trigger_type", input.TriggerType)
 	}
 	return q, nil
 }
 
-func (sp *SScalingPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
+func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	q, err := spm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	return spm.SScalingGroupResourceBaseManager.QueryDistinctExtraField(q, field)
+}
+
+func (spm *SScalingPolicyManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	return spm.SScalingGroupResourceBaseManager.FetchParentId(ctx, data)
+}
+
+func (spm *SScalingPolicyManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	return spm.SScalingGroupResourceBaseManager.FilterByParentId(q, parentId)
+}
+
+func (spm *SScalingPolicyManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query api.ScalingPolicyListInput) (*sqlchemy.SQuery, error) {
+	return spm.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+}
+
+func (sgm *SScalingPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, isList bool) (api.ScalingGroupDetails, error) {
+	return api.ScalingGroupDetails{}, nil
+}
+
+func (spm *SScalingPolicyManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.ScalingPolicyDetails {
+	rows := make([]api.ScalingPolicyDetails, len(objs))
+	statusRows := spm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	sgRows := spm.SScalingGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	var err error
+	for i := range rows {
+		rows[i], err = objs[i].(*SScalingPolicy).getMoreDetails(ctx, userCred, query, isList)
+		if err != nil {
+			log.Errorf("SScalingPolicy.getMoreDetails error: %s", err)
+		}
+		rows[i].StatusStandaloneResourceDetails = statusRows[i]
+		rows[i].ScalingGroupResourceInfo = sgRows[i]
+	}
+	return rows
+}
+
+func (sp *SScalingPolicy) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, isList bool) (api.ScalingPolicyDetails, error) {
 
-	var (
-		err error
-		out api.ScalingPolicyDetails
-	)
-	out.StandaloneResourceDetails, err = sp.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query, isList)
-	if err != nil {
-		return out, err
-	}
+	var out api.ScalingPolicyDetails
 	switch sp.TriggerType {
 	case api.TRIGGER_ALARM:
 		model, err := ScalingAlarmManager.FetchById(sp.TriggerId)
@@ -117,9 +163,30 @@ func (sp *SScalingPolicy) GetExtraDetails(ctx context.Context, userCred mcclient
 	return out, nil
 }
 
-func (sp *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
+func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ScalingPolicyCreateInput) (
 	api.ScalingPolicyCreateInput, error) {
+	log.Debugf("insert validateCreateData")
+	var err error
+	input.StandaloneResourceCreateInput, err = spm.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query,
+		input.StandaloneResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
+
+	// check scaling group
+	idOrName := input.ScalingGroup
+	if len(input.ScalingGroupId) != 0 {
+		idOrName = input.ScalingGroupId
+	}
+	model, err := ScalingGroupManager.FetchByIdOrName(userCred, idOrName)
+	if errors.Cause(err) == sql.ErrNoRows {
+		return input, httperrors.NewInputParameterError("no such scaling group %s", idOrName)
+	}
+	if err != nil {
+		return input, errors.Wrap(err, "ScalingGroupManager.FetchByIdOrName")
+	}
+	input.ScalingGroupId = model.GetId()
 
 	if !utils.IsInStringArray(input.TriggerType, []string{api.TRIGGER_TIMING, api.TRIGGER_CYCLE, api.TRIGGER_ALARM}) {
 		return input, httperrors.NewInputParameterError("unkown trigger type %s", input.TriggerType)
@@ -134,12 +201,17 @@ func (sp *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCre
 	if err != nil {
 		return input, errors.Wrap(err, "ScalingPolicyManager.Trigger")
 	}
-	return trigger.ValidateCreateData(input)
+	input, err = trigger.ValidateCreateData(input)
+	if err != nil {
+		return input, httperrors.NewInputParameterError(err.Error())
+	}
+	return input, err
 }
 
 func (sg *SScalingPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 
+	log.Debugf("data: %s", data.String())
 	input := api.ScalingPolicyCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
@@ -150,6 +222,7 @@ func (sg *SScalingPolicy) CustomizeCreate(ctx context.Context, userCred mcclient
 	if len(sg.Id) == 0 {
 		sg.Id = db.DefaultUUIDGenerator()
 	}
+	log.Debugf("input: %#v", input)
 
 	trigger, err := sg.Trigger(&input)
 	if err != nil {
@@ -161,12 +234,12 @@ func (sg *SScalingPolicy) CustomizeCreate(ctx context.Context, userCred mcclient
 	}
 	sg.TriggerId = trigger.TriggerId()
 	sg.Status = api.SP_STATUS_READY
-	return nil
+	return sg.SStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	trigger, err := sp.Trigger(nil)
-	if err == nil {
+	if err != nil {
 		return errors.Wrap(err, "SScalingPolicy.Trigger")
 	}
 	err = trigger.UnRegister(ctx, userCred)
@@ -179,12 +252,12 @@ func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCre
 func (sp *SScalingPolicy) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// delete all activities
 	activities, err := sp.Activities()
-	if err == nil {
+	if err != nil {
 		return errors.Wrap(err, "SScalingPolicy.Activities")
 	}
 	for _, activity := range activities {
 		err := activity.Delete(ctx, userCred)
-		if err == nil {
+		if err != nil {
 			return errors.Wrap(err, "SScalingAvtivity.Delete")
 		}
 	}
@@ -195,18 +268,19 @@ func (sp *SScalingPolicy) Activities() ([]SScalingActivity, error) {
 	q := ScalingActivityManager.Query().Equals("scaling_policy_id", sp.Id)
 	activities := make([]SScalingActivity, 0, 1)
 	err := db.FetchModelObjects(ScalingActivityManager, q, &activities)
-	if err == nil {
+	if err != nil {
 		return nil, errors.Wrap(err, "db.FetchModelObjects")
 	}
 	return activities, nil
 }
 
-func (sp *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
+func (spm *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
 	tem := SScalingPolicy{TriggerType: input.TriggerType}
 	return tem.Trigger(input)
 }
 
 func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
+	log.Debugf("inset Trigger")
 	if len(sp.TriggerId) == 0 {
 		switch sp.TriggerType {
 		case api.TRIGGER_TIMING:
@@ -222,10 +296,13 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 				Type:               input.CycleTimer.CycleType,
 				Minute:             input.CycleTimer.Minute,
 				Hour:               input.CycleTimer.Hour,
+				StartTime:          input.CycleTimer.StartTime,
 				EndTime:            input.CycleTimer.EndTime,
 				NextTime:           time.Time{},
 			}
+			log.Debugf("setweekdays")
 			trigger.SetWeekDays(input.CycleTimer.WeekDays)
+			log.Debugf("setmonthdays")
 			trigger.SetMonthDays(input.CycleTimer.MonthDays)
 			trigger.Update()
 			return trigger, nil
@@ -233,6 +310,7 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 			return &SScalingAlarm{
 				SScalingPolicyBase: SScalingPolicyBase{sp.GetId()},
 				Cumulate:           input.Alarm.Cumulate,
+				Cycle:              input.Alarm.Cycle,
 				Indicator:          input.Alarm.Indicator,
 				Wrapper:            input.Alarm.Wrapper,
 				Operator:           input.Alarm.Operator,
@@ -263,7 +341,7 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 func (sp *SScalingPolicy) AllowPerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 
 	sg, err := sp.ScalingGroup()
-	if err == nil {
+	if err != nil {
 		return false
 	}
 	return sg.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, sp, "trigger")
@@ -271,34 +349,89 @@ func (sp *SScalingPolicy) AllowPerformTrigger(ctx context.Context, userCred mccl
 
 func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	// validate alarm id
+	var (
+		triggerDesc IScalingTriggerDesc
+		err         error
+	)
+
 	if !data.Contains("alarm_id") {
-		return nil, httperrors.NewMissingParameterError("need alarm_id")
+		// considered manual trigger
+		triggerDesc = SScalingManual{SScalingPolicyBase{sp.Id}}
+
+	} else {
+		alarmId, _ := data.GetString("alarm_id")
+		triggerDesc, err = sp.Trigger(nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "fetch trigger failed")
+		}
+		if alarmId != triggerDesc.(*SScalingAlarm).AlarmId {
+			return nil, httperrors.NewInputParameterError("mismatched alarm id")
+		}
 	}
-	alarmId, _ := data.GetString("alarm_id")
-	trigger, err := sp.Trigger(nil)
-	if err == nil {
-		return nil, errors.Wrap(err, "fetch trigger failed")
+	sg, err := sp.ScalingGroup()
+	if err != nil {
+		return nil, errors.Wrap(err, "ScalingPolicy.ScalingGroup")
 	}
-	if alarmId != trigger.(*SScalingAlarm).AlarmId {
-		return nil, httperrors.NewInputParameterError("mismatched alarm id")
+	err = sg.Scale(ctx, triggerDesc, sp)
+	if err != nil {
+		return nil, errors.Wrap(err, "ScalingPolicy.Scale")
 	}
-	sa := SScalingActivity{
-		ScalingPolicyId: sp.Id,
-		TriggerDesc:     trigger.Description(),
-		ActionDesc:      "",
-		StartTime:       time.Time{},
-		EndTime:         time.Time{},
-	}
-	sa.Status = api.SA_STATUS_INIT
-	ScalingActivityManager.TableSpec().Insert(&sa)
-	return nil, nil
+	return nil, err
 }
 
 func (sp *SScalingPolicy) ScalingGroup() (*SScalingGroup, error) {
 	model, err := ScalingGroupManager.FetchById(sp.ScalingGroupId)
-	if err == nil {
+	if err != nil {
 		return nil, errors.Wrap(err, "ScalingGroupManager.FetchById")
 	}
 	return model.(*SScalingGroup), nil
+}
+
+type IScalingAction interface {
+	Exec(int) int
+}
+
+func (sp *SScalingPolicy) Exec(from int) int {
+	diff := sp.Number
+	if sp.Unit == api.UNIT_PERCENT {
+		diff = diff * from / 100
+	}
+	switch sp.Action {
+	case api.ACTION_ADD:
+		return from + diff
+	case api.ACTION_REMOVE:
+		return from - diff
+	case api.ACTION_SET:
+		return diff
+	default:
+		return from
+	}
+}
+
+func (sp *SScalingPolicy) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input apis.PerformEnableInput) bool {
+	return true
+}
+
+func (sp *SScalingPolicy) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(sp, ctx, userCred, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
+}
+
+func (sp *SScalingPolicy) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, input apis.PerformDisableInput) bool {
+	return true
+}
+
+func (sp *SScalingPolicy) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
+	err := db.EnabledPerformEnable(sp, ctx, userCred, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "EnabledPerformEnable")
+	}
+	return nil, nil
 }

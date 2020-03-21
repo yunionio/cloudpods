@@ -58,6 +58,8 @@ type ServerListOptions struct {
 
 	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 
+	ScalingGroup string `help:"ScalingGroup's id or name'"`
+
 	BaseListOptions
 }
 
@@ -614,7 +616,7 @@ type ServerMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 	AutoStart  *bool  `help:"Server auto start after migrate" json:"auto_start"`
-	RescueMode *bool  `help:"Migrate server in rescue mode,
+	RescueMode *bool `help:"Migrate server in rescue mode,
 					  all disk must store in shared storage;
 					  default false" json:"rescue_mode"`
 }

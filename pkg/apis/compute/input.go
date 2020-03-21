@@ -134,10 +134,6 @@ type DynamicschedtagListInput struct {
 	Enabled *bool `json:"enabled"`
 }
 
-type GuestTemplateListInput struct {
-	apis.SharableVirtualResourceListInput
-}
-
 type SchedpolicyListInput struct {
 	apis.StandaloneResourceListInput
 	SchedtagFilterListInput

@@ -2,13 +2,10 @@ package autoscaling
 
 import (
 	"context"
-	"fmt"
 	"time"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
-
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -28,10 +25,7 @@ func (asc *SASController) timeScope(median time.Time, interval time.Duration) ST
 	}
 }
 
-func (asc *)
-
 func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-
 	// 60 is for fault tolerance
 	interval := asc.options.TimerInterval + 30
 	timeScope := asc.timeScope(time.Now(), time.Duration(interval)*time.Second)
@@ -49,34 +43,29 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 	for _, scalingTimer := range scalingTimers {
 		asc.timerQueue <- struct{}{}
 		go func(ctx context.Context) {
-			scalingActivity := &models.SScalingActivity{
-				ScalingPolicyId: scalingTimer.ScalingPolicyId,
-				TriggerDesc:     scalingTimer.Description(),
-				ActionDesc:     "",
-				StartTime:       time.Now(),
-				EndTime:         time.Time{},
-			}
-			scalingActivity.Status = compute.SA_STATUS_EXEC
-			err := models.ScalingActivityManager.TableSpec().Insert(&scalingActivity)
+			defer func() {
+				<- asc.timerQueue
+			}()
+			sp, err := scalingTimer.ScalingPolicy()
 			if err != nil {
-				log.Errorf("insert ScalingActivity whose ScalingPolicyId is %s error: %s",
-					scalingActivity.ScalingPolicyId, err.Error())
+				log.Errorf("fail to get ScalingPolicy of ScalingTimer '%s': %s", scalingTimer.Id,  err)
+				return
 			}
-
-			// start exec
-			lockman.LockObject()
-			scalingGroup, err := scalingTimer.ScalingGroup()
+			sg, err := sp.ScalingGroup()
 			if err != nil {
-				scalingActivity.SetResult("", false, fmt.Sprintf("fail to get ScalingTimer's ScalingGroup: %s", err.Error()))
+				log.Errorf("fail to get ScalingGroup of ScalingPolicy '%s': %s", sp.Id,  err)
+				return
 			}
-
+			err = sg.Scale(ctx, &scalingTimer, sp)
+			if err != nil {
+				log.Errorf("ScalingGroup '%s' scale error", sg.Id)
+			}
+			scalingTimer.Update()
+			err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)
+			if err != nil {
+				log.Errorf("update ScalingTimer whose ScalingPolicyId is %s error: %s",
+					scalingTimer.ScalingPolicyId, err.Error())
+			}
 		}(ctx)
-
-		scalingTimer.Update()
-		err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)
-		if err != nil {
-			log.Errorf("update ScalingTimer whose ScalingPolicyId is %s error: %s",
-				scalingTimer.ScalingPolicyId, err.Error())
-		}
 	}
 }

@@ -74,6 +74,7 @@ type SGuestManager struct {
 	SBillingResourceBaseManager
 	SNetworkResourceBaseManager
 	SDiskResourceBaseManager
+	SScalingGroupResourceBaseManager
 }
 
 var GuestManager *SGuestManager
@@ -207,6 +208,15 @@ func (manager *SGuestManager) ListItemFilter(
 	}
 	if diskQ.IsAltered() {
 		q = q.In("id", diskQ.SubQuery())
+	}
+
+	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").Snapshot()
+	scalingGroupQ, err = manager.SScalingGroupResourceBaseManager.ListItemFilter(ctx, scalingGroupQ, userCred, query.ScalingGroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScaligGroupResourceBaseManager.ListItemFilter")
+	}
+	if scalingGroupQ.IsAltered() {
+		q = q.In("id", scalingGroupQ.SubQuery())
 	}
 
 	hypervisorList := query.Hypervisor

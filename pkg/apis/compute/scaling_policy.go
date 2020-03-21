@@ -3,7 +3,8 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type ScalingPolicyDetails struct {
-	apis.StandaloneResourceDetails
+	apis.StatusStandaloneResourceDetails
+	ScalingGroupResourceInfo
 	SScalingPolicy
 	// 定时方式触发
 	Timer ScalingTimerDetails `json:"timer"`
@@ -15,43 +16,52 @@ type ScalingPolicyDetails struct {
 
 type ScalingPolicyCreateInput struct {
 	apis.StandaloneResourceCreateInput
+	apis.EnabledBaseResourceCreateInput
+
+	// description: scaling_group ID or Name
+	// example: sg-test-one
+	ScalingGroup string `json:"scaling_group"`
+
+	// swagger: ignore
+	ScalingGroupId string `json:"scaling_group_id"`
 
 	// description: trigger type
 	// enum: timing,cycle,alarm
-	TriggerType string
+	TriggerType string `json:"trigger_type"`
 
-	Timer      ScalingTimerCreateInput
-	CycleTimer ScalingCycleTimerCreateInput
-	Alarm      ScalingAlarmCreateInput
+	Timer      ScalingTimerCreateInput      `json:"timer"`
+	CycleTimer ScalingCycleTimerCreateInput `json:"cycle_timer"`
+	Alarm      ScalingAlarmCreateInput      `json:"alarm"`
 
-	// desciption: action of scaling activity
+	// desciption: 伸缩策略的行为(增加还是删除或者调整为)
 	// enum: add,remove,set
 	// example: add
-	Action string
+	Action string `json:"action"`
 
-	// desciption: number
+	// desciption: 实例的数量
 	// example: 2
-	Number int
+	Number int `json:"number"`
 
-	// desciption: Unit of Number
+	// desciption: 实例数量的单位
 	// enum: s,%
 	// example: s
-	Unit string
+	Unit string `json:"unit"`
 
 	// desciption: Scaling activity triggered by alarms will be rejected during this period about CoolingTime
 	// example: 300
-	CoolingTime int
+	CoolingTime int `json:"cooling_time"`
 }
 
 type ScalingPolicyListInput struct {
 	apis.StatusStandaloneResourceListInput
+	apis.EnabledResourceBaseListInput
 
 	// description: scaling group
 	// example: sg-test
-	ScalingGroup string
+	ScalingGroupFilterListInput
 
 	// description: trigger type
 	// enum: timing,cycel,alarm
 	// example: alarm
-	TriggerType string
+	TriggerType string `json:"trigger_type""`
 }

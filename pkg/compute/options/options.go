@@ -139,7 +139,8 @@ type SCapabilityOptions struct {
 
 type SASControllerOptions struct {
 	TimerInterval int `help:"The interval between the tow checks about timer, unit: s" default:"60"`
-	QueueSize int `help:"This represents the upper limit of simultaneous scaling activities" default:"100"`
+	ConcurrentUpper int `help:"This represents the upper limit of concurrent sacling sctivities" default:"500"`
+	CheckScaleInterval int `help:"The interval between the two checks about scaling, unit: s" default:"60"`
 }
 
 var (

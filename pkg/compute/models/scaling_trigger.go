@@ -7,14 +7,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
-	"yunion.io/x/pkg/errors"
 )
 
+type IScalingTriggerDesc interface {
+	Description() string
+}
+
 type IScalingTrigger interface {
+	IScalingTriggerDesc
+
 	// ValidateCreateData check and verify the input when creating SScalingPolicy
 	ValidateCreateData(input api.ScalingPolicyCreateInput) (api.ScalingPolicyCreateInput, error)
 
@@ -22,7 +31,14 @@ type IScalingTrigger interface {
 	Register(ctx context.Context, userCred mcclient.TokenCredential) error
 	UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error
 	TriggerId() string
-	Description() string
+}
+
+type SScalingManual struct {
+	SScalingPolicyBase
+}
+
+func (sm SScalingManual) Description() string {
+	return fmt.Sprintf(`A user request to execute scaling policy "%s"`, sm.ScalingPolicyId)
 }
 
 type SScalingPolicyBase struct {
@@ -37,7 +53,7 @@ func (spb *SScalingPolicyBase) ScalingGroup() (*SScalingGroup, error) {
 	return &sg, err
 }
 
-func (spb *SScalingPolicyBase) ScalingPlicy() (*SScalingPolicy, error) {
+func (spb *SScalingPolicyBase) ScalingPolicy() (*SScalingPolicy, error) {
 	model, err := ScalingPolicyManager.FetchById(spb.ScalingPolicyId)
 	if err != nil {
 		return nil, errors.Wrap(err, "ScalingPolicyManager.FetchById")
@@ -69,6 +85,9 @@ type SScalingTimer struct {
 	// 0-31 0 is unlimited
 	MonthDays uint32 `nullable:"false"`
 
+	// StartTime represent the start time of this timer
+	StartTime time.Time
+
 	// EndTime represent deadline of this timer
 	EndTime time.Time
 
@@ -93,6 +112,7 @@ type SScalingAlarm struct {
 
 	// Trigger when the cumulative count is reached
 	Cumulate  int
+	Cycle     int
 	Indicator string `width:"32" charset:"ascii"`
 
 	// Wrapper instruct how to calculate collective data based on individual data
@@ -110,13 +130,24 @@ var (
 
 func init() {
 	ScalingTimerManager = &SScalingTimerManager{
-		db.NewStandaloneResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SScalingTimer{},
 			"scalingtimers_tbl",
-			"scalingtimers",
 			"scalingtimer",
+			"scalingtimers",
 		),
 	}
+	ScalingTimerManager.SetVirtualObject(ScalingTimerManager)
+
+	ScalingAlarmManager = &SScalingAlarmManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SScalingAlarm{},
+			"scalingalarms_tbl",
+			"scalingalarm",
+			"scalingalarms",
+		),
+	}
+	ScalingAlarmManager.SetVirtualObject(ScalingAlarmManager)
 }
 
 func (st *SScalingTimer) GetWeekDays() []int {
@@ -137,6 +168,7 @@ func (st *SScalingTimer) SetMonthDays(days []int) {
 
 // Update will update the SScalingTimer
 func (st *SScalingTimer) Update() {
+	log.Debugf("Update Timer")
 	now := time.Now()
 	if !now.Before(st.EndTime) {
 		st.IsExpired = true
@@ -173,6 +205,7 @@ func (st *SScalingTimer) Update() {
 			}
 			newNextTime = time.Date(suitTime.Year(), suitTime.Month(), suitTime.Day(), suitTime.Hour(),
 				suitTime.Minute(), 0, 0, suitTime.Location())
+			return
 		}
 	default:
 		// day
@@ -213,6 +246,7 @@ func (st *SScalingTimer) CycleTimerDetails() api.ScalingCycleTimerDetails {
 func (sa *SScalingAlarm) AlarmDetails() api.ScalingAlarmDetails {
 	return api.ScalingAlarmDetails{
 		Cumulate:  sa.Cumulate,
+		Cycle:     sa.Cycle,
 		Indicator: sa.Indicator,
 		Wrapper:   sa.Wrapper,
 		Operator:  sa.Operator,
@@ -269,7 +303,7 @@ func (st *SScalingTimer) Register(ctx context.Context, userCred mcclient.TokenCr
 
 func (st *SScalingTimer) UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := st.Delete(ctx, userCred)
-	if err == nil {
+	if err != nil {
 		return errors.Wrap(err, "SScalingTimer.Delete")
 	}
 	return nil
@@ -291,7 +325,7 @@ func (st *SScalingTimer) Description() string {
 	case api.TIMER_TYPE_MONTH:
 		detail = st.MonthDaysDesc()
 	}
-	return fmt.Sprintf("Schedule task(%s)", detail)
+	return fmt.Sprintf(`Schedule task(%s) execute scaling policy "%s"`, detail, st.ScalingPolicyId)
 }
 
 func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) (api.ScalingPolicyCreateInput, error) {
@@ -324,9 +358,9 @@ func (sa *SScalingAlarm) TriggerId() string {
 
 func (sa *SScalingAlarm) Description() string {
 	return fmt.Sprintf(
-		"Alarm task(the %s %s of the instance is %s than %d%s)",
+		`Alarm task(the %s %s of the instance is %s than %d%s) execute scaling policy "%s"`,
 		descs[sa.Wrapper], descs[sa.Indicator], descs[sa.Operator],
-		sa.Value, units[sa.Indicator],
+		sa.Value, units[sa.Indicator], sa.ScalingPolicyId,
 	)
 }
 
@@ -347,8 +381,8 @@ var descs = map[string]string{
 var units = map[string]string{
 	api.INDICATOR_CPU:        "%",
 	api.INDICATOR_MEM:        "%",
-	api.INDICATOR_DISK_READ:  "kb/s",
-	api.INDICATOR_DISK_WRITE: "kb/s",
+	api.INDICATOR_DISK_READ:  "kB/s",
+	api.INDICATOR_DISK_WRITE: "kB/s",
 	api.INDICATOR_FLOW_INTO:  "KB/s",
 	api.INDICATOR_FLOW_OUT:   "KB/s",
 }

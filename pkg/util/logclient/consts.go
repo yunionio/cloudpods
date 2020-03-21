@@ -186,4 +186,6 @@ const (
 	ACT_FLUSH_INSTANCE = "清空数据"
 
 	ACT_UPDATE_STATUS = "更新状态"
+
+	ACT_REMOVE_GUEST = "移除实例"
 )

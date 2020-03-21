@@ -75,6 +75,11 @@ func InitHandlers(app *appsrv.Application) {
 		models.GroupguestManager,
 
 		models.CloudproviderCapabilityManager,
+
+		models.ScalingTimerManager,
+		models.ScalingAlarmManager,
+		models.ScalingGroupGuestManager,
+		models.ScalingGroupNetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
@@ -162,6 +167,10 @@ func InitHandlers(app *appsrv.Application) {
 		models.GuestTemplateManager,
 		models.ServiceCatalogManager,
 		models.CloudproviderQuotaManager,
+
+		models.ScalingGroupManager,
+		models.ScalingPolicyManager,
+		models.ScalingActivityManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

@@ -4,88 +4,102 @@ import "time"
 
 type ScalingTimerCreateInput struct {
 
-	// description: execute time
+	// description: 执行时间
 	ExecTime time.Time
 }
 
 type ScalingCycleTimerCreateInput struct {
 
-	// description: cycle type
+	// description: 周期类型
 	// enum: day,week,month
-	CycleType string
+	CycleType string `json:"cycle_type""`
 
-	// description: minute(0-59)
+	// description: 分(0-59)
 	// example: 13
-	Minute int
+	Minute int `json:"minute"`
 
-	// description: hour(0-23)
+	// description: 时(0-23)
 	// example: 13
-	Hour int
+	Hour int `json:"hour"`
 
-	// description: repeat weekdays; 1-7, 1: Monday, 7: Sunday
+	// description: 每周的周几; 1-7, 1: Monday, 7: Sunday
 	// example: [1,3,5,7]
-	WeekDays []int
+	WeekDays []int `json:"week_days"`
 
-	// description: repeat monthdays; 1-31
+	// description: 每月的哪几天; 1-31
 	// example: [1,4,31]
-	MonthDays []int
+	MonthDays []int `json:"month_days"`
 
-	// description: end time
-	EndTime time.Time
+	// description: 开始时间
+	StartTime time.Time `json:"start_time"`
+
+	// description: 截止时间
+	EndTime time.Time `json:"end_time"`
 }
 
 type ScalingAlarmCreateInput struct {
 
-	// description: The scaling activity will be triggered after cumulate consecutive alarms
+	// description: 累计次数(报警次数达到此累计次数就会触发伸缩活动)
 	// example: 1
-	Cumulate int
+	Cumulate int `json:"cumulate"`
 
-	// description: Monitoring indicators
+	// description: 监控周期，单位s
+	// example: 300
+	Cycle int `json:"cycle"`
+
+	// description: 监控指标
 	// example: cpu
-	Indicator string
+	// enum: cpu,disk_read,disk_write,flow_into,flow_out
+	Indicator string `json:"indicator"`
 
-	// description: Wrapper instruct how to calculate collective data based on individual data
+	// description: 监控指标的取值方式(比如最大值，最小值，平均值)
 	// example: max
-	Wrapper string
+	// enum: max,min,average
+	Wrapper string `json:"wrapper"`
 
-	// descritpion: Operator represent the relation of Indicator and value
+	// descripion: 监控指标的比较符
 	// example: ge
-	Operator string
+	// enum: ge,le
+	Operator string `json:"operator"`
 
-	// descritption: Threshold value(percentage)
+	// description: 监控指标的取值
 	// example: 3
-	Value int
+	Value int `json:"value"`
 }
 
 type ScalingTimerDetails struct {
-	// 执行时间
+	// description: 执行时间
 	ExecTime time.Time `json:"exec_time"`
 }
 
 type ScalingCycleTimerDetails struct {
-	// 周期类型：按天/周/月
+	// description: 周期类型：按天/周/月
 	CycleType string `json:"cycle_type"`
-	// 分钟
+	// description: 分钟
 	Minute int `json:"minute"`
-	// 小时
+	// description: 小时
 	Hour int `json:"hour"`
-	// 每周的几天
+	// description: 每周的几天
 	WeekDays []int `json:"week_day"`
-	// 每月的几天
+	// description: 每月的几天
 	MonthDays []int `json:"month_day"`
-	// 此周期任务的截止时间
+	// description: 此周期任务的开始时间
+	StartTime time.Time `json:"start_time"`
+	// description: 此周期任务的截止时间
 	EndTime time.Time `json:"end_time"`
 }
 
 type ScalingAlarmDetails struct {
-	// 累计次数，只有到达累计次数的报警才会触发伸缩活动
+	// description: 累计次数，只有到达累计次数的报警才会触发伸缩活动
 	Cumulate int `json:"cumulate"`
-	// 指标
+	// description: 监控周期
+	Cycle int `json:"cycle"`
+	// description: 指标
 	Indicator string `json:"indicator"`
-	// 指标的取值方式，最大值/最小值/平均值
+	// description: 指标的取值方式，最大值/最小值/平均值
 	Wrapper string `json:"wrapper"`
-	// 指标和阈值之间的比较关系，>=/<=
+	// description: 指标和阈值之间的比较关系，>=/<=
 	Operator string `json:"operator"`
-	// 阈值
+	// description: 阈值
 	Value int `json:"value"`
 }
