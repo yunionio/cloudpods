@@ -863,6 +863,10 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	accountIds := make([]string, len(objs))
 	for i := range rows {
 		provider := objs[i].(*SCloudprovider)
+		accountId := provider.CloudaccountId
+		if !utils.IsInStringArray(accountId) {
+			accountIds = append(accountIds, accountId)
+		}
 		rows[i] = api.CloudproviderDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			ProjectizedResourceInfo:                projRows[i],
