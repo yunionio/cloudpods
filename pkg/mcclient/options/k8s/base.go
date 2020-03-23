@@ -28,6 +28,21 @@ func (o ClusterBaseOptions) Params() *jsonutils.JSONDict {
 	return ret
 }
 
+type ClusterResourceBaseOptions struct {
+	ClusterBaseOptions
+	NAME string `help:"Name of resource"`
+}
+
+type ClusterResourceCreateOptions struct {
+	ClusterResourceBaseOptions
+}
+
+func (o ClusterResourceCreateOptions) Params() *jsonutils.JSONDict {
+	params := o.ClusterBaseOptions.Params()
+	params.Add(jsonutils.NewString(o.NAME), "name")
+	return params
+}
+
 type BaseListOptions struct {
 	Limit  int    `default:"20" help:"Page limit"`
 	Offset int    `default:"0" help:"Page offset"`
