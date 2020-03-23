@@ -212,6 +212,7 @@ docker-centos-build:
 		--name onecloud-ci-build \
 		--rm \
 		--volume $(CURDIR):/root/onecloud \
+		--volume $(CURDIR)/_output/_cache:/root/.cache \
 		registry.cn-beijing.aliyuncs.com/yunionio/centos-build:$(DOCKER_BUILD_IMAGE_VERSION) \
 		/bin/bash -c "$$dockerCentOSBuildCmd"
 	chown -R $$(id -u):$$(id -g) _output
@@ -242,6 +243,7 @@ docker-alpine-build:
 		--name onecloud-docker-alpine-build \
 		-v $(CURDIR):/root/go/src/yunion.io/x/onecloud \
 		-v $(CURDIR)/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
+		-v $(CURDIR)/_output/alpine-build/_cache:/root/.cache \
 		registry.cn-beijing.aliyuncs.com/yunionio/alpine-build:1.0-1 \
 		/bin/sh -c "$$dockerAlpineBuildCmd"
 	ls -lh _output/alpine-build/bin
