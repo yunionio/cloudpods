@@ -368,12 +368,7 @@ func (self *SBaremetalGuestDriver) RequestSyncstatusOnHost(ctx context.Context, 
 }
 
 func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerSyncStatusTask", guest, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
+	return models.StartResourceSyncStatusTask(ctx, userCred, guest, "BaremetalServerSyncStatusTask", parentTaskId)
 }
 
 func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {

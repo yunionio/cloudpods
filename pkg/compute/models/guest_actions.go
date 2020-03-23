@@ -2628,7 +2628,6 @@ func (self *SGuest) PerformSyncstatus(ctx context.Context, userCred mcclient.Tok
 		return nil, httperrors.NewBadRequestError("Guest has %d task active, can't sync status", count)
 	}
 
-	self.SetStatus(userCred, api.VM_SYNCING_STATUS, "perform_syncstatus")
 	return nil, self.StartSyncstatus(ctx, userCred, "")
 }
 

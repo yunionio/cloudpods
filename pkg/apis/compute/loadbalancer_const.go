@@ -48,9 +48,6 @@ const (
 	LB_SYNC_CONF        = "sync_conf"
 	LB_SYNC_CONF_FAILED = "sync_conf_failed"
 
-	LB_SYNC_STATUS        = "sync_status"
-	LB_SYNC_STATUS_FAILED = "sync_status_failed"
-
 	LB_STATUS_DELETING      = "deleting"
 	LB_STATUS_DELETE_FAILED = "delete_failed"
 	LB_STATUS_DELETED       = "deleted"

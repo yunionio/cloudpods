@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	SYNCING_STATUS = "syncing"
+	SYNC_STATUS = "sync_status"
 )
 
 type IStatusBase interface {
@@ -45,7 +45,7 @@ func StartResourceSyncStatusTask(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return err
 	}
-	obj.SetStatus(userCred, SYNCING_STATUS, "perform_syncstatus")
+	obj.SetStatus(userCred, SYNC_STATUS, "perform_syncstatus")
 	task.ScheduleRun(nil)
 	return nil
 }

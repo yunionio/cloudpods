@@ -36,7 +36,6 @@ const (
 	DBINSTANCE_RENEWING     = "renewing"     //续费中
 	DBINSTANCE_RENEW_FAILED = "renew_failed" //续费失败
 
-	DBINSTANCE_SYNC_STATUS = "sync_status" //同步状态
 	DBINSTANCE_SYNC_CONFIG = "sync_config" //同步配置
 
 	DBINSTANCE_REBOOT_FAILED = "reboot_failed" //重启失败
@@ -45,14 +44,13 @@ const (
 	DBINSTANCE_FAILE = "failed" //操作失败
 
 	//备份状态
-	DBINSTANCE_BACKUP_READY          = "ready"         //正常
-	DBINSTANCE_BACKUP_CREATING       = "creating"      //创建中
-	DBINSTANCE_BACKUP_CREATE_FAILED  = "create_failed" //创建失败
-	DBINSTANCE_BACKUP_DELETING       = "deleting"      //删除中
-	DBINSTANCE_BACKUP_DELETE_FAILED  = "delete_failed" //删除失败
-	DBINSTANCE_BACKUP_FAILED         = "failed"        //异常
-	DBINSTANCE_BACKUP_SYNCING_STATUS = "syncing"       //同步状态
-	DBINSTANCE_BACKUP_UNKNOWN        = "unknown"       //未知
+	DBINSTANCE_BACKUP_READY         = "ready"         //正常
+	DBINSTANCE_BACKUP_CREATING      = "creating"      //创建中
+	DBINSTANCE_BACKUP_CREATE_FAILED = "create_failed" //创建失败
+	DBINSTANCE_BACKUP_DELETING      = "deleting"      //删除中
+	DBINSTANCE_BACKUP_DELETE_FAILED = "delete_failed" //删除失败
+	DBINSTANCE_BACKUP_FAILED        = "failed"        //异常
+	DBINSTANCE_BACKUP_UNKNOWN       = "unknown"       //未知
 
 	//备份模式
 	BACKUP_MODE_AUTOMATED = "automated" //自动

@@ -45,8 +45,6 @@ func (self *VpcSyncstatusTask) taskFail(ctx context.Context, vpc *models.SVpc, m
 func (self *VpcSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
 
-	vpc.SetStatus(self.UserCred, api.VPC_STATUS_SYNCING, "synchronize")
-
 	extVpc, err := vpc.GetIVpc()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ICloudVpc for vpc %s", err)

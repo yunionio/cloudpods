@@ -1095,7 +1095,6 @@ func (bucket *SBucket) PerformSyncstatus(
 		return nil, httperrors.NewBadRequestError("Bucket has %d task active, can't sync status", count)
 	}
 
-	bucket.SetStatus(userCred, api.BUCKET_STATUS_SYNCING_STATUS, "perform_syncstatus")
 	return nil, StartResourceSyncStatusTask(ctx, userCred, bucket, "BucketSyncstatusTask", "")
 }
 
