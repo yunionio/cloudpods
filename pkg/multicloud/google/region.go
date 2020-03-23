@@ -35,6 +35,7 @@ type SRegion struct {
 	client *SGoogleClient
 
 	capabilities []string
+	Quotas       []SQuota
 
 	Description       string
 	ID                string

@@ -15,22 +15,19 @@
 package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
+	"yunion.io/x/onecloud/pkg/multicloud/zstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
+	type QuotaListOptions struct {
 	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
+	shellutils.R(&QuotaListOptions{}, "quota-list", "List quotas", func(cli *zstack.SRegion, args *QuotaListOptions) error {
+		quotas, err := cli.GetQuotas()
 		if err != nil {
-			printObject(err)
-			return nil
+			return err
 		}
-
-		printList(routetables, 0, 0, 0, nil)
+		printList(quotas, 0, 0, 0, nil)
 		return nil
 	})
 }
