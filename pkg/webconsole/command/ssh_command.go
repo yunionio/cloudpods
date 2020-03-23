@@ -94,7 +94,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 	}
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), time.Second*2)
 	if err != nil {
-		return nil, fmt.Errorf("IPAddress %s:%d not accessable", ip, port)
+		return nil, fmt.Errorf("IPAddress %s:%d not accessible", ip, port)
 	}
 	defer conn.Close()
 
