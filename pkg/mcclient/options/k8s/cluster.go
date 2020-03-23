@@ -235,3 +235,78 @@ func (o KubeClusterDeleteMachinesOptions) Params() (*jsonutils.JSONDict, error) 
 	params.Add(machinesArray, "machines")
 	return params, nil
 }
+
+type ClusterComponentOptions struct {
+	IdentOptions
+}
+
+func (o ClusterComponentOptions) Params(typ string) *jsonutils.JSONDict {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(typ), "type")
+	return params
+}
+
+type ClusterComponentTypeOptions struct {
+	IdentOptions
+	TYPE string `help:"component type"`
+}
+
+type ClusterEnableComponentCephCSIOpt struct {
+	ClusterComponentOptions
+	ClusterId string   `help:"Ceph cluster id"`
+	Monitor   []string `help:"Ceph monitor, format is 'ip:port'"`
+}
+
+func (o ClusterEnableComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) {
+	params := o.ClusterComponentOptions.Params("cephCSI")
+	conf := jsonutils.NewDict()
+	clusterConfs := jsonutils.NewArray()
+	clusterConf := jsonutils.NewDict()
+	clusterConf.Add(jsonutils.NewString(o.ClusterId), "clusterId")
+	mons := jsonutils.NewArray()
+	for _, m := range o.Monitor {
+		mons.Add(jsonutils.NewString(m))
+	}
+	clusterConf.Add(mons, "monitors")
+	clusterConfs.Add(clusterConf)
+	conf.Add(clusterConfs, "config")
+	params.Add(conf, "cephCSI")
+	return params, nil
+}
+
+type ClusterDisableComponent struct {
+	ClusterComponentOptions
+	TYPE string `help:"component type"`
+}
+
+func (o ClusterDisableComponent) Params() *jsonutils.JSONDict {
+	p := o.ClusterComponentOptions.Params(o.TYPE)
+	return p
+}
+
+type ClusterUpdateComponentCephCSIOpt struct {
+	ClusterComponentOptions
+	ClusterId string   `help:"Ceph cluster id"`
+	Monitor   []string `help:"Ceph monitor, format is 'ip:port'"`
+}
+
+func (o ClusterUpdateComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) {
+	params := o.ClusterComponentOptions.Params("cephCSI")
+	conf := jsonutils.NewDict()
+	clusterConfs := jsonutils.NewArray()
+	clusterConf := jsonutils.NewDict()
+	if o.ClusterId != "" {
+		clusterConf.Add(jsonutils.NewString(o.ClusterId), "clusterId")
+	}
+	mons := jsonutils.NewArray()
+	for _, m := range o.Monitor {
+		mons.Add(jsonutils.NewString(m))
+	}
+	if mons.Length() != 0 {
+		clusterConf.Add(mons, "monitors")
+	}
+	clusterConfs.Add(clusterConf)
+	conf.Add(clusterConfs, "config")
+	params.Add(conf, "cephCSI")
+	return params, nil
+}

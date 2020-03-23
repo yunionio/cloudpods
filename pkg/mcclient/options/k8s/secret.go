@@ -51,3 +51,33 @@ func (o RegistrySecretCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	return params, nil
 }
+
+type SecretCreateOptions struct {
+	NamespaceWithClusterOptions
+	NAME string `help:"Name of secret"`
+}
+
+func (o SecretCreateOptions) Params(typ string) (*jsonutils.JSONDict, error) {
+	params := o.NamespaceWithClusterOptions.Params()
+	params.Add(jsonutils.NewString(o.NAME), "name")
+	params.Add(jsonutils.NewString(typ), "type")
+	return params, nil
+}
+
+type CephCSISecretCreateOptions struct {
+	SecretCreateOptions
+	USERID  string `help:"User id"`
+	USERKEY string `help:"User key"`
+}
+
+func (o CephCSISecretCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.SecretCreateOptions.Params("yunion.io/ceph-csi")
+	if err != nil {
+		return nil, err
+	}
+	conf := jsonutils.NewDict()
+	conf.Add(jsonutils.NewString(o.USERID), "userId")
+	conf.Add(jsonutils.NewString(o.USERKEY), "userKey")
+	params.Add(conf, "cephCSI")
+	return params, nil
+}

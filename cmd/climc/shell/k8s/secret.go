@@ -58,4 +58,23 @@ func initSecret() {
 			return nil
 		})
 	registryCmd.AddR(createCmd)
+
+	cephCSICmd := NewCmdNameFactory("secret-ceph-csi")
+	cephCSICreateCmd := NewCommand(
+		&o.CephCSISecretCreateOptions{},
+		cephCSICmd.Do("create"),
+		"Create ceph csi user secret",
+		func(s *mcclient.ClientSession, args *o.CephCSISecretCreateOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := k8s.Secrets.Create(s, params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
+	secretCmd.AddR(cephCSICreateCmd)
 }
