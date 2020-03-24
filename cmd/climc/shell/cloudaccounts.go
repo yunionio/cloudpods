@@ -988,4 +988,22 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ClouaccountChangeOwnerOptions struct {
+		ID            string `help:"ID or name of cloudaccount" json:"-"`
+		ProjectDomain string `json:"project_domain" help:"target domain"`
+	}
+	R(&ClouaccountChangeOwnerOptions{}, "cloud-account-change-owner", "Change owner domain of cloudaccount", func(s *mcclient.ClientSession, args *ClouaccountChangeOwnerOptions) error {
+		if len(args.ProjectDomain) == 0 {
+			return fmt.Errorf("empty project_domain")
+		}
+		params := jsonutils.Marshal(args)
+		ret, err := modules.Cloudaccounts.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 }

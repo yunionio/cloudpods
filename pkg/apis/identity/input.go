@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -334,4 +335,66 @@ type ServiceListInput struct {
 
 	// 是否启用/禁用
 	Enabled *bool `json:"enabled"`
+}
+
+type IdentityBaseUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+}
+
+type EnabledIdentityBaseUpdateInput struct {
+	IdentityBaseUpdateInput
+
+	// 是否启用
+	Enabled *bool `json:"enabled"`
+}
+
+type GroupUpdateInput struct {
+	IdentityBaseUpdateInput
+
+	// display name
+	Displayname string `json:"displayname"`
+}
+
+type IdentityProviderUpdateInput struct {
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+
+	TargetDomainId string `json:"target_domain_id"`
+
+	AutoCreateProject *bool `json:"auto_create_project"`
+
+	SyncIntervalSeconds *int `json:"sync_interval_seconds"`
+}
+
+type PolicyUpdateInput struct {
+	EnabledIdentityBaseUpdateInput
+
+	Type string `json:"type"`
+
+	Blob jsonutils.JSONObject `json:"blob"`
+}
+
+type ProjectUpdateInput struct {
+	IdentityBaseUpdateInput
+}
+
+type RoleUpdateInput struct {
+	IdentityBaseUpdateInput
+}
+
+type UserUpdateInput struct {
+	EnabledIdentityBaseUpdateInput
+
+	Email string `json:"email"`
+
+	Mobile string `json:"mobile"`
+
+	Displayname string `json:"displayname"`
+
+	IsSystemAccount *bool `json:"is_system_account"`
+
+	AllowWebConsole *bool `json:"allow_web_console"`
+
+	EnableMfa *bool `json:"enable_mfa"`
+
+	Password string `json:"password"`
 }

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -58,7 +60,7 @@ import (
 )
 
 type SHostManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
@@ -68,7 +70,7 @@ var HostManager *SHostManager
 
 func init() {
 	HostManager = &SHostManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SHost{},
 			"hosts_tbl",
 			"host",
@@ -80,7 +82,7 @@ func init() {
 }
 
 type SHost struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SEnabledStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 	SZoneResourceBase
 	SManagedResourceBase
@@ -227,9 +229,9 @@ func (manager *SHostManager) ListItemFilter(
 		}
 	}
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	anyMac := query.AnyMac
@@ -436,9 +438,9 @@ func (manager *SHostManager) OrderByExtraFields(
 	query api.HostListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -453,7 +455,7 @@ func (manager *SHostManager) OrderByExtraFields(
 
 func (manager *SHostManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -610,7 +612,7 @@ func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) erro
 		}
 
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SHost) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -677,7 +679,7 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 			store.Delete(ctx, userCred)
 		}
 	}
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SHost) GetHoststoragesQuery() *sqlchemy.SQuery {
@@ -1183,6 +1185,18 @@ func (self *SHost) GetAttachedLocalStorageCapacity() SStorageCapacity {
 	return ret
 }
 
+func (self *SHost) GetAttachedLocalStorages() []SStorage {
+	ret := make([]SStorage, 0)
+	storages := self.GetAttachedStorages("")
+	for _, s := range storages {
+		if !utils.IsInStringArray(s.StorageType, api.HOST_STORAGE_LOCAL_TYPES) {
+			continue
+		}
+		ret = append(ret, s)
+	}
+	return ret
+}
+
 func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 	var best *SStorage
 	var bestCap int64
@@ -1505,7 +1519,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i])
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider.GetOwnerId())
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1551,7 +1565,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extHost.GetName()
 
@@ -1596,6 +1610,8 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+
+	SyncCloudDomain(userCred, self, syncOwnerId)
 
 	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
@@ -1693,6 +1709,9 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.IsMaintenance = extHost.GetIsMaintenance()
 	host.Version = extHost.GetVersion()
 
+	host.IsPublic = false
+	host.PublicScope = string(rbacutils.ScopeNone)
+
 	err = manager.TableSpec().Insert(&host)
 	if err != nil {
 		log.Errorf("newFromCloudHost fail %s", err)
@@ -1700,6 +1719,8 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	}
 
 	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
+
+	SyncCloudDomain(userCred, &host, provider.GetOwnerId())
 
 	if err := manager.ClearSchedDescCache(host.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", host.Name, err)
@@ -1802,7 +1823,7 @@ func (self *SHost) syncWithCloudHostStorage(ctx context.Context, userCred mcclie
 		return err
 	}
 	s := hs.GetStorage()
-	err = s.syncWithCloudStorage(ctx, userCred, extStorage)
+	err = s.syncWithCloudStorage(ctx, userCred, extStorage, nil)
 	return err
 }
 
@@ -2550,12 +2571,12 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.HostDetails {
 	rows := make([]api.HostDetails, len(objs))
-	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.HostDetails{
-			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 			ZoneResourceInfo:                       zoneRows[i],
 		}
@@ -2642,37 +2663,50 @@ func (self *SHost) GetStoragecache() *SStoragecache {
 	return nil
 }
 
-func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	kwargs := data.(*jsonutils.JSONDict)
-	ipmiInfo, err := fetchIpmiInfo(kwargs, self.Id)
+func (self *SHost) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	input := api.HostCreateInput{}
+	err := data.Unmarshal(&input)
 	if err != nil {
-		log.Errorln(err.Error())
-	} else if ipmiInfo.Length() > 0 {
+		log.Errorf("data.Unmarshal fail %s", err)
+		return
+	}
+	kwargs := data.(*jsonutils.JSONDict)
+	ipmiInfo, err := fetchIpmiInfo(input.HostIpmiAttributes, self.Id)
+	if err != nil {
+		log.Errorf("fetchIpmiInfo fail %s", err)
+		return
+	}
+	ipmiInfoJson := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+	if ipmiInfoJson.Length() > 0 {
 		_, err := self.SaveUpdates(func() error {
-			self.IpmiInfo = ipmiInfo
+			self.IpmiInfo = ipmiInfoJson
 			return nil
 		})
 		if err != nil {
 			log.Errorln(err.Error())
-		} else {
-			ipmiIp, _ := ipmiInfo.GetString("ip_addr")
-			if len(ipmiIp) > 0 {
-				self.setIpmiIp(userCred, ipmiIp)
-			}
+		} else if len(ipmiInfo.IpAddr) > 0 {
+			self.setIpmiIp(userCred, ipmiInfo.IpAddr)
 		}
 	}
-	accessIp, _ := data.GetString("access_ip")
-	if len(accessIp) > 0 {
-		self.setAccessIp(userCred, accessIp)
+	if len(input.AccessIp) > 0 {
+		self.setAccessIp(userCred, input.AccessIp)
 	}
-	accessMac, _ := data.GetString("access_mac")
-	if len(accessMac) > 0 {
-		self.setAccessMac(userCred, accessMac)
+	if len(input.AccessMac) > 0 {
+		self.setAccessMac(userCred, input.AccessMac)
 	}
-	noProbe := jsonutils.QueryBoolean(data, "no_probe", false)
+	noProbe := false
+	if input.NoProbe != nil {
+		noProbe = *input.NoProbe
+	}
 	if len(self.ZoneId) > 0 && self.HostType == api.HOST_TYPE_BAREMETAL && !noProbe {
-		ipmiInfo, _ := self.GetIpmiInfo()
+		// ipmiInfo, _ := self.GetIpmiInfo()
 		if len(ipmiInfo.IpAddr) > 0 {
 			self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
 		}
@@ -2689,49 +2723,51 @@ func (self *SHost) StartBaremetalCreateTask(ctx context.Context, userCred mcclie
 	}
 }
 
-func (manager *SHostManager) ValidateSizeParams(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	memStr, _ := data.GetString("mem_size")
+func (manager *SHostManager) ValidateSizeParams(input api.HostSizeAttributes) (api.HostSizeAttributes, error) {
+	memStr := input.MemSize
 	if len(memStr) > 0 {
 		if !regutils.MatchSize(memStr) {
-			return nil, fmt.Errorf("Memory size must be number[+unit], like 256M, 1G or 256")
+			return input, errors.Wrap(httperrors.ErrInputParameter, "Memory size must be number[+unit], like 256M, 1G or 256")
 		}
 		memSize, err := fileutils.GetSizeMb(memStr, 'M', 1024)
 		if err != nil {
-			return nil, err
+			return input, errors.Wrap(err, "fileutils.GetSizeMb")
 		}
-		data.Set("mem_size", jsonutils.NewInt(int64(memSize)))
+		input.MemSize = strconv.FormatInt(int64(memSize), 10)
+		// data.Set("mem_size", jsonutils.NewInt(int64(memSize)))
 	}
-	memReservedStr, _ := data.GetString("mem_reserved")
+	memReservedStr := input.MemReserved
 	if len(memReservedStr) > 0 {
 		if !regutils.MatchSize(memReservedStr) {
-			return nil, fmt.Errorf("Memory size must be number[+unit], like 256M, 1G or 256")
+			return input, errors.Wrap(httperrors.ErrInputParameter, "Memory size must be number[+unit], like 256M, 1G or 256")
 		}
 		memSize, err := fileutils.GetSizeMb(memReservedStr, 'M', 1024)
 		if err != nil {
-			return nil, err
+			return input, errors.Wrap(err, "fileutils.GetSizeMb")
 		}
-		data.Set("mem_reserved", jsonutils.NewInt(int64(memSize)))
+		input.MemReserved = strconv.FormatInt(int64(memSize), 10)
+		// data.Set("mem_reserved", jsonutils.NewInt(int64(memSize)))
 	}
-	cpuCacheStr, _ := data.GetString("cpu_cache")
+	cpuCacheStr := input.CpuCache
 	if len(cpuCacheStr) > 0 {
 		if !regutils.MatchSize(cpuCacheStr) {
-			return nil, fmt.Errorf("Illegal cpu cache size %s", cpuCacheStr)
+			return input, errors.Wrapf(httperrors.ErrInputParameter, "Illegal cpu cache size %s", cpuCacheStr)
 		}
 		cpuCache, err := fileutils.GetSizeKb(cpuCacheStr, 'K', 1024)
 		if err != nil {
-			return nil, err
+			return input, errors.Wrap(err, "fileutils.GetSizeKb")
 		}
-		data.Set("cpu_cache", jsonutils.NewInt(int64(cpuCache)))
+		input.CpuCache = strconv.FormatInt(int64(cpuCache), 10)
+		// data.Set("cpu_cache", jsonutils.NewInt(int64(cpuCache)))
 	}
-	return data, nil
+	return input, nil
 }
 
-func (manager *SHostManager) inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string) (*jsonutils.JSONDict, error) {
-	for _, key := range []string{
-		"manager_uri",
-		"access_ip",
+func (manager *SHostManager) inputUniquenessCheck(input api.HostAccessAttributes, zoneId string, hostId string) (api.HostAccessAttributes, error) {
+	for key, val := range map[string]string{
+		"manager_uri": input.ManagerUri,
+		"access_ip":   input.AccessIp,
 	} {
-		val, _ := data.GetString(key)
 		if len(val) > 0 {
 			q := manager.Query().Equals(key, val)
 			if len(zoneId) > 0 {
@@ -2744,19 +2780,19 @@ func (manager *SHostManager) inputUniquenessCheck(data *jsonutils.JSONDict, zone
 			}
 			cnt, err := q.CountWithError()
 			if err != nil {
-				return nil, httperrors.NewInternalServerError("check %s duplication fail %s", key, err)
+				return input, httperrors.NewInternalServerError("check %s duplication fail %s", key, err)
 			}
 			if cnt > 0 {
-				return nil, httperrors.NewConflictError("duplicate %s %s", key, val)
+				return input, httperrors.NewConflictError("duplicate %s %s", key, val)
 			}
 		}
 	}
 
-	accessMac, _ := data.GetString("access_mac")
+	accessMac := input.AccessMac
 	if len(accessMac) > 0 {
 		accessMac2 := netutils.FormatMacAddr(accessMac)
 		if len(accessMac2) == 0 {
-			return nil, httperrors.NewInputParameterError("invalid macAddr %s", accessMac)
+			return input, httperrors.NewInputParameterError("invalid macAddr %s", accessMac)
 		}
 		if accessMac2 != api.ACCESS_MAC_ANY {
 			q := manager.Query().Equals("access_mac", accessMac2)
@@ -2765,71 +2801,76 @@ func (manager *SHostManager) inputUniquenessCheck(data *jsonutils.JSONDict, zone
 			}
 			cnt, err := q.CountWithError()
 			if err != nil {
-				return nil, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
+				return input, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
 			}
 			if cnt > 0 {
-				return nil, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
+				return input, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
 			}
-			data.Set("access_mac", jsonutils.NewString(accessMac2))
+			input.AccessMac = accessMac2
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
-func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	zoneId, zoneKey := jsonutils.GetAnyString2(data, []string{"zone_id", "zone"})
-	if len(zoneId) > 0 {
-		data.Remove(zoneKey)
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
+func (manager *SHostManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.HostCreateInput,
+) (api.HostCreateInput, error) {
+	var err error
+
+	if len(input.Zone) > 0 {
+		zoneObj, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneId)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return input, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		zoneId = zoneObj.GetId()
-		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
+		input.Zone = zoneObj.GetId()
 	}
 
-	noProbe := jsonutils.QueryBoolean(data, "no_probe", false)
-
-	data, err := manager.inputUniquenessCheck(data, zoneId, "")
-	if err != nil {
-		return nil, err
+	noProbe := false
+	if input.NoProbe != nil {
+		noProbe = *input.NoProbe
 	}
 
-	data, err = manager.ValidateSizeParams(data)
+	input.HostAccessAttributes, err = manager.inputUniquenessCheck(input.HostAccessAttributes, input.Zone, "")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return input, errors.Wrap(err, "manager.inputUniquenessCheck")
 	}
-	memReserved, err := data.Int("mem_reserved")
+
+	input.HostSizeAttributes, err = manager.ValidateSizeParams(input.HostSizeAttributes)
 	if err != nil {
-		hostType, _ := data.GetString("host_type")
-		if hostType != api.HOST_TYPE_BAREMETAL {
-			memSize, _ := data.Int("mem_size")
-			memReserved = memSize / 8
+		return input, errors.Wrap(err, "manager.ValidateSizeParams")
+	}
+
+	if len(input.MemReserved) == 0 {
+		if input.HostType != api.HOST_TYPE_BAREMETAL {
+			memSize, _ := strconv.ParseInt(input.MemSize, 10, 64)
+			memReserved := memSize / 8
 			if memReserved > 4096 {
 				memReserved = 4096
 			}
-			data.Set("mem_reserved", jsonutils.NewInt(memReserved))
+			input.MemReserved = strconv.FormatInt(memReserved, 10)
+			// data.Set("mem_reserved", jsonutils.NewInt(memReserved))
 		} else {
-			data.Set("mem_reserved", jsonutils.NewInt(0))
+			input.MemReserved = "0"
+			// data.Set("mem_reserved", jsonutils.NewInt(0))
 		}
 	}
-	ipmiInfo, err := fetchIpmiInfo(data, "")
+
+	ipmiInfo, err := fetchIpmiInfo(input.HostIpmiAttributes, "")
 	if err != nil {
-		log.Errorln(err.Error())
-		return nil, httperrors.NewInputParameterError("%s", err)
+		return input, errors.Wrap(err, "fetchIpmiInfo")
 	}
-	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+	ipmiIpAddr := ipmiInfo.IpAddr
 	if len(ipmiIpAddr) == 0 {
 		noProbe = true
 	}
 	if len(ipmiIpAddr) > 0 && !noProbe {
 		net, _ := NetworkManager.GetOnPremiseNetworkOfIP(ipmiIpAddr, "", tristate.None)
 		if net == nil {
-			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+			return input, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 		}
 		// check ip has been reserved
 		rip := ReservedipManager.GetReservedIP(net, ipmiIpAddr)
@@ -2837,49 +2878,50 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 			// if not, reserve this IP temporarily
 			err := net.reserveIpWithDuration(ctx, userCred, ipmiIpAddr, "reserve for baremetal ipmi IP", 30*time.Minute)
 			if err != nil {
-				return nil, errors.Wrap(err, "net.reserveIpWithDuration")
+				return input, errors.Wrap(err, "net.reserveIpWithDuration")
 			}
 		}
 		zoneObj := net.GetZone()
 		if zoneObj == nil {
-			return nil, httperrors.NewInputParameterError("IPMI network has no zone???")
+			return input, httperrors.NewInputParameterError("IPMI network has no zone???")
 		}
-		originZoneId, _ := data.GetString("zone_id")
+		originZoneId := input.Zone
 		if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
-			return nil, httperrors.NewInputParameterError("IPMI address located in different zone than specified")
+			return input, httperrors.NewInputParameterError("IPMI address located in different zone than specified")
 		}
-		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
+		input.Zone = zoneObj.GetId()
+		// data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
 	if !noProbe {
 		var accessNet *SNetwork
-		accessIpAddr, _ := data.GetString("access_ip")
+		accessIpAddr := input.AccessIp // tString("access_ip")
 		if len(accessIpAddr) > 0 {
 			net, _ := NetworkManager.GetOnPremiseNetworkOfIP(accessIpAddr, "", tristate.None)
 			if net == nil {
-				return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", accessIpAddr)
+				return input, httperrors.NewInputParameterError("%s is out of network IP ranges", accessIpAddr)
 			}
 			accessNet = net
 		} else {
-			accessNetStr, _ := data.GetString("access_net")
+			accessNetStr := input.AccessNet // data.GetString("access_net")
 			if len(accessNetStr) > 0 {
 				netObj, err := NetworkManager.FetchByIdOrName(userCred, accessNetStr)
 				if err != nil {
 					if errors.Cause(err) == sql.ErrNoRows {
-						return nil, httperrors.NewResourceNotFoundError2("network", accessNetStr)
+						return input, httperrors.NewResourceNotFoundError2("network", accessNetStr)
 					} else {
-						return nil, httperrors.NewGeneralError(err)
+						return input, httperrors.NewGeneralError(err)
 					}
 				}
 				accessNet = netObj.(*SNetwork)
 			} else {
-				accessWireStr, _ := data.GetString("access_wire")
+				accessWireStr := input.AccessWire // data.GetString("access_wire")
 				if len(accessWireStr) > 0 {
 					wireObj, err := WireManager.FetchByIdOrName(userCred, accessWireStr)
 					if err != nil {
 						if errors.Cause(err) == sql.ErrNoRows {
-							return nil, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
+							return input, httperrors.NewResourceNotFoundError2("wire", accessWireStr)
 						} else {
-							return nil, httperrors.NewGeneralError(err)
+							return input, httperrors.NewGeneralError(err)
 						}
 					}
 					wire := wireObj.(*SWire)
@@ -2887,7 +2929,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 					defer lockman.ReleaseObject(ctx, wire)
 					net, err := wire.GetCandidatePrivateNetwork(userCred, false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
 					if err != nil {
-						return nil, httperrors.NewGeneralError(err)
+						return input, httperrors.NewGeneralError(err)
 					}
 					accessNet = net
 				}
@@ -2899,20 +2941,20 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 
 			accessIp, err := accessNet.GetFreeIP(ctx, userCred, nil, nil, accessIpAddr, api.IPAllocationNone, true)
 			if err != nil {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 
 			if len(accessIpAddr) > 0 && accessIpAddr != accessIp {
-				return nil, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
+				return input, httperrors.NewConflictError("Access ip %s has been used", accessIpAddr)
 			}
 
 			zoneObj := accessNet.GetZone()
 			if zoneObj == nil {
-				return nil, httperrors.NewInputParameterError("Access network has no zone???")
+				return input, httperrors.NewInputParameterError("Access network has no zone???")
 			}
-			originZoneId, _ := data.GetString("zone_id")
+			originZoneId := input.Zone // data.GetString("zone_id")
 			if len(originZoneId) > 0 && originZoneId != zoneObj.GetId() {
-				return nil, httperrors.NewInputParameterError("Access address located in different zone than specified")
+				return input, httperrors.NewInputParameterError("Access address located in different zone than specified")
 			}
 
 			// check ip has been reserved
@@ -2921,90 +2963,93 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 				// if not reserved, reserve this IP temporarily
 				err = accessNet.reserveIpWithDuration(ctx, userCred, accessIp, "reserve for baremetal access IP", 30*time.Minute)
 				if err != nil {
-					return nil, err
+					return input, err
 				}
 			}
-			data.Set("access_ip", jsonutils.NewString(accessIp))
-			data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
+
+			input.AccessIp = accessIp
+			input.Zone = zoneObj.GetId()
+			// data.Set("access_ip", jsonutils.NewString(accessIp))
+			// data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 		}
 	}
 	// only baremetal can be created
-	hostType, _ := data.GetString("host_type")
+	hostType := input.HostType // .GetString("host_type")
 	if len(hostType) == 0 {
 		hostType = api.HOST_TYPE_BAREMETAL
-		data.Set("host_type", jsonutils.NewString(hostType))
+		input.HostType = hostType
+		// data.Set("host_type", jsonutils.NewString(hostType))
 	}
 	if hostType == api.HOST_TYPE_BAREMETAL {
-		data.Set("is_baremetal", jsonutils.JSONTrue)
+		isBaremetal := true
+		input.IsBaremetal = &isBaremetal
+		// data.Set("is_baremetal", jsonutils.JSONTrue)
 	}
 
 	if noProbe {
-		accessMac, _ := data.GetString("access_mac")
-		uuid, _ := data.GetString("uuid")
-		if len(accessMac) == 0 && len(uuid) == 0 {
-			return nil, httperrors.NewInputParameterError("missing access_mac and uuid in no_probe mode")
+		// accessMac := input.AccessMac // data.GetString("access_mac")
+		// uuid := input.Uuid // data.GetString("uuid")
+		if len(input.AccessMac) == 0 && len(input.Uuid) == 0 {
+			return input, httperrors.NewInputParameterError("missing access_mac and uuid in no_probe mode")
 		}
 	}
 
-	input := apis.EnabledStatusStandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal EnabledStatusStandaloneCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
-func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := HostManager.inputUniquenessCheck(data, self.ZoneId, self.Id)
+func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.HostUpdateInput) (api.HostUpdateInput, error) {
+	var err error
+	input.HostAccessAttributes, err = HostManager.inputUniquenessCheck(input.HostAccessAttributes, self.ZoneId, self.Id)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "inputUniquenessCheck")
 	}
 
-	data, err = HostManager.ValidateSizeParams(data)
+	input.HostSizeAttributes, err = HostManager.ValidateSizeParams(input.HostSizeAttributes)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+		return input, errors.Wrap(err, "ValidateSizeParams")
 	}
-	ipmiInfo, err := fetchIpmiInfo(data, self.Id)
+
+	ipmiInfo, err := fetchIpmiInfo(input.HostIpmiAttributes, self.Id)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "fetchIpmiInfo")
 	}
-	if ipmiInfo.Length() > 0 {
-		ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+	ipmiInfoJson := jsonutils.Marshal(ipmiInfo).(*jsonutils.JSONDict)
+	if ipmiInfoJson.Length() > 0 {
+		ipmiIpAddr := ipmiInfo.IpAddr
 		if len(ipmiIpAddr) > 0 {
 			net, _ := NetworkManager.GetOnPremiseNetworkOfIP(ipmiIpAddr, "", tristate.None)
 			if net == nil {
-				return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+				return input, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 			}
 			zoneObj := net.GetZone()
 			if zoneObj == nil {
-				return nil, httperrors.NewInputParameterError("IPMI network has not zone???")
+				return input, httperrors.NewInputParameterError("IPMI network has not zone???")
 			}
 			if zoneObj.GetId() != self.ZoneId {
-				return nil, httperrors.NewInputParameterError("New IPMI address located in another zone!")
+				return input, httperrors.NewInputParameterError("New IPMI address located in another zone!")
 			}
 		}
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
-		val.Update(ipmiInfo)
-		data.Set("ipmi_info", val)
+		val.Update(ipmiInfoJson)
+		input.IpmiInfo = val
 	}
-	data, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.ValidateUpdateData")
 	}
-	if data.Contains("name") {
+	if len(input.Name) > 0 {
 		self.UpdateDnsRecords(false)
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("cpu_cmtbound") || data.Contains("mem_cmtbound") {
 		self.ClearSchedDescCache()
@@ -3043,33 +3088,44 @@ func (self *SHost) GetNetifName(netif *SNetInterface) string {
 	return ""
 }
 
-func fetchIpmiInfo(data *jsonutils.JSONDict, hostId string) (*jsonutils.JSONDict, error) {
-	IPMI_KEY_PERFIX := "ipmi_"
-	ipmiInfo := jsonutils.NewDict()
-	kv, _ := data.GetMap()
-	var err error
-	for key := range kv {
-		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
-			value, _ := data.GetString(key)
-			subkey := key[len(IPMI_KEY_PERFIX):]
-			if subkey == "password" && len(hostId) > 0 {
-				value, err = utils.EncryptAESBase64(hostId, value)
-				if err != nil {
-					log.Errorf("encrypt password failed %s", err)
-					return nil, err
-				}
-			} else if subkey == "ip_addr" {
-				if !regutils.MatchIP4Addr(value) {
-					msg := fmt.Sprintf("%s: %s not valid ipv4 address", key, value)
-					log.Errorf(msg)
-					err = fmt.Errorf(msg)
-					return nil, err
-				}
-			}
-			ipmiInfo.Set(subkey, jsonutils.NewString(value))
+func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo, error) {
+	info := types.SIPMIInfo{}
+	info.Username = data.IpmiUsername
+	if len(hostId) > 0 {
+		value, err := utils.EncryptAESBase64(hostId, data.IpmiPassword)
+		if err != nil {
+			log.Errorf("encrypt password failed %s", err)
+			return info, errors.Wrap(err, "utils.EncryptAESBase64")
 		}
+		info.Password = value
+	} else {
+		info.Password = data.IpmiPassword
 	}
-	return ipmiInfo, nil
+	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) {
+		msg := fmt.Sprintf("ipmi_ip_addr: %s not valid ipv4 address", data.IpmiIpAddr)
+		log.Errorf(msg)
+		return info, errors.Wrap(httperrors.ErrInvalidFormat, msg)
+	}
+	info.IpAddr = data.IpmiIpAddr
+	if data.IpmiPresent != nil {
+		info.Present = *data.IpmiPresent
+	}
+	if data.IpmiLanChannel != nil {
+		info.LanChannel = *data.IpmiLanChannel
+	}
+	if data.IpmiVerified != nil {
+		info.Verified = *data.IpmiVerified
+	}
+	if data.IpmiRedfishApi != nil {
+		info.RedfishApi = *data.IpmiRedfishApi
+	}
+	if data.IpmiCdromBoot != nil {
+		info.CdromBoot = *data.IpmiCdromBoot
+	}
+	if data.IpmiPxeBoot != nil {
+		info.PxeBoot = *data.IpmiPxeBoot
+	}
+	return info, nil
 }
 
 func (self *SHost) AllowPerformStart(ctx context.Context,
@@ -3986,7 +4042,7 @@ func (self *SHost) AllowPerformEnable(
 	query jsonutils.JSONObject,
 	input apis.PerformEnableInput,
 ) bool {
-	return self.SEnabledStatusStandaloneResourceBase.AllowPerformEnable(ctx, userCred, query, input)
+	return self.SEnabledStatusInfrasResourceBase.AllowPerformEnable(ctx, userCred, query, input)
 }
 
 func (self *SHost) PerformEnable(
@@ -3996,9 +4052,9 @@ func (self *SHost) PerformEnable(
 	input apis.PerformEnableInput,
 ) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
-		_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, input)
+		_, err := self.SEnabledStatusInfrasResourceBase.PerformEnable(ctx, userCred, query, input)
 		if err != nil {
-			return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformEnable")
+			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformEnable")
 		}
 		self.SyncAttachedStorageStatus()
 	}
@@ -4011,14 +4067,14 @@ func (self *SHost) AllowPerformDisable(
 	query jsonutils.JSONObject,
 	input apis.PerformDisableInput,
 ) bool {
-	return self.SEnabledStatusStandaloneResourceBase.AllowPerformDisable(ctx, userCred, query, input)
+	return self.SEnabledStatusInfrasResourceBase.AllowPerformDisable(ctx, userCred, query, input)
 }
 
 func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
 	if self.GetEnabled() {
-		_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, input)
+		_, err := self.SEnabledStatusInfrasResourceBase.PerformDisable(ctx, userCred, query, input)
 		if err != nil {
-			return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformDisable")
+			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformDisable")
 		}
 		self.SyncAttachedStorageStatus()
 	}
@@ -4449,7 +4505,7 @@ func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
 }
 
 func (self *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := self.SEnabledStatusStandaloneResourceBase.GetShortDesc(ctx)
+	desc := self.SEnabledStatusInfrasResourceBase.GetShortDesc(ctx)
 	info := self.getCloudProviderInfo()
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
@@ -4505,9 +4561,9 @@ func (host *SHost) GetDynamicConditionInput() *jsonutils.JSONDict {
 }
 
 func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	ret, err := host.SEnabledStatusStandaloneResourceBase.PerformStatus(ctx, userCred, query, input)
+	ret, err := host.SEnabledStatusInfrasResourceBase.PerformStatus(ctx, userCred, query, input)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.PerformStatus")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformStatus")
 	}
 	host.ClearSchedDescCache()
 	return ret, nil
@@ -4598,7 +4654,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 }
 
 func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	err := host.SEnabledStatusStandaloneResourceBase.SetStatus(userCred, status, reason)
+	err := host.SEnabledStatusInfrasResourceBase.SetStatus(userCred, status, reason)
 	if err != nil {
 		return err
 	}
@@ -4849,4 +4905,23 @@ func (self *SHost) StartSyncConfig(ctx context.Context, userCred mcclient.TokenC
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (model *SHost) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	// make host default public
+	model.IsPublic = true
+	model.PublicScope = string(rbacutils.ScopeSystem)
+	return model.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	localStorages := host.GetAttachedLocalStorages()
+	for i := range localStorages {
+		_, err := localStorages[i].PerformChangeOwner(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "local storage change owner")
+		}
+	}
+
+	return host.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
 }

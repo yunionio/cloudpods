@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 
+	"yunion.io/x/onecloud/pkg/apis"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -131,31 +133,26 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	return data, nil
 }
 
-func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("blob") {
-		blobJson, err := data.Get("blob")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid policy data")
-		}
+func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyUpdateInput) (api.PolicyUpdateInput, error) {
+	if input.Blob != nil {
 		p := rbacutils.SRbacPolicy{}
-		err = p.Decode(blobJson)
+		err := p.Decode(input.Blob)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("fail to decode policy data")
+			return input, httperrors.NewInputParameterError("fail to decode policy data")
 		}
 		/* if p.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionUpdate) == rbacutils.Deny {
 			return nil, httperrors.NewNotSufficientPrivilegeError("not allow to update system-wide policy")
 		} */
 	}
-	if data.Contains("type") {
-		typeStr, _ := data.GetString("type")
-		if len(typeStr) == 0 {
-			return nil, httperrors.NewInputParameterError("empty name")
-		}
-		if len(typeStr) > 0 {
-			data.Set("name", jsonutils.NewString(typeStr))
-		}
+	if len(input.Type) > 0 {
+		input.Name = input.Type
 	}
-	return policy.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.EnabledIdentityBaseUpdateInput, err = policy.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.EnabledIdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledIdentityBaseResource.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -173,28 +170,38 @@ func (policy *SPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCr
 	policyman.PolicyManager.SyncOnce()
 }
 
-func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.SharableAllowPerformPublic(policy, userCred)
+func (policy *SPolicy) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	return db.SharableModelIsSharable(policy, reqUsrId)
 }
 
-func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := db.SharablePerformPublic(policy, ctx, userCred, query, data)
-	if err == nil {
-		policyman.PolicyManager.SyncOnce()
+func (policy *SPolicy) IsShared() bool {
+	return db.SharableModelIsShared(policy)
+}
+
+func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+	return true
+}
+
+func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPublic(policy, ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
-	return res, err
+	policyman.PolicyManager.SyncOnce()
+	return nil, nil
 }
 
-func (policy *SPolicy) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.SharableAllowPerformPrivate(policy, userCred)
+func (policy *SPolicy) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
+	return true
 }
 
-func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := db.SharablePerformPrivate(policy, ctx, userCred, query, data)
-	if err == nil {
-		policyman.PolicyManager.SyncOnce()
+func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPrivate(policy, ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
-	return res, err
+	policyman.PolicyManager.SyncOnce()
+	return nil, nil
 }
 
 func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {

@@ -466,13 +466,14 @@ func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mc
 	return data, nil
 }
 
-func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
+func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.UserUpdateInput) (api.UserUpdateInput, error) {
+	if len(input.Name) > 0 {
 		if user.IsAdminUser() {
-			return nil, httperrors.NewForbiddenError("cannot alter sysadmin user name")
+			return input, httperrors.NewForbiddenError("cannot alter sysadmin user name")
 		}
 	}
 	if user.IsReadOnly() {
+		data := jsonutils.Marshal(input)
 		for _, k := range []string{
 			"name",
 			"enabled",
@@ -482,15 +483,15 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			"password",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	if data.Contains("password") {
-		passwd, _ := data.GetString("password")
+	if len(input.Password) > 0 {
+		passwd := input.Password
 		usrExt, err := UserManager.FetchUserExtended(user.Id, "", "", "")
 		if err != nil {
-			return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
+			return input, errors.Wrap(err, "UserManager.FetchUserExtended")
 		}
 		skipHistoryCheck := false
 		if user.IsSystemAccount.Bool() {
@@ -498,10 +499,16 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		}
 		err = PasswordManager.validatePassword(usrExt.LocalId, passwd, skipHistoryCheck)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid password: %s", err)
+			return input, httperrors.NewInputParameterError("invalid password: %s", err)
 		}
 	}
-	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.EnabledIdentityBaseUpdateInput, err = user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.EnabledIdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledIdentityBaseResource.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (user *SUser) ValidateUpdateCondition(ctx context.Context) error {

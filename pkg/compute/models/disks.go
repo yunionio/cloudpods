@@ -376,29 +376,36 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DiskUpdateInput) (api.DiskUpdateInput, error) {
+	var err error
+
+	if input.DiskType != "" {
+		if !utils.IsInStringArray(input.DiskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME}) {
+			return input, httperrors.NewInputParameterError("not support update disk_type %s", input.DiskType)
+		}
+	}
+
 	storage := self.GetStorage()
 	if storage == nil {
-		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
+		return input, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
 	}
 
 	host := storage.GetMasterHost()
 	if host == nil {
-		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
+		return input, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
 	}
 
-	if diskType, _ := data.GetString("disk_type"); diskType != "" {
-		if !utils.IsInStringArray(diskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME}) {
-			return nil, httperrors.NewInputParameterError("not support update disk_type %s", diskType)
-		}
-	}
-
-	data, err := host.GetHostDriver().ValidateUpdateDisk(ctx, userCred, data)
+	input, err = host.GetHostDriver().ValidateUpdateDisk(ctx, userCred, input)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "GetHostDriver().ValidateUpdateDisk")
 	}
 
-	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.VirtualResourceBaseUpdateInput, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func diskCreateInput2ComputeQuotaKeys(input api.DiskCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {

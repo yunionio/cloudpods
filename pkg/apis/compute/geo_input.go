@@ -18,11 +18,8 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type RegionalFilterListInput struct {
-	// 过滤位于指定城市区域的资源
-	City string `json:"city"`
-
-	// 过滤处于指定区域内的资源
+type CloudregionResourceInput struct {
+	// 区域名称或ID
 	Cloudregion string `json:"cloudregion"`
 	// swagger:ignore
 	// Deprecated
@@ -36,6 +33,13 @@ type RegionalFilterListInput struct {
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	RegionId string `json:"region_id" deprecated-by:"cloudregion"`
+}
+
+type RegionalFilterListInput struct {
+	// 过滤位于指定城市区域的资源
+	City string `json:"city"`
+
+	CloudregionResourceInput
 
 	// 按区域名称过滤
 	OrderByRegion string `json:"order_by_region"`

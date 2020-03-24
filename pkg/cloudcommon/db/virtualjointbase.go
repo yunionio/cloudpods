@@ -180,3 +180,17 @@ func (manager *SVirtualJointResourceBaseManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (self *SVirtualJointResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.VirtualJointResourceBaseUpdateInput,
+) (apis.VirtualJointResourceBaseUpdateInput, error) {
+	var err error
+	input.JointResourceBaseUpdateInput, err = self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, input.JointResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SJointResourceBase.ValidateUpdateData")
+	}
+	return input, nil
+}

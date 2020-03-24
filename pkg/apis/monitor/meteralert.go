@@ -56,6 +56,8 @@ type MeterAlertDetails struct {
 }
 
 type MeterAlertUpdateInput struct {
+	V1AlertUpdateInput
+
 	// 比较运算符, 比如: >, <, >=, <=
 	Comparator *string `json:"comparator"`
 	// 报警阀值

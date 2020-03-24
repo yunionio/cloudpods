@@ -292,12 +292,18 @@ func (self *SCloudprovider) getSyncRegionCount() (int, error) {
 	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudproviderUpdateInput) (api.CloudproviderUpdateInput, error) {
+	var err error
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
-func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
+// +onecloud:swagger-gen-ignore
+func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudproviderCreateInput) (api.CloudproviderCreateInput, error) {
+	return input, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
 }
 
 func (self *SCloudprovider) getAccessUrl() string {
@@ -559,15 +565,12 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 	return nil
 }
 
-func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) bool {
 	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
-func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	project, err := data.GetString("project")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("project")
-	}
+func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	project := input.Project
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
 	if err != nil {
@@ -583,8 +586,15 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		if !db.IsAdminAllowPerform(userCred, self, "change-project") {
 			return nil, httperrors.NewForbiddenError("not allow to change project across domain")
 		}
-		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN {
+		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN && account.DomainId != tenant.DomainId {
 			return nil, httperrors.NewInvalidStatusError("not a public cloud account")
+		}
+		// if account's public_scope=domain and share_mode=provider_domain, only allow to share to specific domains
+		if account.PublicScope == string(rbacutils.ScopeDomain) {
+			sharedDomains := account.GetSharedDomains()
+			if !utils.IsInStringArray(tenant.DomainId, sharedDomains) && account.DomainId != tenant.DomainId {
+				return nil, errors.Wrap(httperrors.ErrForbidden, "cannot set to domain outside of the shared domains")
+			}
 		}
 		// otherwise, allow change project across domain
 	}

@@ -116,3 +116,7 @@ type BucketListInput struct {
 
 type BucketSyncstatusInput struct {
 }
+
+type BucketUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+}

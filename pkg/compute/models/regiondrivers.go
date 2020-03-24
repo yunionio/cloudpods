@@ -85,7 +85,7 @@ type IRegionDriver interface {
 	RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *SLoadbalancerListenerRule, task taskman.ITask) error
 	RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *SLoadbalancerListenerRule, task taskman.ITask) error
 
-	ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
+	ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error)
 	ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error
 	RequestCreateVpc(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpc *SVpc, task taskman.ITask) error
 	RequestDeleteVpc(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpc *SVpc, task taskman.ITask) error

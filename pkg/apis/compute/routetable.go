@@ -14,11 +14,101 @@
 
 package compute
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"net"
+	"reflect"
+	"strings"
+
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/gotypes"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 type RouteTableDetails struct {
-	apis.VirtualResourceDetails
+	apis.StatusInfrasResourceBaseDetails
 	VpcResourceInfo
 
 	SRouteTable
+}
+
+type SRoute struct {
+	Type        string `json:"type"`
+	Cidr        string `json:"cidr"`
+	NextHopType string `json:"next_hop_type"`
+	NextHopId   string `json:"next_hop_id"`
+}
+
+func (route *SRoute) Validate() error {
+	if strings.Index(route.Cidr, "/") > 0 {
+		_, ipNet, err := net.ParseCIDR(route.Cidr)
+		if err != nil {
+			return errors.Wrapf(httperrors.ErrInputParameter, "net.ParseCIDR %s", err)
+		}
+		// normalize from 192.168.1.3/24 to 192.168.1.0/24
+		route.Cidr = ipNet.String()
+	} else {
+		ip := net.ParseIP(route.Cidr).To4()
+		if ip == nil {
+			return errors.Wrapf(httperrors.ErrInputParameter, "invalid addr %s", route.Cidr)
+		}
+	}
+	return nil
+}
+
+type SRoutes []*SRoute
+
+func (routes SRoutes) String() string {
+	return jsonutils.Marshal(routes).String()
+}
+
+func (routes SRoutes) IsZero() bool {
+	if len(routes) == 0 {
+		return true
+	}
+	return false
+}
+
+func (routes *SRoutes) Validate() error {
+	if routes == nil {
+		*routes = SRoutes{}
+		return nil
+	}
+
+	found := map[string]struct{}{}
+	for _, route := range *routes {
+		if err := route.Validate(); err != nil {
+			return err
+		}
+		if _, ok := found[route.Cidr]; ok {
+			// error so that the user has a chance to deal with comments
+			return httperrors.NewInputParameterError("duplicate route cidr %s", route.Cidr)
+		}
+		// TODO aliyun: check overlap with System type route
+		found[route.Cidr] = struct{}{}
+	}
+	return nil
+}
+
+type RouteTableCreateInput struct {
+	apis.StatusInfrasResourceBaseCreateInput
+
+	VpcResourceInput
+
+	Type   string   `json:"type"`
+	Routes *SRoutes `json:"routes"`
+}
+
+type RouteTableUpdateInput struct {
+	apis.StatusInfrasResourceBaseUpdateInput
+
+	Routes *SRoutes `json:"routes"`
+}
+
+func init() {
+	gotypes.RegisterSerializable(reflect.TypeOf(&SRoutes{}), func() gotypes.ISerializable {
+		return &SRoutes{}
+	})
 }

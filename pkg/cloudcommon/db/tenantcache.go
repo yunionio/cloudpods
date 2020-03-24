@@ -21,6 +21,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -115,6 +117,13 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 		q = manager.GetTenantQuery()
 	}
 	q = filter(q)
+	tcnt, err := q.CountWithError()
+	if err != nil {
+		return nil, errors.Wrap(err, "CountWithError")
+	}
+	if tcnt > 1 {
+		return nil, httperrors.ErrDuplicateName
+	}
 	tobj, err := NewModelObject(manager)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewModelObject")

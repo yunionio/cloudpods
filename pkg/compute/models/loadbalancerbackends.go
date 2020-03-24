@@ -301,10 +301,18 @@ func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, 
 }
 
 func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, err := lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
+	input, err = lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
 	region := lbb.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to found region for loadbalancer backend %s", lbb.Name)

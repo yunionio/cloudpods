@@ -39,7 +39,7 @@ const (
 )
 
 type NatGetewayListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	VpcFilterListInput
@@ -48,7 +48,7 @@ type NatGetewayListInput struct {
 }
 
 type NatEntryListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 	NatGatewayFilterListInput
 	ManagedResourceListInput
@@ -94,7 +94,7 @@ type NatGatewayFilterListInput struct {
 }
 
 type NatEntryDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.StatusInfrasResourceBaseDetails
 	NatGatewayResourceInfo
 
 	// NAT ENTRY的真实名称？？

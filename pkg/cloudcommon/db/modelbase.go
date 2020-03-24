@@ -508,8 +508,8 @@ func (model *SModelBase) AllowUpdateItem(ctx context.Context, userCred mcclient.
 	return false
 }
 
-func (model *SModelBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (model *SModelBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.ModelBaseUpdateInput) (apis.ModelBaseUpdateInput, error) {
+	return input, nil
 }
 
 func (model *SModelBase) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {

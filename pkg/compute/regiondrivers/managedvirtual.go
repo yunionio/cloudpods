@@ -1093,8 +1093,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
+	return input, nil
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SElasticipCreateInput) error {
@@ -1118,7 +1118,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateVpc(ctx context.Con
 			return nil, errors.Wrap(err, "cloudprovider.WaitStatus")
 		}
 
-		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc)
+		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.SyncWithCloudVpc")
 		}

@@ -476,7 +476,18 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s, not %s",
 			backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 	}
-	return lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (man *SLoadbalancerManager) FetchCustomizeColumns(

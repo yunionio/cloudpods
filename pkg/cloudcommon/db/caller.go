@@ -20,6 +20,8 @@ import (
 	"reflect"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
@@ -54,6 +56,50 @@ func (c *Caller) Call() ([]reflect.Value, error) {
 
 func call(obj interface{}, fName string, inputs ...interface{}) ([]reflect.Value, error) {
 	return callObject(reflect.ValueOf(obj), fName, inputs...)
+}
+
+func findFunc(modelVal reflect.Value, fName string) (reflect.Value, error) {
+	funcVal := modelVal.MethodByName(fName)
+	if !funcVal.IsValid() || funcVal.IsNil() {
+		log.Debugf("find method %s for %s", fName, modelVal.Type())
+		if modelVal.Kind() != reflect.Ptr {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s not implemented", fName)
+		}
+		modelVal = modelVal.Elem()
+		if modelVal.Kind() != reflect.Struct {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s not implemented", fName)
+		}
+		modelType := modelVal.Type()
+		for i := 0; i < modelType.NumField(); i += 1 {
+			fieldType := modelType.Field(i)
+			if fieldType.Anonymous {
+				fieldValue := modelVal.Field(i)
+				if fieldValue.Kind() != reflect.Ptr && fieldValue.CanAddr() {
+					newFuncVal, err := findFunc(fieldValue.Addr(), fName)
+					if err == nil {
+						if !funcVal.IsValid() || funcVal.IsNil() {
+							funcVal = newFuncVal
+						} else {
+							return funcVal, errors.Wrapf(httperrors.ErrConflict, "%s is ambiguous", fName)
+						}
+					}
+				} else if fieldValue.Kind() == reflect.Ptr {
+					newFuncVal, err := findFunc(fieldValue, fName)
+					if err == nil {
+						if !funcVal.IsValid() || funcVal.IsNil() {
+							funcVal = newFuncVal
+						} else {
+							return funcVal, errors.Wrapf(httperrors.ErrConflict, "%s is ambiguous", fName)
+						}
+					}
+				}
+			}
+		}
+		if !funcVal.IsValid() || funcVal.IsNil() {
+			return funcVal, errors.Wrapf(httperrors.ErrNotImplemented, "%s is not implemented", fName)
+		}
+	}
+	return funcVal, nil
 }
 
 func callObject(modelVal reflect.Value, fName string, inputs ...interface{}) ([]reflect.Value, error) {

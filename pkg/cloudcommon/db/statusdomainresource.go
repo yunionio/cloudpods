@@ -146,3 +146,17 @@ func (model *SStatusDomainLevelResourceBase) GetExtraDetails(
 ) (apis.StatusDomainLevelResourceDetails, error) {
 	return apis.StatusDomainLevelResourceDetails{}, nil
 }
+
+func (model *SStatusDomainLevelResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.StatusDomainLevelResourceBaseUpdateInput,
+) (apis.StatusDomainLevelResourceBaseUpdateInput, error) {
+	var err error
+	input.DomainLevelResourceBaseUpdateInput, err = model.SDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, input.DomainLevelResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SDomainLevelResourceBase.ValidateUpdateData")
+	}
+	return input, nil
+}

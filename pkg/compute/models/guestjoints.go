@@ -150,3 +150,17 @@ func (manager *SGuestJointsManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (self *SGuestJointsBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.GuestJointBaseUpdateInput,
+) (api.GuestJointBaseUpdateInput, error) {
+	var err error
+	input.VirtualJointResourceBaseUpdateInput, err = self.SVirtualJointResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualJointResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualJointResourceBase.ValidateUpdateData")
+	}
+	return input, nil
+}

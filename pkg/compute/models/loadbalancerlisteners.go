@@ -422,9 +422,16 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		return nil, err
 	}
 
-	if _, err := lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
+	input, err = lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
 
 	region := lblis.GetRegion()
 	if region == nil {

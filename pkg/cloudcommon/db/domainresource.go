@@ -151,6 +151,18 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 		})
 		return nil, nil
 	}
+
+	// change domain, do check
+	if managed, ok := model.GetIDomainLevelModel().(IManagedResoucceBase); ok {
+		if !managed.CanShareToDomain(ownerId.GetProjectDomainId()) {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "cann't share across domain")
+		}
+	}
+
+	if !IsAdminAllowPerform(userCred, model, "change-owner") {
+		return nil, errors.Wrap(httperrors.ErrNotSufficientPrivilege, "require system privileges")
+	}
+
 	q := manager.Query().Equals("name", model.GetName())
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
@@ -169,10 +181,12 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 		former = &formerObj
 	}
 
-	// clean shared projects before update project id
-	// if err := SharedResourceManager.CleanModelSharedProjects(ctx, userCred, model); err != nil {
-	//	return nil, err
-	// }
+	// clean shared projects before update domain id
+	if sharedModel, ok := model.GetIDomainLevelModel().(ISharableBaseModel); ok {
+		if err := SharedResourceManager.CleanModelShares(ctx, userCred, sharedModel); err != nil {
+			return nil, err
+		}
+	}
 
 	_, err = Update(model, func() error {
 		model.DomainId = ownerId.GetProjectDomainId()
@@ -270,4 +284,18 @@ func (model *SDomainLevelResourceBase) SyncCloudDomainId(userCred mcclient.Token
 
 func (model *SDomainLevelResourceBase) GetIDomainLevelModel() IDomainLevelModel {
 	return model.GetVirtualObject().(IDomainLevelModel)
+}
+
+func (model *SDomainLevelResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.DomainLevelResourceBaseUpdateInput,
+) (apis.DomainLevelResourceBaseUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = model.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

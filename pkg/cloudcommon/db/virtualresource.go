@@ -60,6 +60,7 @@ type SVirtualResourceBase struct {
 	// 是否是系统资源
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional" json:"is_system"`
 
+	// 资源放入回收站时间
 	PendingDeletedAt time.Time `json:"pending_deleted_at"`
 	// 资源是否处于回收站中
 	PendingDeleted bool `nullable:"false" default:"false" index:"true" get:"user" list:"user" json:"pending_deleted"`
@@ -276,6 +277,25 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		})
 		return nil, nil
 	}
+
+	var requireScope rbacutils.TRbacScope
+	if ownerId.GetProjectDomainId() != model.DomainId {
+		// change domain, do check
+		if managed, ok := model.GetIVirtualModel().(IManagedResoucceBase); ok {
+			if !managed.CanShareToDomain(ownerId.GetProjectDomainId()) {
+				return nil, errors.Wrap(httperrors.ErrForbidden, "cann't share across domain")
+			}
+		}
+		requireScope = rbacutils.ScopeSystem
+	} else {
+		requireScope = rbacutils.ScopeDomain
+	}
+
+	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "change-owner")
+	if requireScope.HigherThan(allowScope) {
+		return nil, errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "require %s allow %s", requireScope, allowScope)
+	}
+
 	q := manager.Query().Equals("name", model.GetName())
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
@@ -295,8 +315,10 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 
 	// clean shared projects before update project id
-	if err := SharedResourceManager.CleanModelSharedProjects(ctx, userCred, model); err != nil {
-		return nil, err
+	if sharedModel, ok := model.GetIVirtualModel().(ISharableBaseModel); ok {
+		if err := SharedResourceManager.CleanModelShares(ctx, userCred, sharedModel); err != nil {
+			return nil, err
+		}
 	}
 
 	_, err = Update(model, func() error {
@@ -494,4 +516,18 @@ func (manager *SVirtualResourceBaseManager) QueryDistinctExtraField(q *sqlchemy.
 		return q, nil
 	}
 	return q, httperrors.ErrNotFound
+}
+
+func (model *SVirtualResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.VirtualResourceBaseUpdateInput,
+) (apis.VirtualResourceBaseUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = model.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

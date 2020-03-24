@@ -419,7 +419,17 @@ func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient
 		}
 		data.Set("records", jsonutils.NewString(strings.Join(records, DNS_RECORDS_SEPARATOR)))
 	}
-	return rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.AdminSharableVirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal AdminSharableVirtualResourceBaseUpdateInput")
+	}
+	input, err = rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SAdminSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (rec *SDnsRecord) AddInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {

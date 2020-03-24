@@ -446,14 +446,21 @@ func (self *SIdentityProvider) getMoreDetails(out api.IdentityProviderDetails) a
 	return out
 }
 
-func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("sync_interval_seconds") {
-		secs, _ := data.Int("sync_interval_seconds")
+func (self *SIdentityProvider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.IdentityProviderUpdateInput) (api.IdentityProviderUpdateInput, error) {
+	if input.SyncIntervalSeconds != nil {
+		secs := *input.SyncIntervalSeconds
 		if secs < api.MinimalSyncIntervalSeconds {
-			data.Set("sync_interval_seconds", jsonutils.NewInt(int64(api.MinimalSyncIntervalSeconds)))
+			secs = api.MinimalSyncIntervalSeconds
+			input.SyncIntervalSeconds = &secs
 		}
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.EnabledStatusStandaloneResourceBaseUpdateInput, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (self *SIdentityProvider) GetUserCount() (int, error) {

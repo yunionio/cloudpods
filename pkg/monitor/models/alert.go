@@ -369,17 +369,23 @@ func (alert *SAlert) SetState(input AlertSetStateInput) error {
 	return err
 }
 
-func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input monitor.AlertUpdateInput) (*jsonutils.JSONDict, error) {
+func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input monitor.AlertUpdateInput) (monitor.AlertUpdateInput, error) {
 	if input.Settings != nil {
 		updateSettings := jsonutils.NewDict()
 		updateSettings.Update(alert.Settings)
 		updateSettings.Update(jsonutils.Marshal(input.Settings))
 		input.Settings = new(monitor.AlertSetting)
 		if err := updateSettings.Unmarshal(input.Settings); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
-	return alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.JSON(input))
+	var err error
+	input.VirtualResourceBaseUpdateInput, err = alert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (alert *SAlert) IsAttachNotification(noti *SNotification) (bool, error) {

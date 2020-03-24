@@ -25,3 +25,10 @@ type CredentialDetails struct {
 	Domain   string `json:"domain"`
 	DomainId string `json:"domain_id"`
 }
+
+type CredentialUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+
+	// enabled
+	Enabled *bool `json:"enabled"`
+}

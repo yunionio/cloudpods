@@ -226,6 +226,20 @@ func (man *SV1AlertManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 	return q, httperrors.ErrNotFound
 }
 
+func (alertV1 *SV1Alert) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.V1AlertUpdateInput,
+) (monitor.V1AlertUpdateInput, error) {
+	var err error
+	input.AlertUpdateInput, err = alertV1.SAlert.ValidateUpdateData(ctx, userCred, query, input.AlertUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SAlert.ValidateUpdateData")
+	}
+	return input, nil
+}
+
 func (man *SNodeAlertManager) ListItemFilter(
 	ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
@@ -691,53 +705,57 @@ func (alert *SV1Alert) CustomizeDelete(
 }
 
 func (alert *SNodeAlert) ValidateUpdateData(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input monitor.NodeAlertUpdateInput) (*jsonutils.JSONDict, error) {
-	ret := monitor.AlertUpdateInput{}
-	details, err := alert.GetExtraDetails(context.TODO(), nil, nil, false)
-	if err != nil {
-		return nil, err
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.NodeAlertUpdateInput,
+) (monitor.NodeAlertUpdateInput, error) {
+	// ret := monitor.AlertUpdateInput{}
+	detailsList := NodeAlertManager.FetchCustomizeColumns(ctx, userCred, query, []interface{}{alert}, nil, false)
+	if len(detailsList) == 0 {
+		panic("inconsistent return results of FetchCustomizeColumns")
 	}
+	details := detailsList[0]
 
 	nameChange := false
 	if input.NodeId != nil && *input.NodeId != details.NodeId {
 		nameChange = true
 		details.NodeId = *input.NodeId
 		if err := alert.setNodeId(ctx, userCred, details.NodeId); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 	if input.Type != nil && *input.Type != details.Type {
 		nameChange = true
 		details.Type = *input.Type
 		if err := alert.setType(ctx, userCred, details.Type); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 	nodeName, resType, err := NodeAlertManager.validateResourceId(ctx, details.Type, details.NodeId)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 	if details.NodeName != nodeName {
 		nameChange = true
 		if err := alert.setNodeName(ctx, userCred, nodeName); err != nil {
-			return nil, err
+			return input, err
 		}
 		details.NodeName = nodeName
 	}
 	if input.Level != nil && *input.Level != details.Level {
 		details.Level = *input.Level
-		ret.Level = input.Level
+		// ret.Level = input.Level
 	}
 
 	if input.Window != nil && *input.Window != details.Window {
 		details.Window = *input.Window
 		freq, err := time.ParseDuration(details.Window)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 		freqSec := int64(freq / time.Second)
-		ret.Frequency = &freqSec
+		input.Frequency = &freqSec
 	}
 
 	if input.Threshold != nil && *input.Threshold != details.Threshold {
@@ -756,7 +774,7 @@ func (alert *SNodeAlert) ValidateUpdateData(
 		details.Metric = *input.Metric
 		measurement, field, err := GetMeasurementField(*input.Metric)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 		details.Measurement = measurement
 		details.Field = field
@@ -766,22 +784,28 @@ func (alert *SNodeAlert) ValidateUpdateData(
 	if nameChange {
 		name, err = NodeAlertManager.genName(userCred, resType, details.NodeName, details.Metric)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
-		ret.Name = &name
+		input.Name = name
 	}
 
 	ds, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
-		return nil, errors.Wrap(err, "get default data source")
+		return input, errors.Wrap(err, "get default data source")
 	}
 	// hack: update notification here
 	if err := alert.UpdateNotification(AlertNotificationUsedByNodeAlert, input.Channel, input.Recipients); err != nil {
-		return nil, errors.Wrap(err, "update notification")
+		return input, errors.Wrap(err, "update notification")
 	}
 	tmpS := alert.getUpdateSetting(name, details, ds.GetId())
-	ret.Settings = &tmpS
-	return alert.SAlert.ValidateUpdateData(ctx, userCred, query, ret)
+	input.Settings = &tmpS
+
+	input.V1AlertUpdateInput, err = alert.SV1Alert.ValidateUpdateData(ctx, userCred, query, input.V1AlertUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SV1Alert.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (alert *SNodeAlert) getUpdateSetting(

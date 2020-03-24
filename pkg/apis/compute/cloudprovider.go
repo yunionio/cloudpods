@@ -139,10 +139,8 @@ type CloudproviderDetails struct {
 	Brand string `json:"brand"`
 }
 
-type ManagedResourceListInput struct {
-	apis.DomainizedResourceListInput
-	CloudenvResourceListInput
-
+// 云订阅输入参数
+type CloudproviderResourceInput struct {
 	// 列出关联指定云订阅(ID或Name)的资源
 	Cloudprovider string `json:"cloudprovider"`
 	// List objects belonging to the cloud provider
@@ -158,6 +156,13 @@ type ManagedResourceListInput struct {
 	// Deprecated
 	// description: this param will be deprecate at 3.0
 	CloudproviderId string `json:"cloudprovider_id" deprecated-by:"cloudprovider"`
+}
+
+type ManagedResourceListInput struct {
+	apis.DomainizedResourceListInput
+	CloudenvResourceListInput
+
+	CloudproviderResourceInput
 
 	// 列出关联指定云账号(ID或Name)的资源
 	Cloudaccount string `json:"cloudaccount"`
@@ -234,4 +239,11 @@ func (input *CapabilityListInput) AfterUnmarshal() {
 type SyncableBaseResourceListInput struct {
 	// 同步状态
 	SyncStatus []string `json:"sync_status"`
+}
+
+type CloudproviderUpdateInput struct {
+	apis.EnabledStatusStandaloneResourceBaseUpdateInput
+}
+
+type CloudproviderCreateInput struct {
 }

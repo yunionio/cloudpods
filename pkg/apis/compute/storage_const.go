@@ -168,7 +168,7 @@ type StorageShareFilterListInput struct {
 }
 
 type StorageListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.EnabledStatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput

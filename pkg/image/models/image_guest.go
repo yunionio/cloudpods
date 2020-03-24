@@ -525,9 +525,12 @@ func (self *SGuestImageManager) CleanPendingDeleteImages(ctx context.Context, us
 	}
 }
 
-func (self *SGuestImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformProjectPublicInput) (jsonutils.JSONObject, error) {
-
+func (self *SGuestImage) PerformPublic(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformPublicInput,
+) (jsonutils.JSONObject, error) {
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")
@@ -541,9 +544,12 @@ func (self *SGuestImage) PerformPublic(ctx context.Context, userCred mcclient.To
 	return self.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
-func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input apis.PerformProjectPrivateInput) (jsonutils.JSONObject, error) {
-
+func (self *SGuestImage) PerformPrivate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.PerformPrivateInput,
+) (jsonutils.JSONObject, error) {
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to fetch subimages of guest image")

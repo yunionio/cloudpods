@@ -282,3 +282,17 @@ func (manager *SJointResourceBaseManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (model *SJointResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.JointResourceBaseUpdateInput,
+) (apis.JointResourceBaseUpdateInput, error) {
+	var err error
+	input.ResourceBaseUpdateInput, err = model.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
+	}
+	return input, nil
+}

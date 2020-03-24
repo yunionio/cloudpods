@@ -285,3 +285,7 @@ type GuestFilterListInput struct {
 	// pattern:asc|desc
 	OrderByServer string `json:"order_by_server"`
 }
+
+type GuestJointBaseUpdateInput struct {
+	apis.VirtualJointResourceBaseUpdateInput
+}

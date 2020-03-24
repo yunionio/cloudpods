@@ -85,7 +85,7 @@ func (self *SGoogleRegionDriver) RequestCreateVpc(ctx context.Context, userCred 
 			region.SyncVpcs(ctx, userCred, iregion, provider)
 		}
 
-		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc)
+		err = vpc.SyncWithCloudVpc(ctx, userCred, ivpc, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "vpc.SyncWithCloudVpc")
 		}

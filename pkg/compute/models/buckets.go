@@ -486,16 +486,20 @@ func (bucket *SBucket) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data *jsonutils.JSONDict,
-) (*jsonutils.JSONDict, error) {
-	nameStr, _ := data.GetString("name")
-	if len(nameStr) > 0 {
-		err := isValidBucketName(nameStr)
+	input api.BucketUpdateInput,
+) (api.BucketUpdateInput, error) {
+	var err error
+	if len(input.Name) > 0 {
+		err := isValidBucketName(input.Name)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid bucket name: %s", err)
+			return input, httperrors.NewInputParameterError("invalid bucket name(%s): %s", input.Name, err)
 		}
 	}
-	return bucket.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.VirtualResourceBaseUpdateInput, err = bucket.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.TokenCredential) error {

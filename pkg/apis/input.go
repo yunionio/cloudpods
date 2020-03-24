@@ -120,23 +120,26 @@ type StatusStandaloneResourceCreateInput struct {
 type StandaloneResourceCreateInput struct {
 	ResourceBaseCreateInput
 
+	// 资源名称，如果generate_name为空，则为必填项
 	// description: resource name, required if generated_name is not given
 	// unique: true
 	// required: true
 	// example: test-network
 	Name string `json:"name"`
 
+	// 生成资源名称的规则，如果name为空，则为必填项
 	// description: generated resource name, given a pattern to generate name, required if name is not given
 	// unique: false
 	// required: false
 	// example: test###
 	GenerateName string `json:"generate_name"`
 
-	// description: resource description
+	// 资源描述
 	// required: false
 	// example: test create network
 	Description string `json:"description"`
 
+	// 资源是否为模拟资源
 	// description: the resource is an emulated resource
 	// required: false
 	IsEmulated *bool `json:"is_emulated"`
@@ -173,16 +176,19 @@ type GetDetailsStatusOutput struct {
 	Status string `json:"status"`
 }
 
-type PerformProjectPublicInput struct {
+type PerformPublicInput struct {
 	// 共享项目资源的共享范围，可能的值为：project, domain和system
 	// pattern: project|domain|system
 	Scope string `json:"scope"`
 
 	// 如果共享范围为项目，则在此列表中指定共享的目标项目
 	SharedProjects []string `json:"shared_projects"`
+
+	// 如果共享范围为域，则在此列表中指定共享的目标域
+	SharedDomains []string `json:"shared_domains"`
 }
 
-type PerformProjectPrivateInput struct {
+type PerformPrivateInput struct {
 }
 
 type PerformChangeProjectOwnerInput struct {
@@ -197,4 +203,18 @@ type PerformEnableInput struct {
 }
 
 type PerformDisableInput struct {
+}
+
+type InfrasResourceBaseCreateInput struct {
+	DomainLevelResourceCreateInput
+}
+
+type StatusInfrasResourceBaseCreateInput struct {
+	InfrasResourceBaseCreateInput
+	StatusBaseResourceCreateInput
+}
+
+type EnabledStatusInfrasResourceBaseCreateInput struct {
+	StatusInfrasResourceBaseCreateInput
+	EnabledBaseResourceCreateInput
 }

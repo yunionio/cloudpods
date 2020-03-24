@@ -41,7 +41,7 @@ import (
 )
 
 type SWireManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
@@ -51,7 +51,7 @@ var WireManager *SWireManager
 
 func init() {
 	WireManager = &SWireManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SInfrasResourceBaseManager: db.NewInfrasResourceBaseManager(
 			SWire{},
 			"wires_tbl",
 			"wire",
@@ -62,7 +62,7 @@ func init() {
 }
 
 type SWire struct {
-	db.SStandaloneResourceBase
+	db.SInfrasResourceBase
 	db.SExternalizedResourceBase
 
 	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
@@ -90,68 +90,53 @@ func (manager *SWireManager) GetContextManagers() [][]db.IModelManager {
 	}
 }
 
-func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.WireCreateInput) (*jsonutils.JSONDict, error) {
+func (manager *SWireManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.WireCreateInput,
+) (api.WireCreateInput, error) {
 	if input.Bandwidth < 0 {
-		return nil, httperrors.NewOutOfRangeError("bandwidth must be greater than 0")
+		return input, httperrors.NewOutOfRangeError("bandwidth must be greater than 0")
 	}
 
 	if input.Mtu < 0 || input.Mtu > 1000000 {
-		return nil, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
+		return input, httperrors.NewOutOfRangeError("mtu must be range of 0~1000000")
 	}
 
-	for _, vpc := range []string{input.Vpc, input.VpcId} {
-		if len(vpc) > 0 {
-			input.Vpc = vpc
-			break
-		}
-	}
 	if len(input.Vpc) == 0 {
-		return nil, httperrors.NewMissingParameterError("vpc")
+		return input, httperrors.NewMissingParameterError("vpc")
 	}
 
-	_vpc, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	vpc, err := ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewNotFoundError("Vpc %s not found", input.Vpc)
-		} else {
-			return nil, httperrors.NewInternalServerError("Fetch Vpc %s error %s", input.Vpc, err)
-		}
+		return input, errors.Wrap(err, "ValidateVpcResourceInput")
 	}
-	vpc := _vpc.(*SVpc)
-	input.VpcId = vpc.Id
+	input.Vpc = vpc.Id
 	if len(vpc.ManagerId) > 0 {
-		return nil, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")
-	}
-
-	for _, zone := range []string{input.Zone, input.ZoneId} {
-		if len(zone) > 0 {
-			input.Zone = zone
-			break
-		}
+		return input, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")
 	}
 
 	if len(input.Zone) == 0 {
-		return nil, httperrors.NewMissingParameterError("zone")
+		return input, httperrors.NewMissingParameterError("zone")
 	}
 
-	zone, err := ZoneManager.FetchByIdOrName(nil, input.Zone)
+	zone, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewNotFoundError("Zone %s not found", input.Vpc)
-		} else {
-			return nil, httperrors.NewInternalServerError("Fetch Zone %s error %s", input.Vpc, err)
-		}
+		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input.ZoneId = zone.GetId()
+	input.Zone = zone.GetId()
 
-	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	input.InfrasResourceBaseCreateInput, err = manager.SInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.InfrasResourceBaseCreateInput)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
-	return input.JSON(input), nil
+	return input, nil
 }
 
-func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.WireUpdateInput) (api.WireUpdateInput, error) {
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	keysV := []validators.IValidator{
 		validators.NewNonNegativeValidator("bandwidth"),
 		validators.NewRangeValidator("mtu", 1, 1000000).Optional(true),
@@ -159,11 +144,16 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	for _, v := range keysV {
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
-			return nil, err
+			return input, err
 		}
 	}
+	var err error
+	input.InfrasResourceBaseUpdateInput, err = wire.SInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.InfrasResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SInfrasResourceBase.ValidateUpdateData")
+	}
 
-	return wire.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	return input, nil
 }
 
 func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
@@ -181,7 +171,7 @@ func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("wire contains networks")
 	}
-	return wire.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return wire.SInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (manager *SWireManager) getWireExternalIdForClassicNetwork(provider string, vpcId string, zoneId string) string {
@@ -273,7 +263,7 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 	return wires, nil
 }
 
-func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
+func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire, provider *SCloudprovider) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -314,7 +304,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i])
+		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], provider.GetOwnerId())
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -325,7 +315,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc)
+		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc, provider.GetOwnerId())
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -358,7 +348,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire) error {
+func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
@@ -370,6 +360,9 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		log.Errorf("syncWithCloudWire error %s", err)
 	}
+
+	SyncCloudDomain(userCred, self, syncOwnerId)
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
 }
@@ -385,7 +378,7 @@ func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc) (*SWire, error) {
+func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc, syncOwnerId mcclient.IIdentityProvider) (*SWire, error) {
 	wire := SWire{}
 	wire.SetModelManager(manager, &wire)
 
@@ -413,6 +406,8 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudDomain(userCred, &wire, syncOwnerId)
 
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
@@ -831,9 +826,9 @@ func (manager *SWireManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.InfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	hostStr := query.Host
@@ -857,9 +852,9 @@ func (manager *SWireManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StandaloneResourceListInput)
+	q, err = manager.SInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.InfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
@@ -879,7 +874,7 @@ func (manager *SWireManager) OrderByExtraFields(
 func (manager *SWireManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -924,13 +919,13 @@ func (manager *SWireManager) FetchCustomizeColumns(
 ) []api.WireDetails {
 	rows := make([]api.WireDetails, len(objs))
 
-	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.WireDetails{
-			StandaloneResourceDetails: stdRows[i],
+			InfrasResourceBaseDetails: stdRows[i],
 			VpcResourceInfo:           vpcRows[i],
 			ZoneResourceInfoBase:      zoneRows[i].ZoneResourceInfoBase,
 		}
@@ -956,4 +951,11 @@ func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient
 		}
 	}
 	return errors.NewAggregate(errs)
+}
+
+func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	// make host default public
+	model.IsPublic = true
+	model.PublicScope = string(rbacutils.ScopeSystem)
+	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

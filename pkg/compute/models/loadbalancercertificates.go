@@ -112,9 +112,16 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 		updateData.Set("description", jsonutils.NewString(desc))
 	}
 
-	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, updateData); err != nil {
-		return nil, err
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err := updateData.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
+	input, err = lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	updateData.Update(jsonutils.Marshal(input))
 
 	return updateData, nil
 }

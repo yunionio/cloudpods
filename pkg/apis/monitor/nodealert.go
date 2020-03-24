@@ -180,6 +180,8 @@ type NodeAlertDetails struct {
 }
 
 type NodeAlertUpdateInput struct {
+	V1AlertUpdateInput
+
 	// 监控指标名称
 	Metric *string `json:"metric"`
 	// 监控资源类型, 比如: guest, host
@@ -202,4 +204,8 @@ type NodeAlertUpdateInput struct {
 	Channel *string `json:"channel"`
 	// 通知接受者
 	Recipients *string `json:"recipients"`
+}
+
+type V1AlertUpdateInput struct {
+	AlertUpdateInput
 }

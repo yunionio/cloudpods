@@ -651,7 +651,18 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			}
 		}
 	}
-	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (self *SImage) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -691,7 +702,7 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsGuestImage.IsTrue() {
 		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
-	if self.IsPublic || len(self.GetSharedProjects()) > 0 {
+	if self.IsShared() {
 		return httperrors.NewForbiddenError("image is shared")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
@@ -1338,7 +1349,7 @@ func (self *SImage) PerformMarkStandard(
 ) (jsonutils.JSONObject, error) {
 	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
 	if !self.IsStandard.IsTrue() && isStandard {
-		input := apis.PerformProjectPublicInput{
+		input := apis.PerformPublicInput{
 			Scope: "system",
 		}
 		_, err := self.PerformPublic(ctx, userCred, query, input)

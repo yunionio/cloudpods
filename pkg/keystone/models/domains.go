@@ -293,17 +293,23 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DomainUpdateInput) (api.DomainUpdateInput, error) {
+	data := jsonutils.Marshal(input)
 	if domain.IsReadOnly() {
 		for _, k := range []string{
 			"name",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (domain *SDomain) GetExtraDetails(

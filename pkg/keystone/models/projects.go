@@ -315,13 +315,19 @@ func (proj *SProject) IsAdminProject() bool {
 	return proj.Name == api.SystemAdminProject && proj.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
-func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
+func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ProjectUpdateInput) (api.ProjectUpdateInput, error) {
+	if len(input.Name) > 0 {
 		if proj.IsAdminProject() {
-			return nil, httperrors.NewForbiddenError("cannot alter system project name")
+			return input, httperrors.NewForbiddenError("cannot alter system project name")
 		}
 	}
-	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.IdentityBaseUpdateInput, err = proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (manager *SProjectManager) FetchCustomizeColumns(

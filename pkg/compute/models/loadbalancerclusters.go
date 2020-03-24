@@ -187,7 +187,19 @@ func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCre
 		log.Infof("changing wire attribute of lbcluster %s(%s) %sto %s(%s)",
 			lbc.Name, lbc.Id, from, wire.Name, wire.Id)
 	}
-	return lbc.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = lbc.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) error {

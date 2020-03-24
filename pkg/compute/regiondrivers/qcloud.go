@@ -687,15 +687,15 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 	return nil
 }
 
-func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, input api.VpcCreateInput) (api.VpcCreateInput, error) {
 	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
-	if err := cidrV.Validate(data); err != nil {
-		return nil, err
+	if err := cidrV.Validate(jsonutils.Marshal(input).(*jsonutils.JSONDict)); err != nil {
+		return input, err
 	}
 	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
-		return nil, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
+		return input, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {

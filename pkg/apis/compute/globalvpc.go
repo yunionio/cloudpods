@@ -19,11 +19,11 @@ import (
 )
 
 type GlobalVpcCreateInput struct {
-	apis.EnabledStatusStandaloneResourceCreateInput
+	apis.EnabledStatusInfrasResourceBaseCreateInput
 }
 
 type GlobalVpcDetails struct {
-	apis.EnabledStatusStandaloneResourceDetails
+	apis.EnabledStatusInfrasResourceBaseDetails
 
 	SGlobalVpc
 }
@@ -39,4 +39,12 @@ type GlobalVpcResourceListInput struct {
 
 	// 以GlobalVpc的名称排序
 	OrderByGlobalvpc string `json:"order_by_globalvpc"`
+}
+
+type GlobalvpcUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
+}
+
+type GlobalVpcListInput struct {
+	apis.EnabledStatusInfrasResourceBaseListInput
 }

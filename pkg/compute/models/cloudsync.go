@@ -280,7 +280,7 @@ func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, 
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, localVpc, routeTables)
+	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, localVpc, routeTables, provider)
 
 	syncResults.Add(RouteTableManager, result)
 
@@ -345,7 +345,7 @@ func syncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, provi
 		log.Errorf(msg)
 		return
 	}
-	result := NatDEntryManager.SyncNatDTable(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtable)
+	result := NatDEntryManager.SyncNatDTable(ctx, userCred, provider, localNatGateway, dtable)
 	msg := result.Result()
 	log.Infof("SyncNatDTable for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {
@@ -361,7 +361,7 @@ func syncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, provi
 		log.Errorf(msg)
 		return
 	}
-	result := NatSEntryManager.SyncNatSTable(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stable)
+	result := NatSEntryManager.SyncNatSTable(ctx, userCred, provider, localNatGateway, stable)
 	msg := result.Result()
 	log.Infof("SyncNatSTable for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {
@@ -377,7 +377,7 @@ func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncRe
 		log.Errorf(msg)
 		return
 	}
-	localWires, remoteWires, result := WireManager.SyncWires(ctx, userCred, localVpc, wires)
+	localWires, remoteWires, result := WireManager.SyncWires(ctx, userCred, localVpc, wires, provider)
 
 	if syncResults != nil {
 		syncResults.Add(WireManager, result)
@@ -1211,4 +1211,15 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 		newOwnerId = userCred
 	}
 	model.SyncCloudProjectId(userCred, newOwnerId)
+}
+
+func SyncCloudDomain(userCred mcclient.TokenCredential, model db.IDomainLevelModel, syncOwnerId mcclient.IIdentityProvider) {
+	var newOwnerId mcclient.IIdentityProvider
+	if syncOwnerId != nil && len(syncOwnerId.GetProjectDomainId()) > 0 {
+		newOwnerId = syncOwnerId
+	}
+	if newOwnerId == nil {
+		newOwnerId = userCred
+	}
+	model.SyncCloudDomainId(userCred, newOwnerId)
 }

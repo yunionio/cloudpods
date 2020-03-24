@@ -30,14 +30,14 @@ import (
 )
 
 type SGlobalVpcManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 }
 
 var GlobalVpcManager *SGlobalVpcManager
 
 func init() {
 	GlobalVpcManager = &SGlobalVpcManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SGlobalVpc{},
 			"globalvpcs_tbl",
 			"globalvpc",
@@ -48,7 +48,7 @@ func init() {
 }
 
 type SGlobalVpc struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SEnabledStatusInfrasResourceBase
 }
 
 func (manager *SGlobalVpcManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -63,7 +63,7 @@ func (self *SGlobalVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if len(vpcs) > 0 {
 		return fmt.Errorf("not an empty globalvpc")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SGlobalVpc) GetVpcs() ([]SVpc, error) {
@@ -89,27 +89,43 @@ func (manager *SGlobalVpcManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.GlobalVpcDetails {
 	rows := make([]api.GlobalVpcDetails, len(objs))
-	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.GlobalVpcDetails{
-			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
 	}
 	return rows
 }
 
-func (manager *SGlobalVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.GlobalVpcCreateInput) (api.GlobalVpcCreateInput, error) {
+func (manager *SGlobalVpcManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.GlobalVpcCreateInput,
+) (api.GlobalVpcCreateInput, error) {
 	input.Status = api.GLOBAL_VPC_STATUS_AVAILABLE
 	var err error
-	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
+		return input, errors.Wrap(err, "manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
 	return input, nil
 }
 
-func (self *SGlobalVpc) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+func (self *SGlobalVpc) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.GlobalvpcUpdateInput,
+) (api.GlobalvpcUpdateInput, error) {
+	var err error
+	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 // 全局VPC列表
@@ -119,9 +135,9 @@ func (manager *SGlobalVpcManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.GlobalVpcListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 	return q, nil
 }
@@ -132,9 +148,9 @@ func (manager *SGlobalVpcManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.GlobalVpcListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
 }
@@ -142,7 +158,7 @@ func (manager *SGlobalVpcManager) OrderByExtraFields(
 func (manager *SGlobalVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -151,5 +167,5 @@ func (manager *SGlobalVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 }
 
 func (self *SGlobalVpc) ValidateUpdateCondition(ctx context.Context) error {
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateUpdateCondition(ctx)
 }

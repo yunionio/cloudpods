@@ -17,12 +17,12 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type VpcDetails struct {
-	SVpc
-
-	apis.EnabledStatusStandaloneResourceDetails
+	apis.EnabledStatusInfrasResourceBaseDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
 	GlobalVpcResourceInfo
+
+	SVpc
 
 	// 二层网络数量
 	// example: 1
@@ -61,4 +61,38 @@ type VpcResourceInfo struct {
 }
 
 type VpcSyncstatusInput struct {
+}
+
+type VpcCreateInput struct {
+	apis.EnabledStatusInfrasResourceBaseCreateInput
+
+	CloudregionResourceInput
+
+	CloudproviderResourceInput
+
+	// CIDR_BLOCK
+	CidrBlock string `json:"cidr_block"`
+}
+
+type VpcResourceInput struct {
+	// 关联VPC(ID或Name)
+	Vpc string `json:"vpc"`
+	// swagger:ignore
+	// Deprecated
+	// filter by vpc Id
+	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
+}
+
+type VpcFilterListInputBase struct {
+	VpcResourceInput
+
+	// 按VPC名称排序
+	// pattern:asc|desc
+	OrderByVpc string `json:"order_by_vpc"`
+}
+
+type VpcFilterListInput struct {
+	VpcFilterListInputBase
+	RegionalFilterListInput
+	ManagedResourceListInput
 }

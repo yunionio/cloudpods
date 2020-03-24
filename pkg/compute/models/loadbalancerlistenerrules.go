@@ -555,9 +555,16 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 		return nil, err
 	}
 
-	if _, err := lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
 	}
+	input, err = lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
 
 	region := lbr.GetRegion()
 	if region == nil {

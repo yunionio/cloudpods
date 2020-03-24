@@ -199,6 +199,8 @@ type EnabledResourceBaseListInput struct {
 type SharableResourceBaseListInput struct {
 	// 以资源是否共享过滤列表
 	IsPublic *bool `json:"is_public"`
+	// 根据资源的共享范围过滤列表，可能值为：system, domain, project
+	PublicScope string `json:"public_scope"`
 }
 
 type DomainLevelResourceListInput struct {
@@ -246,4 +248,19 @@ type DeletePreventableResourceBaseListInput struct {
 
 type ScopedResourceBaseListInput struct {
 	ProjectizedResourceListInput
+}
+
+type InfrasResourceBaseListInput struct {
+	DomainLevelResourceListInput
+	SharableResourceBaseListInput
+}
+
+type StatusInfrasResourceBaseListInput struct {
+	InfrasResourceBaseListInput
+	StatusResourceBaseListInput
+}
+
+type EnabledStatusInfrasResourceBaseListInput struct {
+	StatusInfrasResourceBaseListInput
+	EnabledResourceBaseListInput
 }

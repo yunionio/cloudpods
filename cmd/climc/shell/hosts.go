@@ -706,4 +706,21 @@ func init() {
 		}
 		return nil
 	})
+
+	type HostChangeOwnerOptions struct {
+		ID            string `help:"ID or name of host" json:"-"`
+		ProjectDomain string `json:"project_domain" help:"target domain"`
+	}
+	R(&HostChangeOwnerOptions{}, "host-change-owner", "Change owner domain of host", func(s *mcclient.ClientSession, args *HostChangeOwnerOptions) error {
+		if len(args.ProjectDomain) == 0 {
+			return fmt.Errorf("empty project_domain")
+		}
+		params := jsonutils.Marshal(args)
+		ret, err := modules.Hosts.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }

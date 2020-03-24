@@ -17,7 +17,7 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type WireCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.InfrasResourceBaseCreateInput
 
 	// 带宽大小,单位: Mbps
 	// default: 0
@@ -29,22 +29,13 @@ type WireCreateInput struct {
 	// default: 0
 	Mtu int `json:"mtu"`
 
-	// vpc名称或Id
-	// required: true
-	Vpc string `json:"vpc"`
-	// swagger:ignore
-	// Deprecated
-	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
+	VpcResourceInput
 
-	// 可用区名称或Id
-	// required: true
-	Zone string `json:"zone"`
-	// swagger:ignore
-	ZoneId string
+	ZoneResourceInput
 }
 
 type WireDetails struct {
-	apis.StandaloneResourceDetails
+	apis.InfrasResourceBaseDetails
 	VpcResourceInfo
 	ZoneResourceInfoBase
 
@@ -74,4 +65,26 @@ type WireResourceInfo struct {
 
 	// 可用区
 	Zone string `json:"zone"`
+}
+
+type WireUpdateInput struct {
+	apis.InfrasResourceBaseUpdateInput
+
+	// bandwidth in MB
+	Bandwidth int `json:"bandwidth"`
+
+	// MTU
+	// example: 1500
+	Mtu int `json:"mtu"`
+}
+
+type WireListInput struct {
+	apis.InfrasResourceBaseListInput
+	apis.ExternalizedResourceBaseListInput
+
+	VpcFilterListInput
+
+	ZonalFilterListBase
+
+	HostResourceInput
 }

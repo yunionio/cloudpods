@@ -18,25 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type VpcFilterListInputBase struct {
-	// 过滤关联此VPC(ID或Name)的资源
-	Vpc string `json:"vpc"`
-	// swagger:ignore
-	// Deprecated
-	// filter by vpc Id
-	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
-
-	// 按VPC名称排序
-	// pattern:asc|desc
-	OrderByVpc string `json:"order_by_vpc"`
-}
-
-type VpcFilterListInput struct {
-	VpcFilterListInputBase
-	RegionalFilterListInput
-	ManagedResourceListInput
-}
-
 type WireFilterListBase struct {
 	// 过滤连接此二层网络(ID或Name)的资源
 	Wire string `json:"wire"`
@@ -277,4 +258,32 @@ type NetworkTryCreateNetworkInput struct {
 
 type NetworkSyncInput struct {
 	apis.Meta
+}
+
+type NetworkUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+
+	// 起始IP地址
+	GuestIpStart string `json:"guest_ip_start"`
+	// 接收IP地址
+	GuestIpEnd string `json:"guest_ip_end"`
+	// 掩码
+	GuestIpMask *int8 `json:"guest_ip_mask"`
+	// 网关地址
+	GuestGateway string `json:"guest_gateway"`
+	// DNS
+	GuestDns string `json:"guest_dns"`
+	// allow multiple dhcp, seperated by ","
+	GuestDhcp string `json:"guest_dhcp"`
+
+	GuestDomain string `json:"guest_domain"`
+
+	VlanId *int `json:"vlan_id"`
+
+	// 服务器类型
+	// example: server
+	ServerType string `json:"server_type"`
+
+	// 分配策略
+	AllocPolicy string `json:"alloc_policy"`
 }

@@ -22,3 +22,25 @@ type BaremetalagentDetails struct {
 
 	SBaremetalagent
 }
+
+type BaremetalagentCreateInput struct {
+	apis.StandaloneResourceCreateInput
+
+	ZoneResourceInput
+
+	AccessIp   string `json:"access_ip"`
+	ManagerUri string `json:"manager_uri"`
+	AgentType  string `json:"agent_type"`
+	Version    string `json:"version"`
+}
+
+type BaremetalagentUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+
+	ZoneResourceInput
+
+	AccessIp   string `json:"access_ip"`
+	ManagerUri string `json:"manager_uri"`
+	AgentType  string `json:"agent_type"`
+	Version    string `json:"version"`
+}

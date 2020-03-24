@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	api "yunion.io/x/onecloud/pkg/apis/cloudnet"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -233,14 +234,17 @@ func (man *SRuleManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	return q, nil
 }
 
-func (rule *SRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := rule.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
-		return nil, err
+func (rule *SRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RuleUpdateInput) (api.RuleUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = rule.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
+	data := jsonutils.Marshal(input).(*jsonutils.JSONDict)
 	if err := RuleManager.validateData(ctx, userCred, rule.GetOwnerId(), query, data, rule); err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "validateData")
 	}
-	return nil, nil
+	return input, nil
 }
 
 func (man *SRuleManager) removeByRouter(ctx context.Context, userCred mcclient.TokenCredential, router *SRouter) error {

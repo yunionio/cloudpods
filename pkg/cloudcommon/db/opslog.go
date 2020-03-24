@@ -49,6 +49,9 @@ const (
 	ACT_DETACH_FAIL = "detach_fail"
 	ACT_DELETE_FAIL = "delete_fail"
 
+	ACT_PUBLIC  = "public"
+	ACT_PRIVATE = "private"
+
 	ACT_SYNC_UPDATE = "sync_update"
 	ACT_SYNC_CREATE = "sync_create"
 

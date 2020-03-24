@@ -85,24 +85,26 @@ func (self *SGuestdisk) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 	return false
 }
 
-func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("index") {
-		if index, err := data.Int("index"); err != nil {
-			return nil, err
-		} else {
-			guestdisk := GuestdiskManager.Query().SubQuery()
-			count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
-				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
-				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
-			}
-			if count > 0 {
-				return nil, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
-			}
+func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GuestdiskUpdateInput) (api.GuestdiskUpdateInput, error) {
+	if input.Index != nil {
+		index := *input.Index
+		guestdisk := GuestdiskManager.Query().SubQuery()
+		count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
+			Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
+			Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
+		if err != nil {
+			return input, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
+		}
+		if count > 0 {
+			return input, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
 		}
 	}
-	return self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.GuestJointBaseUpdateInput, err = self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SGuestJointsBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (joint *SGuestdisk) Master() db.IStandaloneModel {

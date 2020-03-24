@@ -18,35 +18,35 @@ import "yunion.io/x/pkg/utils"
 
 var (
 	computeSystemResources = []string{
-		"hosts",
 		"zones",
-		"storages",
-		"wires",
-		"globalvpcs",
-		"route_tables",
 		"cloudregions",
 		"serverskus",
 		"cachedimages",
 		"dynamicschedtags",
 		"baremetalagents",
 		"schedpolicies",
-		"isolated-devices",
-		"reservedips",
 		"dnsrecords",
 		"metadatas",
 		"loadbalancerclusters",
 		"loadbalanceragents",
-		"networkinterfaces",
-		"natgateways",
-		"natsentries",
-		"natdentries",
+		"isolated-devices",
+		"reservedips",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
 		"cloudproviders",
 		"recyclebins",
 		// migrate system resources to domain resources
+		"hosts",
 		"vpcs",
+		"storages",
+		"wires",
+		"globalvpcs",
+		"route_tables",
+		"networkinterfaces",
+		"natgateways",
+		"natsentries",
+		"natdentries",
 	}
 	computeUserResources = []string{
 		"keypairs",

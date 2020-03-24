@@ -94,12 +94,13 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input computeapis.GuesttemplateCreateInput,
 ) (computeapis.GuesttemplateCreateInput, error) {
+	var err error
 
 	if input.Content == nil {
 		return input, httperrors.NewMissingParameterError("content")
 	}
 
-	input, err := gtm.validateData(ctx, userCred, ownerId, query, input)
+	input.GuesttemplateInput, err = gtm.validateData(ctx, userCred, ownerId, query, input.GuesttemplateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "gtm.validateData")
 	}
@@ -128,8 +129,8 @@ func (gtm *SGuestTemplateManager) validateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	cinput computeapis.GuesttemplateCreateInput,
-) (computeapis.GuesttemplateCreateInput, error) {
+	cinput computeapis.GuesttemplateInput,
+) (computeapis.GuesttemplateInput, error) {
 	if cinput.Content == nil {
 		return cinput, nil
 	}
@@ -181,15 +182,22 @@ func (gtm *SGuestTemplateManager) validateData(
 	return cinput, nil
 }
 
-func (gt *SGuestTemplate) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, cinput *computeapis.GuesttemplateCreateInput) (*jsonutils.JSONDict, error) {
-
-	input, err := GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, *cinput)
+func (gt *SGuestTemplate) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input computeapis.GuesttemplateUpdateInput,
+) (computeapis.GuesttemplateUpdateInput, error) {
+	var err error
+	input.GuesttemplateInput, err = GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, input.GuesttemplateInput)
 	if err != nil {
-		return nil, nil
+		return input, errors.Wrap(err, "GuestTemplateManager.validateData")
 	}
-	data := input.JSON(input)
-	return gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.SharableVirtualResourceBaseUpdateInput, err = gt.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (manager *SGuestTemplateManager) FetchCustomizeColumns(
@@ -364,8 +372,12 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	return out, nil
 }
 
-func (gt *SGuestTemplate) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data apis.PerformProjectPublicInput) (jsonutils.JSONObject, error) {
+func (gt *SGuestTemplate) PerformPublic(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data apis.PerformPublicInput,
+) (jsonutils.JSONObject, error) {
 
 	// image, network, secgroup, instancegroup
 	input, err := cmdline.FetchServerCreateInputByJSON(gt.Content)

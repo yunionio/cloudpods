@@ -20,9 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type GuesttemplateCreateInput struct {
-	apis.SharableVirtualResourceCreateInput
-
+type GuesttemplateInput struct {
 	// description: the content of guest template
 	// required: true
 	Content jsonutils.JSONObject `json:"content"`
@@ -33,6 +31,18 @@ type GuesttemplateCreateInput struct {
 	Hypervisor string `json:"hypervisor"`
 	ImageType  string `json:"image_type"`
 	ImageId    string `json:"image_id"`
+}
+
+type GuesttemplateCreateInput struct {
+	apis.SharableVirtualResourceCreateInput
+
+	GuesttemplateInput
+}
+
+type GuesttemplateUpdateInput struct {
+	apis.SharableVirtualResourceBaseUpdateInput
+
+	GuesttemplateInput
 }
 
 type GuesttemplateDetails struct {

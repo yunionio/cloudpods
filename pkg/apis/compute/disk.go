@@ -219,3 +219,10 @@ type DiskResourceInfo struct {
 
 type DiskSyncstatusInput struct {
 }
+
+type DiskUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
+
+	// 磁盘类型
+	DiskType string `json:"disk_type"`
+}

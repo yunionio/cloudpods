@@ -34,6 +34,9 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	if oldOpts.NonDefaultDomainProjects != newOpts.NonDefaultDomainProjects {
 		consts.SetNonDefaultDomainProjects(newOpts.NonDefaultDomainProjects)
 	}
+	if oldOpts.DomainizedNamespace != newOpts.DomainizedNamespace {
+		consts.SetDomainizedNamespace(newOpts.DomainizedNamespace)
+	}
 	return false
 }
 

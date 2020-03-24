@@ -107,7 +107,18 @@ func (self *SSchedpolicy) ValidateUpdateData(ctx context.Context, userCred mccli
 		return nil, err
 	}
 
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (self *SSchedpolicy) getSchedtag() *SSchedtag {

@@ -85,7 +85,7 @@ type SNetwork struct {
 
 	// 起始IP地址
 	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	// 接收IP地址
+	// 结束IP地址
 	GuestIpEnd string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	// 掩码
 	GuestIpMask int8 `nullable:"false" list:"user" update:"user" create:"required"`
@@ -851,11 +851,10 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 			}
 		}
 		net := netObj.(*SNetwork)
-		if net.IsPublic ||
-			net.ProjectId == userCred.GetProjectId() ||
+		if net.ProjectId == userCred.GetProjectId() ||
 			(db.IsDomainAllowGet(userCred, net) && net.DomainId == userCred.GetProjectDomainId()) ||
 			db.IsAdminAllowGet(userCred, net) ||
-			utils.IsInStringArray(userCred.GetProjectId(), net.GetSharedProjects()) {
+			net.IsSharable(userCred) {
 			info.Network = netObj.GetId()
 		} else {
 			return nil, httperrors.NewForbiddenError("no allow to access network %s", info.Network)
@@ -1384,18 +1383,18 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	return input, nil
 }
 
-func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
 	var startIp, endIp netutils.IPV4Addr
 	var err error
 
-	ipStartStr, _ := data.GetString("guest_ip_start")
-	ipEndStr, _ := data.GetString("guest_ip_end")
+	ipStartStr := input.GuestIpStart
+	ipEndStr := input.GuestIpEnd
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
 		if len(ipStartStr) > 0 {
 			startIp, err = netutils.NewIPV4Addr(ipStartStr)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
+				return input, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
 			}
 		} else {
 			startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
@@ -1403,7 +1402,7 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 		if len(ipEndStr) > 0 {
 			endIp, err = netutils.NewIPV4Addr(ipEndStr)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid end ip: %s %s", ipEndStr, err)
+				return input, httperrors.NewInputParameterError("invalid end ip: %s %s", ipEndStr, err)
 			}
 		} else {
 			endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
@@ -1417,74 +1416,83 @@ func (self *SNetwork) validateUpdateData(ctx context.Context, userCred mcclient.
 
 		nets := NetworkManager.getAllNetworks(self.WireId, self.Id)
 		if nets == nil {
-			return nil, httperrors.NewInternalServerError("query all networks fail")
+			return input, httperrors.NewInternalServerError("query all networks fail")
 		}
 
 		if isOverlapNetworks(nets, startIp, endIp) {
-			return nil, httperrors.NewInputParameterError("Conflict address space with existing networks")
+			return input, httperrors.NewInputParameterError("Conflict address space with existing networks")
 		}
 
 		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
 		vpc := self.GetVpc()
 		if !vpc.containsIPV4Range(netRange) {
-			return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
+			return input, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 		}
 
 		usedMap := self.GetUsedAddresses()
 		for usedIpStr := range usedMap {
 			usedIp, _ := netutils.NewIPV4Addr(usedIpStr)
 			if !netRange.Contains(usedIp) {
-				return nil, httperrors.NewInputParameterError("Address been assigned out of new range")
+				return input, httperrors.NewInputParameterError("Address been assigned out of new range")
 			}
 		}
 
-		data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
-		data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
+		input.GuestIpStart = startIp.String()
+		input.GuestIpEnd = endIp.String()
 	}
 
-	if data.Contains("guest_ip_mask") {
-		maskLen64, _ := data.Int("guest_ip_mask")
+	if input.GuestIpMask != nil {
+		maskLen64 := int64(*input.GuestIpMask)
 		if !isValidMaskLen(maskLen64) {
-			return nil, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
+			return input, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
 		}
 	}
 
-	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
-		ipStr, _ := data.GetString(key)
+	for key, ipStr := range map[string]string{
+		"guest_gateway": input.GuestGateway,
+		"guest_dns":     input.GuestDns,
+		"guest_dhcp":    input.GuestDhcp,
+	} {
 		if len(ipStr) > 0 {
 			if key == "guest_dhcp" {
 				ipList := strings.Split(ipStr, ",")
 				for _, ipstr := range ipList {
 					if !regutils.MatchIPAddr(ipstr) {
-						return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
+						return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipstr)
 					}
 				}
 			} else if !regutils.MatchIPAddr(ipStr) {
-				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+				return input, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
 			}
 
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
-func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.NetworkUpdateInput) (api.NetworkUpdateInput, error) {
 	if !self.isManaged() && !self.isOneCloudVpcNetwork() {
 		var err error
-		data, err = self.validateUpdateData(ctx, userCred, query, data)
+		input, err = self.validateUpdateData(ctx, userCred, query, input)
 		if err != nil {
-			return nil, err
+			return input, errors.Wrap(err, "validateUpdateData")
 		}
 	} else {
-		data.Remove("guest_ip_start")
-		data.Remove("guest_ip_end")
-		data.Remove("guest_ip_mask")
-		data.Remove("guest_gateway")
-		data.Remove("guest_dns")
-		data.Remove("guest_dhcp")
+		input.GuestIpStart = ""
+		input.GuestIpEnd = ""
+		input.GuestIpMask = nil
+		input.GuestGateway = ""
+		input.GuestDns = ""
+		input.GuestDomain = ""
+		input.GuestDhcp = ""
 	}
 
-	return self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (manager *SNetworkManager) getAllNetworks(wireId, excludeId string) []SNetwork {

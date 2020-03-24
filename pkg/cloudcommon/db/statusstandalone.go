@@ -63,10 +63,6 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 	return statusBaseSetStatus(model, userCred, status, reason)
 }
 
-func (model *SStatusStandaloneResourceBase) GetStatus() string {
-	return model.Status
-}
-
 func (manager *SStatusStandaloneResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input apis.StatusStandaloneResourceCreateInput) (apis.StatusStandaloneResourceCreateInput, error) {
 	var err error
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
@@ -138,4 +134,18 @@ func (model *SStatusStandaloneResourceBase) GetExtraDetails(
 	isList bool,
 ) (apis.StatusStandaloneResourceDetails, error) {
 	return apis.StatusStandaloneResourceDetails{}, nil
+}
+
+func (model *SStatusStandaloneResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.StatusStandaloneResourceBaseUpdateInput,
+) (apis.StatusStandaloneResourceBaseUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = model.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

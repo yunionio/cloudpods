@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/apis"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -863,7 +865,17 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInputParameterError("name is too short")
 		}
 	}
-	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal")
+	}
+	input, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {

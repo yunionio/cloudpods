@@ -29,3 +29,9 @@ type DomainDetails struct {
 	PolicyCount int `json:"policy_count"`
 	IdpCount    int `json:"idp_count"`
 }
+
+type DomainUpdateInput struct {
+	apis.StandaloneResourceBaseUpdateInput
+
+	Enabled *bool `json:"enabled"`
+}

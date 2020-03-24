@@ -72,7 +72,7 @@ type ExternalProjectListInput struct {
 }
 
 type RouteTableListInput struct {
-	apis.VirtualResourceListInput
+	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	VpcFilterListInput
@@ -94,7 +94,7 @@ type SnapshotPolicyCacheListInput struct {
 }
 
 type NetworkInterfaceListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.StatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
