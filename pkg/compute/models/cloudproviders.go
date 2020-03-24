@@ -266,11 +266,7 @@ func (self *SCloudprovider) getSnapshotCount() (int, error) {
 }
 
 func (self *SCloudprovider) getLoadbalancerCount() (int, error) {
-	vpcs := VpcManager.Query("id", "manager_id").SubQuery()
-	q := LoadbalancerManager.Query()
-	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
-	q = q.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), self.Id))
-	return q.CountWithError()
+	return LoadbalancerManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getDBInstanceCount() (int, error) {

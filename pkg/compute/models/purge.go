@@ -232,7 +232,7 @@ func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, u
 
 func (manager *SLoadbalancerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	lbs := make([]SLoadbalancer, 0)
-	err := fetchByVpcManagerId(manager, providerId, &lbs)
+	err := fetchByManagerId(manager, providerId, &lbs)
 	if err != nil {
 		return err
 	}

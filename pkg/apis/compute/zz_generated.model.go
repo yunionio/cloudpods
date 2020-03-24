@@ -226,6 +226,7 @@ type SCloudprovider struct {
 type SCloudproviderCapability struct {
 	apis.SResourceBase
 	CloudproviderId string `json:"cloudprovider_id"`
+	CloudregionId   string `json:"cloudregion_id"`
 	Capability      string `json:"capability"`
 }
 
@@ -1108,6 +1109,8 @@ type SKeypair struct {
 type SLoadbalancer struct {
 	apis.SVirtualResourceBase
 	apis.SExternalizedResourceBase
+	SManagedResourceBase
+	SCloudregionResourceBase
 	// LB must be in a VPC, vpc_id, manager_id, cloudregion_id
 	SVpcResourceBase
 	// zone_id
