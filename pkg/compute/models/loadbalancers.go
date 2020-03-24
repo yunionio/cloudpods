@@ -78,6 +78,9 @@ func init() {
 type SLoadbalancer struct {
 	db.SVirtualResourceBase
 	db.SExternalizedResourceBase
+	SManagedResourceBase
+	SCloudregionResourceBase
+
 	// LB must be in a VPC, vpc_id, manager_id, cloudregion_id
 	SVpcResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// zone_id
@@ -238,24 +241,24 @@ func (man *SLoadbalancerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LoadbalancerCreateInput) (*jsonutils.JSONDict, error) {
 	var region *SCloudregion
-	if id, _ := data.GetString("vpc"); len(id) > 0 {
-		vpc, err := db.FetchByIdOrName(VpcManager, userCred, id)
+	if len(input.Vpc) > 0 {
+		vpc, err := db.FetchByIdOrName(VpcManager, userCred, input.Vpc)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("getting vpc failed: %v", err)
 		}
-
+		input.VpcId = vpc.GetId()
 		region, _ = vpc.(*SVpc).GetRegion()
-	} else if id, _ := data.GetString("zone"); len(id) > 0 {
-		zone, err := db.FetchByIdOrName(ZoneManager, userCred, id)
+	} else if len(input.Zone) > 0 {
+		zone, err := db.FetchByIdOrName(ZoneManager, userCred, input.Zone)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("getting zone failed: %v", err)
 		}
-
+		input.ZoneId = zone.GetId()
 		region = zone.(*SZone).GetRegion()
-	} else if id, _ := data.GetString("network"); len(id) > 0 {
-		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(id, ",")[0])
+	} else if len(input.Network) > 0 {
+		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(input.Network, ",")[0])
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("getting network failed: %v", err)
 		}
@@ -266,21 +269,15 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(region.Id))
-
-	input := apis.VirtualResourceCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
-	}
-	input, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.CloudregionId = region.GetId()
+	var err error
+	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
-	data.Update(jsonutils.Marshal(input))
 
 	ctx = context.WithValue(ctx, "ownerId", ownerId)
-	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, input.JSON(input))
 }
 
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -336,11 +333,11 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 }
 
 func (lb *SLoadbalancer) GetCloudprovider() *SCloudprovider {
-	return lb.SVpcResourceBase.GetCloudprovider()
+	return lb.SManagedResourceBase.GetCloudprovider()
 }
 
 func (lb *SLoadbalancer) GetRegion() *SCloudregion {
-	return lb.SVpcResourceBase.GetRegion()
+	return lb.SCloudregionResourceBase.GetRegion()
 }
 
 func (lb *SLoadbalancer) GetZone() *SZone {
@@ -371,7 +368,15 @@ func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
 }
 
 func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	return lb.SVpcResourceBase.GetIRegion()
+	provider, err := lb.GetDriver()
+	if err != nil {
+		return nil, errors.Wrap(err, "lb.GetDriver")
+	}
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to get region for lb %s", lb.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
 }
 
 func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
@@ -400,7 +405,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		params.EgressMbps = lb.EgressMbps
 	}
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || lb.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI || lb.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || lb.SManagedResourceBase.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI || lb.SManagedResourceBase.GetProviderName() == api.CLOUD_PROVIDER_AWS {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
@@ -875,6 +880,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 		lb.EgressMbps = extLb.GetEgressMbps()
 		lb.ChargeType = extLb.GetChargeType()
+		lb.ManagerId = provider.Id
 
 		if extLb.GetMetadata() != nil {
 			lb.LBInfo = extLb.GetMetadata()
@@ -983,11 +989,9 @@ func (man *SLoadbalancerManager) TotalCount(
 	providers []string, brands []string, cloudEnv string,
 ) (int, error) {
 	q := man.Query()
-	vpcs := VpcManager.Query().SubQuery()
-	q = q.Join(vpcs, sqlchemy.Equals(q.Field("vpc_id"), vpcs.Field("id")))
 	q = scopeOwnerIdFilter(q, scope, ownerId)
-	q = CloudProviderFilter(q, vpcs.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), vpcs.Field("manager_id"))
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"))
 	return q.CountWithError()
 }
 

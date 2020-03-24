@@ -75,7 +75,7 @@ func (self *SLoadbalancerBackendgroupResourceBase) GetCloudprovider() *SCloudpro
 func (self *SLoadbalancerBackendgroupResourceBase) GetProviderName() string {
 	lb := self.GetLoadbalancer()
 	if lb != nil {
-		return lb.GetProviderName()
+		return lb.SManagedResourceBase.GetProviderName()
 	}
 	return ""
 }

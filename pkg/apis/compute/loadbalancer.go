@@ -209,3 +209,15 @@ type LoadbalancerFilterListInput struct {
 	// 以负载均衡名称排序
 	OrderByLoadbalancer string `json:"order_by_loadbalancer"`
 }
+
+type LoadbalancerCreateInput struct {
+	apis.VirtualResourceCreateInput
+
+	SLoadbalancer
+
+	Vpc         string `json:"vpc"`
+	Zone        string `json:"zone"`
+	Cloudregion string `json:"cloudregion"`
+	Network     string `json:"network"`
+	Manager     string `json:"manager"`
+}
