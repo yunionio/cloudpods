@@ -471,6 +471,7 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 	for key, value := range store {
 
 		record := SMetadata{}
+		record.SetModelManager(manager, &record)
 
 		err := manager.RawQuery().Equals("id", idStr).Equals("key", key).First(&record) //避免之前设置的tag被删除后再次设置时出现Duplicate entry error
 		if err != nil {
@@ -503,7 +504,17 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 			continue
 		}
 
-		err = manager.TableSpec().InsertOrUpdate(&newRecord)
+		if len(record.Id) == 0 {
+			err = manager.TableSpec().InsertOrUpdate(&newRecord)
+		} else {
+			rV, rD := record.Value, record.Deleted
+			_, err = Update(&record, func() error {
+				record.Value = newRecord.Value
+				record.Deleted = newRecord.Deleted
+				return nil
+			})
+			record.Value, record.Deleted = rV, rD
+		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "InsertOrUpdate %s=%s", key, valStr)
 		}
