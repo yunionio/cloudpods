@@ -587,7 +587,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 			return nil, httperrors.NewForbiddenError("not allow to change project across domain")
 		}
 		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN && account.DomainId != tenant.DomainId {
-			return nil, httperrors.NewInvalidStatusError("not a public cloud account")
+			return nil, httperrors.NewInvalidStatusError("cannot change to a different domain from a private cloud account")
 		}
 		// if account's public_scope=domain and share_mode=provider_domain, only allow to share to specific domains
 		if account.PublicScope == string(rbacutils.ScopeDomain) {

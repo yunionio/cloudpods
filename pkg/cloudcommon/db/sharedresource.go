@@ -112,7 +112,9 @@ func (manager *SSharedResourceManager) shareToTarget(
 			// should have system-level privileges
 			requireScope = rbacutils.ScopeSystem
 		case SharedTargetProject:
-			return nil, errors.Wrap(httperrors.ErrNotSupported, "cannot share a domain resource to specific project")
+			if len(targetIds) > 0 {
+				return nil, errors.Wrap(httperrors.ErrNotSupported, "cannot share a domain resource to specific project")
+			}
 		}
 	default:
 		return nil, errors.Wrap(httperrors.ErrNotSupported, "cannot share a non-project/domain resource")
@@ -145,10 +147,10 @@ func (manager *SSharedResourceManager) shareToTarget(
 				return nil, errors.Wrapf(err, "fetch tenant %s error", targetIds[i])
 			}
 			if tenant.DomainId != modelOwnerId.GetProjectDomainId() {
-				return nil, httperrors.NewBadRequestError("can't shared project to other domain")
+				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't shared project to other domain")
 			}
 			if tenant.GetId() == modelOwnerId.GetProjectId() {
-				return nil, httperrors.NewBadRequestError("can't share to self project")
+				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't share to self project")
 			}
 			newIds = stringutils2.Append(newIds, tenant.GetId())
 		case SharedTargetDomain:
@@ -157,7 +159,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 				return nil, errors.Wrapf(err, "fetch domain %s error", targetIds[i])
 			}
 			if domain.GetId() == modelOwnerId.GetProjectDomainId() {
-				return nil, httperrors.NewBadRequestError("can't share to self domain")
+				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't share to self domain")
 			}
 			newIds = stringutils2.Append(newIds, domain.GetId())
 		}

@@ -925,10 +925,14 @@ func init() {
 	})
 
 	type CloudaccountPublicOptions struct {
-		ID string `help:"ID or name of cloud account"`
+		ID            string   `help:"ID or name of cloud account" json:"-"`
+		Scope         string   `help:"public_sccope" choices:"domain|system" json:"scope"`
+		SharedDomains []string `help:"shared domains" json:"shared_domains"`
+		ShareMode     string   `help:"share_mode" choices:"account_domain|provider_domain|system"`
 	}
 	R(&CloudaccountPublicOptions{}, "cloud-account-public", "Mark this cloud account public ", func(s *mcclient.ClientSession, args *CloudaccountPublicOptions) error {
-		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "public", nil)
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "public", params)
 		if err != nil {
 			return err
 		}
@@ -999,6 +1003,23 @@ func init() {
 		}
 		params := jsonutils.Marshal(args)
 		ret, err := modules.Cloudaccounts.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	type ClouaccountChangeProjectOptions struct {
+		ID      string `help:"ID or name of cloudaccount" json:"-"`
+		Project string `json:"project" help:"target domain"`
+	}
+	R(&ClouaccountChangeProjectOptions{}, "cloud-account-change-project", "Change domain/project of cloudaccount", func(s *mcclient.ClientSession, args *ClouaccountChangeProjectOptions) error {
+		if len(args.Project) == 0 {
+			return fmt.Errorf("empty project")
+		}
+		params := jsonutils.Marshal(args)
+		ret, err := modules.Cloudaccounts.PerformAction(s, args.ID, "change-project", params)
 		if err != nil {
 			return err
 		}

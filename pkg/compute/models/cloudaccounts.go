@@ -76,7 +76,7 @@ func init() {
 }
 
 type SCloudaccount struct {
-	db.SEnabledStatusInfrasResourceBase `"public_scope->default":""`
+	db.SEnabledStatusInfrasResourceBase
 
 	SSyncableBaseResource
 
@@ -1176,7 +1176,7 @@ func (manager *SCloudaccountManager) initializeShareMode() error {
 
 func (manager *SCloudaccountManager) initializePublicScope() error {
 	accounts := []SCloudaccount{}
-	q := manager.Query().IsNullOrEmpty("public_scope")
+	q := manager.Query().IsFalse("is_public").Equals("public_scope", "system")
 	err := db.FetchModelObjects(manager, q, &accounts)
 	if err != nil {
 		log.Errorf("fetch all clound account fail %v", err)
@@ -1273,11 +1273,6 @@ func (manager *SCloudaccountManager) InitializeData() error {
 }
 
 func (self *SCloudaccount) GetBalance() (float64, error) {
-	/*driver, err := self.GetProvider()
-	if err != nil {
-		return 0.0, err
-	}
-	return driver.GetBalance()*/
 	return self.Balance, nil
 }
 
@@ -1372,10 +1367,12 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 	}
 
 	providers := self.GetCloudproviders()
-	if len(providers) > 0 {
-		for i := range providers {
-			if providers[i].ProjectId != self.ProjectId {
-				return nil, errors.Wrap(httperrors.ErrConflict, "cloudproviders' project is different from cloudaccount's")
+	if len(self.ProjectId) > 0 {
+		if len(providers) > 0 {
+			for i := range providers {
+				if providers[i].ProjectId != self.ProjectId {
+					return nil, errors.Wrap(httperrors.ErrConflict, "cloudproviders' project is different from cloudaccount's")
+				}
 			}
 		}
 	}
@@ -1963,10 +1960,12 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
+// Deprecated
 func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) bool {
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "share-mode")
 }
 
+// Deprecated
 func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) (jsonutils.JSONObject, error) {
 	err := input.Validate()
 	if err != nil {
