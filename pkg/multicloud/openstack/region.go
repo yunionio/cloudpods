@@ -59,11 +59,11 @@ func (region *SRegion) GetId() string {
 }
 
 func (region *SRegion) GetName() string {
-	return fmt.Sprintf("%s-%s", region.client.providerName, region.Name)
+	return fmt.Sprintf("%s-%s", region.client.cpcfg.Name, region.Name)
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.client.providerID, region.Name)
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.client.cpcfg.Id, region.Name)
 }
 
 func (region *SRegion) IsEmulated() bool {

@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -47,32 +48,49 @@ var (
 	DEBUG = false
 )
 
-type SAwsClient struct {
-	providerId   string
-	providerName string
+type AwsClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
 	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
-	secret       string
+	accessSecret string
+
+	debug bool
+}
+
+func NewAwsClientConfig(accessUrl, accessKey, accessSecret string) *AwsClientConfig {
+	cfg := &AwsClientConfig{
+		accessUrl:    accessUrl,
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *AwsClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *AwsClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *AwsClientConfig) Debug(debug bool) *AwsClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SAwsClient struct {
+	*AwsClientConfig
 
 	ownerId   string
 	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
-
-	debug bool
 }
 
-func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string, debug bool) (*SAwsClient, error) {
+func NewAwsClient(cfg *AwsClientConfig) (*SAwsClient, error) {
 	client := SAwsClient{
-		providerId:   providerId,
-		providerName: providerName,
-		accessUrl:    accessUrl,
-		accessKey:    accessKey,
-		secret:       secret,
-		debug:        debug,
+		AwsClientConfig: cfg,
 	}
-	DEBUG = debug
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
@@ -81,7 +99,7 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchBuckets")
 	}
-	if debug {
+	if client.debug {
 		log.Debugf("ownerId: %s ownerName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
@@ -114,7 +132,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 		return nil, err
 	}
 	subAccount := cloudprovider.SSubAccount{}
-	subAccount.Name = self.providerName
+	subAccount.Name = self.cpcfg.Name
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
@@ -125,9 +143,9 @@ func (client *SAwsClient) GetAccountId() string {
 }
 
 func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.secret != secret {
+	if self.accessKey != accessKey || self.accessSecret != secret {
 		self.accessKey = accessKey
-		self.secret = secret
+		self.accessSecret = secret
 		self.iregions = nil
 		return self.fetchRegions()
 	} else {
@@ -171,14 +189,16 @@ func (self *SAwsClient) fetchRegions() error {
 }
 
 func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
-	disableParamValidation := true
-	chainVerboseErrors := true
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
 	return session.NewSession(&sdk.Config{
-		Region:                 sdk.String(regionId),
-		Credentials:            credentials.NewStaticCredentials(client.accessKey, client.secret, ""),
-		DisableParamValidation: &disableParamValidation,
-
-		CredentialsChainVerboseErrors: &chainVerboseErrors,
+		Region: sdk.String(regionId),
+		Credentials: credentials.NewStaticCredentials(
+			client.accessKey, client.accessSecret, "",
+		),
+		HTTPClient:                    httpClient,
+		DisableParamValidation:        sdk.Bool(true),
+		CredentialsChainVerboseErrors: sdk.Bool(true),
 	})
 }
 

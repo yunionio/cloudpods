@@ -46,11 +46,11 @@ func (cache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (cache *SStoragecache) GetId() string {
-	return cache.region.client.providerId
+	return cache.region.client.cpcfg.Id
 }
 
 func (cache *SStoragecache) GetName() string {
-	return cache.region.client.providerName
+	return cache.region.client.cpcfg.Name
 }
 
 func (cache *SStoragecache) GetStatus() string {
@@ -62,7 +62,7 @@ func (cache *SStoragecache) Refresh() error {
 }
 
 func (cache *SStoragecache) GetGlobalId() string {
-	return cache.region.client.providerId
+	return cache.region.client.cpcfg.Id
 }
 
 func (cache *SStoragecache) IsEmulated() bool {

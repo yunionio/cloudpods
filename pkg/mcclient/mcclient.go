@@ -79,6 +79,10 @@ func (this *Client) HttpClient() *http.Client {
 	return this.httpconn
 }
 
+func (this *Client) SetHttpTransportProxyFunc(proxyFunc httputils.TransportProxyFunc) {
+	httputils.SetClientProxyFunc(this.httpconn, proxyFunc)
+}
+
 func (this *Client) SetDebug(debug bool) {
 	this.debug = debug
 }

@@ -20,7 +20,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/client"
 )
 
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0057845625.html
@@ -49,7 +48,7 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	projects := make([]SProject, 0)
 	err := doListAll(huawei.Projects.List, nil, &projects)
 	return projects, err

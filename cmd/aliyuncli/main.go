@@ -84,7 +84,11 @@ func newClient(options *BaseOptions) (*aliyun.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := aliyun.NewAliyunClient("", "", options.AccessKey, options.Secret, options.Debug)
+	cli, err := aliyun.NewAliyunClient(
+		aliyun.NewAliyunClientConfig(
+			options.AccessKey, options.Secret,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

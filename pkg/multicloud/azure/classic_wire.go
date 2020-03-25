@@ -43,7 +43,7 @@ func (self *SClassicWire) GetGlobalId() string {
 }
 
 func (self *SClassicWire) GetName() string {
-	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.providerName, self.vpc.GetName())
+	return fmt.Sprintf("%s-%s-classic", self.zone.region.client.cpcfg.Name, self.vpc.GetName())
 }
 
 func (self *SClassicWire) IsEmulated() bool {

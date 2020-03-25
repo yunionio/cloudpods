@@ -94,11 +94,23 @@ func newClient(options *BaseOptions) (cloudprovider.ICloudRegion, error) {
 	}
 
 	if options.Backend == api.CLOUD_PROVIDER_CEPH {
-		return ceph.NewCephRados("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+		return ceph.NewCephRados(
+			objectstore.NewObjectStoreClientConfig(
+				options.AccessUrl, options.AccessKey, options.Secret,
+			).Debug(options.Debug),
+		)
 	} else if options.Backend == api.CLOUD_PROVIDER_XSKY {
-		return xsky.NewXskyClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+		return xsky.NewXskyClient(
+			objectstore.NewObjectStoreClientConfig(
+				options.AccessUrl, options.AccessKey, options.Secret,
+			).Debug(options.Debug),
+		)
 	}
-	return objectstore.NewObjectStoreClient("", "", options.AccessUrl, options.AccessKey, options.Secret, options.Debug)
+	return objectstore.NewObjectStoreClient(
+		objectstore.NewObjectStoreClientConfig(
+			options.AccessUrl, options.AccessKey, options.Secret,
+		).Debug(options.Debug),
+	)
 }
 
 func main() {

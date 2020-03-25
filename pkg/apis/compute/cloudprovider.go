@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -119,6 +120,8 @@ func (usage *SCloudproviderUsage) IsEmpty() bool {
 type CloudproviderDetails struct {
 	apis.EnabledStatusStandaloneResourceDetails
 	apis.ProjectizedResourceInfo
+
+	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
 	SCloudprovider
 

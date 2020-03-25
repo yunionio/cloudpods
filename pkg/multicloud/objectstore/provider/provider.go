@@ -71,8 +71,12 @@ func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ct
 	return output, nil
 }
 
-func (self *SObjectStoreProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := objectstore.NewObjectStoreClient(providerId, providerName, url, account, secret, false)
+func (self *SObjectStoreProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := objectstore.NewObjectStoreClient(
+		objectstore.NewObjectStoreClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

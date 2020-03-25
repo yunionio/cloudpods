@@ -86,11 +86,12 @@ func newClient(options *BaseOptions) (*ucloud.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := ucloud.NewUcloudClient("", "",
-		options.AccessKey,
-		options.Secret,
-		options.ProjectId,
-		options.Debug)
+	cli, err := ucloud.NewUcloudClient(
+		ucloud.NewUcloudClientConfig(
+			options.AccessKey,
+			options.Secret,
+		).ProjectId(options.ProjectId).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

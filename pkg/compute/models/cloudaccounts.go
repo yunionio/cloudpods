@@ -33,10 +33,12 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -47,6 +49,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -69,6 +72,8 @@ func init() {
 		),
 	}
 	CloudaccountManager.SetVirtualObject(CloudaccountManager)
+
+	proxy.RegisterReferrer(CloudaccountManager)
 }
 
 type SCloudaccount struct {
@@ -149,6 +154,9 @@ type SCloudaccount struct {
 	IsPublic bool `default:"false" nullable:"false"`
 	// add share_mode field to indicate the share range of this account
 	ShareMode string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
+
+	// 默认值proxyapi.ProxySettingId_DIRECT
+	ProxySettingId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"optional" update:"domain" default:"DIRECT"`
 }
 
 func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
@@ -286,6 +294,16 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 		}
 		data.Set("options", optionsJson)
 	}
+
+	v := validators.NewModelIdOrNameValidator(
+		"proxy_setting",
+		proxy.ProxySettingManager.KeywordPlural(),
+		userCred,
+	)
+	if err := v.Validate(data); err != nil {
+		return nil, err
+	}
+
 	return self.SEnabledStatusDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -343,7 +361,27 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return input, httperrors.NewConflictError("The account has been registered")
 	}
 
-	accountId, err := cloudprovider.IsValidCloudAccount(input.AccessUrl, input.Account, input.Secret, input.Provider)
+	var proxyFunc httputils.TransportProxyFunc
+	{
+		if input.ProxySettingId == "" {
+			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
+		}
+		m, err := proxy.ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+		if err != nil {
+			return input, httperrors.NewInputParameterError("fetch proxysetting %s: %s",
+				input.ProxySettingId, err)
+		}
+		proxySetting := m.(*proxy.SProxySetting)
+		input.ProxySettingId = proxySetting.Id
+		proxyFunc = proxySetting.HttpTransportProxyFunc()
+	}
+	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+		Vendor:    input.Provider,
+		URL:       input.AccessUrl,
+		Account:   input.Account,
+		Secret:    input.Secret,
+		ProxyFunc: proxyFunc,
+	})
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
 			return input, httperrors.NewResourceNotFoundError("no such provider %s", input.Provider)
@@ -470,7 +508,14 @@ func (self *SCloudaccount) PerformTestConnectivity(ctx context.Context, userCred
 		return nil, err
 	}
 
-	_, err = cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider)
+	_, err = cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+		URL:     self.AccessUrl,
+		Vendor:  self.Provider,
+		Account: account.Account,
+		Secret:  account.Secret,
+
+		ProxyFunc: self.proxyFunc(),
+	})
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
@@ -521,7 +566,13 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 	originSecret, _ := self.getPassword()
 
-	accountId, err := cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider)
+	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+		Vendor:    self.Provider,
+		URL:       self.AccessUrl,
+		Account:   account.Account,
+		Secret:    account.Secret,
+		ProxyFunc: self.proxyFunc(),
+	})
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
@@ -673,12 +724,40 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 	return self.getProviderInternal()
 }
 
+func (self *SCloudaccount) proxySetting() *proxy.SProxySetting {
+	m, err := proxy.ProxySettingManager.FetchById(self.ProxySettingId)
+	if err != nil {
+		log.Errorf("cloudaccount %s(%s): get proxysetting %s: %v",
+			self.Name, self.Id, self.ProxySettingId, err)
+		return nil
+	}
+	ps := m.(*proxy.SProxySetting)
+	return ps
+}
+
+func (self *SCloudaccount) proxyFunc() httputils.TransportProxyFunc {
+	ps := self.proxySetting()
+	if ps != nil {
+		return ps.HttpTransportProxyFunc()
+	}
+	return nil
+}
+
 func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, error) {
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
+	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+		Id:      self.Id,
+		Name:    self.Name,
+		Vendor:  self.Provider,
+		URL:     self.AccessUrl,
+		Account: self.Account,
+		Secret:  secret,
+
+		ProxyFunc: self.proxyFunc(),
+	})
 }
 
 func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

@@ -75,8 +75,12 @@ func (self *SAwsProviderFactory) ValidateUpdateCloudaccountCredential(ctx contex
 	return output, nil
 }
 
-func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := aws.NewAwsClient(providerId, providerName, url, account, secret, false)
+func (self *SAwsProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := aws.NewAwsClient(
+		aws.NewAwsClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

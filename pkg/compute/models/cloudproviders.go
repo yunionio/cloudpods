@@ -34,6 +34,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -750,7 +751,18 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, accessUrl, self.Account, passwd, self.Provider)
+
+	account := self.GetCloudaccount()
+
+	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+		Id:        self.Id,
+		Name:      self.Name,
+		Vendor:    self.Provider,
+		URL:       accessUrl,
+		Account:   self.Account,
+		Secret:    passwd,
+		ProxyFunc: account.proxyFunc(),
+	})
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {
@@ -841,6 +853,7 @@ func (self *SCloudprovider) GetExtraDetails(
 	query jsonutils.JSONObject,
 	isList bool,
 ) (api.CloudproviderDetails, error) {
+
 	return api.CloudproviderDetails{}, nil
 }
 
@@ -859,6 +872,10 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	accountIds := make([]string, len(objs))
 	for i := range rows {
 		provider := objs[i].(*SCloudprovider)
+		accountId := provider.CloudaccountId
+		if !utils.IsInStringArray(accountId, accountIds) {
+			accountIds = append(accountIds, accountId)
+		}
 		rows[i] = api.CloudproviderDetails{
 			EnabledStatusStandaloneResourceDetails: stdRows[i],
 			ProjectizedResourceInfo:                projRows[i],
@@ -874,7 +891,23 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 	accounts := make(map[string]SCloudaccount)
 	err := db.FetchStandaloneObjectsByIds(CloudaccountManager, accountIds, &accounts)
 	if err != nil {
-		log.Errorf("FetchStandaloneObjectsByIds fail %s", err)
+		log.Errorf("FetchStandaloneObjectsByIds (%s) fail %s",
+			CloudaccountManager.KeywordPlural(), err)
+		return rows
+	}
+
+	proxySettingIds := make([]string, len(accounts))
+	for i := range accounts {
+		proxySettingId := accounts[i].ProxySettingId
+		if !utils.IsInStringArray(proxySettingId, proxySettingIds) {
+			proxySettingIds = append(proxySettingIds, proxySettingId)
+		}
+	}
+	proxySettings := make(map[string]proxy.SProxySetting)
+	err = db.FetchStandaloneObjectsByIds(proxy.ProxySettingManager, proxySettingIds, &proxySettings)
+	if err != nil {
+		log.Errorf("FetchStandaloneObjectsByIds (%s) fail %s",
+			proxy.ProxySettingManager.KeywordPlural(), err)
 		return rows
 	}
 
@@ -882,6 +915,13 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 		if account, ok := accounts[accountIds[i]]; ok {
 			rows[i].Cloudaccount = account.Name
 			rows[i].Brand = account.Brand
+
+			ps := &rows[i].ProxySetting
+			if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
+				ps.HTTPProxy = proxySetting.HTTPProxy
+				ps.HTTPSProxy = proxySetting.HTTPSProxy
+				ps.NoProxy = proxySetting.NoProxy
+			}
 		}
 	}
 
