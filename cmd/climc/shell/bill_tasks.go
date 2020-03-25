@@ -26,8 +26,8 @@ func init() {
 	type BillTasksCreateOptions struct {
 		options.BaseListOptions
 		CloudaccountId string `help:"cloudaccount Id" required:"true"`
-		StartDay       int    `help:"start day of billing cycle"`
-		EndDay         int    `help:"end day of billing cycle"`
+		StartDay       int    `help:"start day of billing cycle, example: 20060102"`
+		EndDay         int    `help:"end day of billing cycle, example: 20060102"`
 	}
 	R(&BillTasksCreateOptions{}, "bill-tasks-create", "create bill task",
 		func(s *mcclient.ClientSession, args *BillTasksCreateOptions) error {
