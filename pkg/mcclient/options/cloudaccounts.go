@@ -260,6 +260,10 @@ type SQcloudCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 }
 
+type SGoogleCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
 type SAWSCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
 
