@@ -737,7 +737,14 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, accessUrl, self.Account, passwd, self.Provider)
+	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+		Id:      self.Id,
+		Name:    self.Name,
+		Vendor:  self.Provider,
+		URL:     accessUrl,
+		Account: self.Account,
+		Secret:  passwd,
+	})
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {

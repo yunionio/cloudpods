@@ -136,5 +136,12 @@ func (provider *SCloudproviderDelegate) GetProvider() (cloudprovider.ICloudProvi
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(provider.Id, provider.Name, accessUrl, provider.Account, passwd, provider.Provider)
+	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
+		Id:      provider.Id,
+		Name:    provider.Name,
+		Vendor:  provider.Provider,
+		URL:     accessUrl,
+		Account: provider.Account,
+		Secret:  passwd,
+	})
 }

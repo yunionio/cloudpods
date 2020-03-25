@@ -71,8 +71,10 @@ func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret, true)
+func (self *SAliyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := aliyun.NewAliyunClient(
+		cfg.Id, cfg.Name, cfg.Account, cfg.Secret, true,
+	)
 	if err != nil {
 		return nil, err
 	}

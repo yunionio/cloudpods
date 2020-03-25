@@ -99,9 +99,9 @@ func parseAccount(account string) (accessKey string, projectId string) {
 	return
 }
 
-func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	accessKey, projectId := parseAccount(account)
-	client, err := huawei.NewHuaweiClient(providerId, providerName, url, accessKey, secret, projectId, false)
+func (self *SHuaweiProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	accessKey, projectId := parseAccount(cfg.Account)
+	client, err := huawei.NewHuaweiClient(cfg.Id, cfg.Name, cfg.URL, accessKey, cfg.Secret, projectId, false)
 	if err != nil {
 		return nil, err
 	}
