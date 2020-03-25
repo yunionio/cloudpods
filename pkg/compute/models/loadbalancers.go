@@ -394,20 +394,11 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 
 func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := lb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	providerInfo := lb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if providerInfo != nil {
-		extra.Update(providerInfo)
-	}
-
-	zoneInfo := lb.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if zoneInfo != nil {
-		extra.Update(zoneInfo)
-	} else {
-		regionInfo := lb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
-		if regionInfo != nil {
-			extra.Update(regionInfo)
-		}
-	}
+	region := lb.GetRegion()
+	zone := lb.GetZone()
+	provider := lb.GetCloudprovider()
+	info := MakeCloudProviderInfo(region, zone, provider)
+	extra.Update(jsonutils.Marshal(info))
 
 	eip, _ := lb.GetEip()
 	if eip != nil {
