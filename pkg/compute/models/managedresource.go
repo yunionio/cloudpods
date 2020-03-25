@@ -458,6 +458,8 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 	if region != nil {
 		info.Region = region.GetName()
 		info.RegionId = region.GetId()
+		info.Brand = region.Provider
+		info.Provider = region.Provider
 	}
 
 	if provider != nil {
