@@ -737,13 +737,17 @@ func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	account := self.GetCloudaccount()
+
 	return cloudprovider.GetProvider(cloudprovider.ProviderConfig{
-		Id:      self.Id,
-		Name:    self.Name,
-		Vendor:  self.Provider,
-		URL:     accessUrl,
-		Account: self.Account,
-		Secret:  passwd,
+		Id:        self.Id,
+		Name:      self.Name,
+		Vendor:    self.Provider,
+		URL:       accessUrl,
+		Account:   self.Account,
+		Secret:    passwd,
+		ProxyFunc: account.proxyFunc(),
 	})
 }
 
@@ -878,7 +882,16 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, out api.Cloudpro
 		// 此字段不能删除，公有云日志同步需要这个字段
 		out.Brand = account.Brand
 		out.Cloudaccount = account.GetName()
+		ps := account.proxySetting()
+		if ps != nil {
+			out.ProxySetting.Id = ps.Id
+			out.ProxySetting.Name = ps.Name
+			out.ProxySetting.HTTPProxy = ps.HTTPProxy
+			out.ProxySetting.HTTPSProxy = ps.HTTPSProxy
+			out.ProxySetting.NoProxy = ps.NoProxy
+		}
 	}
+
 	out.SyncStatus2 = self.getSyncStatus2()
 	capabilities, _ := CloudproviderCapabilityManager.getCapabilities(self.Id)
 	if len(capabilities) > 0 {

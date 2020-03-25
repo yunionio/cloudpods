@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 )
 
 func InitDB() error {
@@ -27,6 +28,8 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 		db.TenantCacheManager,
+
+		proxy.ProxySettingManager,
 
 		QuotaManager,
 
