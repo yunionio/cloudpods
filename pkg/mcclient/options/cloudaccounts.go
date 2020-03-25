@@ -227,8 +227,9 @@ type SCloudAccountUpdateBaseOptions struct {
 	ID   string `help:"ID or Name of cloud account" json:"-"`
 	Name string `help:"New name to update"`
 
-	SyncIntervalSeconds int   `help:"auto synchornize interval in seconds"`
-	AutoCreateProject   *bool `help:"automatically create local project for new remote project"`
+	SyncIntervalSeconds int    `help:"auto synchornize interval in seconds"`
+	AutoCreateProject   *bool  `help:"automatically create local project for new remote project"`
+	ProxySetting        string `help:"proxy setting name or id"`
 
 	Desc string `help:"Description" json:"description" token:"desc"`
 }
