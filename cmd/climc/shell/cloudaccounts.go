@@ -392,6 +392,19 @@ func init() {
 		return nil
 	})
 
+	R(&options.SGoogleCloudAccountUpdateOptions{}, "cloud-account-update-google", "update a google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.SAWSCloudAccountUpdateOptions{}, "cloud-account-update-aws", "update an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountUpdateOptions) error {
 		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 
