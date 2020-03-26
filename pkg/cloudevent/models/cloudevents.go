@@ -139,6 +139,9 @@ func (manager *SCloudeventManager) SyncCloudevent(ctx context.Context, userCred 
 			Brand:           cloudprovider.Brand,
 			CloudproviderId: cloudprovider.Id,
 		}
+		if len(event.Brand) == 0 {
+			event.Brand = event.Provider
+		}
 
 		event.CreatedAt = iEvent.GetCreatedAt()
 		event.SetModelManager(manager, event)
