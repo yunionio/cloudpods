@@ -4529,6 +4529,17 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 	return ihost.GetIVMById(self.ExternalId)
 }
 
+func (self *SGuest) DetachScalingGroup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	sggs, err := ScalingGroupGuestManager.Fetch("", self.GetId())
+	if err != nil {
+		return err
+	}
+	for i := range sggs {
+		sggs[i].Detach(ctx, userCred)
+	}
+	return nil
+}
+
 func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
 	eip, err := self.GetEip()
 	if err != nil {

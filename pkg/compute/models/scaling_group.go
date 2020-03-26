@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -78,7 +79,8 @@ type SScalingGroup struct {
 	HealthCheckCycle int    `nullable:"false" default:"300" create:"optional" list:"user" update:"user" get:"user"'`
 	HealthCheckGov   int    `nullable:"false" default:"180" create:"optional" list:"user" update:"user" get:"user"`
 
-	LoadbalancerBackendPort int `nullable:"false" default:"80" create:"optional" list:"user" get:"user"`
+	LoadbalancerBackendPort   int `nullable:"false" default:"80" create:"optional" list:"user" get:"user"`
+	LoadbalancerBackendWeight int `nillable:"false" default:"1" create:"optional" list:"user" get:"user"`
 }
 
 var ScalingGroupManager *SScalingGroupManager
@@ -208,14 +210,46 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 		return input, httperrors.NewInputParameterError("unkown health check mode %s", input.HealthCheckMode)
 	}
 
+	// check lb
+	if len(input.LbBackendGroup) != 0 {
+		idOrName = input.LbBackendGroup
+		lb, err := LoadbalancerBackendGroupManager.FetchByIdOrName(userCred, idOrName)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return input, httperrors.NewInputParameterError("no such loadbalancer backend group '%s'", idOrName)
+		}
+		if err != nil {
+			return input, errors.Wrap(err, "LoadbalancerBackendGroupManager.FetchByIdOrName")
+		}
+		input.BackendGroupId = lb.GetId()
+
+		// check lbeg port
+		if input.LoadbalancerBackendPort < 1 || input.LoadbalancerBackendPort > 65535 {
+			return input, httperrors.NewInputParameterError("invalid loadbalancer backend port '%d'", input.LoadbalancerBackendPort)
+		}
+
+		// check lbeg weight
+		if input.LoadbalancerBackendWeight < 1 {
+			return input, httperrors.NewInputParameterError("invalid loadbalancer backend weight '%d'", input.LoadbalancerBackendWeight)
+		}
+	}
+
 	return input, nil
 }
 
-// Delete group 的时候，把状态标识为deleting，然后让controller去删除
-// 或者把policy也设置为deleting，然后自己通过task删除，set status要加锁
-// 查询的就不用加锁，controller 碰到policy的状态为deleting, 会拒绝执行相关的
-// 伸缩活动 过滤掉就好了; 对于正在进行的伸缩活动，需要等待其停止？
-// 伸缩组不允许手动添加机器进来
+func (sg *SScalingGroup) ValidateDeleteCondition(ctx context.Context) error {
+	// check enabled
+	if sg.Enabled.IsTrue() {
+		return httperrors.NewForbiddenError("Please disable this ScalingGroup firstly")
+	}
+	count, err := sg.GuestNumber()
+	if err != nil {
+		return errors.Wrap(err, "ScalingGroup.GuestNumber error")
+	}
+	if count != 0 {
+		return httperrors.NewForbiddenError("There are some guests in this ScalingGroup, please delete them firstly")
+	}
+	return nil
+}
 
 func (sg *SScalingGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SScaling Group delete do nothing")
@@ -330,22 +364,25 @@ func (sgm *SScalingGroupManager) FetchCustomizeColumns(
 		sg := objs[i].(*SScalingGroup)
 		n, _ := sg.GuestNumber()
 		rows[i].InstanceNumber = n
+		n, _ = sg.ScalingPolicyNumber()
+		rows[i].ScalingPolicyNumber = n
 	}
 	return rows
 }
 
 func (sg *SScalingGroup) GuestNumber() (int, error) {
-	q := GuestManager.Query().In("id", ScalingGroupGuestManager.Query("guest_id").Equals("scaling_group_id", sg.Id).SubQuery())
+	q := GuestManager.Query().In("id", ScalingGroupGuestManager.Query("guest_id").Equals("scaling_group_id",
+		sg.Id).SubQuery()).IsFalse("pending_deleted")
 	return q.CountWithError()
 }
 
 func (sg *SScalingGroup) ScalingPolicyNumber() (int, error) {
-	q := ScalingGroupManager.Query().Equals("scaling_group_id", sg.Id)
+	q := ScalingPolicyManager.Query().Equals("scaling_group_id", sg.Id)
 	return q.CountWithError()
 }
 
-func (sg *SScalingGroup) RemoveAllGuests(ctx context.Context, userCred mcclient.TokenCredential) error {
-	q := GuestTemplateManager.Query().Equals("scaling_group_id", sg.Id)
+/*func (sg *SScalingGroup) RemoveAllGuests(ctx context.Context, userCred mcclient.TokenCredential) error {
+	q := ScalingGroupGuestManager.Query().Equals("scaling_group_id", sg.Id)
 	scalingGroupGuests := make([]SScalingGroupGuest, 0)
 	err := db.FetchModelObjects(ScalingGroupGuestManager, q, &scalingGroupGuests)
 	if err != nil {
@@ -357,16 +394,19 @@ func (sg *SScalingGroup) RemoveAllGuests(ctx context.Context, userCred mcclient.
 			scalingGroupGuests[i].ScalingGroupId, scalingGroupGuests[i].GuestId)
 	}
 	return nil
-}
+}*/
 
-func (sg *SScalingGroup) ScalingGroupGuest(guestId string) (*SScalingGroupGuest, error) {
-	q := ScalingGroupGuestManager.Query().Equals("guest_id", guestId)
-	var sgg SScalingGroupGuest
-	err := q.First(&sgg)
-	if err != nil {
-		return nil, err
+func (sg *SScalingGroup) ScalingGroupGuests(guestIds []string) ([]SScalingGroupGuest, error) {
+	q := ScalingGroupGuestManager.Query().Equals("scaling_group_id", sg.GetId())
+	if len(guestIds) == 1 {
+		q = q.Equals("guest_id", guestIds[1])
 	}
-	return &sgg, nil
+	if len(guestIds) > 1 {
+		q = q.In("guest_id", guestIds)
+	}
+	sggs := make([]SScalingGroupGuest, 0, len(guestIds))
+	err := db.FetchModelObjects(ScalingGroupGuestManager, q, &sggs)
+	return sggs, err
 }
 
 func (sg *SScalingGroup) Guests() ([]SGuest, error) {
@@ -382,7 +422,7 @@ func (sg *SScalingGroup) Guests() ([]SGuest, error) {
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
 func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) error {
-	scalingActivity, err := ScalingActivityManager.CreateScalingActivity(sg.Id, triggerDesc.Description(), api.SA_STATUS_EXEC)
+	scalingActivity, err := ScalingActivityManager.CreateScalingActivity(sg.Id, triggerDesc.TriggerDescription(), api.SA_STATUS_EXEC)
 	if err != nil {
 		return errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
 	}
@@ -391,11 +431,18 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	// query again to fetch the latest desire instance number of sg
 	model, err := ScalingGroupManager.FetchById(sg.Id)
 	if err != nil {
-		scalingActivity.SetResult("", false, fmt.Sprintf("fail to get ScalingGroup: ", err.Error()))
+		scalingActivity.SetFailed("", fmt.Sprintf("fail to get ScalingGroup: ", err.Error()))
 		return nil
 	}
 	sg = model.(*SScalingGroup)
 	targetNum := action.Exec(sg.DesireInstanceNumber)
+	// targetNum must between sg.MinInstanceNumber and sg.MaxInstanceNumber
+	if targetNum > sg.MaxInstanceNumber {
+		targetNum = sg.MaxInstanceNumber
+	}
+	if targetNum < sg.MinInstanceNumber {
+		targetNum = sg.MinInstanceNumber
+	}
 	actionStr := fmt.Sprintf(`Change the Desired Instance Number from "%d" to "%d"`, sg.DesireInstanceNumber, targetNum)
 	_, err = db.Update(sg, func() error {
 		sg.DesireInstanceNumber = targetNum
@@ -404,10 +451,10 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	lockman.ReleaseObject(ctx, sg)
 
 	if err != nil {
-		scalingActivity.SetResult(actionStr, false, fmt.Sprintf("fail to get ScalingTimer's ScalingGroup: %s", err.Error()))
+		scalingActivity.SetFailed(actionStr, fmt.Sprintf("fail to get ScalingTimer's ScalingGroup: %s", err.Error()))
 		return nil
 	}
-	scalingActivity.SetResult(actionStr, true, "")
+	scalingActivity.SetResult(actionStr, api.SA_STATUS_SUCCEED, "", -1)
 	return nil
 }
 
@@ -479,6 +526,10 @@ func (sg *SScalingGroup) PostCreate(ctx context.Context, userCred mcclient.Token
 			return
 		}
 	}
+	db.Update(sg, func() error {
+		sg.SetEnabled(true)
+		return nil
+	})
 	sg.SetStatus(userCred, api.SG_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_CREATE, "", userCred, true)
 }
@@ -539,7 +590,7 @@ func (s *SGuest) PerformDetachScalingGroup(ctx context.Context, userCred mcclien
 	input.ScalingGroup = sggs[0].ScalingGroupId
 	sggs[0].SetGuestStatus(api.SG_GUEST_STATUS_REMOVING)
 	taskData := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachScalingGroupTask", s, userCred, taskData, "", "", )
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachScalingGroupTask", s, userCred, taskData, "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "Start GuestDetachScalingGroupTask failed")
 	}
@@ -547,3 +598,28 @@ func (s *SGuest) PerformDetachScalingGroup(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
+func (sg *SScalingGroup) NetworkIds() ([]string, error) {
+	sgnQuery := ScalingGroupNetworkManager.Query("network_id").Equals("scaling_group_id", sg.Id)
+	rows, err := sgnQuery.Rows()
+	if err != nil {
+		return nil, errors.Wrap(err, "SQuery.Rows")
+	}
+	defer rows.Close()
+	nets := make([]string, 0, 1)
+	for rows.Next() {
+		var net string
+		rows.Scan(&net)
+		nets = append(nets, net)
+	}
+	return nets, nil
+}
+
+func (sg *SScalingGroup) Activities() ([]SScalingActivity, error) {
+	q := ScalingActivityManager.Query().Equals("scaling_group_id", sg.Id)
+	activities := make([]SScalingActivity, 0, 1)
+	err := db.FetchModelObjects(ScalingActivityManager, q, &activities)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return activities, nil
+}

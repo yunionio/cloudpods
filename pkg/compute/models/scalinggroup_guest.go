@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -40,10 +41,10 @@ type SScalingGroupGuest struct {
 func (sggm *SScalingGroupGuestManager) Attach(ctx context.Context, scaligGroupId, guestId string, manual bool) error {
 	sgg := &SScalingGroupGuest{
 		SGuestJointsBase: SGuestJointsBase{
-			GuestId:                   guestId,
+			GuestId: guestId,
 		},
-		ScalingGroupId:   scaligGroupId,
-		GuestStatus:      compute.SG_GUEST_STATUS_READY,
+		ScalingGroupId: scaligGroupId,
+		GuestStatus:    compute.SG_GUEST_STATUS_JOINING,
 	}
 	if manual {
 		sgg.Manual = tristate.True
@@ -57,15 +58,15 @@ func (sgg *SScalingGroupGuest) Detach(ctx context.Context, userCred mcclient.Tok
 	return db.DetachJoint(ctx, userCred, sgg)
 }
 
-func (sggm *SScalingGroupGuestManager) Fetch(scalingGroupId, networkId string) ([]SScalingGroupGuest, error) {
+func (sggm *SScalingGroupGuestManager) Fetch(scalingGroupId, guestId string) ([]SScalingGroupGuest, error) {
 
 	sggs := make([]SScalingGroupGuest, 0)
 	q := sggm.Query()
 	if len(scalingGroupId) != 0 {
 		q = q.Equals("scaling_group_id", scalingGroupId)
 	}
-	if len(networkId) != 0 {
-		q = q.Equals("network_id", networkId)
+	if len(guestId) != 0 {
+		q = q.Equals("guest_id", guestId)
 	}
 	err := db.FetchModelObjects(sggm, q, &sggs)
 	return sggs, err

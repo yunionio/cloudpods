@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -36,8 +37,8 @@ type SScalingGroupNetwork struct {
 
 func (sgnm *SScalingGroupNetworkManager) Attach(ctx context.Context, scalingGroupId, networkId string) error {
 	sgn := &SScalingGroupNetwork{
-		ScalingGroupId:            scalingGroupId,
-		NetworkId:                 networkId,
+		ScalingGroupId: scalingGroupId,
+		NetworkId:      networkId,
 	}
 	return sgnm.TableSpec().Insert(sgn)
 }

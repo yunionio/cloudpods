@@ -41,9 +41,10 @@ const (
 	TIMER_TYPE_WEEK  = "week"
 	TIMER_TYPE_MONTH = "month"
 
-	SG_GUEST_STATUS_JOINING = "joining" // 加入中
-	SG_GUEST_STATUS_READY = "ready"
-	SG_GUEST_STATUS_REMOVING  = "removing"  // 移除中
+	// 加入中 和 加入失败 的不算是 ScalingGroup 的机器
+	SG_GUEST_STATUS_JOINING       = "joining"       // 加入中
+	SG_GUEST_STATUS_READY         = "ready"         // 正常
+	SG_GUEST_STATUS_REMOVING      = "removing"      // 移除中
 	SG_GUEST_STATUS_REMOVE_FAILED = "remove_failed" // 移除失败
 
 	// 只有ready状态是正常的
@@ -55,14 +56,15 @@ const (
 	SG_STATUS_CREATE_FAILED      = "create_failed"
 	SG_STATUS_DELETED            = "deleted" // 删除
 
-	SP_STATUS_READY    = "ready"    // 正常
-	SP_STATUS_DELETING = "deleting" // 删除中
-	SP_STATUS_DELETED  = "deleted"  // 删除
+	SP_STATUS_READY         = "ready"         // 正常
+	SP_STATUS_CREATE_FAILED = "create_failed" // 创建失败
+	SP_STATUS_DELETING      = "deleting"      // 删除中
+	SP_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
 
-	SA_STATUS_INIT         = "init"
 	SA_STATUS_WAIT         = "wait"         // 等待中
 	SA_STATUS_EXEC         = "execution"    // 执行中
 	SA_STATUS_SUCCEED      = "succeed"      // 成功
 	SA_STATUS_PART_SUCCEED = "part_succeed" // 部分成功
 	SA_STATUS_FAILED       = "failed"       // 失败
+	SA_STATUS_REJECT       = "reject"       // 拒绝
 )

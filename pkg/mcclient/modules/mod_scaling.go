@@ -10,16 +10,18 @@ var (
 
 func init() {
 	ScalingGroup = NewComputeManager("scalinggroup", "scalinggroups",
-		[]string{"ID", "Name", "Hypervisor", "CloudregionID", "NetworkID", "MinInstanceNumber", "MaxInstanceNumber",
-			"DesireInstanceNumber", "GuestTemplateID", "LoadbalancerID", "GroupID", "Enabled", "ExpansionPrinciple", "ShrinkPrinciple"},
+		[]string{"ID", "Name", "Hypervisor", "Cloudregion_ID", "Network_ID", "Min_Instance_Number",
+			"Max_Instance_Number", "Desire_Instance_Number", "Guest_Template_ID", "Loadbalancer_ID", "Group_ID", "Enabled",
+			"Expansion_Principle", "Shrink_Principle"},
 		[]string{},
 	)
 	ScalingPolicy = NewComputeManager("scalingpolicy", "scalingpolicies",
-		[]string{"ID", "Name", "Timer", "CycleTimer", "Alarm", "Action", "Number", "Unit", "CoolingTime"},
+		[]string{"ID", "Name", "Timer", "Cycle_Timer", "Alarm", "Action", "Number", "Unit", "Cooling_Time"},
 		[]string{},
 	)
 	ScalingActivity = NewComputeManager("scalingactivity", "scalingactivities",
-		[]string{"ID", "Name", "InstanceNumber", "TriggerDesc", "ActionDesc", "Status", "StartTime", "EndTime", "Reason"},
+		[]string{"ID", "Name", "Instance_Number", "Trigger_Desc", "Action_Desc", "Status", "Start_Time",
+			"End_Time", "Reason"},
 		[]string{},
 	)
 	registerCompute(&ScalingGroup)

@@ -18,7 +18,7 @@ import (
 )
 
 type IScalingTriggerDesc interface {
-	Description() string
+	TriggerDescription() string
 }
 
 type IScalingTrigger interface {
@@ -31,18 +31,24 @@ type IScalingTrigger interface {
 	Register(ctx context.Context, userCred mcclient.TokenCredential) error
 	UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error
 	TriggerId() string
+	IsTrigger() bool
 }
 
 type SScalingManual struct {
 	SScalingPolicyBase
 }
 
-func (sm SScalingManual) Description() string {
-	return fmt.Sprintf(`A user request to execute scaling policy "%s"`, sm.ScalingPolicyId)
+func (sm SScalingManual) TriggerDescription() string {
+	name := sm.ScalingPolicyId
+	sp, _ := sm.ScalingPolicy()
+	if sp != nil {
+		name = sp.Name
+	}
+	return fmt.Sprintf(`A user request to execute scaling policy "%s"`, name)
 }
 
 type SScalingPolicyBase struct {
-	ScalingPolicyId string `width:"128" charset:"ascii"`
+	ScalingPolicyId string `width:"36" charset:"ascii"`
 }
 
 func (spb *SScalingPolicyBase) ScalingGroup() (*SScalingGroup, error) {
@@ -121,6 +127,11 @@ type SScalingAlarm struct {
 
 	// Value is a percentage describing the threshold
 	Value int
+
+	// Real-time cumulate number
+	RealCumulate int `default:"0"`
+	// Last trigger time
+	LastTriggerTime time.Time
 }
 
 var (
@@ -167,12 +178,16 @@ func (st *SScalingTimer) SetMonthDays(days []int) {
 }
 
 // Update will update the SScalingTimer
-func (st *SScalingTimer) Update() {
-	log.Debugf("Update Timer")
-	now := time.Now()
+func (st *SScalingTimer) Update(now time.Time) {
+	if now.IsZero() {
+		now = time.Now()
+	}
 	if !now.Before(st.EndTime) {
 		st.IsExpired = true
 		return
+	}
+	if now.Before(st.StartTime) {
+		now = st.StartTime
 	}
 	if now.Before(st.NextTime) {
 		return
@@ -211,6 +226,7 @@ func (st *SScalingTimer) Update() {
 		// day
 
 	}
+	log.Debugf("The final NextTime: %s", newNextTime)
 	st.NextTime = newNextTime
 }
 
@@ -293,7 +309,7 @@ func (st *SScalingTimer) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 
 func (st *SScalingTimer) Register(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// insert
-	st.Update()
+	st.Update(time.Time{})
 	err := ScalingTimerManager.TableSpec().Insert(st)
 	if err != nil {
 		return errors.Wrap(err, "STableSpec.Insert")
@@ -313,7 +329,7 @@ func (st *SScalingTimer) TriggerId() string {
 	return st.GetId()
 }
 
-func (st *SScalingTimer) Description() string {
+func (st *SScalingTimer) TriggerDescription() string {
 	var detail string
 	switch st.Type {
 	case api.TIMER_TYPE_ONCE:
@@ -325,7 +341,16 @@ func (st *SScalingTimer) Description() string {
 	case api.TIMER_TYPE_MONTH:
 		detail = st.MonthDaysDesc()
 	}
-	return fmt.Sprintf(`Schedule task(%s) execute scaling policy "%s"`, detail, st.ScalingPolicyId)
+	name := st.ScalingPolicyId
+	sp, _ := st.ScalingPolicy()
+	if sp != nil {
+		name = sp.Name
+	}
+	return fmt.Sprintf(`Schedule task(%s) execute scaling policy "%s"`, detail, name)
+}
+
+func (st *SScalingTimer) IsTrigger() bool {
+	return true
 }
 
 func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) (api.ScalingPolicyCreateInput, error) {
@@ -356,12 +381,42 @@ func (sa *SScalingAlarm) TriggerId() string {
 	return sa.GetId()
 }
 
-func (sa *SScalingAlarm) Description() string {
+func (sa *SScalingAlarm) TriggerDescription() string {
+	name := sa.ScalingPolicyId
+	sp, _ := sa.ScalingPolicy()
+	if sp != nil {
+		name = sp.Name
+	}
 	return fmt.Sprintf(
 		`Alarm task(the %s %s of the instance is %s than %d%s) execute scaling policy "%s"`,
 		descs[sa.Wrapper], descs[sa.Indicator], descs[sa.Operator],
-		sa.Value, units[sa.Indicator], sa.ScalingPolicyId,
+		sa.Value, units[sa.Indicator], name,
 	)
+}
+
+func (sa *SScalingAlarm) IsTrigger() (is bool) {
+	realCumulate := sa.RealCumulate
+	lastTriggerTime := sa.LastTriggerTime
+	now := time.Now()
+	if lastTriggerTime.Add(time.Duration(sa.Cycle) * 2 * time.Second).Before(now) {
+		realCumulate = 1
+	} else {
+		realCumulate += 1
+	}
+	lastTriggerTime = now
+	if realCumulate == sa.Cumulate {
+		is = true
+		realCumulate = 0
+	}
+	_, err := db.Update(sa, func() error {
+		sa.RealCumulate = realCumulate
+		sa.LastTriggerTime = lastTriggerTime
+		return nil
+	})
+	if err != nil {
+		log.Errorf("db.Update in ScalingAlarm.IsTrigger failed: %s", err.Error())
+	}
+	return
 }
 
 var descs = map[string]string{

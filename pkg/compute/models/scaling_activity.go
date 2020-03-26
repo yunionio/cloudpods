@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -66,21 +67,30 @@ func (sam *SScalingActivityManager) FetchByStatus(ctx context.Context, saIds, st
 	return
 }
 
-func (sam *SScalingActivity) SetResult(action string, success bool, failReason string) error {
+func (sam *SScalingActivity) SetFailed(actionDesc, reason string) error {
+	return sam.SetResult(actionDesc, compute.SA_STATUS_FAILED, reason, -1)
+}
+
+func (sam *SScalingActivity) SetResult(actionDesc, status, reason string, instanceNum int) error {
 	_, err := db.Update(sam, func() error {
-		if len(action) != 0 {
-			sam.ActionDesc = action
+		if len(actionDesc) != 0 {
+			sam.ActionDesc = actionDesc
 		}
 		sam.EndTime = time.Now()
-		if success {
-			sam.Status = compute.SA_STATUS_SUCCEED
-		} else {
-			sam.Status = compute.SA_STATUS_FAILED
-			sam.Reason = failReason
+		sam.Status = status
+		if len(reason) != 0 {
+			sam.Reason = reason
+		}
+		if instanceNum != -1 {
+			sam.InstanceNumber = instanceNum
 		}
 		return nil
 	})
 	return err
+}
+
+func (sam *SScalingActivity) SetReject(action string, reason string) error {
+	return sam.SetResult(action, compute.SA_STATUS_REJECT, reason, -1)
 }
 
 func (sam *SScalingActivityManager) CreateScalingActivity(sgId, triggerDesc, status string) (*SScalingActivity, error) {

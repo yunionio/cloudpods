@@ -282,6 +282,8 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
+	// detach
+	guest.DetachScalingGroup(ctx, self.UserCred)
 	self.DeleteGuest(ctx, guest)
 }
 

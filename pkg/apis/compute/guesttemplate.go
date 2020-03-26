@@ -34,6 +34,7 @@ type GuestTemplateInput struct {
 	ImageType     string `json:"image_type"`
 	ImageId       string `json:"image_id"`
 	InstanceType  string `json:"instance_type"`
+	BillingType   string `json:"billing_type"`
 }
 
 type GuestTemplateCreateInput struct {
@@ -54,6 +55,9 @@ type GuestTemplateDetails struct {
 	VpcResourceInfo
 	SGuestTemplate
 
+	Secgroup string `json:"secgroup"`
+	Zone     string `json:"zone"`
+
 	ConfigInfo GuestTemplateConfigInfo `json:"config_info"`
 }
 
@@ -61,18 +65,18 @@ type GuestTemplateListInput struct {
 	apis.SharableVirtualResourceListInput
 	RegionalFilterListInput
 	VpcFilterListInput
+	BillingType string `json:"billing_type"`
 }
 
 type GuestTemplateConfigInfo struct {
 	Region               string                 `json:"region"`
 	Zone                 string                 `json:"zone"`
 	Hypervisor           string                 `json:"hypervisor"`
-	OsType               string                 `json:"os_type"`
+	Secgroup             string                 `json:"secgroup"`
 	Sku                  GuestTemplateSku       `json:"sku"`
 	Disks                []GuestTemplateDisk    `json:"disks"`
 	Keypair              string                 `json:"keypair"`
 	Nets                 []GuestTemplateNetwork `json:"nets"`
-	Secgroup             string                 `json:"secgroup"`
 	IsolatedDeviceConfig []IsolatedDeviceConfig `json:"isolated_device_config"`
 	Image                string                 `json:"image"`
 	ResetPassword        bool                   `json:"reset_password"`

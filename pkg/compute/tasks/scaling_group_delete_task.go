@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -65,6 +67,7 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 			api.SA_STATUS_FAILED}, "not")
 		log.Debugf("scalingactivities not in 'succeed' or 'failed': %v", tmpIds)
 		if err != nil {
+			log.Errorf("ScalingActivityManager.FetchByStatus: %s", err.Error())
 			continue
 		}
 		if len(tmpIds) == 0 {
@@ -84,81 +87,45 @@ func (self *ScalingGroupDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
-	// detach all instances
-	err = sg.RemoveAllGuests(ctx, self.UserCred)
+	count, err := sg.GuestNumber()
 	if err != nil {
-		self.taskFailed(ctx, sg, err.Error())
+		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.GuestNumber: %s", err))
 		return
 	}
-
-	// dlete all instances
-	self.SetStage("OnDeleteGuestComplete", nil)
-	sg.SetStatus(self.UserCred, api.SG_STATUS_DESTROY_INSTANCE, "")
-	guests, err := sg.Guests()
-	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.Guests: %s", err))
-		return
-	}
-	log.Debugf("guests in scalinggroup '%s': %s", sg.Id, guests)
-	if len(guests) == 0 {
-		self.OnDeleteGuestComplete(ctx, sg, body)
-		return
-	}
-
-	for _, guest := range guests {
-		err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, true, true, true)
-		if err != nil {
-			self.taskFailed(ctx, sg, fmt.Sprintf("SGuest.StartDeleteGuestTask for %s: %s", guest.GetId(), err))
-			return
-		}
-	}
-}
-
-func (self *ScalingGroupDeleteTask) OnDeleteGuestComplete(ctx context.Context, sg *models.SScalingGroup,
-	data jsonutils.JSONObject) {
-
-	log.Debugf("insert OnDeleteGuestComplete")
-
-	subTasks := taskman.SubTaskManager.GetTotalSubtasks(self.Id, "OnDeleteGuestComplete", taskman.SUBTASK_FAIL)
-	if len(subTasks) > 0 {
-		self.taskFailed(ctx, sg, "some delete guest task failed")
-		return
-	}
-
-	// delete GuestGroup
-	group, err := models.GroupManager.FetchById(sg.GroupId)
-	if err == nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("delete guest group %s failed", sg.GroupId))
-		return
-	}
-	err = group.Delete(ctx, self.UserCred)
-	if err == nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("delete group failed: %s", err))
+	if count != 0 {
+		self.taskFailed(ctx, sg, fmt.Sprintf("There are some guests in ScalingGroup, please delete them firstly"))
 		return
 	}
 
 	// delete SScalingPolicies
 	policies, err := sg.ScalingPolicies()
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.ScalingPolicies: ", err))
+		self.taskFailed(ctx, sg, fmt.Sprintf("SScalingGroup.ScalingPolicies: %s", err.Error()))
 		return
 	}
-	for _, policy := range policies {
-		err := policy.Purge(ctx, self.UserCred)
+	for i := range policies {
+		err := policies[i].RealDelete(ctx, self.UserCred)
 		if err != nil {
-			self.taskFailed(ctx, sg, fmt.Sprintf("purge scaling group %s failed: %s", policy.GetId(), err))
+			self.taskFailed(ctx, sg, fmt.Sprintf("delete scaling group '%s' failed: %s", policies[i].GetId(), err.Error()))
+			return
+		}
+	}
+
+	// delete SScalingAvtivities
+	activities, err := sg.Activities()
+	if err != nil {
+		self.taskFailed(ctx, sg, fmt.Sprintf("ScalingGroup.Activities: %s", err.Error()))
+	}
+	for i := range activities {
+		err := activities[i].Delete(ctx, self.UserCred)
+		if err != nil {
+			self.taskFailed(ctx, sg, fmt.Sprintf("delete scaling activity '%s' failed: %s", activities[i].Id, err.Error()))
 			return
 		}
 	}
 
 	err = sg.RealDelete(ctx, self.UserCred)
 	if err != nil {
-		self.taskFailed(ctx, sg, fmt.Sprintf("ScalingGroup.RealDelete: %s", err))
+		self.taskFailed(ctx, sg, fmt.Sprintf("ScalingGroup.RealDelete: %s", err.Error()))
 	}
-}
-
-func (self *ScalingGroupDeleteTask) OnDeleteGuestCompleteFailed(ctx context.Context, sg *models.SScalingGroup,
-	data jsonutils.JSONObject) {
-	log.Errorf("Guest save image failed: %s", data.PrettyString())
-	self.taskFailed(ctx, sg, "")
 }

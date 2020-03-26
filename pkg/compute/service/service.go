@@ -16,9 +16,10 @@ package service
 
 import (
 	"context"
-	_ "github.com/go-sql-driver/mysql"
 	"os"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
 
@@ -37,6 +38,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
@@ -124,7 +126,7 @@ func StartService() {
 		go cron.Start2(ctx, electObj)
 
 		// init auto scaling controller
-		// autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
+		autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
 	}
 
 	app_common.ServeForever(app, baseOpts)

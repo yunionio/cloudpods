@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -692,6 +693,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 				log.Debugf("apply queryOffsetOptimization")
 			}
 		}
+	}
+	if manager.Keyword() == "servertemplate" {
+		q.DebugQuery()
 	}
 	retList, err := Query2List(manager, ctx, userCred, q, queryDict, delayFetch)
 	if err != nil {

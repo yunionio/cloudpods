@@ -17,11 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -62,7 +63,7 @@ type SGuestTemplate struct {
 
 	// 虚拟机操作系统类型
 	// pattern:Linux|Windows|VMWare
-	OsType string `width:"36" charset:"ascii" nullable:"true" create:"optional" json:"os_type"`
+	OsType string `width:"36" charset:"ascii" nullable:"true" create:"optional" json:"os_type" list:"user" get:"user"`
 
 	// 镜像类型
 	ImageType string `width:"10" charset:"ascii" nullabel:"true" default:"normal" create:"optional" json:"image_type"`
@@ -72,6 +73,9 @@ type SGuestTemplate struct {
 
 	// 虚拟机技术
 	Hypervisor string `width:"16" charset:"ascii" default:"kvm" create:"optional" json:"hypervisor"`
+
+	// 计费方式
+	BillingType string `width:"16" charset:"ascii" default:"postpaid" create:"optional" list:"user" get:"user" json:"billing_type"`
 
 	// 其他配置信息
 	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional" json:"content"`
@@ -120,7 +124,7 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-
+	gt.SetStatus(userCred, "ready", "")
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_CREATE, nil, userCred, true)
 }
 
@@ -152,6 +156,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	if err != nil {
 		return cinput, httperrors.NewInputParameterError(err.Error())
 	}
+	log.Debugf("data: %#v", input)
 	// fill field
 	cinput.VmemSize = input.VmemSize
 	// data.Add(jsonutils.NewInt(int64(input.VmemSize)), "vmem_size")
@@ -163,14 +168,19 @@ func (gtm *SGuestTemplateManager) validateData(
 	// data.Add(jsonutils.NewString(input.Hypervisor), "hypervisor")
 	cinput.InstanceType = input.InstanceType
 	cinput.CloudregionId = input.PreferRegion
+	cinput.BillingType = input.BillingType
 
 	// fill vpc
 	if len(input.Networks) != 0 && len(input.Networks[0].Network) != 0 {
-		model, err := WireManager.FetchByIdOrName(userCred, input.Networks[0].Wire)
+		model, err := NetworkManager.FetchById(input.Networks[0].Network)
 		if err != nil {
-			return cinput, errors.Wrap(err, "WireManger.FetchByIdOrName")
+			return cinput, errors.Wrap(err, "NetworkManager.FetchById")
 		}
-		cinput.VpcId = model.(*SWire).VpcId
+		net := model.(*SNetwork)
+		vpc := net.GetVpc()
+		if vpc != nil {
+			cinput.VpcId = vpc.Id
+		}
 	}
 
 	if len(input.GuestImageID) > 0 {
@@ -192,6 +202,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	// "__count__" was converted to "count" by apigateway
 	contentDict.Remove("count")
 	contentDict.Remove("project_id")
+	contentDict.Remove("__count__")
 
 	cinput.Content = contentDict
 	// data.Add(contentDict, "content")
@@ -271,10 +282,10 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		if zone != nil {
 			input.PreferZone = zone.GetName()
 		}
+		out.Zone = input.PreferZone
 		configInfo.Zone = input.PreferZone
 	}
 	configInfo.Hypervisor = gt.Hypervisor
-	configInfo.OsType = gt.OsType
 
 	// sku deal
 	if len(input.InstanceType) > 0 {
@@ -325,7 +336,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		}
 		networkSet := sets.NewString(networkIdList...)
 
-		wireQuery := WireManager.Query("id", "name", "vpc_id").SubQuery()
+		wireQuery := WireManager.Query("id", "vpc_id").SubQuery()
 		vpcQuery := VpcManager.Query("id", "name").SubQuery()
 		q := NetworkManager.Query("id", "name", "wire_id", "guest_ip_start", "guest_ip_end", "vlan_id")
 		if len(networkIdList) == 1 {
@@ -359,6 +370,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 			input.SecgroupId = secgroup.GetName()
 		}
 		configInfo.Secgroup = input.SecgroupId
+		out.Secgroup = input.SecgroupId
 	}
 
 	// isolatedDevices
@@ -506,6 +518,7 @@ func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope str
 }
 
 func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
+	// check service catelog
 	q := ServiceCatalogManager.Query("name").Equals("guest_template_id", gt.Id)
 	names := make([]struct{ Name string }, 0, 1)
 	err := q.All(&names)
@@ -514,6 +527,16 @@ func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	if len(names) > 0 {
 		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0].Name)
+	}
+	// check scaling group
+	q = ScalingGroupManager.Query("name").Equals("guest_template_id", gt.Id)
+	names = make([]struct{ Name string }, 0, 1)
+	err = q.All(&names)
+	if err != nil {
+		return errors.Wrap(err, "SQuery.All")
+	}
+	if len(names) > 0 {
+		return httperrors.NewForbiddenError("guest template %s used by scalig group %s", gt.Id, names[0].Name)
 	}
 	return nil
 }
@@ -534,9 +557,14 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
-	q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+	if len(input.Vpc) != 0 {
+		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+		}
+	}
+	if len(input.BillingType) != 0 {
+		q = q.Equals("billing_type", input.BillingType)
 	}
 	return q, nil
 }
@@ -607,10 +635,11 @@ func (gt *SGuestTemplate) Validate(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return false, err.Error()
 	}
-	for i := range input.Networks {
-		if !utils.IsInStringArray(input.Networks[i].Network, stv.NetworkIds) {
-			return false, fmt.Sprintf("GuestTemplate' network '%s' not in networks '%s'", input.Networks[i].Network,
-				stv.NetworkIds)
+	if len(input.Networks) != 0 && len(input.Networks[0].Network) != 0 {
+		for i := range input.Networks {
+			if !utils.IsInStringArray(input.Networks[i].Network, stv.NetworkIds) {
+				return false, fmt.Sprintf("GuestTemplate's network '%s' not in networks '%s'", input.Networks[i].Network, stv.NetworkIds)
+			}
 		}
 	}
 	return true, ""

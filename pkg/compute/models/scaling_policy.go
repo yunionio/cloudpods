@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -208,36 +210,13 @@ func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCr
 	return input, err
 }
 
-func (sg *SScalingPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-
-	log.Debugf("data: %s", data.String())
-	input := api.ScalingPolicyCreateInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return errors.Wrap(err, "JSONObject.Unmarshal")
-	}
-
-	// Generate ID in advance
-	if len(sg.Id) == 0 {
-		sg.Id = db.DefaultUUIDGenerator()
-	}
-	log.Debugf("input: %#v", input)
-
-	trigger, err := sg.Trigger(&input)
-	if err != nil {
-		return errors.Wrap(err, "SScalingPolicy.Trigger")
-	}
-	err = trigger.Register(ctx, userCred)
-	if err != nil {
-		return errors.Wrap(err, "ITrigger.Register")
-	}
-	sg.TriggerId = trigger.TriggerId()
-	sg.Status = api.SP_STATUS_READY
-	return sg.SStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// do nothing
+	sp.SetStatus(userCred, api.SP_STATUS_DELETING, "")
+	return nil
 }
 
-func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (sp *SScalingPolicy) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	trigger, err := sp.Trigger(nil)
 	if err != nil {
 		return errors.Wrap(err, "SScalingPolicy.Trigger")
@@ -249,29 +228,20 @@ func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCre
 	return sp.SResourceBase.Delete(ctx, userCred)
 }
 
-func (sp *SScalingPolicy) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// delete all activities
-	activities, err := sp.Activities()
+func (sp *SScalingPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	sg, err := sp.ScalingGroup()
+	if sg != nil {
+		return errors.Wrap(err, "ScalingPolicy.ScalingGroup")
+	}
+	err = sp.RealDelete(ctx, userCred)
 	if err != nil {
-		return errors.Wrap(err, "SScalingPolicy.Activities")
+		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELETE_SCALING_POLICY, err.Error(), userCred, false)
+		sg.SetStatus(userCred, api.SP_STATUS_DELETE_FAILED, err.Error())
+		return nil
 	}
-	for _, activity := range activities {
-		err := activity.Delete(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "SScalingAvtivity.Delete")
-		}
-	}
-	return sp.Delete(ctx, userCred)
-}
-
-func (sp *SScalingPolicy) Activities() ([]SScalingActivity, error) {
-	q := ScalingActivityManager.Query().Equals("scaling_policy_id", sp.Id)
-	activities := make([]SScalingActivity, 0, 1)
-	err := db.FetchModelObjects(ScalingActivityManager, q, &activities)
-	if err != nil {
-		return nil, errors.Wrap(err, "db.FetchModelObjects")
-	}
-	return activities, nil
+	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELETE_SCALING_POLICY, "", userCred, true)
+	return nil
 }
 
 func (spm *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
@@ -287,6 +257,7 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 			return &SScalingTimer{
 				SScalingPolicyBase: SScalingPolicyBase{sp.GetId()},
 				Type:               api.TIMER_TYPE_ONCE,
+				StartTime:          input.Timer.ExecTime,
 				EndTime:            input.Timer.ExecTime,
 				NextTime:           input.Timer.ExecTime,
 			}, nil
@@ -304,7 +275,7 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 			trigger.SetWeekDays(input.CycleTimer.WeekDays)
 			log.Debugf("setmonthdays")
 			trigger.SetMonthDays(input.CycleTimer.MonthDays)
-			trigger.Update()
+			trigger.Update(time.Now())
 			return trigger, nil
 		case api.TRIGGER_ALARM:
 			return &SScalingAlarm{
@@ -315,6 +286,8 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 				Wrapper:            input.Alarm.Wrapper,
 				Operator:           input.Alarm.Operator,
 				Value:              input.Alarm.Value,
+				RealCumulate:       0,
+				LastTriggerTime:    time.Now(),
 			}, nil
 		default:
 			return nil, fmt.Errorf("unkown trigger type %s", sp.TriggerType)
@@ -353,6 +326,16 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 		triggerDesc IScalingTriggerDesc
 		err         error
 	)
+	if sp.Enabled.IsFalse() {
+		return nil, nil
+	}
+	sg, err := sp.ScalingGroup()
+	if err != nil {
+		return nil, errors.Wrap(err, "ScalingPolicy.ScalingGroup")
+	}
+	if sg.Enabled.IsFalse() {
+		return nil, nil
+	}
 
 	if !data.Contains("alarm_id") {
 		// considered manual trigger
@@ -360,17 +343,17 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 
 	} else {
 		alarmId, _ := data.GetString("alarm_id")
-		triggerDesc, err = sp.Trigger(nil)
+		trigger, err := sp.Trigger(nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch trigger failed")
 		}
 		if alarmId != triggerDesc.(*SScalingAlarm).AlarmId {
 			return nil, httperrors.NewInputParameterError("mismatched alarm id")
 		}
-	}
-	sg, err := sp.ScalingGroup()
-	if err != nil {
-		return nil, errors.Wrap(err, "ScalingPolicy.ScalingGroup")
+		if !trigger.IsTrigger() {
+			return nil, nil
+		}
+		triggerDesc = trigger
 	}
 	err = sg.Scale(ctx, triggerDesc, sp)
 	if err != nil {
@@ -434,4 +417,40 @@ func (sp *SScalingPolicy) PerformDisable(ctx context.Context, userCred mcclient.
 		return nil, errors.Wrap(err, "EnabledPerformEnable")
 	}
 	return nil, nil
+}
+
+func (sg *SScalingPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	sg.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	sp, err := sg.ScalingGroup()
+	if err != nil {
+		log.Errorf("Get ScalingGroup of ScalingPolicy '%s' failed: %s", sg.GetId(), err.Error())
+	}
+	createFailed := func(reason string) {
+		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, reason, userCred, false)
+		sg.SetStatus(userCred, api.SP_STATUS_CREATE_FAILED, reason)
+	}
+	input := api.ScalingPolicyCreateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		createFailed(fmt.Sprintf("data.Unmarshal: %s", err.Error()))
+		return
+	}
+
+	trigger, err := sg.Trigger(&input)
+	if err != nil {
+		createFailed(fmt.Sprintf("ScalingPolicy get trigger: %s", err.Error()))
+		return
+	}
+	err = trigger.Register(ctx, userCred)
+	if err != nil {
+		createFailed(fmt.Sprintf("Trigger.Register: %s", err.Error()))
+		return
+	}
+	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, "", userCred, true)
+	db.Update(sg, func() error {
+		sg.TriggerId = trigger.TriggerId()
+		sg.Status = api.SP_STATUS_READY
+		sg.SetEnabled(true)
+		return nil
+	})
 }

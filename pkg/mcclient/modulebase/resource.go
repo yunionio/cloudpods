@@ -381,7 +381,7 @@ func (this *ResourceManager) BatchCreateInContexts(session *mcclient.ClientSessi
 					dat = val
 				}
 			}
-			idstr, _ := json.GetString(this.getIdFieldName())
+			idstr, _ := dat.GetString(this.getIdFieldName())
 			ret[i] = SubmitResult{Status: int(code), Id: idstr, Data: dat}
 		}
 	}

@@ -80,7 +80,12 @@ type ScalingGroupCreateInput struct {
 	BackendGroupId string `json:"backend_group_id"`
 
 	// description: 负载均衡后端服务器统一端口
+	// example: 8080
 	LoadbalancerBackendPort int `json:"loadbalancer_backend_port"`
+
+	// description: 负载均衡后端服务器的weight
+	// example: 10
+	LoadbalancerBackendWeight int `json:"loadbalancer_backend_weight"`
 }
 
 type ScalingGroupListInput struct {
@@ -142,4 +147,8 @@ type SGPerformDetachScalingGroupInput struct {
 	// description: 是否删除机器
 	// example: false
 	DeleteServer bool `json:"delete_server"`
+
+	// description: 自动行为
+	// example: true
+	Auto bool `json:"auto"`
 }

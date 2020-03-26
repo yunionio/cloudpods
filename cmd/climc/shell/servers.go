@@ -219,6 +219,7 @@ func init() {
 			}
 			if count > 1 {
 				results := modules.Servers.BatchCreate(s, params.JSON(params), count)
+				log.Infof("results: %#v", results)
 				printBatchResults(results, modules.Servers.GetColumns(s))
 			} else {
 				server, err := modules.Servers.Create(s, params.JSON(params))

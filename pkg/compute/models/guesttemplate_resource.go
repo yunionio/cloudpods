@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -20,7 +21,7 @@ type SGuestTemplateResourceBase struct {
 	GuestTemplateId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
-type SGuestTemplateResourceBaseManager struct {}
+type SGuestTemplateResourceBaseManager struct{}
 
 func (self *SGuestTemplateResourceBase) GetGuestTemplate() *SGuestTemplate {
 	obj, _ := GuestTemplateManager.FetchById(self.GuestTemplateId)
@@ -29,7 +30,6 @@ func (self *SGuestTemplateResourceBase) GetGuestTemplate() *SGuestTemplate {
 	}
 	return nil
 }
-
 
 func (manager *SGuestTemplateResourceBaseManager) FetchCustomizeColumns(
 	ctx context.Context,
@@ -72,7 +72,7 @@ func (manager *SGuestTemplateResourceBaseManager) ListItemFilter(
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
 	query api.GuestTemplateFilterListInput,
-)(*sqlchemy.SQuery, error) {
+) (*sqlchemy.SQuery, error) {
 	if len(query.GuestTemplate) > 0 {
 		guestTemplateObj, err := GuestTemplateManager.FetchByIdOrName(userCred, query.GuestTemplate)
 		if err != nil {
@@ -97,4 +97,3 @@ func (manager *SGuestTemplateResourceBaseManager) QueryDistinctExtraField(q *sql
 	}
 	return q, httperrors.ErrNotFound
 }
-
