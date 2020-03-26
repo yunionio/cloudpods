@@ -448,7 +448,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, err
 	}
 	input.Project = ownerId.GetProjectId()
-	input.Domain = ownerId.GetProjectDomainId()
+	input.ProjectDomain = ownerId.GetProjectDomainId()
 
 	var quotaKey quotas.IQuotaKeys
 

@@ -133,11 +133,11 @@ type ProjectizedResourceInfo struct {
 
 	// 资源归属项目的ID(向后兼容别名）
 	// Deprecated
-	TenantId string `json:"project_id"`
+	TenantId string `json:"project_id" deprecated-by:"tenant_id"`
 
 	// 资源归属项目的名称（向后兼容别名）
 	// Deprecated
-	Tenant string `json:"project"`
+	Tenant string `json:"project" deprecated-by:"tenant"`
 }
 
 type ScopedResourceBaseInfo struct {

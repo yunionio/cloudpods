@@ -112,7 +112,6 @@ func (manager *SHostschedtagManager) FetchCustomizeColumns(
 	for i := range rows {
 		if name, ok := hostIdMaps[hostIds[i]]; ok {
 			rows[i].Host = name
-			rows[i].Baremetal = name
 		}
 	}
 

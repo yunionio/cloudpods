@@ -134,7 +134,6 @@ func (manager *SHostnetworkManager) FetchCustomizeColumns(
 	for i := range rows {
 		if name, ok := hostIdMaps[hostIds[i]]; ok {
 			rows[i].Host = name
-			rows[i].Baremetal = name
 		}
 		if name, ok := netIdMaps[netIds[i]]; ok {
 			rows[i].Network = name

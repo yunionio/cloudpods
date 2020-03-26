@@ -74,11 +74,11 @@ func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid stri
 	params := &api.ServerCreateInput{
 		ServerConfigs: &api.ServerConfigs{
 			PreferHost: host.Id,
+			Hypervisor: api.HYPERVISOR_BAREMETAL,
 		},
 		VcpuCount: int(host.CpuCount),
 		VmemSize:  host.MemSize,
 		AutoStart: true,
-		Baremetal: true,
 	}
 	params.Description = "Baremetal convered Hypervisor"
 	isSystem := true

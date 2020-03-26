@@ -63,9 +63,7 @@ func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 	}
 	input.Name = req.Name
 	input.Project = req.Project
-	input.ProjectId = req.ProjectId
-	input.Domain = req.Domain
-	input.DomainId = req.DomainId
+	input.ProjectDomain = req.ProjectDomain
 	return &input
 }
 
@@ -80,7 +78,7 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 	}
 	input.Name = req.Name
 	input.Project = req.Project
-	input.Domain = req.Domain
+	input.ProjectDomain = req.ProjectDomain
 	return &input
 }
 

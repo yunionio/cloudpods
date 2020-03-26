@@ -62,14 +62,16 @@ func DecodeBasicAuthHeader(header string) (string, string, error) {
 	return userAndPass[0], userAndPass[1], nil
 }
 
+// TODO: use httputils.HttpTransport instead -- qj
+// TODO:
 var netTransport = &http.Transport{
 	TLSClientConfig: &tls.Config{
 		Renegotiation: tls.RenegotiateFreelyAsClient,
 	},
 	Proxy: http.ProxyFromEnvironment,
-	Dial: (&net.Dialer{
+	DialContext: (&net.Dialer{
 		Timeout: 30 * time.Second,
-	}).Dial,
+	}).DialContext,
 	TLSHandshakeTimeout: 5 * time.Second,
 }
 var netClient = &http.Client{

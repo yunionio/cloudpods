@@ -4716,7 +4716,7 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.EipChargeType = genInput.EipChargeType
 	// cloned server should belongs to the project creating it
 	userInput.Project = userCred.GetProjectId()
-	userInput.Domain = userCred.GetProjectDomainId()
+	userInput.ProjectDomain = userCred.GetProjectDomainId()
 	userInput.Secgroups = []string{}
 	secgroups := self.GetSecgroups()
 	for _, secgroup := range secgroups {
@@ -4766,7 +4766,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.Hypervisor = self.Hypervisor
 	r.InstanceType = self.InstanceType
 	r.Project = self.ProjectId
-	r.Domain = self.DomainId
+	r.ProjectDomain = self.DomainId
 	r.Count = 1
 	r.Disks = self.ToDisksConfig()
 	r.Networks = self.ToNetworksConfig()
