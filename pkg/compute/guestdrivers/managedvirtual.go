@@ -1092,3 +1092,54 @@ func GetCloudVMStatus(vm cloudprovider.ICloudVM) string {
 
 	return status
 }
+
+func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		err = iVM.ConvertPublicIpToEip()
+		if err != nil {
+			return nil, errors.Wrap(err, "iVM.ConvertPublicIpToEip")
+		}
+
+		publicIp, err := guest.GetPublicIp()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetPublicIp")
+		}
+		if publicIp == nil {
+			return nil, fmt.Errorf("faild to found public ip after convert")
+		}
+
+		err = cloudprovider.Wait(time.Second*5, time.Minute*5, func() (bool, error) {
+			err = iVM.Refresh()
+			if err != nil {
+				log.Errorf("refresh ivm error: %v", err)
+				return false, nil
+			}
+			eip, err := iVM.GetIEIP()
+			if err != nil {
+				log.Errorf("iVM.GetIEIP error: %v", err)
+				return false, nil
+			}
+			if eip.GetGlobalId() == iVM.GetGlobalId() || eip.GetGlobalId() == eip.GetIpAddr() {
+				log.Errorf("wait public ip convert to eip (%s)...", eip.GetGlobalId())
+				return false, nil
+			}
+			_, err = db.Update(publicIp, func() error {
+				publicIp.ExternalId = eip.GetGlobalId()
+				publicIp.IpAddr = eip.GetIpAddr()
+				publicIp.Bandwidth = eip.GetBandwidth()
+				publicIp.Mode = api.EIP_MODE_STANDALONE_EIP
+				return nil
+			})
+			return true, err
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "cloudprovider.Wait")
+		}
+		return nil, nil
+	})
+	return nil
+}

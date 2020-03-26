@@ -1305,4 +1305,20 @@ func init() {
 		}
 		return nil
 	})
+
+	type ServerPublicipToEip struct {
+		ID        string `help:"ID or name of VM" json:"-"`
+		AutoStart bool   `help:"Auto start new guest"`
+	}
+
+	R(&ServerPublicipToEip{}, "server-publicip-to-eip", "Convert PublicIp to Eip for server", func(s *mcclient.ClientSession, opts *ServerPublicipToEip) error {
+		params := jsonutils.NewDict()
+		params.Set("auto_start", jsonutils.NewBool(opts.AutoStart))
+		result, err := modules.Servers.PerformAction(s, opts.ID, "publicip-to-eip", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

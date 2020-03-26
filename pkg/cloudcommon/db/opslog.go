@@ -235,6 +235,7 @@ const (
 	ACT_GUEST_SRC_CHECK = "guest_src_check"
 
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
+	ACT_EIP_CONVERT_FAIL = "eip_convert_fail"
 
 	ACT_RENEW = "renew"
 

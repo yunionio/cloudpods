@@ -27,3 +27,7 @@ func (instance *SInstanceBase) GetIHostId() string {
 func (instance *SInstanceBase) GetSerialOutput(port int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
+
+func (instance *SInstanceBase) ConvertPublicIpToEip() error {
+	return cloudprovider.ErrNotImplemented
+}

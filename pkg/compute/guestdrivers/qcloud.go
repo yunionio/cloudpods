@@ -254,3 +254,7 @@ func (self *SQcloudGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 	}
 	return false
 }
+
+func (self *SQcloudGuestDriver) IsSupportPublicipToEip() bool {
+	return true
+}

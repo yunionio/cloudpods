@@ -90,6 +90,14 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&InstanceOperationOptions{}, "instance-convert-eip", "Convert public ip to eip for instance", func(cli *qcloud.SRegion, args *InstanceOperationOptions) error {
+		err := cli.ConvertPublicIpToEip(args.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	shellutils.R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *qcloud.SRegion, args *InstanceOperationOptions) error {
 		url, err := cli.GetInstanceVNCUrl(args.ID)
 		if err != nil {

@@ -278,3 +278,9 @@ type ServerFilterListInput struct {
 type GuestJointBaseUpdateInput struct {
 	apis.VirtualJointResourceBaseUpdateInput
 }
+
+type GuestPublicipToEipInput struct {
+	// 转换完成后是否自动启动
+	// default: false
+	AutoStart bool `json:"auto_start"`
+}

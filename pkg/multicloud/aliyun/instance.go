@@ -899,6 +899,9 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
+	}
 	if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
 		eip.region = self.host.zone.region
@@ -911,11 +914,8 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.Bandwidth = self.InternetMaxBandwidthOut
 		eip.InternetChargeType = self.InternetChargeType
 		return &eip, nil
-	} else if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
@@ -985,4 +985,16 @@ func (self *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetError() error {
 	return nil
+}
+
+func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["RegionId"] = region.RegionId
+	_, err := region.ecsRequest("ConvertNatPublicIpToEip", params)
+	return err
+}
+
+func (self *SInstance) ConvertPublicIpToEip() error {
+	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
 }

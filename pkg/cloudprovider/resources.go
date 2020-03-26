@@ -248,6 +248,8 @@ type ICloudVM interface {
 	IBillingResource
 	IVirtualResource
 
+	ConvertPublicIpToEip() error
+
 	GetIHost() ICloudHost
 	GetIHostId() string
 

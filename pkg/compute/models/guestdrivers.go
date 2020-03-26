@@ -181,6 +181,8 @@ type IGuestDriver interface {
 	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportCdrom(guest *SGuest) (bool, error)
+	IsSupportPublicipToEip() bool
+	RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver

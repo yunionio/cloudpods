@@ -861,3 +861,20 @@ func (self *SInstance) GetProjectId() string {
 func (self *SInstance) GetError() error {
 	return nil
 }
+
+func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
+	params := map[string]string{
+		"InstanceId": instanceId,
+		"Region":     region.Region,
+	}
+	_, err := region.vpcRequest("TransformAddress", params)
+	if err != nil {
+		log.Errorf("TransformAddress fail %s", err)
+		return err
+	}
+	return nil
+}
+
+func (self *SInstance) ConvertPublicIpToEip() error {
+	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+}

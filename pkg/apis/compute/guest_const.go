@@ -114,6 +114,10 @@ const (
 	VM_DISSOCIATE_EIP        = "dissociate_eip"
 	VM_DISSOCIATE_EIP_FAILED = "dissociate_eip_failed"
 
+	// 公网IP转换Eip中(EIP转换中)
+	VM_START_EIP_CONVERT  = "start_eip_convert"
+	VM_EIP_CONVERT_FAILED = "eip_convert_failed"
+
 	VM_REMOVE_STATEFILE = "remove_state"
 
 	VM_IO_THROTTLE      = "io_throttle"

@@ -89,6 +89,14 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&InstanceOperationOptions{}, "instance-eip-convert", "Convert instance public ip to eip", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+		err := cli.ConvertPublicIpToEip(args.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	shellutils.R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
 		url, err := cli.GetInstanceVNCUrl(args.ID)
 		if err != nil {
