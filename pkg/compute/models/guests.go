@@ -1299,7 +1299,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	input.Project = ownerId.GetProjectId()
-	input.Domain = ownerId.GetProjectDomainId()
+	input.ProjectDomain = ownerId.GetProjectDomainId()
 	return input, nil
 }
 

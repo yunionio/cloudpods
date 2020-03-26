@@ -65,7 +65,7 @@ func init() {
 */
 
 type SRole struct {
-	SIdentityBaseResource `"name->update":"none"`
+	SIdentityBaseResource `"name->update":""`
 	db.SSharableBaseResource
 }
 

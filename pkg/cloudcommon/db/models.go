@@ -59,7 +59,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 			if !ok {
 				continue
 			}
-			if !utils.IsInStringArray(v, allowedValues) {
+			if len(v) > 0 && !utils.IsInStringArray(v, allowedValues) {
 				msg := fmt.Sprintf("model manager %s: column %s has invalid tag %s:\"%s\", expecting %v",
 					modelMan.KeywordPlural(), col.Name(), tagName, v, allowedValues)
 				panic(msg)
