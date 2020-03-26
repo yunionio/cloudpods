@@ -2470,7 +2470,7 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	return &stat
 }
 
-func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.HostDetails {
+func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, showReason bool) api.HostDetails {
 
 	server := self.GetBaremetalServer()
 	if server != nil {
@@ -2546,7 +2546,9 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails) api.
 		err := self.canPrepare()
 		if err != nil {
 			out.CanPrepare = false
-			out.PrepareFailReason = err.Error()
+			if showReason {
+				out.PrepareFailReason = err.Error()
+			}
 		}
 	}
 
@@ -2573,13 +2575,17 @@ func (manager *SHostManager) FetchCustomizeColumns(
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	showReason := false
+	if query.Contains("show_fail_reason") {
+		showReason = true
+	}
 	for i := range rows {
 		rows[i] = api.HostDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 			ZoneResourceInfo:                       zoneRows[i],
 		}
-		rows[i] = objs[i].(*SHost).getMoreDetails(ctx, rows[i])
+		rows[i] = objs[i].(*SHost).getMoreDetails(ctx, rows[i], showReason)
 	}
 	return rows
 }
