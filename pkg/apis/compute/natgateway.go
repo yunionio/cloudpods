@@ -83,9 +83,17 @@ type NatGatewayResourceInfo struct {
 	VpcResourceInfo
 }
 
-type NatGatewayFilterListInput struct {
-	// 以NAT网关过滤
+type NatGatewayResourceInput struct {
+	// NAT网关ID or Name
 	Natgateway string `json:"natgateway"`
+
+	// swagger:ignore
+	// Deprecated
+	NatgatewayId string `json:"natgateway_id" deprecated-by:"natgateway"`
+}
+
+type NatGatewayFilterListInput struct {
+	NatGatewayResourceInput
 
 	// 以NAT网关名字排序
 	OrderByNatgateway string `json:"order_by_natgateway"`

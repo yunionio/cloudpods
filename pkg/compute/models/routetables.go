@@ -154,11 +154,10 @@ func (man *SRouteTableManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "validateRoutes")
 	}
-	vpcObj, err := ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+	_, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateVpcResourceInput")
 	}
-	input.Vpc = vpcObj.Id
 	input.StatusInfrasResourceBaseCreateInput, err = man.SStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ValidateCreateData")

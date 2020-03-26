@@ -21,8 +21,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -31,6 +29,7 @@ import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -122,7 +121,7 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 		return nil, errors.Wrap(err, "CountWithError")
 	}
 	if tcnt > 1 {
-		return nil, httperrors.ErrDuplicateName
+		return nil, errors.Wrapf(httperrors.ErrDuplicateName, "duplicate tenant/domain name (%d)", tcnt)
 	}
 	tobj, err := NewModelObject(manager)
 	if err != nil {

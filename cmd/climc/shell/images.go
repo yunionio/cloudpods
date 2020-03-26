@@ -416,14 +416,12 @@ func init() {
 
 	type ImagePublicOptions struct {
 		ID             []string `help:"ID or name of image" json:"-"`
-		Scope          string   `help:"sharing scope" choices:"system|domain"`
-		ShareToProject []string `help:"Share to prject"`
+		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
+		SharedProjects []string `help:"Share to projects"`
+		SharedDomains  []string `help:"Share to domains"`
 	}
 	R(&ImagePublicOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImagePublicOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
+		params := jsonutils.Marshal(args)
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {

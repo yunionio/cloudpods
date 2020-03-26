@@ -723,4 +723,33 @@ func init() {
 		printObject(ret)
 		return nil
 	})
+
+	type HostPublicOptions struct {
+		ID             string   `help:"ID or name of host" json:"-"`
+		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
+		SharedProjects []string `help:"Share to prjects"`
+		SharedDomains  []string `help:"share to domains"`
+	}
+	R(&HostPublicOptions{}, "host-public", "Make a host public", func(s *mcclient.ClientSession, args *HostPublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Hosts.PerformAction(s, args.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type HostPrivateOptions struct {
+		ID string `help:"ID or name of host" json:"-"`
+	}
+	R(&HostPrivateOptions{}, "host-private", "Make a host private", func(s *mcclient.ClientSession, args *HostPrivateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Hosts.PerformAction(s, args.ID, "private", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

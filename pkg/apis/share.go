@@ -12,37 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compute
+package apis
 
-import (
-	"yunion.io/x/onecloud/pkg/apis"
-)
+import "yunion.io/x/onecloud/pkg/util/rbacutils"
 
-type GroupJointResourceDetails struct {
-	apis.VirtualJointResourceBaseDetails
-
-	// 主机组的名称
-	Instancegroup string `json:"instance_group"`
-}
-
-type GroupJointsListInput struct {
-	apis.VirtualJointResourceBaseListInput
-	GroupFilterListInput
-}
-
-type GroupguestDetails struct {
-	GroupJointResourceDetails
-
-	Server string
-	Guest  string
-
-	SGroupguest
-}
-
-type GroupguestListInput struct {
-	GroupJointsListInput
-	ServerFilterListInput
-
-	// 标签
-	Tag []string `json:"tag"`
+type SAccountShareInfo struct {
+	IsPublic      bool
+	PublicScope   rbacutils.TRbacScope
+	ShareMode     string
+	SharedDomains []string
 }

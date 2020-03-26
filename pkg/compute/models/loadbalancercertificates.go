@@ -460,7 +460,7 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.
 	return ret, nil
 }
 
-func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

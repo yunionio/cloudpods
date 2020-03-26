@@ -638,7 +638,7 @@ func (manager *SLoadbalancerBackendManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SLoadbalancerBackendManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerBackendManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

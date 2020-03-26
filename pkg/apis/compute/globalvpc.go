@@ -33,9 +33,17 @@ type GlobalVpcResourceInfo struct {
 	Globalvpc string `json:"globalvpc"`
 }
 
-type GlobalVpcResourceListInput struct {
-	// 以GlobalVpc的过滤
+type GlobalVpcResourceInput struct {
+	// GlobalVpc ID or Name
 	Globalvpc string `json:"globalvpc"`
+
+	// swagger:ignore
+	// Deprecated
+	GlobalvpcId string `json:"globalvpc_id" deprecated-by:"globalvpc"`
+}
+
+type GlobalVpcResourceListInput struct {
+	GlobalVpcResourceInput
 
 	// 以GlobalVpc的名称排序
 	OrderByGlobalvpc string `json:"order_by_globalvpc"`

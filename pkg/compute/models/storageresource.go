@@ -40,6 +40,19 @@ type SStorageResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
+func ValidateStorageResourceInput(userCred mcclient.TokenCredential, query api.StorageResourceInput) (*SStorage, api.StorageResourceInput, error) {
+	storageObj, err := StorageManager.FetchByIdOrName(userCred, query.Storage)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", StorageManager.Keyword(), query.Storage)
+		} else {
+			return nil, query, errors.Wrap(err, "StorageManager.FetchByIdOrName")
+		}
+	}
+	query.Storage = storageObj.GetId()
+	return storageObj.(*SStorage), query, nil
+}
+
 func (self *SStorageResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) api.StorageResourceInfo {
 	return api.StorageResourceInfo{}
 }
@@ -104,13 +117,9 @@ func (manager *SStorageResourceBaseManager) ListItemFilter(
 	query api.StorageFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Storage) > 0 {
-		storageObj, err := StorageManager.FetchByIdOrName(userCred, query.Storage)
+		storageObj, _, err := ValidateStorageResourceInput(userCred, query.StorageResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(StorageManager.Keyword(), query.Storage)
-			} else {
-				return nil, errors.Wrap(err, "StorageManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateStorageResourceInput")
 		}
 		q = q.Equals("storage_id", storageObj.GetId())
 	}

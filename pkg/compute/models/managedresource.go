@@ -19,14 +19,11 @@ import (
 	"database/sql"
 	"strings"
 
-	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -36,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -46,6 +44,19 @@ type SManagedResourceBase struct {
 
 type SManagedResourceBaseManager struct {
 	managerIdFieldName string
+}
+
+func ValidateCloudproviderResourceInput(userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
+	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.Cloudprovider)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudproviderManager.Keyword(), query.Cloudprovider)
+		} else {
+			return nil, query, errors.Wrap(err, "CloudproviderManager.FetchByIdOrName")
+		}
+	}
+	query.Cloudprovider = managerObj.GetId()
+	return managerObj.(*SCloudprovider), query, nil
 }
 
 func (manager *SManagedResourceBaseManager) getManagerIdFileName() string {
@@ -499,7 +510,7 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	} else if len(query.Zone) > 0 {
-		zoneObj, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
+		zoneObj, _, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
@@ -518,13 +529,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	regionStr := query.Cloudregion
 	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		regionObj, _, err := ValidateCloudregionResourceInput(nil, query.CloudregionResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))

@@ -44,8 +44,8 @@ const (
 
 type BucketCreateInput struct {
 	apis.VirtualResourceCreateInput
-	RegionalResourceCreateInput
-	ManagedResourceCreateInput
+	CloudregionResourceInput
+	CloudproviderResourceInput
 
 	StorageClass string `json:"storage_class"`
 }

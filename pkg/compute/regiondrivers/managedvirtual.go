@@ -46,7 +46,7 @@ type SManagedVirtualizationRegionDriver struct {
 	SVirtualizationRegionDriver
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, owerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.ValidateManagerId(ctx, userCred, data)
 }
 

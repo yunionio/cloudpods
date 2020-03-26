@@ -38,6 +38,19 @@ type SSecurityGroupResourceBase struct {
 
 type SSecurityGroupResourceBaseManager struct{}
 
+func ValidateSecurityGroupResourceInput(userCred mcclient.TokenCredential, query api.SecgroupResourceInput) (*SSecurityGroup, api.SecgroupResourceInput, error) {
+	secgrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, query.Secgroup)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SecurityGroupManager.Keyword(), query.Secgroup)
+		} else {
+			return nil, query, errors.Wrap(err, "SecurityGroupManager.FetchByIdOrName")
+		}
+	}
+	query.Secgroup = secgrpObj.GetId()
+	return secgrpObj.(*SSecurityGroup), query, nil
+}
+
 func (self *SSecurityGroupResourceBase) GetSecGroup() *SSecurityGroup {
 	secgrp, err := SecurityGroupManager.FetchById(self.SecgroupId)
 	if err != nil {
@@ -95,13 +108,9 @@ func (manager *SSecurityGroupResourceBaseManager) ListItemFilter(
 	query api.SecgroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Secgroup) > 0 {
-		secgrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, query.Secgroup)
+		secgrpObj, _, err := ValidateSecurityGroupResourceInput(userCred, query.SecgroupResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SecurityGroupManager.Keyword(), query.Secgroup)
-			} else {
-				return nil, errors.Wrap(err, "SecurityGroupManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateSecurityGroupResourceInput")
 		}
 		q = q.Equals("secgroup_id", secgrpObj.GetId())
 	}

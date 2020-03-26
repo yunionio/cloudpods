@@ -36,7 +36,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -566,7 +565,9 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 	return nets, nil */
 }
 
-func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, provider *SCloudprovider) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+	syncOwnerId := provider.GetOwnerId()
+
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
@@ -607,7 +608,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId)
+		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId, provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -618,7 +619,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, syncOwnerId)
+		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -650,7 +651,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) error {
 	vpc := self.GetVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
@@ -673,10 +674,14 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 
 	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
+	if provider != nil {
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
+
 	return nil
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, syncOwnerId mcclient.IIdentityProvider) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SNetwork, error) {
 	net := SNetwork{}
 	net.SetModelManager(manager, &net)
 
@@ -693,12 +698,12 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net.GuestIpMask = extNet.GetIpMask()
 	net.GuestGateway = extNet.GetGateway()
 	net.ServerType = extNet.GetServerType()
-	net.IsPublic = extNet.GetIsPublic()
-	extScope := extNet.GetPublicScope()
-	if extScope == rbacutils.ScopeDomain && !consts.GetNonDefaultDomainProjects() {
-		extScope = rbacutils.ScopeSystem
-	}
-	net.PublicScope = string(extScope)
+	// net.IsPublic = extNet.GetIsPublic()
+	// extScope := extNet.GetPublicScope()
+	// if extScope == rbacutils.ScopeDomain && !consts.GetNonDefaultDomainProjects() {
+	//	extScope = rbacutils.ScopeSystem
+	// }
+	// net.PublicScope = string(extScope)
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
@@ -710,6 +715,10 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	vpc := wire.GetVpc()
 	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
+
+	if provider != nil {
+		net.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
 

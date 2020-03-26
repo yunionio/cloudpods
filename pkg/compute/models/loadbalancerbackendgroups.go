@@ -1041,7 +1041,7 @@ func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error 
 	return nil
 }*/
 
-func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

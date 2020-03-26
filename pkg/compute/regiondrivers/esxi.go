@@ -39,7 +39,7 @@ func (self *SEsxiRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_VMWARE
 }
 
-func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewUnsupportOperationError("%s does not support creating loadbalancer", self.GetProvider())
 }
 

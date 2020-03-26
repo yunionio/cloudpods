@@ -38,6 +38,19 @@ type SLoadbalancerCertificateResourceBase struct {
 
 type SLoadbalancerCertificateResourceBaseManager struct{}
 
+func ValidateLoadbalancerCertificateResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerCertificateResourceInput) (*SLoadbalancerCertificate, api.LoadbalancerCertificateResourceInput, error) {
+	lbcertObj, err := LoadbalancerCertificateManager.FetchByIdOrName(userCred, input.Certificate)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerCertificateManager.Keyword(), input.Certificate)
+		} else {
+			return nil, input, errors.Wrap(err, "LoadbalancerCertificateManager.FetchByIdOrName")
+		}
+	}
+	input.Certificate = lbcertObj.GetId()
+	return lbcertObj.(*SLoadbalancerCertificate), input, nil
+}
+
 func (self *SLoadbalancerCertificateResourceBase) GetCertificate() *SLoadbalancerCertificate {
 	cert, err := LoadbalancerCertificateManager.FetchById(self.CertificateId)
 	if err != nil {
@@ -97,13 +110,9 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerCertificateFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Certificate) > 0 {
-		certObj, err := LoadbalancerCertificateManager.FetchByIdOrName(userCred, query.Certificate)
+		certObj, _, err := ValidateLoadbalancerCertificateResourceInput(userCred, query.LoadbalancerCertificateResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(LoadbalancerCertificateManager.Keyword(), query.Certificate)
-			} else {
-				return nil, errors.Wrap(err, "LoadbalancerCertificateManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateLoadbalancerCertificateResourceInput")
 		}
 		q = q.Equals("certificate_id", certObj.GetId())
 	}

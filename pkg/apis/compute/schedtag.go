@@ -39,13 +39,17 @@ type SchedtagCreateInput struct {
 	ResourceType string `json:"resource_type"`
 }
 
-type SchedtagFilterListInput struct {
+type SchedtagResourceInput struct {
 	// 以关联的调度标签（ID或Name）过滤列表
 	Schedtag string `json:"schedtag"`
 	// swagger:ignore
 	// Deprecated
 	// filter by schedtag_id
 	SchedtagId string `json:"schedtag_id" deprecated-by:"schedtag"`
+}
+
+type SchedtagFilterListInput struct {
+	SchedtagResourceInput
 
 	// 按调度标签名称排序
 	// pattern:asc|desc

@@ -65,15 +65,27 @@ func (manager *SSharableBaseResourceManager) FetchCustomizeColumns(
 	var resType string
 	resIds := make([]string, len(rows))
 	var sharedTarget string
+	var resScope rbacutils.TRbacScope
 	for i := range rows {
 		if model, ok := objs[i].(ISharableBaseModel); ok {
 			if len(resType) == 0 {
 				resType = model.Keyword()
 			}
 			if len(sharedTarget) == 0 {
-				sharedTarget = string(model.GetModelManager().ResourceScope())
+				sharedTarget = string(model.GetPublicScope())
+			}
+			if len(resScope) == 0 {
+				resScope = model.GetModelManager().ResourceScope()
 			}
 			resIds[i] = model.GetId()
+		}
+	}
+
+	if sharedTarget != SharedTargetProject && sharedTarget != SharedTargetDomain {
+		if resScope == rbacutils.ScopeProject && sharedTarget == string(rbacutils.ScopeNone) {
+			sharedTarget = SharedTargetProject
+		} else {
+			return rows
 		}
 	}
 
@@ -199,6 +211,9 @@ type SSharableBaseResource struct {
 	IsPublic bool `default:"false" nullable:"false" list:"user"`
 	// 默认共享范围
 	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" list:"user"`
+	// 共享设置的来源, local: 本地设置, cloud: 从云上同步过来
+	// example: local
+	PublicSrc string `width:"10" charset:"ascii" nullable:"true" list:"user" json:"public_src"`
 }
 
 type ISharableBaseModel interface {
@@ -260,12 +275,23 @@ func (m SSharableBaseResource) GetPublicScope() rbacutils.TRbacScope {
 }
 
 func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential, input apis.PerformPublicInput) error {
+	log.Debugf("%s", jsonutils.Marshal(input))
 	var err error
 
 	resourceScope := model.GetModelManager().ResourceScope()
 	targetScope := rbacutils.String2ScopeDefault(input.Scope, rbacutils.ScopeSystem)
 	if resourceScope.HigherThan(targetScope) {
 		return errors.Wrapf(httperrors.ErrNotSupported, "cannot share %s resource to %s", resourceScope, targetScope)
+	}
+
+	if len(input.SharedProjects) > 0 && len(input.SharedDomains) > 0 {
+		return errors.Wrap(httperrors.ErrInputParameter, "cannot set shared_projects and shared_domains at the same time")
+	} else if len(input.SharedProjects) > 0 && targetScope != rbacutils.ScopeProject {
+		targetScope = rbacutils.ScopeProject
+		// return errors.Wrapf(httperrors.ErrInputParameter, "scope %s != project when shared_projects specified", targetScope)
+	} else if len(input.SharedDomains) > 0 && targetScope != rbacutils.ScopeDomain {
+		targetScope = rbacutils.ScopeDomain
+		// return errors.Wrapf(httperrors.ErrInputParameter, "scope %s != domain when shared_domains specified", targetScope)
 	}
 
 	shareResult := apis.PerformPublicInput{
@@ -379,4 +405,11 @@ func SharableModelIsShared(model ISharableBaseModel) bool {
 		return true
 	}
 	return false
+}
+
+func (base *SSharableBaseResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	base.IsPublic = false
+	base.PublicScope = string(rbacutils.ScopeNone)
+	base.PublicSrc = string(apis.OWNER_SOURCE_LOCAL)
+	return nil
 }

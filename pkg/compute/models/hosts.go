@@ -25,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -55,6 +53,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -2822,11 +2821,10 @@ func (manager *SHostManager) ValidateCreateData(
 	var err error
 
 	if len(input.Zone) > 0 {
-		zoneObj, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		input.Zone = zoneObj.GetId()
 	}
 
 	noProbe := false

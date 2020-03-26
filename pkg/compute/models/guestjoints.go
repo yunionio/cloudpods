@@ -123,7 +123,7 @@ func (manager *SGuestJointsManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
 	}
-	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemFilter")
 	}
@@ -143,7 +143,7 @@ func (manager *SGuestJointsManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.OrderByExtraFields")
 	}

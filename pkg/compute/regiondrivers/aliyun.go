@@ -143,8 +143,7 @@ func (self *SAliyunRegionDriver) validateCreateInternetLBData(ownerId mcclient.I
 	return data, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
 	if err := addressTypeV.Validate(data); err != nil {
 		return nil, err
@@ -160,7 +159,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 	if _, err := validator(ownerId, data); err != nil {
 		return nil, err
 	}
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

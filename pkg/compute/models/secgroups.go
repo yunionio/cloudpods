@@ -119,12 +119,9 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 	}
 	serverStr := input.Server
 	if len(serverStr) > 0 {
-		guest, err := GuestManager.FetchByIdOrName(userCred, serverStr)
+		guest, _, err := ValidateGuestResourceInput(userCred, input.ServerResourceInput)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), serverStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, errors.Wrap(err, "ValidateGuestResourceInput")
 		}
 		serverId := guest.GetId()
 		filters := []sqlchemy.ICondition{}
@@ -132,7 +129,7 @@ func (manager *SSecurityGroupManager) ListItemFilter(
 		filters = append(filters, sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", serverId).SubQuery()))
 
 		isAdmin := false
-		admin := (input.Admin != nil && *input.Admin)
+		admin := (input.ServerFilterListInput.Admin != nil && *input.ServerFilterListInput.Admin)
 		if consts.IsRbacEnabled() {
 			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 			if allowScope == rbacutils.ScopeSystem || allowScope == rbacutils.ScopeDomain {

@@ -284,7 +284,7 @@ type IDomainLevelModelManager interface {
 	IStandaloneModelManager
 
 	GetIDomainLevelModelManager() IDomainLevelModelManager
-	GetResourceCount() ([]SDomainResourceCount, error)
+	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
 type IDomainLevelModel interface {
@@ -315,7 +315,7 @@ type IVirtualModelManager interface {
 	IStandaloneModelManager
 
 	GetIVirtualModelManager() IVirtualModelManager
-	GetResourceCount() ([]SProjectResourceCount, error)
+	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
 type IVirtualModel interface {

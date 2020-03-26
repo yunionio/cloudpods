@@ -196,6 +196,8 @@ func (manager *SStorageManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.StorageCreateInput,
 ) (api.StorageCreateInput, error) {
+	var err error
+
 	if !utils.IsInStringArray(input.StorageType, api.STORAGE_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
 	}
@@ -205,11 +207,10 @@ func (manager *SStorageManager) ValidateCreateData(
 	if len(input.Zone) == 0 {
 		return input, httperrors.NewMissingParameterError("zone")
 	}
-	zone, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input.Zone = zone.GetId()
 
 	storageDirver := GetStorageDriver(input.StorageType)
 	if storageDirver == nil {

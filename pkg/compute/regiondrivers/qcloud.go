@@ -49,8 +49,7 @@ func (self *SQcloudRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_QCLOUD
 }
 
-func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
 	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
@@ -93,7 +92,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {

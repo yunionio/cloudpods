@@ -1012,10 +1012,10 @@ func init() {
 
 	type ClouaccountChangeProjectOptions struct {
 		ID      string `help:"ID or name of cloudaccount" json:"-"`
-		Project string `json:"project" help:"target domain"`
+		PROJECT string `json:"project" help:"target domain"`
 	}
 	R(&ClouaccountChangeProjectOptions{}, "cloud-account-change-project", "Change domain/project of cloudaccount", func(s *mcclient.ClientSession, args *ClouaccountChangeProjectOptions) error {
-		if len(args.Project) == 0 {
+		if len(args.PROJECT) == 0 {
 			return fmt.Errorf("empty project")
 		}
 		params := jsonutils.Marshal(args)

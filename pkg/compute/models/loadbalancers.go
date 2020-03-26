@@ -81,7 +81,7 @@ type SLoadbalancer struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	// LB must be in a VPC, vpc_id, manager_id, cloudregion_id
+	// LB might optionally be in a VPC, vpc_id, manager_id, cloudregion_id
 	SVpcResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	// zone_id
 	SZoneResourceBase
@@ -241,43 +241,61 @@ func (man *SLoadbalancerManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fie
 	return q, httperrors.ErrNotFound
 }
 
-func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.LoadbalancerCreateInput) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.LoadbalancerCreateInput,
+) (*jsonutils.JSONDict, error) {
+	var err error
+
 	var region *SCloudregion
 	if len(input.Vpc) > 0 {
-		vpc, err := db.FetchByIdOrName(VpcManager, userCred, input.Vpc)
+		var vpc *SVpc
+		vpc, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("getting vpc failed: %v", err)
+			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
 		}
-		input.VpcId = vpc.GetId()
-		region, _ = vpc.(*SVpc).GetRegion()
+		region, _ = vpc.GetRegion()
 	} else if len(input.Zone) > 0 {
-		zone, err := db.FetchByIdOrName(ZoneManager, userCred, input.Zone)
+		var zone *SZone
+		zone, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("getting zone failed: %v", err)
+			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		input.ZoneId = zone.GetId()
-		region = zone.(*SZone).GetRegion()
+		region = zone.GetRegion()
 	} else if len(input.Network) > 0 {
-		network, err := db.FetchByIdOrName(NetworkManager, userCred, strings.Split(input.Network, ",")[0])
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("getting network failed: %v", err)
+		if strings.IndexByte(input.Network, ',') >= 0 {
+			input.Network = strings.Split(input.Network, ",")[0]
 		}
-		region = network.(*SNetwork).GetRegion()
+		var network *SNetwork
+		network, input.NetworkResourceInput, err = ValidateNetworkResourceInput(userCred, input.NetworkResourceInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")
+		}
+		region = network.GetRegion()
 	}
 
 	if region == nil {
 		return nil, httperrors.NewBadRequestError("cannot find region info")
 	}
 
-	input.CloudregionId = region.GetId()
-	var err error
+	input.Cloudregion = region.GetId()
+
+	if len(input.Cloudprovider) > 0 {
+		_, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "ValidateCloudproviderResourceInput")
+		}
+	}
+
 	input.VirtualResourceCreateInput, err = man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx = context.WithValue(ctx, "ownerId", ownerId)
-	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, input.JSON(input))
+	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, ownerId, input.JSON(input))
 }
 
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -694,8 +712,8 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb := SLoadbalancer{}
 	lb.SetModelManager(man, &lb)
 
-	// lb.ManagerId = provider.Id
-	// lb.CloudregionId = region.Id
+	lb.ManagerId = provider.Id
+	lb.CloudregionId = region.Id
 	lb.Address = extLb.GetAddress()
 	lb.AddressType = extLb.GetAddressType()
 	lb.NetworkType = extLb.GetNetworkType()
@@ -940,7 +958,7 @@ func (man *SLoadbalancerManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

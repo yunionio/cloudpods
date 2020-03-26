@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -200,4 +201,48 @@ func (model *SInfrasResourceBase) PerformChangeOwner(
 		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot change owner when shared!")
 	}
 	return model.SDomainLevelResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+}
+
+func (model *SInfrasResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	model.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return model.SDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (model *SInfrasResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	SharedResourceManager.CleanModelShares(ctx, userCred, model.GetIInfrasModel())
+	return model.SDomainLevelResourceBase.Delete(ctx, userCred)
+}
+
+func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
+	if model.PublicScope != string(apis.OWNER_SOURCE_LOCAL) {
+		diff, _ := Update(model, func() error {
+			switch shareInfo.ShareMode {
+			case compute.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
+				model.IsPublic = false
+				model.PublicScope = string(rbacutils.ScopeNone)
+			case compute.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
+				model.IsPublic = false
+				model.PublicScope = string(rbacutils.ScopeNone)
+			case compute.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
+				if shareInfo.IsPublic && shareInfo.PublicScope == rbacutils.ScopeSystem {
+					model.IsPublic = true
+					model.PublicScope = string(rbacutils.ScopeSystem)
+				} else if len(shareInfo.SharedDomains) > 0 {
+					model.IsPublic = true
+					model.PublicScope = string(rbacutils.ScopeDomain)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, shareInfo.SharedDomains)
+				} else {
+					model.IsPublic = false
+					model.PublicScope = string(rbacutils.ScopeNone)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil)
+				}
+			}
+			return nil
+		})
+		if len(diff) > 0 {
+			OpsLog.LogEvent(model, ACT_SYNC_SHARE, diff, userCred)
+		}
+	}
 }

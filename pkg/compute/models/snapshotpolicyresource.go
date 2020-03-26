@@ -38,6 +38,19 @@ type SSnapshotPolicyResourceBase struct {
 
 type SSnapshotPolicyResourceBaseManager struct{}
 
+func ValidateSnapshotPolicyResourceInput(userCred mcclient.TokenCredential, query api.SnapshotPolicyResourceInput) (*SSnapshotPolicy, api.SnapshotPolicyResourceInput, error) {
+	snapPolicyObj, err := SnapshotPolicyManager.FetchByIdOrName(userCred, query.Snapshotpolicy)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SnapshotPolicyManager.Keyword(), query.Snapshotpolicy)
+		} else {
+			return nil, query, errors.Wrap(err, "SnapshotPolicyManager.FetchByIdOrName")
+		}
+	}
+	query.Snapshotpolicy = snapPolicyObj.GetId()
+	return snapPolicyObj.(*SSnapshotPolicy), query, nil
+}
+
 func (self *SSnapshotPolicyResourceBase) GetSnapshotPolicy() *SSnapshotPolicy {
 	spObj, err := SnapshotPolicyManager.FetchById(self.SnapshotpolicyId)
 	if err != nil {
@@ -95,13 +108,9 @@ func (manager *SSnapshotPolicyResourceBaseManager) ListItemFilter(
 	query api.SnapshotPolicyFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Snapshotpolicy) > 0 {
-		snapPObj, err := SnapshotPolicyManager.FetchByIdOrName(userCred, query.Snapshotpolicy)
+		snapPObj, _, err := ValidateSnapshotPolicyResourceInput(userCred, query.SnapshotPolicyResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SnapshotPolicyManager.Keyword(), query.Snapshotpolicy)
-			} else {
-				return nil, errors.Wrap(err, "SnapshotPolicyManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateSnapshotPolicyResourceInput")
 		}
 		q = q.Equals("snapshotpolicy_id", snapPObj.GetId())
 	}

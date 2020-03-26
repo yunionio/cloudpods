@@ -39,6 +39,19 @@ type SNetworkResourceBaseManager struct {
 	SWireResourceBaseManager
 }
 
+func ValidateNetworkResourceInput(userCred mcclient.TokenCredential, query api.NetworkResourceInput) (*SNetwork, api.NetworkResourceInput, error) {
+	netObj, err := NetworkManager.FetchByIdOrName(userCred, query.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NetworkManager.Keyword(), query.Network)
+		} else {
+			return nil, query, errors.Wrap(err, "NetworkManager.FetchByIdOrName")
+		}
+	}
+	query.Network = netObj.GetId()
+	return netObj.(*SNetwork), query, nil
+}
+
 func (self *SNetworkResourceBase) GetNetwork() *SNetwork {
 	obj, _ := NetworkManager.FetchById(self.NetworkId)
 	if obj != nil {
@@ -135,13 +148,9 @@ func (manager *SNetworkResourceBaseManager) ListItemFilter(
 	query api.NetworkFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Network) > 0 {
-		netObj, err := NetworkManager.FetchByIdOrName(userCred, query.Network)
+		netObj, _, err := ValidateNetworkResourceInput(userCred, query.NetworkResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), query.Network)
-			} else {
-				return nil, errors.Wrap(err, "NetworkManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateNetworkResourceInput")
 		}
 		q = q.Equals("network_id", netObj.GetId())
 	}

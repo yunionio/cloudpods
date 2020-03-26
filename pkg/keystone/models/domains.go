@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +28,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -272,6 +274,10 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	if policyCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
 	}
+	external, _, _ := domain.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("domain contains external resources")
+	}
 	return nil
 }
 
@@ -345,6 +351,17 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 		rows[i].RoleCount, _ = domain.GetRoleCount()
 		rows[i].PolicyCount, _ = domain.GetPolicyCount()
 		rows[i].IdpCount, _ = domain.GetIdpCount()
+
+		external, update, _ := domain.getExternalResources()
+		if len(external) > 0 {
+			rows[i].ExtResource = jsonutils.Marshal(external)
+			rows[i].ExtResourcesLastUpdate = update
+			if update.IsZero() {
+				update = time.Now()
+			}
+			nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
+			rows[i].ExtResourcesNextUpdate = nextUpdate
+		}
 	}
 
 	idpRows := expandIdpAttributes(api.IdMappingEntityDomain, idList, fields)
@@ -465,4 +482,8 @@ func (domain *SDomain) UnlinkIdp(idpId string) error {
 		}
 	}
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityDomain, domain.Id)
+}
+
+func (domain *SDomain) getExternalResources() (map[string]int, time.Time, error) {
+	return ProjectResourceManager.getProjectResource(domain.Id)
 }

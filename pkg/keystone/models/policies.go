@@ -18,12 +18,11 @@ import (
 	"context"
 	"database/sql"
 
-	"yunion.io/x/onecloud/pkg/apis"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -204,8 +203,18 @@ func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.Tok
 	return nil, nil
 }
 
+func (policy *SPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	policy.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return policy.SEnabledIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (policy *SPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.SharedResourceManager.CleanModelShares(ctx, userCred, policy)
+	return policy.SEnabledIdentityBaseResource.Delete(ctx, userCred)
+}
+
 func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
-	if policy.IsPublic {
+	if policy.IsShared() {
 		return httperrors.NewInvalidStatusError("cannot delete shared policy")
 	}
 	if policy.Enabled.IsTrue() {

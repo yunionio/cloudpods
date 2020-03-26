@@ -41,16 +41,17 @@ type SVpcResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
-func ValidateVpcResourceInput(userCred mcclient.TokenCredential, input api.VpcResourceInput) (*SVpc, error) {
+func ValidateVpcResourceInput(userCred mcclient.TokenCredential, input api.VpcResourceInput) (*SVpc, api.VpcResourceInput, error) {
 	vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.Vpc)
+			return nil, input, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.Vpc)
 		} else {
-			return nil, errors.Wrap(err, "VpcManager.FetchByIdOrName")
+			return nil, input, errors.Wrap(err, "VpcManager.FetchByIdOrName")
 		}
 	}
-	return vpcObj.(*SVpc), nil
+	input.Vpc = vpcObj.GetId()
+	return vpcObj.(*SVpc), input, nil
 }
 
 func (self *SVpcResourceBase) GetVpc() *SVpc {
@@ -174,7 +175,7 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.Vpc) > 0 {
-		vpcObj, err := ValidateVpcResourceInput(userCred, query.VpcResourceInput)
+		vpcObj, _, err := ValidateVpcResourceInput(userCred, query.VpcResourceInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
 		}

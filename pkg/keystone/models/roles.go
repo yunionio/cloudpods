@@ -19,13 +19,12 @@ import (
 	"database/sql"
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/apis"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -187,7 +186,7 @@ func (role *SRole) IsSystemRole() bool {
 }
 
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
-	if role.IsPublic {
+	if role.IsShared() {
 		return httperrors.NewInvalidStatusError("cannot delete shared role")
 	}
 	if role.IsSystemRole() {
@@ -440,6 +439,16 @@ func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 	}
 	policy.PolicyManager.SyncOnce()
 	return nil, nil
+}
+
+func (role *SRole) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	role.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return role.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (role *SRole) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.SharedResourceManager.CleanModelShares(ctx, userCred, role)
+	return role.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
 func (manager *SRoleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

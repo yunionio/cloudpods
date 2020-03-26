@@ -39,6 +39,19 @@ type SGroupResourceBase struct {
 type SGroupResourceBaseManager struct {
 }
 
+func ValidateGroupResourceInput(userCred mcclient.TokenCredential, input api.GroupResourceInput) (*SGroup, api.GroupResourceInput, error) {
+	groupObj, err := GroupManager.FetchByIdOrName(userCred, input.Group)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GroupManager.Keyword(), input.Group)
+		} else {
+			return nil, input, errors.Wrap(err, "GroupManager.FetchByIdOrName")
+		}
+	}
+	input.Group = groupObj.GetId()
+	return groupObj.(*SGroup), input, nil
+}
+
 func (self *SGroupResourceBase) GetGroup() *SGroup {
 	obj, _ := GroupManager.FetchById(self.GroupId)
 	if obj != nil {
@@ -91,13 +104,9 @@ func (manager *SGroupResourceBaseManager) ListItemFilter(
 	query api.GroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Group) > 0 {
-		groupObj, err := GroupManager.FetchByIdOrName(userCred, query.Group)
+		groupObj, _, err := ValidateGroupResourceInput(userCred, query.GroupResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), query.Group)
-			} else {
-				return nil, errors.Wrap(err, "GroupManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateGroupResourceInput")
 		}
 		q = q.Equals("group_id", groupObj.GetId())
 	}

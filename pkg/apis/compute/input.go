@@ -18,15 +18,17 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
+/*
 type RegionalResourceCreateInput struct {
 	Cloudregion   string `json:"cloudregion"`
 	CloudregionId string `json:"cloudregion_id"`
 }
 
-type ManagedResourceCreateInput struct {
-	Manager   string `json:"manager"`
+type ManagedResourceInput struct {
+	Manager string `json:"manager"`
 	ManagerId string `json:"manager_id"`
 }
+*/
 
 type DeletePreventableCreateInput struct {
 	//删除保护,创建的资源默认不允许删除

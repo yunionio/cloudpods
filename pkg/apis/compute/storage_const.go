@@ -138,13 +138,17 @@ var (
 	SHARED_STORAGE = []string{STORAGE_NFS, STORAGE_GPFS, STORAGE_RBD}
 )
 
-type StorageFilterListInputBase struct {
-	// 过滤关联此存储（ID或Name）的列表结果
+type StorageResourceInput struct {
+	// 存储（ID或Name）
 	Storage string `json:"storage"`
 	// swagger:ignore
 	// Deprecated
 	// filter by storage_id
 	StorageId string `json:"storage_id" deprecated-by:"storage"`
+}
+
+type StorageFilterListInputBase struct {
+	StorageResourceInput
 
 	// 以存储名称排序
 	// pattern:asc|desc

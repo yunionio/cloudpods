@@ -62,8 +62,7 @@ func (self *SKVMRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
-func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
 	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)

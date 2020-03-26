@@ -39,16 +39,17 @@ type SZoneResourceBaseManager struct {
 	SCloudregionResourceBaseManager
 }
 
-func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, error) {
+func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, api.ZoneResourceInput, error) {
 	zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.Zone)
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.Zone)
 		} else {
-			return nil, httperrors.NewGeneralError(err)
+			return nil, query, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
 		}
 	}
-	return zoneObj.(*SZone), nil
+	query.Zone = zoneObj.GetId()
+	return zoneObj.(*SZone), query, nil
 }
 
 func (self *SZoneResourceBase) GetZone() *SZone {

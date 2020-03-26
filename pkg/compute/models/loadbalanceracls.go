@@ -422,7 +422,7 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 	return compare.SyncResult{}
 }
 
-func (manager *SLoadbalancerAclManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerAclManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

@@ -41,6 +41,19 @@ type SHostResourceBaseManager struct {
 	hostIdFieldName string
 }
 
+func ValidateHostResourceInput(userCred mcclient.TokenCredential, input api.HostResourceInput) (*SHost, api.HostResourceInput, error) {
+	hostObj, err := HostManager.FetchByIdOrName(userCred, input.Host)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", HostManager.Keyword(), input.Host)
+		} else {
+			return nil, input, errors.Wrap(err, "HostManager.FetchByIdOrName")
+		}
+	}
+	input.Host = hostObj.GetId()
+	return hostObj.(*SHost), input, nil
+}
+
 func (manager *SHostResourceBaseManager) getHostIdFieldName() string {
 	if len(manager.hostIdFieldName) > 0 {
 		return manager.hostIdFieldName
@@ -113,13 +126,9 @@ func (manager *SHostResourceBaseManager) ListItemFilter(
 	query api.HostFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Host) > 0 {
-		hostObj, err := HostManager.FetchByIdOrName(userCred, query.Host)
+		hostObj, _, err := ValidateHostResourceInput(userCred, query.HostResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), query.Host)
-			} else {
-				return nil, errors.Wrap(err, "HostManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateHostResourceInput")
 		}
 		q = q.Equals(manager.getHostIdFieldName(), hostObj.GetId())
 	}

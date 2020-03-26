@@ -39,6 +39,19 @@ type SDBInstanceResourceBaseManager struct {
 	SVpcResourceBaseManager
 }
 
+func ValidateDBInstanceResourceInput(userCred mcclient.TokenCredential, input api.DBInstanceResourceInput) (*SDBInstance, api.DBInstanceResourceInput, error) {
+	rdsObj, err := DBInstanceManager.FetchByIdOrName(userCred, input.DBInstance)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DBInstanceManager.Keyword(), input.DBInstance)
+		} else {
+			return nil, input, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
+		}
+	}
+	input.DBInstance = rdsObj.GetId()
+	return rdsObj.(*SDBInstance), input, nil
+}
+
 func (self *SDBInstanceResourceBase) GetDBInstance() (*SDBInstance, error) {
 	instance, err := DBInstanceManager.FetchById(self.DBInstanceId)
 	if err != nil {
@@ -119,21 +132,19 @@ func (manager *SDBInstanceResourceBaseManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.DBInstanceFilterListInput,
 ) (*sqlchemy.SQuery, error) {
+	var err error
 	if len(query.DBInstance) > 0 {
-		dbObj, err := DBInstanceManager.FetchByIdOrName(userCred, query.DBInstance)
+		var dbObj *SDBInstance
+		dbObj, _, err = ValidateDBInstanceResourceInput(userCred, query.DBInstanceResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DBInstanceManager.Keyword(), query.DBInstance)
-			} else {
-				return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "DBInstanceManager.FetchByIdOrName")
 		}
 		q = q.Equals("dbinstance_id", dbObj.GetId())
 	}
 
 	subq := DBInstanceManager.Query("id").Snapshot()
 
-	subq, err := manager.SVpcResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.VpcFilterListInput)
+	subq, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, subq, userCred, query.VpcFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}

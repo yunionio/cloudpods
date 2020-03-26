@@ -46,7 +46,7 @@ type sServiceEndpoints struct {
 }
 
 func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	//log.Debugf("FetchProjectResourceCount")
+	log.Debugf("FetchProjectResourceCount")
 	eps, err := models.EndpointManager.FetchAll()
 	if err != nil {
 		return
@@ -106,7 +106,7 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 		if _, ok := serviceBlackList[srvId]; ok {
 			delete(serviceBlackList, srvId)
 		}
-		projectResCounts := make(map[string][]db.SProjectResourceCount)
+		projectResCounts := make(map[string][]db.SScopeResourceCount)
 		err = ret.Unmarshal(&projectResCounts)
 		if err != nil {
 			continue
@@ -115,22 +115,26 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 	}
 }
 
-func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[string][]db.SProjectResourceCount) {
+func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[string][]db.SScopeResourceCount) {
 	projList := make([]string, 0)
 	for res, resCnts := range projResCnt {
 		for i := range resCnts {
-			if resCnts[i].TenantId == "" {
+			if len(resCnts[i].TenantId) == 0 && len(resCnts[i].DomainId) == 0 {
 				continue
 			}
 
 			projRes := models.SProjectResource{}
-			projRes.ProjectId = resCnts[i].TenantId
+			if len(resCnts[i].TenantId) > 0 {
+				projRes.ProjectId = resCnts[i].TenantId
+			} else {
+				projRes.ProjectId = resCnts[i].DomainId
+			}
 			projRes.RegionId = regionId
 			projRes.ServiceId = serviceId
 			projRes.Resource = res
 			projRes.Count = resCnts[i].ResCount
 
-			projList = append(projList, resCnts[i].TenantId)
+			projList = append(projList, projRes.ProjectId)
 
 			err := models.ProjectResourceManager.TableSpec().InsertOrUpdate(&projRes)
 			if err != nil {

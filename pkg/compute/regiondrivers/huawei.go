@@ -56,8 +56,7 @@ func (self *SHuaWeiRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_HUAWEI
 }
 
-func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
@@ -113,7 +112,7 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	data.Set("vpc_id", jsonutils.NewString(vpc.GetId()))
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0143878053.html

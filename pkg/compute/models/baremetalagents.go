@@ -93,11 +93,10 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 		}
 	}
 	if len(input.Zone) > 0 {
-		zoneObj, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 		if err != nil {
 			return input, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
-		input.Zone = zoneObj.GetId()
 	}
 	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
 	if err != nil {
@@ -122,11 +121,10 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	if len(input.Zone) == 0 {
 		return input, errors.Wrap(httperrors.ErrMissingParameter, "zone/zone_id")
 	}
-	zoneObj, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input.Zone = zoneObj.GetId()
 	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")

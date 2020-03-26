@@ -127,7 +127,7 @@ type StandaloneResourceCreateInput struct {
 	// example: test-network
 	Name string `json:"name"`
 
-	// 生成资源名称的规则，如果name为空，则为必填项
+	// 生成资源名称的模板，如果name为空，则为必填项
 	// description: generated resource name, given a pattern to generate name, required if name is not given
 	// unique: false
 	// required: false

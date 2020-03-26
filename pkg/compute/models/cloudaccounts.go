@@ -2208,3 +2208,12 @@ func (manager *SCloudaccountManager) getBrandsOfCapability(region *SCloudregion,
 	}
 	return ret, nil
 }
+
+func (account *SCloudaccount) getAccountShareInfo() apis.SAccountShareInfo {
+	return apis.SAccountShareInfo{
+		ShareMode:     account.ShareMode,
+		IsPublic:      account.IsPublic,
+		PublicScope:   rbacutils.String2Scope(account.PublicScope),
+		SharedDomains: account.GetSharedDomains(),
+	}
+}

@@ -408,7 +408,7 @@ func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, sy
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider.GetOwnerId())
+	_, _, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider)
 
 	if syncResults != nil {
 		syncResults.Add(NetworkManager, result)

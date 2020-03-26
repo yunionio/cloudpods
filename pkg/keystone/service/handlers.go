@@ -62,6 +62,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.FernetKeyManager,
 
 		models.ProjectResourceManager,
+
+		db.SharedResourceManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

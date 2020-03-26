@@ -84,13 +84,17 @@ func (req *ServerCreateInput) ToDiskCreateInput() *DiskCreateInput {
 	return &input
 }
 
-type SnapshotPolicyFilterListInput struct {
+type SnapshotPolicyResourceInput struct {
 	// filter disk by snapshotpolicy
 	Snapshotpolicy string `json:"snapshotpolicy"`
 	// swagger:ignore
 	// Deprecated
 	// filter disk by snapshotpolicy_id
 	SnapshotpolicyId string `json:"snapshotpolicy_id" deprecated-by:"snapshotpolicy"`
+}
+
+type SnapshotPolicyFilterListInput struct {
+	SnapshotPolicyResourceInput
 
 	// 以快照策略名称排序
 	OrderBySnapshotpolicy string `json:"order_by_snapshotpolicy"`
@@ -144,13 +148,17 @@ type DiskListInput struct {
 	SnapshotId string `json:"snapshot_id" deprecated-by:"snapshot"`
 }
 
-type DiskFilterListInputBase struct {
-	// 以指定虚拟磁盘（ID或Name）过滤列表结果
+type DiskResourceInput struct {
+	// 虚拟磁盘（ID或Name）
 	Disk string `json:"disk"`
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
 	DiskId string `json:"disk_id" deprecated-by:"disk"`
+}
+
+type DiskFilterListInputBase struct {
+	DiskResourceInput
 
 	// 以磁盘名称排序
 	// pattern:asc|desc

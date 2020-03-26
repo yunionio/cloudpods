@@ -18,13 +18,17 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 )
 
-type WireFilterListBase struct {
-	// 过滤连接此二层网络(ID或Name)的资源
+type WireResourceInput struct {
+	// 二层网络(ID或Name)的资源
 	Wire string `json:"wire"`
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
 	WireId string `json:"wire_id" deprecated-by:"wire"`
+}
+
+type WireFilterListBase struct {
+	WireResourceInput
 
 	// 以二层网络名称排序
 	OrderByWire string `json:"order_by_wire"`
@@ -37,13 +41,17 @@ type WireFilterListInput struct {
 	WireFilterListBase
 }
 
-type NetworkFilterListBase struct {
-	// 过滤关联此IP子网（ID或Name）的资源
+type NetworkResourceInput struct {
+	// IP子网（ID或Name）
 	Network string `json:"network"`
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
 	NetworkId string `json:"network_id" deprecated-by:"network"`
+}
+
+type NetworkFilterListBase struct {
+	NetworkResourceInput
 
 	// 以IP子网的名称排序
 	OrderByNetwork string `json:"order_by_network"`

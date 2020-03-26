@@ -927,7 +927,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(
 	return nil
 }*/
 
-func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

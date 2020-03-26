@@ -1495,3 +1495,8 @@ func (provider *SCloudprovider) GetDetailsStorageClasses(
 	ret.Add(jsonutils.NewStringArray(sc), "storage_classes")
 	return ret, nil
 }
+
+func (provider *SCloudprovider) getAccountShareInfo() apis.SAccountShareInfo {
+	account := provider.GetCloudaccount()
+	return account.getAccountShareInfo()
+}

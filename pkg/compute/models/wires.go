@@ -97,6 +97,8 @@ func (manager *SWireManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.WireCreateInput,
 ) (api.WireCreateInput, error) {
+	var err error
+
 	if input.Bandwidth < 0 {
 		return input, httperrors.NewOutOfRangeError("bandwidth must be greater than 0")
 	}
@@ -109,11 +111,12 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("vpc")
 	}
 
-	vpc, err := ValidateVpcResourceInput(userCred, input.VpcResourceInput)
+	var vpc *SVpc
+	vpc, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateVpcResourceInput")
 	}
-	input.Vpc = vpc.Id
+
 	if len(vpc.ManagerId) > 0 {
 		return input, httperrors.NewNotSupportedError("Currently only kvm platform supports creating wire")
 	}
@@ -122,11 +125,10 @@ func (manager *SWireManager) ValidateCreateData(
 		return input, httperrors.NewMissingParameterError("zone")
 	}
 
-	zone, err := ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input.Zone = zone.GetId()
 
 	input.InfrasResourceBaseCreateInput, err = manager.SInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.InfrasResourceBaseCreateInput)
 	if err != nil {

@@ -300,9 +300,17 @@ type DBInstanceResourceInfo struct {
 	VpcResourceInfo
 }
 
-type DBInstanceFilterListInputBase struct {
-	// 以RDS实例过滤
+type DBInstanceResourceInput struct {
+	// RDS实例(ID or Name)
 	DBInstance string `json:"dbinstance"`
+
+	// swagger:ignore
+	// Deprecated
+	DBInstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
+}
+
+type DBInstanceFilterListInputBase struct {
+	DBInstanceResourceInput
 
 	// 以RDS实例名字排序
 	OrderByDBInstance string `json:"order_by_dbinstance"`

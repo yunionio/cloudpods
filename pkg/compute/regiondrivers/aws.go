@@ -170,8 +170,7 @@ func (self *SAwsRegionDriver) validateCreateNetworkLBData(ownerId mcclient.IIden
 	return data, nil
 }
 
-func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if spec, _ := data.GetString("loadbalancer_spec"); spec == api.LB_AWS_SPEC_APPLICATION {
 		if _, err := self.validateCreateApplicationLBData(ownerId, data); err != nil {
 			return nil, err
@@ -184,7 +183,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		return nil, httperrors.NewInputParameterError("invalid parameter loadbalancer_spec %s", spec)
 	}
 
-	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, ownerId, data)
 }
 
 func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.Context, ownerId mcclient.IIdentityProvider, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

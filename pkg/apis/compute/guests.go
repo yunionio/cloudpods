@@ -23,23 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/billing"
 )
 
-type ServerFilterListInput struct {
-	// 以关联主机（ID或Name）过滤列表
-	Server string `json:"server"`
-	// swagger:ignore
-	// Deprecated
-	// Filter by guest Id
-	ServerId string `json:"server_id" deprecated-by:"server"`
-	// swagger:ignore
-	// Deprecated
-	// Filter by guest Id
-	Guest string `json:"guest" deprecated-by:"server"`
-	// swagger:ignore
-	// Deprecated
-	// Filter by guest Id
-	GuestId string `json:"guest_id" deprecated-by:"server"`
-}
-
 type ServerListInput struct {
 	apis.VirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
@@ -250,7 +233,7 @@ type GuestJointResourceDetails struct {
 type GuestJointsListInput struct {
 	apis.VirtualJointResourceBaseListInput
 
-	GuestFilterListInput
+	ServerFilterListInput
 }
 
 type GuestResourceInfo struct {
@@ -266,23 +249,29 @@ type GuestResourceInfo struct {
 	HostResourceInfo
 }
 
-type GuestFilterListInput struct {
-	HostFilterListInput
-
-	// 以指定虚拟主机（ID或Name）过滤列表结果
+type ServerResourceInput struct {
+	// 主机（ID或Name）
 	Server string `json:"server"`
 	// swagger:ignore
 	// Deprecated
+	// Filter by guest Id
 	ServerId string `json:"server_id" deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
+	// Filter by guest Id
 	Guest string `json:"guest" deprecated-by:"server"`
 	// swagger:ignore
 	// Deprecated
+	// Filter by guest Id
 	GuestId string `json:"guest_id" deprecated-by:"server"`
+}
 
-	// 以虚拟主机名称排序
-	// pattern:asc|desc
+type ServerFilterListInput struct {
+	HostFilterListInput
+
+	ServerResourceInput
+
+	// 以主机名称排序
 	OrderByServer string `json:"order_by_server"`
 }
 

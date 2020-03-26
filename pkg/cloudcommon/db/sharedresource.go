@@ -37,14 +37,14 @@ const (
 type SSharedResource struct {
 	SResourceBase
 
-	Id int64 `primary:"true" auto_increment:"true" list:"user"`
+	Id int64 `primary:"true" auto_increment:"true"`
 
-	ResourceType    string `width:"32" charset:"ascii" nullable:"false" list:"user" json:"resource_type"`
-	ResourceId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"resource_id"`
-	OwnerProjectId  string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"owner_project_id"`
-	TargetProjectId string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" json:"target_project_id"`
+	ResourceType string `width:"32" charset:"ascii" nullable:"false" json:"resource_type"`
+	ResourceId   string `width:"128" charset:"ascii" nullable:"false" index:"true" json:"resource_id"`
+	// OwnerProjectId  string `width:"128" charset:"ascii" nullable:"false" index:"true" json:"owner_project_id"`
+	TargetProjectId string `width:"128" charset:"ascii" nullable:"false" index:"true" json:"target_project_id"`
 
-	TargetType string `width:"8" charset:"ascii" default:"project" nullable:"false" list:"user" json:"target_type"`
+	TargetType string `width:"8" charset:"ascii" default:"project" nullable:"false" json:"target_type"`
 }
 
 type SSharedResourceManager struct {
