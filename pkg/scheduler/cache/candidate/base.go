@@ -46,6 +46,8 @@ type BaseHostDesc struct {
 
 	InstanceGroups map[string]*api.CandidateGroup `json:"instance_groups"`
 	IpmiInfo       types.SIPMIInfo                `json:"ipmi_info"`
+
+	SharedDomains []string `json:"shared_domains"`
 }
 
 type baseHostGetter struct {
@@ -77,7 +79,8 @@ func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 }
 
 func (b baseHostGetter) IsPublic() bool {
-	provider := b.Cloudprovider()
+	return b.h.IsPublic
+	/*provider := b.Cloudprovider()
 	if provider == nil {
 		return false
 	}
@@ -85,15 +88,19 @@ func (b baseHostGetter) IsPublic() bool {
 	if account == nil {
 		return false
 	}
-	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM
+	return account.ShareMode == computeapi.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM*/
 }
 
 func (b baseHostGetter) DomainId() string {
-	provider := b.Cloudprovider()
-	if provider == nil {
-		return ""
-	}
-	return provider.DomainId
+	return b.h.DomainId
+}
+
+func (b baseHostGetter) PublicScope() string {
+	return b.h.PublicScope
+}
+
+func (b baseHostGetter) SharedDomains() []string {
+	return b.h.SharedDomains
 }
 
 func (b baseHostGetter) Region() *computemodels.SCloudregion {
@@ -259,6 +266,8 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 		return nil, fmt.Errorf("Fill ipmi info error: %v", err)
 	}
 
+	desc.fillSharedDomains()
+
 	return desc, nil
 }
 
@@ -336,6 +345,11 @@ func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
 
 func (b *BaseHostDesc) fillSchedtags() error {
 	b.HostSchedtags = b.SHost.GetSchedtags()
+	return nil
+}
+
+func (b *BaseHostDesc) fillSharedDomains() error {
+	b.SharedDomains = b.SHost.GetSharedDomains()
 	return nil
 }
 
