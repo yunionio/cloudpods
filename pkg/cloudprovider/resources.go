@@ -49,6 +49,8 @@ type IBillingResource interface {
 	GetBillingType() string
 	GetCreatedAt() time.Time
 	GetExpiredAt() time.Time
+	SetAutoRenew(autoRenew bool) error
+	IsAutoRenew() bool
 }
 
 type ICloudRegion interface {

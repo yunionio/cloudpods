@@ -1321,4 +1321,21 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerSetAutoRenew struct {
+		ID        string `help:"ID or name of VM" json:"-"`
+		AutoRenew bool   `help:"Set server auto renew or manual renew"`
+	}
+
+	R(&ServerSetAutoRenew{}, "server-set-auto-renew", "Set autorenew for server", func(s *mcclient.ClientSession, opts *ServerSetAutoRenew) error {
+		params := jsonutils.NewDict()
+		params.Set("auto_renew", jsonutils.NewBool(opts.AutoRenew))
+		result, err := modules.Servers.PerformAction(s, opts.ID, "set-auto-renew", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

@@ -24,6 +24,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type ClassicEipProperties struct {
@@ -36,6 +37,7 @@ type ClassicEipProperties struct {
 
 type SClassicEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	ID         string
 	instanceId string

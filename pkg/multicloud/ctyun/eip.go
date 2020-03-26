@@ -27,10 +27,12 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SEip struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	IPVersion           int64   `json:"ip_version"`
 	BandwidthShareType  string  `json:"bandwidth_share_type"`

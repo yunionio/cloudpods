@@ -191,3 +191,7 @@ func (self *SAliyunGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 func (self *SAliyunGuestDriver) IsSupportPublicipToEip() bool {
 	return true
 }
+
+func (self *SAliyunGuestDriver) IsSupportSetAutoRenew() bool {
+	return true
+}

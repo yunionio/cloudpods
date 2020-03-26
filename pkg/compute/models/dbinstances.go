@@ -1440,6 +1440,7 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		if factory.IsSupportPrepaidResources() {
 			self.BillingType = extInstance.GetBillingType()
 			self.ExpiredAt = extInstance.GetExpiredAt()
+			self.AutoRenew = extInstance.IsAutoRenew()
 		}
 
 		return nil
@@ -1531,6 +1532,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
 		instance.ExpiredAt = extInstance.GetExpiredAt()
+		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
 	err = manager.TableSpec().Insert(&instance)

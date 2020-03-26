@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -35,6 +36,7 @@ const (
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	AllocationId            string
 	Bandwidth               int

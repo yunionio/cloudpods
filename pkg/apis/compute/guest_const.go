@@ -118,6 +118,10 @@ const (
 	VM_START_EIP_CONVERT  = "start_eip_convert"
 	VM_EIP_CONVERT_FAILED = "eip_convert_failed"
 
+	// 设置自动续费
+	VM_SET_AUTO_RENEW        = "set_auto_renew"
+	VM_SET_AUTO_RENEW_FAILED = "set_auto_renew_failed"
+
 	VM_REMOVE_STATEFILE = "remove_state"
 
 	VM_IO_THROTTLE      = "io_throttle"

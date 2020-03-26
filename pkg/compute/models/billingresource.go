@@ -34,6 +34,8 @@ type SBillingResourceBase struct {
 	ExpiredAt time.Time `nullable:"true" list:"user" create:"optional" json:"expired_at"`
 	// 计费周期
 	BillingCycle string `width:"10" charset:"ascii" nullable:"true" list:"user" create:"optional" json:"billing_cycle"`
+	// 是否自动续费
+	AutoRenew bool `default:"false" list:"user" create:"optional" json:"auto_renew"`
 }
 
 type SBillingResourceBaseManager struct{}

@@ -2313,6 +2313,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
+			if self.GetDriver().IsSupportSetAutoRenew() {
+				self.AutoRenew = extVM.IsAutoRenew()
+			}
 		}
 
 		// no need to sync CreatedAt
@@ -2374,6 +2377,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
 		guest.ExpiredAt = extVM.GetExpiredAt()
+		if guest.GetDriver().IsSupportSetAutoRenew() {
+			guest.AutoRenew = extVM.IsAutoRenew()
+		}
 	}
 
 	if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
@@ -4211,6 +4217,22 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	return guests
 }
 
+func (manager *SGuestManager) getNeedRenewPrepaidGuests() ([]SGuest, error) {
+	deadline := time.Now().Add(time.Duration(options.Options.PrepaidAutoRenewHours)*time.Hour + 20*time.Minute)
+
+	q := manager.Query()
+	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
+		IsFalse("pending_deleted").In("hypervisor", GetNotSupportAutoRenewHypervisors).IsTrue("auto_renew")
+
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+
+	return guests, nil
+}
+
 func (manager *SGuestManager) getExpiredPostpaidGuests() []SGuest {
 	deadline := time.Now()
 	q := manager.Query().Equals("billing_type", billing_api.BILLING_TYPE_POSTPAID).IsFalse("pending_deleted").
@@ -4256,6 +4278,23 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 		}
 		guests[i].SetDisableDelete(userCred, false)
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false, false)
+	}
+}
+
+func (manager *SGuestManager) AutoRenewPrepaidServer(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	guests, err := manager.getNeedRenewPrepaidGuests()
+	if err != nil {
+		log.Errorf("failed to get need renew prepaid guests error: %v", err)
+		return
+	}
+	for i := 0; i < len(guests); i += 1 {
+		if len(guests[i].ExternalId) > 0 {
+			err := guests[i].doExternalSync(ctx, userCred)
+			if err == nil && guests[i].IsValidPrePaid() {
+				continue
+			}
+		}
+		guests[i].startGuestRenewTask(ctx, userCred, "1M", "")
 	}
 }
 

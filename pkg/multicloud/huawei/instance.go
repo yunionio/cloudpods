@@ -831,7 +831,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		}
 
 		params.Extendparam.RegionID = self.GetId()
-		params.Extendparam.IsAutoRenew = "false"
+		if bc.AutoRenew {
+			params.Extendparam.IsAutoRenew = "true"
+		} else {
+			params.Extendparam.IsAutoRenew = "false"
+		}
 		params.Extendparam.IsAutoPay = "true"
 	} else {
 		params.Extendparam.ChargingMode = POST_PAID

@@ -111,6 +111,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
 		}
 		if bc.IsValid() {
+			bc.AutoRenew = guest.AutoRenew
 			config.BillingCycle = &bc
 		}
 	}
@@ -922,6 +923,10 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	if err == nil && !guest.IsPrepaidRecycle() {
 		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp, "")
 	}
+	if guest.GetDriver().IsSupportSetAutoRenew() {
+		autoRenew, _ := data.Bool("auto_renew")
+		guest.SetAutoRenew(autoRenew)
+	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
@@ -1140,6 +1145,22 @@ func (self *SManagedVirtualizedGuestDriver) RequestConvertPublicipToEip(ctx cont
 			return nil, errors.Wrap(err, "cloudprovider.Wait")
 		}
 		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrap(err, "guest.GetIVM")
+		}
+		err = iVM.SetAutoRenew(autoRenew)
+		if err != nil {
+			return nil, errors.Wrap(err, "iVM.SetAutoRenew")
+		}
+
+		return nil, guest.SetAutoRenew(autoRenew)
 	})
 	return nil
 }

@@ -25,11 +25,13 @@ import (
 	billing "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDisk struct {
 	storage *SStorage
 	SResourceBase
+	multicloud.SDisk
 
 	Id                     string
 	CreationTimestamp      time.Time

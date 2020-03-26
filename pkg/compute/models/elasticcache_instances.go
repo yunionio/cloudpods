@@ -606,6 +606,7 @@ func (manager *SElasticcacheManager) newFromCloudElasticcache(ctx context.Contex
 	if factory.IsSupportPrepaidResources() {
 		instance.BillingType = extInstance.GetBillingType()
 		instance.ExpiredAt = extInstance.GetExpiredAt()
+		instance.AutoRenew = extInstance.IsAutoRenew()
 	}
 
 	err = manager.TableSpec().Insert(&instance)

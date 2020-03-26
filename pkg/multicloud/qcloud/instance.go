@@ -521,7 +521,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if bc != nil {
 		params["InstanceChargeType"] = "PREPAID"
 		params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
-		params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+		if bc.AutoRenew {
+			params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_AUTO_RENEW"
+		} else {
+			params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+		}
 	} else {
 		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
 	}
@@ -877,4 +881,26 @@ func (region *SRegion) ConvertPublicIpToEip(instanceId string) error {
 
 func (self *SInstance) ConvertPublicIpToEip() error {
 	return self.host.zone.region.ConvertPublicIpToEip(self.InstanceId)
+}
+
+func (self *SInstance) IsAutoRenew() bool {
+	return self.RenewFlag == "NOTIFY_AND_AUTO_RENEW"
+}
+
+// https://cloud.tencent.com/document/api/213/15752
+func (region *SRegion) SetInstanceAutoRenew(instanceId string, autoRenew bool) error {
+	params := map[string]string{
+		"InstanceIds.0": instanceId,
+		"Region":        region.Region,
+		"RenewFlag":     "NOTIFY_AND_MANUAL_RENEW",
+	}
+	if autoRenew {
+		params["RenewFlag"] = "NOTIFY_AND_AUTO_RENEW"
+	}
+	_, err := region.cvmRequest("ModifyInstancesRenewFlag", params, true)
+	return err
+}
+
+func (self *SInstance) SetAutoRenew(autoRenew bool) error {
+	return self.host.zone.region.SetInstanceAutoRenew(self.InstanceId, autoRenew)
 }

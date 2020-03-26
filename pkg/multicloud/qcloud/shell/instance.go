@@ -194,4 +194,13 @@ func init() {
 		err := cli.UpdateInstancePassword(args.ID, args.PASSWD)
 		return err
 	})
+
+	type InstanceSetAutoRenewOptions struct {
+		ID        string `help:"Instance ID"`
+		AutoRenew bool   `help:"Set auto renew"`
+	}
+	shellutils.R(&InstanceSetAutoRenewOptions{}, "instance-set-auto-renew", "Set instance auto renew flag", func(cli *qcloud.SRegion, args *InstanceSetAutoRenewOptions) error {
+		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
+	})
+
 }

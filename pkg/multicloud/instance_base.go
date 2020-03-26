@@ -18,6 +18,7 @@ import "yunion.io/x/onecloud/pkg/cloudprovider"
 
 type SInstanceBase struct {
 	SResourceBase
+	SBillingBase
 }
 
 func (instance *SInstanceBase) GetIHostId() string {

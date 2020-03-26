@@ -107,6 +107,7 @@ const (
 	ACT_CREATE_BACKUP                = "创建备份机"
 	ACT_SWITCH_TO_BACKUP             = "主备切换"
 	ACT_RENEW                        = "续费"
+	ACT_SET_AUTO_RENEW               = "设置自动续费"
 	ACT_MIGRATE                      = "迁移"
 	ACT_EIP_ASSOCIATE                = "绑定弹性IP"
 	ACT_EIP_DISSOCIATE               = "解绑弹性IP"
