@@ -17,6 +17,7 @@ package provider
 import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 	s3provider "yunion.io/x/onecloud/pkg/multicloud/objectstore/provider"
 	"yunion.io/x/onecloud/pkg/multicloud/objectstore/xsky"
 )
@@ -33,8 +34,12 @@ func (self *SXskyProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_XSKY
 }
 
-func (self *SXskyProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := xsky.NewXskyClient(providerId, providerName, url, account, secret, false)
+func (self *SXskyProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	client, err := xsky.NewXskyClient(
+		objectstore.NewObjectStoreClientConfig(
+			cfg.URL, cfg.Account, cfg.Secret,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +47,11 @@ func (self *SXskyProviderFactory) GetProvider(providerId, providerName, url, acc
 }
 
 func (self *SXskyProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
-	client, err := xsky.NewXskyClient("", "", url, account, secret, false)
+	client, err := xsky.NewXskyClient(
+		objectstore.NewObjectStoreClientConfig(
+			url, account, secret,
+		),
+	)
 	if err != nil {
 		return nil, err
 	}

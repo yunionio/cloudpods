@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*
@@ -48,17 +49,41 @@ const (
 	HUAWEI_API_VERSION    = "2018-12-25"
 )
 
-type SHuaweiClient struct {
-	signer auth.Signer
+type HuaweiClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
 
-	debug bool
-
-	providerId   string
-	providerName string
 	projectId    string // 华为云项目ID.
 	cloudEnv     string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
-	secret       string
+	accessSecret string
+
+	debug bool
+}
+
+func NewHuaweiClientConfig(cloudEnv, accessKey, accessSecret, projectId string) *HuaweiClientConfig {
+	cfg := &HuaweiClientConfig{
+		projectId:    projectId,
+		cloudEnv:     cloudEnv,
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *HuaweiClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *HuaweiClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *HuaweiClientConfig) Debug(debug bool) *HuaweiClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+type SHuaweiClient struct {
+	*HuaweiClientConfig
+
+	signer auth.Signer
 
 	isMainProject bool // whether the project is the main project in the region
 
@@ -73,15 +98,9 @@ type SHuaweiClient struct {
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，
 // 只能进行同步子账号、查询region列表等projectId无关的操作。
 // todo: 通过accessurl支持国际站。目前暂时未支持国际站
-func NewHuaweiClient(providerId, providerName, cloudEnv, accessKey, secret, projectId string, debug bool) (*SHuaweiClient, error) {
+func NewHuaweiClient(cfg *HuaweiClientConfig) (*SHuaweiClient, error) {
 	client := SHuaweiClient{
-		providerId:   providerId,
-		providerName: providerName,
-		projectId:    projectId,
-		cloudEnv:     cloudEnv,
-		accessKey:    accessKey,
-		secret:       secret,
-		debug:        debug,
+		HuaweiClientConfig: cfg,
 	}
 	err := client.init()
 	if err != nil {
@@ -119,8 +138,34 @@ func (self *SHuaweiClient) initSigner() error {
 	return nil
 }
 
+func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
+	cli, err := client.NewClientWithAccessKey(regionId, self.projectId, self.accessKey, self.accessSecret, self.debug)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	cli.SetHttpClient(httpClient)
+
+	return cli, nil
+}
+
+func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
+	cli, err := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	cli.SetHttpClient(httpClient)
+
+	return cli, nil
+}
+
 func (self *SHuaweiClient) fetchRegions() error {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	regions := make([]SRegion, 0)
 	err := doListAll(huawei.Regions.List, nil, &regions)
 	if err != nil {
@@ -179,7 +224,7 @@ func getOBSEndpoint(regionId string) string {
 
 func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
 	endpoint := getOBSEndpoint(regionId)
-	return obs.New(client.accessKey, client.secret, endpoint)
+	return obs.New(client.accessKey, client.accessSecret, endpoint)
 }
 
 func (self *SHuaweiClient) fetchBuckets() error {
@@ -225,9 +270,9 @@ func (self *SHuaweiClient) GetCloudRegionExternalIdPrefix() string {
 }
 
 func (self *SHuaweiClient) UpdateAccount(accessKey, secret string) error {
-	if self.accessKey != accessKey || self.secret != secret {
+	if self.accessKey != accessKey || self.accessSecret != secret {
 		self.accessKey = accessKey
-		self.secret = secret
+		self.accessSecret = secret
 		return self.fetchRegions()
 	} else {
 		return nil
@@ -258,7 +303,7 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			continue
 		}
 		s := cloudprovider.SSubAccount{
-			Name:         fmt.Sprintf("%s-%s", self.providerName, project.Name),
+			Name:         fmt.Sprintf("%s-%s", self.cpcfg.Name, project.Name),
 			State:        api.CLOUD_PROVIDER_CONNECTED,
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus: project.GetHealthStatus(),
@@ -384,7 +429,7 @@ func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
 
 // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
 func (self *SHuaweiClient) queryDomainBalance(domainId string) (float64, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
+	huawei, _ := self.newGeneralAPIClient()
 	huawei.Balances.SetDomainId(domainId)
 	balances := make([]SBalance, 0)
 	err := doListAll(huawei.Balances.List, nil, &balances)

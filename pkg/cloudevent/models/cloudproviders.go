@@ -16,7 +16,11 @@ package models
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 	"time"
+
+	"golang.org/x/net/http/httpproxy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -25,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -68,6 +73,8 @@ type SCloudprovider struct {
 
 	Provider string `width:"64" charset:"ascii" list:"domain"`
 	Brand    string `width:"64" charset:"ascii" list:"domain"`
+
+	ProxySetting *proxyapi.SProxySetting
 }
 
 func (manager *SCloudproviderManager) GetRegionCloudproviders(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudprovider, error) {
@@ -299,7 +306,29 @@ func (provider *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, err
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(provider.Id, provider.Name, accessUrl, provider.Account, passwd, provider.Provider)
+
+	ps := provider.ProxySetting
+	cfg := &httpproxy.Config{
+		HTTPProxy:  ps.HTTPProxy,
+		HTTPSProxy: ps.HTTPSProxy,
+		NoProxy:    ps.NoProxy,
+	}
+	cfgProxyFunc := cfg.ProxyFunc()
+	proxyFunc := func(req *http.Request) (*url.URL, error) {
+		return cfgProxyFunc(req.URL)
+	}
+	return cloudprovider.GetProvider(
+		cloudprovider.ProviderConfig{
+			Id:      provider.Id,
+			Name:    provider.Name,
+			Vendor:  provider.Provider,
+			URL:     accessUrl,
+			Account: provider.Account,
+			Secret:  passwd,
+
+			ProxyFunc: proxyFunc,
+		},
+	)
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

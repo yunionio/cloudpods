@@ -60,6 +60,10 @@ func getJsonBodyReader(body jsonutils.JSONObject) io.Reader {
 	return reqBody
 }
 
+func (api *SXskyAdminApi) httpClient() *http.Client {
+	return api.client
+}
+
 func (api *SXskyAdminApi) jsonRequest(ctx context.Context, method httputils.THttpMethod, path string, hdr http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	urlStr := strings.TrimRight(api.endpoint, "/") + "/" + strings.TrimLeft(path, "/")
 	req, err := http.NewRequest(string(method), urlStr, getJsonBodyReader(body))

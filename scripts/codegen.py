@@ -124,6 +124,7 @@ class ModelAPI(FuncDispatcher):
 
     def gen_cloudcommon(self):
         self.run(pkg=["cloudcommon", "db"])
+        self.run(pkg=["cloudcommon", "db", "proxy"], out=["cloudcommon", "proxy"])
 
     def gen_cloudprovider(self):
         self.run_same("cloudprovider")

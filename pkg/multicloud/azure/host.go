@@ -40,7 +40,7 @@ func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SHost) GetId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.cpcfg.Id, self.zone.GetId())
 }
 
 func (self *SHost) GetName() string {

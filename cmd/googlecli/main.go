@@ -94,7 +94,14 @@ func newClient(options *BaseOptions) (*google.SRegion, error) {
 		return nil, fmt.Errorf("Missing ProjectID")
 	}
 
-	cli, err := google.NewGoogleClient("", "", options.ProjectID, options.ClientEmail, options.PrivateKeyID, options.PrivateKey, options.Debug)
+	cli, err := google.NewGoogleClient(
+		google.NewGoogleClientConfig(
+			options.ProjectID,
+			options.ClientEmail,
+			options.PrivateKeyID,
+			options.PrivateKey,
+		).Debug(options.Debug),
+	)
 	if err != nil {
 		return nil, err
 	}

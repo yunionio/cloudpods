@@ -101,21 +101,26 @@ func (self *SGoogleProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func (self *SGoogleProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
+func (self *SGoogleProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
 	privateKeyID, privateKey := "", ""
-	privateKeyInfo := strings.Split(secret, "/")
+	privateKeyInfo := strings.Split(cfg.Secret, "/")
 	if len(privateKeyInfo) < 2 {
 		return nil, fmt.Errorf("Missing privateKeyID or privateKey for google cloud")
 	}
 	privateKeyID = privateKeyInfo[0]
 	privateKey = strings.Join(privateKeyInfo[1:], "/")
 	projectID, clientEmail := "", ""
-	accountInfo := strings.Split(account, "/")
+	accountInfo := strings.Split(cfg.Account, "/")
 	if len(accountInfo) < 2 {
-		return nil, fmt.Errorf("Invalid projectID or client email for google cloud %s", account)
+		return nil, fmt.Errorf("Invalid projectID or client email for google cloud %s", cfg.Account)
 	}
 	projectID, clientEmail = accountInfo[0], accountInfo[1]
-	client, err := google.NewGoogleClient(providerId, providerName, projectID, clientEmail, privateKeyID, privateKey, false)
+
+	client, err := google.NewGoogleClient(
+		google.NewGoogleClientConfig(
+			projectID, clientEmail, privateKeyID, privateKey,
+		).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

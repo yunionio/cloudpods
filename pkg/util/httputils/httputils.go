@@ -248,6 +248,20 @@ func GetClient(insecure bool, timeout time.Duration) *http.Client {
 	}
 }
 
+type TransportProxyFunc func(*http.Request) (*url.URL, error)
+
+func SetClientProxyFunc(
+	client *http.Client,
+	proxyFunc TransportProxyFunc,
+) bool {
+	set := false
+	if transport, ok := client.Transport.(*http.Transport); ok {
+		transport.Proxy = proxyFunc
+		set = true
+	}
+	return set
+}
+
 func GetTimeoutClient(timeout time.Duration) *http.Client {
 	return GetClient(true, timeout)
 }

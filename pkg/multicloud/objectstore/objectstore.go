@@ -31,17 +31,62 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
+type ObjectStoreClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
+	endpoint     string
+	accessKey    string
+	accessSecret string
+
+	debug bool
+}
+
+func NewObjectStoreClientConfig(endpoint, accessKey, accessSecret string) *ObjectStoreClientConfig {
+	cfg := &ObjectStoreClientConfig{
+		endpoint:     endpoint,
+		accessKey:    accessKey,
+		accessSecret: accessSecret,
+	}
+	return cfg
+}
+
+func (cfg *ObjectStoreClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *ObjectStoreClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *ObjectStoreClientConfig) Debug(debug bool) *ObjectStoreClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
+func (cfg *ObjectStoreClientConfig) GetCloudproviderConfig() cloudprovider.ProviderConfig {
+	return cfg.cpcfg
+}
+
+func (cfg *ObjectStoreClientConfig) GetEndpoint() string {
+	return cfg.endpoint
+}
+
+func (cfg *ObjectStoreClientConfig) GetAccessKey() string {
+	return cfg.accessKey
+}
+
+func (cfg *ObjectStoreClientConfig) GetAccessSecret() string {
+	return cfg.accessSecret
+}
+
+func (cfg *ObjectStoreClientConfig) GetDebug() bool {
+	return cfg.debug
+}
+
 type SObjectStoreClient struct {
 	object.SObject
 
+	*ObjectStoreClientConfig
+
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
-
-	providerId   string
-	providerName string
-	endpoint     string
-	accessKey    string
-	secret       string
 
 	ownerId   string
 	ownerName string
@@ -49,24 +94,17 @@ type SObjectStoreClient struct {
 	iBuckets []cloudprovider.ICloudBucket
 
 	client *s3cli.Client
-
-	Debug bool
 }
 
-func NewObjectStoreClient(providerId string, providerName string, endpoint string, accessKey string, secret string, isDebug bool) (*SObjectStoreClient, error) {
-	return NewObjectStoreClientAndFetch(providerId, providerName, endpoint, accessKey, secret, isDebug, true)
+func NewObjectStoreClient(cfg *ObjectStoreClientConfig) (*SObjectStoreClient, error) {
+	return NewObjectStoreClientAndFetch(cfg, true)
 }
 
-func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoint string, accessKey string, secret string, isDebug bool, doFetch bool) (*SObjectStoreClient, error) {
+func NewObjectStoreClientAndFetch(cfg *ObjectStoreClientConfig, doFetch bool) (*SObjectStoreClient, error) {
 	client := SObjectStoreClient{
-		providerId:   providerId,
-		providerName: providerName,
-		endpoint:     endpoint,
-		accessKey:    accessKey,
-		secret:       secret,
-		Debug:        isDebug,
+		ObjectStoreClientConfig: cfg,
 	}
-	parts, err := url.Parse(endpoint)
+	parts, err := url.Parse(cfg.endpoint)
 	if err != nil {
 		return nil, errors.Wrap(err, "url.Parse endpoint")
 	}
@@ -74,18 +112,25 @@ func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoi
 	if parts.Scheme == "https" {
 		useSsl = true
 	}
-	cli, err := s3cli.New(parts.Host, accessKey, secret, useSsl, client.Debug)
+	cli, err := s3cli.New(
+		parts.Host,
+		client.accessKey,
+		client.accessSecret,
+		useSsl,
+		client.debug,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "minio.New")
 	}
 
 	tr := httputils.GetTransport(true)
+	tr.Proxy = cfg.cpcfg.ProxyFunc
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
 	client.SetVirtualObject(&client)
 
-	if isDebug {
+	if client.debug {
 		cli.TraceOn(os.Stderr)
 	}
 
@@ -102,7 +147,7 @@ func NewObjectStoreClientAndFetch(providerId string, providerName string, endpoi
 func (cli *SObjectStoreClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.accessKey,
-		Name:         cli.providerName,
+		Name:         cli.cpcfg.Name,
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
@@ -158,7 +203,7 @@ func (cli *SObjectStoreClient) S3Client() *s3cli.Client {
 func (cli *SObjectStoreClient) GetClientRC() map[string]string {
 	return map[string]string{
 		"S3_ACCESS_KEY": cli.accessKey,
-		"S3_SECRET":     cli.secret,
+		"S3_SECRET":     cli.accessSecret,
 		"S3_ACCESS_URL": cli.endpoint,
 		"S3_BACKEND":    api.CLOUD_PROVIDER_GENERICS3,
 	}

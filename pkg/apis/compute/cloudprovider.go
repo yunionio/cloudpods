@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -95,6 +96,8 @@ type CloudproviderInfo struct {
 type CloudproviderDetails struct {
 	apis.StandaloneResourceDetails
 	SCloudprovider
+
+	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 
 	// 云账号名称
 	// example: google-account

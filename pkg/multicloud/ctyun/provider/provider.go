@@ -76,15 +76,20 @@ func (self *SCtyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx cont
 	return output, nil
 }
 
-func (self *SCtyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	segs := strings.Split(account, "/")
+func (self *SCtyunProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	segs := strings.Split(cfg.Account, "/")
 	projectId := ""
+	account := cfg.Account
 	if len(segs) == 2 {
 		projectId = segs[1]
 		account = segs[0]
 	}
 
-	client, err := ctyun.NewSCtyunClient(providerId, providerName, projectId, account, secret, false)
+	client, err := ctyun.NewSCtyunClient(
+		ctyun.NewSCtyunClientConfig(
+			account, cfg.Secret,
+		).ProjectId(projectId).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

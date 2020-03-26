@@ -62,6 +62,10 @@ func (self *SBaseManager) GetColumns() []string {
 	return self.columns
 }
 
+func (self *SBaseManager) SetHttpClient(httpClient *http.Client) {
+	self.httpClient = httpClient
+}
+
 func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (*responses.ListResult, error) {
 	_, body, err := self.jsonRequest(request)
 	if err != nil {

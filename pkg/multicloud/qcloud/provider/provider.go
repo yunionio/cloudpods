@@ -98,14 +98,18 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return output, nil
 }
 
-func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	secretId := account
+func (self *SQcloudProviderFactory) GetProvider(cfg cloudprovider.ProviderConfig) (cloudprovider.ICloudProvider, error) {
+	secretId := cfg.Account
 	appId := ""
-	if tmp := strings.Split(account, "/"); len(tmp) == 2 {
+	if tmp := strings.Split(cfg.Account, "/"); len(tmp) == 2 {
 		secretId = tmp[0]
 		appId = tmp[1]
 	}
-	client, err := qcloud.NewQcloudClient(providerId, providerName, secretId, secret, appId, false)
+	client, err := qcloud.NewQcloudClient(
+		qcloud.NewQcloudClientConfig(
+			secretId, cfg.Secret,
+		).AppId(appId).CloudproviderConfig(cfg),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -61,13 +61,41 @@ const (
 	MAX_RETRY = 3
 )
 
+type GoogleClientConfig struct {
+	cpcfg cloudprovider.ProviderConfig
+
+	projectId    string
+	clientEmail  string
+	privateKeyId string
+	privateKey   string
+
+	debug bool
+}
+
+func NewGoogleClientConfig(projectId, clientEmail, privateKeyId, privateKey string) *GoogleClientConfig {
+	privateKey = strings.Replace(privateKey, "\\n", "\n", -1)
+	cfg := &GoogleClientConfig{
+		projectId:    projectId,
+		clientEmail:  clientEmail,
+		privateKeyId: privateKeyId,
+		privateKey:   privateKey,
+	}
+	return cfg
+}
+
+func (cfg *GoogleClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConfig) *GoogleClientConfig {
+	cfg.cpcfg = cpcfg
+	return cfg
+}
+
+func (cfg *GoogleClientConfig) Debug(debug bool) *GoogleClientConfig {
+	cfg.debug = debug
+	return cfg
+}
+
 type SGoogleClient struct {
-	providerId      string
-	providerName    string
-	projectId       string
-	privateKey      string
-	privateKeyId    string
-	clientEmail     string
+	*GoogleClientConfig
+
 	iregions        []cloudprovider.ICloudRegion
 	images          []SImage
 	snapshots       map[string][]SSnapshot
@@ -75,24 +103,16 @@ type SGoogleClient struct {
 	resourcepolices []SResourcePolicy
 
 	client *http.Client
-
-	Debug bool
 }
 
-func NewGoogleClient(providerId string, providerName string, projectId, clientEmail, privateKeyId, privateKey string, isDebug bool) (*SGoogleClient, error) {
+func NewGoogleClient(cfg *GoogleClientConfig) (*SGoogleClient, error) {
 	client := SGoogleClient{
-		providerId:   providerId,
-		providerName: providerName,
-		projectId:    projectId,
-		privateKey:   strings.Replace(privateKey, "\\n", "\n", -1),
-		privateKeyId: privateKeyId,
-		clientEmail:  clientEmail,
-		Debug:        isDebug,
+		GoogleClientConfig: cfg,
 	}
 	conf := &jwt.Config{
-		Email:        clientEmail,
-		PrivateKeyID: privateKeyId,
-		PrivateKey:   []byte(client.privateKey),
+		Email:        cfg.clientEmail,
+		PrivateKeyID: cfg.privateKeyId,
+		PrivateKey:   []byte(cfg.privateKey),
 		Scopes: []string{
 			"https://www.googleapis.com/auth/cloud-platform",
 			"https://www.googleapis.com/auth/compute",
@@ -106,7 +126,13 @@ func NewGoogleClient(providerId string, providerName string, projectId, clientEm
 		},
 		TokenURL: google.JWTTokenURL,
 	}
-	client.client = conf.Client(oauth2.NoContext)
+
+	httpClient := httputils.GetDefaultClient()
+	httputils.SetClientProxyFunc(httpClient, cfg.cpcfg.ProxyFunc)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+
+	client.client = conf.Client(ctx)
 	return &client, client.fetchRegions()
 }
 
@@ -146,7 +172,7 @@ func jsonRequest(client *http.Client, method httputils.THttpMethod, domain, apiV
 }
 
 func (self *SGoogleClient) ecsGet(resource string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, nil, self.Debug)
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, nil, self.debug)
 	if err != nil {
 		return err
 	}
@@ -161,15 +187,15 @@ func (self *SGoogleClient) ecsGet(resource string, retval interface{}) error {
 
 func (self *SGoogleClient) ecsList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
 	resource = fmt.Sprintf("projects/%s/%s", self.projectId, resource)
-	return jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) managerList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, params, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) managerGet(resource string) (jsonutils.JSONObject, error) {
-	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, nil, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_MANAGER_DOMAIN, GOOGLE_MANAGER_API_VERSION, resource, nil, nil, self.debug)
 }
 
 func (self *SGoogleClient) ecsListAll(resource string, params map[string]string, retval interface{}) error {
@@ -201,7 +227,7 @@ func (self *SGoogleClient) ecsListAll(resource string, params map[string]string,
 }
 
 func (self *SGoogleClient) ecsDelete(id string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, id, nil, nil, self.Debug)
+	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, id, nil, nil, self.debug)
 	if err != nil {
 		return err
 	}
@@ -215,7 +241,7 @@ func (self *SGoogleClient) ecsPatch(resource string, action string, params map[s
 	if len(action) > 0 {
 		resource = fmt.Sprintf("%s/%s", resource, action)
 	}
-	resp, err := jsonRequest(self.client, "PATCH", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.Debug)
+	resp, err := jsonRequest(self.client, "PATCH", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.debug)
 	if err != nil {
 		return "", err
 	}
@@ -225,7 +251,7 @@ func (self *SGoogleClient) ecsPatch(resource string, action string, params map[s
 
 func (self *SGoogleClient) ecsDo(resource string, action string, params map[string]string, body jsonutils.JSONObject) (string, error) {
 	resource = fmt.Sprintf("%s/%s", resource, action)
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.Debug)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, params, body, self.debug)
 	if err != nil {
 		return "", err
 	}
@@ -251,7 +277,7 @@ func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject,
 			}
 		}
 	}
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, body, self.Debug)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_COMPUTE_DOMAIN, GOOGLE_API_VERSION, resource, nil, body, self.debug)
 	if err != nil {
 		return err
 	}
@@ -262,7 +288,7 @@ func (self *SGoogleClient) ecsInsert(resource string, body jsonutils.JSONObject,
 }
 
 func (self *SGoogleClient) storageInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, body, self.Debug)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, body, self.debug)
 	if err != nil {
 		return err
 	}
@@ -273,11 +299,11 @@ func (self *SGoogleClient) storageInsert(resource string, body jsonutils.JSONObj
 }
 
 func (self *SGoogleClient) storageUpload(resource string, header http.Header, body io.Reader) error {
-	return rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.Debug)
+	return rawRequest(self.client, "POST", GOOGLE_STORAGE_UPLOAD_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, header, body, self.debug)
 }
 
 func (self *SGoogleClient) storageList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, params, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) storageListAll(resource string, params map[string]string, retval interface{}) error {
@@ -309,7 +335,7 @@ func (self *SGoogleClient) storageListAll(resource string, params map[string]str
 }
 
 func (self *SGoogleClient) storageGet(resource string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.Debug)
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, nil, nil, self.debug)
 	if err != nil {
 		return err
 	}
@@ -323,7 +349,7 @@ func (self *SGoogleClient) storageGet(resource string, retval interface{}) error
 }
 
 func (self *SGoogleClient) storageDelete(id string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, id, nil, nil, self.Debug)
+	resp, err := jsonRequest(self.client, "DELETE", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, id, nil, nil, self.debug)
 	if err != nil {
 		return err
 	}
@@ -335,7 +361,7 @@ func (self *SGoogleClient) storageDelete(id string, retval interface{}) error {
 
 func (self *SGoogleClient) storageDo(resource string, action string, params map[string]string, body jsonutils.JSONObject) (string, error) {
 	resource = fmt.Sprintf("%s/%s", resource, action)
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, params, body, self.Debug)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_STORAGE_DOMAIN, GOOGLE_STORAGE_API_VERSION, resource, params, body, self.debug)
 	if err != nil {
 		return "", err
 	}
@@ -344,7 +370,7 @@ func (self *SGoogleClient) storageDo(resource string, action string, params map[
 }
 
 func (self *SGoogleClient) cloudbuildGet(resource string, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "GET", GOOGLE_CLOUDBUILD_DOMAIN, GOOGLE_CLOUDBUILD_API_VERSION, resource, nil, nil, self.Debug)
+	resp, err := jsonRequest(self.client, "GET", GOOGLE_CLOUDBUILD_DOMAIN, GOOGLE_CLOUDBUILD_API_VERSION, resource, nil, nil, self.debug)
 	if err != nil {
 		return err
 	}
@@ -358,7 +384,7 @@ func (self *SGoogleClient) cloudbuildGet(resource string, retval interface{}) er
 }
 
 func (self *SGoogleClient) cloudbuildInsert(resource string, body jsonutils.JSONObject, retval interface{}) error {
-	resp, err := jsonRequest(self.client, "POST", GOOGLE_CLOUDBUILD_DOMAIN, GOOGLE_CLOUDBUILD_API_VERSION, resource, nil, body, self.Debug)
+	resp, err := jsonRequest(self.client, "POST", GOOGLE_CLOUDBUILD_DOMAIN, GOOGLE_CLOUDBUILD_API_VERSION, resource, nil, body, self.debug)
 	if err != nil {
 		return err
 	}
@@ -369,7 +395,7 @@ func (self *SGoogleClient) cloudbuildInsert(resource string, body jsonutils.JSON
 }
 
 func (self *SGoogleClient) billingList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(self.client, "GET", GOOGLE_BILLING_DOMAIN, GOOGLE_BILLING_API_VERSION, resource, params, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_BILLING_DOMAIN, GOOGLE_BILLING_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) billingListAll(resource string, params map[string]string, retval interface{}) error {
@@ -401,7 +427,7 @@ func (self *SGoogleClient) billingListAll(resource string, params map[string]str
 }
 
 func (self *SGoogleClient) monitorList(resource string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(self.client, "GET", GOOGLE_MONITOR_DOMAIN, GOOGLE_MONITOR_API_VERSION, resource, params, nil, self.Debug)
+	return jsonRequest(self.client, "GET", GOOGLE_MONITOR_DOMAIN, GOOGLE_MONITOR_API_VERSION, resource, params, nil, self.debug)
 }
 
 func (self *SGoogleClient) monitorListAll(resource string, params map[string]string, retval interface{}) error {
@@ -500,7 +526,7 @@ func (client *SGoogleClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	accounts := []cloudprovider.SSubAccount{}
 	for _, project := range projects {
 		subAccount := cloudprovider.SSubAccount{}
-		subAccount.Name = client.providerName
+		subAccount.Name = client.cpcfg.Name
 		subAccount.Account = fmt.Sprintf("%s/%s", project.ProjectId, client.clientEmail)
 		if project.LifecycleState == "ACTIVE" {
 			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
