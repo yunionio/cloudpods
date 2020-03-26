@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -185,8 +186,7 @@ type CloudaccountCreateInput struct {
 	// 额外信息,例如账单的access key
 	Options *jsonutils.JSONDict `json:"options"`
 
-	// 代理配置
-	ProxySettingId string `json:"proxy_setting_id"`
+	proxy.ProxySettingResourceInput
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential
@@ -306,6 +306,8 @@ type CloudaccountUpdateInput struct {
 	Options *jsonutils.JSONDict `json:"options"`
 	// 带删除的options key
 	RemoveOptions []string `json:"remove_options"`
+
+	proxy.ProxySettingResourceInput
 }
 
 type CloudaccountPerformPublicInput struct {

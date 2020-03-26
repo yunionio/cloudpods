@@ -295,13 +295,27 @@ func (self *SCloudaccount) ValidateUpdateData(
 		input.Options = optionsJson
 	}
 
-	v := validators.NewModelIdOrNameValidator(
-		"proxy_setting",
-		proxy.ProxySettingManager.Keyword(),
-		userCred,
-	)
-	if err := v.Validate(data); err != nil {
-		return nil, err
+	if len(input.ProxySettingId) > 0 {
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		if err != nil {
+			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
+		}
+
+		if proxySetting != nil {
+			// updated proxy setting, so do the check
+			proxyFunc := proxySetting.HttpTransportProxyFunc()
+			_, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+				Vendor:    self.Provider,
+				URL:       self.AccessUrl,
+				Account:   self.Account,
+				Secret:    self.Secret,
+				ProxyFunc: proxyFunc,
+			})
+			if err != nil {
+				return input, httperrors.NewInputParameterError("invalid proxy setting %s", err)
+			}
+		}
 	}
 
 	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
@@ -377,13 +391,11 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		if input.ProxySettingId == "" {
 			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
 		}
-		m, err := proxy.ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
 		if err != nil {
-			return input, httperrors.NewInputParameterError("fetch proxysetting %s: %s",
-				input.ProxySettingId, err)
+			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
-		proxySetting := m.(*proxy.SProxySetting)
-		input.ProxySettingId = proxySetting.Id
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
