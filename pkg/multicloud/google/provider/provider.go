@@ -46,7 +46,7 @@ func (self *SGoogleProviderFactory) ValidateChangeBandwidth(instanceId string, b
 }
 
 func (self *SGoogleProviderFactory) IsSupportPrepaidResources() bool {
-	return true
+	return false
 }
 
 func (self *SGoogleProviderFactory) NeedSyncSkuFromCloud() bool {
