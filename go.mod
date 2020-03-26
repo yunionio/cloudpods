@@ -128,11 +128,11 @@ require (
 	k8s.io/cluster-bootstrap v0.17.3
 	k8s.io/kubernetes v1.16.0
 	yunion.io/x/executor v0.0.0-20200227030256-a18417815e74
-	yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
+	yunion.io/x/jsonutils v0.0.0-20200324102731-ecaf3132aad8
 	yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
-	yunion.io/x/pkg v0.0.0-20200304112442-9dae9351325e
+	yunion.io/x/pkg v0.0.0-20200312093207-f07f4cb157e0
 	yunion.io/x/s3cli v0.0.0-20190917004522-13ac36d8687e
-	yunion.io/x/sqlchemy v0.0.0-20200310015557-9e9a49139db1
+	yunion.io/x/sqlchemy v0.0.0-20200312002602-1177cd8fbc57
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
 
