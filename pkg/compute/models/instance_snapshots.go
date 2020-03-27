@@ -277,7 +277,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 	}
 	sourceInput.OsType = self.OsType
 	sourceInput.InstanceType = self.InstanceType
-	// sourceInput.Networks = serverConfig.Networks
+	sourceInput.Networks = serverConfig.Networks
 	return sourceInput, nil
 }
 
