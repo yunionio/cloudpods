@@ -82,7 +82,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, nil)
+	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, nil, nil)
 
 	if err != nil {
 		self.taskFailed(ctx, network, "SyncWithCloudNetwork", err)

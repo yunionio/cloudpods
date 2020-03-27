@@ -23,6 +23,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DiskSchedtagPredicate struct {
@@ -122,6 +123,18 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidat
 			StorageType,
 		}
 	}
+
+	// domain ownership filter
+	if storage.DomainId == u.SchedInfo.Domain {
+	} else if storage.IsPublic && storage.PublicScope == string(rbacutils.ScopeSystem) {
+	} else if storage.IsPublic && storage.PublicScope == string(rbacutils.ScopeDomain) && utils.IsInStringArray(u.SchedInfo.Domain, storage.GetSharedDomains()) {
+	} else {
+		return &FailReason{
+			Reason: fmt.Sprintf("Storage %s is not accessible due to domain ownership", storage.Name),
+			Type:   StorageOwnership,
+		}
+	}
+
 	return nil
 }
 

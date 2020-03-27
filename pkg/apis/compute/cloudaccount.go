@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -130,7 +131,7 @@ type CloudaccountResourceInfo struct {
 }
 
 type CloudaccountCreateInput struct {
-	apis.EnabledStatusDomainLevelResourceCreateInput
+	apis.EnabledStatusInfrasResourceBaseCreateInput
 
 	// 指定云平台
 	// Qcloud: 腾讯云
@@ -183,10 +184,9 @@ type CloudaccountCreateInput struct {
 	AutoCreateProject bool `json:"auto_create_project"`
 
 	// 额外信息,例如账单的access key
-	Options *jsonutils.JSONObject `json:"options"`
+	Options *jsonutils.JSONDict `json:"options"`
 
-	// 代理配置
-	ProxySettingId string `json:"proxy_setting_id"`
+	proxy.ProxySettingResourceInput
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential
@@ -209,7 +209,7 @@ func (i CloudaccountShareModeInput) Validate() error {
 }
 
 type CloudaccountListInput struct {
-	apis.EnabledStatusDomainLevelResourceListInput
+	apis.EnabledStatusInfrasResourceBaseListInput
 
 	ManagedResourceListInput
 
@@ -235,7 +235,7 @@ type ProviderProject struct {
 }
 
 type CloudaccountDetail struct {
-	apis.EnabledStatusDomainLevelResourceDetails
+	apis.EnabledStatusInfrasResourceBaseDetails
 	SCloudaccount
 
 	// 子订阅项目信息
@@ -294,4 +294,26 @@ type CloudaccountDetail struct {
 	// 存储缓存数量
 	// example: 10
 	StoragecacheCount int `json:"storagecache_count,allowempty"`
+}
+
+type CloudaccountUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
+
+	// 同步周期，单位为秒
+	SyncIntervalSeconds *int64 `json:"sync_interval_seconds"`
+
+	// 待更新的options key/value
+	Options *jsonutils.JSONDict `json:"options"`
+	// 带删除的options key
+	RemoveOptions []string `json:"remove_options"`
+
+	proxy.ProxySettingResourceInput
+}
+
+type CloudaccountPerformPublicInput struct {
+	apis.PerformPublicInput
+
+	// 共享模式，可能值为provider_domain, system
+	// example: provider_domain
+	ShareMode string `json:"share_mode"`
 }

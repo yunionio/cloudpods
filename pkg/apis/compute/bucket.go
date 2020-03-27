@@ -44,8 +44,8 @@ const (
 
 type BucketCreateInput struct {
 	apis.VirtualResourceCreateInput
-	RegionalResourceCreateInput
-	ManagedResourceCreateInput
+	CloudregionResourceInput
+	CloudproviderResourceInput
 
 	StorageClass string `json:"storage_class"`
 }
@@ -115,4 +115,8 @@ type BucketListInput struct {
 }
 
 type BucketSyncstatusInput struct {
+}
+
+type BucketUpdateInput struct {
+	apis.VirtualResourceBaseUpdateInput
 }

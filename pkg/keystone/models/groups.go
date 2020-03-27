@@ -265,18 +265,26 @@ func (group *SGroup) ValidateUpdateCondition(ctx context.Context) error {
 	return group.SIdentityBaseResource.ValidateUpdateCondition(ctx)
 }
 
-func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.GroupUpdateInput) (api.GroupUpdateInput, error) {
+	data := jsonutils.Marshal(input)
 	if group.IsReadOnly() {
 		for _, k := range []string{
 			"name",
 			"displayname",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	return group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+
+	var err error
+	input.IdentityBaseUpdateInput, err = group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {

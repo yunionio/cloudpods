@@ -26,10 +26,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -106,6 +108,10 @@ func (manager *SSchedtagManager) InitializeData() error {
 		NetworkManager: NetworkschedtagManager,
 	})
 	return nil
+}
+
+func (manager *SSchedtagManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
 }
 
 func (manager *SSchedtagManager) BindJointManagers(ms map[db.IModelManager]ISchedtagJointManager) {
@@ -297,7 +303,18 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 			return nil, err
 		}
 	}
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.StandaloneResourceBaseUpdateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+
+	return data, nil
 }
 
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {

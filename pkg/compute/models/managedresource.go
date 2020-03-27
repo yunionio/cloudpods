@@ -17,13 +17,13 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -43,6 +44,19 @@ type SManagedResourceBase struct {
 
 type SManagedResourceBaseManager struct {
 	managerIdFieldName string
+}
+
+func ValidateCloudproviderResourceInput(userCred mcclient.TokenCredential, query api.CloudproviderResourceInput) (*SCloudprovider, api.CloudproviderResourceInput, error) {
+	managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, query.Cloudprovider)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", CloudproviderManager.Keyword(), query.Cloudprovider)
+		} else {
+			return nil, query, errors.Wrap(err, "CloudproviderManager.FetchByIdOrName")
+		}
+	}
+	query.Cloudprovider = managerObj.GetId()
+	return managerObj.(*SCloudprovider), query, nil
 }
 
 func (manager *SManagedResourceBaseManager) getManagerIdFileName() string {
@@ -75,7 +89,7 @@ func (self *SManagedResourceBase) GetRegionDriver() (IRegionDriver, error) {
 	}
 	driver := GetRegionDriver(provider)
 	if driver == nil {
-		return nil, fmt.Errorf("failed to get %s region drivder", provider)
+		return nil, errors.Wrapf(httperrors.ErrInvalidStatus, "failed to get %s region drivder", provider)
 	}
 	return driver, nil
 }
@@ -86,7 +100,7 @@ func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProv
 		if len(self.ManagerId) > 0 {
 			return nil, cloudprovider.ErrInvalidProvider
 		}
-		return nil, fmt.Errorf("Resource is self managed")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Resource is self managed")
 	}
 	return provider.GetProviderFactory()
 }
@@ -97,7 +111,7 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 		if len(self.ManagerId) > 0 {
 			return nil, cloudprovider.ErrInvalidProvider
 		}
-		return nil, fmt.Errorf("Resource is self managed")
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "Resource is self managed")
 	}
 	return provider.GetProvider()
 }
@@ -120,6 +134,47 @@ func (self *SManagedResourceBase) GetBrand() string {
 
 func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
+}
+
+func (self *SManagedResourceBase) CanShareToDomain(domainId string) bool {
+	provider := self.GetCloudprovider()
+	if provider == nil {
+		return true
+	}
+	account := provider.GetCloudaccount()
+	if account == nil {
+		// no cloud account, can share to any domain
+		return true
+	}
+	switch account.ShareMode {
+	case api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
+		if domainId == account.DomainId {
+			return true
+		} else {
+			return false
+		}
+	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
+		if domainId == provider.DomainId {
+			return true
+		} else {
+			return false
+		}
+	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
+		if account.PublicScope == string(rbacutils.ScopeSystem) {
+			return true
+		} else {
+			// public_scope = domain
+			if domainId == account.DomainId {
+				return true
+			}
+			if utils.IsInStringArray(domainId, account.GetSharedDomains()) {
+				return true
+			}
+			return false
+		}
+	default:
+		return true
+	}
 }
 
 func (self *SManagedResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) api.ManagedResourceInfo {
@@ -303,9 +358,10 @@ func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuer
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		accounts := CloudaccountManager.Query().SubQuery()
-		providers := CloudproviderManager.Query().SubQuery()
-		subq := providers.Query(providers.Field("id"))
+		accounts := CloudaccountManager.Query("id")
+		accounts = CloudaccountManager.filterByDomainId(accounts, domain.GetId())
+		subq := CloudproviderManager.Query("id").In("cloudaccount_id", accounts.SubQuery())
+		/*subq := providers.Query(providers.Field("id"))
 		subq = subq.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
 		subq = subq.Filter(sqlchemy.OR(
 			sqlchemy.AND(
@@ -317,7 +373,7 @@ func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuer
 				sqlchemy.Equals(accounts.Field("domain_id"), domain.GetId()),
 				sqlchemy.Equals(accounts.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
 			),
-		))
+		))*/
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(q.Field(managerIdFieldName)),
@@ -454,13 +510,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	} else if len(query.Zone) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(nil, query.Zone)
+		zoneObj, _, err := ValidateZoneResourceInput(nil, query.ZoneResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), query.Zone)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return nil, errors.Wrap(err, "ValidateZoneResourceInput")
 		}
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zoneObj.GetId()))
@@ -477,13 +529,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query api.ZonalFilterListIn
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query api.RegionalFilterListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	regionStr := query.Cloudregion
 	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		regionObj, _, err := ValidateCloudregionResourceInput(nil, query.CloudregionResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
+			return nil, errors.Wrap(err, "ValidateCloudregionResourceInput")
 		}
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), regionObj.GetId()))

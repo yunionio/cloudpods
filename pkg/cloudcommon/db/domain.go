@@ -38,6 +38,14 @@ type SDomainizedResourceBase struct {
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user" json:"domain_id"`
 }
 
+func (manager *SDomainizedResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
+	if consts.IsDomainizedNamespace() {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
 func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }

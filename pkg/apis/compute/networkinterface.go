@@ -30,7 +30,7 @@ type NetworkInterfaceNetworkInfo struct {
 }
 
 type NetworkInterfaceDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.StatusInfrasResourceBaseDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
 

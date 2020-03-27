@@ -156,28 +156,43 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			}
 
 			schedData := u.SchedData()
+			if n.IsPublic && n.PublicScope == string(rbacutils.ScopeSystem) {
+				// system-wide share
+			} else if n.IsPublic && n.PublicScope == string(rbacutils.ScopeDomain) && (n.DomainId == schedData.Domain || utils.IsInStringArray(schedData.Domain, n.GetSharedDomains())) {
+				// domain-wide share
+			} else if n.PublicScope == string(rbacutils.ScopeProject) && utils.IsInStringArray(schedData.Project, n.GetSharedProjects()) {
+				// project-wide share
+			} else if n.ProjectId == schedData.Project {
+				// owner
+			} else {
+				appendError(FailReason{
+					Reason: fmt.Sprintf("Network %s not accessible", n.Name),
+					Type:   NetworkOwnership,
+				})
+			}
+
 			if private {
 				if n.IsPublic {
 					appendError(FailReason{
 						Reason: fmt.Sprintf("Network %s is public", n.Name),
 						Type:   NetworkPublic,
 					})
-				} else if n.ProjectId != schedData.Project && utils.IsInStringArray(schedData.Project, n.GetSharedProjects()) {
+				} /*else if n.ProjectId != schedData.Project && utils.IsInStringArray(schedData.Project, n.GetSharedProjects()) {
 					appendError(FailReason{
 						Reason: fmt.Sprintf("Network project %s + %v not owner by %s", n.ProjectId, n.GetSharedProjects(), schedData.Project),
 						Type:   NetworkOwner,
 					})
-				}
+				}*/
 			} else {
 				if !n.IsPublic {
 					appendError(FailReason{Reason: fmt.Sprintf("Network %s is private", n.Name), Type: NetworkPrivate})
-				} else if rbacutils.TRbacScope(n.PublicScope) == rbacutils.ScopeDomain {
+				} /*else if rbacutils.TRbacScope(n.PublicScope) == rbacutils.ScopeDomain {
 					netDomain := n.DomainId
 					reqDomain := domain
 					if netDomain != reqDomain {
 						appendError(FailReason{Reason: fmt.Sprintf("Network %s domain scope %s not owner by %s", n.Name, netDomain, reqDomain), Type: NetworkDomain})
 					}
-				}
+				}*/
 			}
 
 			if err := checkAddress(address, n.SNetwork); err != nil {

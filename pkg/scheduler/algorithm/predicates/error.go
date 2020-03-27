@@ -109,6 +109,7 @@ func (r FailReason) GetType() string {
 }
 
 const (
+	NetworkOwnership = "network_ownership"
 	NetworkPrivate   = "network_private"
 	NetworkPublic    = "network_public"
 	NetworkTypeMatch = "network_type"
@@ -120,7 +121,8 @@ const (
 	NetworkFreeCount = "network_free_count"
 	NetworkPort      = "network_port"
 
-	StorageEnable = "storage_status"
-	StorageMatch  = "storage_match"
-	StorageType   = "storage_type"
+	StorageEnable    = "storage_status"
+	StorageMatch     = "storage_match"
+	StorageType      = "storage_type"
+	StorageOwnership = "storage_ownership"
 )

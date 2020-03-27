@@ -20,14 +20,19 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
+type ExternalResourceInfo struct {
+	ExtResource            jsonutils.JSONObject `json:"ext_resource"`
+	ExtResourcesLastUpdate time.Time            `json:"ext_resources_last_update"`
+	ExtResourcesNextUpdate time.Time            `json:"ext_resources_next_update"`
+}
+
 type ProjectDetails struct {
 	IdentityBaseResourceDetails
 
 	SProject
 
-	GroupCount             int                  `json:"group_count"`
-	UserCount              int                  `json:"user_count"`
-	ExtResource            jsonutils.JSONObject `json:"ext_resource"`
-	ExtResourcesLastUpdate time.Time            `json:"ext_resources_last_update"`
-	ExtResourcesNextUpdate time.Time            `json:"ext_resources_next_update"`
+	GroupCount int `json:"group_count"`
+	UserCount  int `json:"user_count"`
+
+	ExternalResourceInfo
 }

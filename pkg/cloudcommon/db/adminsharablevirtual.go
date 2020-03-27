@@ -31,7 +31,7 @@ import (
 
 type SAdminSharableVirtualResourceBase struct {
 	SSharableVirtualResourceBase
-	Records string `charset:"ascii" list:"user" create:"optional" update:"user"`
+	Records string `charset:"utf8" list:"user" create:"optional" update:"user"`
 }
 
 type SAdminSharableVirtualResourceBaseManager struct {
@@ -225,4 +225,18 @@ func (manager *SAdminSharableVirtualResourceBaseManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (model *SAdminSharableVirtualResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.AdminSharableVirtualResourceBaseUpdateInput,
+) (apis.AdminSharableVirtualResourceBaseUpdateInput, error) {
+	var err error
+	input.SharableVirtualResourceBaseUpdateInput, err = model.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

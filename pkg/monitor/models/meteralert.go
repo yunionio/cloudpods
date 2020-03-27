@@ -575,12 +575,15 @@ func (alert *SMeterAlert) getMoreDetails(out monitor.MeterAlertDetails) (monitor
 }
 
 func (alert *SMeterAlert) ValidateUpdateData(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, input monitor.MeterAlertUpdateInput) (*jsonutils.JSONDict, error) {
-	ret := new(monitor.AlertUpdateInput)
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.MeterAlertUpdateInput,
+) (monitor.MeterAlertUpdateInput, error) {
+	// ret := new(monitor.AlertUpdateInput)
 	details, err := alert.getExtraDetails(ctx, userCred, query, false)
 	if err != nil {
-		return nil, err
+		return input, err
 	}
 	if input.Threshold != nil && *input.Threshold != details.Threshold {
 		details.Threshold = *input.Threshold
@@ -592,22 +595,29 @@ func (alert *SMeterAlert) ValidateUpdateData(
 
 	ds, err := DataSourceManager.GetDefaultSource()
 	if err != nil {
-		return nil, errors.Wrap(err, "get default data source")
+		return input, errors.Wrap(err, "get default data source")
 	}
+
 	// hack: update notification here
 	if err := alert.UpdateNotification(AlertNotificationUsedByMeterAlert, input.Channel, input.Recipients); err != nil {
-		return nil, errors.Wrap(err, "update notification")
+		return input, errors.Wrap(err, "update notification")
 	}
 	allAccountIds := []string{}
 	if details.AccountId == "" {
 		allAccountIds, err = MeterAlertManager.getAllBillAccountIds(ctx)
 		if err != nil {
-			return nil, err
+			return input, err
 		}
 	}
 	tmpS := alert.getUpdateSetting(details, ds.GetId(), allAccountIds)
-	ret.Settings = &tmpS
-	return alert.SAlert.ValidateUpdateData(ctx, userCred, query, *ret)
+	input.Settings = &tmpS
+
+	input.V1AlertUpdateInput, err = alert.SV1Alert.ValidateUpdateData(ctx, userCred, query, input.V1AlertUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SV1Alert.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (alert *SMeterAlert) getUpdateSetting(details monitor.MeterAlertDetails, dsId string, accountIds []string) monitor.AlertSetting {

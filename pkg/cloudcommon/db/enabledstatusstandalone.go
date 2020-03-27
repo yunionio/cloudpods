@@ -140,3 +140,17 @@ func (model *SEnabledStatusStandaloneResourceBase) GetExtraDetails(
 ) (apis.EnabledStatusStandaloneResourceDetails, error) {
 	return apis.EnabledStatusStandaloneResourceDetails{}, nil
 }
+
+func (model *SEnabledStatusStandaloneResourceBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input apis.EnabledStatusStandaloneResourceBaseUpdateInput,
+) (apis.EnabledStatusStandaloneResourceBaseUpdateInput, error) {
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = model.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
+}

@@ -43,7 +43,7 @@ type AlertUpdateOptions struct {
 func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
 	input := new(monitor.AlertUpdateInput)
 	if opt.Name != "" {
-		input.Name = &opt.Name
+		input.Name = opt.Name
 	}
 	if opt.Frequency != "" {
 		freq, err := time.ParseDuration(opt.Frequency)

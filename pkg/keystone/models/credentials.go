@@ -164,9 +164,15 @@ func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SCredential) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CredentialUpdateInput) (api.CredentialUpdateInput, error) {
+	var err error
 
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (self *SCredential) GetExtraDetails(

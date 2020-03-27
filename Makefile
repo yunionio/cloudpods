@@ -76,7 +76,7 @@ install: prepare_dir
 
 
 gencopyright:
-	@sh scripts/gencopyright.sh pkg cmd
+	@bash scripts/gencopyright.sh pkg cmd
 
 test:
 	@go test $(GO_BUILD_FLAGS) $(shell go list ./... | egrep -v 'host-image|hostimage')

@@ -43,7 +43,7 @@ import (
 )
 
 type SStorageManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SZoneResourceBaseManager
@@ -53,7 +53,7 @@ var StorageManager *SStorageManager
 
 func init() {
 	StorageManager = &SStorageManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SStorage{},
 			"storages_tbl",
 			"storage",
@@ -64,7 +64,7 @@ func init() {
 }
 
 type SStorage struct {
-	db.SEnabledStatusStandaloneResourceBase `"status->default":"offline" "status->update":"admin" "enabled->default":"true"`
+	db.SEnabledStatusInfrasResourceBase `"status->default":"offline" "status->update":"admin" "enabled->default":"true"`
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
@@ -131,7 +131,7 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 }
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SEnabledStatusInfrasResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("cmtbound") || data.Contains("capacity") {
 		hosts := self.GetAttachedHosts()
@@ -162,7 +162,7 @@ func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	DeleteResourceJointSchedtags(self, ctx, userCred)
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
 func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
@@ -189,46 +189,54 @@ func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]st
 	return storages, nil
 }
 
-func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.StorageCreateInput) (*jsonutils.JSONDict, error) {
+func (manager *SStorageManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.StorageCreateInput,
+) (api.StorageCreateInput, error) {
+	var err error
+
 	if !utils.IsInStringArray(input.StorageType, api.STORAGE_TYPES) {
-		return nil, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
+		return input, httperrors.NewInputParameterError("Invalid storage type %s", input.StorageType)
 	}
 	if !utils.IsInStringArray(input.MediumType, api.DISK_TYPES) {
-		return nil, httperrors.NewInputParameterError("Invalid medium type %s", input.MediumType)
+		return input, httperrors.NewInputParameterError("Invalid medium type %s", input.MediumType)
 	}
 	if len(input.Zone) == 0 {
-		return nil, httperrors.NewMissingParameterError("zone")
+		return input, httperrors.NewMissingParameterError("zone")
 	}
-	zone, err := ZoneManager.FetchByIdOrName(userCred, input.Zone)
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to found zone %s", input.Zone)
-		}
-		return nil, httperrors.NewGeneralError(errors.Wrap(err, "ZoneManager.FetchByIdOrName"))
+		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input.ZoneId = zone.GetId()
 
 	storageDirver := GetStorageDriver(input.StorageType)
 	if storageDirver == nil {
-		return nil, httperrors.NewUnsupportOperationError("Not support create %s storage", input.StorageType)
+		return input, httperrors.NewUnsupportOperationError("Not support create %s storage", input.StorageType)
 	}
 
 	err = storageDirver.ValidateCreateData(ctx, userCred, &input)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "storageDirver.ValidateCreateData")
 	}
 
-	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
-	return input.JSON(input), nil
+
+	return input, nil
 }
 
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
 	self.SetStatus(userCred, api.STORAGE_OFFLINE, "CustomizeCreate")
-	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	// make storage shared to system by default
+	self.IsPublic = true
+	self.PublicScope = string(rbacutils.ScopeSystem)
+	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
@@ -253,11 +261,11 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("storage has snapshots")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	storageDriver := GetStorageDriver(self.StorageType)
 	if storageDriver != nil {
@@ -430,12 +438,12 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.StorageDetails {
 	rows := make([]api.StorageDetails, len(objs))
-	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manageRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.StorageDetails{
-			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ZoneResourceInfo:                       zoneRows[i],
 			ManagedResourceInfo:                    manageRows[i],
 		}
@@ -673,7 +681,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i])
+		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i], provider.GetOwnerId())
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -714,7 +722,7 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extStorage.GetName()
 		self.Status = extStorage.GetStatus()
@@ -736,6 +744,11 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
+
+	if syncOwnerId != nil {
+		SyncCloudDomain(userCred, self, syncOwnerId)
+	}
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
 }
@@ -770,6 +783,8 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 		log.Errorf("newFromCloudStorage fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudDomain(userCred, &storage, provider.GetOwnerId())
 
 	db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
 
@@ -1169,9 +1184,9 @@ func (manager *SStorageManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	if query.Share != nil && *query.Share {
@@ -1217,9 +1232,9 @@ func (manager *SStorageManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.StorageListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SZoneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ZonalFilterListInput)
 	if err != nil {
@@ -1235,7 +1250,7 @@ func (manager *SStorageManager) OrderByExtraFields(
 func (manager *SStorageManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}

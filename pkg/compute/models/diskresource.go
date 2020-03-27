@@ -39,6 +39,19 @@ type SDiskResourceBaseManager struct {
 	SStorageResourceBaseManager
 }
 
+func ValidateDiskResourceInput(userCred mcclient.TokenCredential, input api.DiskResourceInput) (*SDisk, api.DiskResourceInput, error) {
+	diskObj, err := DiskManager.FetchByIdOrName(userCred, input.Disk)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", DiskManager.Keyword(), input.Disk)
+		} else {
+			return nil, input, errors.Wrap(err, "DiskManager.FetchByIdOrName")
+		}
+	}
+	input.Disk = diskObj.GetId()
+	return diskObj.(*SDisk), input, nil
+}
+
 func (self *SDiskResourceBase) GetDisk() *SDisk {
 	obj, _ := DiskManager.FetchById(self.DiskId)
 	if obj != nil {
@@ -127,13 +140,9 @@ func (manager *SDiskResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.Disk) > 0 {
-		diskObj, err := DiskManager.FetchByIdOrName(userCred, query.Disk)
+		diskObj, _, err := ValidateDiskResourceInput(userCred, query.DiskResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DiskManager.Keyword(), query.Disk)
-			} else {
-				return nil, errors.Wrap(err, "DiskManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateDiskResourceInput")
 		}
 		q = q.Equals("disk_id", diskObj.GetId())
 	}

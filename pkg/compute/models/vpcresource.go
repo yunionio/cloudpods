@@ -41,6 +41,19 @@ type SVpcResourceBaseManager struct {
 	SManagedResourceBaseManager
 }
 
+func ValidateVpcResourceInput(userCred mcclient.TokenCredential, input api.VpcResourceInput) (*SVpc, api.VpcResourceInput, error) {
+	vpcObj, err := VpcManager.FetchByIdOrName(userCred, input.Vpc)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), input.Vpc)
+		} else {
+			return nil, input, errors.Wrap(err, "VpcManager.FetchByIdOrName")
+		}
+	}
+	input.Vpc = vpcObj.GetId()
+	return vpcObj.(*SVpc), input, nil
+}
+
 func (self *SVpcResourceBase) GetVpc() *SVpc {
 	obj, _ := VpcManager.FetchById(self.VpcId)
 	if obj == nil {
@@ -162,13 +175,9 @@ func (manager *SVpcResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.Vpc) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred, query.Vpc)
+		vpcObj, _, err := ValidateVpcResourceInput(userCred, query.VpcResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(VpcManager.Keyword(), query.Vpc)
-			} else {
-				return nil, errors.Wrap(err, "VpcManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateVpcResourceInput")
 		}
 		q = q.Equals("vpc_id", vpcObj.GetId())
 	}

@@ -176,3 +176,12 @@ func (manager *SResourceBaseManager) FetchCustomizeColumns(
 func (model *SResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (apis.ResourceBaseDetails, error) {
 	return apis.ResourceBaseDetails{}, nil
 }
+
+func (model *SResourceBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.ResourceBaseUpdateInput) (apis.ResourceBaseUpdateInput, error) {
+	var err error
+	input.ModelBaseUpdateInput, err = model.SModelBase.ValidateUpdateData(ctx, userCred, query, input.ModelBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SModelBase.ValidateUpdateData")
+	}
+	return input, nil
+}

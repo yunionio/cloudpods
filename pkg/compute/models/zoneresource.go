@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -36,6 +37,19 @@ type SZoneResourceBase struct {
 
 type SZoneResourceBaseManager struct {
 	SCloudregionResourceBaseManager
+}
+
+func ValidateZoneResourceInput(userCred mcclient.TokenCredential, query api.ZoneResourceInput) (*SZone, api.ZoneResourceInput, error) {
+	zoneObj, err := ZoneManager.FetchByIdOrName(userCred, query.Zone)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ZoneManager.Keyword(), query.Zone)
+		} else {
+			return nil, query, errors.Wrap(err, "ZoneManager.FetchByIdOrName")
+		}
+	}
+	query.Zone = zoneObj.GetId()
+	return zoneObj.(*SZone), query, nil
 }
 
 func (self *SZoneResourceBase) GetZone() *SZone {

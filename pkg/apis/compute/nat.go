@@ -65,7 +65,7 @@ type SimpleNetwork struct {
 }
 
 type NatgatewayDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.StatusInfrasResourceBaseDetails
 
 	VpcResourceInfo
 

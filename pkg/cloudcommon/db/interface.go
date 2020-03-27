@@ -276,13 +276,15 @@ type IStandaloneModel interface {
 	RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error
 	RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error
 	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
+
+	IsShared() bool
 }
 
 type IDomainLevelModelManager interface {
 	IStandaloneModelManager
 
 	GetIDomainLevelModelManager() IDomainLevelModelManager
-	GetResourceCount() ([]SProjectResourceCount, error)
+	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
 type IDomainLevelModel interface {
@@ -295,11 +297,25 @@ type IDomainLevelModel interface {
 	GetIDomainLevelModel() IDomainLevelModel
 }
 
+type IInfrasModelManager interface {
+	IDomainLevelModelManager
+
+	GetIInfrasModelManager() IInfrasModelManager
+}
+
+type IInfrasModel interface {
+	IDomainLevelModel
+	ISharableBase
+
+	GetIInfrasModel() IInfrasModel
+	GetSharedDomains() []string
+}
+
 type IVirtualModelManager interface {
 	IStandaloneModelManager
 
 	GetIVirtualModelManager() IVirtualModelManager
-	GetResourceCount() ([]SProjectResourceCount, error)
+	GetResourceCount() ([]SScopeResourceCount, error)
 }
 
 type IVirtualModel interface {
@@ -322,9 +338,11 @@ type ISharableVirtualModelManager interface {
 
 type ISharableVirtualModel interface {
 	IVirtualModel
+	ISharableBase
 
 	GetISharableVirtualModel() ISharableVirtualModel
 	GetSharedProjects() []string
+	GetSharedDomains() []string
 }
 
 type IAdminSharableVirtualModelManager interface {

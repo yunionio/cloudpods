@@ -132,10 +132,10 @@ type SSecgroupCreateInput struct {
 type SecgroupListInput struct {
 	apis.SharableVirtualResourceListInput
 
+	ServerFilterListInput
+
 	// equals
 	Equals string
-
-	ServerFilterListInput
 
 	// 按缓存数量排序
 	// pattern:asc|desc
@@ -172,13 +172,17 @@ type SecurityGroupRuleListInput struct {
 	Protocol string `json:"protocol"`
 }
 
-type SecgroupFilterListInput struct {
+type SecgroupResourceInput struct {
 	// 过滤关联指定安全组（ID或Name）的列表结果
 	Secgroup string `json:"secgroup"`
 	// swagger:ignore
 	// Deprecated
 	// filter by secgroup_id
 	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
+}
+
+type SecgroupFilterListInput struct {
+	SecgroupResourceInput
 
 	// 以安全组排序
 	OrderBySecgroup string `json:"order_by_secgroup"`

@@ -35,11 +35,12 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SVpcManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
@@ -50,7 +51,7 @@ var VpcManager *SVpcManager
 
 func init() {
 	VpcManager = &SVpcManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SVpc{},
 			"vpcs_tbl",
 			"vpc",
@@ -61,7 +62,7 @@ func init() {
 }
 
 type SVpc struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SEnabledStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
@@ -105,7 +106,10 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 	if len(idstr) > 0 {
 		self.Id = idstr
 	}
-	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	// make vpc default to share to system
+	self.IsPublic = true
+	self.PublicScope = string(rbacutils.ScopeSystem)
+	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SVpc) getNatgatewayQuery() *sqlchemy.SQuery {
@@ -292,13 +296,13 @@ func (manager *SVpcManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.VpcDetails {
 	rows := make([]api.VpcDetails, len(objs))
-	stdRows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	globalVpcRows := manager.SGlobalVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.VpcDetails{
-			EnabledStatusStandaloneResourceDetails: stdRows[i],
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:                    managerRows[i],
 			CloudregionResourceInfo:                regionRows[i],
 			GlobalVpcResourceInfo:                  globalVpcRows[i],
@@ -373,7 +377,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i])
+		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider.GetOwnerId())
 		if err != nil {
 			syncResult.UpdateError(err)
 			continue
@@ -382,7 +386,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, commondb[i])
 		remoteVPCs = append(remoteVPCs, commonext[i])
 		syncResult.Update()
-		err = commondb[i].SyncGlobalVpc(ctx, userCred)
+		err = commondb[i].SyncGlobalVpc(ctx, userCred, provider.GetOwnerId())
 		if err != nil {
 			log.Errorf("%s(%s) sync global vpc error: %v", commondb[i].Name, commondb[i].Id, err)
 		}
@@ -397,7 +401,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		localVPCs = append(localVPCs, *newVpc)
 		remoteVPCs = append(remoteVPCs, added[i])
 		syncResult.Add()
-		err = newVpc.SyncGlobalVpc(ctx, userCred)
+		err = newVpc.SyncGlobalVpc(ctx, userCred, provider.GetOwnerId())
 		if err != nil {
 			log.Errorf("%s(%s) sync global vpc error: %v", newVpc.Name, newVpc.Id, err)
 		}
@@ -427,8 +431,10 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider) error {
 	if len(self.GlobalvpcId) > 0 {
+		gv, _ := self.GetGlobalVpc()
+		SyncCloudDomain(userCred, gv, ownerId)
 		return nil
 	}
 	region, err := self.GetRegion()
@@ -471,6 +477,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 			if err != nil {
 				return errors.Wrap(err, "GlobalVpcManager.Insert")
 			}
+			SyncCloudDomain(userCred, gv, ownerId)
 			globalvpcId = gv.Id
 		}
 		_, err = db.Update(self, func() error {
@@ -482,7 +489,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc) error {
+func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
 		// self.Name = extVPC.GetName()
@@ -497,6 +504,10 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 	})
 	if err != nil {
 		return err
+	}
+
+	if syncOwnerId != nil {
+		SyncCloudDomain(userCred, self, syncOwnerId)
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -527,6 +538,8 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 		log.Errorf("newFromCloudVpc fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
 
 	db.OpsLog.LogEvent(&vpc, db.ACT_CREATE, vpc.GetShortDesc(ctx), userCred)
 
@@ -578,62 +591,65 @@ func (manager *SVpcManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionId := jsonutils.GetAnyString(data, []string{"region", "cloudregion", "cloudregion_id"})
+func (manager *SVpcManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.VpcCreateInput,
+) (api.VpcCreateInput, error) {
+	regionId := input.Cloudregion
 	if len(regionId) == 0 {
-		return nil, httperrors.NewMissingParameterError("cloudregion_id")
+		return input, httperrors.NewMissingParameterError("cloudregion_id")
 	}
 	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionId)
+			return input, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionId)
 		} else {
-			return nil, httperrors.NewGeneralError(err)
+			return input, httperrors.NewGeneralError(err)
 		}
 	}
 	region := regionObj.(*SCloudregion)
-	data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
+	input.Cloudregion = region.Id
+	// data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
 	if region.isManaged() {
-		managerStr := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
+		managerStr := input.Cloudprovider
 		if len(managerStr) == 0 {
-			return nil, httperrors.NewMissingParameterError("manager_id")
+			return input, httperrors.NewMissingParameterError("manager_id")
 		}
 		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+				return input, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
 			} else {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
+		input.Cloudprovider = managerObj.GetId()
+		// data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {
-		data.Set("status", jsonutils.NewString(api.VPC_STATUS_AVAILABLE))
+		// data.Set("status", jsonutils.NewString(api.VPC_STATUS_AVAILABLE))
+		input.Status = api.VPC_STATUS_AVAILABLE
 	}
 
-	cidrBlock, _ := data.GetString("cidr_block")
+	cidrBlock := input.CidrBlock
 	if len(cidrBlock) > 0 {
 		blocks := strings.Split(cidrBlock, ",")
 		for _, block := range blocks {
 			_, err = netutils.NewIPV4Prefix(block)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
+				return input, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
 			}
 		}
 	}
 
-	input := apis.EnabledStatusStandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal EnabledStatusStandaloneResourceCreateInput fail %s", err)
+		return input, err
 	}
-	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
 
-	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
+	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, input)
 }
 
 func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -724,7 +740,7 @@ func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredent
 		}
 	}
 
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SVpc) StartDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -798,7 +814,7 @@ func (manager *SVpcManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
 	}
@@ -878,7 +894,7 @@ func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field st
 		return q, nil
 	default:
 		var err error
-		q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+		q, err = manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 		if err == nil {
 			return q, nil
 		}
@@ -907,9 +923,9 @@ func (manager *SVpcManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.VpcListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -925,31 +941,6 @@ func (manager *SVpcManager) OrderByExtraFields(
 	}
 	return q, nil
 }
-
-/*func (manager *SVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	var err error
-	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
-	if err == nil {
-		return q, nil
-	}
-	switch field {
-	case "account":
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
-		q = q.Join(cloudproviders, sqlchemy.Equals(q.Field("manager_id"), cloudproviders.Field("id")))
-		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
-		q.GroupBy(cloudaccounts.Field("name"))
-		q.AppendField(cloudaccounts.Field("name", "account"))
-	case "manager":
-		cloudproviders := CloudproviderManager.Query("name", "id").Distinct().SubQuery()
-		q = q.Join(cloudproviders, sqlchemy.Equals(q.Field("manager_id"), cloudproviders.Field("id")))
-		q.GroupBy(cloudproviders.Field("name"))
-		q.AppendField(cloudproviders.Field("name", "manager"))
-	default:
-		return q, httperrors.NewBadRequestError("unsupport field %s", field)
-	}
-	return q, nil
-}*/
 
 func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ivpc, err := self.GetIVpc()

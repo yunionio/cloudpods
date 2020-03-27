@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -64,7 +65,7 @@ func init() {
 */
 
 type SRole struct {
-	SIdentityBaseResource
+	SIdentityBaseResource `"name->update":""`
 	db.SSharableBaseResource
 }
 
@@ -167,11 +168,17 @@ func (role *SRole) GetProjectCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (role *SRole) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		return nil, httperrors.NewForbiddenError("cannot alter name of role")
+func (role *SRole) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.RoleUpdateInput) (api.RoleUpdateInput, error) {
+	if len(input.Name) > 0 {
+		return input, httperrors.NewForbiddenError("cannot alter name of role")
 	}
-	return role.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.IdentityBaseUpdateInput, err = role.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (role *SRole) IsSystemRole() bool {
@@ -179,7 +186,7 @@ func (role *SRole) IsSystemRole() bool {
 }
 
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
-	if role.IsPublic {
+	if role.IsShared() {
 		return httperrors.NewInvalidStatusError("cannot delete shared role")
 	}
 	if role.IsSystemRole() {
@@ -400,28 +407,48 @@ func (manager *SRoleManager) FetchRole(roleId, roleName string, domainId, domain
 	return nil, fmt.Errorf("no role Id or name provided")
 }
 
-func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.SharableAllowPerformPublic(role, userCred)
+func (role *SRole) IsShared() bool {
+	return db.SharableModelIsShared(role)
 }
 
-func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := db.SharablePerformPublic(role, ctx, userCred, query, data)
-	if err == nil {
-		policy.PolicyManager.SyncOnce()
+func (role *SRole) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	return db.SharableModelIsSharable(role, reqUsrId)
+}
+
+func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+	return true
+}
+
+func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPublic(role, ctx, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
-	return res, err
+	policy.PolicyManager.SyncOnce()
+	return nil, nil
 }
 
-func (role *SRole) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.SharableAllowPerformPrivate(role, userCred)
+func (role *SRole) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
+	return true
 }
 
-func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := db.SharablePerformPrivate(role, ctx, userCred, query, data)
-	if err == nil {
-		policy.PolicyManager.SyncOnce()
+func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPrivate(role, ctx, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
-	return res, err
+	policy.PolicyManager.SyncOnce()
+	return nil, nil
+}
+
+func (role *SRole) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	role.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return role.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
+func (role *SRole) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.SharedResourceManager.CleanModelShares(ctx, userCred, role)
+	return role.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
 func (manager *SRoleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

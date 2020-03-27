@@ -30,6 +30,7 @@ _output
 /relay
 /structargtest
 .idea
+.vscode
 GPATH
 GRTAGS
 GTAGS

@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	imageapi "yunion.io/x/onecloud/pkg/apis/image"
@@ -863,7 +864,17 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInputParameterError("name is too short")
 		}
 	}
-	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.VirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal")
+	}
+	input, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func serverCreateInput2ComputeQuotaKeys(input api.ServerCreateInput, ownerId mcclient.IIdentityProvider) SComputeResourceKeys {
@@ -1288,7 +1299,7 @@ func (manager *SGuestManager) validateCreateData(
 	}
 
 	input.Project = ownerId.GetProjectId()
-	input.Domain = ownerId.GetProjectDomainId()
+	input.ProjectDomain = ownerId.GetProjectDomainId()
 	return input, nil
 }
 
@@ -4705,7 +4716,7 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.EipChargeType = genInput.EipChargeType
 	// cloned server should belongs to the project creating it
 	userInput.Project = userCred.GetProjectId()
-	userInput.Domain = userCred.GetProjectDomainId()
+	userInput.ProjectDomain = userCred.GetProjectDomainId()
 	userInput.Secgroups = []string{}
 	secgroups := self.GetSecgroups()
 	for _, secgroup := range secgroups {
@@ -4755,7 +4766,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.Hypervisor = self.Hypervisor
 	r.InstanceType = self.InstanceType
 	r.Project = self.ProjectId
-	r.Domain = self.DomainId
+	r.ProjectDomain = self.DomainId
 	r.Count = 1
 	r.Disks = self.ToDisksConfig()
 	r.Networks = self.ToNetworksConfig()

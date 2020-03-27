@@ -95,6 +95,7 @@ var (
 			"enable_rbac",
 			"non_default_domain_projects",
 			"time_zone",
+			"domainized_namespace",
 		},
 	}
 

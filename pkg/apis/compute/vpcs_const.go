@@ -46,7 +46,7 @@ type UsableVpcResourceListInput struct {
 }
 
 type VpcListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.EnabledStatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
@@ -66,21 +66,6 @@ type VpcListInput struct {
 	// CIDR地址段
 	// example: 192.168.222.0/24
 	CidrBlock []string `json:"cidr_block"`
-}
-
-type WireListInput struct {
-	apis.StandaloneResourceListInput
-	apis.ExternalizedResourceBaseListInput
-
-	VpcFilterListInput
-
-	ZonalFilterListBase
-
-	HostResourceInput
-}
-
-type GlobalVpcListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
 }
 
 const (

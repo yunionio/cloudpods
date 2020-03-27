@@ -572,3 +572,23 @@ func (manager *SStandaloneResourceBaseManager) ListItemExportKeys(ctx context.Co
 
 	return q, nil
 }
+
+func (model *SStandaloneResourceBase) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.StandaloneResourceBaseUpdateInput) (apis.StandaloneResourceBaseUpdateInput, error) {
+	var err error
+	input.ResourceBaseUpdateInput, err = model.SResourceBase.ValidateUpdateData(ctx, userCred, query, input.ResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SModelBase.ValidateUpdateData")
+	}
+
+	if len(input.Name) > 0 {
+		err = alterNameValidator(model.GetIStandaloneModel(), input.Name)
+		if err != nil {
+			return input, errors.Wrap(err, "alterNameValidator")
+		}
+	}
+	return input, nil
+}
+
+func (model *SStandaloneResourceBase) IsShared() bool {
+	return false
+}

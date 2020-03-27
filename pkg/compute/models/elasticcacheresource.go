@@ -42,6 +42,19 @@ type SElasticcacheResourceBaseManager struct {
 	SZoneResourceBaseManager
 }
 
+func ValidateElasticcacheResourceInput(userCred mcclient.TokenCredential, input api.ELasticcacheResourceInput) (*SElasticcache, api.ELasticcacheResourceInput, error) {
+	cacheObj, err := ElasticcacheManager.FetchByIdOrName(userCred, input.Elasticcache)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ElasticcacheManager.Keyword(), input.Elasticcache)
+		} else {
+			return nil, input, errors.Wrap(err, "ElasticcacheManager.FetchByIdOrName")
+		}
+	}
+	input.Elasticcache = cacheObj.GetId()
+	return cacheObj.(*SElasticcache), input, nil
+}
+
 func (self *SElasticcacheResourceBase) GetElasticcache() (*SElasticcache, error) {
 	instance, err := ElasticcacheManager.FetchById(self.ElasticcacheId)
 	if err != nil {
@@ -131,13 +144,9 @@ func (manager *SElasticcacheResourceBaseManager) ListItemFilter(
 	query api.ElasticcacheFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Elasticcache) > 0 {
-		dbObj, err := ElasticcacheManager.FetchByIdOrName(userCred, query.Elasticcache)
+		dbObj, _, err := ValidateElasticcacheResourceInput(userCred, query.ELasticcacheResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ElasticcacheManager.Keyword(), query.Elasticcache)
-			} else {
-				return nil, errors.Wrap(err, "ElasticcacheManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateElasticcacheResourceInput")
 		}
 		q = q.Equals("elasticcache_id", dbObj.GetId())
 	}

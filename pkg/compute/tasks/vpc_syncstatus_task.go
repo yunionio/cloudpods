@@ -59,7 +59,7 @@ func (self *VpcSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = vpc.SyncWithCloudVpc(ctx, self.UserCred, extVpc)
+	err = vpc.SyncWithCloudVpc(ctx, self.UserCred, extVpc, nil)
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync vpc status %s", err)
 		self.taskFail(ctx, vpc, msg)

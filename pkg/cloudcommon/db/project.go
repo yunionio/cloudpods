@@ -134,14 +134,6 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 	isList bool,
 ) []apis.ProjectizedResourceInfo {
 	ret := make([]apis.ProjectizedResourceInfo, len(objs))
-	for i := range ret {
-		ret[i] = apis.ProjectizedResourceInfo{}
-		var base *SProjectizedResourceBase
-		reflectutils.FindAnonymouStructPointer(objs[i], &base)
-		if base != nil && len(base.ProjectId) > 0 {
-			ret[i].TenantId = base.ProjectId
-		}
-	}
 	if len(fields) == 0 || fields.Contains("project_domain") || fields.Contains("tenant") {
 		projectIds := stringutils2.SSortedStrings{}
 		for i := range objs {
@@ -163,7 +155,6 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 						}
 						if len(fields) == 0 || fields.Contains("tenant") {
 							ret[i].Project = proj.Name
-							ret[i].Tenant = proj.Name
 						}
 					}
 				}

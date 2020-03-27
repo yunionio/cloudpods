@@ -53,3 +53,13 @@ type GuestnetworkListInput struct {
 
 	TeamWith []string `json:"team_with"`
 }
+
+type GuestnetworkUpdateInput struct {
+	GuestJointBaseUpdateInput
+
+	Driver string `json:"driver"`
+
+	BwLimit *int `json:"bw_limit"`
+
+	Index *int8 `json:"index"`
+}

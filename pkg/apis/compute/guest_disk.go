@@ -50,3 +50,19 @@ type GuestdiskListInput struct {
 
 	AioMode []string `json:"aio_mode"`
 }
+
+type GuestdiskUpdateInput struct {
+	GuestJointBaseUpdateInput
+
+	Driver string `json:"driver"`
+
+	CacheMode string `json:"cache_mode"`
+
+	AioMode string `json:"aio_mode"`
+
+	Iops *int `json:"iops"`
+
+	Bps *int `json:"bps"`
+
+	Index *int8 `json:"index"`
+}

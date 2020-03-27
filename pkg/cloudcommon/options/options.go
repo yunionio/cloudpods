@@ -86,6 +86,8 @@ type BaseOptions struct {
 
 	TimeZone string `help:"time zone" default:"Asia/Shanghai"`
 
+	DomainizedNamespace bool `help:"turn on global name space, default is on" default:"false" json:"global_namespace,allowfalse"`
+
 	structarg.BaseOptions
 }
 
@@ -288,4 +290,6 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	if len(optionsRef.Region) > 0 {
 		consts.SetRegion(optionsRef.Region)
 	}
+
+	consts.SetDomainizedNamespace(optionsRef.DomainizedNamespace)
 }

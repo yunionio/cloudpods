@@ -256,7 +256,7 @@ func (conf *config) initConfigWithDefault() error {
 func (conf *config) getTransport() error {
 	if conf.transport == nil {
 		conf.transport = &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				conn, err := net.DialTimeout(network, addr, time.Second*time.Duration(conf.connectTimeout))
 				if err != nil {
 					return nil, err

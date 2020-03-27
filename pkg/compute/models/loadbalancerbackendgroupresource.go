@@ -40,6 +40,19 @@ type SLoadbalancerBackendgroupResourceBaseManager struct {
 	SLoadbalancerResourceBaseManager
 }
 
+func ValidateLoadbalancerBackendgroupResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerBackendGroupResourceInput) (*SLoadbalancerBackendGroup, api.LoadbalancerBackendGroupResourceInput, error) {
+	lbbgObj, err := LoadbalancerBackendGroupManager.FetchByIdOrName(userCred, input.BackendGroup)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerBackendGroupManager.Keyword(), input.BackendGroup)
+		} else {
+			return nil, input, errors.Wrap(err, "LoadbalancerBackendGroupManager.FetchByIdOrName")
+		}
+	}
+	input.BackendGroup = lbbgObj.GetId()
+	return lbbgObj.(*SLoadbalancerBackendGroup), input, nil
+}
+
 func (self *SLoadbalancerBackendgroupResourceBase) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
 	w, _ := LoadbalancerBackendGroupManager.FetchById(self.BackendGroupId)
 	if w != nil {
@@ -156,13 +169,9 @@ func (manager *SLoadbalancerBackendgroupResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerBackendGroupFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.BackendGroup) > 0 {
-		lbbgObj, err := LoadbalancerBackendGroupManager.FetchByIdOrName(userCred, query.BackendGroup)
+		lbbgObj, _, err := ValidateLoadbalancerBackendgroupResourceInput(userCred, query.LoadbalancerBackendGroupResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(LoadbalancerBackendGroupManager.Keyword(), query.BackendGroup)
-			} else {
-				return nil, errors.Wrap(err, "LoadbalancerBackendGroupManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateLoadbalancerBackendgroupResourceInput")
 		}
 		q = q.Equals("backend_group_id", lbbgObj.GetId())
 	}

@@ -49,6 +49,9 @@ const (
 	ACT_DETACH_FAIL = "detach_fail"
 	ACT_DELETE_FAIL = "delete_fail"
 
+	ACT_PUBLIC  = "public"
+	ACT_PRIVATE = "private"
+
 	ACT_SYNC_UPDATE = "sync_update"
 	ACT_SYNC_CREATE = "sync_create"
 
@@ -175,6 +178,7 @@ const (
 
 	ACT_CHANGE_OWNER = "change_owner"
 	ACT_SYNC_OWNER   = "sync_owner"
+	ACT_SYNC_SHARE   = "sync_share"
 
 	ACT_RESERVE_IP = "reserve_ip"
 	ACT_RELEASE_IP = "release_ip"

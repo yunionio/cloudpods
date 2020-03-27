@@ -132,10 +132,13 @@ func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 }
 
 func domainManagerFieldFilter(domainId, field string) *sqlchemy.SSubQuery {
-	providers := CloudproviderManager.Query().SubQuery()
-	accounts := CloudaccountManager.Query().SubQuery()
+	accounts := CloudaccountManager.Query("id")
+	accounts = CloudaccountManager.filterByDomainId(accounts, domainId)
+	accounts = accounts.Equals("status", api.CLOUD_PROVIDER_CONNECTED)
+	accounts = accounts.IsTrue("enabled")
 
-	q := providers.Query(providers.Field(field))
+	q := CloudproviderManager.Query(field).In("cloudaccount_id", accounts.SubQuery())
+	/*q := providers.Query(providers.Field(field))
 	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.AND(
@@ -149,7 +152,7 @@ func domainManagerFieldFilter(domainId, field string) *sqlchemy.SSubQuery {
 		),
 	))
 	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
-	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
+	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))*/
 
 	return q.SubQuery()
 }

@@ -629,16 +629,23 @@ func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.T
 	return inWhiteList(self.Provider) && db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.ServerSkuUpdateInput) (api.ServerSkuUpdateInput, error) {
 	// 目前不允许改sku信息
 	if !inWhiteList(self.Provider) {
-		return nil, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", self.Provider)
+		return input, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", self.Provider)
 	}
 
-	if data.Contains("name") {
-		return nil, httperrors.NewUnsupportOperationError("Cannot change server sku name")
+	if len(input.Name) > 0 {
+		return input, httperrors.NewUnsupportOperationError("Cannot change server sku name")
 	}
-	return self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+
+	var err error
+	input.StatusStandaloneResourceBaseUpdateInput, err = self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StatusStandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
 func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

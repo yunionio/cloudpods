@@ -1570,14 +1570,6 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
-	name, _ := data.GetString("name")
-	if len(name) > 0 {
-		err = alterNameValidator(item, name)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	dataDict, err = ValidateUpdateData(item, ctx, userCred, query, dataDict)
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)

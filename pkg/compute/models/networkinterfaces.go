@@ -33,7 +33,7 @@ import (
 )
 
 type SNetworkInterfaceManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
@@ -43,7 +43,7 @@ var NetworkInterfaceManager *SNetworkInterfaceManager
 
 func init() {
 	NetworkInterfaceManager = &SNetworkInterfaceManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SStatusInfrasResourceBaseManager: db.NewStatusInfrasResourceBaseManager(
 			SNetworkInterface{},
 			"networkinterfaces_tbl",
 			"networkinterface",
@@ -54,7 +54,7 @@ func init() {
 }
 
 type SNetworkInterface struct {
-	db.SStatusStandaloneResourceBase
+	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
@@ -82,9 +82,9 @@ func (manager *SNetworkInterfaceManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -120,9 +120,9 @@ func (manager *SNetworkInterfaceManager) OrderByExtraFields(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err = manager.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = manager.SManagedResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ManagedResourceListInput)
 	if err != nil {
@@ -139,7 +139,7 @@ func (manager *SNetworkInterfaceManager) OrderByExtraFields(
 func (manager *SNetworkInterfaceManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = manager.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -197,13 +197,13 @@ func (manager *SNetworkInterfaceManager) FetchCustomizeColumns(
 ) []api.NetworkInterfaceDetails {
 	rows := make([]api.NetworkInterfaceDetails, len(objs))
 
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.NetworkInterfaceDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
+			StatusInfrasResourceBaseDetails: stdRows[i],
 			ManagedResourceInfo:             manRows[i],
 			CloudregionResourceInfo:         regRows[i],
 		}
@@ -304,6 +304,8 @@ func (self *SNetworkInterface) SyncWithCloudNetworkInterface(ctx context.Context
 	if err != nil {
 		return err
 	}
+
+	SyncCloudDomain(userCred, self, provider.GetOwnerId())
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -349,6 +351,8 @@ func (manager *SNetworkInterfaceManager) newFromCloudNetworkInterface(ctx contex
 	if err != nil {
 		return nil, errors.Wrap(err, "TableSpec().Insert(&networkinterface)")
 	}
+
+	SyncCloudDomain(userCred, &networkinterface, provider.GetOwnerId())
 
 	db.OpsLog.LogEvent(&networkinterface, db.ACT_CREATE, networkinterface.GetShortDesc(ctx), userCred)
 

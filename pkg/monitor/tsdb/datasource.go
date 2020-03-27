@@ -106,14 +106,15 @@ func (ds *DataSource) GetHttpTransport() (*dataSourceTransport, error) {
 	tlsConfig.Renegotiation = tls.RenegotiateFreelyAsClient
 
 	// Create transport which adds all
+	// TODO: use httputils.HttpTransport instead -- qj
 	customHeaders := ds.getCustomHeaders()
 	transport := &http.Transport{
 		TLSClientConfig: tlsConfig,
 		Proxy:           http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout:   time.Duration(options.Options.DataProxyTimeout) * time.Second,
 			KeepAlive: 30 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		MaxIdleConns:          100,

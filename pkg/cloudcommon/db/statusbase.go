@@ -39,22 +39,22 @@ type SStatusResourceBase struct {
 type IStatusBase interface {
 	IModel
 	SetStatusValue(status string)
-	GetStatusValue() string
+	GetStatus() string
 }
 
 func (model *SStatusResourceBase) SetStatusValue(status string) {
 	model.Status = status
 }
 
-func (model SStatusResourceBase) GetStatusValue() string {
+func (model SStatusResourceBase) GetStatus() string {
 	return model.Status
 }
 
 func statusBaseSetStatus(model IStatusBase, userCred mcclient.TokenCredential, status string, reason string) error {
-	if model.GetStatusValue() == status {
+	if model.GetStatus() == status {
 		return nil
 	}
-	oldStatus := model.GetStatusValue()
+	oldStatus := model.GetStatus()
 	_, err := Update(model, func() error {
 		model.SetStatusValue(status)
 		return nil

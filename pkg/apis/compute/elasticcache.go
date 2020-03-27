@@ -47,13 +47,17 @@ type ElasticcacheResourceInfo struct {
 	ZoneResourceInfoBase
 }
 
-type ElasticcacheFilterListInput struct {
-	// 以弹性缓存实例过滤
+type ELasticcacheResourceInput struct {
+	// 弹性缓存实例(ID or Name)
 	Elasticcache string `json:"elasticcache"`
 
 	// swagger:ignore
 	// Deprecated
 	ElasticcacheId string `json:"elasticcache_id" deprecated-by:"elasticcache"`
+}
+
+type ElasticcacheFilterListInput struct {
+	ELasticcacheResourceInput
 
 	// 以弹性缓存实例名称排序
 	OrderByElasticcache string `json:"order_by_elasticcache"`

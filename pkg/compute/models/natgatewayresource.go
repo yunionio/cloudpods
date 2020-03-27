@@ -39,6 +39,19 @@ type SNatgatewayResourceBaseManager struct {
 	SVpcResourceBaseManager
 }
 
+func ValidateNatGatewayResourceInput(userCred mcclient.TokenCredential, input api.NatGatewayResourceInput) (*SNatGateway, api.NatGatewayResourceInput, error) {
+	natObj, err := NatGatewayManager.FetchByIdOrName(userCred, input.Natgateway)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", NatGatewayManager.Keyword(), input.Natgateway)
+		} else {
+			return nil, input, errors.Wrap(err, "NatGatewayManager.FetchByIdOrName")
+		}
+	}
+	input.Natgateway = natObj.GetId()
+	return natObj.(*SNatGateway), input, nil
+}
+
 func (self *SNatgatewayResourceBase) GetNatgateway() (*SNatGateway, error) {
 	obj, err := NatGatewayManager.FetchById(self.NatgatewayId)
 	if err != nil {
@@ -108,13 +121,9 @@ func (manager *SNatgatewayResourceBaseManager) ListItemFilter(
 	query api.NatGatewayFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Natgateway) > 0 {
-		natObj, err := NatGatewayManager.FetchByIdOrName(userCred, query.Natgateway)
+		natObj, _, err := ValidateNatGatewayResourceInput(userCred, query.NatGatewayResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(NatGatewayManager.Keyword(), query.Natgateway)
-			} else {
-				return nil, errors.Wrap(err, "NatGatewayManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateNatGatewayResourceInput")
 		}
 		q = q.Equals("natgateway_id", natObj.GetId())
 	}

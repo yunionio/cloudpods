@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -80,41 +79,57 @@ func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error 
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	mangerUri, err := data.GetString("manager_uri")
-	if err == nil {
+func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.BaremetalagentUpdateInput) (api.BaremetalagentUpdateInput, error) {
+	var err error
+	mangerUri := input.ManagerUri
+	if len(mangerUri) > 0 {
 		count, err := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
 			NotEquals("id", self.Id).CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+			return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 		}
 		if count > 0 {
-			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
+			return input, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
 	}
-	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if len(input.Zone) > 0 {
+		_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
+		if err != nil {
+			return input, errors.Wrap(err, "ValidateZoneResourceInput")
+		}
+	}
+	input.StandaloneResourceBaseUpdateInput, err = self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
-func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	mangerUri, _ := data.GetString("manager_uri")
+func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.BaremetalagentCreateInput) (api.BaremetalagentCreateInput, error) {
+	var err error
+	mangerUri := input.ManagerUri
+	if len(mangerUri) == 0 {
+		return input, errors.Wrap(httperrors.ErrMissingParameter, "manager_uri")
+	}
 	count, err := manager.Query().Equals("manager_uri", mangerUri).CountWithError()
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+		return input, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 	}
 	if count > 0 {
-		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
+		return input, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	input := apis.StandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	if len(input.Zone) == 0 {
+		return input, errors.Wrap(httperrors.ErrMissingParameter, "zone/zone_id")
+	}
+	_, input.ZoneResourceInput, err = ValidateZoneResourceInput(userCred, input.ZoneResourceInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "ValidateZoneResourceInput")
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
 }
 
 func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

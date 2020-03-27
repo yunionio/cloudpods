@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -56,7 +55,7 @@ import (
 )
 
 type SCloudaccountManager struct {
-	db.SEnabledStatusDomainLevelResourceBaseManager
+	db.SEnabledStatusInfrasResourceBaseManager
 	SSyncableBaseResourceManager
 }
 
@@ -64,7 +63,7 @@ var CloudaccountManager *SCloudaccountManager
 
 func init() {
 	CloudaccountManager = &SCloudaccountManager{
-		SEnabledStatusDomainLevelResourceBaseManager: db.NewEnabledStatusDomainLevelResourceBaseManager(
+		SEnabledStatusInfrasResourceBaseManager: db.NewEnabledStatusInfrasResourceBaseManager(
 			SCloudaccount{},
 			"cloudaccounts_tbl",
 			"cloudaccount",
@@ -77,7 +76,7 @@ func init() {
 }
 
 type SCloudaccount struct {
-	db.SEnabledStatusDomainLevelResourceBase
+	db.SEnabledStatusInfrasResourceBase
 
 	SSyncableBaseResource
 
@@ -151,7 +150,7 @@ type SCloudaccount struct {
 	Options *jsonutils.JSONDict `get:"domain" create:"domain_optional" update:"domain"`
 
 	// for backward compatiblity, keep is_public field, but not usable
-	IsPublic bool `default:"false" nullable:"false"`
+	// IsPublic bool `default:"false" nullable:"false"`
 	// add share_mode field to indicate the share range of this account
 	ShareMode string `width:"32" charset:"ascii" nullable:"true" list:"domain"`
 
@@ -213,11 +212,11 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 		}
 	}
 
-	return self.SEnabledStatusDomainLevelResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SCloudaccount) enableAccountOnly(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
-	return self.SEnabledStatusDomainLevelResourceBase.PerformEnable(ctx, userCred, query, input)
+	return self.SEnabledStatusInfrasResourceBase.PerformEnable(ctx, userCred, query, input)
 }
 
 func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
@@ -241,7 +240,7 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
-	_, err := self.SEnabledStatusDomainLevelResourceBase.PerformDisable(ctx, userCred, query, input)
+	_, err := self.SEnabledStatusInfrasResourceBase.PerformDisable(ctx, userCred, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -263,51 +262,77 @@ func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient
 	return nil, nil
 }
 
-func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("sync_interval_seconds") {
-		syncIntervalSecs, _ := data.Int("sync_interval_seconds")
+func (self *SCloudaccount) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.CloudaccountUpdateInput,
+) (api.CloudaccountUpdateInput, error) {
+	var err error
+	if input.SyncIntervalSeconds != nil {
+		syncIntervalSecs := *input.SyncIntervalSeconds
 		if syncIntervalSecs == 0 {
 			syncIntervalSecs = int64(options.Options.DefaultSyncIntervalSeconds)
 		} else if syncIntervalSecs < int64(options.Options.MinimalSyncIntervalSeconds) {
 			syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
 		}
-		data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
+		input.SyncIntervalSeconds = &syncIntervalSecs
 	}
-	if data.Contains("options") || data.Contains("remove_options") {
+	if (input.Options != nil && input.Options.Length() > 0) || len(input.RemoveOptions) > 0 {
 		var optionsJson *jsonutils.JSONDict
 		if self.Options != nil {
-			toRemoveKeys, _ := data.GetArray("remove_options")
 			removes := make([]string, 0)
-			if len(toRemoveKeys) > 0 {
-				for i := range toRemoveKeys {
-					key, _ := toRemoveKeys[i].GetString()
-					removes = append(removes, key)
-				}
+			if len(input.RemoveOptions) > 0 {
+				removes = append(removes, input.RemoveOptions...)
 			}
 			optionsJson = self.Options.CopyExcludes(removes...)
 		} else {
 			optionsJson = jsonutils.NewDict()
 		}
-		toUpdate, _ := data.Get("options")
-		if toUpdate != nil {
-			optionsJson.Update(toUpdate)
+		if input.Options != nil {
+			optionsJson.Update(input.Options)
 		}
-		data.Set("options", optionsJson)
+		input.Options = optionsJson
 	}
 
-	v := validators.NewModelIdOrNameValidator(
-		"proxy_setting",
-		proxy.ProxySettingManager.Keyword(),
-		userCred,
-	)
-	if err := v.Validate(data); err != nil {
-		return nil, err
+	if len(input.ProxySettingId) > 0 {
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
+		if err != nil {
+			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
+		}
+
+		if proxySetting != nil {
+			// updated proxy setting, so do the check
+			proxyFunc := proxySetting.HttpTransportProxyFunc()
+			_, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+				Vendor:    self.Provider,
+				URL:       self.AccessUrl,
+				Account:   self.Account,
+				Secret:    self.Secret,
+				ProxyFunc: proxyFunc,
+			})
+			if err != nil {
+				return input, httperrors.NewInputParameterError("invalid proxy setting %s", err)
+			}
+		}
 	}
 
-	return self.SEnabledStatusDomainLevelResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input.EnabledStatusInfrasResourceBaseUpdateInput, err = self.SEnabledStatusInfrasResourceBase.ValidateUpdateData(ctx, userCred, query, input.EnabledStatusInfrasResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.ValidateUpdateData")
+	}
+
+	return input, nil
 }
 
-func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.CloudaccountCreateInput) (api.CloudaccountCreateInput, error) {
+func (manager *SCloudaccountManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.CloudaccountCreateInput,
+) (api.CloudaccountCreateInput, error) {
 	// check domainId
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
@@ -366,13 +391,11 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if input.ProxySettingId == "" {
 			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
 		}
-		m, err := proxy.ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
 		if err != nil {
-			return input, httperrors.NewInputParameterError("fetch proxysetting %s: %s",
-				input.ProxySettingId, err)
+			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
-		proxySetting := m.(*proxy.SProxySetting)
-		input.ProxySettingId = proxySetting.Id
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
@@ -422,7 +445,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		}
 	}
 
-	input.EnabledStatusDomainLevelResourceCreateInput, err = manager.SEnabledStatusDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusDomainLevelResourceCreateInput)
+	input.EnabledStatusInfrasResourceBaseCreateInput, err = manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusInfrasResourceBaseCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -438,11 +461,11 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 	self.DomainId = ownerId.GetProjectDomainId()
 	// self.EnableAutoSync = false
 	self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
-	return self.SEnabledStatusDomainLevelResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusDomainLevelResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.savePassword(self.Secret)
 
 	// if !self.EnableAutoSync {
@@ -1038,10 +1061,10 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.CloudaccountDetail {
 	rows := make([]api.CloudaccountDetail, len(objs))
-	stdRows := manager.SEnabledStatusDomainLevelResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.CloudaccountDetail{
-			EnabledStatusDomainLevelResourceDetails: stdRows[i],
+			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
 		rows[i] = objs[i].(*SCloudaccount).getMoreDetails(rows[i])
 	}
@@ -1163,34 +1186,42 @@ func (manager *SCloudaccountManager) initializeShareMode() error {
 	return nil
 }
 
-func (manager *SCloudaccountManager) InitializeData() error {
-	cloudproviders := []SCloudprovider{}
-	q := CloudproviderManager.Query()
-	q = q.IsNullOrEmpty("cloudaccount_id")
-	err := db.FetchModelObjects(CloudproviderManager, q, &cloudproviders)
+func (manager *SCloudaccountManager) initializePublicScope() error {
+	accounts := []SCloudaccount{}
+	q := manager.Query().IsFalse("is_public").Equals("public_scope", "system")
+	err := db.FetchModelObjects(manager, q, &accounts)
 	if err != nil {
-		log.Errorf("fetch all clound provider fail %s", err)
+		log.Errorf("fetch all clound account fail %v", err)
 		return err
 	}
-	for i := 0; i < len(cloudproviders); i++ {
-		err = migrateCloudprovider(&cloudproviders[i])
+	for i := 0; i < len(accounts); i++ {
+		account := &accounts[i]
+		_, err = db.Update(account, func() error {
+			switch account.ShareMode {
+			case api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
+				account.PublicScope = string(rbacutils.ScopeNone)
+				account.IsPublic = false
+			case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
+				account.PublicScope = string(rbacutils.ScopeSystem)
+				account.IsPublic = true
+			case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
+				account.PublicScope = string(rbacutils.ScopeSystem)
+				account.IsPublic = true
+			}
+			return nil
+		})
 		if err != nil {
 			return err
 		}
 	}
-	err = manager.initializeBrand()
-	if err != nil {
-		return err
-	}
-	err = manager.initializeShareMode()
-	if err != nil {
-		return err
-	}
+	return nil
+}
 
+func (manager *SCloudaccountManager) initializeVMWareAccountId() error {
 	// init accountid
-	q = manager.Query().Equals("provider", api.CLOUD_PROVIDER_VMWARE)
+	q := manager.Query().Equals("provider", api.CLOUD_PROVIDER_VMWARE)
 	cloudaccounts := make([]SCloudaccount, 0)
-	err = db.FetchModelObjects(manager, q, &cloudaccounts)
+	err := db.FetchModelObjects(manager, q, &cloudaccounts)
 	if err != nil {
 		return errors.Wrap(err, "fetch vmware cloudaccount fail")
 	}
@@ -1218,12 +1249,42 @@ func (manager *SCloudaccountManager) InitializeData() error {
 	return nil
 }
 
-func (self *SCloudaccount) GetBalance() (float64, error) {
-	/*driver, err := self.GetProvider()
+func (manager *SCloudaccountManager) InitializeData() error {
+	cloudproviders := []SCloudprovider{}
+	q := CloudproviderManager.Query()
+	q = q.IsNullOrEmpty("cloudaccount_id")
+	err := db.FetchModelObjects(CloudproviderManager, q, &cloudproviders)
 	if err != nil {
-		return 0.0, err
+		log.Errorf("fetch all clound provider fail %s", err)
+		return err
 	}
-	return driver.GetBalance()*/
+	for i := 0; i < len(cloudproviders); i++ {
+		err = migrateCloudprovider(&cloudproviders[i])
+		if err != nil {
+			return err
+		}
+	}
+	err = manager.initializeBrand()
+	if err != nil {
+		return errors.Wrap(err, "initializeBrand")
+	}
+	err = manager.initializeShareMode()
+	if err != nil {
+		return errors.Wrap(err, "initializeShareMode")
+	}
+	err = manager.initializeVMWareAccountId()
+	if err != nil {
+		return errors.Wrap(err, "initializeVMWareAccountId")
+	}
+	err = manager.initializePublicScope()
+	if err != nil {
+		return errors.Wrap(err, "initializePublicScope")
+	}
+
+	return nil
+}
+
+func (self *SCloudaccount) GetBalance() (float64, error) {
 	return self.Balance, nil
 }
 
@@ -1292,19 +1353,74 @@ func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAcces
 	return info, nil
 }
 
-func (self *SCloudaccount) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+// +onecloud:swagger-gen-ignore
+func (account *SCloudaccount) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	return nil, errors.Wrap(httperrors.ErrForbidden, "can't change domain owner of cloudaccount, use PerformChangeProject instead")
+}
+
+func (self *SCloudaccount) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) bool {
 	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
-func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	if self.IsShared() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot change owner when shared!")
+	}
+
+	project := input.Project
+
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("project %s not found", project)
+	}
+
+	if tenant.Id == self.ProjectId {
+		return nil, nil
+	}
+
 	providers := self.GetCloudproviders()
-	if len(providers) > 1 {
-		return nil, httperrors.NewInvalidStatusError("multiple subaccounts")
+	if len(self.ProjectId) > 0 {
+		if len(providers) > 0 {
+			for i := range providers {
+				if providers[i].ProjectId != self.ProjectId {
+					return nil, errors.Wrap(httperrors.ErrConflict, "cloudproviders' project is different from cloudaccount's")
+				}
+			}
+		}
 	}
-	if len(providers) == 0 {
-		return nil, httperrors.NewInvalidStatusError("no subaccount")
+
+	if tenant.DomainId != self.DomainId {
+		// do change domainId
+		input2 := apis.PerformChangeDomainOwnerInput{}
+		input2.ProjectDomain = tenant.DomainId
+		_, err := self.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input2)
+		if err != nil {
+			return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
+		}
 	}
-	return providers[0].PerformChangeProject(ctx, userCred, query, data)
+
+	// save project_id change
+	diff, err := db.Update(self, func() error {
+		self.ProjectId = tenant.Id
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "db.Update ProjectId")
+	}
+
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+
+	if len(providers) > 0 {
+		for i := range providers {
+			_, err := providers[i].PerformChangeProject(ctx, userCred, query, input)
+			if err != nil {
+				return nil, errors.Wrapf(err, "providers[i].PerformChangeProject %s(%s)", providers[i].Name, providers[i].Id)
+			}
+		}
+	}
+
+	return nil, nil
 }
 
 // 云账号列表
@@ -1327,9 +1443,9 @@ func (manager *SCloudaccountManager) ListItemFilter(
 		q = q.Equals("id", accountObj.GetId())
 	}
 
-	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusDomainLevelResourceBaseManager")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager")
 	}
 	q, err = manager.SSyncableBaseResourceManager.ListItemFilter(ctx, q, userCred, query.SyncableBaseResourceListInput)
 	if err != nil {
@@ -1395,7 +1511,7 @@ func (manager *SCloudaccountManager) QueryDistinctExtraField(q *sqlchemy.SQuery,
 		q = q.AppendField(q.Field("name").Label("account")).Distinct()
 		return q, nil
 	}
-	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -1408,9 +1524,9 @@ func (manager *SCloudaccountManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.CloudaccountListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusDomainLevelResourceListInput)
+	q, err := manager.SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SEnabledStatusDomainLevelResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	return q, nil
 }
@@ -1738,7 +1854,7 @@ func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
-	return self.SEnabledStatusDomainLevelResourceBase.Delete(ctx, userCred)
+	return self.SEnabledStatusInfrasResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SCloudaccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1792,76 +1908,98 @@ func (account *SCloudaccount) setShareMode(userCred mcclient.TokenCredential, mo
 	return nil
 }
 
-func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) bool {
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "public")
 }
 
-func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
-	if scope != rbacutils.ScopeSystem {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
+func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) (jsonutils.JSONObject, error) {
+	if input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN && input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM {
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
 	}
 
-	err := account.setShareMode(userCred, api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM)
+	if input.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN {
+		providers := account.GetCloudproviders()
+		for i := range providers {
+			if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomains) {
+				log.Warningf("provider's domainId %s is outside of list of shared domains", providers[i].DomainId)
+				input.SharedDomains = append(input.SharedDomains, providers[i].DomainId)
+			}
+		}
+	}
+
+	_, err := account.SInfrasResourceBase.PerformPublic(ctx, userCred, query, input.PerformPublicInput)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, errors.Wrap(err, "SInfrasResourceBase.PerformPublic")
+	}
+	// scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
+	// if scope != rbacutils.ScopeSystem {
+	// 	return nil, httperrors.NewForbiddenError("not enough privilege")
+	// }
+
+	err = account.setShareMode(userCred, input.ShareMode)
+	if err != nil {
+		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
 	return nil, nil
 }
 
-func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) bool {
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "private")
 }
 
-func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	providers := account.GetCloudproviders()
 	for i := range providers {
 		if providers[i].DomainId != account.DomainId {
 			return nil, httperrors.NewConflictError("provider is shared outside of domain")
 		}
 	}
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
-	if scope != rbacutils.ScopeSystem {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
-	}
-
-	err := account.setShareMode(userCred, api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN)
+	_, err := account.SInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, errors.Wrap(err, "SInfrasResourceBase.PerformPrivate")
+	}
+	// scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
+	// if scope != rbacutils.ScopeSystem {
+	// 	return nil, httperrors.NewForbiddenError("not enough privilege")
+	// }
+
+	err = account.setShareMode(userCred, api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN)
+	if err != nil {
+		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
 	return nil, nil
 }
 
-func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+// Deprecated
+func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) bool {
 	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, account, "share-mode")
 }
 
-func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	input := api.CloudaccountShareModeInput{}
-	err := data.Unmarshal(&input)
+// Deprecated
+func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) (jsonutils.JSONObject, error) {
+	err := input.Validate()
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("fail to unmarshal input: %s", err)
-	}
-	err = input.Validate()
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CloudaccountShareModeInput.Validate")
 	}
 	if account.ShareMode == input.ShareMode {
 		return nil, nil
 	}
 
 	if input.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN {
-		providers := account.GetCloudproviders()
-		for i := range providers {
-			if providers[i].DomainId != account.DomainId {
-				return nil, httperrors.NewConflictError("provider is shared outside of domain")
-			}
+		return account.PerformPrivate(ctx, userCred, query, apis.PerformPrivateInput{})
+	} else {
+		input2 := api.CloudaccountPerformPublicInput{
+			ShareMode: input.ShareMode,
+			PerformPublicInput: apis.PerformPublicInput{
+				Scope: string(rbacutils.ScopeSystem),
+			},
 		}
+		return account.PerformPublic(ctx, userCred, query, input2)
 	}
 
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "share-mode")
+	/*scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), account.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "share-mode")
 	if scope != rbacutils.ScopeSystem {
 		return nil, httperrors.NewForbiddenError("not enough privilege")
 	}
@@ -1871,7 +2009,48 @@ func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcc
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	return nil, nil
+	return nil, nil*/
+}
+
+func (manager *SCloudaccountManager) filterByDomainId(q *sqlchemy.SQuery, domainId string) *sqlchemy.SQuery {
+	subq := db.SharedResourceManager.Query("resource_id")
+	subq = subq.Equals("resource_type", manager.Keyword())
+	subq = subq.Equals("target_project_id", domainId)
+	subq = subq.Equals("target_type", db.SharedTargetDomain)
+
+	cloudproviders := CloudproviderManager.Query().SubQuery()
+	q = q.LeftJoin(cloudproviders, sqlchemy.Equals(
+		q.Field("id"),
+		cloudproviders.Field("cloudaccount_id"),
+	))
+
+	q = q.Distinct()
+
+	q = q.Filter(sqlchemy.OR(
+		// share_mode=account_domain/private
+		sqlchemy.Equals(q.Field("domain_id"), domainId),
+		// share_mode=provider_domain/public_scope=domain
+		// share_mode=provider_domain/public_scope=system
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
+			sqlchemy.Equals(cloudproviders.Field("domain_id"), domainId),
+		),
+		// share_mode=system/public_scope=domain
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			sqlchemy.In(q.Field("id"), subq.SubQuery()),
+			sqlchemy.IsTrue(q.Field("is_public")),
+			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+		),
+		// share_mode=system/public_scope=system
+		sqlchemy.AND(
+			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			sqlchemy.IsTrue(q.Field("is_public")),
+			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+		),
+	))
+
+	return q
 }
 
 func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
@@ -1879,7 +2058,8 @@ func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcc
 		switch scope {
 		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
-				cloudproviders := CloudproviderManager.Query().SubQuery()
+				q = manager.filterByDomainId(q, owner.GetProjectDomainId())
+				/*cloudproviders := CloudproviderManager.Query().SubQuery()
 				q = q.LeftJoin(cloudproviders, sqlchemy.Equals(
 					q.Field("id"),
 					cloudproviders.Field("cloudaccount_id"),
@@ -1895,7 +2075,7 @@ func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcc
 						sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
 						sqlchemy.Equals(cloudproviders.Field("domain_id"), owner.GetProjectDomainId()),
 					),
-				))
+				))*/
 			}
 		}
 	}
@@ -2002,7 +2182,8 @@ func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SClou
 		q = q.Filter(sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id))
 	}
 	if len(domainId) > 0 {
-		q = q.Filter(sqlchemy.OR(
+		q = manager.filterByDomainId(q, domainId)
+		/*q = q.Filter(sqlchemy.OR(
 			sqlchemy.AND(
 				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN),
 				sqlchemy.Equals(q.Field("domain_id"), domainId),
@@ -2012,7 +2193,7 @@ func (manager *SCloudaccountManager) queryCloudAccountByCapability(region *SClou
 				sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN),
 				sqlchemy.Equals(providers.Field("domain_id"), domainId),
 			),
-		))
+		))*/
 	}
 	return q
 }
@@ -2038,4 +2219,13 @@ func (manager *SCloudaccountManager) getBrandsOfCapability(region *SCloudregion,
 		ret = append(ret, brand)
 	}
 	return ret, nil
+}
+
+func (account *SCloudaccount) getAccountShareInfo() apis.SAccountShareInfo {
+	return apis.SAccountShareInfo{
+		ShareMode:     account.ShareMode,
+		IsPublic:      account.IsPublic,
+		PublicScope:   rbacutils.String2Scope(account.PublicScope),
+		SharedDomains: account.GetSharedDomains(),
+	}
 }

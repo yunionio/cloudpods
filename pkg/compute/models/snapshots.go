@@ -1014,7 +1014,7 @@ func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, nil, provider)
 }
 
-func (manager *SSnapshotManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+func (manager *SSnapshotManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("fake_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }

@@ -38,9 +38,7 @@ type LoadbalancerListenerResourceInfo struct {
 	LoadbalancerResourceInfo
 }
 
-type LoadbalancerListenerFilterListInput struct {
-	LoadbalancerFilterListInput
-
+type LoadbalancerListenerResourceInput struct {
 	// 负载均衡监听器
 	Listener string `json:"listener"`
 
@@ -48,6 +46,12 @@ type LoadbalancerListenerFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	ListenerId string `json:"listener_id" deprecated-by:"listener"`
+}
+
+type LoadbalancerListenerFilterListInput struct {
+	LoadbalancerFilterListInput
+
+	LoadbalancerListenerResourceInput
 
 	// 以负载均衡监听器名称排序
 	OrderByListener string `json:"order_by_listener"`

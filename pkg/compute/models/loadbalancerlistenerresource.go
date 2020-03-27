@@ -40,6 +40,19 @@ type SLoadbalancerListenerResourceBaseManager struct {
 	SLoadbalancerResourceBaseManager
 }
 
+func ValidateLoadbalancerListenerResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerListenerResourceInput) (*SLoadbalancerListener, api.LoadbalancerListenerResourceInput, error) {
+	listenerObj, err := LoadbalancerListenerManager.FetchByIdOrName(userCred, input.Listener)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerListenerManager.Keyword(), input.Listener)
+		} else {
+			return nil, input, errors.Wrap(err, "LoadbalancerListenerManager.FetchByIdOrName")
+		}
+	}
+	input.Listener = listenerObj.GetId()
+	return listenerObj.(*SLoadbalancerListener), input, nil
+}
+
 func (self *SLoadbalancerListenerResourceBase) GetLoadbalancerListener() *SLoadbalancerListener {
 	listener, err := LoadbalancerListenerManager.FetchById(self.ListenerId)
 	if err != nil {
@@ -125,13 +138,9 @@ func (manager *SLoadbalancerListenerResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerListenerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Listener) > 0 {
-		listenerObj, err := LoadbalancerListenerManager.FetchByIdOrName(userCred, query.Listener)
+		listenerObj, _, err := ValidateLoadbalancerListenerResourceInput(userCred, query.LoadbalancerListenerResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(LoadbalancerListenerManager.Keyword(), query.Listener)
-			} else {
-				return nil, errors.Wrap(err, "LoadbalancerListenerManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateLoadbalancerListenerResourceInput")
 		}
 		q = q.Equals("listener_id", listenerObj.GetId())
 	}

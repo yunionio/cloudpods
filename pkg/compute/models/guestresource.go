@@ -39,6 +39,19 @@ type SGuestResourceBaseManager struct {
 	SHostResourceBaseManager
 }
 
+func ValidateGuestResourceInput(userCred mcclient.TokenCredential, input api.ServerResourceInput) (*SGuest, api.ServerResourceInput, error) {
+	srvObj, err := GuestManager.FetchByIdOrName(userCred, input.Server)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", GuestManager.Keyword(), input.Server)
+		} else {
+			return nil, input, errors.Wrap(err, "GuestManager.FetchByIdOrName")
+		}
+	}
+	input.Server = srvObj.GetId()
+	return srvObj.(*SGuest), input, nil
+}
+
 func (self *SGuestResourceBase) GetGuest() *SGuest {
 	obj, _ := GuestManager.FetchById(self.GuestId)
 	if obj != nil {
@@ -122,17 +135,13 @@ func (manager *SGuestResourceBaseManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.GuestFilterListInput,
+	query api.ServerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.Server) > 0 {
-		guestObj, err := GuestManager.FetchByIdOrName(userCred, query.Server)
+		guestObj, _, err := ValidateGuestResourceInput(userCred, query.ServerResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(GuestManager.Keyword(), query.Server)
-			} else {
-				return nil, errors.Wrap(err, "GuestManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateGuestResourceInput")
 		}
 		q = q.Equals("guest_id", guestObj.GetId())
 	}
@@ -169,7 +178,7 @@ func (manager *SGuestResourceBaseManager) OrderByExtraFields(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.GuestFilterListInput,
+	query api.ServerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	q, orders, fields := manager.GetOrderBySubQuery(q, userCred, query)
 	if len(orders) > 0 {
@@ -181,7 +190,7 @@ func (manager *SGuestResourceBaseManager) OrderByExtraFields(
 func (manager *SGuestResourceBaseManager) GetOrderBySubQuery(
 	q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential,
-	query api.GuestFilterListInput,
+	query api.ServerFilterListInput,
 ) (*sqlchemy.SQuery, []string, []sqlchemy.IQueryField) {
 	guestQ := GuestManager.Query("id", "name")
 	var orders []string
@@ -207,7 +216,7 @@ func (manager *SGuestResourceBaseManager) GetOrderBySubQuery(
 	return q, orders, fields
 }
 
-func (manager *SGuestResourceBaseManager) GetOrderByFields(query api.GuestFilterListInput) []string {
+func (manager *SGuestResourceBaseManager) GetOrderByFields(query api.ServerFilterListInput) []string {
 	orders := make([]string, 0)
 	hostOrders := manager.SHostResourceBaseManager.GetOrderByFields(query.HostFilterListInput)
 	orders = append(orders, hostOrders...)

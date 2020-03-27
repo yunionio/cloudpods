@@ -61,6 +61,8 @@ type CandidatePropertyGetter interface {
 	Cloudprovider() *computemodels.SCloudprovider
 	IsPublic() bool
 	DomainId() string
+	PublicScope() string
+	SharedDomains() []string
 	Region() *computemodels.SCloudregion
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag

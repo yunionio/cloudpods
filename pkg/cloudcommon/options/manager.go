@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -84,7 +85,7 @@ func (manager *SOptionManager) doSync(first bool) {
 	merged := manager.session.Merge(newOpts, manager.serviceType, manager.serviceVersion)
 
 	if merged && !reflect.DeepEqual(newOpts, manager.options) {
-		log.Infof("Service config changed ...")
+		log.Infof("Service config changed ... %s %s", jsonutils.Marshal(newOpts), jsonutils.Marshal(manager.options))
 		if manager.onOptionsChange != nil && manager.onOptionsChange(manager.options, newOpts) && !first {
 			log.Infof("Option changes detected and going to restart the program...")
 			appsrv.SetExitFlag()

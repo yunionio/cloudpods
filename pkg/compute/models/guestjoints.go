@@ -123,7 +123,7 @@ func (manager *SGuestJointsManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemFilter")
 	}
-	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemFilter")
 	}
@@ -143,10 +143,24 @@ func (manager *SGuestJointsManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
+}
+
+func (self *SGuestJointsBase) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.GuestJointBaseUpdateInput,
+) (api.GuestJointBaseUpdateInput, error) {
+	var err error
+	input.VirtualJointResourceBaseUpdateInput, err = self.SVirtualJointResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualJointResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SVirtualJointResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }

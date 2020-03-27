@@ -39,12 +39,26 @@ type ModelBaseShortDescDetail struct {
 type SharedProject struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
+
+	DomainId string `json:"domain_id"`
+	Domain   string `json:"domain"`
+}
+
+type SharedDomain struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type SharableResourceBaseInfo struct {
+	// 共享的项目列表
+	SharedProjects []SharedProject `json:"shared_projects"`
+	// 共享的域列表
+	SharedDomains []SharedDomain `json:"shared_domains"`
 }
 
 type SharableVirtualResourceDetails struct {
 	VirtualResourceDetails
-
-	SharedProjects []SharedProject `json:"shared_projects"`
+	SharableResourceBaseInfo
 }
 
 type AdminSharableVirtualResourceDetails struct {
@@ -119,13 +133,26 @@ type ProjectizedResourceInfo struct {
 
 	// 资源归属项目的ID(向后兼容别名）
 	// Deprecated
-	TenantId string `json:"project_id"`
+	TenantId string `json:"project_id" deprecated-by:"tenant_id"`
 
 	// 资源归属项目的名称（向后兼容别名）
 	// Deprecated
-	Tenant string `json:"project"`
+	Tenant string `json:"project" deprecated-by:"tenant"`
 }
 
 type ScopedResourceBaseInfo struct {
 	ProjectizedResourceInfo
+}
+
+type InfrasResourceBaseDetails struct {
+	DomainLevelResourceDetails
+	SharableResourceBaseInfo
+}
+
+type StatusInfrasResourceBaseDetails struct {
+	InfrasResourceBaseDetails
+}
+
+type EnabledStatusInfrasResourceBaseDetails struct {
+	StatusInfrasResourceBaseDetails
 }

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -339,7 +340,18 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 	// 更新操作日志: 对比可以知道改了原有规则哪些内容
 	data.Add(jsonutils.Marshal(self), "origin")
 
-	return self.SResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	rinput := apis.ResourceBaseUpdateInput{}
+	err = data.Unmarshal(&rinput)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	rinput, err = self.SResourceBase.ValidateUpdateData(ctx, userCred, query, rinput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(rinput))
+
+	return data, nil
 }
 
 func (self *SSecurityGroupRule) String() string {

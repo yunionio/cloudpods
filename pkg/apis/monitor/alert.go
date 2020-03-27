@@ -112,10 +112,10 @@ type AlertCreateInput struct {
 }
 
 type AlertUpdateInput struct {
-	apis.Meta
+	apis.VirtualResourceBaseUpdateInput
 
-	// 报警名称
-	Name *string `json:"name"`
+	Message *string `json:"message"`
+
 	// 报警执行频率
 	Frequency *int64 `json:"frequency"`
 	// 报警设置

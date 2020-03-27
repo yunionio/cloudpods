@@ -184,7 +184,9 @@ func (manager *SNatDEntryManager) checkIPPort(input *api.SNatDCreateInput) (*SEl
 	return eip, nil
 }
 
-func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
+func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
+	syncOwnerId := provider.GetOwnerId()
+
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
@@ -214,7 +216,7 @@ func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mc
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].SyncWithCloudNatDTable(ctx, userCred, commonext[i])
+		err := commondb[i].SyncWithCloudNatDTable(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			result.UpdateError(err)
 			continue
@@ -246,7 +248,7 @@ func (self *SNatDEntry) syncRemoveCloudNatDTable(ctx context.Context, userCred m
 	return self.RealDelete(ctx, userCred)
 }
 
-func (self *SNatDEntry) SyncWithCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatDEntry) error {
+func (self *SNatDEntry) SyncWithCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatDEntry, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extEntry.GetStatus()
 		self.ExternalIP = extEntry.GetExternalIp()
@@ -259,6 +261,9 @@ func (self *SNatDEntry) SyncWithCloudNatDTable(ctx context.Context, userCred mcc
 	if err != nil {
 		return err
 	}
+
+	SyncCloudDomain(userCred, self, syncOwnerId)
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -283,6 +288,8 @@ func (manager *SNatDEntryManager) newFromCloudNatDTable(ctx context.Context, use
 		log.Errorf("newFromCloudNatDTable fail %s", err)
 		return nil, err
 	}
+
+	SyncCloudDomain(userCred, &table, ownerId)
 
 	db.OpsLog.LogEvent(&table, db.ACT_CREATE, table.GetShortDesc(ctx), userCred)
 

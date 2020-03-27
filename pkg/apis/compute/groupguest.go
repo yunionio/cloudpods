@@ -41,7 +41,7 @@ type GroupguestDetails struct {
 
 type GroupguestListInput struct {
 	GroupJointsListInput
-	GuestFilterListInput
+	ServerFilterListInput
 
 	// 标签
 	Tag []string `json:"tag"`

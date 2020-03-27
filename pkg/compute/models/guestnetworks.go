@@ -511,24 +511,31 @@ func (self *SGuestnetwork) GetDetailedString() string {
 		self.MacAddr, network.VlanId, network.Name, self.Driver, self.getBandwidth())
 }
 
-func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("index") {
-		index, err := data.Int("index")
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("fail to fetch index %s", err)
-		}
+func (self *SGuestnetwork) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.GuestnetworkUpdateInput,
+) (api.GuestnetworkUpdateInput, error) {
+	if input.Index != nil {
+		index := *input.Index
 		q := GuestnetworkManager.Query().SubQuery()
 		count, err := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
 			Filter(sqlchemy.NotEquals(q.Field("network_id"), self.NetworkId)).
 			Filter(sqlchemy.Equals(q.Field("index"), index)).CountWithError()
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
+			return input, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
 		}
 		if count > 0 {
-			return nil, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)
+			return input, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)
 		}
 	}
-	return self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.GuestJointBaseUpdateInput, err = self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, input.GuestJointBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SGuestJointsBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {

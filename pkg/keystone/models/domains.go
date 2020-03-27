@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -27,6 +28,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -272,6 +274,10 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	if policyCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
 	}
+	external, _, _ := domain.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("domain contains external resources")
+	}
 	return nil
 }
 
@@ -293,17 +299,23 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
-func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.DomainUpdateInput) (api.DomainUpdateInput, error) {
+	data := jsonutils.Marshal(input)
 	if domain.IsReadOnly() {
 		for _, k := range []string{
 			"name",
 		} {
 			if data.Contains(k) {
-				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+				return input, httperrors.NewForbiddenError("field %s is readonly", k)
 			}
 		}
 	}
-	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
 
 func (domain *SDomain) GetExtraDetails(
@@ -339,6 +351,17 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 		rows[i].RoleCount, _ = domain.GetRoleCount()
 		rows[i].PolicyCount, _ = domain.GetPolicyCount()
 		rows[i].IdpCount, _ = domain.GetIdpCount()
+
+		external, update, _ := domain.getExternalResources()
+		if len(external) > 0 {
+			rows[i].ExtResource = jsonutils.Marshal(external)
+			rows[i].ExtResourcesLastUpdate = update
+			if update.IsZero() {
+				update = time.Now()
+			}
+			nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
+			rows[i].ExtResourcesNextUpdate = nextUpdate
+		}
 	}
 
 	idpRows := expandIdpAttributes(api.IdMappingEntityDomain, idList, fields)
@@ -459,4 +482,8 @@ func (domain *SDomain) UnlinkIdp(idpId string) error {
 		}
 	}
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityDomain, domain.Id)
+}
+
+func (domain *SDomain) getExternalResources() (map[string]int, time.Time, error) {
+	return ProjectResourceManager.getProjectResource(domain.Id)
 }

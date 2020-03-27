@@ -47,7 +47,7 @@ type DiskSpec struct {
 }
 
 type HostListInput struct {
-	apis.EnabledStatusStandaloneResourceListInput
+	apis.EnabledStatusInfrasResourceBaseListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
@@ -111,7 +111,7 @@ type HostListInput struct {
 }
 
 type HostDetails struct {
-	apis.EnabledStatusStandaloneResourceDetails
+	apis.EnabledStatusInfrasResourceBaseDetails
 	ManagedResourceInfo
 	ZoneResourceInfo
 
@@ -225,4 +225,88 @@ type HostRegisterMetadata struct {
 
 	OnKubernetes bool   `json:"on_kubernetes"`
 	Hostname     string `json:"hostname"`
+}
+
+type HostAccessAttributes struct {
+	// 物理机管理URI
+	ManagerUri string `json:"manager_uri"`
+
+	// 物理机管理口IP
+	AccessIp string `json:"access_ip"`
+
+	// 物理机管理口MAC
+	AccessMac string `json:"access_mac"`
+
+	// 物理机管理口IP子网
+	AccessNet string `json:"access_net"`
+	// 物理机管理口二次网络
+	AccessWire string `json:"access_wire"`
+}
+
+type HostSizeAttributes struct {
+	// 内存大小(单位MB)
+	MemSize string `json:"mem_size"`
+	// 预留内存大小(单位MB)
+	MemReserved string `json:"mem_reserved"`
+	// CPU缓存大小(单位MB)
+	CpuCache string `json:"cpu_cache"`
+}
+
+type HostIpmiAttributes struct {
+	// username
+	IpmiUsername string `json:"ipmi_username"`
+	// password
+	IpmiPassword string `json:"ipmi_password"`
+	// ip address
+	IpmiIpAddr string `json:"ipmi_ip_addr"`
+	// presence
+	IpmiPresent *bool `json:"ipmi_present"`
+	// lan channel
+	IpmiLanChannel *int `json:"ipmi_lan_channel"`
+	// verified
+	IpmiVerified *bool `json:"ipmi_verified"`
+	// Redfish API support
+	IpmiRedfishApi *bool `json:"ipmi_redfish_api"`
+	// Cdrom boot support
+	IpmiCdromBoot *bool `json:"ipmi_cdrom_boot"`
+	// ipmi_pxe_boot
+	IpmiPxeBoot *bool `json:"ipmi_pxe_boot"`
+}
+
+type HostCreateInput struct {
+	apis.EnabledStatusInfrasResourceBaseCreateInput
+
+	ZoneResourceInput
+
+	HostAccessAttributes
+	HostSizeAttributes
+	HostIpmiAttributes
+
+	// 新建带IPMI信息的物理机时不进行IPMI信息探测
+	NoProbe *bool `json:"no_probe"`
+
+	// host uuid
+	Uuid string `json:"uuid"`
+
+	// Host类型
+	HostType string `json:"host_type"`
+
+	// 是否为裸金属
+	IsBaremetal *bool `json:"is_baremetal"`
+}
+
+type HostUpdateInput struct {
+	apis.EnabledStatusInfrasResourceBaseUpdateInput
+
+	HostAccessAttributes
+	HostSizeAttributes
+	HostIpmiAttributes
+
+	// IPMI info
+	IpmiInfo jsonutils.JSONObject `json:"ipmi_info"`
+
+	// CPU超售比上限
+	CpuCmtbound *float32 `json:"cpu_cmtbound"`
+	// 内存超售比上限
+	MemCmtbound *float32 `json:"mem_cmtbound"`
 }

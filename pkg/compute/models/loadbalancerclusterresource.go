@@ -41,6 +41,19 @@ type SLoadbalancerClusterResourceBaseManager struct {
 	SWireResourceBaseManager
 }
 
+func ValidateLoadbalancerClusterResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerClusterResourceInput) (*SLoadbalancerCluster, api.LoadbalancerClusterResourceInput, error) {
+	clusterObj, err := LoadbalancerClusterManager.FetchByIdOrName(userCred, input.Cluster)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerClusterManager.Keyword(), input.Cluster)
+		} else {
+			return nil, input, errors.Wrap(err, "LoadbalancerClusterManager.FetchByIdOrName")
+		}
+	}
+	input.Cluster = clusterObj.GetId()
+	return clusterObj.(*SLoadbalancerCluster), input, nil
+}
+
 func (self *SLoadbalancerClusterResourceBase) GetLoadbalancerCluster() *SLoadbalancerCluster {
 	cluster, err := LoadbalancerClusterManager.FetchById(self.ClusterId)
 	if err != nil {
@@ -118,13 +131,9 @@ func (manager *SLoadbalancerClusterResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerClusterFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Cluster) > 0 {
-		clusterObj, err := LoadbalancerClusterManager.FetchByIdOrName(userCred, query.Cluster)
+		clusterObj, _, err := ValidateLoadbalancerClusterResourceInput(userCred, query.LoadbalancerClusterResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(LoadbalancerClusterManager.Keyword(), query.Cluster)
-			} else {
-				return nil, errors.Wrap(err, "LoadbalancerClusterManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateLoadbalancerClusterResourceInput")
 		}
 		q = q.Equals("cluster_id", clusterObj.GetId())
 	}

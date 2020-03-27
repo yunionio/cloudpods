@@ -38,7 +38,7 @@ import (
 )
 
 type SNatGatewayManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SVpcResourceBaseManager
 	// SManagedResourceBaseManager
@@ -48,7 +48,7 @@ var NatGatewayManager *SNatGatewayManager
 
 func init() {
 	NatGatewayManager = &SNatGatewayManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SStatusInfrasResourceBaseManager: db.NewStatusInfrasResourceBaseManager(
 			SNatGateway{},
 			"natgateways_tbl",
 			"natgateway",
@@ -59,7 +59,7 @@ func init() {
 }
 
 type SNatGateway struct {
-	db.SStatusStandaloneResourceBase
+	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 	// SManagedResourceBase
 	SBillingResourceBase
@@ -81,9 +81,9 @@ func (man *SNatGatewayManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.NatGetewayListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := man.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusDomainLevelResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -103,9 +103,9 @@ func (man *SNatGatewayManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.NatGetewayListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := man.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusDomainLevelResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
 	if err != nil {
@@ -266,11 +266,11 @@ func (manager SNatGatewayManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.NatgatewayDetails {
 	rows := make([]api.NatgatewayDetails, len(objs))
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.NatgatewayDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
+			StatusInfrasResourceBaseDetails: stdRows[i],
 			VpcResourceInfo:                 vpcRows[i],
 		}
 		rows[i], _ = objs[i].(*SNatGateway).getMoreDetails(ctx, userCred, rows[i])
@@ -371,6 +371,9 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 	if err != nil {
 		return err
 	}
+
+	SyncCloudDomain(userCred, self, provider.GetOwnerId())
+
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
@@ -411,6 +414,8 @@ func (manager *SNatGatewayManager) newFromCloudNatGateway(ctx context.Context, u
 		log.Errorf("newFromCloudNatGateway fail %s", err)
 		return nil, errors.Wrap(err, "Insert")
 	}
+
+	SyncCloudDomain(userCred, &nat, provider.GetOwnerId())
 
 	db.OpsLog.LogEvent(&nat, db.ACT_CREATE, nat.GetShortDesc(ctx), userCred)
 
@@ -561,19 +566,19 @@ type INatHelper interface {
 }
 
 type SNatEntryManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SNatgatewayResourceBaseManager
 }
 
 func NewNatEntryManager(dt interface{}, tableName string, keyword string, keywordPlural string) SNatEntryManager {
 	return SNatEntryManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(dt, tableName, keyword, keywordPlural),
+		SStatusInfrasResourceBaseManager: db.NewStatusInfrasResourceBaseManager(dt, tableName, keyword, keywordPlural),
 	}
 }
 
 type SNatEntry struct {
-	db.SStatusStandaloneResourceBase
+	db.SStatusInfrasResourceBase
 	db.SExternalizedResourceBase
 
 	SNatgatewayResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -593,9 +598,9 @@ func (man *SNatEntryManager) ListItemFilter(
 	userCred mcclient.TokenCredential,
 	query api.NatEntryListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := man.SStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 	q, err = man.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
 	if err != nil {
@@ -623,9 +628,9 @@ func (man *SNatEntryManager) OrderByExtraFields(
 	userCred mcclient.TokenCredential,
 	query api.NatEntryListInput,
 ) (*sqlchemy.SQuery, error) {
-	q, err := man.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	q, err := man.SStatusInfrasResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SStatusloneResourceBaseManager.OrderByExtraFields")
 	}
 	q, err = man.SNatgatewayResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.NatGatewayFilterListInput)
 	if err != nil {
@@ -637,7 +642,7 @@ func (man *SNatEntryManager) OrderByExtraFields(
 func (man *SNatEntryManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
 
-	q, err = man.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = man.SStatusInfrasResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -667,11 +672,11 @@ func (manager *SNatEntryManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.NatEntryDetails {
 	rows := make([]api.NatEntryDetails, len(objs))
-	stdRows := manager.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	stdRows := manager.SStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	natRows := manager.SNatgatewayResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.NatEntryDetails{
-			StatusStandaloneResourceDetails: stdRows[i],
+			StatusInfrasResourceBaseDetails: stdRows[i],
 			NatGatewayResourceInfo:          natRows[i],
 		}
 		var base *SNatEntry

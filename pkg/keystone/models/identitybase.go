@@ -31,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -267,9 +266,37 @@ func (manager *SEnabledIdentityBaseResourceManager) ValidateCreateData(ctx conte
 	return input, nil
 }
 
-func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeSystem
+func (model *SIdentityBaseResource) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.IdentityBaseUpdateInput,
+) (api.IdentityBaseUpdateInput, error) {
+	var err error
+	input.StandaloneResourceBaseUpdateInput, err = model.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, input.StandaloneResourceBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
+	}
+	return input, nil
 }
+
+func (model *SEnabledIdentityBaseResource) ValidateUpdateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.EnabledIdentityBaseUpdateInput,
+) (api.EnabledIdentityBaseUpdateInput, error) {
+	var err error
+	input.IdentityBaseUpdateInput, err = model.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, input.IdentityBaseUpdateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResource.ValidateUpdateData")
+	}
+	return input, nil
+}
+
+/*func(manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}*/
 
 func (model *SIdentityBaseResource) GetExtraDetails(
 	ctx context.Context,

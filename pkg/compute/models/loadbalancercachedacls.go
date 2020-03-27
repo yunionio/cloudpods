@@ -77,7 +77,17 @@ func (lbacl *SCachedLoadbalancerAcl) ValidateUpdateData(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	return lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	input := apis.SharableVirtualResourceBaseUpdateInput{}
+	err = data.Unmarshal(&input)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal")
+	}
+	input, err = lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
+	}
+	data.Update(jsonutils.Marshal(input))
+	return data, nil
 }
 
 func (lbacl *SCachedLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {

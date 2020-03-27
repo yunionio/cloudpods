@@ -41,6 +41,19 @@ type SWireResourceBaseManager struct {
 	SZoneResourceBaseManager
 }
 
+func ValidateWireResourceInput(userCred mcclient.TokenCredential, input api.WireResourceInput) (*SWire, api.WireResourceInput, error) {
+	wireObj, err := WireManager.FetchByIdOrName(userCred, input.Wire)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", WireManager.Keyword(), input.Wire)
+		} else {
+			return nil, input, errors.Wrap(err, "WireManager.FetchByIdOrName")
+		}
+	}
+	input.Wire = wireObj.GetId()
+	return wireObj.(*SWire), input, nil
+}
+
 func (self *SWireResourceBase) GetWire() *SWire {
 	w, _ := WireManager.FetchById(self.WireId)
 	if w != nil {
@@ -138,13 +151,9 @@ func (manager *SWireResourceBaseManager) ListItemFilter(
 ) (*sqlchemy.SQuery, error) {
 	var err error
 	if len(query.Wire) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred, query.Wire)
+		wireObj, _, err := ValidateWireResourceInput(userCred, query.WireResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(WireManager.Keyword(), query.Wire)
-			} else {
-				return nil, errors.Wrap(err, "WireManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateWireResourceInput")
 		}
 		q = q.Equals("wire_id", wireObj.GetId())
 	}

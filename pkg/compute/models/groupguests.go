@@ -167,7 +167,7 @@ func (manager *SGroupguestManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemFilter")
 	}
-	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemFilter")
 	}
@@ -191,7 +191,7 @@ func (manager *SGroupguestManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SGroupJointsManager.OrderByExtraFields")
 	}
-	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.GuestFilterListInput)
+	q, err = manager.SGuestResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.ServerFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SGuestResourceBaseManager.OrderByExtraFields")
 	}

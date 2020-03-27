@@ -43,38 +43,44 @@ func getAllProjectResourceCountsHandler(ctx context.Context, w http.ResponseWrit
 	appsrv.SendJSON(w, jsonutils.Marshal(cnt))
 }
 
-func getAllProjectResourceCounts() (map[string][]SProjectResourceCount, error) {
-	ret := make(map[string][]SProjectResourceCount)
+func getAllProjectResourceCounts() (map[string][]SScopeResourceCount, error) {
+	ret := make(map[string][]SScopeResourceCount)
 	for _, manager := range globalTables {
-		virtman, ok := manager.(IVirtualModelManager)
-		if ok {
+		if virtman, ok := manager.(IVirtualModelManager); ok {
 			resCnt, err := virtman.GetResourceCount()
 			if err != nil {
 				return nil, errors.Wrap(err, "getProjectResourceCount")
 			}
 			ret[virtman.KeywordPlural()] = resCnt
+		} else if domainMan, ok := manager.(IDomainLevelModelManager); ok {
+			resCnt, err := domainMan.GetResourceCount()
+			if err != nil {
+				return nil, errors.Wrap(err, "getDomainResourceCount")
+			}
+			ret[domainMan.KeywordPlural()] = resCnt
 		}
 	}
 	return ret, nil
 }
 
-type SProjectResourceCount struct {
+type SScopeResourceCount struct {
 	TenantId string `json:"tenant_id"`
+	DomainId string `json:"domain_id"`
 	ResCount int    `json:"res_count"`
 }
 
-func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SProjectResourceCount, error) {
+func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {
 	virts := virtman.GetIVirtualModelManager().Query()
 	// log.Debugf("GetResourceCount: %s", virtman.keywordPlural)
 	return CalculateProjectResourceCount(virts)
 }
 
-func CalculateProjectResourceCount(query *sqlchemy.SQuery) ([]SProjectResourceCount, error) {
+func CalculateProjectResourceCount(query *sqlchemy.SQuery) ([]SScopeResourceCount, error) {
 	virts := query.SubQuery()
 	q := virts.Query(virts.Field("tenant_id"), sqlchemy.COUNT("res_count"))
 	q = q.IsNotEmpty("tenant_id")
 	q = q.GroupBy(virts.Field("tenant_id"))
-	cnts := make([]SProjectResourceCount, 0)
+	cnts := make([]SScopeResourceCount, 0)
 	err := q.All(&cnts)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "q.All")
@@ -82,23 +88,18 @@ func CalculateProjectResourceCount(query *sqlchemy.SQuery) ([]SProjectResourceCo
 	return cnts, nil
 }
 
-type SDomainResourceCount struct {
-	DomainId string `json:"domain_id"`
-	ResCount int    `json:"res_count"`
-}
-
-func (domainman *SDomainLevelResourceBaseManager) GetResourceCount() ([]SDomainResourceCount, error) {
+func (domainman *SDomainLevelResourceBaseManager) GetResourceCount() ([]SScopeResourceCount, error) {
 	virts := domainman.GetIDomainLevelModelManager().Query()
 	// log.Debugf("GetResourceCount: %s", virtman.keywordPlural)
 	return CalculateDomainResourceCount(virts)
 }
 
-func CalculateDomainResourceCount(query *sqlchemy.SQuery) ([]SDomainResourceCount, error) {
+func CalculateDomainResourceCount(query *sqlchemy.SQuery) ([]SScopeResourceCount, error) {
 	virts := query.SubQuery()
 	q := virts.Query(virts.Field("domain_id"), sqlchemy.COUNT("res_count"))
 	q = q.IsNotEmpty("domain_id")
 	q = q.GroupBy(virts.Field("domain_id"))
-	cnts := make([]SDomainResourceCount, 0)
+	cnts := make([]SScopeResourceCount, 0)
 	err := q.All(&cnts)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "q.All")

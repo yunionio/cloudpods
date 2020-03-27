@@ -41,6 +41,19 @@ type SLoadbalancerResourceBaseManager struct {
 	SZoneResourceBaseManager
 }
 
+func ValidateLoadbalancerResourceInput(userCred mcclient.TokenCredential, input api.LoadbalancerResourceInput) (*SLoadbalancer, api.LoadbalancerResourceInput, error) {
+	lbObj, err := LoadbalancerManager.FetchByIdOrName(userCred, input.Loadbalancer)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", LoadbalancerManager.Keyword(), input.Loadbalancer)
+		} else {
+			return nil, input, errors.Wrap(err, "LoadbalancerManager.FetchByIdOrName")
+		}
+	}
+	input.Loadbalancer = lbObj.GetId()
+	return lbObj.(*SLoadbalancer), input, nil
+}
+
 func (self *SLoadbalancerResourceBase) GetLoadbalancer() *SLoadbalancer {
 	w, _ := LoadbalancerManager.FetchById(self.LoadbalancerId)
 	if w != nil {
@@ -176,13 +189,9 @@ func (manager *SLoadbalancerResourceBaseManager) ListItemFilter(
 	query api.LoadbalancerFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Loadbalancer) > 0 {
-		lbObj, err := LoadbalancerManager.FetchByIdOrName(userCred, query.Loadbalancer)
+		lbObj, _, err := ValidateLoadbalancerResourceInput(userCred, query.LoadbalancerResourceInput)
 		if err != nil {
-			if errors.Cause(err) == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(LoadbalancerManager.Keyword(), query.Loadbalancer)
-			} else {
-				return nil, errors.Wrap(err, "LoadbalancerManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateLoadbalancerResourceInput")
 		}
 		q = q.Equals("loadbalancer_id", lbObj.GetId())
 	}

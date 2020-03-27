@@ -38,6 +38,19 @@ type SSchedtagResourceBase struct {
 
 type SSchedtagResourceBaseManager struct{}
 
+func ValidateSchedtagResourceInput(userCred mcclient.TokenCredential, query api.SchedtagResourceInput) (*SSchedtag, api.SchedtagResourceInput, error) {
+	tagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.Schedtag)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, query, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", SchedtagManager.Keyword(), query.Schedtag)
+		} else {
+			return nil, query, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
+		}
+	}
+	query.Schedtag = tagObj.GetId()
+	return tagObj.(*SSchedtag), query, nil
+}
+
 func (self *SSchedtagResourceBase) GetSchedtag() *SSchedtag {
 	obj, err := SchedtagManager.FetchById(self.SchedtagId)
 	if err != nil {
@@ -98,13 +111,9 @@ func (manager *SSchedtagResourceBaseManager) ListItemFilter(
 	query api.SchedtagFilterListInput,
 ) (*sqlchemy.SQuery, error) {
 	if len(query.Schedtag) > 0 {
-		tagObj, err := SchedtagManager.FetchByIdOrName(userCred, query.Schedtag)
+		tagObj, _, err := ValidateSchedtagResourceInput(userCred, query.SchedtagResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(SchedtagManager.Keyword(), query.Schedtag)
-			} else {
-				return nil, errors.Wrap(err, "SchedtagManager.FetchByIdOrName")
-			}
+			return nil, errors.Wrap(err, "ValidateSchedtagResourceInput")
 		}
 		q = q.Equals("schedtag_id", tagObj.GetId())
 	}
