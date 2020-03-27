@@ -470,6 +470,10 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 
 	bootOrder, _ := s.Desc.GetString("boot_order")
 	cmd += fmt.Sprintf(" -boot order=%s", bootOrder)
+	cdrom, _ := s.Desc.Get("cdrom")
+	if cdrom != nil && cdrom.Contains("path") {
+		cmd += ",menu=on"
+	}
 
 	if s.getBios() == "UEFI" {
 		cmd += fmt.Sprintf(" -bios %s", options.HostOptions.OvmfPath)
@@ -564,7 +568,6 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += " -drive id=ide0-cd0,media=cdrom,if=none"
 	}
 
-	cdrom, _ := s.Desc.Get("cdrom")
 	if cdrom != nil && cdrom.Contains("path") {
 		cdromPath, _ := cdrom.GetString("path")
 		if len(cdromPath) > 0 {
