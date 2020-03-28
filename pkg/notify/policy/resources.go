@@ -12,4 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy // import "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
+package policy
+
+import (
+	api "yunion.io/x/onecloud/pkg/apis/notify"
+	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
+)
+
+var (
+	notifySystemResources = []string{
+		"configs",
+	}
+	notifyDomainResources = []string{}
+	notifyUserResources   = []string{
+		"contacts",
+	}
+)
+
+func init() {
+	common_policy.RegisterSystemResources(api.SERVICE_TYPE, notifySystemResources)
+	common_policy.RegisterDomainResources(api.SERVICE_TYPE, notifyDomainResources)
+	common_policy.RegisterUserResources(api.SERVICE_TYPE, notifyUserResources)
+}

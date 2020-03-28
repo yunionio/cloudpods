@@ -12,4 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy // import "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
+package policy
+
+import (
+	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
+	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
+)
+
+var (
+	cloudeventSystemResources = []string{
+		"cloudevents",
+	}
+	cloudeventDomainResources = []string{}
+	cloudeventUserResources   = []string{}
+)
+
+func init() {
+	common_policy.RegisterSystemResources(api.SERVICE_TYPE, cloudeventSystemResources)
+	common_policy.RegisterDomainResources(api.SERVICE_TYPE, cloudeventDomainResources)
+	common_policy.RegisterUserResources(api.SERVICE_TYPE, cloudeventUserResources)
+}

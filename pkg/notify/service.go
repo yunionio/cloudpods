@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/notify/cache"
 	"yunion.io/x/onecloud/pkg/notify/models"
 	"yunion.io/x/onecloud/pkg/notify/options"
+	_ "yunion.io/x/onecloud/pkg/notify/policy"
 	"yunion.io/x/onecloud/pkg/notify/rpc"
 )
 

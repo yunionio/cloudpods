@@ -12,4 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy // import "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
+package yunionconf
+
+const (
+	SERVICE_TYPE = "yunionconf"
+)

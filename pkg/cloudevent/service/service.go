@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/cloudevent"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -29,6 +30,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudevent/models"
 	"yunion.io/x/onecloud/pkg/cloudevent/options"
+	_ "yunion.io/x/onecloud/pkg/cloudevent/policy"
 	_ "yunion.io/x/onecloud/pkg/cloudevent/tasks"
 	_ "yunion.io/x/onecloud/pkg/mcclient/modules"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
@@ -36,7 +38,7 @@ import (
 
 func StartService() {
 	opts := &options.Options
-	common_options.ParseOptions(opts, os.Args, "yunionevent.conf", "yunionevent")
+	common_options.ParseOptions(opts, os.Args, "yunionevent.conf", api.SERVICE_TYPE)
 
 	commonOpts := &opts.CommonOptions
 	common_app.InitAuth(commonOpts, func() {

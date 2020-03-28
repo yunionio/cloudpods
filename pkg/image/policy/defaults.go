@@ -15,87 +15,71 @@
 package policy
 
 import (
+	api "yunion.io/x/onecloud/pkg/apis/image"
+	common_policy "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+)
+
+const (
+	PolicyActionPerform = common_policy.PolicyActionPerform
+	PolicyActionGet     = common_policy.PolicyActionGet
+	PolicyActionList    = common_policy.PolicyActionList
 )
 
 var (
 	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
-			Scope: rbacutils.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Resource: "tasks",
-					Action:   PolicyActionPerform,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionagent",
-					Resource: "notices",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionagent",
-					Resource: "readmarks",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionagent",
-					Resource: "readmarks",
-					Action:   PolicyActionCreate,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			Auth:  true,
 			Scope: rbacutils.ScopeProject,
 			Rules: []rbacutils.SRbacRule{
 				{
-					Resource: "tasks",
-					Action:   PolicyActionPerform,
+					Service:  api.SERVICE_TYPE,
+					Resource: "image_quotas",
+					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 				{
-					// usages for any services
-					// Service:  "compute",
-					Resource: "usages",
+					Service:  api.SERVICE_TYPE,
+					Resource: "image_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "images",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "images",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "guestimages",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "guestimages",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 			},
 		},
 		{
-			// meta服务 dbinstance_skus列表不需要认证
+			// for anonymous update torrent status
 			Auth:  false,
 			Scope: rbacutils.ScopeSystem,
 			Rules: []rbacutils.SRbacRule{
 				{
-					Service:  "yunionmeta",
-					Resource: "dbinstance_skus",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionmeta",
-					Resource: "dbinstance_skus",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			// for domain
-			Auth:  true,
-			Scope: rbacutils.ScopeDomain,
-			Rules: []rbacutils.SRbacRule{
-				{
-					// usages for any services
-					// Service:  "compute",
-					Resource: "usages",
-					Action:   PolicyActionGet,
+					Service:  api.SERVICE_TYPE,
+					Resource: "images",
+					Action:   PolicyActionPerform,
+					Extra:    []string{"update-torrent-status"},
 					Result:   rbacutils.Allow,
 				},
 			},
@@ -103,6 +87,6 @@ var (
 	}
 )
 
-func AppendDefaultPolicies(policies []rbacutils.SRbacPolicy) {
-	predefinedDefaultPolicies = append(predefinedDefaultPolicies, policies...)
+func init() {
+	common_policy.AppendDefaultPolicies(predefinedDefaultPolicies)
 }

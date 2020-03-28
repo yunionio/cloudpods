@@ -12,4 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy // import "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
+package service
+
+import (
+	_ "yunion.io/x/onecloud/pkg/cloudevent/policy"
+	_ "yunion.io/x/onecloud/pkg/compute/policy"
+	_ "yunion.io/x/onecloud/pkg/image/policy"
+	_ "yunion.io/x/onecloud/pkg/keystone/policy"
+	_ "yunion.io/x/onecloud/pkg/logger/policy"
+	_ "yunion.io/x/onecloud/pkg/notify/policy"
+	_ "yunion.io/x/onecloud/pkg/yunionconf/policy"
+)
