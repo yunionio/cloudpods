@@ -163,6 +163,12 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "compute",
+					Resource: "loadbalancerclusters",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "yunionagent",
 					Resource: "notices",
 					Action:   PolicyActionList,
