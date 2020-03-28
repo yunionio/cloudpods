@@ -90,6 +90,14 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&InstanceOperationOptions{}, "instance-convert-eip", "Convert public ip to eip for instance", func(cli *qcloud.SRegion, args *InstanceOperationOptions) error {
+		err := cli.ConvertPublicIpToEip(args.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	shellutils.R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *qcloud.SRegion, args *InstanceOperationOptions) error {
 		url, err := cli.GetInstanceVNCUrl(args.ID)
 		if err != nil {
@@ -186,4 +194,13 @@ func init() {
 		err := cli.UpdateInstancePassword(args.ID, args.PASSWD)
 		return err
 	})
+
+	type InstanceSetAutoRenewOptions struct {
+		ID        string `help:"Instance ID"`
+		AutoRenew bool   `help:"Set auto renew"`
+	}
+	shellutils.R(&InstanceSetAutoRenewOptions{}, "instance-set-auto-renew", "Set instance auto renew flag", func(cli *qcloud.SRegion, args *InstanceSetAutoRenewOptions) error {
+		return cli.SetInstanceAutoRenew(args.ID, args.AutoRenew)
+	})
+
 }

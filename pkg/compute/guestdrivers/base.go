@@ -330,3 +330,19 @@ func (self *SBaseGuestDriver) CancelExpireTime(
 	ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest) error {
 	return guest.CancelExpireTime(ctx, userCred)
 }
+
+func (self *SBaseGuestDriver) IsSupportPublicipToEip() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestConvertPublicipToEip")
+}
+
+func (self *SBaseGuestDriver) IsSupportSetAutoRenew() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, autoRenew bool, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSetAutoRenewInstance")
+}

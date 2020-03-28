@@ -130,3 +130,7 @@ func (self *SHuaweiGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle
 func (self *SHuaweiGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
 	return true
 }
+
+func (self *SHuaweiGuestDriver) IsSupportSetAutoRenew() bool {
+	return true
+}

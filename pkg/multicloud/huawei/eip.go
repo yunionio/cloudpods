@@ -23,6 +23,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type TInternetChargeType string
@@ -63,6 +64,7 @@ type SProfile struct {
 type SEipAddress struct {
 	region *SRegion
 	port   *Port
+	multicloud.SEipBase
 
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`

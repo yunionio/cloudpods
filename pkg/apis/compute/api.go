@@ -433,6 +433,10 @@ type ServerCreateInput struct {
 	// |天翼云				|是			|
 	Duration string `json:"duration"`
 
+	// 是否自动续费
+	// default: false
+	AutoRenew bool `json:"auto_renew"`
+
 	// swagger:ignore
 	AutoPrepaidRecycle bool `json:"auto_prepaid_recycle,omitfalse"`
 

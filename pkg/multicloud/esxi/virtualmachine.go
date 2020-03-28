@@ -1160,6 +1160,18 @@ func (self *SVirtualMachine) GetSerialOutput(port int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
+func (self *SVirtualMachine) ConvertPublicIpToEip() error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SVirtualMachine) IsAutoRenew() bool {
+	return false
+}
+
+func (self *SVirtualMachine) SetAutoRenew(autoRenew bool) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SVirtualMachine) FindMinDiffKey(limit int32) int32 {
 	if self.devs == nil {
 		self.fetchHardwareInfo()

@@ -41,8 +41,9 @@ var (
 )
 
 type SBillingCycle struct {
-	Count int
-	Unit  TBillingCycleUnit
+	AutoRenew bool
+	Count     int
+	Unit      TBillingCycleUnit
 }
 
 func ParseBillingCycle(cycleStr string) (SBillingCycle, error) {

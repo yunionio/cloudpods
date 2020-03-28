@@ -35,6 +35,7 @@ import (
 
 type SInstance struct {
 	multicloud.SInstanceBase
+	multicloud.SBillingBase
 
 	host  *SHost
 	image *SImage

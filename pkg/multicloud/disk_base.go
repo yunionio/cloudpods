@@ -14,7 +14,9 @@
 
 package multicloud
 
-type SDisk struct{}
+type SDisk struct {
+	SBillingBase
+}
 
 func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
 	return []string{""}, nil

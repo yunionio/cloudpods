@@ -278,3 +278,19 @@ type ServerFilterListInput struct {
 type GuestJointBaseUpdateInput struct {
 	apis.VirtualJointResourceBaseUpdateInput
 }
+
+type GuestPublicipToEipInput struct {
+	// 转换完成后是否自动启动
+	// default: false
+	AutoStart bool `json:"auto_start"`
+}
+
+type GuestAutoRenewInput struct {
+
+	// 设置自动续费
+	// default: false
+	// 自动续费分为本地和云上两种模式
+	// 若公有云本身支持自动续费功能, 则使用云上设置
+	// 若公有云本身不支持自动续费, 则在本地周期(默认三小时)检查快过期虚拟机并进行续费一个月
+	AutoRenew bool `json:"auto_renew"`
+}

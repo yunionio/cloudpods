@@ -142,6 +142,9 @@ const (
 	ACT_BACKUP_ALLOCATE_FAIL = "backup_alloc_fail"
 	ACT_REW_FAIL             = "renew_fail"
 
+	ACT_SET_AUTO_RENEW      = "set_auto_renew"
+	ACT_SET_AUTO_RENEW_FAIL = "set_auto_renew_fail"
+
 	ACT_DELOCATING    = "delocating"
 	ACT_DELOCATE      = "delocate"
 	ACT_DELOCATE_FAIL = "delocate_fail"
@@ -235,6 +238,7 @@ const (
 	ACT_GUEST_SRC_CHECK = "guest_src_check"
 
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
+	ACT_EIP_CONVERT_FAIL = "eip_convert_fail"
 
 	ACT_RENEW = "renew"
 

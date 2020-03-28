@@ -293,7 +293,8 @@ type ServerCreateOptionalOptions struct {
 
 	OsType string `help:"os type, e.g. Linux, Windows, etc."`
 
-	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
+	Duration  string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
+	AutoRenew bool   `help:"auto renew for prepaid server"`
 
 	AutoPrepaidRecycle bool `help:"automatically enable prepaid recycling after server is created successfully" json:"auto_prepaid_recycle,omitfalse"`
 
@@ -375,6 +376,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		ShutdownBehavior:   opts.ShutdownBehavior,
 		AutoStart:          opts.AutoStart,
 		Duration:           opts.Duration,
+		AutoRenew:          opts.AutoRenew,
 		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
 		EipBw:              opts.EipBw,
 		EipChargeType:      opts.EipChargeType,

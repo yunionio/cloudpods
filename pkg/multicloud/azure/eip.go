@@ -25,6 +25,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type PublicIPAddressSku struct {
@@ -50,6 +51,7 @@ type PublicIPAddressPropertiesFormat struct {
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	ID         string
 	Name       string

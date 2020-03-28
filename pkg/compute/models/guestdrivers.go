@@ -181,6 +181,11 @@ type IGuestDriver interface {
 	CancelExpireTime(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error
 
 	IsSupportCdrom(guest *SGuest) (bool, error)
+	IsSupportPublicipToEip() bool
+	RequestConvertPublicipToEip(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, task taskman.ITask) error
+
+	IsSupportSetAutoRenew() bool
+	RequestSetAutoRenewInstance(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, autoRenew bool, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver
@@ -200,4 +205,14 @@ func GetDriver(hypervisor string) IGuestDriver {
 	} else {
 		panic(fmt.Sprintf("Unsupported hypervisor %q", hypervisor))
 	}
+}
+
+func GetNotSupportAutoRenewHypervisors() []string {
+	hypervisors := []string{}
+	for hypervisor, driver := range guestDrivers {
+		if !driver.IsSupportSetAutoRenew() {
+			hypervisors = append(hypervisors, hypervisor)
+		}
+	}
+	return hypervisors
 }

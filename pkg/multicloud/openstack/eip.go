@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SPortDetail struct {
@@ -39,6 +40,7 @@ type SPortDetail struct {
 
 type SEipAddress struct {
 	region *SRegion
+	multicloud.SEipBase
 
 	RouterId          string      `json:"router_id"`
 	Status            string      `json:"status"`
