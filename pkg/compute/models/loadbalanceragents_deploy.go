@@ -196,14 +196,6 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 
 	pb.Modules = append(pb.Modules,
 		ansible.Module{
-			Name: "copy",
-			Args: []string{
-				"remote_src=yes",
-				"src=/opt/yunion/share/lbagent/yunion-lbagent.service",
-				"dest=/etc/systemd/system/yunion-lbagent.service",
-			},
-		},
-		ansible.Module{
 			Name: "systemd",
 			Args: []string{
 				"name=yunion-lbagent",
