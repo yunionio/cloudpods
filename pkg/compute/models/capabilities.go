@@ -59,10 +59,10 @@ type SCapabilities struct {
 	DBInstance                  map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
 	Specs                       jsonutils.JSONObject
 
-	StorageTypes2     map[string][]string                 `json:",allowempty"`
-	StorageTypes3     map[string]map[string][]StorageInfo `json:",allowempty"`
-	DataStorageTypes2 map[string][]string                 `json:",allowempty"`
-	DataStorageTypes3 map[string]map[string][]StorageInfo `json:",allowempty"`
+	StorageTypes2     map[string][]string                     `json:",allowempty"`
+	StorageTypes3     map[string]map[string]SimpleStorageInfo `json:",allowempty"`
+	DataStorageTypes2 map[string][]string                     `json:",allowempty"`
+	DataStorageTypes3 map[string]map[string]SimpleStorageInfo `json:",allowempty"`
 }
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
@@ -305,9 +305,9 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 	return resourceTypes
 }
 
-func getStorageTypes2and3(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hypervisors []string) (map[string][]string, map[string]map[string][]StorageInfo) {
+func getStorageTypes2and3(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hypervisors []string) (map[string][]string, map[string]map[string]SimpleStorageInfo) {
 	ret := make(map[string][]string)
-	ret2 := make(map[string]map[string][]StorageInfo)
+	ret2 := make(map[string]map[string]SimpleStorageInfo)
 	for _, hypervisor := range hypervisors {
 		hostType := api.HYPERVISOR_HOSTTYPE[hypervisor]
 		ret[hypervisor], ret2[hypervisor] = getStorageTypes(region, zone, isSysDisk, domainId, hostType)
@@ -324,13 +324,28 @@ type StorageInfo struct {
 	StorageType     string
 	MediumType      string
 	Cmtbound        float32
-	ZoneId          string
 	UsedCapacity    int64
 	WasteCapacity   int64
 	FreeCapacity    int64
 }
 
-func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hostType string) ([]string, map[string][]StorageInfo) {
+type sStorage struct {
+	Id   string
+	Name string
+}
+
+type SimpleStorageInfo struct {
+	Storages []sStorage
+
+	VirtualCapacity int64
+	Capacity        int64
+	Reserved        int64
+	UsedCapacity    int64
+	WasteCapacity   int64
+	FreeCapacity    int64
+}
+
+func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string, hostType string) ([]string, map[string]SimpleStorageInfo) {
 	storages := StorageManager.Query().SubQuery()
 	disks1 := DiskManager.Query().SubQuery()
 	usedDisk := disks1.Query(
@@ -354,7 +369,6 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 		storages.Field("storage_type"),
 		storages.Field("medium_type"),
 		storages.Field("cmtbound"),
-		storages.Field("zone_id"),
 		usedDisk.Field("used_capacity"),
 		failedDisk.Field("waste_capacity"),
 	)
@@ -403,7 +417,7 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 	}
 	defer rows.Close()
 	storageTypes := make([]string, 0)
-	storageInfos := map[string][]StorageInfo{}
+	storageInfos := map[string]SimpleStorageInfo{}
 	for rows.Next() {
 		var storage StorageInfo
 		rows.Scan(
@@ -414,14 +428,14 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 			&storage.StorageType,
 			&storage.MediumType,
 			&storage.Cmtbound,
-			&storage.ZoneId,
 			&storage.UsedCapacity,
 			&storage.WasteCapacity,
 		)
 		if len(storage.StorageType) > 0 && len(storage.MediumType) > 0 {
 			storageType := fmt.Sprintf("%s/%s", storage.StorageType, storage.MediumType)
-			if _, ok := storageInfos[storageType]; !ok {
-				storageInfos[storageType] = []StorageInfo{}
+			simpleStorage, ok := storageInfos[storageType]
+			if !ok {
+				simpleStorage = SimpleStorageInfo{Storages: []sStorage{}}
 				storageTypes = append(storageTypes, storageType)
 			}
 			if storage.Cmtbound == 0 {
@@ -429,7 +443,14 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 			}
 			storage.VirtualCapacity = int64(float32((storage.Capacity - storage.WasteCapacity)) * storage.Cmtbound)
 			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity - storage.WasteCapacity
-			storageInfos[storageType] = append(storageInfos[storageType], storage)
+			simpleStorage.VirtualCapacity += storage.VirtualCapacity
+			simpleStorage.FreeCapacity += storage.FreeCapacity
+			simpleStorage.Reserved += storage.Reserved
+			simpleStorage.Capacity += storage.Capacity
+			simpleStorage.WasteCapacity += storage.WasteCapacity
+			simpleStorage.UsedCapacity += storage.UsedCapacity
+			simpleStorage.Storages = append(simpleStorage.Storages, sStorage{Id: storage.Id, Name: storage.Name})
+			storageInfos[storageType] = simpleStorage
 		}
 	}
 	return storageTypes, storageInfos
