@@ -157,9 +157,9 @@ func domainManagerFieldFilter(domainId, field string) *sqlchemy.SSubQuery {
 	return q.SubQuery()
 }
 
-func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
+/*func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	return domainManagerFieldFilter(domainId, "id")
-}
+}*/
 
 func getDomainManagerProviderSubq(domainId string) *sqlchemy.SSubQuery {
 	return domainManagerFieldFilter(domainId, "provider")
@@ -237,11 +237,13 @@ func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-		))
+		))*/
 	}
 	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
 	// q = q.Equals("host_status", HOST_ONLINE)
@@ -277,11 +279,13 @@ func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []stri
 		q = q.Equals("zone_id", zone.Id)
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = HostManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		/*subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-		))
+		))*/
 	}
 	q = q.IsNotEmpty("resource_type").IsNotNull("resource_type")
 	q = q.IsTrue("enabled")
@@ -359,7 +363,12 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 	).NotEquals("status", api.DISK_READY).GroupBy("storage_id").SubQuery()
 
 	hostStorages := HoststorageManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	hostQuery := HostManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		hostQuery = HostManager.FilterByOwner(hostQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	hosts := hostQuery.SubQuery()
 
 	q := storages.Query(
 		storages.Field("id"),
@@ -391,11 +400,13 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(hosts.Field("manager_id"), subq),
-			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
-		))
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = StorageManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		// subq := getDomainManagerSubq(domainId)
+		// q = q.Filter(sqlchemy.OR(
+		// 	sqlchemy.In(hosts.Field("manager_id"), subq),
+		// 	sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
+		// ))
 	}
 	if len(hostType) > 0 {
 		q = q.Filter(sqlchemy.Equals(hosts.Field("host_type"), hostType))
@@ -458,7 +469,12 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId
 
 func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	devices := IsolatedDeviceManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	hostQuery := HostManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		hostQuery = StorageManager.FilterByOwner(hostQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	hosts := hostQuery.SubQuery()
 
 	q := devices.Query(devices.Field("model"))
 	if region != nil {
@@ -470,13 +486,13 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
 	}
-	if len(domainId) > 0 {
+	/*if len(domainId) > 0 {
 		subq := getDomainManagerSubq(domainId)
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(hosts.Field("manager_id"), subq),
 			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
 		))
-	}
+	}*/
 	q = q.Distinct()
 
 	rows, err := q.Rows()
@@ -508,8 +524,20 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 		region = zone.GetRegion()
 	}
 
-	vpcs := VpcManager.Query().SubQuery()
-	wires := WireManager.Query().SubQuery()
+	/*vpcQuery := VpcManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		vpcQuery = VpcManager.FilterByOwner(vpcQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	vpcs := vpcQuery.SubQuery()*/
+
+	wireQuery := WireManager.Query()
+	if len(domainId) > 0 {
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		wireQuery = WireManager.FilterByOwner(wireQuery, ownerId, rbacutils.ScopeDomain)
+	}
+	wires := wireQuery.SubQuery()
+
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
@@ -539,7 +567,9 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
 	}
 	if len(domainId) > 0 {
-		subq := getDomainManagerSubq(domainId)
+		ownerId := &db.SOwnerId{DomainId: domainId}
+		q = NetworkManager.FilterByOwner(q, ownerId, rbacutils.ScopeDomain)
+		/*subq := getDomainManagerSubq(domainId)
 		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(vpcs.Field("manager_id"), subq),
@@ -551,7 +581,7 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 				sqlchemy.AND(
 					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
 					sqlchemy.Equals(q.Field("domain_id"), domainId))))
-		}
+		}*/
 	}
 	if len(serverType) > 0 {
 		q = q.Filter(sqlchemy.Equals(networks.Field("server_type"), serverType))
