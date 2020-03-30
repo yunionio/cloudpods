@@ -100,7 +100,12 @@ func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWork
 	stop := false
 	for !stop {
 		select {
-		case worker = <-workerChan:
+		case curWorker, more := <-workerChan:
+			if more {
+				worker = curWorker
+			} else {
+				// ignore, worker is responsible for close the channel
+			}
 		case <-ctx.Done():
 			// ctx deadline reached, timeout
 			if worker != nil {
