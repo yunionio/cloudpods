@@ -15,27 +15,88 @@
 package monitor
 
 import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var (
-	Alerts        modulebase.ResourceManager
-	Notifications modulebase.ResourceManager
+	Alerts            *SAlertManager
+	Notifications     *SNotificationManager
+	Alertnotification *SAlertnotificationManager
 )
 
-func init() {
-	Alerts = modules.NewMonitorV2Manager("alert", "alerts",
+type SAlertManager struct {
+	*modulebase.ResourceManager
+}
+
+func NewAlertManager() *SAlertManager {
+	man := modules.NewMonitorV2Manager("alert", "alerts",
 		[]string{"id", "name", "state", "frequency", "enabled", "settings"},
 		[]string{})
-	Notifications = modules.NewMonitorV2Manager(
+	return &SAlertManager{
+		ResourceManager: &man,
+	}
+}
+
+type SNotificationManager struct {
+	*modulebase.ResourceManager
+}
+
+func NewNotificationManager() *SNotificationManager {
+	man := modules.NewMonitorV2Manager(
 		"alert_notification", "alert_notifications",
 		[]string{"id", "name", "type", "is_default", "disable_resolve_message", "send_reminder", "settings"},
 		[]string{})
-	for _, m := range []modulebase.ResourceManager{
+	return &SNotificationManager{
+		ResourceManager: &man,
+	}
+}
+
+type SAlertnotificationManager struct {
+	*modulebase.JointResourceManager
+}
+
+func NewAlertnotificationManager() *SAlertnotificationManager {
+	man := modules.NewJointMonitorV2Manager("alertnotification", "alertnotifications",
+		[]string{"Alert_ID", "Alert", "Notification_ID", "Notification", "Used_by", "State"},
+		[]string{},
+		Alerts, Notifications)
+	return &SAlertnotificationManager{&man}
+}
+
+func init() {
+	Alerts = NewAlertManager()
+	Notifications = NewNotificationManager()
+	for _, m := range []modulebase.IBaseManager{
 		Alerts,
 		Notifications,
 	} {
-		modules.Register(&m)
+		modules.Register(m)
 	}
+
+	Alertnotification = NewAlertnotificationManager()
+	for _, m := range []modulebase.IBaseManager{
+		Alertnotification,
+	} {
+		modules.Register(m)
+	}
+}
+
+func (m *SAlertManager) DoCreate(s *mcclient.ClientSession, config *AlertConfig) (jsonutils.JSONObject, error) {
+	input := config.ToAlertCreateInput()
+	return m.Create(s, input.JSON(input))
+}
+
+func (m *SAlertManager) DoTestRun(s *mcclient.ClientSession, id string, input *monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
+	ret, err := m.PerformAction(s, id, "test-run", input.JSON(input))
+	if err != nil {
+		return nil, err
+	}
+	out := new(monitor.AlertTestRunOutput)
+	err = ret.Unmarshal(out)
+	return out, err
 }

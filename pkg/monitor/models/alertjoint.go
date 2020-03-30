@@ -14,7 +14,9 @@
 
 package models
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/db"
+import (
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+)
 
 type SAlertJointsManager struct {
 	db.SVirtualJointResourceBaseManager
