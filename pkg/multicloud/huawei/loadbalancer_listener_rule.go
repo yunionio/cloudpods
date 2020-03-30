@@ -15,6 +15,8 @@
 package huawei
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -161,7 +163,7 @@ func (self *SElbListenerPolicy) GetBackendGroupId() string {
 	return self.RedirectPoolID
 }
 
-func (self *SElbListenerPolicy) Delete() error {
+func (self *SElbListenerPolicy) Delete(ctx context.Context) error {
 	return self.region.DeleteLoadBalancerPolicy(self.GetId())
 }
 

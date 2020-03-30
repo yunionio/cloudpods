@@ -16,9 +16,11 @@ package huawei
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -165,11 +167,17 @@ func (self *SEipAddress) GetPort() *Port {
 
 func (self *SEipAddress) GetAssociationType() string {
 	port := self.GetPort()
-	if port != nil {
-		return port.GetAssociateType()
+	if port == nil {
+		log.Errorf("SEipAddress.GetAssociationType port not found %#v", self)
+		return api.EIP_ASSOCIATE_TYPE_UNKNOWN
 	}
 
-	return ""
+	owner := port.DeviceOwner
+	if strings.Contains(owner, "LOADBALANCER") {
+		return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+	} else {
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	}
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

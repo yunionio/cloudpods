@@ -1141,7 +1141,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.GetILoadBalancerBackendGroupById")
 		}
 
-		err = ilbbg.Sync(groupInput)
+		err = ilbbg.Sync(ctx, groupInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "HuaWeiRegionDriver.Sync.LoadbalancerBackendGroup")
 		}
@@ -1218,7 +1218,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "huaweiRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
@@ -1367,7 +1367,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, err
 		}
 
@@ -1437,7 +1437,7 @@ func deleteHuaweiLoadbalancerListenerRule(ctx context.Context, userCred mcclient
 
 	lbbgId := irule.GetBackendGroupId()
 
-	err = irule.Delete()
+	err = irule.Delete(ctx)
 	if err != nil && err != cloudprovider.ErrNotFound {
 		return errors.Wrap(err, "HuaWeiRegionDriver.Rule.Delete")
 	}
@@ -1485,7 +1485,7 @@ func deleteHuaweiLoadbalancerBackendGroup(ctx context.Context, userCred mcclient
 		}
 	}
 
-	err = ilbbg.Delete()
+	err = ilbbg.Delete(ctx)
 	if err != nil && err != cloudprovider.ErrNotFound {
 		return errors.Wrap(err, "HuaWeiRegionDriver.BackendGroup.Delete")
 	}
@@ -1635,7 +1635,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 			}
 
 			params.BackendGroupID = ""
-			err = iListener.Sync(params)
+			err = iListener.Sync(ctx, params)
 			if err != nil {
 				return nil, err
 			} else {
@@ -1707,7 +1707,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerListener(ctx context.C
 			}
 		}
 
-		return nil, iListener.Delete()
+		return nil, iListener.Delete(ctx)
 	})
 	return nil
 }
@@ -1779,7 +1779,7 @@ func (self *SHuaWeiRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx conte
 				}
 			}
 
-			err = iLoadbalancerBackendGroup.Delete()
+			err = iLoadbalancerBackendGroup.Delete(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestDeleteLoadbalancerBackendGroup.Delete")
 			}
@@ -1971,7 +1971,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
-			err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+			err = iBackend.SyncConf(ctx, lbb.Port, lbb.Weight)
 			if err != nil {
 				return nil, errors.Wrap(err, "huaweiRegionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 			}

@@ -132,6 +132,10 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
 	} else {
+		if lbbg != nil {
+			data.Set("backend_group_id", jsonutils.NewString(lbbg.GetId()))
+		}
+
 		if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
 			if lbbg == nil {
 				return nil, httperrors.NewMissingParameterError("backend_group_id")
@@ -528,9 +532,9 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 				}
 
 				if len(lbcert.ExternalId) == 0 {
-					err = self.RequestCreateLoadbalancerCertificate(ctx, userCred, lbcert, task)
+					_, err = self.createLoadbalancerCertificate(ctx, userCred, lbcert)
 					if err != nil {
-						return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.RequestCreateLoadbalancerCertificate")
+						return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.createLoadbalancerCertificate")
 					}
 				}
 
@@ -560,7 +564,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "qcloudRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
@@ -1091,7 +1095,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Cont
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 			}
 
-			err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+			err = iBackend.SyncConf(ctx, lbb.Port, lbb.Weight)
 			if err != nil {
 				return nil, errors.Wrap(err, "qcloudRegionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 			}
@@ -1319,7 +1323,7 @@ func (self *SQcloudRegionDriver) RequestSyncLoadbalancerListener(ctx context.Con
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIListener")
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.SyncListener")
 		}
 		if err := iListener.Refresh(); err != nil {
