@@ -2031,12 +2031,16 @@ func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mccl
 }
 
 func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != api.VM_READY {
+	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
-	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	var (
+		reserve   = jsonutils.QueryBoolean(data, "reserve", false)
+		netStr, _ = data.GetString("net_id")
+		gns       []SGuestnetwork
+		err       error
+	)
 
-	netStr, _ := data.GetString("net_id")
 	if len(netStr) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netStr)
 		if err != nil {
@@ -2045,12 +2049,10 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		gns, err := self.GetNetworks(netObj.GetId())
+		gns, err = self.GetNetworks(netObj.GetId())
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
-		err = self.detachNetworks(ctx, userCred, gns, reserve, true)
-		return nil, err
 	}
 	ipStr, _ := data.GetString("ip_addr")
 	if len(ipStr) > 0 {
@@ -2061,8 +2063,7 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, true)
-		return nil, err
+		gns = []SGuestnetwork{*gn}
 	}
 	macStr, _ := data.GetString("mac")
 	if len(macStr) > 0 {
@@ -2073,10 +2074,18 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
-		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, true)
-		return nil, err
+		gns = []SGuestnetwork{*gn}
 	}
-	return nil, httperrors.NewInputParameterError("no either ip_addr, mac or network specified")
+	if self.Status == api.VM_READY {
+		err = self.detachNetworks(ctx, userCred, gns, reserve, true)
+		return nil, err
+	} else {
+		err = self.detachNetworks(ctx, userCred, gns, reserve, false)
+		if err != nil {
+			return nil, err
+		}
+		return nil, self.StartSyncTask(ctx, userCred, false, "")
+	}
 }
 
 func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
