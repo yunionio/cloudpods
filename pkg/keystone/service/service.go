@@ -34,6 +34,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
+	_ "yunion.io/x/onecloud/pkg/keystone/policy"
 	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"

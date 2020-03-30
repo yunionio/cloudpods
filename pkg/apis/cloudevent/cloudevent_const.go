@@ -15,6 +15,8 @@
 package cloudevent
 
 const (
+	SERVICE_TYPE = "cloudevent"
+
 	CLOUD_EVENT_SERVICE_COMPUTE = "compute"
 	CLOUD_EVENT_SERVICE_UNKNOWN = "unknown"
 

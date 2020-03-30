@@ -14,52 +14,11 @@
 
 package policy
 
-import "yunion.io/x/pkg/utils"
+import (
+	"yunion.io/x/pkg/utils"
+)
 
 var (
-	computeSystemResources = []string{
-		"zones",
-		"cloudregions",
-		"serverskus",
-		"cachedimages",
-		"dynamicschedtags",
-		"baremetalagents",
-		"schedpolicies",
-		"dnsrecords",
-		"metadatas",
-		"loadbalancerclusters",
-		"loadbalanceragents",
-		"isolated-devices",
-		"reservedips",
-	}
-	computeDomainResources = []string{
-		"cloudaccounts",
-		"cloudproviders",
-		"recyclebins",
-		// migrate system resources to domain resources
-		"hosts",
-		"vpcs",
-		"storages",
-		"wires",
-		"globalvpcs",
-		"route_tables",
-		"networkinterfaces",
-		"natgateways",
-		"natsentries",
-		"natdentries",
-	}
-	computeUserResources = []string{
-		"keypairs",
-	}
-
-	notifySystemResources = []string{
-		"configs",
-	}
-	notifyDomainResources = []string{}
-	notifyUserResources   = []string{
-		"contacts",
-	}
-
 	meterSystemResources = []string{
 		"rates",
 		"res_results",
@@ -79,75 +38,30 @@ var (
 	yunionagentDomainResources = []string{}
 	yunionagentUserResources   = []string{}
 
-	yunionconfSystemResources = []string{}
-	yunionconfDomainResources = []string{}
-	yunionconfUserResources   = []string{
-		"parameters",
-	}
-
-	logSystemResources = []string{}
-	logDomainResources = []string{}
-	logUserResources   = []string{}
-
-	identitySystemResources = []string{
-		"identity_providers",
-		"domains",
-		"services",
-		"endpoints",
-	}
-	identityDomainResources = []string{
-		"users",
-		"groups",
-		"projects",
-		"roles",
-		"policies",
-	}
-	identityUserResources = []string{}
-
 	itsmSystemResources = []string{
 		"process-definitions",
 	}
 	itsmDomainResources = []string{}
 	itsmUserResources   = []string{}
 
-	cloudeventSystemResoruces = []string{
-		"cloudevents",
-	}
-
 	systemResources = map[string][]string{
-		"compute":     computeSystemResources,
-		"notify":      notifySystemResources,
 		"meter":       meterSystemResources,
 		"k8s":         k8sSystemResources,
 		"yunionagent": yunionagentSystemResources,
-		"yunionconf":  yunionconfSystemResources,
-		"log":         logSystemResources,
-		"identity":    identitySystemResources,
 		"itsm":        itsmSystemResources,
-		"cloudevent":  cloudeventSystemResoruces,
 	}
 
 	domainResources = map[string][]string{
-		"compute":     computeDomainResources,
-		"notify":      notifyDomainResources,
 		"meter":       meterDomainResources,
 		"k8s":         k8sDomainResources,
 		"yunionagent": yunionagentDomainResources,
-		"yunionconf":  yunionconfDomainResources,
-		"log":         logDomainResources,
-		"identity":    identityDomainResources,
 		"itsm":        itsmDomainResources,
 	}
 
 	userResources = map[string][]string{
-		"compute":     computeUserResources,
-		"notify":      notifyUserResources,
 		"meter":       meterUserResources,
 		"k8s":         k8sUserResources,
 		"yunionagent": yunionagentUserResources,
-		"yunionconf":  yunionconfUserResources,
-		"log":         logUserResources,
-		"identity":    identityUserResources,
 		"itsm":        itsmUserResources,
 	}
 )
@@ -205,4 +119,16 @@ func isProjectResource(service string, resource string) bool {
 		return false
 	}
 	return true
+}
+
+func RegisterSystemResources(service string, resources []string) {
+	systemResources[service] = resources
+}
+
+func RegisterDomainResources(service string, resources []string) {
+	domainResources[service] = resources
+}
+
+func RegisterUserResources(service string, resources []string) {
+	userResources[service] = resources
 }

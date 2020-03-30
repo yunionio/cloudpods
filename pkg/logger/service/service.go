@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/logger"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -28,10 +29,7 @@ import (
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/logger/models"
 	"yunion.io/x/onecloud/pkg/logger/options"
-)
-
-const (
-	SERVICE_TYPE = "log"
+	_ "yunion.io/x/onecloud/pkg/logger/policy"
 )
 
 func StartService() {
@@ -42,7 +40,7 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	dbOpts := &opts.DBOptions
-	common_options.ParseOptions(opts, os.Args, "log.conf", SERVICE_TYPE)
+	common_options.ParseOptions(opts, os.Args, "log.conf", api.SERVICE_TYPE)
 
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
