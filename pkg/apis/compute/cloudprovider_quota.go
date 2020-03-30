@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package compute
 
-import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+import "yunion.io/x/onecloud/pkg/apis"
+
+const (
+	CLOUD_PROVIDER_QUOTA_RANGE_CLOUDREGION   = "cloudregion"
+	CLOUD_PROVIDER_QUOTA_RANGE_CLOUDPROVIDER = "cloudprovider"
 )
 
-func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
-	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
-		if err != nil {
-			printObject(err)
-			return nil
-		}
+type CloudproviderQuotaListInput struct {
+	apis.StandaloneResourceListInput
+	apis.ExternalizedResourceBaseListInput
 
-		printList(routetables, 0, 0, 0, nil)
-		return nil
-	})
+	ManagedResourceListInput
+	RegionalFilterListInput
+
+	// 配额类型
+	QuotaType string `json:"quota_type"`
+
+	// 配额范围
+	QuotaRange string `json:"quota_range"`
 }

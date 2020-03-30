@@ -15,22 +15,21 @@
 package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
+	"yunion.io/x/onecloud/pkg/multicloud/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
+	type UsageListOptions struct {
+		TYPE string `choices:"Microsoft.Network|Microsoft.Compute|Microsoft.Storage"`
 	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
+	shellutils.R(&UsageListOptions{}, "usage-list", "List usage", func(cli *azure.SRegion, args *UsageListOptions) error {
+		usage, err := cli.GetUsage(args.TYPE)
 		if err != nil {
-			printObject(err)
-			return nil
+			return err
 		}
-
-		printList(routetables, 0, 0, 0, nil)
+		printList(usage, 0, 0, 0, []string{})
 		return nil
 	})
+
 }

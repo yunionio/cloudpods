@@ -1287,6 +1287,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		CloudproviderRegionManager,
 		ExternalProjectManager,
 		CloudregionManager,
+		CloudproviderQuotaManager,
 	} {
 		err = manager.purgeAll(ctx, userCred, self.Id)
 		if err != nil {

@@ -87,6 +87,24 @@ func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
 	return false
 }
 
+func syncRegionQuotas(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) error {
+	quotas, err := remoteRegion.GetICloudQuotas()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudQuotas for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return err
+	}
+	result := CloudproviderQuotaManager.SyncQuotas(ctx, userCred, provider.GetOwnerId(), provider, localRegion, api.CLOUD_PROVIDER_QUOTA_RANGE_CLOUDREGION, quotas)
+	syncResults.Add(CloudproviderQuotaManager, result)
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncQuotas for region %s result: %s", localRegion.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return fmt.Errorf(msg)
+	}
+	return nil
+}
+
 func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) ([]SZone, []cloudprovider.ICloudZone, error) {
 	zones, err := remoteRegion.GetIZones()
 	if err != nil {
@@ -1012,6 +1030,8 @@ func syncPublicCloudProviderInfo(
 	if cloudprovider.IsSupportProject(driver) {
 		syncProjects(ctx, userCred, syncResults, driver, provider)
 	}
+
+	syncRegionQuotas(ctx, userCred, syncResults, driver, provider, localRegion, remoteRegion)
 
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 

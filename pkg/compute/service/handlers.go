@@ -161,6 +161,7 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.GuestTemplateManager,
 		models.ServiceCatalogManager,
+		models.CloudproviderQuotaManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

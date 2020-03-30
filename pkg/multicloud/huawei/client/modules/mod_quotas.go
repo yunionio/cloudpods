@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package modules
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
-func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
-	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
-		if err != nil {
-			printObject(err)
-			return nil
-		}
+type SQuotaManager struct {
+	SResourceManager
+}
 
-		printList(routetables, 0, 0, 0, nil)
-		return nil
-	})
+func NewQuotaManager(regionId string, projectId string, signer auth.Signer, debug bool) *SQuotaManager {
+	return &SQuotaManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameEVS,
+		Region:        regionId,
+		ProjectId:     projectId,
+		version:       "v1",
+		Keyword:       "quotas",
+		KeywordPlural: "quotas",
+
+		ResourceKeyword: "quotas",
+	}}
 }

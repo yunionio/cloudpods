@@ -1630,3 +1630,30 @@ func (manager *SSecurityGroupCacheManager) purgeAll(ctx context.Context, userCre
 	}
 	return nil
 }
+
+func (quota *SCloudproviderQuota) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, quota)
+	defer lockman.ReleaseObject(ctx, quota)
+
+	err := quota.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return quota.Delete(ctx, userCred)
+}
+
+func (manager *SCloudproviderQuotaManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	quotas := []SCloudproviderQuota{}
+	err := fetchByManagerId(manager, providerId, &quotas)
+	if err != nil {
+		return err
+	}
+	for i := range quotas {
+		err := quotas[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

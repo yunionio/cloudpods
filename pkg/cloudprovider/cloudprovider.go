@@ -202,6 +202,7 @@ type ICloudProvider interface {
 	GetStorageClasses(regionId string) []string
 
 	GetCapabilities() []string
+	GetICloudQuotas() ([]ICloudQuota, error)
 }
 
 func IsSupportProject(prod ICloudProvider) bool {
@@ -298,6 +299,10 @@ func (provider *SBaseProvider) GetFactory() ICloudProviderFactory {
 }
 
 func (self *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
+	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetICloudQuotas() ([]ICloudQuota, error) {
 	return nil, ErrNotImplemented
 }
 

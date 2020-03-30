@@ -15,22 +15,33 @@
 package shell
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
+	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
+	type ImageQuotaShowOptions struct {
 	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
+	shellutils.R(&ImageQuotaShowOptions{}, "image-quota", "Show image quota", func(cli *qcloud.SRegion, args *ImageQuotaShowOptions) error {
+		quota, err := cli.GetImageQuota()
 		if err != nil {
-			printObject(err)
-			return nil
+			return err
 		}
-
-		printList(routetables, 0, 0, 0, nil)
+		printObject(quota)
 		return nil
 	})
+
+	type QuotaListOptions struct {
+		ACTION string `choices:"DescribeAddressQuota|DescribeBandwidthPackageQuota"`
+	}
+
+	shellutils.R(&QuotaListOptions{}, "quota-list", "List quotas", func(cli *qcloud.SRegion, args *QuotaListOptions) error {
+		quotas, err := cli.GetQuota(args.ACTION)
+		if err != nil {
+			return err
+		}
+		printList(quotas, 0, 0, 0, nil)
+		return nil
+	})
+
 }

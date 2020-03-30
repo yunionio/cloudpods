@@ -12,25 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shell
+package modules
 
-import (
-	"yunion.io/x/onecloud/pkg/multicloud/aws"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
+import "yunion.io/x/onecloud/pkg/mcclient/modulebase"
+
+type CloudproviderQuotasManager struct {
+	modulebase.ResourceManager
+}
+
+var (
+	CloudproviderQuotas CloudproviderQuotasManager
 )
 
 func init() {
-	type RouteTableListOptions struct {
-		VpcId string `help:"vpc id"`
-	}
-	shellutils.R(&RouteTableListOptions{}, "routetable-list", "List route tables", func(cli *aws.SRegion, args *RouteTableListOptions) error {
-		routetables, err := cli.GetRouteTables(args.VpcId, false)
-		if err != nil {
-			printObject(err)
-			return nil
-		}
+	CloudproviderQuotas = CloudproviderQuotasManager{NewComputeManager("cloudproviderquota", "cloudproviderquotas",
+		[]string{"Id", "Name", "Quota_Range", "Quota_Type", "Max_Count", "Used_Count"},
+		[]string{})}
 
-		printList(routetables, 0, 0, 0, nil)
-		return nil
-	})
+	registerCompute(&CloudproviderQuotas)
 }

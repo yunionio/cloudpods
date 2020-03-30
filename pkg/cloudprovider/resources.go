@@ -139,6 +139,8 @@ type ICloudRegion interface {
 	GetICloudEvents(start time.Time, end time.Time, withReadEvent bool) ([]ICloudEvent, error) //获取公有云操作日志接口
 
 	GetCapabilities() []string
+
+	GetICloudQuotas() ([]ICloudQuota, error)
 }
 
 type ICloudZone interface {
@@ -939,4 +941,12 @@ type ICloudEvent interface {
 	IsSuccess() bool
 
 	GetCreatedAt() time.Time
+}
+
+type ICloudQuota interface {
+	GetGlobalId() string
+	GetDesc() string
+	GetQuotaType() string
+	GetMaxQuotaCount() int
+	GetCurrentQuotaUsedCount() int
 }
