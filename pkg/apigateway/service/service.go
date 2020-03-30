@@ -44,6 +44,10 @@ func StartService() {
 
 	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
+	if commonOpts.RequestWorkerCount < 32 {
+		commonOpts.RequestWorkerCount = 32
+	}
+
 	if opts.DisableModuleApiVersion {
 		mcclient.DisableApiVersionByModule()
 	}

@@ -58,7 +58,7 @@ type BaseOptions struct {
 	TempPath  string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
 	ApplicationID      string `help:"Application ID"`
-	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
+	RequestWorkerCount int    `default:"8" help:"Request worker thread count, default is 8"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
