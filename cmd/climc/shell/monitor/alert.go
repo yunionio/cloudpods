@@ -15,6 +15,9 @@
 package monitor
 
 import (
+	"fmt"
+
+	monitorapi "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	options "yunion.io/x/onecloud/pkg/mcclient/options/monitor"
@@ -33,6 +36,20 @@ func init() {
 				return err
 			}
 			printList(ret, monitor.Alerts.GetColumns(s))
+			return nil
+		})
+
+	R(&options.AlertCreateOptions{}, aN("create"), "Create alert rule",
+		func(s *mcclient.ClientSession, args *options.AlertCreateOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := monitor.Alerts.DoCreate(s, params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
 			return nil
 		})
 
@@ -64,6 +81,20 @@ func init() {
 		func(s *mcclient.ClientSession, args *options.AlertDeleteOptions) error {
 			ret := monitor.Alerts.BatchDelete(s, args.ID, nil)
 			printBatchResults(ret, monitor.Alerts.GetColumns(s))
+			return nil
+		})
+
+	R(&options.AlertTestRunOptions{}, aN("test-run"), "Test run alert",
+		func(s *mcclient.ClientSession, args *options.AlertTestRunOptions) error {
+			data := new(monitorapi.AlertTestRunInput)
+			if args.Debug {
+				data.IsDebug = true
+			}
+			ret, err := monitor.Alerts.DoTestRun(s, args.ID, data)
+			if err != nil {
+				return err
+			}
+			fmt.Println(ret.JSON(ret).YAMLString())
 			return nil
 		})
 }

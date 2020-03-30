@@ -15,6 +15,8 @@
 package monitor
 
 import (
+	"time"
+
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -136,4 +138,50 @@ type AlertListInput struct {
 
 type AlertDetails struct {
 	apis.VirtualResourceDetails
+}
+
+type AlertTestRunInput struct {
+	apis.Meta
+
+	IsDebug bool `json:"is_debug"`
+}
+
+// ResultLogEntry represents log data for the alert evaluation.
+type ResultLogEntry struct {
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+}
+
+// EvalMatch represents the series violating the threshold.
+type EvalMatch struct {
+	Condition string            `json:"condition"`
+	Value     *float64          `json:"value"`
+	Metric    string            `json:"metric"`
+	Tags      map[string]string `json:"tags"`
+}
+
+type AlertTestRunOutput struct {
+	apis.Meta
+
+	Firing         bool              `json:"firing"`
+	EvalMatches    []*EvalMatch      `json:"eval_matches"`
+	Logs           []*ResultLogEntry `json:"logs"`
+	Error          error             `json:"error"`
+	ConditionEvals string            `json:"condition_evals"`
+	StartTime      time.Time         `json:"start_time"`
+	EndTime        time.Time         `json:"end_time"`
+}
+
+type AlertAttachNotificationInput struct {
+	apis.Meta
+
+	NotificationId string `json:"notification_id"`
+	UsedBy         string `json:"used_by"`
+}
+
+type AlertAttachNotificationOutput struct {
+	apis.Meta
+
+	NotificationId string `json:"notification_id"`
+	UsedBy         string `json:"used_by"`
 }

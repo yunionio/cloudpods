@@ -14,7 +14,18 @@
 
 package models
 
-import "yunion.io/x/onecloud/pkg/cloudcommon/db"
+import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/reflectutils"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
+)
 
 type SAlertJointsManager struct {
 	db.SVirtualJointResourceBaseManager
@@ -43,4 +54,41 @@ func (b *SAlertJointsBase) getAlert() *SAlert {
 
 func (man *SAlertJointsManager) GetMasterFieldName() string {
 	return "alert_id"
+}
+
+func (man *SAlertJointsManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.AlertJointResourceBaseDetails {
+	rows := make([]monitor.AlertJointResourceBaseDetails, len(objs))
+	jointRows := man.SVirtualJointResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	alertIds := make([]string, len(rows))
+	for i := range jointRows {
+		rows[i] = monitor.AlertJointResourceBaseDetails{
+			VirtualJointResourceBaseDetails: jointRows[i],
+		}
+		var base *SAlertJointsBase
+		reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if base != nil && len(base.AlertId) > 0 {
+			alertIds[i] = base.AlertId
+		}
+	}
+
+	alertIdMaps, err := db.FetchIdNameMap2(AlertManager, alertIds)
+	if err != nil {
+		log.Errorf("alert joints FetchIdNameMap2 fail: %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := alertIdMaps[alertIds[i]]; ok {
+			rows[i].Alert = name
+		}
+	}
+
+	return rows
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 )
@@ -36,7 +37,7 @@ type ConditionResult struct {
 	Firing      bool
 	NoDataFound bool
 	Operator    string
-	EvalMatches []*EvalMatch
+	EvalMatches []*monitor.EvalMatch
 }
 
 // Condition is responsible for evaluating an alert condition.

@@ -46,9 +46,15 @@ func init() {
 	AlertManager = NewAlertManager(SAlert{}, "alert", "alerts")
 }
 
+type AlertTestRunner interface {
+	DoTest(ruleDef *SAlert, userCred mcclient.TokenCredential, input monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error)
+}
+
 type SAlertManager struct {
 	db.SVirtualResourceBaseManager
 	db.SEnabledResourceBaseManager
+
+	tester AlertTestRunner
 }
 
 func NewAlertManager(dt interface{}, keyword, keywordPlural string) *SAlertManager {
@@ -61,6 +67,14 @@ func NewAlertManager(dt interface{}, keyword, keywordPlural string) *SAlertManag
 	}
 	man.SetVirtualObject(man)
 	return man
+}
+
+func (man *SAlertManager) SetTester(tester AlertTestRunner) {
+	man.tester = tester
+}
+
+func (man *SAlertManager) GetTester() AlertTestRunner {
+	return man.tester
 }
 
 func (man *SAlertManager) FetchAllAlerts() ([]SAlert, error) {
@@ -474,4 +488,75 @@ func (alert *SAlert) SetFor(forTime time.Duration) error {
 		return nil
 	})
 	return err
+}
+
+func (alert *SAlert) AllowPerformTestRun(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "test-run")
+}
+
+func (alert *SAlert) PerformTestRun(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.AlertTestRunInput,
+) (*monitor.AlertTestRunOutput, error) {
+	return alert.testRunAlert(userCred, input)
+}
+
+func (alert *SAlert) testRunAlert(userCred mcclient.TokenCredential, input monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
+	return AlertManager.GetTester().DoTest(alert, userCred, input)
+}
+
+/*func (alert *SAlert) AllowPerformAttachNotification(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "attach-notification")
+}
+
+func (alert *SAlert) PerformAttachNotification(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.AlertAttachNotificationInput,
+) (*monitor.AlertAttachNotificationOutput, error) {
+	notiObj, err := NotificationManager.FetchByIdOrName(userCred, input.NotificationId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("Alert notification %s not found", input.NotificationId)
+		}
+		return nil, err
+	}
+	noti := notiObj.(*SNotification)
+	ret, err := alert.AttachNotification(ctx, userCred, noti, monitor.AlertNotificationStateUnknown, input.UsedBy)
+	if err != nil {
+		return nil, err
+	}
+	return &monitor.AlertAttachNotificationOutput{
+		NotificationId: ret.NotificationId,
+		UsedBy: ret.UsedBy,
+	}, nil
+}*/
+
+func (alert *SAlert) CustomizeDelete(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) error {
+	notis, err := alert.GetNotifications()
+	if err != nil {
+		return err
+	}
+	for _, noti := range notis {
+		if err := noti.Detach(ctx, userCred); err != nil {
+			return err
+		}
+	}
+	return nil
 }

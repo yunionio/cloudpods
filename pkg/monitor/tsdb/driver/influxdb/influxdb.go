@@ -102,8 +102,6 @@ func (e *InfluxdbExecutor) Query(ctx context.Context, dsInfo *tsdb.DataSource, t
 		return nil, response.Err
 	}
 
-	// log.Errorf("==influxdb response: %s", jsonutils.Marshal(response).PrettyString())
-
 	result.Results = make(map[string]*tsdb.QueryResult)
 	ret := e.ResponseParser.Parse(&response, query)
 	ret.Meta = tsdb.QueryResultMeta{

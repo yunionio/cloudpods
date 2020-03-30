@@ -16,12 +16,16 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -76,6 +80,84 @@ func (man *SAlertNotificationManager) Get(alertId string, notiId string) (*SAler
 	err := q.First(obj)
 	obj.SetModelManager(man, obj)
 	return obj, err
+}
+
+func (man *SAlertNotificationManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []monitor.AlertnotificationDetails {
+	rows := make([]monitor.AlertnotificationDetails, len(objs))
+	alertRows := man.SAlertJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	notiIds := make([]string, len(rows))
+
+	for i := range rows {
+		rows[i] = monitor.AlertnotificationDetails{
+			AlertJointResourceBaseDetails: alertRows[i],
+		}
+		notiIds[i] = objs[i].(*SAlertnotification).NotificationId
+	}
+
+	notis := make(map[string]SNotification)
+	if err := db.FetchModelObjectsByIds(NotificationManager, "id", notiIds, notis); err != nil {
+		return rows
+	}
+
+	for i := range rows {
+		if noti, ok := notis[notiIds[i]]; ok {
+			rows[i].Notification = noti.Name
+		}
+	}
+	return rows
+}
+
+func (man *SAlertNotificationManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input monitor.AlertnotificationCreateInput,
+) (*jsonutils.JSONDict, error) {
+	if input.AlertId == "" {
+		return nil, httperrors.NewMissingParameterError("alert_id")
+	}
+	if input.NotificationId == "" {
+		return nil, httperrors.NewMissingParameterError("notification_id")
+	}
+	_, err := AlertManager.FetchById(input.AlertId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("not find alert %s", input.AlertId)
+		}
+		return nil, err
+	}
+	_, err = NotificationManager.FetchById(input.NotificationId)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("not find notification %s", input.NotificationId)
+		}
+		return nil, err
+	}
+	ret := input.JSON(input)
+	ret.Add(jsonutils.NewString(string(monitor.AlertNotificationStateUnknown)), "state")
+	return ret, nil
+}
+
+func (joint *SAlertnotification) getExtraDetails(noti SNotification, out monitor.AlertnotificationDetails) monitor.AlertnotificationDetails {
+	out.Notification = noti.GetName()
+	return out
+}
+
+func (joint *SAlertnotification) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (monitor.AlertnotificationDetails, error) {
+	return monitor.AlertnotificationDetails{}, nil
 }
 
 func (joint *SAlertnotification) DoSave(ctx context.Context, userCred mcclient.TokenCredential) error {

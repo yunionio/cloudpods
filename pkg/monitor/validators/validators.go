@@ -80,6 +80,22 @@ func ValidateAlertConditionQuery(input monitor.AlertQuery) error {
 	if err := ValidateToValue(input.To); err != nil {
 		return err
 	}
+	if err := ValidateAlertQueryModel(input.Model); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateAlertQueryModel(input monitor.MetricQuery) error {
+	if len(input.Selects) == 0 {
+		return httperrors.NewInputParameterError("no select data in query")
+	}
+	if len(input.Database) == 0 {
+		return httperrors.NewInputParameterError("no database in query")
+	}
+	if len(input.Measurement) == 0 {
+		return httperrors.NewInputParameterError("no measurement in query")
+	}
 	return nil
 }
 

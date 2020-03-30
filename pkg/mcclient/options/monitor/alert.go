@@ -16,9 +16,13 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	monitor2 "yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -32,6 +36,85 @@ type AlertShowOptions struct {
 
 type AlertDeleteOptions struct {
 	ID []string `help:"ID of alert to delete"`
+}
+
+type AlertTestRunOptions struct {
+	ID    string `help:"ID of alert to delete"`
+	Debug bool   `help:"Show more debug info"`
+}
+
+type AlertConditionOptions struct {
+	REDUCER    string   `help:"Metric query reducer, e.g. 'avg'" choices:"avg|sum|min|max|count|last|median"`
+	DATABASE   string   `help:"Metric database, e.g. 'telegraf'"`
+	METRIC     string   `help:"Query metric format <measurement>.<field>, e.g. 'cpu.cpu_usage'"`
+	COMPARATOR string   `help:"Evaluator compare" choices:"gt|lt"`
+	THRESHOLD  float64  `help:"Alert threshold"`
+	Period     string   `help:"Query metric period e.g. '5m', '1h'" default:"5m"`
+	Tag        []string `help:"Query tag, e.g. 'zone=zon0,name=vmname'"`
+}
+
+func (opt AlertConditionOptions) Params(conf *monitor2.AlertConfig) (*monitor2.AlertCondition, error) {
+	parts := strings.Split(opt.METRIC, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("metric %s is invalid format", opt.METRIC)
+	}
+	cond := conf.Condition(opt.DATABASE, parts[0])
+	if opt.COMPARATOR == "gt" {
+		cond.GT(opt.THRESHOLD)
+	}
+	if opt.COMPARATOR == "lt" {
+		cond.LT(opt.THRESHOLD)
+	}
+	switch opt.REDUCER {
+	case "avg":
+		cond.Avg()
+	case "sum":
+		cond.Sum()
+	case "min":
+		cond.Min()
+	case "max":
+		cond.Max()
+	case "count":
+		cond.Count()
+	case "last":
+		cond.Last()
+	case "median":
+		cond.Median()
+	}
+
+	q := cond.Query().From(opt.Period)
+	q.Selects().Select(parts[1])
+
+	for _, tag := range opt.Tag {
+		parts := strings.Split(tag, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid tag format: %s", tag)
+		}
+		q.Where().Equal(parts[0], parts[1])
+	}
+
+	return cond, nil
+}
+
+type AlertCreateOptions struct {
+	AlertConditionOptions
+	NAME      string `help:"Name of the alert"`
+	Frequency string `help:"Alert execute frequency, e.g. '5m', '1h'"`
+	Enabled   bool   `help:"Enable alert"`
+	Level     string `help:"Alert level"`
+}
+
+func (opt AlertCreateOptions) Params() (*monitor2.AlertConfig, error) {
+	input, err := monitor2.NewAlertConfig(opt.NAME, opt.Frequency, opt.Enabled)
+	if err != nil {
+		return nil, err
+	}
+	_, err = opt.AlertConditionOptions.Params(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return input, nil
 }
 
 type AlertUpdateOptions struct {
@@ -54,4 +137,24 @@ func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
 		input.Frequency = &f
 	}
 	return input, nil
+}
+
+type AlertNotificationAttachOptions struct {
+	ALERT        string `help:"ID or name of alert"`
+	NOTIFICATION string `help:"ID or name of alert notification"`
+	UsedBy       string `help:"UsedBy annotation"`
+}
+
+type AlertNotificationListOptions struct {
+	options.BaseListOptions
+	Alert        string `help:"ID or name of alert" short-token:"a"`
+	Notification string `help:"ID or name of notification" short-token:"n"`
+}
+
+func (o AlertNotificationListOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.BaseListOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	return params, nil
 }

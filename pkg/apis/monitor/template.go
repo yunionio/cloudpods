@@ -32,11 +32,3 @@ type NotificationTemplateConfig struct {
 	Level       string `json:"level"`
 	IsRecovery  bool   `json:"is_recovery"`
 }
-
-// EvalMatch represents the series violating the threshold.
-type EvalMatch struct {
-	Condition string            `json:"condition"`
-	Value     *float64          `json:"value"`
-	Metric    string            `json:"metric"`
-	Tags      map[string]string `json:"tags"`
-}

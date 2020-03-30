@@ -79,7 +79,7 @@ func (ic *intervalCalculator) Calculate(timerange *TimeRange, minInterval time.D
 
 func GetIntervalFrom(dsInfo *DataSource, queryModel *Query, defaultInterval time.Duration) (time.Duration, error) {
 	interval := queryModel.Interval
-	if interval == "" && dsInfo.TimeInterval != "" {
+	if interval == "" && (dsInfo != nil && dsInfo.TimeInterval != "") {
 		interval = dsInfo.TimeInterval
 	}
 	if interval == "" {

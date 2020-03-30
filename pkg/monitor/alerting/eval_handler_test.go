@@ -19,12 +19,14 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+
+	"yunion.io/x/onecloud/pkg/apis/monitor"
 )
 
 type conditionStub struct {
 	firing   bool
 	operator string
-	matches  []*EvalMatch
+	matches  []*monitor.EvalMatch
 	noData   bool
 }
 
@@ -59,7 +61,7 @@ func TestAlertingEvaluationHandler(t *testing.T) {
 		Convey("Show return false with not passing asdf", func() {
 			ctx := NewEvalContext(context.TODO(), nil, &Rule{
 				Conditions: []Condition{
-					&conditionStub{firing: true, operator: "and", matches: []*EvalMatch{{}, {}}},
+					&conditionStub{firing: true, operator: "and", matches: []*monitor.EvalMatch{{}, {}}},
 					&conditionStub{firing: false, operator: "and"},
 				}})
 
