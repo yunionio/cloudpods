@@ -1,3 +1,4 @@
-FROM registry.cn-beijing.aliyuncs.com/yunionio/onecloud-base:latest
+FROM alpine:3.11.3
 
-ADD ./_output/bin/region-dns /opt/yunion/bin/region-dns
+RUN mkdir -p /opt/yunion/bin
+ADD ./_output/alpine-build/bin/region-dns /opt/yunion/bin/region-dns
