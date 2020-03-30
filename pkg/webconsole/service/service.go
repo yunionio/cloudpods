@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/webconsole"
@@ -42,7 +43,7 @@ func StartService() {
 
 	opts := &o.Options
 	commonOpts := &o.Options.CommonOptions
-	common_options.ParseOptions(opts, os.Args, "webconsole.conf", "webconsole")
+	common_options.ParseOptions(opts, os.Args, "webconsole.conf", api.SERVICE_TYPE)
 
 	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")
@@ -59,6 +60,9 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete")
 	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
+
 	start()
 }
 

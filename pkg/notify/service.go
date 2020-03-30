@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/notify"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -41,12 +42,14 @@ func StartService() {
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
 	baseOpts := &options.Options.BaseOptions
-	common_options.ParseOptions(opts, os.Args, "notify.conf", "notify")
+	common_options.ParseOptions(opts, os.Args, "notify.conf", api.SERVICE_TYPE)
 
 	// init auth
 	app.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!")
 	})
+
+	common_options.StartOptionManager(opts, opts.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, options.OnOptionsChange)
 
 	// init handler
 	applicaion := app.InitApp(baseOpts, true)
