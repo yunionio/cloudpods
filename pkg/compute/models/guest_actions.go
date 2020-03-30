@@ -3995,17 +3995,17 @@ func (self *SGuest) PerformConvertToKvm(
 	if len(self.GetMetadata(api.SERVER_META_CONVERTED_SERVER, userCred)) > 0 {
 		return nil, httperrors.NewBadRequestError("guest has been converted")
 	}
-	perferHost := data.PerferHost
-	if len(perferHost) > 0 {
-		iHost, err := HostManager.FetchByIdOrName(userCred, perferHost)
+	preferHost := data.PreferHost
+	if len(preferHost) > 0 {
+		iHost, err := HostManager.FetchByIdOrName(userCred, preferHost)
 		if err != nil {
 			return nil, err
 		}
 		host := iHost.(*SHost)
 		if host.HostType != api.HOST_TYPE_HYPERVISOR {
-			return nil, httperrors.NewBadRequestError("host %s is not kvm host", perferHost)
+			return nil, httperrors.NewBadRequestError("host %s is not kvm host", preferHost)
 		}
-		perferHost = host.GetId()
+		preferHost = host.GetId()
 	}
 
 	if self.Status != api.VM_READY {
@@ -4015,16 +4015,16 @@ func (self *SGuest) PerformConvertToKvm(
 	if err != nil {
 		return nil, errors.Wrap(err, "create converted server")
 	}
-	return nil, self.StartConvertEsxiToKvmTask(ctx, userCred, perferHost, newGuest)
+	return nil, self.StartConvertEsxiToKvmTask(ctx, userCred, preferHost, newGuest)
 }
 
 func (self *SGuest) StartConvertEsxiToKvmTask(
 	ctx context.Context, userCred mcclient.TokenCredential,
-	perferHostId string, newGuest *SGuest,
+	preferHostId string, newGuest *SGuest,
 ) error {
 	params := jsonutils.NewDict()
-	if len(perferHostId) > 0 {
-		params.Set("perfer_host_id", jsonutils.NewString(perferHostId))
+	if len(preferHostId) > 0 {
+		params.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 	}
 	params.Set("target_guest_id", jsonutils.NewString(newGuest.Id))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestConvertEsxiToKvmTask", self, userCred,
@@ -4054,13 +4054,13 @@ func (self *SGuest) createConvertedServer(
 	}
 	regionKeys, err := self.GetRegionalQuotaKeys()
 	if err != nil {
-		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		return nil, err
 	}
 	pendingRegionUsage.SetKeys(regionKeys)
 	err = quotas.CheckSetPendingQuota(ctx, userCred, &pendingRegionUsage)
 	if err != nil {
-		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
 		return nil, err
 	}
 	// generate guest create params
@@ -4071,7 +4071,7 @@ func (self *SGuest) createConvertedServer(
 	defer lockman.ReleaseClass(ctx, GuestManager, userCred.GetProjectId())
 	newGuest, err := db.DoCreate(GuestManager, ctx, userCred, nil,
 		jsonutils.Marshal(createInput), self.GetOwnerId())
-	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 	if err != nil {
 		return nil, err
 	}

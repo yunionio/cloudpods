@@ -80,7 +80,7 @@ type ServerSSHLoginOptions struct {
 
 type ServerConvertToKvmOptions struct {
 	ID         string `help:"ID of the server" json:"-"`
-	PerferHost string `help:"Perfer host id or name" json:"perfer_host"`
+	PreferHost string `help:"Perfer host id or name" json:"prefer_host"`
 }
 
 type ServerIdsOptions struct {

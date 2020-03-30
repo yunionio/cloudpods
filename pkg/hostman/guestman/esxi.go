@@ -2,11 +2,11 @@ package guestman
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
@@ -44,7 +44,7 @@ func (m *SGuestManager) GuestCreateFromEsxi(
 		return nil, errors.Wrap(err, "vm get idisk")
 	}
 	if len(disks) == 0 {
-		return nil, errors.Errorf("no such disks for vm %s", vm.GetId())
+		return nil, fmt.Errorf("no such disks for vm %s", vm.GetId())
 	}
 	vmref := vm.GetMoid()
 	var esxiDisks = new(deployapi.ConnectEsxiDisksParams)

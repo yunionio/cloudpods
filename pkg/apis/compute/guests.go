@@ -301,5 +301,5 @@ type ConvertEsxiToKvmInput struct {
 	// target hypervisor
 	TargetHypervisor string `json:"target_hypervisor"`
 	// 指定转换的宿主机
-	PerferHost string `json:"perfer_host"`
+	PreferHost string `json:"prefer_host"`
 }
