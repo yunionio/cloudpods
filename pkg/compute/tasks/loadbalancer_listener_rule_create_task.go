@@ -82,7 +82,7 @@ func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *model
 		}
 		groupParams.ListenerID = ""
 		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(groupParams); err != nil {
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
 			self.taskFail(ctx, lbr, err.Error())
 			return
 		} else {
@@ -133,7 +133,7 @@ func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SC
 		}
 
 		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(params); err != nil {
+		if err := ilbbg.Sync(ctx, params); err != nil {
 			self.taskFail(ctx, lbr, err.Error())
 			return
 		}

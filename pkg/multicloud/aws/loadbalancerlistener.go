@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -449,11 +450,11 @@ func (self *SElbListener) Stop() error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SElbListener) Sync(listener *cloudprovider.SLoadbalancerListener) error {
+func (self *SElbListener) Sync(ctx context.Context, listener *cloudprovider.SLoadbalancerListener) error {
 	return self.region.SyncElbListener(self, listener)
 }
 
-func (self *SElbListener) Delete() error {
+func (self *SElbListener) Delete(ctx context.Context) error {
 	return self.region.DeleteElbListener(self.GetId())
 }
 

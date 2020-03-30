@@ -80,7 +80,7 @@ func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *mode
 			return
 		}
 		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(groupParams); err != nil {
+		if err := ilbbg.Sync(ctx, groupParams); err != nil {
 			self.taskFail(ctx, lblis, err.Error())
 			return
 		} else {

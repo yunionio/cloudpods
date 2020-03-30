@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -160,7 +161,7 @@ func (self *SElbListenerRule) GetBackendGroupId() string {
 	return ""
 }
 
-func (self *SElbListenerRule) Delete() error {
+func (self *SElbListenerRule) Delete(ctx context.Context) error {
 	return self.region.DeleteElbListenerRule(self.GetId())
 }
 

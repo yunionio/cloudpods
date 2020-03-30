@@ -586,6 +586,18 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	return localLbs, remoteLbs, syncResult
 }
 
+func getExtLbNetworkIds(extLb cloudprovider.ICloudLoadbalancer) []string {
+	extNetworkIds := extLb.GetNetworkIds()
+	lbNetworkIds := []string{}
+	for _, networkId := range extNetworkIds {
+		if network, err := db.FetchByExternalId(NetworkManager, networkId); err == nil && network != nil {
+			lbNetworkIds = append(lbNetworkIds, network.GetId())
+		}
+	}
+
+	return lbNetworkIds
+}
+
 func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extLb cloudprovider.ICloudLoadbalancer, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancer, error) {
 	lb := SLoadbalancer{}
 	lb.SetModelManager(man, &lb)
@@ -606,13 +618,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.ChargeType = extLb.GetChargeType()
 	lb.EgressMbps = extLb.GetEgressMbps()
 	lb.ExternalId = extLb.GetGlobalId()
-	networkIds := extLb.GetNetworkIds()
-	lbNetworkIds := []string{}
-	for _, networkId := range networkIds {
-		if network, err := db.FetchByExternalId(NetworkManager, networkId); err == nil && network != nil {
-			lbNetworkIds = append(lbNetworkIds, network.GetId())
-		}
-	}
+	lbNetworkIds := getExtLbNetworkIds(extLb)
 	lb.NetworkId = strings.Join(lbNetworkIds, ",")
 
 	if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
@@ -639,7 +645,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
 
-	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
+	lb.syncLoadbalancerNetwork(ctx, userCred, lbNetworkIds)
 	return &lb, nil
 }
 
@@ -797,8 +803,9 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 
 	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
 
+	networkIds := getExtLbNetworkIds(extLb)
 	SyncCloudProject(userCred, lb, syncOwnerId, extLb, lb.ManagerId)
-	lb.syncLoadbalancerNetwork(ctx, userCred, extLb.GetNetworkIds())
+	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
 
 	return err
 }
