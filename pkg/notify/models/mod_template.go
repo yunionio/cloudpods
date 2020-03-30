@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/notify/options"
 	"yunion.io/x/onecloud/pkg/notify/rpc/apis"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type STemplateManager struct {
@@ -72,6 +73,9 @@ type STemplate struct {
 }
 
 func (tm *STemplateManager) GetEmailUrl() string {
+	if len(options.Options.ApiServer) > 0 && len(options.Options.VerifyEmailUrlPath) > 0 {
+		return httputils.JoinPath(options.Options.ApiServer, options.Options.VerifyEmailUrlPath)
+	}
 	return options.Options.VerifyEmailUrl
 }
 

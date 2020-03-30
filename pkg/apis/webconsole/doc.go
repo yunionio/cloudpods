@@ -12,9 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package notify
-
-const (
-	SERVICE_TYPE    = "notify"
-	SERVICE_VERSION = ""
-)
+package webconsole // import "yunion.io/x/onecloud/pkg/apis/webconsole"

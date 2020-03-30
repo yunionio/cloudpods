@@ -96,6 +96,7 @@ var (
 			"non_default_domain_projects",
 			"time_zone",
 			"domainized_namespace",
+			"api_server",
 		},
 	}
 
