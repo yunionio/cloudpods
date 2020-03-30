@@ -133,6 +133,7 @@ func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, use
 
 func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
 	men := []db.IModelManager{
+		LoadbalancerListenerManager,
 		CachedLoadbalancerCertificateManager,
 	}
 	lbcertId := lbcert.Id

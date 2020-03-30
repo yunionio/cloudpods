@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -298,7 +299,7 @@ func (region *SRegion) CreateLoadbalancerHTTPListener(lb *SLoadbalancer, listene
 	return iListener, nil
 }
 
-func (listerner *SLoadbalancerHTTPListener) Delete() error {
+func (listerner *SLoadbalancerHTTPListener) Delete(ctx context.Context) error {
 	return listerner.lb.region.DeleteLoadbalancerListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
 }
 
@@ -361,7 +362,7 @@ func (region *SRegion) SyncLoadbalancerHTTPListener(lb *SLoadbalancer, listener 
 	return err
 }
 
-func (listerner *SLoadbalancerHTTPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+func (listerner *SLoadbalancerHTTPListener) Sync(ctx context.Context, lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPListener(listerner.lb, lblis)
 }
 

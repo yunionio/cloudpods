@@ -15,6 +15,7 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -299,12 +300,12 @@ func (self *SLBBackendGroup) UpdateBackendServer(serverId string, oldWeight, old
 }
 
 // 腾讯云无后端服务器组。
-func (self *SLBBackendGroup) Delete() error {
+func (self *SLBBackendGroup) Delete(ctx context.Context) error {
 	return fmt.Errorf("Please remove related listener/rule frist")
 }
 
 // 腾讯云无后端服务器组
-func (self *SLBBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SLBBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
