@@ -86,7 +86,7 @@ type BaseOptions struct {
 
 	TimeZone string `help:"time zone" default:"Asia/Shanghai"`
 
-	DomainizedNamespace bool `help:"turn on global name space, default is on" default:"false" json:"global_namespace,allowfalse"`
+	DomainizedNamespace bool `help:"turn on global name space, default is on" default:"false" json:"domainized_namespace,allowfalse"`
 
 	structarg.BaseOptions
 }
