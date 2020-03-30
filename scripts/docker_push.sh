@@ -38,7 +38,7 @@ build_bin() {
 		climc)
 			GOOS=linux make cmd/$1 cmd/*cli
 			;;
-		vpcagent|host)
+		vpcagent|host|region-dns)
 			docker run --rm \
 				-v $SRC_DIR:/root/go/src/yunion.io/x/onecloud \
 				-v $SRC_DIR/_output/alpine-build:/root/go/src/yunion.io/x/onecloud/_output \
