@@ -54,6 +54,7 @@ func NewNotificationManager() *SNotificationManager {
 			"alert_notifications",
 		),
 	}
+	man.SetAlias("notification", "notifications")
 	man.SetVirtualObject(man)
 	return man
 }
@@ -175,4 +176,28 @@ func (n *SNotification) AttachToAlert(
 		return nil, err
 	}
 	return alert.AttachNotification(ctx, userCred, n, monitor.AlertNotificationStateUnknown, "")
+}
+
+func (n *SNotification) GetAlertNotificationCount() (int, error) {
+	alertNotis := AlertNotificationManager.Query()
+	return alertNotis.Equals("notification_id", n.Id).CountWithError()
+}
+
+func (n *SNotification) IsAttached() (bool, error) {
+	cnt, err := n.GetAlertNotificationCount()
+	if err != nil {
+		return false, err
+	}
+	return cnt > 0, nil
+}
+
+func (n *SNotification) ValidateDeleteCondition(ctx context.Context) error {
+	cnt, err := n.GetAlertNotificationCount()
+	if err != nil {
+		return err
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("Alert notification used by %d alert", cnt)
+	}
+	return n.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }

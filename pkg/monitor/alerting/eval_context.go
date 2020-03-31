@@ -30,8 +30,8 @@ type EvalContext struct {
 	Firing         bool
 	IsTestRun      bool
 	IsDebug        bool
-	EvalMatches    []*EvalMatch
-	Logs           []*ResultLogEntry
+	EvalMatches    []*monitor.EvalMatch
+	Logs           []*monitor.ResultLogEntry
 	Error          error
 	ConditionEvals string
 	StartTime      time.Time
@@ -52,7 +52,7 @@ func NewEvalContext(alertCtx context.Context, userCred mcclient.TokenCredential,
 		UserCred:       userCred,
 		StartTime:      time.Now(),
 		Rule:           rule,
-		EvalMatches:    make([]*EvalMatch, 0),
+		EvalMatches:    make([]*monitor.EvalMatch, 0),
 		PrevAlertState: rule.State,
 	}
 }
