@@ -15,6 +15,7 @@
 package alerting
 
 import (
+	"context"
 	"regexp"
 	"strconv"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/validators"
 )
@@ -34,6 +36,10 @@ var (
 	// ErrFrequencyCouldNotBeParsed frequency cannot be parsed
 	ErrFrequencyCouldNotBeParsed = errors.Error(`"evaluate every" field could not be parsed`)
 )
+
+func init() {
+	models.AlertManager.SetTester(NewAlertRuleTester())
+}
 
 // Rule is the in-memory version of an alert rule.
 type Rule struct {
@@ -150,6 +156,40 @@ func NewRuleFromDBAlert(ruleDef *models.SAlert) (*Rule, error) {
 		return nil, validators.ErrAlertConditionEmpty
 	}
 	return model, nil
+}
+
+type AlertRuleTester struct{}
+
+func NewAlertRuleTester() models.AlertTestRunner {
+	return new(AlertRuleTester)
+}
+
+func (_ AlertRuleTester) DoTest(ruleDef *models.SAlert, userCred mcclient.TokenCredential, input monitor.AlertTestRunInput) (*monitor.AlertTestRunOutput, error) {
+	rule, err := NewRuleFromDBAlert(ruleDef)
+	if err != nil {
+		return nil, err
+	}
+	handler := NewEvalHandler()
+
+	ctx := NewEvalContext(context.Background(), userCred, rule)
+	ctx.IsTestRun = true
+	ctx.IsDebug = input.IsDebug
+
+	handler.Eval(ctx)
+
+	return ctx.ToTestRunResult(), nil
+}
+
+func (ctx *EvalContext) ToTestRunResult() *monitor.AlertTestRunOutput {
+	return &monitor.AlertTestRunOutput{
+		Firing:         ctx.Firing,
+		EvalMatches:    ctx.EvalMatches,
+		Logs:           ctx.Logs,
+		Error:          ctx.Error,
+		ConditionEvals: ctx.ConditionEvals,
+		StartTime:      ctx.StartTime,
+		EndTime:        ctx.EndTime,
+	}
 }
 
 // ConditionFactory is the function signature for creating `Conditions`

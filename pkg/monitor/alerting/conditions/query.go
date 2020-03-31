@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
@@ -98,7 +99,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 
 	emptySeriesCount := 0
 	evalMatchCount := 0
-	var matches []*alerting.EvalMatch
+	var matches []*monitor.EvalMatch
 
 	for idx, series := range seriesList {
 		reducedValue := c.Reducer.Reduce(series)
@@ -109,7 +110,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		}
 
 		if context.IsTestRun {
-			context.Logs = append(context.Logs, &alerting.ResultLogEntry{
+			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
 				Message: fmt.Sprintf("Condition[%d]: Eval: %v, Metric: %s, Value: %v", c.Index, evalMatch, series.Name, reducedValue),
 			})
 		}
@@ -118,7 +119,7 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			evalMatchCount++
 		}
 		tags := c.filterTags(series.Tags)
-		matches = append(matches, &alerting.EvalMatch{
+		matches = append(matches, &monitor.EvalMatch{
 			Condition: c.GenerateFormatCond(&metas[idx]).String(),
 			Metric:    series.Name,
 			Value:     reducedValue,
@@ -132,14 +133,14 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 		evalMatch := c.Evaluator.Eval(nil)
 
 		if context.IsTestRun {
-			context.Logs = append(context.Logs, &alerting.ResultLogEntry{
+			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
 				Message: fmt.Sprintf("Condition: Eval: %v, Query returned No Series (reduced to null/no value)", evalMatch),
 			})
 		}
 
 		if evalMatch {
 			evalMatchCount++
-			matches = append(matches, &alerting.EvalMatch{
+			matches = append(matches, &monitor.EvalMatch{
 				Metric: "NoData",
 				Value:  nil,
 			})
@@ -170,7 +171,37 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 	metas := make([]tsdb.QueryResultMeta, 0)
 
 	if context.IsDebug {
-		// TODO: record info when is debug mode
+		data := jsonutils.NewDict()
+		if req.TimeRange != nil {
+			data.Set("from", jsonutils.NewInt(req.TimeRange.GetFromAsMsEpoch()))
+			data.Set("to", jsonutils.NewInt(req.TimeRange.GetToAsMsEpoch()))
+		}
+
+		type queryDto struct {
+			RefId         string              `json:"refId"`
+			Model         monitor.MetricQuery `json:"model"`
+			Datasource    tsdb.DataSource     `json:"datasource"`
+			MaxDataPoints int64               `json:"maxDataPoints"`
+			IntervalMs    int64               `json:"intervalMs"`
+		}
+
+		queries := []*queryDto{}
+		for _, q := range req.Queries {
+			queries = append(queries, &queryDto{
+				RefId:         q.RefId,
+				Model:         q.MetricQuery,
+				Datasource:    q.DataSource,
+				MaxDataPoints: q.MaxDataPoints,
+				IntervalMs:    q.IntervalMs,
+			})
+		}
+
+		data.Set("queries", jsonutils.Marshal(queries))
+
+		context.Logs = append(context.Logs, &monitor.ResultLogEntry{
+			Message: fmt.Sprintf("Condition[%d]: Query", c.Index),
+			Data:    data,
+		})
 	}
 
 	resp, err := c.HandleRequest(context.Ctx, ds.ToTSDBDataSource(""), req)
@@ -181,8 +212,6 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 
 		return nil, errors.Wrap(err, "tsdb.HandleRequest() error")
 	}
-
-	// log.Errorf("===query resp %s", jsonutils.Marshal(resp).PrettyString())
 
 	for _, v := range resp.Results {
 		if v.Error != nil {
@@ -198,12 +227,12 @@ func (c *QueryCondition) executeQuery(context *alerting.EvalContext, timeRange *
 			queryResultData["series"] = v.Series
 		}
 
-		/*if context.IsDebug && v.Meta != nil {
+		if context.IsDebug {
 			queryResultData["meta"] = v.Meta
-		}*/
+		}
 
 		if context.IsTestRun || context.IsDebug {
-			context.Logs = append(context.Logs, &alerting.ResultLogEntry{
+			context.Logs = append(context.Logs, &monitor.ResultLogEntry{
 				Message: fmt.Sprintf("Condition[%d]: Query Result", c.Index),
 				Data:    queryResultData,
 			})
