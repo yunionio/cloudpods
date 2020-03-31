@@ -86,7 +86,7 @@ func newDingdingNotifier(config alerting.NotificationConfig) (alerting.Notifier,
 	}, nil
 }
 
-func (dd *DingDingNotifier) Notify(ctx *alerting.EvalContext) error {
+func (dd *DingDingNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification to dingding")
 	// msgUrl, err := ctx.GetRuleURL()
 

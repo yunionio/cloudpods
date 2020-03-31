@@ -1,6 +1,10 @@
 package monitor
 
-import "yunion.io/x/onecloud/pkg/apis"
+import (
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/apis"
+)
 
 type AlertJointResourceBaseDetails struct {
 	SAlertJointsBase
@@ -21,6 +25,7 @@ type AlertJointCreateInput struct {
 type AlertnotificationCreateInput struct {
 	AlertJointCreateInput
 
-	NotificationId string `json:"notification_id"`
-	UsedBy         string `json:"used_by"`
+	NotificationId string               `json:"notification_id"`
+	UsedBy         string               `json:"used_by"`
+	Params         jsonutils.JSONObject `json:"params"`
 }
