@@ -25,14 +25,20 @@ const (
 )
 
 type ProxySettingCreateInput struct {
-	apis.VirtualResourceCreateInput
+	apis.InfrasResourceBaseCreateInput
 
 	HttpProxy  string
 	HttpsProxy string
 	NoProxy    string
 }
 
-type ProxySettingUpdateInput ProxySettingCreateInput
+type ProxySettingUpdateInput struct {
+	apis.InfrasResourceBaseUpdateInput
+
+	HttpProxy  string
+	HttpsProxy string
+	NoProxy    string
+}
 
 // String implements ISerializable interface
 func (ps *SProxySetting) String() string {
