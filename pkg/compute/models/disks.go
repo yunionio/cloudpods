@@ -1063,6 +1063,13 @@ func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
 }
 
 func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
+	if !isPurge {
+		storage := self.GetStorage()
+		host := storage.GetMasterHost()
+		if host == nil {
+			return httperrors.NewBadRequestError("storage of disk no valid host")
+		}
+	}
 	cnt, err := self.GetGuestDiskCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)

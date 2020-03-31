@@ -452,7 +452,7 @@ func (m *SGuestManager) GetStatus(sid string) string {
 			}
 		}
 		if guest.IsRunning() {
-			if guest.BlockJobsCount() > 0 {
+			if guest.Monitor != nil && guest.BlockJobsCount() > 0 {
 				return GUEST_BLOCK_STREAM
 			}
 			return GUEST_RUNNING
