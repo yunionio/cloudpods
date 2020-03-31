@@ -113,7 +113,7 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 }
 
 // Notify sends the alert notification.
-func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext) error {
+func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
 	config := GetNotifyTemplateConfig(ctx)
 	contentConfig := oc.buildContent(config)
