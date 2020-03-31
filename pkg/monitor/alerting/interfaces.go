@@ -18,6 +18,8 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 	"yunion.io/x/onecloud/pkg/monitor/notifydrivers"
@@ -48,7 +50,7 @@ type Condition interface {
 type Notifier interface {
 	notifydrivers.Notifier
 
-	Notify(evalContext *EvalContext) error
+	Notify(evalContext *EvalContext, params jsonutils.JSONObject) error
 
 	// ShouldNotify checks this evaluation should send an alert notification
 	ShouldNotify(ctx context.Context, evalContext *EvalContext, notificationState *models.SAlertnotification) bool
