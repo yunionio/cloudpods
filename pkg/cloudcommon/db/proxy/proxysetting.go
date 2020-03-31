@@ -19,6 +19,7 @@ import (
 
 type SProxySettingManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var ProxySettingManager *SProxySettingManager
@@ -37,6 +38,7 @@ func init() {
 
 type SProxySetting struct {
 	db.SStandaloneResourceBase
+	db.SDomainizedResourceBase
 
 	HTTPProxy  string `create:"admin_optional" list:"admin" update:"admin"`
 	HTTPSProxy string `create:"admin_optional" list:"admin" update:"admin"`
@@ -45,6 +47,11 @@ type SProxySetting struct {
 
 func (man *SProxySettingManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data proxyapi.ProxySettingCreateInput) (proxyapi.ProxySettingCreateInput, error) {
 	return data, nil
+}
+
+func (ps *SProxySetting) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	ps.DomainId = ownerId.GetProjectDomainId()
+	return ps.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (ps *SProxySetting) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data proxyapi.ProxySettingUpdateInput) (proxyapi.ProxySettingUpdateInput, error) {
