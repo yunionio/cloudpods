@@ -68,7 +68,7 @@ func (n *notificationService) sendAndMarkAsComplete(evalCtx *EvalContext, state 
 
 	log.Debugf("Sending notification, type %s, id %s", notifier.GetType(), notifier.GetNotifierId())
 
-	if err := notifier.Notify(evalCtx); err != nil {
+	if err := notifier.Notify(evalCtx, state.state.GetParams()); err != nil {
 		log.Errorf("failed to send notification %s: %v", notifier.GetNotifierId(), err)
 		return err
 	}

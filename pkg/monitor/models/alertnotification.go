@@ -56,10 +56,11 @@ func init() {
 
 type SAlertnotification struct {
 	SAlertJointsBase
-	NotificationId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	State          string `nullable:"false" list:"user" create:"required"`
-	Index          int8   `nullable:"false" default:"0" list:"user" list:"user" update:"user"`
-	UsedBy         string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	NotificationId string               `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	State          string               `nullable:"false" list:"user" create:"required"`
+	Index          int8                 `nullable:"false" default:"0" list:"user" list:"user" update:"user"`
+	UsedBy         string               `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	Params         jsonutils.JSONObject `nullable:"true" list:"user" update:"user"`
 }
 
 func (man *SAlertNotificationManager) GetSlaveFieldName() string {
@@ -214,4 +215,8 @@ func (state *SAlertnotification) setState(changeState monitor.AlertNotificationS
 
 func (state *SAlertnotification) GetState() monitor.AlertNotificationStateType {
 	return monitor.AlertNotificationStateType(state.State)
+}
+
+func (state *SAlertnotification) GetParams() jsonutils.JSONObject {
+	return state.Params
 }

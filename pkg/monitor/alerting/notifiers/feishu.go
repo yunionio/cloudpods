@@ -86,7 +86,7 @@ func newFeishuNotifier(config alerting.NotificationConfig) (alerting.Notifier, e
 	}, nil
 }
 
-func (fs *FeishuNotifier) Notify(ctx *alerting.EvalContext) error {
+func (fs *FeishuNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONObject) error {
 	log.Infof("Sending alert notification to feishu")
 	errGrp := errgroup.Group{}
 	for _, cId := range fs.ChatIds {
