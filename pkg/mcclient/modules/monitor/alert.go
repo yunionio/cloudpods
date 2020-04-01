@@ -35,7 +35,7 @@ type SAlertManager struct {
 
 func NewAlertManager() *SAlertManager {
 	man := modules.NewMonitorV2Manager("alert", "alerts",
-		[]string{"id", "name", "state", "frequency", "enabled", "settings"},
+		[]string{"id", "name", "frequency", "enabled", "settings", "state"},
 		[]string{})
 	return &SAlertManager{
 		ResourceManager: &man,

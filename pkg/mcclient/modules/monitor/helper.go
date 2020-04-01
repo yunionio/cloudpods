@@ -10,11 +10,14 @@ import (
 
 // AlertConfig is a helper to generate monitor service alert related api input
 type AlertConfig struct {
-	name       string
-	frequency  int64
-	level      string
-	enabled    bool
-	conditions []*AlertCondition
+	name           string
+	frequency      int64
+	forTime        int64
+	level          string
+	enabled        bool
+	conditions     []*AlertCondition
+	execErrorState string
+	noDataState    string
 }
 
 func NewAlertConfig(name string, frequency string, enabled bool) (*AlertConfig, error) {
@@ -32,6 +35,16 @@ func NewAlertConfig(name string, frequency string, enabled bool) (*AlertConfig, 
 	return input, nil
 }
 
+func (c *AlertConfig) ExecutionErrorState(s string) *AlertConfig {
+	c.execErrorState = s
+	return c
+}
+
+func (c *AlertConfig) NoDataState(s string) *AlertConfig {
+	c.noDataState = s
+	return c
+}
+
 func (c *AlertConfig) Level(l string) *AlertConfig {
 	c.level = l
 	return c
@@ -44,11 +57,14 @@ func (c *AlertConfig) Enable(e bool) *AlertConfig {
 
 func (c *AlertConfig) ToAlertCreateInput() monitor.AlertCreateInput {
 	return monitor.AlertCreateInput{
-		Name:      c.name,
-		Frequency: c.frequency,
-		Settings:  c.ToAlertSetting(),
-		Enabled:   &c.enabled,
-		Level:     c.level,
+		Name:                c.name,
+		Frequency:           c.frequency,
+		Settings:            c.ToAlertSetting(),
+		Enabled:             &c.enabled,
+		Level:               c.level,
+		For:                 c.forTime,
+		ExecutionErrorState: c.execErrorState,
+		NoDataState:         c.noDataState,
 	}
 }
 
