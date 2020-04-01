@@ -97,4 +97,20 @@ func init() {
 			fmt.Println(ret.JSON(ret).YAMLString())
 			return nil
 		})
+
+	R(&options.AlertPauseOptions{}, aN("pause"), "Pause or unpause alert",
+		func(s *mcclient.ClientSession, args *options.AlertPauseOptions) error {
+			data := new(monitorapi.AlertPauseInput)
+			if args.UnPause {
+				data.Paused = false
+			} else {
+				data.Paused = true
+			}
+			ret, err := monitor.Alerts.PerformAction(s, args.ID, "pause", data.JSON(data))
+			if err != nil {
+				return err
+			}
+			printObject(ret)
+			return nil
+		})
 }
