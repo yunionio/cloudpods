@@ -85,12 +85,12 @@ func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandal
 }
 
 func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
-	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(self.UserCred, false)
 	}
 	self.clearPendingUsage(ctx, guest)
+	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 }
 
 func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
@@ -140,7 +140,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		log.Errorf("guest.GetQuotaKeys fail %s", err)
 	}
 	quotaCpuMem.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem)
+	err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaCpuMem, true) // success
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	input, err := self.GetCreateInput()

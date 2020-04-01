@@ -153,7 +153,7 @@ func (gi *SGuestImage) PostCreate(ctx context.Context, userCred mcclient.TokenCr
 	pendingUsage := SQuota{Image: int(imageNumber)}
 	keys := imageCreateInput2QuotaKeys(data, ownerId)
 	pendingUsage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 
 	if !suc {
 		gi.SetStatus(userCred, api.IMAGE_STATUS_KILLED, "create subimage failed")
