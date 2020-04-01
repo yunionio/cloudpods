@@ -450,18 +450,6 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
-				{
-					Service:  "compute",
-					Resource: "cloudproviders",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "compute",
-					Resource: "cloudproviders",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
 			},
 		},
 		{
@@ -526,6 +514,30 @@ var (
 				{
 					Service:  identityapi.SERVICE_TYPE,
 					Resource: "domains",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudaccounts",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudaccounts",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudproviders",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudproviders",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
