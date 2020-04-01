@@ -1379,7 +1379,7 @@ func (self *SGuest) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	if data.Contains("pending_usage") {
 		quota := SQuota{}
 		data.Unmarshal(&quota, "pending_usage")
-		quotas.CancelPendingUsage(ctx, userCred, &quota, &quota)
+		quotas.CancelPendingUsage(ctx, userCred, &quota, &quota, true)
 	}
 
 	self.StartSyncTask(ctx, userCred, true, "")
@@ -2583,7 +2583,7 @@ func (self *SGuest) attach2NetworkOnce(
 			log.Warningf("self.GetRegionalQuotaKeys fail %s", err)
 		}
 		cancelUsage.SetKeys(keys)
-		err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+		err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage, true)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -3195,7 +3195,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 	cancelUsage.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage, true)
 
 	return disk, nil
 }
@@ -3284,7 +3284,7 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 		return err
 	}
 	cancelUsage.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage)
+	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage, true) // success
 	return err
 }
 
