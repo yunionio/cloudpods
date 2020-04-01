@@ -33,14 +33,14 @@ import (
 )
 
 type SProxySettingManager struct {
-	db.SStandaloneResourceBaseManager
+	db.SInfrasResourceBaseManager
 }
 
 var ProxySettingManager *SProxySettingManager
 
 func init() {
 	ProxySettingManager = &SProxySettingManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SInfrasResourceBaseManager: db.NewInfrasResourceBaseManager(
 			SProxySetting{},
 			"proxysettings_tbl",
 			"proxysetting",
@@ -51,7 +51,7 @@ func init() {
 }
 
 type SProxySetting struct {
-	db.SStandaloneResourceBase
+	db.SInfrasResourceBase
 
 	HTTPProxy  string `create:"admin_optional" list:"admin" update:"admin"`
 	HTTPSProxy string `create:"admin_optional" list:"admin" update:"admin"`
@@ -59,14 +59,29 @@ type SProxySetting struct {
 }
 
 func (man *SProxySettingManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data proxyapi.ProxySettingCreateInput) (proxyapi.ProxySettingCreateInput, error) {
-	return data, nil
+	var err error
+	data.InfrasResourceBaseCreateInput, err = man.SInfrasResourceBaseManager.ValidateCreateData(
+		ctx,
+		userCred,
+		ownerId,
+		query,
+		data.InfrasResourceBaseCreateInput,
+	)
+	return data, err
 }
 
 func (ps *SProxySetting) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data proxyapi.ProxySettingUpdateInput) (proxyapi.ProxySettingUpdateInput, error) {
 	if ps.Id == proxyapi.ProxySettingId_DIRECT {
 		return data, httperrors.NewConflictError("DIRECT setting cannot be changed")
 	}
-	return data, nil
+	var err error
+	data.InfrasResourceBaseUpdateInput, err = ps.SInfrasResourceBase.ValidateUpdateData(
+		ctx,
+		userCred,
+		query,
+		data.InfrasResourceBaseUpdateInput,
+	)
+	return data, err
 }
 
 func (ps *SProxySetting) HttpTransportProxyFunc() httputils.TransportProxyFunc {
@@ -95,7 +110,7 @@ func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
 				ps.Id, n, man.KeywordPlural())
 		}
 	}
-	return nil
+	return ps.SInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (man *SProxySettingManager) InitializeData() error {
