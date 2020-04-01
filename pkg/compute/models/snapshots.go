@@ -291,7 +291,7 @@ func (snapshot *SSnapshot) PostCreate(ctx context.Context, userCred mcclient.Tok
 	pendingUsage := SRegionQuota{Snapshot: 1}
 	keys := snapshot.GetQuotaKeys()
 	pendingUsage.SetKeys(keys)
-	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	err := quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 	if err != nil {
 		log.Errorf("quotas.CancelPendingUsage fail %s", err)
 	}

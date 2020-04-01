@@ -1579,7 +1579,7 @@ func objectUpdateSpec(dispatcher *DBModelDispatcher, model IModel, modelValue re
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
 	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
-	cleanModelUsages(ctx, userCred, item)
+	// cleanModelUsages(ctx, userCred, item)
 	_, err := Update(item, func() error {
 		return item.MarkDelete()
 	})

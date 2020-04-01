@@ -166,7 +166,7 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 		log.Warningf("disk.GetQuotaKeys fail %s", err)
 	}
 	quotaStorage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage)
+	quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &quotaStorage, true) // success
 	self.SetPendingUsage(&pendingUsage, 0)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())
