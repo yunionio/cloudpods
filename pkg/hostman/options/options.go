@@ -22,6 +22,7 @@ import (
 
 type SHostOptions struct {
 	common_options.CommonOptions
+	common_options.EtcdOptions
 
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`
@@ -122,6 +123,12 @@ type SHostOptions struct {
 	OvnEncapIp           string `help:"encap ip for ovn datapath.  Default to output src address of default route" default:"$HOST_OVN_ENCAP_IP"`
 	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
 	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"mapped" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
+
+	EnableHealthChecker   bool   `help:"enable host health checker"`
+	HealthDriver          string `help:"Component save host health state" default:"etcd"`
+	HealthShutdownServers bool   `help:"Host healthor disconenct with controller shutdown shared storage servers" default:"false"`
+	HostHealthTimeout     int    `help:"host health timeout" default:"30"`
+	HostLeaseTimeout      int    `help:"lease timeout" default:"10"`
 }
 
 var (

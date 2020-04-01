@@ -125,22 +125,25 @@ type DBOptions struct {
 
 	QueryOffsetOptimization bool `help:"apply query offset optimization"`
 
-	LockmanMethod  string   `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
-	EtcdLockPrefix string   `help:"prefix of etcd lock records"`
-	EtcdLockTTL    int      `help:"ttl of etcd lock records"`
-	EtcdEndpoints  []string `help:"endpoints of etcd cluster"`
+	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
-	EtcdUsername string `help:"username of etcd cluster"`
-	EtcdPassword string `help:"password of etcd cluster"`
-
-	EtcdUseTLS        bool   `help:"use tls transport to connect etcd cluster" default:"false"`
-	EtcdSkipTLSVerify bool   `help:"skip tls verification" default:"false"`
-	EtcdCacert        string `help:"path to cacert for connecting to etcd cluster"`
-	EtcdCert          string `help:"path to cert file for connecting to etcd cluster"`
-	EtcdKey           string `help:"path to key file for connecting to etcd cluster"`
+	EtcdOptions
+	EtcdLockPrefix string `help:"prefix of etcd lock records"`
+	EtcdLockTTL    int    `help:"ttl of etcd lock records"`
 }
 
-func (this *DBOptions) GetEtcdTLSConfig() (*tls.Config, error) {
+type EtcdOptions struct {
+	EtcdEndpoints     []string `help:"endpoints of etcd cluster"`
+	EtcdUsername      string   `help:"username of etcd cluster"`
+	EtcdPassword      string   `help:"password of etcd cluster"`
+	EtcdUseTLS        bool     `help:"use tls transport to connect etcd cluster" default:"false"`
+	EtcdSkipTLSVerify bool     `help:"skip tls verification" default:"false"`
+	EtcdCacert        string   `help:"path to cacert for connecting to etcd cluster"`
+	EtcdCert          string   `help:"path to cert file for connecting to etcd cluster"`
+	EtcdKey           string   `help:"path to key file for connecting to etcd cluster"`
+}
+
+func (this *EtcdOptions) GetEtcdTLSConfig() (*tls.Config, error) {
 	var (
 		cert       tls.Certificate
 		certLoaded bool
