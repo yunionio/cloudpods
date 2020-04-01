@@ -97,6 +97,9 @@ func (ps *SProxySetting) HttpTransportProxyFunc() httputils.TransportProxyFunc {
 }
 
 func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
+	if ps.Id == proxyapi.ProxySettingId_DIRECT {
+		return httperrors.NewConflictError("DIRECT setting cannot be deleted")
+	}
 	for _, man := range referrersMen {
 		t := man.TableSpec().Instance()
 		n, err := t.Query().
