@@ -187,6 +187,24 @@ var (
 				},
 				{
 					Service:  api.SERVICE_TYPE,
+					Resource: "cloudaccounts",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "cloudproviders",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "cloudproviders",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
 					Resource: "domain_quotas",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
@@ -303,18 +321,6 @@ var (
 					Service:  api.SERVICE_TYPE,
 					Resource: "networks",
 					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudproviders",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  api.SERVICE_TYPE,
-					Resource: "cloudproviders",
-					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 			},
