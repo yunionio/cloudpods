@@ -463,7 +463,7 @@ func (bucket *SBucket) PostCreate(
 		log.Errorf("bucket.GetQuotaKeys fail %s", err)
 	} else {
 		pendingUsage.SetKeys(keys)
-		err = quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+		err = quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 		if err != nil {
 			log.Errorf("CancelPendingUsage error %s", err)
 		}
@@ -787,7 +787,7 @@ func (bucket *SBucket) PerformMakedir(
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
 
-	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
 
 	return nil, nil
 }
@@ -947,12 +947,13 @@ func (bucket *SBucket) PerformUpload(
 			return nil, httperrors.NewOutOfQuotaError("%s", err)
 		}
 
-		// always cancel pending usage
-		defer quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage)
 	}
 
 	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, cloudprovider.TBucketACLType(aclStr), storageClass, meta, false)
 	if err != nil {
+		if !pendingUsage.IsEmpty() {
+			quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, false)
+		}
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}
 
@@ -960,6 +961,10 @@ func (bucket *SBucket) PerformUpload(
 	logclient.AddActionLogWithContext(ctx, bucket, logclient.ACT_UPLOAD_OBJECT, key, userCred, true)
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
+
+	if !pendingUsage.IsEmpty() {
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &pendingUsage, true)
+	}
 
 	return nil, nil
 }

@@ -509,7 +509,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		cancelUsage := SQuota{Image: 1}
 		keys = self.GetQuotaKeys()
 		cancelUsage.SetKeys(keys)
-		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &cancelUsage)
+		quotas.CancelPendingUsage(ctx, userCred, &pendingUsage, &cancelUsage, true)
 	}
 
 	if data.Contains("properties") {

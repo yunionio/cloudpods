@@ -66,14 +66,14 @@ func (manager *SQuotaBaseManager) _cleanPendingUsage(ctx context.Context, userCr
 	return nil
 }
 
-func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaBaseManager) cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
 	LockQuota(ctx, manager, localUsage)
 	defer ReleaseQuota(ctx, manager, localUsage)
 
-	return manager._cancelPendingUsage(ctx, userCred, localUsage, cancelUsage)
+	return manager._cancelPendingUsage(ctx, userCred, localUsage, cancelUsage, save)
 }
 
-func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
 	originKeys := localUsage.GetKeys()
 	// currentKeys := cancelUsage.GetKeys()
 
@@ -92,9 +92,11 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 
 	log.Debugf("cancelUsage: %s localUsage: %s pendingUsage: %s", jsonutils.Marshal(cancelUsage), jsonutils.Marshal(localUsage), jsonutils.Marshal(pendingUsage))
 
-	err = manager.changeUsage(ctx, userCred, pendingUsage, true)
-	if err != nil {
-		return errors.Wrap(err, "manager.changelUsage")
+	if save {
+		err = manager.changeUsage(ctx, userCred, pendingUsage, true)
+		if err != nil {
+			return errors.Wrap(err, "manager.changelUsage")
+		}
 	}
 
 	return nil
