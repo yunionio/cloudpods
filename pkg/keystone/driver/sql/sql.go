@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
@@ -58,7 +59,8 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		localUser.SaveFailedAuth()
 		if o.Options.PasswordErrorLockCount > 0 && localUser.FailedAuthCount > o.Options.PasswordErrorLockCount {
-			models.UserManager.LockUser(usrExt.Id)
+			models.UserManager.LockUser(usrExt.Id, "too many failed auth attempts")
+			return nil, errors.Wrap(httperrors.ErrTooManyAttempts, "user locked")
 		}
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}

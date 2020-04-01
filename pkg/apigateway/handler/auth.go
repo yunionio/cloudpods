@@ -288,7 +288,7 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 	if err != nil {
 		switch httperr := err.(type) {
 		case *httputils.JSONClientError:
-			if httperr.Code == 409 {
+			if httperr.Code == 409 || httperr.Code == 429 {
 				return nil, err
 			}
 		}

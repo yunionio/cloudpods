@@ -80,6 +80,9 @@ const (
 	ErrNoBalancePermission = errors.Error("NoBalancePermission")
 
 	ErrTooLarge = errors.Error("TooLargeEntity")
+
+	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
+	ErrTooManyRequests = errors.Error("TooManyRequests")
 )
 
 var (
@@ -149,6 +152,9 @@ var (
 		ErrNoProject:         403,
 
 		ErrTooLarge: 413,
+
+		ErrTooManyAttempts: 429,
+		ErrTooManyRequests: 429,
 	}
 )
 
