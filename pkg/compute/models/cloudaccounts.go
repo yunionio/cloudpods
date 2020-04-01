@@ -1062,12 +1062,41 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(
 ) []api.CloudaccountDetail {
 	rows := make([]api.CloudaccountDetail, len(objs))
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	proxySettings := make(map[string]proxy.SProxySetting)
+	{
+		proxySettingIds := make([]string, len(objs))
+		for i := range objs {
+			proxySettingId := objs[i].(*SCloudaccount).ProxySettingId
+			if !utils.IsInStringArray(proxySettingId, proxySettingIds) {
+				proxySettingIds = append(proxySettingIds, proxySettingId)
+			}
+		}
+		if err := db.FetchStandaloneObjectsByIds(
+			proxy.ProxySettingManager,
+			proxySettingIds,
+			&proxySettings,
+		); err != nil {
+			log.Errorf("FetchStandaloneObjectsByIds (%s) fail %s",
+				proxy.ProxySettingManager.KeywordPlural(), err)
+			return rows
+		}
+	}
 	for i := range rows {
-		rows[i] = api.CloudaccountDetail{
+		account := objs[i].(*SCloudaccount)
+		detail := api.CloudaccountDetail{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
-		rows[i] = objs[i].(*SCloudaccount).getMoreDetails(rows[i])
+		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
+			detail.ProxySetting.Id = proxySetting.Id
+			detail.ProxySetting.Name = proxySetting.Name
+			detail.ProxySetting.HTTPProxy = proxySetting.HTTPProxy
+			detail.ProxySetting.HTTPSProxy = proxySetting.HTTPSProxy
+			detail.ProxySetting.NoProxy = proxySetting.NoProxy
+		}
+		rows[i] = account.getMoreDetails(detail)
 	}
+
 	return rows
 }
 

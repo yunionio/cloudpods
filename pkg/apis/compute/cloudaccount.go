@@ -19,7 +19,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
+	proxyapi "yunion.io/x/onecloud/pkg/apis/cloudcommon/proxy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -186,7 +186,7 @@ type CloudaccountCreateInput struct {
 	// 额外信息,例如账单的access key
 	Options *jsonutils.JSONDict `json:"options"`
 
-	proxy.ProxySettingResourceInput
+	proxyapi.ProxySettingResourceInput
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential
@@ -294,6 +294,8 @@ type CloudaccountDetail struct {
 	// 存储缓存数量
 	// example: 10
 	StoragecacheCount int `json:"storagecache_count,allowempty"`
+
+	ProxySetting proxyapi.SProxySetting `json:"proxy_setting"`
 }
 
 type CloudaccountUpdateInput struct {
@@ -307,7 +309,7 @@ type CloudaccountUpdateInput struct {
 	// 带删除的options key
 	RemoveOptions []string `json:"remove_options"`
 
-	proxy.ProxySettingResourceInput
+	proxyapi.ProxySettingResourceInput
 }
 
 type CloudaccountPerformPublicInput struct {
