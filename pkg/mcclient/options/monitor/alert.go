@@ -43,6 +43,11 @@ type AlertTestRunOptions struct {
 	Debug bool   `help:"Show more debug info"`
 }
 
+type AlertPauseOptions struct {
+	ID      string `help:"ID of alert to delete"`
+	UnPause bool   `help:"Unpause alert"`
+}
+
 type AlertConditionOptions struct {
 	REDUCER    string   `help:"Metric query reducer, e.g. 'avg'" choices:"avg|sum|min|max|count|last|median"`
 	DATABASE   string   `help:"Metric database, e.g. 'telegraf'"`
@@ -51,6 +56,7 @@ type AlertConditionOptions struct {
 	THRESHOLD  float64  `help:"Alert threshold"`
 	Period     string   `help:"Query metric period e.g. '5m', '1h'" default:"5m"`
 	Tag        []string `help:"Query tag, e.g. 'zone=zon0,name=vmname'"`
+	For        string   `help:"For time duration"`
 }
 
 func (opt AlertConditionOptions) Params(conf *monitor2.AlertConfig) (*monitor2.AlertCondition, error) {
@@ -96,8 +102,14 @@ func (opt AlertConditionOptions) Params(conf *monitor2.AlertConfig) (*monitor2.A
 	return cond, nil
 }
 
+type AlertStatesOptions struct {
+	NoDataState         string `help:"Set state when no data"`
+	ExecutionErrorState string `help:"Set state when execution error"`
+}
+
 type AlertCreateOptions struct {
 	AlertConditionOptions
+	AlertStatesOptions
 	NAME      string `help:"Name of the alert"`
 	Frequency string `help:"Alert execute frequency, e.g. '5m', '1h'"`
 	Enabled   bool   `help:"Enable alert"`
@@ -113,7 +125,8 @@ func (opt AlertCreateOptions) Params() (*monitor2.AlertConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	input.NoDataState(opt.NoDataState)
+	input.ExecutionErrorState(opt.ExecutionErrorState)
 	return input, nil
 }
 
@@ -121,6 +134,7 @@ type AlertUpdateOptions struct {
 	ID        string `help:"ID or name of the alert"`
 	Name      string `help:"Update alert name"`
 	Frequency string `help:"Alert execute frequency, e.g. '5m', '1h'"`
+	AlertStatesOptions
 }
 
 func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
@@ -136,6 +150,8 @@ func (opt AlertUpdateOptions) Params() (*monitor.AlertUpdateInput, error) {
 		f := int64(freq / time.Second)
 		input.Frequency = &f
 	}
+	input.NoDataState = opt.NoDataState
+	input.ExecutionErrorState = opt.ExecutionErrorState
 	return input, nil
 }
 

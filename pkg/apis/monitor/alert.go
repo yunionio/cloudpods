@@ -105,12 +105,18 @@ type AlertCreateInput struct {
 	Name string `json:"name"`
 	// 报警执行频率
 	Frequency int64 `json:"frequency"`
+	// 报警持续时间
+	For int64 `json:"for"`
 	// 报警设置
 	Settings AlertSetting `json:"settings"`
 	// 启用报警
 	Enabled *bool `json:"enabled"`
 	// 报警级别
 	Level string `json:"level"`
+	// 没有收到监控指标时将当前报警状态设置为对应的状态
+	NoDataState string `json:"no_data_state"`
+	// 报警执行错误将当前报警状态设置为对应的状态
+	ExecutionErrorState string `json:"execution_error_state"`
 }
 
 type AlertUpdateInput struct {
@@ -126,6 +132,10 @@ type AlertUpdateInput struct {
 	Enabled *bool `json:"enabled"`
 	// 报警级别
 	Level *string `json:"level"`
+	// 没有收到监控指标时将当前报警状态设置为对应的状态
+	NoDataState string `json:"no_data_state"`
+	// 报警执行错误将当前报警状态设置为对应的状态
+	ExecutionErrorState string `json:"execution_error_state"`
 }
 
 type AlertListInput struct {
@@ -170,16 +180,8 @@ type AlertTestRunOutput struct {
 	EndTime        time.Time         `json:"end_time"`
 }
 
-type AlertAttachNotificationInput struct {
+type AlertPauseInput struct {
 	apis.Meta
 
-	NotificationId string `json:"notification_id"`
-	UsedBy         string `json:"used_by"`
-}
-
-type AlertAttachNotificationOutput struct {
-	apis.Meta
-
-	NotificationId string `json:"notification_id"`
-	UsedBy         string `json:"used_by"`
+	Paused bool `json:"paused"`
 }
