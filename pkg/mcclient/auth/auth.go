@@ -356,6 +356,11 @@ func GetAdminSessionWithPublic(ctx context.Context, region string,
 	return GetSessionWithPublic(ctx, manager.adminCredential, region, apiVersion)
 }
 
+func GetAdminSessionWithInternal(
+	ctx context.Context, region string, apiVersion string) *mcclient.ClientSession {
+	return GetSessionWithInternal(ctx, manager.adminCredential, region, apiVersion)
+}
+
 func GetSession(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
 	if len(globalEndpointType) != 0 {
 		return getSessionByType(ctx, token, region, apiVersion, globalEndpointType)
