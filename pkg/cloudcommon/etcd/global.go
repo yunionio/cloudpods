@@ -18,13 +18,13 @@ var (
 	defaultClient *SEtcdClient
 )
 
-func InitDefaultEtcdClient(opt *SEtcdOptions) error {
+func InitDefaultEtcdClient(opt *SEtcdOptions, onKeepaliveFailure func()) error {
 	if defaultClient != nil {
 		return nil
 	}
 
 	var err error
-	defaultClient, err = NewEtcdClient(opt)
+	defaultClient, err = NewEtcdClient(opt, onKeepaliveFailure)
 	return err
 }
 

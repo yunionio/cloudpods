@@ -793,4 +793,26 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HostAutoMigrateOnHostDownOptions struct {
+		ID      string `help:"ID or name of host"`
+		Enable  bool   `help:"enable auto migrate"`
+		Disable bool   `help:"disable auto migrate"`
+	}
+	R(&HostAutoMigrateOnHostDownOptions{}, "host-auto-migrate-on-host-down", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *HostAutoMigrateOnHostDownOptions) error {
+		params := jsonutils.NewDict()
+		if args.Disable {
+			params.Set("auto_migrate_on_host_down", jsonutils.NewString("enable"))
+		} else if args.Enable {
+			params.Set("auto_migrate_on_host_down", jsonutils.NewString("disable"))
+		} else {
+			return fmt.Errorf("missing input enable or disable")
+		}
+		result, err := modules.Hosts.GetSpecific(s, args.ID, "auto-migrate-on-host-down", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

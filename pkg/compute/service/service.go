@@ -22,6 +22,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/elect"
+	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
@@ -43,7 +45,6 @@ import (
 )
 
 func StartService() {
-
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	baseOpts := &options.Options.BaseOptions
@@ -83,15 +84,23 @@ func StartService() {
 	defer cancelFunc()
 
 	if opts.LockmanMethod == common_options.LockMethodEtcd {
-		cfg, err := elect.NewEtcdConfigFromDBOptions(dbOpts)
+		etcdCfg, err := elect.NewEtcdConfigFromDBOptions(dbOpts)
 		if err != nil {
 			log.Fatalf("etcd config for elect: %v", err)
 		}
-		electObj, err = elect.NewElect(cfg, "@master-role")
+		electObj, err = elect.NewElect(etcdCfg, "@master-role")
 		if err != nil {
 			log.Fatalf("new elect instance: %v", err)
 		}
 		go electObj.Start(ctx)
+	}
+
+	if opts.EnableHostHealthCheck {
+		if err := initDefaultEtcdClient(dbOpts); err != nil {
+			log.Fatalf("init etcd client failed %s", err)
+		}
+		models.InitHostHealthChecker(etcd.Default(), opts.HostHealthTimeout).
+			StartHostsHealthCheck(context.Background())
 	}
 
 	if !opts.IsSlaveNode {
@@ -124,7 +133,6 @@ func StartService() {
 		cron.AddJobEveryFewDays("SyncDBInstanceSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncDBInstanceSkus, true)
 		cron.AddJobEveryFewDays("SyncElasticCacheSkus", opts.SyncSkusDay, opts.SyncSkusHour, 0, 0, models.SyncElasticCacheSkus, true)
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
-
 		go cron.Start2(ctx, electObj)
 
 		// init auto scaling controller
@@ -132,4 +140,25 @@ func StartService() {
 	}
 
 	app_common.ServeForever(app, baseOpts)
+}
+
+func initDefaultEtcdClient(opts *common_options.DBOptions) error {
+	if etcd.Default() != nil {
+		return nil
+	}
+	tlsConfig, err := opts.GetEtcdTLSConfig()
+	if err != nil {
+		return err
+	}
+	err = etcd.InitDefaultEtcdClient(&etcd.SEtcdOptions{
+		EtcdEndpoint:  opts.EtcdEndpoints,
+		EtcdUsername:  opts.EtcdUsername,
+		EtcdPassword:  opts.EtcdPassword,
+		EtcdEnabldSsl: opts.EtcdUseTLS,
+		TLSConfig:     tlsConfig,
+	}, nil)
+	if err != nil {
+		return errors.Wrap(err, "init default etcd client")
+	}
+	return nil
 }

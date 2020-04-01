@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+	"google.golang.org/grpc"
 
 	"yunion.io/x/log"
 
@@ -39,24 +40,43 @@ type SEtcdClient struct {
 
 	namespace string
 
-	leaseId clientv3.LeaseID
+	leaseId            clientv3.LeaseID
+	onKeepaliveFailure func()
+	leaseLiving        bool
 
 	watchers map[string]*SEtcdWatcher
 }
 
-func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
+func defaultOnKeepAliveFailed() {
+	log.Fatalf("etcd keepalive failed")
+}
+
+func NewEtcdClient(opt *SEtcdOptions, onKeepaliveFailure func()) (*SEtcdClient, error) {
 	var err error
 	var tlsConfig *tls.Config
 
 	if opt.EtcdEnabldSsl {
-		tlsConfig, err = seclib2.InitTLSConfig(opt.EtcdSslCertfile, opt.EtcdSslKeyfile)
-		if err != nil {
-			log.Errorf("init tls config fail %s", err)
-			return nil, err
+		if opt.TLSConfig == nil {
+			if len(opt.EtcdSslCaCertfile) > 0 {
+				tlsConfig, err = seclib2.InitTLSConfigWithCA(
+					opt.EtcdSslCertfile, opt.EtcdSslKeyfile, opt.EtcdSslCaCertfile)
+			} else {
+				tlsConfig, err = seclib2.InitTLSConfig(opt.EtcdSslCertfile, opt.EtcdSslKeyfile)
+			}
+			if err != nil {
+				log.Errorf("init tls config fail %s", err)
+				return nil, err
+			}
+		} else {
+			tlsConfig = opt.TLSConfig
 		}
 	}
 
 	etcdClient := &SEtcdClient{}
+	if onKeepaliveFailure == nil {
+		onKeepaliveFailure = defaultOnKeepAliveFailed
+	}
+	etcdClient.onKeepaliveFailure = onKeepaliveFailure
 
 	timeoutSeconds := opt.EtcdTimeoutSeconds
 	if timeoutSeconds == 0 {
@@ -69,6 +89,10 @@ func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
 		Username:    opt.EtcdUsername,
 		Password:    opt.EtcdPassword,
 		TLS:         tlsConfig,
+
+		DialOptions: []grpc.DialOption{
+			grpc.WithBlock(),
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -95,7 +119,9 @@ func NewEtcdClient(opt *SEtcdOptions) (*SEtcdClient, error) {
 
 	err = etcdClient.startSession()
 	if err != nil {
-		etcdClient.Close()
+		if e := etcdClient.Close(); e != nil {
+			log.Errorf("etcd client close failed %s", e)
+		}
 		return nil, err
 	}
 	return etcdClient, nil
@@ -129,12 +155,18 @@ func (cli *SEtcdClient) startSession() error {
 	if err != nil {
 		return err
 	}
+	cli.leaseLiving = true
 
 	go func() {
 		for {
 			ka := <-ch
 			if ka == nil {
-				log.Fatalf("fail to keepalive")
+				cli.leaseLiving = false
+				log.Errorf("fail to keepalive sessoin")
+				if cli.onKeepaliveFailure != nil {
+					cli.onKeepaliveFailure()
+				}
+				break
 			} else {
 				log.Debugf("etcd session %d keepalive ttl: %d", ka.ID, ka.TTL)
 			}
@@ -142,6 +174,13 @@ func (cli *SEtcdClient) startSession() error {
 	}()
 
 	return nil
+}
+
+func (cli *SEtcdClient) RestartSession() error {
+	if cli.leaseLiving {
+		return errors.New("session is living, can't restart")
+	}
+	return cli.startSession()
 }
 
 func (cli *SEtcdClient) getKey(key string) string {
