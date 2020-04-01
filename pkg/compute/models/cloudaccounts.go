@@ -1714,6 +1714,33 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(ctx context.Context, 
 			}
 		}
 	}
+	proxySettings := make(map[string]proxy.SProxySetting)
+	{
+		proxySettingIds := make([]string, len(objs))
+		for i := range objs {
+			proxySettingId := objs[i].(*SCloudaccount).ProxySettingId
+			if !utils.IsInStringArray(proxySettingId, proxySettingIds) {
+				proxySettingIds = append(proxySettingIds, proxySettingId)
+			}
+		}
+		q := proxy.ProxySettingManager.Query().In("id", proxySettingIds)
+		r := []proxy.SProxySetting{}
+		if err := db.FetchModelObjects(proxy.ProxySettingManager, q, &r); err != nil {
+			log.Errorf("FetchModelObjects (%s) fail %s",
+				proxy.ProxySettingManager.KeywordPlural(), err)
+			return rows
+		}
+		for i := range r {
+			proxySetting := r[i]
+			proxySettings[proxySetting.Id] = proxySetting
+		}
+	}
+	for i := range rows {
+		account := objs[i].(*SCloudaccount)
+		if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
+			rows[i].Set("proxy_setting", jsonutils.Marshal(proxySetting))
+		}
+	}
 	return rows
 }
 
