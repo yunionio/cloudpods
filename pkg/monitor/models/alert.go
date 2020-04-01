@@ -91,19 +91,26 @@ type SAlert struct {
 	db.SVirtualResourceBase
 	db.SEnabledResourceBase
 
+	// Frequency is evaluate period
 	Frequency int64                `nullable:"false" list:"user" create:"required" update:"user"`
 	Settings  jsonutils.JSONObject `nullable:"false" list:"user" create:"required" update:"user"`
 	Level     string               `charset:"ascii" width:"36"nullable:"false" default:"normal" list:"user" update:"user"`
-	Message   string               `charset:"utf8" list:"user" update:"user"`
+	Message   string               `charset:"utf8" list:"user" create:"optional" update:"user"`
 	UsedBy    string               `charset:"ascii" list:"user"`
 
 	// Silenced       bool
-	ExecutionError      string               `charset:"utf8" list:"user"`
-	For                 int64                `nullable:"false" list:"user"`
+	ExecutionError string `charset:"utf8" list:"user"`
+
+	// If an alert rule has a configured `For` and the query violates the configured threshold
+	// it will first go from `OK` to `Pending`. Going from `OK` to `Pending` will not send any
+	// notifications. Once the alert rule has been firing for more than `For` duration, it will
+	// change to `Alerting` and send alert notifications.
+	For int64 `nullable:"false" list:"user" update:"user"`
+
 	EvalData            jsonutils.JSONObject `list:"user" list:"user"`
-	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user"`
-	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"pending" list:"user"`
-	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" list:"user"`
+	State               string               `width:"36" charset:"ascii" nullable:"false" default:"unknown" list:"user" update:"user"`
+	NoDataState         string               `width:"36" charset:"ascii" nullable:"false" default:"no_data" create:"optional"  list:"user" update:"user"`
+	ExecutionErrorState string               `width:"36" charset:"ascii" nullable:"false" default:"alerting" create:"optional" list:"user" update:"user"`
 	LastStateChange     time.Time            `list:"user"`
 	StateChanges        int                  `default:"0" nullable:"false" list:"user"`
 }
@@ -211,7 +218,40 @@ func (man *SAlertManager) ValidateCreateData(ctx context.Context, userCred mccli
 	if err := validators.ValidateAlertCreateInput(data); err != nil {
 		return data, err
 	}
+
+	if err := man.validateStates(data.NoDataState, data.ExecutionErrorState); err != nil {
+		return data, err
+	}
 	return data, nil
+}
+
+func (man *SAlertManager) validateStates(noData string, execErr string) error {
+	if noData != "" {
+		if err := man.validateNoDataState(monitor.NoDataOption(noData)); err != nil {
+			return err
+		}
+	}
+
+	if execErr != "" {
+		if err := man.validateExecutionErrorState(monitor.ExecutionErrorOption(execErr)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (man *SAlertManager) validateNoDataState(state monitor.NoDataOption) error {
+	if !state.IsValid() {
+		return httperrors.NewInputParameterError("unsupported no_data_state %s", state)
+	}
+	return nil
+}
+
+func (man *SAlertManager) validateExecutionErrorState(state monitor.ExecutionErrorOption) error {
+	if !state.IsValid() {
+		return httperrors.NewInputParameterError("unsupported execution_error_state %s", state)
+	}
+	return nil
 }
 
 func (man *SAlertManager) ListItemFilter(
@@ -359,6 +399,18 @@ const (
 	ErrAlertChannotChangeStateOnPaused = errors.Error("Cannot change state on pause alert")
 )
 
+func (alert *SAlert) GetExecutionErrorState() monitor.ExecutionErrorOption {
+	return monitor.ExecutionErrorOption(alert.ExecutionErrorState)
+}
+
+func (alert *SAlert) GetNoDataState() monitor.NoDataOption {
+	return monitor.NoDataOption(alert.NoDataState)
+}
+
+func (alert *SAlert) GetState() monitor.AlertStateType {
+	return monitor.AlertStateType(alert.State)
+}
+
 type AlertSetStateInput struct {
 	State          monitor.AlertStateType
 	EvalData       jsonutils.JSONObject
@@ -399,6 +451,9 @@ func (alert *SAlert) ValidateUpdateData(ctx context.Context, userCred mcclient.T
 		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
 	}
 
+	if err := AlertManager.validateStates(input.NoDataState, input.ExecutionErrorState); err != nil {
+		return input, err
+	}
 	return input, nil
 }
 
@@ -559,4 +614,40 @@ func (alert *SAlert) CustomizeDelete(
 		}
 	}
 	return nil
+}
+
+func (alert *SAlert) AllowPerformPause(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsProjectAllowPerform(userCred, alert, "pause")
+}
+
+func (alert *SAlert) PerformPause(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input monitor.AlertPauseInput,
+) (jsonutils.JSONObject, error) {
+	curState := alert.GetState()
+	if curState != monitor.AlertStatePaused && !input.Paused {
+		return nil, httperrors.NewNotAcceptableError("Alert is already un-paused")
+	}
+
+	if curState == monitor.AlertStatePaused && input.Paused {
+		return nil, httperrors.NewNotAcceptableError("Alert is already paused")
+	}
+
+	var newState monitor.AlertStateType
+	if input.Paused {
+		newState = monitor.AlertStatePaused
+	} else {
+		newState = monitor.AlertStateUnknown
+	}
+	err := alert.SetState(AlertSetStateInput{
+		State: newState,
+	})
+	return nil, err
 }
