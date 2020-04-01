@@ -925,6 +925,8 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(
 
 			ps := &rows[i].ProxySetting
 			if proxySetting, ok := proxySettings[account.ProxySettingId]; ok {
+				ps.Id = proxySetting.Id
+				ps.Name = proxySetting.Name
 				ps.HTTPProxy = proxySetting.HTTPProxy
 				ps.HTTPSProxy = proxySetting.HTTPSProxy
 				ps.NoProxy = proxySetting.NoProxy
