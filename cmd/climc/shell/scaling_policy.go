@@ -63,7 +63,7 @@ func init() {
 		AlarmIndicator string `help:"Indicator for 'alarm' trigger" json:"indicator"`
 		AlarmWrapper   string `help:"Wrapper for Indicators" choices:"max|min|average" json:"wrapper"`
 		AlarmOperator  string `help:"Operator between Indicator and Operator" json:"operator"`
-		AlarmValue     int    `help:"Value of Indicator" json:"value"`
+		AlarmValue     float64    `help:"Value of Indicator" json:"value"`
 	}
 
 	type ScalingPolicyCreateOptions struct {

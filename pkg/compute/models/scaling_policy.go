@@ -144,18 +144,27 @@ func (sp *SScalingPolicy) getMoreDetails(ctx context.Context, userCred mcclient.
 	switch sp.TriggerType {
 	case api.TRIGGER_ALARM:
 		model, err := ScalingAlarmManager.FetchById(sp.TriggerId)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return out, nil
+		}
 		if err != nil {
 			return out, errors.Wrap(err, "ScalingAlarmManager.FetchById")
 		}
 		out.Alarm = model.(*SScalingAlarm).AlarmDetails()
 	case api.TRIGGER_TIMING:
 		model, err := ScalingTimerManager.FetchById(sp.TriggerId)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return out, nil
+		}
 		if err != nil {
 			return out, errors.Wrap(err, "ScalingTimerManager.FetchById")
 		}
 		out.Timer = model.(*SScalingTimer).TimerDetails()
 	case api.TRIGGER_CYCLE:
 		model, err := ScalingTimerManager.FetchById(sp.TriggerId)
+		if errors.Cause(err) == sql.ErrNoRows {
+			return out, nil
+		}
 		if err != nil {
 			return out, errors.Wrap(err, "ScalingTimerManager.FetchById")
 		}
@@ -228,20 +237,24 @@ func (sp *SScalingPolicy) RealDelete(ctx context.Context, userCred mcclient.Toke
 	return sp.SResourceBase.Delete(ctx, userCred)
 }
 
-func (sp *SScalingPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (sp *SScalingPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	fail := func(sg *SScalingGroup, reason string) {
+		if sg != nil {
+			logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, reason, userCred, false)
+		}
+		sp.SetStatus(userCred, api.SP_STATUS_DELETE_FAILED, reason)
+	}
 	sg, err := sp.ScalingGroup()
-	if sg != nil {
-		return errors.Wrap(err, "ScalingPolicy.ScalingGroup")
+	if err != nil {
+		fail(nil, err.Error())
+		return
 	}
 	err = sp.RealDelete(ctx, userCred)
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELETE_SCALING_POLICY, err.Error(), userCred, false)
-		sg.SetStatus(userCred, api.SP_STATUS_DELETE_FAILED, err.Error())
-		return nil
+		fail(sg, err.Error())
+		return
 	}
-	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_DELETE_SCALING_POLICY, "", userCred, true)
-	return nil
+	logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, "", userCred, true)
 }
 
 func (spm *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {

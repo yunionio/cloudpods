@@ -180,6 +180,16 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	if fields.Contains("scaling_group_id") {
+		sggs := fetchScalingGroupGuest(guestIds)
+		if sggs != nil && len(sggs) != 0 {
+			for i := range rows {
+				if sgg, ok := sggs[guestIds[i]]; ok {
+					rows[i].ScalingGroupId = sgg.ScalingGroupId
+				}
+			}
+		}
+	}
 
 	for i := range rows {
 		rows[i] = objs[i].(*SGuest).moreExtraInfo(rows[i], userCred, query, fields, isList)

@@ -42,6 +42,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 		log.Errorf("db.FetchModelObjects error: %s", err.Error())
 		return
 	}
+	log.Debugf("total %d need to exec, %s", len(scalingTimers), scalingTimers)
 	for _, scalingTimer := range scalingTimers {
 		asc.timerQueue <- struct{}{}
 		go func(ctx context.Context) {

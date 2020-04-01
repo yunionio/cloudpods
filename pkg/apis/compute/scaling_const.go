@@ -33,8 +33,8 @@ const (
 	WRAPPER_MIN  = "min"     //最小值
 	WRAPPER_AVER = "average" // 平均值
 
-	OPERATOR_GE = "ge" // 大于等于
-	OPERATOR_LE = "le" // 小于等于
+	OPERATOR_GT = "gt" // 大于
+	OPERATOR_LT = "lt" // 小于
 
 	TIMER_TYPE_ONCE  = "once"
 	TIMER_TYPE_DAY   = "day"

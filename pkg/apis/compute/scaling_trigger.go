@@ -64,7 +64,7 @@ type ScalingAlarmCreateInput struct {
 
 	// description: 监控指标的取值
 	// example: 3
-	Value int `json:"value"`
+	Value float64 `json:"value"`
 }
 
 type ScalingTimerDetails struct {
@@ -101,5 +101,5 @@ type ScalingAlarmDetails struct {
 	// description: 指标和阈值之间的比较关系，>=/<=
 	Operator string `json:"operator"`
 	// description: 阈值
-	Value int `json:"value"`
+	Value float64 `json:"value"`
 }

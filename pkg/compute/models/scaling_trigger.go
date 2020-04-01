@@ -2,17 +2,23 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/monitor"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	monapi "yunion.io/x/onecloud/pkg/apis/monitor"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
@@ -125,8 +131,7 @@ type SScalingAlarm struct {
 	Wrapper  string `width:"16" charset:"ascii"`
 	Operator string `width:"2" charset:"ascii"`
 
-	// Value is a percentage describing the threshold
-	Value int
+	Value float64
 
 	// Real-time cumulate number
 	RealCumulate int `default:"0"`
@@ -354,23 +359,146 @@ func (st *SScalingTimer) IsTrigger() bool {
 }
 
 func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) (api.ScalingPolicyCreateInput, error) {
+	if len(input.Alarm.Operator) == 0 {
+		input.Alarm.Operator = api.OPERATOR_GT
+	}
+	if !utils.IsInStringArray(input.Alarm.Operator, []string{api.OPERATOR_GT, api.OPERATOR_LT}) {
+		return input, httperrors.NewInputParameterError("unkown operator in alarm %s", input.Alarm.Operator)
+	}
+	if !utils.IsInStringArray(input.Alarm.Indicator, []string{api.INDICATOR_CPU, api.INDICATOR_DISK_READ,
+		api.INDICATOR_DISK_WRITE, api.INDICATOR_FLOW_INTO, api.INDICATOR_FLOW_OUT}) {
+		return input, httperrors.NewInputParameterError("unkown indicator in alarm %s", input.Alarm.Indicator)
+	}
+	if !utils.IsInStringArray(input.Alarm.Wrapper, []string{api.WRAPPER_MIN, api.WRAPPER_MAX, api.WRAPPER_AVER}) {
+		return input, httperrors.NewInputParameterError("unkown wrapper in alarm %s", input.Alarm.Wrapper)
+	}
 	return input, nil
 }
 
+var notificationID = ""
+
+func (spm *SScalingPolicyManager) NotificationID(session *mcclient.ClientSession) (string, error) {
+	if len(notificationID) != 0 {
+		return notificationID, nil
+	}
+	params := jsonutils.NewDict()
+	params.Set("type", jsonutils.NewString(monapi.AlertNotificationTypeAutoScaling))
+
+	result, err := monitor.Notifications.List(session, params)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return "", errors.Wrap(err, "Notifications.List")
+	}
+	if result.Total != 0 {
+		notificationID, _ = result.Data[0].GetString("id")
+		return notificationID, nil
+	}
+	// To create new one
+	conTrue, conFalse := true, false
+	ncinput := monapi.NotificationCreateInput{
+		Name:                  "autoscaling",
+		Type:                  monapi.AlertNotificationTypeAutoScaling,
+		IsDefault:             false,
+		SendReminder:          &conFalse,
+		DisableResolveMessage: &conTrue,
+		Settings:              jsonutils.NewDict(),
+	}
+	ret, err := monitor.Notifications.Create(session, jsonutils.Marshal(ncinput))
+	if err != nil {
+		return "", errors.Wrap(err, "Notification.Create")
+	}
+	notificationID, _ := ret.GetString("id")
+	return notificationID, nil
+}
+
 func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCredential) error {
+	sp, err := sa.ScalingPolicy()
+	if err != nil {
+		return err
+	}
+	session := auth.GetSession(ctx, userCred, "", "")
+	notificationID, err := ScalingPolicyManager.NotificationID(session)
+	if err != nil {
+		return errors.Wrap(err, "ScalingPolicyManager.NotificationID")
+	}
+	// create Alert
+	config, err := sa.generateAlertConfig(sp)
+	if err != nil {
+		return errors.Wrap(err, "ScalingAlarm.generateAlertConfig")
+	}
+	alert, err := monitor.Alerts.DoCreate(session, config)
+	if err != nil {
+		return errors.Wrap(err, "create Alert failed")
+	}
+	alarmId, _ := alert.GetString("id")
+	// detach
+	params := jsonutils.NewDict()
+	params.Set("scaling_policy_id", jsonutils.NewString(sa.ScalingPolicyId))
+	detachParams := jsonutils.NewDict()
+	detachParams.Set("params", params)
+	_, err = monitor.Alertnotification.Attach(session, alarmId, notificationID, detachParams)
+	if err != nil {
+		monitor.Alerts.Delete(session, alarmId, jsonutils.NewDict())
+		return errors.Wrap(err, "attach alert with notification")
+	}
+	sa.AlarmId = alarmId
+
 	// insert
-	err := ScalingAlarmManager.TableSpec().Insert(sa)
+	err = ScalingAlarmManager.TableSpec().Insert(sa)
 	if err != nil {
 		return errors.Wrap(err, "STableSpec.Insert")
 	}
-	// todo: register alarm rule to alarm service
+
 	return nil
 }
 
-func (sa *SScalingAlarm) UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error {
-	// todo: unregister alarm rule to alarm service
+type sTableField struct {
+	Table string
+	Field string
+}
 
-	err := sa.Delete(ctx, userCred)
+var indicatorMap = map[string]sTableField{
+	api.INDICATOR_CPU:        {"vm_cpu", "usage_active"},
+	api.INDICATOR_DISK_WRITE: {"vm_diskio", "write_bps"},
+	api.INDICATOR_DISK_READ:  {"vm_diskio", "read_bps"},
+	api.INDICATOR_FLOW_INTO:  {"vm_netio", "bps_recv"},
+	api.INDICATOR_FLOW_OUT:   {"vm_netio", "bps_sent"},
+}
+
+func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.AlertConfig, error) {
+	config, err := monitor.NewAlertConfig(fmt.Sprintf("sp-%s", sp.Id), fmt.Sprintf("%ds", sa.Cycle), true)
+	if err != nil {
+		return nil, err
+	}
+	cond := config.Condition("telegraf", indicatorMap[sa.Indicator].Table).Avg()
+
+	switch sa.Operator {
+	case api.OPERATOR_LT:
+		cond = cond.LT(sa.Value)
+	case api.OPERATOR_GT:
+		cond = cond.GT(sa.Value)
+	}
+	q := cond.Query().From(fmt.Sprintf("%ds", sa.Cycle))
+	sel := q.Selects().Select(indicatorMap[sa.Indicator].Field)
+	switch sa.Wrapper {
+	case api.WRAPPER_AVER:
+		sel = sel.MEAN()
+	case api.WRAPPER_MAX:
+		sel = sel.MAX()
+	case api.WRAPPER_MIN:
+		sel = sel.MIN()
+	}
+	q.Where().Equal("vm_scaling_group_id", sp.ScalingGroupId)
+	q.GroupBy().TAG("*").FILL_NULL()
+	return config, nil
+}
+
+func (sa *SScalingAlarm) UnRegister(ctx context.Context, userCred mcclient.TokenCredential) error {
+	session := auth.GetSession(ctx, userCred, "", "")
+	_, err := monitor.Alerts.Delete(session, sa.AlarmId, jsonutils.NewDict())
+	if err != nil {
+		return errors.Wrap(err, "Alerts.Delete")
+	}
+	err = sa.Delete(ctx, userCred)
 	if err != nil {
 		return errors.Wrap(err, "SSCalingAlarm.Delete")
 	}
@@ -429,8 +557,8 @@ var descs = map[string]string{
 	api.WRAPPER_MAX:          "maximum",
 	api.WRAPPER_MIN:          "minimum",
 	api.WRAPPER_AVER:         "average",
-	api.OPERATOR_GE:          "greater",
-	api.OPERATOR_LE:          "less",
+	api.OPERATOR_GT:          "greater",
+	api.OPERATOR_LT:          "less",
 }
 
 var units = map[string]string{

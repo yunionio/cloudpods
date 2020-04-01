@@ -223,6 +223,9 @@ type ServerDetails struct {
 
 	// 主机在伸缩组中的状态
 	ScalingStatus string `json:"scaling_status"`
+
+	// 伸缩组id
+	ScalingGroupId string `json:"scaling_group"`
 }
 
 type GuestJointResourceDetails struct {

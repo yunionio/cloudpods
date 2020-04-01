@@ -31,9 +31,10 @@ var (
 )
 
 const (
-	AlertNotificationTypeOneCloud = "onecloud"
-	AlertNotificationTypeDingding = "dingding"
-	AlertNotificationTypeFeishu   = "feishu"
+	AlertNotificationTypeOneCloud    = "onecloud"
+	AlertNotificationTypeDingding    = "dingding"
+	AlertNotificationTypeFeishu      = "feishu"
+	AlertNotificationTypeAutoScaling = "autoscaling"
 )
 
 type NotificationCreateInput struct {
@@ -68,6 +69,12 @@ type NotificationUpdateInput struct {
 	DisableResolveMessage *bool `json:"disable_resolve_message"`
 	// 发送频率
 	Frequency *time.Duration `json:"frequency"`
+}
+
+type NotificationListInput struct {
+	apis.VirtualResourceListInput
+	// 类型
+	Type string `json:"type"`
 }
 
 type NotificationSettingOneCloud struct {
