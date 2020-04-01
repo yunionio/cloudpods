@@ -276,7 +276,19 @@ func (m *SGuestManager) LoadServer(sid string) {
 	m.CandidateServers[sid] = guest
 }
 
-//isDeleted先不加，目测只是在ofp中用到了
+func (m *SGuestManager) ShutdownSharedStorageServers() {
+	m.Servers.Range(func(k, v interface{}) bool {
+		guest := v.(*SKVMGuestInstance)
+		if guest.IsSharedStorage() {
+			log.Infof("Start shutdown server %s", guest.GetName())
+			if !guest.scriptStop() {
+				log.Errorf("shutdown server %s failed", guest.GetName())
+			}
+		}
+		return true
+	})
+}
+
 func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (jsonutils.JSONObject, jsonutils.JSONObject) {
 	if isCandidate {
 		return m.getGuestNicDescInCandidate(mac, ip, port, bridge)

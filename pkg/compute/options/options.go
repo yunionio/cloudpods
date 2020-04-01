@@ -129,6 +129,9 @@ type ComputeOptions struct {
 
 	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
 
+	EnableHostHealthCheck bool `help:"enable host health check"`
+	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
