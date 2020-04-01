@@ -11,14 +11,23 @@ const (
 )
 
 type ProxySettingCreateInput struct {
-	apis.VirtualResourceCreateInput
+	apis.StandaloneResourceCreateInput
 
 	HttpProxy  string
 	HttpsProxy string
 	NoProxy    string
 }
 
-type ProxySettingUpdateInput ProxySettingCreateInput
+type ProxySettingUpdateInput struct {
+	HttpProxy  string
+	HttpsProxy string
+	NoProxy    string
+
+	// 资源名称
+	Name string `json:"name"`
+	// 资源描述
+	Description string `json:"description"`
+}
 
 // String implements ISerializable interface
 func (ps *SProxySetting) String() string {
