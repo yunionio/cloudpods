@@ -179,6 +179,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.ScalingGroupManager,
 		models.ScalingPolicyManager,
 		models.ScalingActivityManager,
+		models.PolicyDefinitionManager,
+		models.PolicyAssignmentManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

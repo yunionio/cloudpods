@@ -34,6 +34,7 @@ var (
 		"loadbalanceragents",
 		"isolated-devices",
 		"reservedips",
+		"policy_definitions",
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
@@ -50,6 +51,7 @@ var (
 		"natgateways",
 		"natsentries",
 		"natdentries",
+		"policy_assignments",
 	}
 	computeUserResources = []string{
 		"keypairs",

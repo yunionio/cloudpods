@@ -1657,3 +1657,54 @@ func (manager *SCloudproviderQuotaManager) purgeAll(ctx context.Context, userCre
 	}
 	return nil
 }
+
+func (assignment *SPolicyAssignment) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, assignment)
+	defer lockman.ReleaseObject(ctx, assignment)
+
+	err := assignment.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "assignment.ValidateDeleteCondition(%s(%s))", assignment.Name, assignment.Id)
+	}
+
+	return assignment.Delete(ctx, userCred)
+}
+
+func (definition *SPolicyDefinition) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, definition)
+	defer lockman.ReleaseObject(ctx, definition)
+
+	assignments, err := definition.GetPolicyAssignments()
+	if err != nil {
+		return errors.Wrap(err, "definition.GetPolicyAssignments")
+	}
+
+	for i := range assignments {
+		err = assignments[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = definition.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return definition.Delete(ctx, userCred)
+}
+
+func (manager *SPolicyDefinitionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	definitions := []SPolicyDefinition{}
+	err := fetchByManagerId(manager, providerId, &definitions)
+	if err != nil {
+		return err
+	}
+	for i := range definitions {
+		err := definitions[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -77,7 +76,7 @@ func (self *CloudProviderSyncInfoTask) GetSyncRange() models.SSyncRange {
 func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
 
-	self.SetStage("OnSyncCloudProviderQuotaInfoComplete", nil)
+	self.SetStage("OnSyncCloudProviderPreInfoComplete", nil)
 
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		p, err := provider.GetProvider()
@@ -85,22 +84,25 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 			return nil, errors.Wrap(err, "GetProvider")
 		}
 		quotas, err := p.GetICloudQuotas()
-		if err != nil {
-			if errors.Cause(err) != cloudprovider.ErrNotImplemented {
-				return nil, errors.Wrap(err, "GetICloudQuotas")
-			}
-			return nil, nil
+		if err == nil {
+			result := models.CloudproviderQuotaManager.SyncQuotas(ctx, self.GetUserCred(), provider.GetOwnerId(), provider, nil, api.CLOUD_PROVIDER_QUOTA_RANGE_CLOUDPROVIDER, quotas)
+			msg := result.Result()
+			notes := fmt.Sprintf("SyncQuotas for provider %s result: %s", provider.Name, msg)
+			log.Infof(notes)
 		}
-		result := models.CloudproviderQuotaManager.SyncQuotas(ctx, self.GetUserCred(), provider.GetOwnerId(), provider, nil, api.CLOUD_PROVIDER_QUOTA_RANGE_CLOUDPROVIDER, quotas)
-		msg := result.Result()
-		notes := fmt.Sprintf("SyncQuotas for provider %s result: %s", provider.Name, msg)
-		log.Infof(notes)
+
+		policyDefinitions, err := p.GetICloudPolicyDefinitions()
+		if err == nil {
+			result := models.PolicyDefinitionManager.SyncPolicyDefinitions(ctx, self.GetUserCred(), provider.GetOwnerId(), provider, policyDefinitions)
+			msg := result.Result()
+			notes := fmt.Sprintf("SyncPolicyDefinitions for provider %s result: %s", provider.Name, msg)
+			log.Infof(notes)
+		}
 		return nil, nil
 	})
-
 }
 
-func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderQuotaInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
 	syncRange := self.GetSyncRange()
 
@@ -113,9 +115,9 @@ func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderQuotaInfoComplete(ctx 
 	})
 }
 
-func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderQuotaInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderPreInfoCompleteFailed(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	log.Errorf("faild to sync provider quotas %s", body.String())
-	self.OnSyncCloudProviderQuotaInfoComplete(ctx, obj, body)
+	self.OnSyncCloudProviderPreInfoComplete(ctx, obj, body)
 }
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {

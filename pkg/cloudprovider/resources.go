@@ -950,3 +950,11 @@ type ICloudQuota interface {
 	GetMaxQuotaCount() int
 	GetCurrentQuotaUsedCount() int
 }
+
+type ICloudPolicyDefinition interface {
+	GetGlobalId() string
+	GetName() string
+	GetCategory() string
+	GetCondition() string
+	GetParameters() *jsonutils.JSONDict
+}

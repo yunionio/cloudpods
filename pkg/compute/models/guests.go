@@ -1340,9 +1340,80 @@ func (manager *SGuestManager) validateCreateData(
 		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
 	}
 
+	err = manager.ValidatePolicyDefinitions(ctx, userCred, ownerId, query, input)
+	if err != nil {
+		return nil, err
+	}
+
 	input.Project = ownerId.GetProjectId()
 	input.ProjectDomain = ownerId.GetProjectDomainId()
 	return input, nil
+}
+
+func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.ServerCreateInput) error {
+	definitions, err := PolicyDefinitionManager.GetAvailablePolicyDefinitions(ctx, userCred)
+	if err != nil {
+		return httperrors.NewGeneralError(err)
+	}
+	for i := range definitions {
+		switch definitions[i].Category {
+		case api.POLICY_DEFINITION_CATEGORY_CLOUDREGION:
+			if len(input.PreferRegion) == 0 {
+				return httperrors.NewMissingParameterError(fmt.Sprintf("policy definition %s require prefer_region_id parameter", definitions[i].Name))
+			}
+			if definitions[i].Parameters == nil {
+				return httperrors.NewPolicyDefinitionError("invalid parameters for policy definition %s", definitions[i].Name)
+			}
+			regionDefinitions := api.SCloudregionPolicyDefinitions{}
+			definitions[i].Parameters.Unmarshal(&regionDefinitions)
+			regions := []string{}
+			for _, region := range regionDefinitions.Cloudregions {
+				regions = append(regions, region.Id)
+				regions = append(regions, region.Name)
+			}
+			isIn := utils.IsInStringArray(input.PreferRegion, regions)
+			switch definitions[i].Condition {
+			case api.POLICY_DEFINITION_CONDITION_IN:
+				if !isIn {
+					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion in %s", definitions[i].Name, definitions[i].Parameters)
+				}
+			case api.POLICY_DEFINITION_CONDITION_NOT_IN:
+				if isIn {
+					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion not in %s", definitions[i].Name, definitions[i].Parameters)
+				}
+			default:
+				return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
+			}
+		case api.POLICY_DEFINITION_CATEGORY_TAG:
+			tags := []string{}
+			if definitions[i].Parameters == nil {
+				return httperrors.NewPolicyDefinitionError("invalid parameters for policy definition %s", definitions[i].Name)
+			}
+			definitions[i].Parameters.Unmarshal(&tags, "tags")
+			metadataKeys := []string{}
+			for k, _ := range input.Metadata {
+				metadataKeys = append(metadataKeys, strings.TrimPrefix(k, db.USER_TAG_PREFIX))
+			}
+			for _, tag := range tags {
+				isIn := utils.IsInStringArray(tag, metadataKeys)
+				switch definitions[i].Condition {
+				case api.POLICY_DEFINITION_CONDITION_CONTAINS:
+					if !isIn {
+						return httperrors.NewPolicyDefinitionError("policy definition %s require must contains tag %s", definitions[i].Name, tag)
+					}
+				case api.POLICY_DEFINITION_CONDITION_EXCEPT:
+					if isIn {
+						return httperrors.NewPolicyDefinitionError("policy definition %s require except tag %s", definitions[i].Name, tag)
+					}
+				default:
+					return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
+				}
+			}
+		default:
+			return httperrors.NewPolicyDefinitionError("invalid category %s for policy definition %s(%s)", definitions[i].Category, definitions[i].Name, definitions[i].Id)
+		}
+	}
+	return nil
 }
 
 func (manager *SGuestManager) BatchCreateValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
