@@ -242,7 +242,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
 	if !cancelUsage.IsEmpty() {
-		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage)
+		err = quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &cancelUsage, true) // success
 		if err != nil {
 			self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
 			return

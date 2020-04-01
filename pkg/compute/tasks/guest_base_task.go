@@ -40,11 +40,11 @@ func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage, 0)
 	if err == nil && !pendingUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingUsage, &pendingUsage, false) // failure
 	}
 	pendingRegionUsage := models.SRegionQuota{}
 	err = self.GetPendingUsage(&pendingRegionUsage, 1)
 	if err == nil && !pendingRegionUsage.IsEmpty() {
-		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage)
+		quotas.CancelPendingUsage(ctx, self.UserCred, &pendingRegionUsage, &pendingRegionUsage, false) // failure
 	}
 }

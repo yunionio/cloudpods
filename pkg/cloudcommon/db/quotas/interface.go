@@ -69,7 +69,7 @@ type IQuotaManager interface {
 	db.IResourceModelManager
 
 	checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, quota IQuota) error
-	cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota) error
+	cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error
 	cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage IQuota) error
 	getQuotaCount(ctx context.Context, request IQuota, pendingKey IQuotaKeys) (int, error)
 
