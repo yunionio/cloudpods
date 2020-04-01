@@ -776,7 +776,7 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 		log.Errorf("GetQuotaKeys fail %s", err)
 	} else {
 		eipPendingUsage.SetKeys(keys)
-		err := quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage)
+		err := quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, true)
 		if err != nil {
 			log.Errorf("SElasticip CancelPendingUsage error: %s", err)
 		}
@@ -1140,7 +1140,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 		host.GetCloudprovider(),
 	)
 	eipPendingUsage.SetKeys(keys)
-	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage)
+	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, eipPendingUsage, true)
 
 	return &eip, nil
 }

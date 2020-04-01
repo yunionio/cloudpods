@@ -17,6 +17,7 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
@@ -36,11 +37,13 @@ func ClearTaskPendingUsage(ctx context.Context, task taskman.ITask) error {
 		return nil
 	}
 
+	log.Debugf("ClearTaskPendingUsage %s", jsonutils.Marshal(pendingUsage))
+
 	if pendingUsage.IsEmpty() {
 		return nil
 	}
 
-	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage, false)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}
@@ -70,7 +73,7 @@ func ClearTaskPendingRegionUsage(ctx context.Context, task taskman.ITask) error 
 		return nil
 	}
 
-	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage)
+	err = quotas.CancelPendingUsage(ctx, task.GetUserCred(), &pendingUsage, &pendingUsage, false)
 	if err != nil {
 		return errors.Wrap(err, "models.QuotaManager.CancelPendingUsage")
 	}

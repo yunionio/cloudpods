@@ -74,7 +74,8 @@ func cancelPendingUsagesInContext(ctx context.Context, userCred mcclient.TokenCr
 	}
 	errs := make([]error, 0)
 	for i := range quotas {
-		err := CancelPendingUsage(ctx, userCred, quotas[i], quotas[i])
+		// cancel and do not save pending usage
+		err := CancelPendingUsage(ctx, userCred, quotas[i], quotas[i], false)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "CancelPendingUsage %s", jsonutils.Marshal(quotas[i])))
 		}
