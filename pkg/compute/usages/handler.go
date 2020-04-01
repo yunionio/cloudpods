@@ -241,8 +241,6 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 	count.Add("all.memory_commit_rate.running", runningMemCmtRate)
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
-	storageUsage := StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
-
 	count.Include(
 		HostAllUsage("", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		HostAllUsage("prepaid_pool", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -254,9 +252,10 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 
 		BaremetalUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv),
 
-		storageUsage,
-		StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
+		StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
+		StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
+		StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true),
 
 		GuestNormalUsage("all.servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		GuestNormalUsage("all.servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -309,8 +308,6 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	bucketUsage := BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
-	disksUsage := DisksUsage(getKey(scope, "disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred)
-
 	nicsUsage := nicsUsage(rangeObjs, nil, providers, brands, cloudEnv, scope, cred)
 
 	count = guestNormalUsage.Include(
@@ -337,7 +334,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		bucketUsage,
 
-		disksUsage,
+		DisksUsage(getKey(scope, "disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred, false),
+		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred, true),
 
 		nicsUsage,
 
@@ -431,6 +429,7 @@ func StorageUsage(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string, resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
+	pendingDeleted bool,
 ) Usage {
 	sPrefix := "storages"
 	dPrefix := "all.disks"
@@ -443,7 +442,7 @@ func StorageUsage(
 		rangeObjs,
 		hostTypes, resourceTypes,
 		providers, brands, cloudEnv,
-		rbacutils.ScopeSystem, nil,
+		rbacutils.ScopeSystem, nil, pendingDeleted,
 	)
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
@@ -461,9 +460,19 @@ func StorageUsage(
 	return count
 }
 
-func DisksUsage(dPrefix string, rangeObjs []db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+func DisksUsage(
+	dPrefix string,
+	rangeObjs []db.IStandaloneModel,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
+	pendingDeleted bool,
+) Usage {
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId)
+	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted)
 	count[dPrefix] = result.CapacityUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
@@ -474,7 +483,7 @@ func DisksUsage(dPrefix string, rangeObjs []db.IStandaloneModel, hostTypes []str
 
 func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil, false)
 	count["wires"] = result.WiresCount
 	count["networks"] = result.NetCount
 	count["all.nics.guest"] = result.GuestNicCount
@@ -483,16 +492,26 @@ func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []
 	count["all.nics.group"] = result.GroupNicCount
 	count["all.nics.lb"] = result.LbNicCount
 	count["all.nics"] = result.NicCount()
+
+	result = models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil, true)
+	count["all.nics.guest.pending_delete"] = result.GuestNicCount
+	count["all.nics.lb.pending_delete"] = result.LbNicCount
+	count["all.nics.pending_delete"] = result.GuestNicCount + result.LbNicCount
+
 	return count
 }
 
 func nicsUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId)
+	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId, false)
 	count["nics.guest"] = result.GuestNicCount
 	count["nics.group"] = result.GroupNicCount
 	count["nics.lb"] = result.LbNicCount
 	count["nics"] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount
+	result = models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, ownerId, true)
+	count["nics.guest.pending_delete"] = result.GuestNicCount
+	count["nics.lb.pending_delete"] = result.LbNicCount
+	count["nics.pending_delete"] = result.GuestNicCount + result.LbNicCount
 	return count
 }
 
