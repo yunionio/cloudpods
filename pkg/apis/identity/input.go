@@ -375,6 +375,9 @@ type PolicyUpdateInput struct {
 
 type ProjectUpdateInput struct {
 	IdentityBaseUpdateInput
+
+	// 显示名称
+	Displayname string `json:"displayname"`
 }
 
 type RoleUpdateInput struct {
@@ -397,4 +400,50 @@ type UserUpdateInput struct {
 	EnableMfa *bool `json:"enable_mfa"`
 
 	Password string `json:"password"`
+}
+
+type UserCreateInput struct {
+	EnabledIdentityBaseResourceCreateInput
+
+	Email string `json:"email"`
+
+	Mobile string `json:"mobule"`
+
+	Displayname string `json:"displayname"`
+
+	IsSystemAccount *bool `json:"is_system_account"`
+
+	AllowWebConsole *bool `json:"allow_web_console"`
+
+	EnableMfa *bool `json:"enable_mfa"`
+
+	Password string `json:"password"`
+
+	SkipPasswordComplexityCheck *bool `json:"skip_password_complexity_check"`
+}
+
+type ProjectCreateInput struct {
+	IdentityBaseResourceCreateInput
+
+	// 显示名称
+	Displayname string `json:"displayname"`
+}
+
+type GroupCreateInput struct {
+	IdentityBaseResourceCreateInput
+
+	// display name
+	Displayname string `json:"displayname"`
+}
+
+type PolicyCreateInput struct {
+	EnabledIdentityBaseResourceCreateInput
+
+	Type string `json:"type"`
+
+	Blob jsonutils.JSONObject `json:"blob"`
+}
+
+type RoleCreateInput struct {
+	IdentityBaseResourceCreateInput
 }

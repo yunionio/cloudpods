@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -451,20 +452,61 @@ func (role *SRole) Delete(ctx context.Context, userCred mcclient.TokenCredential
 	return role.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
-func (manager *SRoleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SRoleManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.RoleCreateInput,
+) (api.RoleCreateInput, error) {
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "ValidateCreateDomainId")
 	}
-	input := api.IdentityBaseResourceCreateInput{}
-	err = data.Unmarshal(&input)
+
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
 	}
-	input, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Role:                 1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
+}
+
+func (role *SRole) GetUsages() []db.IUsage {
+	if role.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Role: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: role.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func (role *SRole) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	role.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Role:                 1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 }

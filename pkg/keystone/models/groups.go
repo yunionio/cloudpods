@@ -19,12 +19,14 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -383,4 +385,60 @@ func (manager *SGroupManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.I
 		return q
 	}
 	return manager.SIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+}
+
+func (group *SGroup) GetUsages() []db.IUsage {
+	if group.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Group: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: group.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func (manager *SGroupManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.GroupCreateInput,
+) (api.GroupCreateInput, error) {
+	var err error
+
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
+	}
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Group:                1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
+	}
+
+	return input, nil
+}
+
+func (group *SGroup) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	group.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Group:                1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 }

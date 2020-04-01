@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/proxy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -450,6 +451,17 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		return input, err
 	}
 
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		Cloudaccount: 1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrapf(err, "CheckSetPendingQuota")
+	}
+
 	return input, nil
 }
 
@@ -468,6 +480,16 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.savePassword(self.Secret)
 
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		Cloudaccount: 1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 	// if !self.EnableAutoSync {
 	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	// }
@@ -2227,5 +2249,26 @@ func (account *SCloudaccount) getAccountShareInfo() apis.SAccountShareInfo {
 		IsPublic:      account.IsPublic,
 		PublicScope:   rbacutils.String2Scope(account.PublicScope),
 		SharedDomains: account.GetSharedDomains(),
+	}
+}
+
+func (manager *SCloudaccountManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+	q := manager.Query()
+	switch scope {
+	case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	}
+	cnt, _ := q.CountWithError()
+	return cnt
+}
+
+func (account *SCloudaccount) GetUsages() []db.IUsage {
+	if account.Deleted {
+		return nil
+	}
+	usage := SDomainQuota{Cloudaccount: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: account.DomainId})
+	return []db.IUsage{
+		&usage,
 	}
 }

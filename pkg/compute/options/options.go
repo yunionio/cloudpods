@@ -76,6 +76,12 @@ type ComputeOptions struct {
 	DefaultRdsQuota          int `default:"10" help:"Common RDS quota per tenant, default 10"`
 	DefaultCacheQuota        int `default:"10" help:"Common ElasticCache quota per tenant, default 10"`
 
+	DefaultGlobalvpcQuota    int `default:"10" help:"Common global Vpc quota per domain, default 10"`
+	DefaultCloudaccountQuota int `default:"20" help:"Common cloud account quota per domain, default 20"`
+
+	DefaultHostQuota int `default:"500" help:"Common host quota per domain, default 500"`
+	DefaultVpcQuota  int `default:"500" help:"Common vpc quota per domain, default 500"`
+
 	SystemAdminQuotaCheck         bool `help:"Enable quota check for system admin, default False" default:"false"`
 	CloudaccountHealthStatusCheck bool `help:"Enable cloudaccount health status check, default True" default:"true"`
 

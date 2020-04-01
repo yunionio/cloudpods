@@ -50,6 +50,7 @@ func init() {
 
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_usage_tbl",
 			"quota_usage",
 			"quota_usages",
@@ -57,6 +58,7 @@ func init() {
 	}
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_pending_usage_tbl",
 			"quota_pending_usage",
 			"quota_pending_usages",
@@ -64,6 +66,7 @@ func init() {
 	}
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(Quota,
+			rbacutils.ScopeProject,
 			"quota_tbl",
 			QuotaPendingUsageManager,
 			QuotaUsageManager,
@@ -448,7 +451,7 @@ func (k1 SComputeResourceKeys) Compare(ik quotas.IQuotaKeys) int {
 
 func fetchCloudQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, manager *SCloudprovider) quotas.SCloudResourceKeys {
 	keys := quotas.SCloudResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	if manager != nil {
 		account := manager.GetCloudaccount()
 		keys.Provider = account.Provider

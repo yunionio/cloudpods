@@ -217,6 +217,18 @@ var (
 				},
 				{
 					Service:  api.SERVICE_TYPE,
+					Resource: "infras_quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "infras_quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
 					Resource: "storages",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,

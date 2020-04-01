@@ -19,12 +19,14 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -66,8 +68,8 @@ type SPolicy struct {
 	SEnabledIdentityBaseResource
 	db.SSharableBaseResource
 
-	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" update:"domain"`
-	Blob jsonutils.JSONObject `nullable:"false" list:"user" update:"domain"`
+	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" create:"domain_required" update:"domain"`
+	Blob jsonutils.JSONObject `nullable:"false" list:"user" create:"domain_required" update:"domain"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -100,36 +102,42 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	typeStr, _ := data.GetString("type")
-	if len(typeStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing input field type")
+func (manager *SPolicyManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.PolicyCreateInput,
+) (api.PolicyCreateInput, error) {
+	var err error
+	if len(input.Type) == 0 {
+		return input, httperrors.NewInputParameterError("missing input field type")
 	}
-	data.Set("name", jsonutils.NewString(typeStr))
-	blobJson, err := data.Get("blob")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid policy data")
-	}
+	input.Name = input.Type
 	policy := rbacutils.SRbacPolicy{}
-	err = policy.Decode(blobJson)
+	err = policy.Decode(input.Blob)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("fail to decode policy data")
+		return input, httperrors.NewInputParameterError("fail to decode policy data")
 	}
 	err = db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "ValidateCreateDomainId")
 	}
-	input := api.EnabledIdentityBaseResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.EnabledIdentityBaseResourceCreateInput, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledIdentityBaseResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ValidateCreateData")
 	}
-	input, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Policy:               1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
 }
 
 func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PolicyUpdateInput) (api.PolicyUpdateInput, error) {
@@ -156,6 +164,16 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 
 func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	policy.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		Policy:               1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
+
 	policyman.PolicyManager.SyncOnce()
 }
 
@@ -296,4 +314,15 @@ func (manager *SPolicyManager) FetchCustomizeColumns(
 		}
 	}
 	return rows
+}
+
+func (policy *SPolicy) GetUsages() []db.IUsage {
+	if policy.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Policy: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: policy.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
 }

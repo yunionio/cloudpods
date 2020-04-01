@@ -47,7 +47,7 @@ func (self *SHuaweiGuestDriver) GetProvider() string {
 
 func (self *SHuaweiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_HUAWEI
 	keys.Brand = api.CLOUD_PROVIDER_HUAWEI

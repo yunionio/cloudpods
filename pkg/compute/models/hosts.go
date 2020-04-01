@@ -42,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -61,6 +62,7 @@ import (
 type SHostManager struct {
 	db.SEnabledStatusInfrasResourceBaseManager
 	db.SExternalizedResourceBaseManager
+	db.SDnsNameValidatorManager
 	SZoneResourceBaseManager
 	SManagedResourceBaseManager
 }
@@ -2195,6 +2197,7 @@ func (manager *SHostManager) FetchHostById(hostId string) *SHost {
 
 func (manager *SHostManager) totalCountQ(
 	userCred mcclient.IIdentityProvider,
+	scope rbacutils.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
@@ -2212,6 +2215,9 @@ func (manager *SHostManager) totalCountQ(
 		hosts.Field("cpu_cmtbound"),
 		hosts.Field("storage_size"),
 	)
+	if scope != rbacutils.ScopeSystem && userCred != nil {
+		q = q.Filter(sqlchemy.Equals(hosts.Field("domain_id"), userCred.GetProjectDomainId()))
+	}
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.Equals(hosts.Field("status"), status))
 	}
@@ -2311,6 +2317,7 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 
 func (manager *SHostManager) TotalCount(
 	userCred mcclient.IIdentityProvider,
+	scope rbacutils.TRbacScope,
 	rangeObjs []db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
@@ -2321,6 +2328,7 @@ func (manager *SHostManager) TotalCount(
 	return manager.calculateCount(
 		manager.totalCountQ(
 			userCred,
+			scope,
 			rangeObjs,
 			hostStatus,
 			status,
@@ -2716,6 +2724,14 @@ func (self *SHost) PostCreate(
 			self.StartBaremetalCreateTask(ctx, userCred, kwargs, "")
 		}
 	}
+
+	keys := GetHostQuotaKeysFromCreateInput(input)
+	quota := SInfrasQuota{Host: 1}
+	quota.SetKeys(keys)
+	err = quotas.CancelPendingUsage(ctx, userCred, &quota, &quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 }
 
 func (self *SHost) StartBaremetalCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
@@ -3002,6 +3018,15 @@ func (manager *SHostManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
+
+	keys := GetHostQuotaKeysFromCreateInput(input)
+	quota := SInfrasQuota{Host: 1}
+	quota.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &quota)
+	if err != nil {
+		return input, errors.Wrapf(err, "CheckSetPendingQuota")
+	}
+
 	return input, nil
 }
 
@@ -4928,4 +4953,41 @@ func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.Tok
 	}
 
 	return host.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+}
+
+func GetHostQuotaKeysFromCreateInput(input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
+	ownerId := &db.SOwnerId{DomainId: input.ProjectDomain}
+	var zone *SZone
+	if len(input.Zone) > 0 {
+		zone = ZoneManager.FetchZoneById(input.Zone)
+	}
+	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, nil)
+	keys := quotas.SDomainRegionalCloudResourceKeys{}
+	keys.SBaseDomainQuotaKeys = zoneKeys.SBaseDomainQuotaKeys
+	keys.SRegionalBaseKeys = zoneKeys.SRegionalBaseKeys
+	return keys
+}
+
+func (model *SHost) GetQuotaKeys() quotas.SDomainRegionalCloudResourceKeys {
+	zone := model.GetZone()
+	manager := model.GetCloudprovider()
+	ownerId := model.GetOwnerId()
+	zoneKeys := fetchZonalQuotaKeys(rbacutils.ScopeDomain, ownerId, zone, manager)
+	keys := quotas.SDomainRegionalCloudResourceKeys{}
+	keys.SBaseDomainQuotaKeys = zoneKeys.SBaseDomainQuotaKeys
+	keys.SRegionalBaseKeys = zoneKeys.SRegionalBaseKeys
+	keys.SCloudResourceBaseKeys = zoneKeys.SCloudResourceBaseKeys
+	return keys
+}
+
+func (host *SHost) GetUsages() []db.IUsage {
+	if host.Deleted {
+		return nil
+	}
+	usage := SInfrasQuota{Host: 1}
+	keys := host.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
 }

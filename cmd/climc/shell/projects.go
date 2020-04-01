@@ -82,11 +82,12 @@ func init() {
 	})
 
 	type ProjectCreateOptions struct {
-		NAME     string `help:"Name of new project"`
-		Domain   string `help:"Domain"`
-		Desc     string `help:"Description"`
-		Enabled  bool   `help:"Project is enabled"`
-		Disabled bool   `help:"Project is disabled"`
+		NAME        string `help:"Name of new project"`
+		Displayname string `help:"display name"`
+		Domain      string `help:"Domain"`
+		Desc        string `help:"Description"`
+		Enabled     bool   `help:"Project is enabled"`
+		Disabled    bool   `help:"Project is disabled"`
 	}
 	R(&ProjectCreateOptions{}, "project-create", "Create a project", func(s *mcclient.ClientSession, args *ProjectCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -105,6 +106,9 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if len(args.Displayname) > 0 {
+			params.Add(jsonutils.NewString(args.Displayname), "displayname")
 		}
 		result, err := modules.Projects.Create(s, params)
 		if err != nil {

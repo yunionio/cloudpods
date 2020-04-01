@@ -47,6 +47,7 @@ func init() {
 
 	QuotaPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			rbacutils.ScopeProject,
 			"quota_pending_usage_tbl",
 			"quota_pending_usage",
 			"quota_pending_usages",
@@ -54,14 +55,21 @@ func init() {
 	}
 	QuotaUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{},
+			rbacutils.ScopeProject,
 			"quota_usage_tbl",
 			"quota_usage",
 			"quota_usages",
 		),
 	}
 	QuotaManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", QuotaPendingUsageManager, QuotaUsageManager,
-			"image_quota", "image_quotas"),
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{},
+			rbacutils.ScopeProject,
+			"quota_tbl",
+			QuotaPendingUsageManager,
+			QuotaUsageManager,
+			"image_quota",
+			"image_quotas",
+		),
 	}
 
 	quotas.Register(QuotaManager)
@@ -187,9 +195,7 @@ func (used *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	// if self.Image > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Image)), quotas.KeyName(prefix, "image"))
-	// }
 	return ret
 }
 
@@ -214,22 +220,22 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 }
 
 type SImageQuotaKeys struct {
-	quotas.SBaseQuotaKeys
+	quotas.SBaseProjectQuotaKeys
 
 	Type string `width:"16" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 }
 
 func (k SImageQuotaKeys) Fields() []string {
-	return append(k.SBaseQuotaKeys.Fields(), "type")
+	return append(k.SBaseProjectQuotaKeys.Fields(), "type")
 }
 
 func (k SImageQuotaKeys) Values() []string {
-	return append(k.SBaseQuotaKeys.Values(), k.Type)
+	return append(k.SBaseProjectQuotaKeys.Values(), k.Type)
 }
 
 func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
 	k2 := ik.(SImageQuotaKeys)
-	r := k1.SBaseQuotaKeys.Compare(k2.SBaseQuotaKeys)
+	r := k1.SBaseProjectQuotaKeys.Compare(k2.SBaseProjectQuotaKeys)
 	if r != 0 {
 		return r
 	}
@@ -248,7 +254,7 @@ func (k1 SImageQuotaKeys) Compare(ik quotas.IQuotaKeys) int {
 type SImageQuotaDetail struct {
 	SQuota
 
-	quotas.SBaseQuotaDetailKeys
+	quotas.SBaseProjectQuotaDetailKeys
 }
 
 // +onecloud:swagger-gen-route-method=GET

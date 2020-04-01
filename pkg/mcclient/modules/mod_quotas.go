@@ -137,7 +137,11 @@ var (
 	ProjectQuotas QuotaManager
 	RegionQuotas  QuotaManager
 	ZoneQuotas    QuotaManager
+	DomainQuotas  QuotaManager
+	InfrasQuotas  QuotaManager
 	ImageQuotas   QuotaManager
+
+	IdentityQuotas QuotaManager
 
 	quotaColumns = []string{}
 	/*quotaColumns = []string{
@@ -175,8 +179,23 @@ func init() {
 		[]string{})}
 	registerCompute(&ZoneQuotas)
 
+	DomainQuotas = QuotaManager{NewComputeManager("domain_quota", "domain_quotas",
+		quotaColumns,
+		[]string{})}
+	registerCompute(&DomainQuotas)
+
+	InfrasQuotas = QuotaManager{NewComputeManager("infras_quota", "infras_quotas",
+		quotaColumns,
+		[]string{})}
+	registerCompute(&InfrasQuotas)
+
 	ImageQuotas = QuotaManager{NewImageManager("image_quota", "image_quotas",
 		quotaColumns,
 		[]string{})}
 	registerV2(&ImageQuotas)
+
+	IdentityQuotas = QuotaManager{NewIdentityV3Manager("identity_quota", "identity_quotas",
+		quotaColumns,
+		[]string{})}
+	registerV2(&IdentityQuotas)
 }

@@ -1402,7 +1402,7 @@ func (self *SImage) CanUpdate(data jsonutils.JSONObject) bool {
 
 func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 	keys := SImageQuotaKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, img.GetOwnerId())
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, img.GetOwnerId())
 	if img.GetImageType() == api.ImageTypeISO {
 		keys.Type = string(api.ImageTypeISO)
 	} else {
@@ -1413,7 +1413,7 @@ func (img *SImage) GetQuotaKeys() quotas.IQuotaKeys {
 
 func imageCreateInput2QuotaKeys(data jsonutils.JSONObject, ownerId mcclient.IIdentityProvider) quotas.IQuotaKeys {
 	keys := SImageQuotaKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, ownerId)
 	format, _ := data.GetString("disk_format")
 	if format == string(api.ImageTypeISO) {
 		keys.Type = string(api.ImageTypeISO)

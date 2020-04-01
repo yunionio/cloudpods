@@ -38,9 +38,11 @@ type SQuotaBaseManager struct {
 	usageStore   IQuotaStore
 
 	nonNegative bool
+
+	scope rbacutils.TRbacScope
 }
 
-func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
+func NewQuotaBaseManager(model interface{}, scope rbacutils.TRbacScope, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore, keyword, keywordPlural string) SQuotaBaseManager {
 	pendingStore.SetVirtualObject(pendingStore)
 	usageStore.SetVirtualObject(usageStore)
 	return SQuotaBaseManager{
@@ -48,13 +50,15 @@ func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuot
 		pendingStore:         pendingStore,
 		usageStore:           usageStore,
 		nonNegative:          false,
+		scope:                scope,
 	}
 }
 
-func NewQuotaUsageManager(model interface{}, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
+func NewQuotaUsageManager(model interface{}, scope rbacutils.TRbacScope, tableName string, keyword, keywordPlural string) SQuotaBaseManager {
 	return SQuotaBaseManager{
 		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, keyword, keywordPlural),
 		nonNegative:          true,
+		scope:                scope,
 	}
 }
 
@@ -271,7 +275,12 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 		}
 
 		quota := manager.newQuota()
-		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+		var baseKeys IQuotaKeys
+		if manager.scope == rbacutils.ScopeDomain {
+			baseKeys = OwnerIdDomainQuotaKeys(ownerId)
+		} else {
+			baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)
+		}
 		if !reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys)) {
 			log.Fatalf("invalid quota??? fail to find SBaseQuotaKey")
 		}

@@ -58,7 +58,7 @@ func (self *SZStackGuestDriver) GetProvider() string {
 
 func (self *SZStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_ZSTACK
 	keys.Brand = brand

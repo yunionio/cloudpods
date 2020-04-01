@@ -26,8 +26,10 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId: "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 					},
 				},
 			},
@@ -36,8 +38,10 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId: "domain2",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain2",
+						},
 					},
 				},
 			},
@@ -46,8 +50,10 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project1",
 					},
 				},
@@ -57,8 +63,10 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project2",
 					},
 				},
@@ -68,8 +76,10 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain2",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain2",
+						},
 						ProjectId: "project1",
 					},
 				},
@@ -79,35 +89,47 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project1",
 					},
 				},
-				RegionId: "region1",
+				SRegionalBaseKeys: SRegionalBaseKeys{
+					RegionId: "region1",
+				},
 			},
 		},
 		// Project11Region2 :=
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project1",
 					},
 				},
-				RegionId: "region2",
+				SRegionalBaseKeys: SRegionalBaseKeys{
+					RegionId: "region2",
+				},
 			},
 		},
 		// Project11Aliyun :=
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project1",
 					},
-					Provider: "Aliyun",
+					SCloudResourceBaseKeys: SCloudResourceBaseKeys{
+						Provider: "Aliyun",
+					},
 				},
 			},
 		},
@@ -115,13 +137,19 @@ func TestRelation(t *testing.T) {
 		{
 			SRegionalCloudResourceKeys: SRegionalCloudResourceKeys{
 				SCloudResourceKeys: SCloudResourceKeys{
-					SBaseQuotaKeys: SBaseQuotaKeys{
-						DomainId:  "domain1",
+					SBaseProjectQuotaKeys: SBaseProjectQuotaKeys{
+						SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+							DomainId: "domain1",
+						},
 						ProjectId: "project1",
 					},
-					Provider: "Aliyun",
+					SCloudResourceBaseKeys: SCloudResourceBaseKeys{
+						Provider: "Aliyun",
+					},
 				},
-				RegionId: "region1",
+				SRegionalBaseKeys: SRegionalBaseKeys{
+					RegionId: "region1",
+				},
 			},
 		},
 	}

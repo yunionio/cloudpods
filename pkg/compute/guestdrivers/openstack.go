@@ -65,7 +65,7 @@ func (self *SOpenStackGuestDriver) GetProvider() string {
 
 func (self *SOpenStackGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PRIVATE_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_OPENSTACK
 	keys.Brand = brand

@@ -17,6 +17,7 @@ package quotas
 import (
 	"context"
 	"reflect"
+	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -82,6 +83,8 @@ func cancelUsage(ctx context.Context, userCred mcclient.TokenCredential, usage I
 	if err != nil {
 		log.Errorf("cancelUsage %s fail: %s", jsonutils.Marshal(usage), err)
 	}
+	log.Infof("cancelUsage %s", jsonutils.Marshal(usage))
+	debug.PrintStack()
 }
 
 func GetQuotaCount(ctx context.Context, request IQuota, pendingKeys IQuotaKeys) (int, error) {

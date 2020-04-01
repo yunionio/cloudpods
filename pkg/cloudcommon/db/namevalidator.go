@@ -16,6 +16,7 @@ package db
 
 import (
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/pkg/util/stringutils"
 
@@ -111,4 +112,17 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 		name = fmt.Sprintf(pattern, baseIndex)
 		baseIndex += 1
 	}
+}
+
+var (
+	dnsNameREG = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]*$`)
+)
+
+type SDnsNameValidatorManager struct{}
+
+func (manager *SDnsNameValidatorManager) ValidateName(name string) error {
+	if dnsNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
 }

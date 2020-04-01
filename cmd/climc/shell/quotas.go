@@ -94,6 +94,25 @@ type ImageQuotaOptions struct {
 	Image int64 `help:"Template count" json:"image,omitzero"`
 }
 
+type DomainQuotaOptions struct {
+	Cloudaccount int64 `help:"cloudaccount count" json:"cloudaccount,omitzero"`
+}
+
+type InfrasQuotaOptions struct {
+	RegionQuotaKeys
+
+	Host int64 `help:"host count" json:"host,omitzero"`
+	Vpc  int64 `help:"vpc count" json:"vpc,omitzero"`
+}
+
+type IdentityQuotaOptions struct {
+	User    int64 `help:"user count" json:"user,omitzero"`
+	Group   int64 `help:"group count" json:"group,omitzero"`
+	Project int64 `help:"project count" json:"project,omitzero"`
+	Role    int64 `help:"role count" json:"role,omitzero"`
+	Policy  int64 `help:"policy count" json:"policy,omitzero"`
+}
+
 type QuotaSetBaseOptions struct {
 	Project string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
 	Domain  string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
@@ -167,6 +186,33 @@ func init() {
 		printQuotaList(quotas)
 		return nil
 	})
+	R(&QuotaOptions{}, "domain-quota", "Show domain-quota for current domain", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.DomainQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printQuotaList(result)
+		return nil
+	})
+	R(&QuotaOptions{}, "infras-quota", "Show infras-quota for current domain", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.InfrasQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printQuotaList(result)
+		return nil
+	})
+	R(&QuotaOptions{}, "identity-quota", "Show identity-quota for current domain", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.IdentityQuotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printQuotaList(result)
+		return nil
+	})
 
 	type ComputeQuotaSetOptions struct {
 		QuotaSetBaseOptions
@@ -238,6 +284,48 @@ func init() {
 		return nil
 	})
 
+	type DomainQuotaSetOptions struct {
+		QuotaSetBaseOptions
+		DomainQuotaOptions
+	}
+	R(&DomainQuotaSetOptions{}, "domain-quota-set", "Set domain quota for domain", func(s *mcclient.ClientSession, args *DomainQuotaSetOptions) error {
+		params := jsonutils.Marshal(args)
+		quotas, e := modules.DomainQuotas.DoQuotaSet(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(quotas)
+		return nil
+	})
+
+	type InfrasQuotaSetOptions struct {
+		QuotaSetBaseOptions
+		InfrasQuotaOptions
+	}
+	R(&InfrasQuotaSetOptions{}, "infras-quota-set", "Set infrastructure quota for domain", func(s *mcclient.ClientSession, args *InfrasQuotaSetOptions) error {
+		params := jsonutils.Marshal(args)
+		quotas, e := modules.InfrasQuotas.DoQuotaSet(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(quotas)
+		return nil
+	})
+
+	type IdentityQuotaSetOptions struct {
+		QuotaSetBaseOptions
+		IdentityQuotaOptions
+	}
+	R(&IdentityQuotaSetOptions{}, "identity-quota-set", "Set identity quota for domain", func(s *mcclient.ClientSession, args *InfrasQuotaSetOptions) error {
+		params := jsonutils.Marshal(args)
+		quotas, e := modules.IdentityQuotas.DoQuotaSet(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(quotas)
+		return nil
+	})
+
 	type QuotaListOptions struct {
 		ProjectDomain string `help:"domain name or ID to query project quotas"`
 		Refresh       bool   `help:"refresh" json:"refresh,omitfalse"`
@@ -286,6 +374,36 @@ func init() {
 	R(&QuotaListOptions{}, "image-quota-list", "List image quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
 		params := jsonutils.Marshal(args)
 		result, e := modules.ImageQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "domain-quota-list", "List domain quota of domains", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.DomainQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "infras-quota-list", "List infrastructure quota of domains", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.InfrasQuotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printQuotaList(result)
+		return nil
+	})
+
+	R(&QuotaListOptions{}, "identity-quota-list", "List identity quota of domains", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.IdentityQuotas.GetQuotaList(s, params)
 		if e != nil {
 			return e
 		}
@@ -343,4 +461,30 @@ func init() {
 		return nil
 	})
 
+	R(&CleanPendingUsageOptions{}, "clean-domain-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.DomainQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	R(&CleanPendingUsageOptions{}, "clean-infras-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.InfrasQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	R(&CleanPendingUsageOptions{}, "clean-identity-pending-usage", "Clean pending usage for project or domain", func(s *mcclient.ClientSession, args *CleanPendingUsageOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.IdentityQuotas.DoCleanPendingUsage(s, params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
