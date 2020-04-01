@@ -60,6 +60,9 @@ type SProxySetting struct {
 
 func (man *SProxySettingManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data proxyapi.ProxySettingCreateInput) (proxyapi.ProxySettingCreateInput, error) {
 	var err error
+	if err := data.ProxySetting.Sanitize(); err != nil {
+		return data, httperrors.NewInputParameterError("%s", err)
+	}
 	data.InfrasResourceBaseCreateInput, err = man.SInfrasResourceBaseManager.ValidateCreateData(
 		ctx,
 		userCred,
@@ -75,6 +78,9 @@ func (ps *SProxySetting) ValidateUpdateData(ctx context.Context, userCred mcclie
 		return data, httperrors.NewConflictError("DIRECT setting cannot be changed")
 	}
 	var err error
+	if err := data.ProxySetting.Sanitize(); err != nil {
+		return data, httperrors.NewInputParameterError("%s", err)
+	}
 	data.InfrasResourceBaseUpdateInput, err = ps.SInfrasResourceBase.ValidateUpdateData(
 		ctx,
 		userCred,
