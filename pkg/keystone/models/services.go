@@ -169,7 +169,7 @@ func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient
 	return result, nil
 }
 
-func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+func (service *SService) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, service, "config")
 }
 
@@ -181,17 +181,14 @@ func (service *SService) isCommonService() bool {
 	}
 }
 
-func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	action, _ := data.GetString("action")
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input data")
-	}
+func (service *SService) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
+	var err error
+	action := input.Action
+	opts := input.Config
 	if service.isCommonService() {
-		err = saveConfigs(action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
+		err = saveConfigs(userCred, action, service, opts, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs(action, service, opts, nil, api.ServiceBlacklistOptionMap, nil)
+		err = saveConfigs(userCred, action, service, opts, nil, api.ServiceBlacklistOptionMap, nil)
 	}
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)

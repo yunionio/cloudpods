@@ -93,3 +93,19 @@ var (
 		IdpTemplateOpenLDAPSingleDomain: IdentityDriverLDAP,
 	}
 )
+
+type PerformConfigInput struct {
+	// 更新配置的方式
+	// example: update
+	//
+	// | action  |  含义                                         |
+	// |---------|-----------------------------------------------|
+	// | update  | 增量更新配置                                  |
+	// | remove  | 删除指定配置                                  |
+	// | replace | 全量替换配置，如果action为空，则默认为replace |
+	//
+	Action string `json:"action"`
+
+	// 配置信息
+	Config TConfigs `json:"config"`
+}

@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SConfigOptionManager struct {
@@ -310,7 +312,7 @@ func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
 	return config2map(opts), nil
 }
 
-func saveConfigs(action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
+func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
 	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, whiteList, blackList, sensitiveConfs)
 	if action == "update" {
 		err := WhitelistedConfigManager.updateConfigs(whiteListedOpts)
@@ -340,6 +342,11 @@ func saveConfigs(action string, model db.IModel, opts api.TConfigs, whiteList ma
 			return errors.Wrap(err, "SensitiveConfigManager.syncConfig")
 		}
 	}
+	if userCred == nil {
+		userCred = getDefaultAdminCred()
+	}
+	db.OpsLog.LogEvent(model, db.ACT_CHANGE_CONFIG, opts, userCred)
+	logclient.AddSimpleActionLog(model, logclient.ACT_CHANGE_CONFIG, whiteListedOpts, userCred, true)
 	return nil
 }
 
@@ -410,9 +417,9 @@ func uploadConfig(service *SService, config jsonutils.JSONObject) {
 		return
 	}
 	if service.isCommonService() {
-		err = saveConfigs("", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
+		err = saveConfigs(nil, "", service, tconf, api.CommonWhitelistOptionMap, nil, nil)
 	} else {
-		err = saveConfigs("", service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
+		err = saveConfigs(nil, "", service, tconf, nil, api.ServiceBlacklistOptionMap, nil)
 	}
 	if err != nil {
 		log.Errorf("saveConfigs fail %s", err)

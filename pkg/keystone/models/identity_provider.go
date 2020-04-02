@@ -212,24 +212,20 @@ func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mc
 	return result, nil
 }
 
-func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, ident, "config")
 }
 
-func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
 	if ident.Status == api.IdentityDriverStatusConnected && ident.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when enabled and connected")
 	}
 	if ident.SyncStatus != api.IdentitySyncStatusIdle {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when not idle")
 	}
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input data")
-	}
-	action, _ := data.GetString("action")
-	err = saveConfigs(action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
+	opts := input.Config
+	action := input.Action
+	err := saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
@@ -328,7 +324,7 @@ func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclien
 		log.Errorf("parse config error %s", err)
 		return
 	}
-	err = saveConfigs("", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
+	err = saveConfigs(userCred, "", ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		log.Errorf("saveConfig fail %s", err)
 		return
