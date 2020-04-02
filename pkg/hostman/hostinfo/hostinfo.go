@@ -751,9 +751,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 		h.updateHostRecord("")
 	} else {
 		host := res.Data[0]
-		name, _ := host.GetString("name")
 		id, _ := host.GetString("id")
-		h.setHostname(name)
 		h.updateHostRecord(id)
 	}
 }
@@ -869,8 +867,6 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
-	hostname, _ := hostbody.GetString("name")
-	h.setHostname(hostname)
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
