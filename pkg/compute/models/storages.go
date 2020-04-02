@@ -796,7 +796,7 @@ type StorageCapacityStat struct {
 	TotalSizeVirtual float64
 }
 
-func filterDisksByScope(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+func filterDisksByScope(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
 	q := DiskManager.Query()
 	switch scope {
 	case rbacutils.ScopeSystem:
@@ -805,11 +805,16 @@ func filterDisksByScope(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 	case rbacutils.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()))
 	}
+	if pendingDeleted {
+		q = q.IsTrue("pending_deleted")
+	} else {
+		q = q.IsFalse("pending_deleted")
+	}
 	return q.SubQuery()
 }
 
-func (manager *SStorageManager) disksReadyQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
-	disks := filterDisksByScope(scope, ownerId)
+func (manager *SStorageManager) disksReadyQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
+	disks := filterDisksByScope(scope, ownerId, pendingDeleted)
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("used_capacity", disks.Field("disk_size")),
@@ -818,7 +823,7 @@ func (manager *SStorageManager) disksReadyQ(scope rbacutils.TRbacScope, ownerId 
 	return q.SubQuery()
 }
 
-func (manager *SStorageManager) diskIsAttachedQ(isAttached bool, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+func (manager *SStorageManager) diskIsAttachedQ(isAttached bool, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
 	sumKey := "attached_used_capacity"
 	cond := sqlchemy.In
 	if !isAttached {
@@ -826,7 +831,7 @@ func (manager *SStorageManager) diskIsAttachedQ(isAttached bool, scope rbacutils
 		cond = sqlchemy.NotIn
 	}
 	sq := GuestdiskManager.Query("disk_id").SubQuery()
-	disks := filterDisksByScope(scope, ownerId)
+	disks := filterDisksByScope(scope, ownerId, pendingDeleted)
 	disks = disks.Query().Filter(cond(disks.Field("id"), sq)).SubQuery()
 	q := disks.Query(
 		disks.Field("storage_id"),
@@ -835,16 +840,16 @@ func (manager *SStorageManager) diskIsAttachedQ(isAttached bool, scope rbacutils
 	return q.SubQuery()
 }
 
-func (manager *SStorageManager) diskAttachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
-	return manager.diskIsAttachedQ(true, scope, ownerId)
+func (manager *SStorageManager) diskAttachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(true, scope, ownerId, pendingDeleted)
 }
 
-func (manager *SStorageManager) diskDetachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
-	return manager.diskIsAttachedQ(false, scope, ownerId)
+func (manager *SStorageManager) diskDetachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(false, scope, ownerId, pendingDeleted)
 }
 
-func (manager *SStorageManager) disksFailedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
-	disks := filterDisksByScope(scope, ownerId)
+func (manager *SStorageManager) disksFailedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, pendingDeleted bool) *sqlchemy.SSubQuery {
+	disks := filterDisksByScope(scope, ownerId, pendingDeleted)
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("failed_capacity", disks.Field("disk_size")),
@@ -858,11 +863,12 @@ func (manager *SStorageManager) totalCapacityQ(
 	resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
+	pendingDeleted bool,
 ) *sqlchemy.SQuery {
-	stmt := manager.disksReadyQ(scope, ownerId)
-	stmt2 := manager.disksFailedQ(scope, ownerId)
-	attachedDisks := manager.diskAttachedQ(scope, ownerId)
-	detachedDisks := manager.diskDetachedQ(scope, ownerId)
+	stmt := manager.disksReadyQ(scope, ownerId, pendingDeleted)
+	stmt2 := manager.disksFailedQ(scope, ownerId, pendingDeleted)
+	attachedDisks := manager.diskAttachedQ(scope, ownerId, pendingDeleted)
+	detachedDisks := manager.diskDetachedQ(scope, ownerId, pendingDeleted)
 	storages := manager.Query().SubQuery()
 	q := storages.Query(
 		storages.Field("capacity"),
@@ -956,6 +962,7 @@ func (manager *SStorageManager) TotalCapacity(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	pendingDeleted bool,
 ) StoragesCapacityStat {
 	res1 := manager.calculateCapacity(
 		manager.totalCapacityQ(
@@ -964,6 +971,7 @@ func (manager *SStorageManager) TotalCapacity(
 			resourceTypes,
 			providers, brands, cloudEnv,
 			scope, ownerId,
+			pendingDeleted,
 		),
 	)
 	return res1
