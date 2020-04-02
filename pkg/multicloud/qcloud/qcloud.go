@@ -324,7 +324,9 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
 	}
-	client.WithProfile(profile.NewClientProfile())
+	_profile := profile.NewClientProfile()
+	_profile.SignMethod = common.SHA256
+	client.WithProfile(_profile)
 	service := strings.Split(domain, ".")[0]
 	req.Init().WithApiInfo(service, version, apiName)
 	req.SetDomain(domain)
@@ -349,7 +351,9 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
 	}
-	client.WithProfile(profile.NewClientProfile())
+	_profile := profile.NewClientProfile()
+	_profile.SignMethod = common.SHA256
+	client.WithProfile(_profile)
 	service := strings.Split(domain, ".")[0]
 	req.Init().WithApiInfo(service, version, apiName)
 	req.SetDomain(domain)
