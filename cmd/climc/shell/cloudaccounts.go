@@ -446,7 +446,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.SOpenStackCloudAccountUpdateOptions{}, "cloud-account-update-openstack", "update an AWS cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountUpdateOptions) error {
+	R(&options.SOpenStackCloudAccountUpdateOptions{}, "cloud-account-update-openstack", "update an OpenStack cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountUpdateOptions) error {
 		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 		if params.Size() == 0 {
 			return InvalidUpdateError()
