@@ -318,7 +318,7 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 		"proxy_setting",
 		proxy.ProxySettingManager.Keyword(),
 		userCred,
-	)
+	).Optional(true)
 	if err := v.Validate(data); err != nil {
 		return nil, err
 	}
