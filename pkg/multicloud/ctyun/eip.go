@@ -148,7 +148,7 @@ func (self *SEip) GetAssociationType() string {
 	for i := range orders {
 		order := orders[i]
 		if strings.Contains(order.ResourceType, "LOADBALANCER") {
-			return api.EIP_ASSOCIATE_TYPE_ELB
+			return api.EIP_ASSOCIATE_TYPE_LOADBALANCER
 		} else {
 			return api.EIP_ASSOCIATE_TYPE_SERVER
 		}

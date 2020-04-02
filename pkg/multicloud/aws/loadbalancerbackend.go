@@ -15,6 +15,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -93,7 +94,7 @@ func (self *SElbBackend) GetBackendId() string {
 	return self.Target.ID
 }
 
-func (self *SElbBackend) SyncConf(port, weight int) error {
+func (self *SElbBackend) SyncConf(ctx context.Context, port, weight int) error {
 	return self.region.SyncElbBackend(self.GetId(), self.GetBackendId(), self.Target.Port, port)
 }
 

@@ -157,7 +157,7 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 }
 
 func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
-	_network, err := db.FetchByExternalId(NetworkManager, req.NetworkId)
+	_network, err := db.FetchById(NetworkManager, req.NetworkId)
 	if err != nil {
 		return err
 	}
