@@ -694,9 +694,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			}
 		}
 	}
-	if manager.Keyword() == "servertemplate" {
-		q.DebugQuery()
-	}
 	retList, err := Query2List(manager, ctx, userCred, q, queryDict, delayFetch)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)

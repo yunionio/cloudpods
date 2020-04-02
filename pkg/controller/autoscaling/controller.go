@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package autoscaling
 
 import (
@@ -10,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -20,6 +32,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -597,7 +610,7 @@ func (asc *SASController) actionAfterCreate(
 			params.Add(jsonutils.NewString(ret.Id), "obj_id")
 			params.Add(jsonutils.NewStringArray([]string{db.ACT_ALLOCATE_FAIL}), "action")
 			events, err := modules.Logs.List(session, params)
-			if err != nil  {
+			if err != nil {
 				log.Errorf("Logs.List failed: %s", err.Error())
 				reason = fmt.Sprintf("instance '%s' which status is '%s' create failed", ret.Id, ret.Status)
 			} else {
