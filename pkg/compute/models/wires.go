@@ -447,6 +447,7 @@ func (manager *SWireManager) totalCountQ(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	pendingDeleted bool,
 ) *sqlchemy.SQuery {
 	guests := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId).SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -461,6 +462,11 @@ func (manager *SWireManager) totalCountQ(
 	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
 	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	if pendingDeleted {
+		gNicQ = gNicQ.Filter(sqlchemy.IsTrue(guests.Field("pending_deleted")))
+	} else {
+		gNicQ = gNicQ.Filter(sqlchemy.IsFalse(guests.Field("pending_deleted")))
+	}
 
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
@@ -489,6 +495,11 @@ func (manager *SWireManager) totalCountQ(
 		sqlchemy.COUNT("lbnic_count"),
 	)
 	lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
+	if pendingDeleted {
+		lbNicQ = lbNicQ.Filter(sqlchemy.IsTrue(lbs.Field("pending_deleted")))
+	} else {
+		lbNicQ = lbNicQ.Filter(sqlchemy.IsFalse(lbs.Field("pending_deleted")))
+	}
 
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
@@ -566,6 +577,7 @@ func (manager *SWireManager) TotalCount(
 	providers []string, brands []string, cloudEnv string,
 	scope rbacutils.TRbacScope,
 	ownerId mcclient.IIdentityProvider,
+	pendingDeleted bool,
 ) WiresCountStat {
 	stat := WiresCountStat{}
 	err := manager.totalCountQ(
@@ -573,6 +585,7 @@ func (manager *SWireManager) TotalCount(
 		hostTypes,
 		providers, brands, cloudEnv,
 		scope, ownerId,
+		pendingDeleted,
 	).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
