@@ -21,8 +21,7 @@ import (
 )
 
 var (
-	Secrets         *SecretManager
-	RegistrySecrets *RegistrySecretManager
+	Secrets *SecretManager
 )
 
 type SecretManager struct {
@@ -38,13 +37,7 @@ func init() {
 		NewNamespaceResourceManager("secret", "secrets",
 			NewNamespaceCols("Type"), NewColumns())}
 
-	RegistrySecrets = &RegistrySecretManager{
-		SecretManager: &SecretManager{
-			NewNamespaceResourceManager("registrysecret", "registrysecrets", NewNamespaceCols(), NewColumns())},
-	}
-
 	modules.Register(Secrets)
-	modules.Register(RegistrySecrets)
 }
 
 func (m SecretManager) GetType(obj jsonutils.JSONObject) interface{} {
