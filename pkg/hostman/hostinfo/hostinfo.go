@@ -794,9 +794,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 		h.updateHostRecord("")
 	} else {
 		host := res.Data[0]
-		name, _ := host.GetString("name")
 		id, _ := host.GetString("id")
-		h.setHostname(name)
 		h.updateHostRecord(id)
 	}
 }
@@ -925,7 +923,6 @@ func (h *SHostInfo) updateHostMetadata(hostname string) error {
 func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
 	hostname, _ := hostbody.GetString("name")
-	h.setHostname(hostname)
 	if err := h.updateHostMetadata(hostname); err != nil {
 		h.onFail(err)
 		return
