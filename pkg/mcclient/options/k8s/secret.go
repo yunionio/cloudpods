@@ -32,8 +32,7 @@ func (o SecretListOptions) Params() *jsonutils.JSONDict {
 }
 
 type RegistrySecretCreateOptions struct {
-	NamespaceWithClusterOptions
-	NAME     string `help:"Name of secret"`
+	SecretCreateOptions
 	Server   string `help:"Docker registry server, e.g. 'https://index.docker.io/v1/'" required:"true"`
 	User     string `help:"Docker registry user" required:"true"`
 	Password string `help:"Docker registry password" required:"true"`
@@ -41,15 +40,19 @@ type RegistrySecretCreateOptions struct {
 }
 
 func (o RegistrySecretCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params := o.NamespaceWithClusterOptions.Params()
-	params.Add(jsonutils.NewString(o.NAME), "name")
+	input, err := o.SecretCreateOptions.Params("kubernetes.io/dockerconfigjson")
+	if err != nil {
+		return nil, err
+	}
+	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(o.Server), "server")
 	params.Add(jsonutils.NewString(o.User), "user")
 	params.Add(jsonutils.NewString(o.Password), "password")
 	if o.Email != "" {
 		params.Add(jsonutils.NewString(o.Email), "email")
 	}
-	return params, nil
+	input.Add(params, "dockerConfigJson")
+	return input, nil
 }
 
 type SecretCreateOptions struct {
