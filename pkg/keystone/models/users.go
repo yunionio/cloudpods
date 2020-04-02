@@ -952,20 +952,21 @@ func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred m
 	return nil
 }
 
-func (manager *SUserManager) LockUser(uid string) error {
+func (manager *SUserManager) LockUser(uid string, reason string) error {
 	usrObj, err := manager.FetchById(uid)
 	if err != nil {
 		return errors.Wrapf(err, "manager.FetchById %s", uid)
 	}
 	usr := usrObj.(*SUser)
-	diff, err := db.Update(usr, func() error {
+	_, err = db.Update(usr, func() error {
 		usr.Enabled = tristate.False
 		return nil
 	})
 	if err != nil {
 		return errors.Wrap(err, "Update")
 	}
-	db.OpsLog.LogEvent(usr, db.ACT_UPDATE, diff, GetDefaultAdminCred())
+	db.OpsLog.LogEvent(usr, db.ACT_DISABLE, reason, GetDefaultAdminCred())
+	logclient.AddSimpleActionLog(usr, logclient.ACT_DISABLE, reason, GetDefaultAdminCred(), false)
 	return nil
 }
 
