@@ -84,6 +84,7 @@ func (asc *SASController) Init(options options.SASControllerOptions, cronm *cron
 	asc.options = options
 	cronm.AddJobAtIntervals("CheckTimer", time.Duration(options.TimerInterval)*time.Second, asc.Timer)
 	cronm.AddJobAtIntervals("CheckScale", time.Duration(options.CheckScaleInterval)*time.Second, asc.CheckScale)
+	cronm.AddJobAtIntervals("CheckInstanceHealth", time.Duration(options.CheckHealthInterval)*time.Minute, asc.CheckInstanceHealth)
 	asc.timerQueue = make(chan struct{}, 20)
 	asc.scalingQueue = make(chan struct{}, options.ConcurrentUpper)
 	asc.scalingGroupSet = &SLockedSet{set: sets.NewString()}

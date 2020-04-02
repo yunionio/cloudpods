@@ -49,7 +49,7 @@ type SScalingGroupGuest struct {
 	SGuestJointsBase
 
 	ScalingGroupId string            `width:"36" charset:"ascii" nullable:"false"`
-	GuestStatus    string            `width:"36" charset:"ascii" nullable:"false"`
+	GuestStatus    string            `width:"36" charset:"ascii" nullable:"false" index:"true"`
 	Manual         tristate.TriState `nullable:"false" default:"false"`
 }
 
