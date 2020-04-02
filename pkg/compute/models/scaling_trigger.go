@@ -531,7 +531,7 @@ func (sa *SScalingAlarm) TriggerDescription() string {
 		name = sp.Name
 	}
 	return fmt.Sprintf(
-		`Alarm task(the %s %s of the instance is %s than %d%s) execute scaling policy "%s"`,
+		`Alarm task(the %s %s of the instance is %s than %f%s) execute scaling policy "%s"`,
 		descs[sa.Wrapper], descs[sa.Indicator], descs[sa.Operator],
 		sa.Value, units[sa.Indicator], name,
 	)

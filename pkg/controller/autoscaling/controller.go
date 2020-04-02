@@ -473,7 +473,7 @@ func (asc *SASController) CreateInstances(
 		// bind ld and db
 		go func() {
 			succeed := asc.actionAfterCreate(ctx, userCred, session, sg, ret, failRecord)
-			log.Debugf("action after create instance '%s', succeed: %b", ret.Id, succeed)
+			log.Debugf("action after create instance '%s', succeed: %t", ret.Id, succeed)
 			if succeed {
 				succeedInstances = append(succeedInstances, ret.Id)
 			}
@@ -484,7 +484,7 @@ func (asc *SASController) CreateInstances(
 	// wait for all worker finish
 	log.Debugf("workerlimit cap: %d", cap(workerLimit))
 	for i := 0; i < cap(workerLimit); i++ {
-		log.Debugf("no.%d insert worker limit")
+		log.Debugf("no.%d insert worker limit", i)
 		workerLimit <- struct{}{}
 	}
 
@@ -603,7 +603,7 @@ func (asc *SASController) actionAfterCreate(
 	}
 	if ret.Status != compute.VM_RUNNING {
 		if ret.Status == "timeout" {
-			rollback(fmt.Sprintf("the creation process for instance '%s' has timed out"))
+			rollback(fmt.Sprintf("the creation process for instance '%s' has timed out", ret.Id))
 		} else {
 			// fetch the reason
 			var reason string
@@ -647,7 +647,7 @@ func (asc *SASController) actionAfterCreate(
 	// fifth stage: join scaling group finished
 	sggs, err := models.ScalingGroupGuestManager.Fetch(sg.GetId(), ret.Id)
 	if err != nil || sggs == nil || len(sggs) == 0 {
-		log.Errorf("ScalingGroupGuestManager.Fetch failed; ScalingGroup '%s', Guest '%s'")
+		log.Errorf("ScalingGroupGuestManager.Fetch failed; ScalingGroup '%s', Guest '%s'", sg.Id, ret.Id)
 		return
 	}
 	sggs[0].SetGuestStatus(compute.SG_GUEST_STATUS_READY)

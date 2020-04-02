@@ -430,7 +430,7 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	// query again to fetch the latest desire instance number of sg
 	model, err := ScalingGroupManager.FetchById(sg.Id)
 	if err != nil {
-		scalingActivity.SetFailed("", fmt.Sprintf("fail to get ScalingGroup: ", err.Error()))
+		scalingActivity.SetFailed("", fmt.Sprintf("fail to get ScalingGroup: %s", err.Error()))
 		return nil
 	}
 	sg = model.(*SScalingGroup)
