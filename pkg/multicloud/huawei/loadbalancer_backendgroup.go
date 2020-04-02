@@ -15,6 +15,7 @@
 package huawei
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -312,7 +313,7 @@ func (self *SElbBackendGroup) RemoveBackendServer(backendId string, weight int, 
 	return cloudprovider.WaitDeleted(ibackend, 2*time.Second, 30*time.Second)
 }
 
-func (self *SElbBackendGroup) Delete() error {
+func (self *SElbBackendGroup) Delete(ctx context.Context) error {
 	if len(self.HealthMonitorID) > 0 {
 		err := self.region.DeleteLoadbalancerHealthCheck(self.HealthMonitorID)
 		if err != nil {
@@ -344,7 +345,7 @@ func (self *SElbBackendGroup) Delete() error {
 	return cloudprovider.WaitDeleted(self, 2*time.Second, 30*time.Second)
 }
 
-func (self *SElbBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+func (self *SElbBackendGroup) Sync(ctx context.Context, group *cloudprovider.SLoadbalancerBackendGroup) error {
 	if group == nil {
 		return nil
 	}

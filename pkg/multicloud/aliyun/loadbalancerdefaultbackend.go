@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -81,7 +82,7 @@ func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
 	return ""
 }
 
-func (backend *SLoadbalancerDefaultBackend) SyncConf(port, weight int) error {
+func (backend *SLoadbalancerDefaultBackend) SyncConf(ctx context.Context, port, weight int) error {
 	params := map[string]string{}
 	params["RegionId"] = backend.lbbg.lb.region.RegionId
 	params["LoadBalancerId"] = backend.lbbg.lb.LoadBalancerId

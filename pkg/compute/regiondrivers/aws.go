@@ -1008,7 +1008,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetICloudLoadbalancerBackendGroup")
 				}
 				// 服务器组已经存在，直接同步即可
-				if err := ilbbg.Sync(params); err != nil {
+				if err := ilbbg.Sync(ctx, params); err != nil {
 					return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.Sync")
 				}
 			} else {
@@ -1037,7 +1037,7 @@ func (self *SAwsRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.GetILoadBalancerById")
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestCreateLoadbalancerListener.CreateILoadBalancerListener")
 		}
@@ -1140,7 +1140,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.GetILoadBalancerBackendGroupById")
 			}
 
-			err = iLoadbalancerBackendGroup.Delete()
+			err = iLoadbalancerBackendGroup.Delete(ctx)
 			if err != nil {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
 			}
@@ -1211,7 +1211,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			}
 		}
 
-		err = iLoadbalancer.Delete()
+		err = iLoadbalancer.Delete(ctx)
 		if err != nil {
 			if err != cloudprovider.ErrNotFound {
 				return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancer.Delete")
@@ -1228,7 +1228,7 @@ func (self *SAwsRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 			// delete remote lbbgs
 			for i := range ilbbgs {
 				ilbbg := ilbbgs[i]
-				err = ilbbg.Delete()
+				err = ilbbg.Delete(ctx)
 				if err != nil {
 					return nil, errors.Wrap(err, "AwsRegionDriver.RequestDeleteLoadbalancerBackendGroup.DeleteExtBackendGroup")
 				}
@@ -1316,7 +1316,7 @@ func (self *SAwsRegionDriver) RequestSyncLoadbalancerListener(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.GetILoadBalancerListenerById")
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, errors.Wrap(err, "awsRegionDriver.RequestSyncLoadbalancerListener.Sync")
 		}
 		if err := iListener.Refresh(); err != nil {
