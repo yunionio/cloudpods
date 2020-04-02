@@ -27,17 +27,13 @@ const (
 type ProxySettingCreateInput struct {
 	apis.InfrasResourceBaseCreateInput
 
-	HttpProxy  string
-	HttpsProxy string
-	NoProxy    string
+	ProxySetting
 }
 
 type ProxySettingUpdateInput struct {
 	apis.InfrasResourceBaseUpdateInput
 
-	HttpProxy  string
-	HttpsProxy string
-	NoProxy    string
+	ProxySetting
 }
 
 // String implements ISerializable interface
