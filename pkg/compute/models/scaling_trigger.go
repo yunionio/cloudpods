@@ -485,6 +485,7 @@ func (sa *SScalingAlarm) generateAlertConfig(sp *SScalingPolicy) (*monitor.Alert
 		return nil, err
 	}
 	cond := config.Condition("telegraf", indicatorMap[sa.Indicator].Table).Avg()
+	log.Debugf("alarm: %#v", sa)
 
 	switch sa.Operator {
 	case api.OPERATOR_LT:

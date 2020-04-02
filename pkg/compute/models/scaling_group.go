@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -80,6 +81,9 @@ type SScalingGroup struct {
 
 	LoadbalancerBackendPort   int `nullable:"false" default:"80" create:"optional" list:"user" get:"user"`
 	LoadbalancerBackendWeight int `nillable:"false" default:"1" create:"optional" list:"user" get:"user"`
+
+	// Time to allow scale
+	AllowScaleTime time.Time
 }
 
 var ScalingGroupManager *SScalingGroupManager
@@ -418,6 +422,72 @@ func (sg *SScalingGroup) Guests() ([]SGuest, error) {
 	return guests, nil
 }
 
+type sExecResult struct {
+	// 0: success; 1: part success; 2: reject; 3: fail
+	code       uint8
+	actionStr  string
+	reason     string
+	intanceNum int
+}
+
+func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret sExecResult) {
+	ret.code = 3
+	ret.intanceNum = -1
+	lockman.LockObject(ctx, sg)
+	defer lockman.ReleaseObject(ctx, sg)
+	// query again to fetch the latest desire instance number of sg
+	model, err := ScalingGroupManager.FetchById(sg.Id)
+	if err != nil {
+		ret.reason = fmt.Sprintf("fail to get ScalingGroup: %s", err.Error())
+		return
+	}
+	sg = model.(*SScalingGroup)
+	targetNum := action.Exec(sg.DesireInstanceNumber)
+	// targetNum must between sg.MinInstanceNumber and sg.MaxInstanceNumber
+	ret.code = 0
+	if targetNum > sg.MaxInstanceNumber {
+		if sg.DesireInstanceNumber == sg.MaxInstanceNumber {
+			ret.code = 2
+			ret.reason = fmt.Sprintf(
+				`Want to change the Desired Instance Number from "%d" to "%d", but the Desired Instance Number has reached the Max Instance Number`,
+				sg.DesireInstanceNumber, targetNum,
+			)
+			return
+		}
+		ret.code = 1
+		ret.reason = fmt.Sprintf(
+			`Want to change the Desired Instance Number from "%d" to "%d", but "%d" is greater than the Max Instance Number "%d"`,
+			sg.DesireInstanceNumber, targetNum, targetNum, sg.MaxInstanceNumber,
+		)
+		targetNum = sg.MaxInstanceNumber
+	} else if targetNum < sg.MinInstanceNumber {
+		if sg.DesireInstanceNumber == sg.MinInstanceNumber {
+			ret.code = 2
+			ret.reason = fmt.Sprintf(
+				`Want to change the Desired Instance Number from "%d" to "%d", but the Desired Instance Number has reached the Min Instance Number`,
+				sg.DesireInstanceNumber, targetNum,
+			)
+			return
+		}
+		ret.code = 1
+		ret.reason = fmt.Sprintf(
+			`Want to change the Desired Instance Number from "%d" to "%d", but "%d" is less than the Min Instance Number "%d"`,
+			sg.DesireInstanceNumber, targetNum, targetNum, sg.MinInstanceNumber,
+		)
+		targetNum = sg.MinInstanceNumber
+	}
+	ret.actionStr = fmt.Sprintf(`Change the Desired Instance Number from "%d" to "%d"`, sg.DesireInstanceNumber, targetNum)
+	_, err = db.Update(sg, func() error {
+		sg.DesireInstanceNumber = targetNum
+		return nil
+	})
+	if err != nil {
+		ret.code = 3
+		ret.reason = fmt.Sprintf("Update ScalingGroup's DesireInstanceNumber failed: %s", err.Error())
+	}
+	return
+}
+
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
 func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) error {
@@ -425,35 +495,28 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	if err != nil {
 		return errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
 	}
-	// start to modity the desire instance number
-	lockman.LockObject(ctx, sg)
-	// query again to fetch the latest desire instance number of sg
-	model, err := ScalingGroupManager.FetchById(sg.Id)
-	if err != nil {
-		scalingActivity.SetFailed("", fmt.Sprintf("fail to get ScalingGroup: %s", err.Error()))
+	if action.CheckCoolTime() && !sg.AllowScale() {
+		err = scalingActivity.SetReject("",
+			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s",
+				sg.AllowScaleTime))
 		return nil
 	}
-	sg = model.(*SScalingGroup)
-	targetNum := action.Exec(sg.DesireInstanceNumber)
-	// targetNum must between sg.MinInstanceNumber and sg.MaxInstanceNumber
-	if targetNum > sg.MaxInstanceNumber {
-		targetNum = sg.MaxInstanceNumber
+
+	ret := sg.exec(ctx, action)
+	switch ret.code {
+	case 0:
+		err = scalingActivity.SetResult(ret.actionStr, api.SA_STATUS_SUCCEED, "", ret.intanceNum)
+	case 1:
+		err = scalingActivity.SetResult(ret.actionStr, api.SA_STATUS_PART_SUCCEED, ret.reason, ret.intanceNum)
+	case 2:
+		err = scalingActivity.SetReject("", ret.reason)
+	case 3:
+		err = scalingActivity.SetFailed(ret.actionStr, ret.reason)
 	}
-	if targetNum < sg.MinInstanceNumber {
-		targetNum = sg.MinInstanceNumber
-	}
-	actionStr := fmt.Sprintf(`Change the Desired Instance Number from "%d" to "%d"`, sg.DesireInstanceNumber, targetNum)
-	_, err = db.Update(sg, func() error {
-		sg.DesireInstanceNumber = targetNum
-		return nil
-	})
-	lockman.ReleaseObject(ctx, sg)
 
 	if err != nil {
-		scalingActivity.SetFailed(actionStr, fmt.Sprintf("fail to get ScalingTimer's ScalingGroup: %s", err.Error()))
-		return nil
+		log.Errorf("ScalingActivity set result failed: %s", err.Error())
 	}
-	scalingActivity.SetResult(actionStr, api.SA_STATUS_SUCCEED, "", -1)
 	return nil
 }
 
@@ -526,11 +589,30 @@ func (sg *SScalingGroup) PostCreate(ctx context.Context, userCred mcclient.Token
 		}
 	}
 	db.Update(sg, func() error {
+		sg.Status = api.SG_STATUS_READY
+		sg.AllowScaleTime = time.Now()
 		sg.SetEnabled(true)
 		return nil
 	})
-	sg.SetStatus(userCred, api.SG_STATUS_READY, "")
 	logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_CREATE, "", userCred, true)
+}
+
+func (sg *SScalingGroup) AllowScale() bool {
+	return sg.AllowScaleTime.Before(time.Now())
+}
+
+func (sg *SScalingGroup) SetAllowScaleTime(t time.Time) {
+	if sg.AllowScaleTime.After(t) {
+		return
+	}
+	_, err := db.Update(sg, func() error {
+		sg.AllowScaleTime = t
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Set AllowScaleTime error: %s", err)
+	}
+	return
 }
 
 func (sg *SScalingGroup) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) bool {

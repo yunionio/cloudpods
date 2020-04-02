@@ -50,8 +50,6 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 		LT("next_time", timeScope.End).
 		IsFalse("is_expired").In("scaling_policy_id", spSubQ)
 	scalingTimers := make([]models.SScalingTimer, 0, 5)
-	log.Debugf("asc.Timer")
-	q.DebugQuery()
 	err := db.FetchModelObjects(models.ScalingTimerManager, q, &scalingTimers)
 	if err != nil {
 		log.Errorf("db.FetchModelObjects error: %s", err.Error())
@@ -64,6 +62,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 			defer func() {
 				<-asc.timerQueue
 			}()
+			log.Debugf("location of nexttime: %s", scalingTimer.NextTime.Location())
 			if scalingTimer.NextTime.Before(timeScope.Start) {
 				// For unknown reasons, the scalingTimer did not execute at the specified time
 				scalingTimer.Update(timeScope.Start)

@@ -94,9 +94,9 @@ type ScalingCycleTimerDetails struct {
 	// description: 小时
 	Hour int `json:"hour"`
 	// description: 每周的几天
-	WeekDays []int `json:"week_day"`
+	WeekDays []int `json:"week_days"`
 	// description: 每月的几天
-	MonthDays []int `json:"month_day"`
+	MonthDays []int `json:"month_days"`
 	// description: 此周期任务的开始时间
 	StartTime time.Time `json:"start_time"`
 	// description: 此周期任务的截止时间

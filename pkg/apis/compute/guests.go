@@ -225,7 +225,7 @@ type ServerDetails struct {
 	ScalingStatus string `json:"scaling_status"`
 
 	// 伸缩组id
-	ScalingGroupId string `json:"scaling_group"`
+	ScalingGroupId string `json:"scaling_group_id"`
 }
 
 type GuestJointResourceDetails struct {

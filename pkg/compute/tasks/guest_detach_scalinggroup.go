@@ -157,6 +157,10 @@ func (s SScalingActionDesc) Exec(desire int) int {
 	return desire - 1
 }
 
+func (s SScalingActionDesc) CheckCoolTime() bool {
+	return false
+}
+
 func (self *GuestDetachScalingGroupTask) OnDeleteGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	sgId, _ := self.Params.GetString("scaling_group")
 

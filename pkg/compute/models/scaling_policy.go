@@ -243,31 +243,35 @@ func (sp *SScalingPolicy) RealDelete(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return errors.Wrap(err, "SScalingPolicy.Trigger")
 	}
-	err = trigger.UnRegister(ctx, userCred)
-	if err != nil {
-		return errors.Wrap(err, "IScalingTrigger.UnRegister")
+	if trigger != nil {
+		err = trigger.UnRegister(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "IScalingTrigger.UnRegister")
+		}
 	}
 	return sp.SResourceBase.Delete(ctx, userCred)
 }
 
 func (sp *SScalingPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	fail := func(sg *SScalingGroup, reason string) {
-		if sg != nil {
-			logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, reason, userCred, false)
+	go func() {
+		fail := func(sg *SScalingGroup, reason string) {
+			if sg != nil {
+				logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, reason, userCred, false)
+			}
+			sp.SetStatus(userCred, api.SP_STATUS_DELETE_FAILED, reason)
 		}
-		sp.SetStatus(userCred, api.SP_STATUS_DELETE_FAILED, reason)
-	}
-	sg, err := sp.ScalingGroup()
-	if err != nil {
-		fail(nil, err.Error())
-		return
-	}
-	err = sp.RealDelete(ctx, userCred)
-	if err != nil {
-		fail(sg, err.Error())
-		return
-	}
-	logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, "", userCred, true)
+		sg, err := sp.ScalingGroup()
+		if err != nil {
+			fail(nil, err.Error())
+			return
+		}
+		err = sp.RealDelete(ctx, userCred)
+		if err != nil {
+			fail(sg, err.Error())
+			return
+		}
+		logclient.AddActionLogWithContext(ctx, sg, logclient.ACT_DELETE_SCALING_POLICY, "", userCred, true)
+	}()
 }
 
 func (spm *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
@@ -277,7 +281,7 @@ func (spm *SScalingPolicyManager) Trigger(input *api.ScalingPolicyCreateInput) (
 
 func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScalingTrigger, error) {
 	log.Debugf("inset Trigger")
-	if len(sp.TriggerId) == 0 {
+	if input != nil {
 		switch sp.TriggerType {
 		case api.TRIGGER_TIMING:
 			return &SScalingTimer{
@@ -319,6 +323,9 @@ func (sp *SScalingPolicy) Trigger(input *api.ScalingPolicyCreateInput) (IScaling
 			return nil, fmt.Errorf("unkown trigger type %s", sp.TriggerType)
 		}
 	}
+	if len(sp.TriggerId) == 0 {
+		return nil, nil
+	}
 	switch sp.TriggerType {
 	case api.TRIGGER_TIMING, api.TRIGGER_CYCLE:
 		model, err := ScalingTimerManager.FetchById(sp.TriggerId)
@@ -347,6 +354,10 @@ func (sp *SScalingPolicy) AllowPerformTrigger(ctx context.Context, userCred mccl
 }
 
 func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+
+	if sp.Status != api.SP_STATUS_READY {
+		return nil, httperrors.NewForbiddenError("Can't trigger scaling policy without status 'ready'")
+	}
 
 	var (
 		triggerDesc IScalingTriggerDesc
@@ -385,6 +396,9 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, errors.Wrap(err, "ScalingPolicy.Scale")
 	}
+	if sp.CoolingTime > 0 {
+		sg.SetAllowScaleTime(time.Now().Add(time.Duration(sp.CoolingTime) * time.Second))
+	}
 	return nil, err
 }
 
@@ -398,6 +412,7 @@ func (sp *SScalingPolicy) ScalingGroup() (*SScalingGroup, error) {
 
 type IScalingAction interface {
 	Exec(int) int
+	CheckCoolTime() bool
 }
 
 func (sp *SScalingPolicy) Exec(from int) int {
@@ -415,6 +430,13 @@ func (sp *SScalingPolicy) Exec(from int) int {
 	default:
 		return from
 	}
+}
+
+func (sp *SScalingPolicy) CheckCoolTime() bool {
+	if sp.TriggerType == api.TRIGGER_ALARM {
+		return true
+	}
+	return false
 }
 
 func (sp *SScalingPolicy) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential,
@@ -447,36 +469,38 @@ func (sp *SScalingPolicy) PerformDisable(ctx context.Context, userCred mcclient.
 
 func (sg *SScalingPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	sg.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	sp, err := sg.ScalingGroup()
-	if err != nil {
-		log.Errorf("Get ScalingGroup of ScalingPolicy '%s' failed: %s", sg.GetId(), err.Error())
-	}
-	createFailed := func(reason string) {
-		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, reason, userCred, false)
-		sg.SetStatus(userCred, api.SP_STATUS_CREATE_FAILED, reason)
-	}
-	input := api.ScalingPolicyCreateInput{}
-	err = data.Unmarshal(&input)
-	if err != nil {
-		createFailed(fmt.Sprintf("data.Unmarshal: %s", err.Error()))
-		return
-	}
+	go func() {
+		sp, err := sg.ScalingGroup()
+		if err != nil {
+			log.Errorf("Get ScalingGroup of ScalingPolicy '%s' failed: %s", sg.GetId(), err.Error())
+		}
+		createFailed := func(reason string) {
+			logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, reason, userCred, false)
+			sg.SetStatus(userCred, api.SP_STATUS_CREATE_FAILED, reason)
+		}
+		input := api.ScalingPolicyCreateInput{}
+		err = data.Unmarshal(&input)
+		if err != nil {
+			createFailed(fmt.Sprintf("data.Unmarshal: %s", err.Error()))
+			return
+		}
 
-	trigger, err := sg.Trigger(&input)
-	if err != nil {
-		createFailed(fmt.Sprintf("ScalingPolicy get trigger: %s", err.Error()))
-		return
-	}
-	err = trigger.Register(ctx, userCred)
-	if err != nil {
-		createFailed(fmt.Sprintf("Trigger.Register: %s", err.Error()))
-		return
-	}
-	logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, "", userCred, true)
-	db.Update(sg, func() error {
-		sg.TriggerId = trigger.TriggerId()
-		sg.Status = api.SP_STATUS_READY
-		sg.SetEnabled(true)
-		return nil
-	})
+		trigger, err := sg.Trigger(&input)
+		if err != nil {
+			createFailed(fmt.Sprintf("ScalingPolicy get trigger: %s", err.Error()))
+			return
+		}
+		err = trigger.Register(ctx, userCred)
+		if err != nil {
+			createFailed(fmt.Sprintf("Trigger.Register: %s", err.Error()))
+			return
+		}
+		logclient.AddActionLogWithContext(ctx, sp, logclient.ACT_CREATE_SCALING_POLICY, "", userCred, true)
+		db.Update(sg, func() error {
+			sg.TriggerId = trigger.TriggerId()
+			sg.Status = api.SP_STATUS_READY
+			sg.SetEnabled(true)
+			return nil
+		})
+	}()
 }

@@ -557,13 +557,13 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
-	if len(input.Vpc) != 0 {
+	if len(input.Vpc) > 0 {
 		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
 		if err != nil {
 			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 		}
 	}
-	if len(input.BillingType) != 0 {
+	if len(input.BillingType) > 0 {
 		q = q.Equals("billing_type", input.BillingType)
 	}
 	return q, nil
