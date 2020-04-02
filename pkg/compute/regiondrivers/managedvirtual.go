@@ -279,7 +279,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 			}
 			return nil, err
 		}
-		return nil, iLoadbalancer.Delete()
+		return nil, iLoadbalancer.Delete(ctx)
 	})
 	return nil
 }
@@ -538,7 +538,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 			return nil, err
 		}
 
-		err = iLoadbalancerBackendGroup.Delete()
+		err = iLoadbalancerBackendGroup.Delete(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -670,7 +670,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.GetILoadbalancerBackendById")
 		}
 
-		err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+		err = iBackend.SyncConf(ctx, lbb.Port, lbb.Weight)
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerBackend.SyncConf")
 		}
@@ -773,7 +773,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, errors.Wrapf(err, "iRegion.GetILoadBalancerById(%s)", loadbalancer.ExternalId)
 		}
-		iListener, err := iLoadbalancer.CreateILoadBalancerListener(params)
+		iListener, err := iLoadbalancer.CreateILoadBalancerListener(ctx, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "iLoadbalancer.CreateILoadBalancerListener")
 		}
@@ -819,7 +819,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 			return nil, errors.Wrap(err, "RegionDriver.RequestDeleteLoadbalancerListener.GetILoadBalancerListenerById")
 		}
 
-		return nil, iListener.Delete()
+		return nil, iListener.Delete(ctx)
 	})
 	return nil
 }
@@ -945,7 +945,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		if err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.GetIListener")
 		}
-		if err := iListener.Sync(params); err != nil {
+		if err := iListener.Sync(ctx, params); err != nil {
 			return nil, errors.Wrap(err, "regionDriver.RequestSyncLoadbalancerListener.SyncListener")
 		}
 		if err := iListener.Refresh(); err != nil {
@@ -1088,7 +1088,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 			}
 			return nil, err
 		}
-		return nil, iListenerRule.Delete()
+		return nil, iListenerRule.Delete(ctx)
 	})
 	return nil
 }

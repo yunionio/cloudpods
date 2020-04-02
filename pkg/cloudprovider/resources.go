@@ -490,7 +490,7 @@ type ICloudLoadbalancer interface {
 
 	GetIEIP() (ICloudEIP, error)
 
-	Delete() error
+	Delete(ctx context.Context) error
 
 	Start() error
 	Stop() error
@@ -501,7 +501,7 @@ type ICloudLoadbalancer interface {
 	CreateILoadBalancerBackendGroup(group *SLoadbalancerBackendGroup) (ICloudLoadbalancerBackendGroup, error)
 	GetILoadBalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
 
-	CreateILoadBalancerListener(listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
+	CreateILoadBalancerListener(ctx context.Context, listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
 	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
@@ -551,9 +551,9 @@ type ICloudLoadbalancerListener interface {
 
 	Start() error
 	Stop() error
-	Sync(listener *SLoadbalancerListener) error
+	Sync(ctx context.Context, listener *SLoadbalancerListener) error
 
-	Delete() error
+	Delete(ctx context.Context) error
 }
 
 type ICloudLoadbalancerListenerRule interface {
@@ -565,7 +565,7 @@ type ICloudLoadbalancerListenerRule interface {
 	GetCondition() string
 	GetBackendGroupId() string
 
-	Delete() error
+	Delete(ctx context.Context) error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -583,8 +583,8 @@ type ICloudLoadbalancerBackendGroup interface {
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
 	RemoveBackendServer(serverId string, weight int, port int) error
 
-	Delete() error
-	Sync(group *SLoadbalancerBackendGroup) error
+	Delete(ctx context.Context) error
+	Sync(ctx context.Context, group *SLoadbalancerBackendGroup) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -595,7 +595,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendType() string
 	GetBackendRole() string
 	GetBackendId() string
-	SyncConf(port, weight int) error
+	SyncConf(ctx context.Context, port, weight int) error
 }
 
 type ICloudLoadbalancerCertificate interface {

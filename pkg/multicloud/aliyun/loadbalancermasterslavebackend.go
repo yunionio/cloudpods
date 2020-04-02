@@ -15,6 +15,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -85,6 +86,6 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
 	return ""
 }
 
-func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(port, weight int) error {
+func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(ctx context.Context, port, weight int) error {
 	return cloudprovider.ErrNotSupported
 }
