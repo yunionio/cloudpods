@@ -46,7 +46,7 @@ type ZoneDetails struct {
 
 	// 可用区底下启用的宿主机数量
 	// example: 2
-	HostsEnabled int `json:"host_enabled"`
+	HostsEnabled int `json:"hosts_enabled"`
 
 	// 可用区底下的裸金属服务器数量
 	// example: 1
