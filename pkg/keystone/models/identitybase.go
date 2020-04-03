@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -428,4 +429,13 @@ func (model *SIdentityBaseResource) PostUpdate(ctx context.Context, userCred mcc
 func (model *SIdentityBaseResource) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	model.SStandaloneResourceBase.PostDelete(ctx, userCred)
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_DELETE, nil, userCred, true)
+}
+
+func (manager *SIdentityBaseResourceManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+	q := manager.Query()
+	if scope != rbacutils.ScopeSystem {
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	}
+	cnt, _ := q.CountWithError()
+	return cnt
 }

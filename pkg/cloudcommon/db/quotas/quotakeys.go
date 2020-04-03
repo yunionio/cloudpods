@@ -23,22 +23,30 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-type SBaseQuotaKeys struct {
-	// 配额适用的项目的域ID
+type SBaseDomainQuotaKeys struct {
+	// 配额适用的域ID
 	DomainId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"domain_id"`
+}
+
+type SBaseProjectQuotaKeys struct {
+	SBaseDomainQuotaKeys
+
 	// 配额适用的项目ID
 	ProjectId string `name:"tenant_id" width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"project_id"`
 }
 
-type SBaseQuotaDetailKeys struct {
+type SBaseDomainQuotaDetailKeys struct {
 	// 配额适用的项目的域名称
 	Domain string `json:"domain"`
+}
+
+type SBaseProjectQuotaDetailKeys struct {
+	SBaseDomainQuotaDetailKeys
 	// 配额适用的项目名称
 	Project string `json:"project"`
 }
 
-type SCloudResourceKeys struct {
-	SBaseQuotaKeys
+type SCloudResourceBaseKeys struct {
 	// 配额适用的平台名称，参考List接口的平台列表
 	Provider string `width:"32" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"provider"`
 	// 配额适用的品牌名称，参考List接口的品牌列表
@@ -51,26 +59,54 @@ type SCloudResourceKeys struct {
 	ManagerId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"manager_id"`
 }
 
-type SCloudResourceDetailKeys struct {
-	SBaseQuotaDetailKeys
+type SCloudResourceKeys struct {
+	SBaseProjectQuotaKeys
+	SCloudResourceBaseKeys
+}
 
+type SCloudResourceDetailKeys struct {
+	SBaseProjectQuotaDetailKeys
+	SCloudResourceDetailBaseKeys
+}
+
+type SCloudResourceDetailBaseKeys struct {
 	// 配额适用的云账号名称
 	Account string `json:"account"`
 	// 配额适用的云订阅名称
 	Manager string `json:"manager"`
 }
 
-type SRegionalCloudResourceKeys struct {
-	SCloudResourceKeys
+type SRegionalBaseKeys struct {
 	// 配额适用的区域ID
 	RegionId string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"user" json:"region_id"`
+}
+
+type SRegionalCloudResourceKeys struct {
+	SCloudResourceKeys
+	SRegionalBaseKeys
 }
 
 type SRegionalCloudResourceDetailKeys struct {
 	SCloudResourceDetailKeys
 
+	SRegionalCloudResourceDetailBaseKeys
+}
+
+type SRegionalCloudResourceDetailBaseKeys struct {
 	// 配额适用的区域名称
 	Region string `json:"region"`
+}
+
+type SDomainRegionalCloudResourceKeys struct {
+	SBaseProjectQuotaKeys
+	SCloudResourceBaseKeys
+	SRegionalBaseKeys
+}
+
+type SDomainRegionalCloudResourceDetailKeys struct {
+	SBaseDomainQuotaDetailKeys
+	SCloudResourceDetailBaseKeys
+	SRegionalCloudResourceDetailBaseKeys
 }
 
 type SZonalCloudResourceKeys struct {
@@ -86,15 +122,20 @@ type SZonalCloudResourceDetailKeys struct {
 	Zone string `json:"zone"`
 }
 
-func (k SBaseQuotaKeys) Fields() []string {
+func (k SBaseDomainQuotaKeys) Fields() []string {
 	return []string{
 		"domain_id",
-		"tenant_id",
 	}
 }
 
+func (k SBaseProjectQuotaKeys) Fields() []string {
+	return append(k.SBaseDomainQuotaKeys.Fields(),
+		"tenant_id",
+	)
+}
+
 func (k SCloudResourceKeys) Fields() []string {
-	return append(k.SBaseQuotaKeys.Fields(),
+	return append(k.SBaseProjectQuotaKeys.Fields(),
 		"provider",
 		"brand",
 		"cloud_env",
@@ -115,15 +156,20 @@ func (k SZonalCloudResourceKeys) Fields() []string {
 	)
 }
 
-func (k SBaseQuotaKeys) Values() []string {
+func (k SBaseDomainQuotaKeys) Values() []string {
 	return []string{
 		k.DomainId,
-		k.ProjectId,
 	}
 }
 
+func (k SBaseProjectQuotaKeys) Values() []string {
+	return append(k.SBaseDomainQuotaKeys.Values(),
+		k.ProjectId,
+	)
+}
+
 func (k SCloudResourceKeys) Values() []string {
-	return append(k.SBaseQuotaKeys.Values(),
+	return append(k.SBaseProjectQuotaKeys.Values(),
 		k.Provider,
 		k.Brand,
 		k.CloudEnv,
@@ -144,12 +190,21 @@ func (k SZonalCloudResourceKeys) Values() []string {
 	)
 }
 
-func (k1 SBaseQuotaKeys) Compare(ik IQuotaKeys) int {
-	k2 := ik.(SBaseQuotaKeys)
+func (k1 SBaseDomainQuotaKeys) Compare(ik IQuotaKeys) int {
+	k2 := ik.(SBaseDomainQuotaKeys)
 	if k1.DomainId < k2.DomainId {
 		return -1
 	} else if k1.DomainId > k2.DomainId {
 		return 1
+	}
+	return 0
+}
+
+func (k1 SBaseProjectQuotaKeys) Compare(ik IQuotaKeys) int {
+	k2 := ik.(SBaseProjectQuotaKeys)
+	r := k1.SBaseDomainQuotaKeys.Compare(k2.SBaseDomainQuotaKeys)
+	if r != 0 {
+		return r
 	}
 	if k1.ProjectId < k2.ProjectId {
 		return -1
@@ -161,7 +216,7 @@ func (k1 SBaseQuotaKeys) Compare(ik IQuotaKeys) int {
 
 func (k1 SCloudResourceKeys) Compare(ik IQuotaKeys) int {
 	k2 := ik.(SCloudResourceKeys)
-	r := k1.SBaseQuotaKeys.Compare(k2.SBaseQuotaKeys)
+	r := k1.SBaseProjectQuotaKeys.Compare(k2.SBaseProjectQuotaKeys)
 	if r != 0 {
 		return r
 	}
@@ -221,7 +276,15 @@ func QuotaKeyWeight(k IQuotaKeys) uint64 {
 	return w
 }
 
-func (k SBaseQuotaKeys) Scope() rbacutils.TRbacScope {
+func (k SBaseDomainQuotaKeys) Scope() rbacutils.TRbacScope {
+	if len(k.DomainId) > 0 {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (k SBaseProjectQuotaKeys) Scope() rbacutils.TRbacScope {
 	if len(k.DomainId) > 0 && len(k.ProjectId) > 0 {
 		return rbacutils.ScopeProject
 	} else if len(k.DomainId) > 0 && len(k.ProjectId) == 0 {
@@ -233,7 +296,11 @@ func (k SBaseQuotaKeys) Scope() rbacutils.TRbacScope {
 	}
 }
 
-func (k SBaseQuotaKeys) OwnerId() mcclient.IIdentityProvider {
+func (k SBaseDomainQuotaKeys) OwnerId() mcclient.IIdentityProvider {
+	return &db.SOwnerId{DomainId: k.DomainId}
+}
+
+func (k SBaseProjectQuotaKeys) OwnerId() mcclient.IIdentityProvider {
 	return &db.SOwnerId{
 		DomainId:  k.DomainId,
 		ProjectId: k.ProjectId,
@@ -252,7 +319,7 @@ func QuotaKeyString(k IQuotaKeys) string {
 	return strings.Join(parts, ",")
 }
 
-func IsBaseQuotaKeys(k IQuotaKeys) bool {
+func IsBaseProjectQuotaKeys(k IQuotaKeys) bool {
 	fields := k.Fields()
 	values := k.Values()
 	for i := range fields {
@@ -263,19 +330,36 @@ func IsBaseQuotaKeys(k IQuotaKeys) bool {
 	return true
 }
 
-func OwnerIdQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) SBaseQuotaKeys {
-	switch scope {
-	case rbacutils.ScopeDomain:
-		return SBaseQuotaKeys{
-			DomainId: ownerId.GetProjectDomainId(),
+func IsBaseDomainQuotaKeys(k IQuotaKeys) bool {
+	fields := k.Fields()
+	values := k.Values()
+	for i := range fields {
+		if fields[i] != "domain_id" && len(values[i]) > 0 {
+			return false
 		}
-	case rbacutils.ScopeProject:
-		return SBaseQuotaKeys{
-			DomainId:  ownerId.GetProjectDomainId(),
+	}
+	return true
+}
+
+func OwnerIdProjectQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) SBaseProjectQuotaKeys {
+	if scope == rbacutils.ScopeDomain {
+		return SBaseProjectQuotaKeys{
+			SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+				DomainId: ownerId.GetProjectDomainId(),
+			},
+		}
+	} else {
+		return SBaseProjectQuotaKeys{
+			SBaseDomainQuotaKeys: SBaseDomainQuotaKeys{
+				DomainId: ownerId.GetProjectDomainId(),
+			},
 			ProjectId: ownerId.GetProjectId(),
 		}
 	}
-	return SBaseQuotaKeys{}
+}
+
+func OwnerIdDomainQuotaKeys(ownerId mcclient.IIdentityProvider) SBaseDomainQuotaKeys {
+	return SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()}
 }
 
 type TQuotaKeysRelation string

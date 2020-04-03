@@ -35,5 +35,19 @@ type DomainDetails struct {
 type DomainUpdateInput struct {
 	apis.StandaloneResourceBaseUpdateInput
 
+	// 显示名
+	Displayname string `json:"displayname"`
+
+	// 是否启用
+	Enabled *bool `json:"enabled"`
+}
+
+type DomainCreateInput struct {
+	apis.StandaloneResourceCreateInput
+
+	// 显示名
+	Displayname string `json:"displayname"`
+
+	// 是否启用
 	Enabled *bool `json:"enabled"`
 }

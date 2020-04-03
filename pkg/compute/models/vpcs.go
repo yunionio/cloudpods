@@ -31,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -649,10 +650,34 @@ func (manager *SVpcManager) ValidateCreateData(
 		return input, err
 	}
 
-	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, input)
+	input, err = region.GetDriver().ValidateCreateVpcData(ctx, userCred, input)
+	if err != nil {
+		return input, errors.Wrapf(err, "region.GetDriver().ValidateCreateVpcData")
+	}
+
+	keys := GetVpcQuotaKeysFromCreateInput(input)
+	quota := &SInfrasQuota{Vpc: 1}
+	quota.SetKeys(keys)
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrap(err, "quotas.CheckSetPendingQuota")
+	}
+
+	return input, nil
 }
 
 func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	input := api.VpcCreateInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		log.Errorf("input unmarshal error %s", err)
+	} else {
+		pendingUsage := &SInfrasQuota{Vpc: 1}
+		keys := GetVpcQuotaKeysFromCreateInput(input)
+		pendingUsage.SetKeys(keys)
+		quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, true)
+	}
+
 	if len(self.ManagerId) == 0 {
 		return
 	}
@@ -997,4 +1022,67 @@ func (self *SVpc) initWire(ctx context.Context, zone *SZone) (*SWire, error) {
 		return nil, err
 	}
 	return wire, nil
+}
+
+func GetVpcQuotaKeysFromCreateInput(input api.VpcCreateInput) quotas.SDomainRegionalCloudResourceKeys {
+	ownerId := &db.SOwnerId{DomainId: input.ProjectDomain}
+	var region *SCloudregion
+	if len(input.Cloudregion) > 0 {
+		region = CloudregionManager.FetchRegionById(input.Cloudregion)
+	}
+	var provider *SCloudprovider
+	if len(input.Cloudprovider) > 0 {
+		provider = CloudproviderManager.FetchCloudproviderById(input.Cloudprovider)
+	}
+	regionKeys := fetchRegionalQuotaKeys(rbacutils.ScopeDomain, ownerId, region, provider)
+	keys := quotas.SDomainRegionalCloudResourceKeys{}
+	keys.SBaseDomainQuotaKeys = regionKeys.SBaseDomainQuotaKeys
+	keys.SRegionalBaseKeys = regionKeys.SRegionalBaseKeys
+	keys.SCloudResourceBaseKeys = regionKeys.SCloudResourceBaseKeys
+	return keys
+}
+
+func (vpc *SVpc) GetQuotaKeys() quotas.SDomainRegionalCloudResourceKeys {
+	region, _ := vpc.GetRegion()
+	manager := vpc.GetCloudprovider()
+	ownerId := vpc.GetOwnerId()
+	regionKeys := fetchRegionalQuotaKeys(rbacutils.ScopeDomain, ownerId, region, manager)
+	keys := quotas.SDomainRegionalCloudResourceKeys{}
+	keys.SBaseDomainQuotaKeys = regionKeys.SBaseDomainQuotaKeys
+	keys.SRegionalBaseKeys = regionKeys.SRegionalBaseKeys
+	keys.SCloudResourceBaseKeys = regionKeys.SCloudResourceBaseKeys
+	return keys
+}
+
+func (vpc *SVpc) GetUsages() []db.IUsage {
+	if vpc.Deleted {
+		return nil
+	}
+	usage := SInfrasQuota{Vpc: 1}
+	keys := vpc.GetQuotaKeys()
+	usage.SetKeys(keys)
+	return []db.IUsage{
+		&usage,
+	}
+}
+
+func (manager *SVpcManager) totalCount(
+	ownerId mcclient.IIdentityProvider,
+	scope rbacutils.TRbacScope,
+	rangeObjs []db.IStandaloneModel,
+	providers []string,
+	brands []string,
+	cloudEnv string,
+) int {
+	q := VpcManager.Query()
+
+	if scope != rbacutils.ScopeSystem && ownerId != nil {
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	}
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+
+	cnt, _ := q.CountWithError()
+
+	return cnt
 }

@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -38,6 +39,7 @@ import (
 
 type SProjectManager struct {
 	SIdentityBaseResourceManager
+	db.SDnsNameValidatorManager
 }
 
 var ProjectManager *SProjectManager
@@ -75,7 +77,9 @@ type SProject struct {
 
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"domain_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false"`
+
+	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -412,22 +416,39 @@ func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExte
 	return ret, nil
 }
 
-func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.ProjectCreateInput) (api.ProjectCreateInput, error) {
 	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "ValidateCreateDomainId")
 	}
-	input := api.IdentityBaseResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal IdentityBaseResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
 	}
-	input, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	quota := &SIdentityQuota{Project: 1}
+	quota.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()})
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+	return input, nil
+}
+
+func (self *SProject) PostCreate(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) {
+	self.SIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SIdentityQuota{Project: 1}
+	quota.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()})
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage fail %s", err)
+	}
 }
 
 func (project *SProject) AllowPerformJoin(ctx context.Context,
@@ -579,4 +600,15 @@ func (project *SProject) PerformLeave(
 		}
 	}
 	return nil, nil
+}
+
+func (project *SProject) GetUsages() []db.IUsage {
+	if project.Deleted {
+		return nil
+	}
+	usage := SIdentityQuota{Project: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: project.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
 }

@@ -208,7 +208,7 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 	var pmemTotal float64
 	var pcpuTotal float64
 
-	hostEnabledUsage := HostEnabledUsage("", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
+	hostEnabledUsage := HostEnabledUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv)
 	pmemTotal = float64(hostEnabledUsage.Get("enabled_hosts.memory").(int64))
 	pcpuTotal = float64(hostEnabledUsage.Get("enabled_hosts.cpu").(int64))
 	if len(rangeObjs) > 0 && rangeObjs[0].Keyword() == "host" {
@@ -242,15 +242,15 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		HostAllUsage("", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
-		HostAllUsage("prepaid_pool", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		HostAllUsage("any_pool", userCred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		HostAllUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
+		HostAllUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		HostAllUsage("any_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
 		hostEnabledUsage,
-		HostEnabledUsage("prepaid_pool", userCred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
-		HostEnabledUsage("any_pool", userCred, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
+		HostEnabledUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
+		HostEnabledUsage("any_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, nil, providers, brands, cloudEnv),
 
-		BaremetalUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv),
+		BaremetalUsage(userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, providers, brands, cloudEnv),
 
 		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
 		StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
@@ -531,42 +531,42 @@ func NetworkUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.I
 	return count
 }
 
-func HostAllUsage(pref string, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
+func HostAllUsage(pref string, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	prefix := "hosts"
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	return hostUsage(userCred, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.None, tristate.None)
+	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.None, tristate.None)
 }
 
-func HostEnabledUsage(pref string, userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
+func HostEnabledUsage(pref string, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
 	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	prefix := "enabled_hosts"
 	if len(pref) > 0 {
 		prefix = fmt.Sprintf("%s.%s", prefix, pref)
 	}
-	return hostUsage(userCred, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.True, tristate.None)
+	return hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, tristate.True, tristate.None)
 }
 
-func BaremetalUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel,
+func BaremetalUsage(userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel,
 	hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	prefix := "baremetals"
-	count := hostUsage(userCred, prefix, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, tristate.None, tristate.True)
+	count := hostUsage(userCred, scope, prefix, rangeObjs, hostTypes, nil, providers, brands, cloudEnv, tristate.None, tristate.True)
 	delete(count, fmt.Sprintf("%s.memory.virtual", prefix))
 	delete(count, fmt.Sprintf("%s.cpu.virtual", prefix))
 	return count
 }
 
 func hostUsage(
-	userCred mcclient.IIdentityProvider, prefix string,
+	userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope, prefix string,
 	rangeObjs []db.IStandaloneModel, hostTypes []string,
 	resourceTypes []string, providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) Usage {
 	count := make(map[string]interface{})
 
-	result := models.HostManager.TotalCount(userCred, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal)
+	result := models.HostManager.TotalCount(userCred, scope, rangeObjs, "", "", hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal)
 	count[prefix] = result.Count
 	count[fmt.Sprintf("%s.memory", prefix)] = result.Memory
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU

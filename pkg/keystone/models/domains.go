@@ -36,6 +36,7 @@ import (
 
 type SDomainManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SDnsNameValidatorManager
 }
 
 var (
@@ -60,12 +61,14 @@ type SDomain struct {
 	Extra *jsonutils.JSONDict `nullable:"true"`
 
 	Enabled  tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
+	IsDomain tristate.TriState `default:"true" nullable:"false"`
 
 	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`
 
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
 	ParentId string `width:"64" charset:"ascii"`
+
+	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SDomainManager) InitializeData() error {
@@ -486,4 +489,25 @@ func (domain *SDomain) UnlinkIdp(idpId string) error {
 
 func (domain *SDomain) getExternalResources() (map[string]int, time.Time, error) {
 	return ProjectResourceManager.getProjectResource(domain.Id)
+}
+
+func (manager *SDomainManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.DomainCreateInput,
+) (api.DomainCreateInput, error) {
+	var err error
+
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
+	}
+
+	return input, nil
+}
+
+func (manager *SDomainManager) ValidateName(name string) error {
+	return manager.SDnsNameValidatorManager.ValidateName(name)
 }

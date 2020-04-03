@@ -69,6 +69,7 @@ type SGuestManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
+	db.SDnsNameValidatorManager
 
 	SHostResourceBaseManager
 	SBillingResourceBaseManager

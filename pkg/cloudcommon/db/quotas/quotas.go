@@ -29,7 +29,7 @@ import (
 )
 
 func (manager *SQuotaBaseManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return manager.scope
 }
 
 func (manager *SQuotaBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {

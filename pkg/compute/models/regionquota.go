@@ -41,6 +41,7 @@ func init() {
 
 	RegionUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota,
+			rbacutils.ScopeProject,
 			"region_quota_usage_tbl",
 			"region_quota_usage",
 			"region_quota_usages",
@@ -48,6 +49,7 @@ func init() {
 	}
 	RegionPendingUsageManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaUsageManager(RegionQuota,
+			rbacutils.ScopeProject,
 			"region_quota_pending_usage_tbl",
 			"region_quota_pending_usage",
 			"region_quota_pending_usages",
@@ -55,6 +57,7 @@ func init() {
 	}
 	RegionQuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(RegionQuota,
+			rbacutils.ScopeProject,
 			"region_quota_tbl",
 			RegionPendingUsageManager,
 			RegionUsageManager,

@@ -76,10 +76,6 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota", nil)
 
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
-
-	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/domains", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.listDomainQuotaHandler), nil, "list_quotas_for_all_domains", nil)
 
@@ -87,29 +83,13 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_domain", nil)
 
-	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/projects", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.listProjectQuotaHandler), nil, "list_quotas_for_all_projects", nil)
-
-	app.AddHandler2("GET",
-		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
-
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota", nil)
 
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
-
-	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_domain", nil)
-
-	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
 
 	app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/pending", prefix, manager.KeywordPlural()),
@@ -119,9 +99,31 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 		fmt.Sprintf("%s/%s/domains/<domainid>/pending", prefix, manager.KeywordPlural()),
 		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_domain", nil)
 
-	app.AddHandler2("DELETE",
-		fmt.Sprintf("%s/%s/projects/<tenantid>/pending", prefix, manager.KeywordPlural()),
-		auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_project", nil)
+	if manager.scope == rbacutils.ScopeProject {
+		app.AddHandler2("GET",
+			fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
+
+		app.AddHandler2("GET",
+			fmt.Sprintf("%s/%s/projects", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.listProjectQuotaHandler), nil, "list_quotas_for_all_projects", nil)
+
+		app.AddHandler2("GET",
+			fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.getQuotaHandler), nil, "get_quota_for_project", nil)
+
+		app.AddHandler2("POST",
+			fmt.Sprintf("%s/%s/<tenantid>", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
+
+		app.AddHandler2("POST",
+			fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.setQuotaHandler), nil, "set_quota_for_project", nil)
+
+		app.AddHandler2("DELETE",
+			fmt.Sprintf("%s/%s/projects/<tenantid>/pending", prefix, manager.KeywordPlural()),
+			auth.Authenticate(manager.cleanPendingUsageHandler), nil, "clean_pending_usage_for_project", nil)
+	}
 }
 
 func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, quota IQuota, refresh bool) (*jsonutils.JSONDict, error) {
@@ -181,24 +183,24 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 		} else if len(projectId) > 0 {
 			data.Add(jsonutils.NewString(projectId), "project")
 		}
-		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager, policy.PolicyActionGet, true)
+		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, manager.GetIQuotaManager(), policy.PolicyActionGet, true)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
 		}
 	} else {
 		scopeStr, _ := query.GetString("scope")
-		if scopeStr == "project" {
+		if scopeStr == "project" && manager.scope == rbacutils.ScopeProject {
 			scope = rbacutils.ScopeProject
 		} else if scopeStr == "domain" {
 			scope = rbacutils.ScopeDomain
 		} else {
-			scope = rbacutils.ScopeProject
+			scope = manager.scope
 		}
 		ownerId = userCred
 	}
 
-	keys := OwnerIdQuotaKeys(scope, ownerId)
+	keys := OwnerIdProjectQuotaKeys(scope, ownerId)
 	refresh := jsonutils.QueryBoolean(query, "refresh", false)
 	primary := jsonutils.QueryBoolean(query, "primary", false)
 	quotaList, err := manager.listQuotas(ctx, userCred, keys.DomainId, keys.ProjectId, scope == rbacutils.ScopeDomain, primary, refresh)
@@ -208,7 +210,12 @@ func (manager *SQuotaBaseManager) getQuotaHandler(ctx context.Context, w http.Re
 	}
 	if len(quotaList) == 0 {
 		quota := manager.newQuota()
-		baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+		var baseKeys IQuotaKeys
+		if manager.scope == rbacutils.ScopeProject {
+			baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)
+		} else {
+			baseKeys = OwnerIdDomainQuotaKeys(ownerId)
+		}
 		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys))
 		quota.FetchSystemQuota()
 		manager.SetQuota(ctx, userCred, quota)
@@ -303,11 +310,16 @@ func (manager *SQuotaBaseManager) cleanPendingUsageHandler(ctx context.Context, 
 		} else if scopeStr == "domain" {
 			scope = rbacutils.ScopeDomain
 		} else {
-			scope = rbacutils.ScopeProject
+			scope = manager.scope
 		}
 		ownerId = userCred
 	}
-	keys := OwnerIdQuotaKeys(scope, ownerId)
+	var keys IQuotaKeys
+	if manager.scope == rbacutils.ScopeProject {
+		keys = OwnerIdProjectQuotaKeys(scope, ownerId)
+	} else {
+		keys = OwnerIdDomainQuotaKeys(ownerId)
+	}
 	err = manager.cleanPendingUsage(ctx, userCred, keys)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -339,7 +351,12 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 	}
 
 	// check is there any nonempty key other than domain_id and project_id
-	isBaseQuota := IsBaseQuotaKeys(quota.GetKeys())
+	isBaseQuota := false
+	if manager.scope == rbacutils.ScopeDomain {
+		isBaseQuota = IsBaseDomainQuotaKeys(quota.GetKeys())
+	} else {
+		isBaseQuota = IsBaseProjectQuotaKeys(quota.GetKeys())
+	}
 	ownerId, scope, requestScope, err := manager.fetchSetQuotaScope(ctx, userCred, data, isBaseQuota)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -347,7 +364,12 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 	}
 
 	// fill project_id and domain_id
-	baseKeys := OwnerIdQuotaKeys(scope, ownerId)
+	var baseKeys IQuotaKeys
+	if manager.scope == rbacutils.ScopeDomain {
+		baseKeys = OwnerIdDomainQuotaKeys(ownerId)
+	} else {
+		baseKeys = OwnerIdProjectQuotaKeys(scope, ownerId)
+	}
 	reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseKeys))
 
 	keys := quota.GetKeys()
@@ -427,7 +449,7 @@ func (manager *SQuotaBaseManager) setQuotaHandler(ctx context.Context, w http.Re
 		}
 	}
 
-	quotaList, err := manager.listQuotas(ctx, userCred, baseKeys.DomainId, baseKeys.ProjectId, scope == rbacutils.ScopeDomain, false, true)
+	quotaList, err := manager.listQuotas(ctx, userCred, baseKeys.OwnerId().GetProjectDomainId(), baseKeys.OwnerId().GetProjectId(), scope == rbacutils.ScopeDomain, false, true)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -510,7 +532,9 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 	if len(targetDomainId) > 0 {
 		q = q.Equals("domain_id", targetDomainId)
 		if domainOnly {
-			q = q.IsEmpty("tenant_id")
+			if manager.scope == rbacutils.ScopeProject {
+				q = q.IsEmpty("tenant_id")
+			}
 		} else {
 			if len(targetProjectId) > 0 {
 				q = q.Equals("tenant_id", targetProjectId)
@@ -524,7 +548,9 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, userCred mccli
 	} else {
 		// domain only
 		q = q.IsNotEmpty("domain_id")
-		q = q.IsNullOrEmpty("tenant_id")
+		if manager.scope == rbacutils.ScopeProject {
+			q = q.IsNullOrEmpty("tenant_id")
+		}
 	}
 	if primaryOnly {
 		// list primary quota for domain or project

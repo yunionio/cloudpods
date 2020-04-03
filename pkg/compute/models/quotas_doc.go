@@ -85,6 +85,8 @@ func SetQuotas(input SetQuotaInput) *SQuotaDetail {
 // 项目配额详情
 type SProjectQuotaDetail struct {
 	SProjectQuota
+
+	quotas.SBaseProjectQuotaDetailKeys
 }
 
 // +onecloud:swagger-gen-route-method=GET
@@ -269,5 +271,121 @@ type SetRegionQuotaInput struct {
 
 // 设置指定项目或者域的区域配额
 func SetRegionQuotas(input SetRegionQuotaInput) *SRegionQuotaDetail {
+	return nil
+}
+
+// 域配额详情
+type SDomainQuotaDetail struct {
+	SDomainQuota
+
+	quotas.SBaseDomainQuotaDetailKeys
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/domain_quotas/domains/{domainId}
+// +onecloud:swagger-gen-route-tag=domain_quota
+// +onecloud:swagger-gen-param-path=domainId
+// +onecloud:swagger-gen-param-path=指定域的ID
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=domain_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取指定域的配额
+func GetDomainQuota(query quotas.SBaseQuotaQueryInput) *SDomainQuotaDetail {
+	return nil
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/domain_quotas/domains
+// +onecloud:swagger-gen-route-tag=domain_quota
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=domain_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取所有域的域配额
+func ListDomainQuotas(query quotas.SBaseQuotaQueryInput) *SDomainQuotaDetail {
+	return nil
+}
+
+// 设置域配额输入参数
+type SetDomainQuotaInput struct {
+	quotas.SBaseQuotaSetInput
+
+	SDomainQuota
+}
+
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/domain_quotas/domains/{domainId}
+// +onecloud:swagger-gen-route-tag=domain_quota
+// +onecloud:swagger-gen-param-path=domainId
+// +onecloud:swagger-gen-param-path=指定域的ID
+// +onecloud:swagger-gen-param-body-index=0
+// +onecloud:swagger-gen-param-body-key=domain_quotas
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=domain_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 设置域的域配额
+func SetDomainQuotas(input SetDomainQuotaInput) *SDomainQuotaDetail {
+	return nil
+}
+
+// 基础设施配额详情
+type SInfrasQuotaDetail struct {
+	SInfrasQuota
+
+	quotas.SDomainRegionalCloudResourceDetailKeys
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/infras_quotas/domains/{domainId}
+// +onecloud:swagger-gen-route-tag=infras_quota
+// +onecloud:swagger-gen-param-path=domainId
+// +onecloud:swagger-gen-param-path=指定域的ID
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=infras_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取指定域的基础设施配额
+func GetInfrasQuota(query quotas.SBaseQuotaQueryInput) *SInfrasQuotaDetail {
+	return nil
+}
+
+// +onecloud:swagger-gen-route-method=GET
+// +onecloud:swagger-gen-route-path=/infras_quotas/domains
+// +onecloud:swagger-gen-route-tag=infras_quota
+// +onecloud:swagger-gen-param-query-index=0
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=infras_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 获取所有域的基础设施配额
+func ListInfrasQuotas(query quotas.SBaseQuotaQueryInput) *SInfrasQuotaDetail {
+	return nil
+}
+
+// 设置基础设施配额输入参数
+type SetInfrasQuotaInput struct {
+	quotas.SBaseQuotaSetInput
+
+	SInfrasQuota
+}
+
+// +onecloud:swagger-gen-route-method=POST
+// +onecloud:swagger-gen-route-path=/infras_quotas/domains/{domainId}
+// +onecloud:swagger-gen-route-tag=infras_quota
+// +onecloud:swagger-gen-param-path=domainId
+// +onecloud:swagger-gen-param-path=指定域的ID
+// +onecloud:swagger-gen-param-body-index=0
+// +onecloud:swagger-gen-param-body-key=infras_quotas
+// +onecloud:swagger-gen-resp-index=0
+// +onecloud:swagger-gen-resp-body-key=infras_quotas
+// +onecloud:swagger-gen-resp-body-list
+
+// 设置指定域的基础设施配额
+func SetInfrasQuotas(input SetInfrasQuotaInput) *SInfrasQuotaDetail {
 	return nil
 }

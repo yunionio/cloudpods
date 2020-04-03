@@ -49,7 +49,7 @@ func (self *SQcloudGuestDriver) GetProvider() string {
 
 func (self *SQcloudGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_PUBLIC_CLOUD
 	keys.Provider = api.CLOUD_PROVIDER_QCLOUD
 	keys.Brand = api.CLOUD_PROVIDER_QCLOUD

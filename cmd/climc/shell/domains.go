@@ -83,6 +83,8 @@ func init() {
 		Desc     string `help:"Description"`
 		Enabled  bool   `help:"Set the domain enabled"`
 		Disabled bool   `help:"Set the domain disabled"`
+
+		Displayname string `help:"display name"`
 	}
 	R(&DomainCreateOptions{}, "domain-create", "Create a new domain", func(s *mcclient.ClientSession, args *DomainCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -94,6 +96,9 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
+		}
+		if len(args.Displayname) > 0 {
+			params.Add(jsonutils.NewString(args.Displayname), "displayname")
 		}
 		result, err := modules.Domains.Create(s, params)
 		if err != nil {
@@ -110,6 +115,8 @@ func init() {
 		Enabled  bool   `help:"Set the domain enabled"`
 		Disabled bool   `help:"Set the domain disabled"`
 		Driver   string `help:"Set the domain Driver"`
+
+		Displayname string `help:"display name"`
 	}
 	R(&DomainUpdateOptions{}, "domain-update", "Update a domain", func(s *mcclient.ClientSession, args *DomainUpdateOptions) error {
 		obj, err := modules.Domains.Get(s, args.ID, nil)
@@ -135,6 +142,9 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
+		}
+		if len(args.Displayname) > 0 {
+			params.Add(jsonutils.NewString(args.Displayname), "displayname")
 		}
 		result, err := modules.Domains.Patch(s, objId, params)
 		if err != nil {

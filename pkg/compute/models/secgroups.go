@@ -934,9 +934,7 @@ func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.To
 }
 
 func (sg *SSecurityGroup) GetQuotaKeys() quotas.IQuotaKeys {
-	return quotas.OwnerIdQuotaKeys(rbacutils.ScopeProject,
-		sg.GetOwnerId(),
-	)
+	return quotas.OwnerIdProjectQuotaKeys(rbacutils.ScopeProject, sg.GetOwnerId())
 }
 
 func (sg *SSecurityGroup) GetUsages() []db.IUsage {

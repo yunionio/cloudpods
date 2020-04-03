@@ -29,6 +29,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	o "yunion.io/x/onecloud/pkg/keystone/options"
@@ -445,25 +446,29 @@ func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, 
 	return q
 }
 
-func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("password") && !jsonutils.QueryBoolean(data, "skip_password_complexity_check", false) {
-		passwd, _ := data.GetString("password")
-		err := validatePasswordComplexity(passwd)
+func (manager *SUserManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.UserCreateInput) (api.UserCreateInput, error) {
+	var err error
+	if len(input.Password) > 0 && (input.SkipPasswordComplexityCheck == nil || !*input.SkipPasswordComplexityCheck) {
+		err = validatePasswordComplexity(input.Password)
 		if err != nil {
-			return nil, errors.Wrap(err, "validatePasswordComplexity")
+			return input, errors.Wrap(err, "validatePasswordComplexity")
 		}
 	}
-	input := api.EnabledIdentityBaseResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	input.EnabledIdentityBaseResourceCreateInput, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledIdentityBaseResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal EnabledIdentityBaseResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ValidateCreateData")
 	}
-	input, err = manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+
+	quota := SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		User:                 1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, &quota)
 	if err != nil {
-		return nil, err
+		return input, errors.Wrapf(err, "CheckSetPendingQuota")
 	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
 }
 
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.UserUpdateInput) (api.UserUpdateInput, error) {
@@ -627,6 +632,12 @@ func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("fail to register localUser %s", err)
 		return
 	}
+
+	pendingUsage := &SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
+		User:                 1,
+	}
+	quotas.CancelPendingUsage(ctx, userCred, pendingUsage, pendingUsage, true)
 }
 
 func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -979,4 +990,14 @@ func (manager *SUserManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.II
 		return q
 	}
 	return manager.SEnabledIdentityBaseResourceManager.FilterByOwner(q, owner, scope)
+}
+
+func (user *SUser) GetUsages() []db.IUsage {
+	usage := SIdentityQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: user.DomainId},
+		User:                 1,
+	}
+	return []db.IUsage{
+		&usage,
+	}
 }

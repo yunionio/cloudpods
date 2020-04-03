@@ -56,7 +56,7 @@ func (self *SKVMGuestDriver) GetProvider() string {
 
 func (self *SKVMGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_ONECLOUD
 	keys.Brand = api.ONECLOUD_BRAND_ONECLOUD

@@ -66,7 +66,7 @@ func (self *SESXiGuestDriver) GetProvider() string {
 
 func (self *SESXiGuestDriver) GetComputeQuotaKeys(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, brand string) models.SComputeResourceKeys {
 	keys := models.SComputeResourceKeys{}
-	keys.SBaseQuotaKeys = quotas.OwnerIdQuotaKeys(scope, ownerId)
+	keys.SBaseProjectQuotaKeys = quotas.OwnerIdProjectQuotaKeys(scope, ownerId)
 	keys.CloudEnv = api.CLOUD_ENV_ON_PREMISE
 	keys.Provider = api.CLOUD_PROVIDER_VMWARE
 	keys.Brand = api.CLOUD_PROVIDER_VMWARE

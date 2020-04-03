@@ -19,13 +19,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -111,7 +114,32 @@ func (manager *SGlobalVpcManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "manager.SEnabledStatusInfrasResourceBaseManager.ValidateCreateData")
 	}
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		Globalvpc: 1,
+	}
+	err = quotas.CheckSetPendingQuota(ctx, userCred, quota)
+	if err != nil {
+		return input, errors.Wrap(err, "CheckSetPendingQuota")
+	}
 	return input, nil
+}
+
+func (self *SGlobalVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusInfrasResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	quota := &SDomainQuota{
+		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{
+			DomainId: ownerId.GetProjectDomainId(),
+		},
+		Globalvpc: 1,
+	}
+	err := quotas.CancelPendingUsage(ctx, userCred, quota, quota, true)
+	if err != nil {
+		log.Errorf("CancelPendingUsage %s", err)
+	}
 }
 
 func (self *SGlobalVpc) ValidateUpdateData(
@@ -168,4 +196,25 @@ func (manager *SGlobalVpcManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fi
 
 func (self *SGlobalVpc) ValidateUpdateCondition(ctx context.Context) error {
 	return self.SEnabledStatusInfrasResourceBase.ValidateUpdateCondition(ctx)
+}
+
+func (manager *SGlobalVpcManager) totalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) int {
+	q := manager.Query()
+	switch scope {
+	case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	}
+	cnt, _ := q.CountWithError()
+	return cnt
+}
+
+func (globalVpc *SGlobalVpc) GetUsages() []db.IUsage {
+	if globalVpc.Deleted {
+		return nil
+	}
+	usage := SDomainQuota{Globalvpc: 1}
+	usage.SetKeys(quotas.SBaseDomainQuotaKeys{DomainId: globalVpc.DomainId})
+	return []db.IUsage{
+		&usage,
+	}
 }
