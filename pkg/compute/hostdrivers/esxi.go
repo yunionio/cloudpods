@@ -62,10 +62,17 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		return err
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
-		[]interface{}{host.GetZone(), host.GetCloudprovider()})
-	if err != nil {
-		return err
+	var srcHostCacheImage *models.SStoragecachedimage
+	// Check if storageCache has this cacheImage.
+	// If no, choose source storage cache
+	// else, use it
+	hostCacheImage := models.StoragecachedimageManager.GetStoragecachedimage(storageCache.GetId(), cacheImage.GetId())
+	if hostCacheImage == nil {
+		srcHostCacheImage, err = cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
+			[]interface{}{host.GetZone(), host.GetCloudprovider()})
+		if err != nil {
+			return err
+		}
 	}
 
 	type contentStruct struct {
@@ -136,7 +143,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		if err != nil {
 			return errors.Wrap(err, "StorageCacheImage.GetStoragecaceh")
 		}
-		srcStorage := host.GetStorageByFilePath(srcStorageCache.Path)
+		srcStorage := srcHost.GetStorageByFilePath(srcStorageCache.Path)
 		accessInfo, err := srcHost.GetCloudaccount().GetVCenterAccessInfo(srcStorage.ExternalId)
 		if err != nil {
 			return err
