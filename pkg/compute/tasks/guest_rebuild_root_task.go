@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -58,13 +59,25 @@ func (self *GuestRebuildRootTask) markFailed(ctx context.Context, guest *models.
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, reason, self.UserCred, false)
 	guest.SetStatus(self.GetUserCred(), api.VM_REBUILD_ROOT_FAIL, reason)
 	self.SGuestBaseTask.SetStageFailed(ctx, reason)
+	gds := guest.CategorizeDisks()
+	imageId, _ := self.Params.GetString("origin_image_id")
+	_, err := db.Update(gds.Root, func() error {
+		gds.Root.TemplateId = imageId
+		return nil
+	})
+	if err != nil {
+		log.Errorf("recover root disk image id %s failed %v", imageId, err)
+	}
 }
 
 func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, guest *models.SGuest) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILDING_ROOT, nil, self.UserCred)
 	gds := guest.CategorizeDisks()
+	imageId, _ := self.Params.GetString("image_id")
 	oldStatus := gds.Root.Status
+	self.GetParams().Set("origin_image_id", jsonutils.NewString(gds.Root.TemplateId))
 	_, err := db.Update(gds.Root, func() error {
+		gds.Root.TemplateId = imageId
 		gds.Root.Status = api.DISK_REBUILD
 		return nil
 	})
@@ -90,17 +103,6 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 }
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	gds := guest.CategorizeDisks()
-	imageId, _ := self.Params.GetString("image_id")
-	_, err := db.Update(gds.Root, func() error {
-		gds.Root.TemplateId = imageId
-		return nil
-	})
-	if err != nil {
-		self.markFailed(ctx, guest, err.Error())
-		return
-	}
-
 	allDisks := jsonutils.QueryBoolean(self.Params, "all_disks", false)
 	if allDisks {
 		guestdisks := guest.GetDisks()
