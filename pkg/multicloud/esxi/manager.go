@@ -39,8 +39,8 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -134,8 +134,8 @@ func NewESXiClient2(cfg *ESXiClientConfig) (*SESXiClient, error) {
 	return cli, nil
 }
 
-func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SESXiClient, *models.SVCenterAccessInfo, error) {
-	accessInfo := new(models.SVCenterAccessInfo)
+func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SESXiClient, *vcenter.SVCenterAccessInfo, error) {
+	accessInfo := new(vcenter.SVCenterAccessInfo)
 	err := input.Unmarshal(accessInfo)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "unmarshal SVCenterAccessInfo: %s", input)
@@ -144,7 +144,7 @@ func NewESXiClientFromJson(ctx context.Context, input jsonutils.JSONObject) (*SE
 	return c, accessInfo, err
 }
 
-func NewESXiClientFromAccessInfo(ctx context.Context, accessInfo *models.SVCenterAccessInfo) (*SESXiClient, error) {
+func NewESXiClientFromAccessInfo(ctx context.Context, accessInfo *vcenter.SVCenterAccessInfo) (*SESXiClient, error) {
 	if len(accessInfo.VcenterId) > 0 {
 		tmp, err := utils.DescryptAESBase64(accessInfo.VcenterId, accessInfo.Password)
 		if err == nil {

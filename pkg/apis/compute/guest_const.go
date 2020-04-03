@@ -132,6 +132,10 @@ const (
 	VM_IMPORT        = "import"
 	VM_IMPORT_FAILED = "import_fail"
 
+	VM_CONVERT        = "convert"
+	VM_CONVERTING     = "converting"
+	VM_CONVERT_FAILED = "convert_failed"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 

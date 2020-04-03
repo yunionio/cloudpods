@@ -639,7 +639,7 @@ func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 		// if disks idx length == 0 indicate merge backing template
 		s.SyncStatus()
 	} else {
-		s.streamDisksComplete(s.ctx)
+		s.streamDisksComplete(context.Background())
 	}
 }
 

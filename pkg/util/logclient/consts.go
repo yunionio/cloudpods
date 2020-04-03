@@ -131,6 +131,7 @@ const (
 	ACT_VM_SNAPSHOT_AND_CLONE        = "虚拟机快照并克隆"
 	ACT_VM_BLOCK_STREAM              = "同步数据"
 	ACT_ATTACH_NETWORK               = "绑定网卡"
+	ACT_VM_CONVERT                   = "虚拟机转换Hypervisor"
 
 	ACT_CACHED_IMAGE = "缓存镜像"
 

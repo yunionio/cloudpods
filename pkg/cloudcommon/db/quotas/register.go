@@ -56,6 +56,9 @@ func getQuotaManager(quota IQuota) IQuotaManager {
 }
 
 func CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, localUsage IQuota, cancelUsage IQuota, save bool) error {
+	if localUsage == nil {
+		return nil
+	}
 	manager := getQuotaManager(cancelUsage)
 	return manager.cancelPendingUsage(ctx, userCred, localUsage, cancelUsage, save)
 }

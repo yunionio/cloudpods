@@ -1338,4 +1338,15 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerConvertToKvmOptions{}, "server-convert-to-kvm", "Convert esxi server to kvm", func(s *mcclient.ClientSession, opts *options.ServerConvertToKvmOptions) error {
+		params := jsonutils.Marshal(opts)
+		dict := params.(*jsonutils.JSONDict)
+		dict.Set("target_hypervisor", jsonutils.NewString("kvm"))
+		result, err := modules.Servers.PerformAction(s, opts.ID, "convert", dict)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

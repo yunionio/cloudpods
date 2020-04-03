@@ -47,6 +47,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -1355,17 +1356,8 @@ func (self *SCloudaccount) getHostPort() (string, int, error) {
 	return host, port, nil
 }
 
-type SVCenterAccessInfo struct {
-	VcenterId string
-	Host      string
-	Port      int
-	Account   string
-	Password  string
-	PrivateId string
-}
-
-func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAccessInfo, error) {
-	info := SVCenterAccessInfo{}
+func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (vcenter.SVCenterAccessInfo, error) {
+	info := vcenter.SVCenterAccessInfo{}
 
 	host, port, err := self.getHostPort()
 	if err != nil {

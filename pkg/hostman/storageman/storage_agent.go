@@ -31,13 +31,13 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/agent/iagent"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/multicloud/esxi"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -346,7 +346,7 @@ func (as *SAgentStorage) waitVmToolsVersion(ctx context.Context, vm *esxi.SVirtu
 
 type SHostDatastore struct {
 	HostIp    string
-	Datastore models.SVCenterAccessInfo
+	Datastore vcenter.SVCenterAccessInfo
 }
 
 func (as *SAgentStorage) getHostAndDatastore(ctx context.Context, data SHostDatastore) (*esxi.SHost, *esxi.SDatastore, error) {
@@ -394,8 +394,8 @@ func (as *SAgentStorage) PrepareSaveToGlance(ctx context.Context, taskId string,
 	ret jsonutils.JSONObject, err error) {
 
 	type specStruct struct {
-		Vm      models.SVCenterAccessInfo
-		Disk    models.SVCenterAccessInfo
+		Vm      vcenter.SVCenterAccessInfo
+		Disk    vcenter.SVCenterAccessInfo
 		HostIp  string
 		ImageId string
 	}

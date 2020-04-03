@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/multicloud/esxi/vcenter"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -74,8 +75,8 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		HostIp             string
 		SrcHostIp          string
 		SrcPath            string
-		SrcDatastore       models.SVCenterAccessInfo
-		Datastore          models.SVCenterAccessInfo
+		SrcDatastore       vcenter.SVCenterAccessInfo
+		Datastore          vcenter.SVCenterAccessInfo
 		Format             string
 		IsForce            bool
 		StoragecacheId     string
@@ -173,7 +174,7 @@ func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, h
 	}
 
 	type specStruct struct {
-		Datastore models.SVCenterAccessInfo
+		Datastore vcenter.SVCenterAccessInfo
 		HostIp    string
 		Format    string
 	}
@@ -220,8 +221,8 @@ func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, h
 	}
 
 	type specStruct struct {
-		Vm      models.SVCenterAccessInfo
-		Disk    models.SVCenterAccessInfo
+		Vm      vcenter.SVCenterAccessInfo
+		Disk    vcenter.SVCenterAccessInfo
 		HostIp  string
 		ImageId string
 	}
