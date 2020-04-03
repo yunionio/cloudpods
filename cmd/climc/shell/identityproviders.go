@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -287,6 +288,36 @@ func init() {
 		config := jsonutils.NewDict()
 		config.Add(jsonutils.Marshal(args), "config", "cas")
 		nconf, err := modules.IdentityProviders.PerformAction(s, args.ID, "config", config)
+		if err != nil {
+			return err
+		}
+		fmt.Println(nconf.PrettyString())
+		return nil
+	})
+
+	type IdentityProviderConfigEditOptions struct {
+		IDP string `help:"identity provider name or ID"`
+	}
+	R(&IdentityProviderConfigEditOptions{}, "idp-config-edit", "Edit config yaml of an identity provider", func(s *mcclient.ClientSession, args *IdentityProviderConfigEditOptions) error {
+		conf, err := modules.IdentityProviders.GetSpecific(s, args.IDP, "config", nil)
+		if err != nil {
+			return err
+		}
+		confJson, err := conf.Get("config")
+		if err != nil {
+			return err
+		}
+		content, err := shellutils.Edit(confJson.YAMLString())
+		if err != nil {
+			return err
+		}
+		yamlJson, err := jsonutils.ParseYAML(content)
+		if err != nil {
+			return err
+		}
+		config := jsonutils.NewDict()
+		config.Add(yamlJson, "config")
+		nconf, err := modules.IdentityProviders.PerformAction(s, args.IDP, "config", config)
 		if err != nil {
 			return err
 		}

@@ -216,6 +216,11 @@ func init() {
 		return doIdentityEventList(s, &nargs)
 	})
 
+	R(&TypeEventListOptions{}, "idp-event", "Show operation event logs of keystone identity provider", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"identity_provider"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
 	R(&TypeEventListOptions{}, "project-event", "Show operation event logs of keystone projects", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"project"}}
 		return doIdentityEventList(s, &nargs)
