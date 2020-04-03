@@ -924,12 +924,12 @@ sigs.k8s.io/yaml
 yunion.io/x/executor/apis
 yunion.io/x/executor/client
 yunion.io/x/executor/server
-# yunion.io/x/jsonutils v0.0.0-20200303051356-aa609aba0cda
+# yunion.io/x/jsonutils v0.0.0-20200330063846-589d9924bb8b
 yunion.io/x/jsonutils
-# yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
+# yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20200304112442-9dae9351325e
+# yunion.io/x/pkg v0.0.0-20200403115157-880d716ed624
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/prettytable

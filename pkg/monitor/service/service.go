@@ -17,6 +17,7 @@ package service
 import (
 	"context"
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/sync/errgroup"
@@ -25,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -56,6 +58,13 @@ func StartService() {
 	defer cloudcommon.CloseDB()
 
 	go startServices()
+
+	if !opts.IsSlaveNode {
+		cron := cronman.InitCronJobManager(true, options.Options.CronJobWorkerCount)
+		cron.AddJobAtIntervalsWithStartRun("GetSuggestSysAlertEIPUnused", time.Duration(30)*time.Second,
+			models.SuggestSysRuleManager.GetDriver(models.EIPUsed).DoSuggestSysRule, true)
+		go cron.Start2(context.Background(), nil)
+	}
 
 	common_app.ServeForever(app, baseOpts)
 }
@@ -96,7 +105,6 @@ func startServices() {
 			return nil
 		})
 	}
-
 	defer func() {
 		log.Debugf("Waiting on services...")
 		if waitErr := childRoutines.Wait(); waitErr != nil {
