@@ -192,14 +192,6 @@ func (rds *SDBInstance) GetExpiredAt() time.Time {
 }
 
 func (rds *SDBInstance) GetStorageType() string {
-	switch rds.Volume.Type {
-	case "COMMON":
-		return api.STORAGE_HUAWEI_SATA
-	case "HIGH":
-		return api.STORAGE_HUAWEI_SAS
-	case "ULTRAHIGH":
-		return api.STORAGE_HUAWEI_SSD
-	}
 	return rds.Volume.Type
 }
 
@@ -419,17 +411,6 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 	for _, zone := range zones {
 		zoneIds = append(zoneIds, zone.GetId())
 	}
-	storageType := ""
-	switch desc.StorageType {
-	case api.STORAGE_HUAWEI_SAS:
-		storageType = "HIGH"
-	case api.STORAGE_HUAWEI_SSD:
-		storageType = "ULTRAHIGH"
-	case api.STORAGE_HUAWEI_SATA:
-		storageType = "COMMON"
-	default:
-		return nil, fmt.Errorf("Unknown storage type %s", desc.StorageType)
-	}
 
 	params := map[string]interface{}{
 		"region": region.ID,
@@ -440,7 +421,7 @@ func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceC
 		},
 		"password": desc.Password,
 		"volume": map[string]interface{}{
-			"type": storageType,
+			"type": desc.StorageType,
 			"size": desc.DiskSizeGB,
 		},
 		"vpc_id":            desc.VpcId,
