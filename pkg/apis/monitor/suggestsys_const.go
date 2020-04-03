@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package vcenter
+package monitor
 
-type SVCenterAccessInfo struct {
-	VcenterId string
-	Host      string
-	Port      int
-	Account   string
-	Password  string
-	PrivateId string
-}
+const (
+	EIP_UN_USED = "EIP_UNUSED"
+
+	DRIVER_ACTION = "DELETE"
+
+	EIP_UNUSED_START_DELETE = "start_delete"
+	EIP_UNUSED_DELETE_FAIL  = "delete_fail"
+)
+
+type MonitorResourceType string
+
+const (
+	EIP_MONITOR_RES_TYPE = MonitorResourceType("弹性EIP")
+)

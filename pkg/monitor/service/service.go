@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	common_app "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/monitor/alerting"
@@ -34,6 +35,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/monitor/notifydrivers"
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
+	"yunion.io/x/onecloud/pkg/monitor/suggestsysdrivers"
 	_ "yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
 )
 
@@ -56,6 +58,11 @@ func StartService() {
 	defer cloudcommon.CloseDB()
 
 	go startServices()
+
+	cron := cronman.InitCronJobManager(true, opts.CronJobWorkerCount)
+	suggestsysdrivers.InitSuggestSysRuleCronjob()
+	cron.Start()
+	defer cron.Stop()
 
 	common_app.ServeForever(app, baseOpts)
 }
@@ -96,7 +103,6 @@ func startServices() {
 			return nil
 		})
 	}
-
 	defer func() {
 		log.Debugf("Waiting on services...")
 		if waitErr := childRoutines.Wait(); waitErr != nil {

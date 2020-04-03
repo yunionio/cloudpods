@@ -35,6 +35,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.NodeAlertManager,
 		models.MeterAlertManager,
 		models.NotificationManager,
+		models.SuggestSysRuleManager,
+		models.SuggestSysAlertManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
