@@ -604,7 +604,9 @@ func init() {
 			"Min_disk", "Min_ram", "Status",
 			"Notes", "OS_arch", "Preference",
 			"OS_Codename", "Description",
-			"Checksum"},
+			"Checksum", "Tenant_Id", "Tenant",
+			"is_guest_image",
+		},
 		[]string{"Owner", "Owner_name"})}
 	register(&Images)
 }
