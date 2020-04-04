@@ -252,10 +252,13 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IS
 
 		BaremetalUsage(userCred, rangeObjs, hostTypes, providers, brands, cloudEnv),
 
-		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false),
-		StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false),
-		StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false),
-		StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true),
+		StorageUsage("", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, false, false),
+		StorageUsage("system", rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv, false, true, false),
+		StorageUsage("prepaid_pool", rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv, false, false, false),
+		StorageUsage("any_pool", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, false, false),
+		StorageUsage("any_pool.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, false, true, false),
+		StorageUsage("any_pool.pending_delete", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, false, false),
+		StorageUsage("any_pool.pending_delete.system", rangeObjs, hostTypes, nil, providers, brands, cloudEnv, true, true, false),
 
 		GuestNormalUsage("all.servers", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		GuestNormalUsage("all.servers.prepaid_pool", rbacutils.ScopeSystem, nil, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -308,7 +311,7 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	bucketUsage := BucketUsage(scope, cred, rangeObjs, providers, brands, cloudEnv)
 
-	nicsUsage := nicsUsage(rangeObjs, nil, providers, brands, cloudEnv, scope, cred)
+	nicsUsage := nicsUsage(rangeObjs, hostTypes, providers, brands, cloudEnv, scope, cred)
 
 	count = guestNormalUsage.Include(
 		GuestNormalUsage(getKey(scope, "servers.prepaid_pool"), scope, cred, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -334,8 +337,10 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		bucketUsage,
 
-		DisksUsage(getKey(scope, "disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred, false),
-		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, nil, nil, providers, brands, cloudEnv, scope, cred, true),
+		DisksUsage(getKey(scope, "disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, false),
+		DisksUsage(getKey(scope, "disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, false, true),
+		DisksUsage(getKey(scope, "pending_delete_disks"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, false),
+		DisksUsage(getKey(scope, "pending_delete_disks.system"), rangeObjs, hostTypes, nil, providers, brands, cloudEnv, scope, cred, true, true),
 
 		nicsUsage,
 
@@ -429,7 +434,8 @@ func StorageUsage(
 	rangeObjs []db.IStandaloneModel,
 	hostTypes []string, resourceTypes []string,
 	providers []string, brands []string, cloudEnv string,
-	pendingDeleted bool,
+	pendingDeleted bool, isSystem bool,
+	storageOwnership bool,
 ) Usage {
 	sPrefix := "storages"
 	dPrefix := "all.disks"
@@ -442,14 +448,20 @@ func StorageUsage(
 		rangeObjs,
 		hostTypes, resourceTypes,
 		providers, brands, cloudEnv,
-		rbacutils.ScopeSystem, nil, pendingDeleted,
+		rbacutils.ScopeSystem, nil,
+		pendingDeleted, isSystem,
+		storageOwnership,
 	)
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
+	count[fmt.Sprintf("%s.count", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
+	count[fmt.Sprintf("%s.unready.count", dPrefix)] = result.CountUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.attached.count", dPrefix)] = result.CountAttached
 	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+	count[fmt.Sprintf("%s.detached.count", dPrefix)] = result.CountDetached
 
 	storageCmtRate := 0.0
 	if result.Capacity > 0 {
@@ -469,14 +481,32 @@ func DisksUsage(
 	brands []string,
 	cloudEnv string,
 	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
-	pendingDeleted bool,
+	pendingDeleted bool, isSystem bool,
 ) Usage {
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted)
+	result := models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted, isSystem, false)
 	count[dPrefix] = result.CapacityUsed
+	count[fmt.Sprintf("%s.storage", dPrefix)] = result.Capacity
+	count[fmt.Sprintf("%s.storage.virtual", dPrefix)] = result.CapacityVirtual
+	count[fmt.Sprintf("%s.count", dPrefix)] = result.CountUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
+	count[fmt.Sprintf("%s.unready.count", dPrefix)] = result.CountUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.attached.count", dPrefix)] = result.CountAttached
 	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+	count[fmt.Sprintf("%s.detached.count", dPrefix)] = result.CountDetached
+
+	result = models.StorageManager.TotalCapacity(rangeObjs, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId, pendingDeleted, isSystem, true)
+	count[fmt.Sprintf("%s.storage.owner", dPrefix)] = result.Capacity
+	count[fmt.Sprintf("%s.storage.virtual.owner", dPrefix)] = result.CapacityVirtual
+	count[fmt.Sprintf("%s.owner", dPrefix)] = result.CapacityUsed
+	count[fmt.Sprintf("%s.count.owner", dPrefix)] = result.CountUsed
+	count[fmt.Sprintf("%s.unready.owner", dPrefix)] = result.CapacityUnready
+	count[fmt.Sprintf("%s.unready.count.owner", dPrefix)] = result.CountUnready
+	count[fmt.Sprintf("%s.attached.owner", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.attached.count.owner", dPrefix)] = result.CountAttached
+	count[fmt.Sprintf("%s.detached.owner", dPrefix)] = result.DetachedCapacity
+	count[fmt.Sprintf("%s.detached.count.owner", dPrefix)] = result.CountDetached
 
 	return count
 }
