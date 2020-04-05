@@ -170,6 +170,26 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
+	if len(fields) == 0 || fields.Contains("scaling_status") {
+		sggs := fetchScalingGroupGuest(guestIds)
+		if sggs != nil && len(sggs) != 0 {
+			for i := range rows {
+				if sgg, ok := sggs[guestIds[i]]; ok {
+					rows[i].ScalingStatus = sgg.GuestStatus
+				}
+			}
+		}
+	}
+	if fields.Contains("scaling_group_id") {
+		sggs := fetchScalingGroupGuest(guestIds)
+		if sggs != nil && len(sggs) != 0 {
+			for i := range rows {
+				if sgg, ok := sggs[guestIds[i]]; ok {
+					rows[i].ScalingGroupId = sgg.ScalingGroupId
+				}
+			}
+		}
+	}
 
 	for i := range rows {
 		rows[i] = objs[i].(*SGuest).moreExtraInfo(rows[i], userCred, query, fields, isList)
@@ -462,6 +482,20 @@ func fetchGuestCdroms(guestIds []string) map[string]SGuestcdrom {
 	ret := make(map[string]SGuestcdrom)
 	for i := range gcds {
 		ret[gcds[i].Id] = gcds[i]
+	}
+	return ret
+}
+
+func fetchScalingGroupGuest(guestIds []string) map[string]SScalingGroupGuest {
+	q := ScalingGroupGuestManager.Query().In("guest_id", guestIds)
+	sggs := make([]SScalingGroupGuest, 0)
+	err := q.All(&sggs)
+	if err != nil {
+		return nil
+	}
+	ret := make(map[string]SScalingGroupGuest)
+	for i := range sggs {
+		ret[sggs[i].GuestId] = sggs[i]
 	}
 	return ret
 }

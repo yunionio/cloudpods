@@ -130,6 +130,7 @@ type ComputeOptions struct {
 	BaremetalServerReuseHostIp bool `help:"baremetal server reuse host IP address, default true" default:"true"`
 
 	SCapabilityOptions
+	SASControllerOptions
 	common_options.CommonOptions
 	common_options.DBOptions
 }
@@ -140,6 +141,13 @@ type SCapabilityOptions struct {
 	MinNicCount        int `help:"Minimal nic count" default:"1"`
 	MaxNormalNicCount  int `help:"Maximal nic count" default:"8"`
 	MaxManagedNicCount int `help:"Maximal managed nic count" default:"1"`
+}
+
+type SASControllerOptions struct {
+	TimerInterval       int `help:"The interval between the tow checks about timer, unit: s" default:"60"`
+	ConcurrentUpper     int `help:"This represents the upper limit of concurrent sacling sctivities" default:"500"`
+	CheckScaleInterval  int `help:"The interval between the two checks about scaling, unit: s" default:"60"`
+	CheckHealthInterval int `help:"The interval bewteen the two check about instance's health unit: m" default:"5"`
 }
 
 var (

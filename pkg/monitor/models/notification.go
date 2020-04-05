@@ -141,6 +141,19 @@ func (man *SNotificationManager) ValidateCreateData(ctx context.Context, userCre
 	return plug.ValidateCreateData(userCred, input)
 }
 
+func (man *SNotificationManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, input monitor.NotificationListInput) (*sqlchemy.SQuery, error) {
+
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
+	if err != nil {
+		return nil, err
+	}
+	if len(input.Type) > 0 {
+		q = q.Equals("type", input.Type)
+	}
+	return q, err
+}
+
 func (man *SNotificationManager) CreateOneCloudNotification(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,

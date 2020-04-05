@@ -19,8 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -44,10 +46,14 @@ const (
 
 type SGuestTemplateManager struct {
 	db.SSharableVirtualResourceBaseManager
+	SCloudregionResourceBaseManager
+	SVpcResourceBaseManager
 }
 
 type SGuestTemplate struct {
 	db.SSharableVirtualResourceBase
+	SCloudregionResourceBase
+	SVpcResourceBase
 
 	// 虚拟机CPU数量
 	VcpuCount int `nullable:"false" default:"1" create:"optional" json:"vcpu_count"`
@@ -57,7 +63,7 @@ type SGuestTemplate struct {
 
 	// 虚拟机操作系统类型
 	// pattern:Linux|Windows|VMWare
-	OsType string `width:"36" charset:"ascii" nullable:"true" create:"optional" json:"os_type"`
+	OsType string `width:"36" charset:"ascii" nullable:"true" create:"optional" json:"os_type" list:"user" get:"user"`
 
 	// 镜像类型
 	ImageType string `width:"10" charset:"ascii" nullabel:"true" default:"normal" create:"optional" json:"image_type"`
@@ -67,6 +73,9 @@ type SGuestTemplate struct {
 
 	// 虚拟机技术
 	Hypervisor string `width:"16" charset:"ascii" default:"kvm" create:"optional" json:"hypervisor"`
+
+	// 计费方式
+	BillingType string `width:"16" charset:"ascii" default:"postpaid" create:"optional" list:"user" get:"user" json:"billing_type"`
 
 	// 其他配置信息
 	Content jsonutils.JSONObject `nullable:"false" list:"user" update:"user" create:"optional" json:"content"`
@@ -92,15 +101,15 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	input computeapis.GuesttemplateCreateInput,
-) (computeapis.GuesttemplateCreateInput, error) {
-	var err error
+	input computeapis.GuestTemplateCreateInput,
+) (computeapis.GuestTemplateCreateInput, error) {
 
+	var err error
 	if input.Content == nil {
 		return input, httperrors.NewMissingParameterError("content")
 	}
 
-	input.GuesttemplateInput, err = gtm.validateData(ctx, userCred, ownerId, query, input.GuesttemplateInput)
+	input.GuestTemplateInput, err = gtm.validateData(ctx, userCred, ownerId, query, input.GuestTemplateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "gtm.validateData")
 	}
@@ -115,7 +124,7 @@ func (gtm *SGuestTemplateManager) ValidateCreateData(
 
 func (gt *SGuestTemplate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-
+	gt.SetStatus(userCred, "ready", "")
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_CREATE, nil, userCred, true)
 }
 
@@ -129,8 +138,8 @@ func (gtm *SGuestTemplateManager) validateData(
 	userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
-	cinput computeapis.GuesttemplateInput,
-) (computeapis.GuesttemplateInput, error) {
+	cinput computeapis.GuestTemplateInput,
+) (computeapis.GuestTemplateInput, error) {
 	if cinput.Content == nil {
 		return cinput, nil
 	}
@@ -147,6 +156,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	if err != nil {
 		return cinput, httperrors.NewInputParameterError(err.Error())
 	}
+	log.Debugf("data: %#v", input)
 	// fill field
 	cinput.VmemSize = input.VmemSize
 	// data.Add(jsonutils.NewInt(int64(input.VmemSize)), "vmem_size")
@@ -156,6 +166,22 @@ func (gtm *SGuestTemplateManager) validateData(
 	// data.Add(jsonutils.NewString(input.OsType), "os_type")
 	cinput.Hypervisor = input.Hypervisor
 	// data.Add(jsonutils.NewString(input.Hypervisor), "hypervisor")
+	cinput.InstanceType = input.InstanceType
+	cinput.CloudregionId = input.PreferRegion
+	cinput.BillingType = input.BillingType
+
+	// fill vpc
+	if len(input.Networks) != 0 && len(input.Networks[0].Network) != 0 {
+		model, err := NetworkManager.FetchById(input.Networks[0].Network)
+		if err != nil {
+			return cinput, errors.Wrap(err, "NetworkManager.FetchById")
+		}
+		net := model.(*SNetwork)
+		vpc := net.GetVpc()
+		if vpc != nil {
+			cinput.VpcId = vpc.Id
+		}
+	}
 
 	if len(input.GuestImageID) > 0 {
 		cinput.ImageType = IMAGE_TYPE_GUEST
@@ -176,6 +202,7 @@ func (gtm *SGuestTemplateManager) validateData(
 	// "__count__" was converted to "count" by apigateway
 	contentDict.Remove("count")
 	contentDict.Remove("project_id")
+	contentDict.Remove("__count__")
 
 	cinput.Content = contentDict
 	// data.Add(contentDict, "content")
@@ -186,10 +213,10 @@ func (gt *SGuestTemplate) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input computeapis.GuesttemplateUpdateInput,
-) (computeapis.GuesttemplateUpdateInput, error) {
+	input computeapis.GuestTemplateUpdateInput,
+) (computeapis.GuestTemplateUpdateInput, error) {
 	var err error
-	input.GuesttemplateInput, err = GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, input.GuesttemplateInput)
+	input.GuestTemplateInput, err = GuestTemplateManager.validateData(ctx, userCred, gt.GetOwnerId(), query, input.GuestTemplateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "GuestTemplateManager.validateData")
 	}
@@ -207,13 +234,17 @@ func (manager *SGuestTemplateManager) FetchCustomizeColumns(
 	objs []interface{},
 	fields stringutils2.SSortedStrings,
 	isList bool,
-) []computeapis.GuesttemplateDetails {
-	rows := make([]computeapis.GuesttemplateDetails, len(objs))
+) []computeapis.GuestTemplateDetails {
+	rows := make([]computeapis.GuestTemplateDetails, len(objs))
 
 	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	crRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	vpcRows := manager.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
-		rows[i] = computeapis.GuesttemplateDetails{
+		rows[i] = computeapis.GuestTemplateDetails{
 			SharableVirtualResourceDetails: virtRows[i],
+			CloudregionResourceInfo:        crRows[i],
+			VpcResourceInfo:                vpcRows[i],
 		}
 		rows[i], _ = objs[i].(*SGuestTemplate).getMoreDetails(ctx, userCred, rows[i])
 	}
@@ -226,18 +257,18 @@ func (gt *SGuestTemplate) GetExtraDetails(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	isList bool,
-) (computeapis.GuesttemplateDetails, error) {
-	return computeapis.GuesttemplateDetails{}, nil
+) (computeapis.GuestTemplateDetails, error) {
+	return computeapis.GuestTemplateDetails{}, nil
 }
 
 func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential,
-	out computeapis.GuesttemplateDetails) (computeapis.GuesttemplateDetails, error) {
+	out computeapis.GuestTemplateDetails) (computeapis.GuestTemplateDetails, error) {
 
 	input, err := cmdline.FetchServerCreateInputByJSON(gt.Content)
 	if err != nil {
 		return out, err
 	}
-	configInfo := computeapis.GuesttemplateConfigInfo{}
+	configInfo := computeapis.GuestTemplateConfigInfo{}
 	if len(input.PreferRegion) != 0 {
 		region := CloudregionManager.FetchRegionById(input.PreferRegion)
 		if region != nil {
@@ -251,14 +282,14 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		if zone != nil {
 			input.PreferZone = zone.GetName()
 		}
+		out.Zone = input.PreferZone
 		configInfo.Zone = input.PreferZone
 	}
 	configInfo.Hypervisor = gt.Hypervisor
-	configInfo.OsType = gt.OsType
 
 	// sku deal
 	if len(input.InstanceType) > 0 {
-		skuOutput := computeapis.GuesttemplateSku{}
+		skuOutput := computeapis.GuestTemplateSku{}
 		provider := GetDriver(gt.Hypervisor).GetProvider()
 		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(input.InstanceType, provider, true)
 		if err != nil {
@@ -276,9 +307,9 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	}
 
 	// disk deal
-	disks := make([]computeapis.GuesttemplateDisk, len(input.Disks))
+	disks := make([]computeapis.GuestTemplateDisk, len(input.Disks))
 	for i := range input.Disks {
-		disks[i] = computeapis.GuesttemplateDisk{
+		disks[i] = computeapis.GuestTemplateDisk{
 			Backend:  input.Disks[i].Backend,
 			DiskType: input.Disks[i].DiskType,
 			Index:    input.Disks[i].Index,
@@ -298,14 +329,24 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 
 	// network
 	if len(input.Networks) > 0 {
-		networkList := make([]computeapis.GuesttemplateNetwork, 0, len(input.Networks))
+		networkList := make([]computeapis.GuestTemplateNetwork, 0, len(input.Networks))
 		networkIdList := make([]string, len(input.Networks))
 		for i := range input.Networks {
 			networkIdList[i] = input.Networks[i].Network
 		}
 		networkSet := sets.NewString(networkIdList...)
 
-		q := NetworkManager.Query("id", "name", "guest_ip_start", "guest_ip_end", "vlan_id").In("id", networkIdList)
+		wireQuery := WireManager.Query("id", "vpc_id").SubQuery()
+		vpcQuery := VpcManager.Query("id", "name").SubQuery()
+		q := NetworkManager.Query("id", "name", "wire_id", "guest_ip_start", "guest_ip_end", "vlan_id")
+		if len(networkIdList) == 1 {
+			q = q.Equals("id", networkIdList[0])
+		} else {
+			q = q.In("id", networkIdList)
+		}
+		q = q.LeftJoin(wireQuery, sqlchemy.Equals(q.Field("wire_id"), wireQuery.Field("id")))
+		q = q.LeftJoin(vpcQuery, sqlchemy.Equals(wireQuery.Field("vpc_id"), vpcQuery.Field("id")))
+		q = q.AppendField(vpcQuery.Field("id", "vpc_id"), vpcQuery.Field("name", "vpc_name"))
 		q.All(&networkList)
 
 		for _, p := range networkList {
@@ -316,7 +357,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 
 		// some specified network
 		for _, id := range networkSet.UnsortedList() {
-			networkList = append(networkList, computeapis.GuesttemplateNetwork{ID: id})
+			networkList = append(networkList, computeapis.GuestTemplateNetwork{ID: id})
 		}
 
 		configInfo.Nets = networkList
@@ -329,6 +370,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 			input.SecgroupId = secgroup.GetName()
 		}
 		configInfo.Secgroup = input.SecgroupId
+		out.Secgroup = input.SecgroupId
 	}
 
 	// isolatedDevices
@@ -476,6 +518,7 @@ func (gt *SGuestTemplate) genForbiddenError(resourceName, resourceStr, scope str
 }
 
 func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
+	// check service catelog
 	q := ServiceCatalogManager.Query("name").Equals("guest_template_id", gt.Id)
 	names := make([]struct{ Name string }, 0, 1)
 	err := q.All(&names)
@@ -484,6 +527,16 @@ func (gt *SGuestTemplate) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	if len(names) > 0 {
 		return httperrors.NewForbiddenError("guest template %s used by service catalog %s", gt.Id, names[0].Name)
+	}
+	// check scaling group
+	q = ScalingGroupManager.Query("name").Equals("guest_template_id", gt.Id)
+	names = make([]struct{ Name string }, 0, 1)
+	err = q.All(&names)
+	if err != nil {
+		return errors.Wrap(err, "SQuery.All")
+	}
+	if len(names) > 0 {
+		return httperrors.NewForbiddenError("guest template %s used by scalig group %s", gt.Id, names[0].Name)
 	}
 	return nil
 }
@@ -500,6 +553,19 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
+	q, err = manager.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, input.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	if len(input.Vpc) > 0 {
+		q, err = manager.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VpcFilterListInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
+		}
+	}
+	if len(input.BillingType) > 0 {
+		q = q.Equals("billing_type", input.BillingType)
+	}
 	return q, nil
 }
 
@@ -515,7 +581,14 @@ func (manager *SGuestTemplateManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
 	}
-
+	q, err = manager.SCloudregionResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
+	}
+	q, err = manager.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, input.VpcFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
+	}
 	return q, nil
 }
 
@@ -526,6 +599,48 @@ func (manager *SGuestTemplateManager) QueryDistinctExtraField(q *sqlchemy.SQuery
 	if err == nil {
 		return q, nil
 	}
+	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SVpcResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
 
 	return q, httperrors.ErrNotFound
+}
+
+type SGuestTemplateValidate struct {
+	Hypervisor    string
+	CloudregionId string
+	VpcId         string
+	NetworkIds    []string
+}
+
+func (gt *SGuestTemplate) Validate(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, stv SGuestTemplateValidate) (bool, string) {
+	if stv.Hypervisor != "" && gt.Hypervisor != stv.Hypervisor {
+		return false, fmt.Sprintf("GuestTemplate has mismatched hypervisor, need %s but %s", stv.Hypervisor, gt.Hypervisor)
+	}
+	if stv.CloudregionId != "" && gt.CloudregionId != stv.CloudregionId {
+		return false, fmt.Sprintf("GuestTemplate has mismatched cloudregion, need %s but %s", stv.CloudregionId, gt.CloudregionId)
+	}
+	if stv.VpcId != "" && gt.VpcId != "" && stv.VpcId != gt.VpcId {
+		return false, fmt.Sprintf("GuestTemplate has mismatched vpc, need %s bu %s", stv.VpcId, gt.VpcId)
+	}
+
+	// check networks
+	input, err := GuestManager.validateCreateData(ctx, userCred, ownerId, jsonutils.NewDict(), gt.Content.(*jsonutils.JSONDict))
+	if err != nil {
+		return false, err.Error()
+	}
+	if len(input.Networks) != 0 && len(input.Networks[0].Network) != 0 {
+		for i := range input.Networks {
+			if !utils.IsInStringArray(input.Networks[i].Network, stv.NetworkIds) {
+				return false, fmt.Sprintf("GuestTemplate's network '%s' not in networks '%s'", input.Networks[i].Network, stv.NetworkIds)
+			}
+		}
+	}
+	return true, ""
 }

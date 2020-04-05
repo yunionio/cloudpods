@@ -78,7 +78,7 @@ func (manager *SGroupResourceBaseManager) FetchCustomizeColumns(
 		var base *SGroupResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SGuestResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SGroupResourceBase in object %s", objs[i])
 			continue
 		}
 		groupIds[i] = base.GroupId

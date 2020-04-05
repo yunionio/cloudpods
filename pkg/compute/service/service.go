@@ -38,6 +38,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/controller/autoscaling"
 	_ "yunion.io/x/onecloud/pkg/multicloud/loader"
 )
 
@@ -125,6 +126,9 @@ func StartService() {
 		cron.AddJobEveryFewDays("StorageSnapshotsRecycle", 1, 2, 0, 0, models.StorageManager.StorageSnapshotsRecycle, false)
 
 		go cron.Start2(ctx, electObj)
+
+		// init auto scaling controller
+		autoscaling.ASController.Init(options.Options.SASControllerOptions, cron)
 	}
 
 	app_common.ServeForever(app, baseOpts)

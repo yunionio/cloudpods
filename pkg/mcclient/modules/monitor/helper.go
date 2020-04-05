@@ -374,6 +374,14 @@ func (s *AlertQuerySelect) SUM() *AlertQuerySelect {
 	return s.addFunc("sum")
 }
 
+func (s *AlertQuerySelect) MIN() *AlertQuerySelect {
+	return s.addFunc("min")
+}
+
+func (s *AlertQuerySelect) MAX() *AlertQuerySelect {
+	return s.addFunc("max")
+}
+
 // AS is alias method
 func (s *AlertQuerySelect) AS(alias string) *AlertQuerySelect {
 	s.MetricQuerySelect = append(s.MetricQuerySelect, monitor.MetricQueryPart{

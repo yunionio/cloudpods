@@ -58,6 +58,8 @@ type ServerListOptions struct {
 
 	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 
+	ScalingGroup string `help:"ScalingGroup's id or name'"`
+
 	BaseListOptions
 }
 

@@ -75,6 +75,7 @@ type SGuestManager struct {
 	SBillingResourceBaseManager
 	SNetworkResourceBaseManager
 	SDiskResourceBaseManager
+	SScalingGroupResourceBaseManager
 }
 
 var GuestManager *SGuestManager
@@ -208,6 +209,15 @@ func (manager *SGuestManager) ListItemFilter(
 	}
 	if diskQ.IsAltered() {
 		q = q.In("id", diskQ.SubQuery())
+	}
+
+	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").Snapshot()
+	scalingGroupQ, err = manager.SScalingGroupResourceBaseManager.ListItemFilter(ctx, scalingGroupQ, userCred, query.ScalingGroupFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SScaligGroupResourceBaseManager.ListItemFilter")
+	}
+	if scalingGroupQ.IsAltered() {
+		q = q.In("id", scalingGroupQ.SubQuery())
 	}
 
 	hypervisorList := query.Hypervisor
@@ -4549,6 +4559,17 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 		return nil, fmt.Errorf(msg)
 	}
 	return ihost.GetIVMById(self.ExternalId)
+}
+
+func (self *SGuest) DetachScalingGroup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	sggs, err := ScalingGroupGuestManager.Fetch("", self.GetId())
+	if err != nil {
+		return err
+	}
+	for i := range sggs {
+		sggs[i].Detach(ctx, userCred)
+	}
+	return nil
 }
 
 func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
