@@ -424,10 +424,28 @@ func (manager *SWireManager) totalCountQ(
 	ownerId mcclient.IIdentityProvider,
 	pendingDeleted bool,
 ) *sqlchemy.SQuery {
-	guests := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId).SubQuery()
-	hosts := HostManager.Query().SubQuery()
+	guestsQ := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId)
+	guests := guestsQ.SubQuery()
+	hostsQ := HostManager.Query()
+	if len(hostTypes) > 0 {
+		hostsQ = hostsQ.In("host_type", hostTypes)
+	}
+	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+		hostsQ = CloudProviderFilter(hostsQ, hostsQ.Field("manager_id"), providers, brands, cloudEnv)
+	}
+	if len(rangeObjs) > 0 {
+		hostsQ = rangeObjectsFilter(hostsQ, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"))
+	}
+	hosts := hostsQ.SubQuery()
 	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
-	lbs := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId).SubQuery()
+	lbsQ := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId)
+	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+		lbsQ = CloudProviderFilter(lbsQ, lbsQ.Field("manager_id"), providers, brands, cloudEnv)
+	}
+	if len(rangeObjs) > 0 {
+		lbsQ = rangeObjectsFilter(lbsQ, rangeObjs, lbsQ.Field("cloudregion_id"), lbsQ.Field("zone_id"), lbsQ.Field("manager_id"))
+	}
+	lbs := lbsQ.SubQuery()
 
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
