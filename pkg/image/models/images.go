@@ -839,7 +839,7 @@ type SImageUsage struct {
 	Size  int64
 }
 
-func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool) map[string]SImageUsage {
+func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool, guestImage tristate.TriState) map[string]SImageUsage {
 	sq := manager.Query("id")
 	switch scope {
 	case rbacutils.ScopeSystem:
@@ -848,6 +848,12 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
 	case rbacutils.ScopeProject:
 		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	// exclude GuestImage!!!
+	if guestImage.IsTrue() {
+		sq = sq.IsTrue("is_guest_image")
+	} else if guestImage.IsFalse() {
+		sq = sq.IsFalse("is_guest_image")
 	}
 	if len(status) > 0 {
 		sq = sq.Equals("status", status)
@@ -863,6 +869,8 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 	} else if isISO.IsFalse() {
 		sq = sq.NotEquals("disk_format", "iso")
 	}
+	cnt, _ := sq.CountWithError()
+
 	subimages := ImageSubformatManager.Query().SubQuery()
 	q := subimages.Query(subimages.Field("format"),
 		sqlchemy.COUNT("count"),
@@ -886,7 +894,6 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 		ret[u.Format] = SImageUsage{Count: u.Count, Size: u.Size}
 		totalSize += u.Size
 	}
-	cnt, _ := sq.CountWithError()
 	ret["total"] = SImageUsage{Count: int64(cnt), Size: totalSize}
 	return ret
 }
@@ -911,17 +918,17 @@ func expandUsageCount(usages map[string]int64, prefix, imgType, state string, co
 
 func (manager *SImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string) map[string]int64 {
 	usages := make(map[string]int64)
-	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false)
+	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.False)
 	expandUsageCount(usages, prefix, "img", "", count)
-	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false)
+	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false, tristate.False)
 	expandUsageCount(usages, prefix, "iso", "", count)
-	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false)
+	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false, tristate.False)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
-	count = manager.count(scope, ownerId, "", tristate.False, true)
+	count = manager.count(scope, ownerId, "", tristate.False, true, tristate.False)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
-	count = manager.count(scope, ownerId, "", tristate.True, true)
+	count = manager.count(scope, ownerId, "", tristate.True, true, tristate.False)
 	expandUsageCount(usages, prefix, "iso", "pending_delete", count)
-	count = manager.count(scope, ownerId, "", tristate.None, true)
+	count = manager.count(scope, ownerId, "", tristate.None, true, tristate.False)
 	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
 }
