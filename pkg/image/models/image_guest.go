@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -39,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGuestImageManager struct {
@@ -554,4 +556,29 @@ func (self *SGuestImage) PerformPrivate(ctx context.Context, userCred mcclient.T
 		}
 	}
 	return self.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, data)
+}
+
+func (manager *SGuestImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string) map[string]int64 {
+	usages := make(map[string]int64)
+	count := ImageManager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false, tristate.True)
+	expandUsageCount(usages, prefix, "guest_image", "", count)
+	sq := manager.Query()
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	cnt, _ := sq.CountWithError()
+	key := []string{}
+	if len(prefix) > 0 {
+		key = append(key, prefix)
+	}
+	key = append(key, "guest_image", "count")
+
+	usages[strings.Join(key, ".")] = int64(cnt)
+
+	return usages
 }
