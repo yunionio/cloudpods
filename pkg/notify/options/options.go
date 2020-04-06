@@ -41,13 +41,15 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	oldOpts := oldO.(*NotifyOption)
 	newOpts := newO.(*NotifyOption)
 
+	changed := false
+
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
-		return true
+		changed = true
 	}
 
 	if oldOpts.SocketFileDir != newOpts.SocketFileDir {
-		return true
+		changed = true
 	}
 
-	return false
+	return changed
 }
