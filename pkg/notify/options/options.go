@@ -26,8 +26,8 @@ type NotifyOption struct {
 	SocketFileDir   string `help:"Socket file directory" default:"/etc/yunion/notify"`
 	UpdateInterval  int    `help:"Update send services interval(unit:min)" default:"30"`
 	VerifyEmailUrl  string `help:"url of verify email"`
-	ReSendScope     int    `help:"Resend all messages that have not been sent successfully within ReSendScope
-seconds" default:"30"`
+
+	ReSendScope           int `help:"Resend all messages that have not been sent successfully within ReSendScope seconds" default:"30"`
 	InitNotificationScope int `help:"initialize data of notification with in InitNotificationScope hours" default:"100"`
 }
 
