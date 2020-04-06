@@ -22,27 +22,31 @@ func OnBaseOptionsChange(oOpts, nOpts interface{}) bool {
 	oldOpts := oOpts.(*BaseOptions)
 	newOpts := nOpts.(*BaseOptions)
 
+	changed := false
 	if oldOpts.RequestWorkerCount != newOpts.RequestWorkerCount {
-		return true
+		changed = true
 	}
 	if oldOpts.TimeZone != newOpts.TimeZone {
-		return true
+		changed = true
 	}
 	if oldOpts.EnableRbac != newOpts.EnableRbac {
-		return true
+		changed = true
 	}
 	if oldOpts.NonDefaultDomainProjects != newOpts.NonDefaultDomainProjects {
 		consts.SetNonDefaultDomainProjects(newOpts.NonDefaultDomainProjects)
+		changed = true
 	}
-	return false
+	return changed
 }
 
 func OnCommonOptionsChange(oOpts, nOpts interface{}) bool {
 	oldOpts := oOpts.(*CommonOptions)
 	newOpts := nOpts.(*CommonOptions)
 
+	changed := false
 	if OnBaseOptionsChange(&oldOpts.BaseOptions, &newOpts.BaseOptions) {
-		return true
+		changed = true
 	}
-	return false
+
+	return changed
 }
