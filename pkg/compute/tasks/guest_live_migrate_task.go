@@ -125,7 +125,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnCachedCdromComplete", nil)
 	isLocalStorage, _ := self.Params.Bool("is_local_storage")
-	if cdrom := guest.GetCdrom(); cdrom != nil && isLocalStorage {
+	if cdrom := guest.GetCdrom(); cdrom != nil && len(cdrom.ImageId) > 0 && isLocalStorage {
 		targetHostId, _ := self.Params.GetString("target_host_id")
 		targetHost := models.HostManager.FetchHostById(targetHostId)
 		targetStorageCache := targetHost.GetLocalStoragecache()
