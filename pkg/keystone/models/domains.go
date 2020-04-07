@@ -225,6 +225,9 @@ func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	// domain.ParentId = api.KeystoneDomainRoot
 	domain.DomainId = api.KeystoneDomainRoot
 	domain.IsDomain = tristate.True
+	if len(domain.Displayname) == 0 {
+		domain.Displayname = domain.Name
+	}
 	return domain.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

@@ -247,3 +247,7 @@ type CloudproviderUpdateInput struct {
 
 type CloudproviderCreateInput struct {
 }
+
+type ChangeOwnerCandidateDomainsOutput struct {
+	Candidates []apis.SharedDomain `json:"candidates"`
+}

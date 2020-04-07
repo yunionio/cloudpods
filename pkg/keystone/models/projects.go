@@ -283,6 +283,9 @@ func (manager *SProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	model.ParentId = ownerId.GetProjectDomainId()
 	model.IsDomain = tristate.False
+	if len(model.Displayname) == 0 {
+		model.Displayname = model.Name
+	}
 	return model.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
