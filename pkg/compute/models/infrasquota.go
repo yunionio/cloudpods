@@ -70,18 +70,18 @@ func init() {
 type SInfrasQuota struct {
 	quotas.SQuotaBase
 
-	quotas.SRegionalCloudResourceKeys
+	quotas.SDomainRegionalCloudResourceKeys
 
 	Host int `default:"-1" allow_zero:"true" json:"host"`
 	Vpc  int `default:"-1" allow_zero:"true" json:"vpc"`
 }
 
 func (self *SInfrasQuota) GetKeys() quotas.IQuotaKeys {
-	return self.SRegionalCloudResourceKeys
+	return self.SDomainRegionalCloudResourceKeys
 }
 
 func (self *SInfrasQuota) SetKeys(keys quotas.IQuotaKeys) {
-	self.SRegionalCloudResourceKeys = keys.(quotas.SRegionalCloudResourceKeys)
+	self.SDomainRegionalCloudResourceKeys = keys.(quotas.SDomainRegionalCloudResourceKeys)
 }
 
 func (self *SInfrasQuota) FetchSystemQuota() {
@@ -106,7 +106,7 @@ func (self *SInfrasQuota) FetchSystemQuota() {
 }
 
 func (self *SInfrasQuota) FetchUsage(ctx context.Context) error {
-	regionKeys := self.SRegionalCloudResourceKeys
+	regionKeys := self.SDomainRegionalCloudResourceKeys
 
 	scope := regionKeys.Scope()
 	ownerId := regionKeys.OwnerId()
