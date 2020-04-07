@@ -326,3 +326,7 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 		&usage,
 	}
 }
+
+func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+}
