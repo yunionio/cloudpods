@@ -256,6 +256,9 @@ func (manager *SParameterManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SResourceBaseManager.ListItemFilter")
 	}
+	if len(query.Name) > 0 {
+		q = q.In("name", query.Name)
+	}
 	if db.IsAdminAllowList(userCred, manager) {
 		if id := query.NamespaceId; len(id) > 0 {
 			q = q.Equals("namespace_id", id)
@@ -371,4 +374,8 @@ func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
 
 	owner := db.SOwnerId{UserId: model.NamespaceId}
 	return &owner
+}
+
+func (manager *SParameterManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchUserInfo(ctx, data)
 }

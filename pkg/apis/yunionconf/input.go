@@ -36,4 +36,7 @@ type ParameterListInput struct {
 	// Deprecated
 	// swagger:ignore
 	UserId string `json:"user_id" deprecated-by:"user"`
+
+	// filter by name
+	Name []string `json:"name"`
 }
