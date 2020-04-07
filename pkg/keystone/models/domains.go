@@ -61,7 +61,7 @@ type SDomain struct {
 	Extra *jsonutils.JSONDict `nullable:"true"`
 
 	Enabled  tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	IsDomain tristate.TriState `default:"true" nullable:"false"`
+	IsDomain tristate.TriState `default:"false" nullable:"false"`
 
 	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`
 
