@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apigateway/constants"
 	"yunion.io/x/onecloud/pkg/apigateway/options"
 	policytool "yunion.io/x/onecloud/pkg/apigateway/policy"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -646,8 +647,11 @@ func getUserAuthCookie(ctx context.Context, s *mcclient.ClientSession, token mcc
 }
 
 func getLBAgentInfo(s *mcclient.ClientSession, token mcclient.TokenCredential) (*jsonutils.JSONDict, error) {
-
-	lbagents, err := modules.LoadbalancerAgents.List(s, nil)
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("hb_last_seen.isnotempty()"), "filter.0")
+	params.Add(jsonutils.NewInt(1), "limit")
+	params.Add(jsonutils.JSONFalse, "details")
+	lbagents, err := modules.LoadbalancerAgents.List(s, params)
 	if err != nil {
 		return nil, errors.Wrapf(err, "user %s get lbagent", token.GetUserName())
 	}
@@ -665,6 +669,7 @@ func getLBAgentInfo(s *mcclient.ClientSession, token mcclient.TokenCredential) (
 }
 
 func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.TokenCredential, req *http.Request) (*jsonutils.JSONDict, error) {
+	log.Infof("getUserInfo modules.UsersV3.Get")
 	usr, err := modules.UsersV3.Get(s, token.GetUserId(), nil)
 	if err != nil {
 		log.Errorf("modules.UsersV3.Get fail %s", err)
@@ -693,6 +698,7 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 	data.Add(jsonutils.NewString(token.GetProjectDomain()), "projectDomain")
 	data.Add(jsonutils.NewString(token.GetProjectDomainId()), "projectDomainId")
 
+	log.Infof("getUserInfo modules.RoleAssignments.List")
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.JSONNull, "effective")
 	query.Add(jsonutils.JSONNull, "include_names")
@@ -772,6 +778,7 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 		log.Errorf("fail to find services????: %#v %s", adminToken, curReg)
 	}
 
+	log.Infof("getUserInfo getLBAgentInfo")
 	lb, err := getLBAgentInfo(s, adminToken)
 	if err != nil {
 		log.Errorf("getLBAgentInfo fail %s", err)
@@ -788,13 +795,23 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 		}
 	}
 
+	log.Infof("getUserInfo modules.Hosts.Get")
 	s2 := auth.GetSession(ctx, token, FetchRegion(req), "v2")
-	cap, err := modules.Capabilities.List(s2, nil)
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("host_type"), "field")
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.JSONTrue, "usable")
+	params.Add(jsonutils.JSONTrue, "show_emulated")
+	cap, err := modules.Hosts.Get(s2, "distinct-field", params)
 	if err != nil {
-		log.Errorf("modules.Capabilities.List fail %s", err)
+		log.Errorf("modules.Servers.Get distinct-field fail %s", err)
 	} else {
-		hypervisors, _ := cap.Data[0].Get("hypervisors")
-		data.Add(hypervisors, "hypervisors")
+		hostTypes, _ := jsonutils.GetStringArray(cap, "host_type")
+		hypervisors := make([]string, len(hostTypes))
+		for i, hostType := range hostTypes {
+			hypervisors[i] = compute.HOSTTYPE_HYPERVISOR[hostType]
+		}
+		data.Add(jsonutils.NewStringArray(hypervisors), "hypervisors")
 	}
 
 	data.Add(menus, "menus")
