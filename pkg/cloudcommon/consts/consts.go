@@ -16,6 +16,8 @@ package consts
 
 import (
 	"time"
+
+	"yunion.io/x/log"
 )
 
 var (
@@ -60,6 +62,7 @@ func GetTenantCacheExpireSeconds() time.Duration {
 }
 
 func SetNonDefaultDomainProjects(val bool) {
+	log.Infof("set non_default_domain_projects to %v", val)
 	nonDefaultDomainProjects = val
 }
 

@@ -59,9 +59,10 @@ func OnOptionsChange(oldOptions, newOptions interface{}) bool {
 	oldOpts := oldOptions.(*SKeystoneOptions)
 	newOpts := newOptions.(*SKeystoneOptions)
 
+	changed := false
 	if options.OnBaseOptionsChange(&oldOpts.BaseOptions, &newOpts.BaseOptions) {
-		return true
+		changed = true
 	}
 
-	return false
+	return changed
 }

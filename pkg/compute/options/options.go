@@ -158,8 +158,9 @@ func OnOptionsChange(oldO, newO interface{}) bool {
 	oldOpts := oldO.(*ComputeOptions)
 	newOpts := newO.(*ComputeOptions)
 
+	changed := false
 	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
-		return true
+		changed = true
 	}
-	return false
+	return changed
 }
