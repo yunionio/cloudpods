@@ -918,8 +918,7 @@ func (manager *SStorageManager) totalCapacityQ(
 		switch scope {
 		case rbacutils.ScopeSystem:
 		case rbacutils.ScopeDomain, rbacutils.ScopeProject:
-			// tempoarily disable on 2.13
-			// q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+			q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 		}
 	}
 
