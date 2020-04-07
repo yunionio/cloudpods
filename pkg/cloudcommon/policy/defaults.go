@@ -29,24 +29,6 @@ var (
 					Action:   PolicyActionPerform,
 					Result:   rbacutils.Allow,
 				},
-				{
-					Service:  "yunionagent",
-					Resource: "notices",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionagent",
-					Resource: "readmarks",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionagent",
-					Resource: "readmarks",
-					Action:   PolicyActionCreate,
-					Result:   rbacutils.Allow,
-				},
 			},
 		},
 		{
@@ -60,28 +42,8 @@ var (
 				},
 				{
 					// usages for any services
-					// Service:  "compute",
 					Resource: "usages",
 					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-			},
-		},
-		{
-			// meta服务 dbinstance_skus列表不需要认证
-			Auth:  false,
-			Scope: rbacutils.ScopeSystem,
-			Rules: []rbacutils.SRbacRule{
-				{
-					Service:  "yunionmeta",
-					Resource: "dbinstance_skus",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionmeta",
-					Resource: "dbinstance_skus",
-					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
 			},
@@ -93,7 +55,6 @@ var (
 			Rules: []rbacutils.SRbacRule{
 				{
 					// usages for any services
-					// Service:  "compute",
 					Resource: "usages",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,

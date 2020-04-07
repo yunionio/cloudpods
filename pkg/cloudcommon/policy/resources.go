@@ -19,25 +19,6 @@ import (
 )
 
 var (
-	meterSystemResources = []string{
-		"rates",
-		"res_results",
-	}
-	meterDomainResources = []string{}
-	meterUserResources   = []string{}
-
-	k8sSystemResources = []string{}
-	k8sDomainResources = []string{}
-	k8sUserResources   = []string{}
-
-	yunionagentSystemResources = []string{
-		"notices",
-		"readmarks",
-		"infos",
-	}
-	yunionagentDomainResources = []string{}
-	yunionagentUserResources   = []string{}
-
 	itsmSystemResources = []string{
 		"process-definitions",
 	}
@@ -45,24 +26,15 @@ var (
 	itsmUserResources   = []string{}
 
 	systemResources = map[string][]string{
-		"meter":       meterSystemResources,
-		"k8s":         k8sSystemResources,
-		"yunionagent": yunionagentSystemResources,
-		"itsm":        itsmSystemResources,
+		"itsm": itsmSystemResources,
 	}
 
 	domainResources = map[string][]string{
-		"meter":       meterDomainResources,
-		"k8s":         k8sDomainResources,
-		"yunionagent": yunionagentDomainResources,
-		"itsm":        itsmDomainResources,
+		"itsm": itsmDomainResources,
 	}
 
 	userResources = map[string][]string{
-		"meter":       meterUserResources,
-		"k8s":         k8sUserResources,
-		"yunionagent": yunionagentUserResources,
-		"itsm":        itsmUserResources,
+		"itsm": itsmUserResources,
 	}
 )
 
