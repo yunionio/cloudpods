@@ -348,6 +348,43 @@ func (manager *SManagedResourceBaseManager) GetOrderByFields(query api.ManagedRe
 	return []string{query.OrderByManager, query.OrderByAccount, query.OrderByProvider, query.OrderByBrand}
 }
 
+func (model *SManagedResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.ChangeOwnerCandidateDomainsOutput, error) {
+	output := api.ChangeOwnerCandidateDomainsOutput{}
+	provider := model.GetCloudprovider()
+	if provider == nil {
+		return output, nil
+	}
+	account := model.GetCloudaccount()
+	if account == nil {
+		return output, nil
+	}
+	var candidateIds []string
+	switch account.ShareMode {
+	case api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
+		candidateIds = append(candidateIds, account.DomainId)
+	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
+		candidateIds = append(candidateIds, provider.DomainId)
+	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
+		if account.PublicScope != string(rbacutils.ScopeSystem) {
+			candidateIds = account.GetSharedDomains()
+			candidateIds = append(candidateIds, account.DomainId)
+		}
+	}
+	domainMap := make(map[string]db.STenant)
+	err := db.FetchQueryObjectsByIds(db.TenantCacheManager.GetDomainQuery(), "id", candidateIds, &domainMap)
+	if err != nil {
+		return output, errors.Wrap(err, "FetchQueryObjectsByIds")
+	}
+	output.Candidates = make([]apis.SharedDomain, len(candidateIds))
+	for i := range candidateIds {
+		output.Candidates[i].Id = candidateIds[i]
+		if domain, ok := domainMap[candidateIds[i]]; ok {
+			output.Candidates[i].Name = domain.Name
+		}
+	}
+	return output, nil
+}
+
 func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	domainStr := query.ProjectDomain
 	if len(domainStr) > 0 {

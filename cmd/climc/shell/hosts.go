@@ -752,4 +752,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HostChangeOwnerCandidateDomainsOptions struct {
+		ID string `help:"ID or name of host"`
+	}
+	R(&HostChangeOwnerCandidateDomainsOptions{}, "host-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *HostChangeOwnerCandidateDomainsOptions) error {
+		result, err := modules.Hosts.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
