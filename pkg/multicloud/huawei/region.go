@@ -878,7 +878,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	ret := SLoadbalancer{}
 	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.getNetwork")
 	}
 
 	params := jsonutils.NewDict()
@@ -893,7 +893,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 
 	err = DoCreate(self.ecsClient.Elb.Create, params, &ret)
 	if err != nil {
-		return ret, err
+		return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.DoCreate")
 	}
 
 	ret.region = self
@@ -902,7 +902,7 @@ func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalance
 	if len(loadbalancer.EipID) > 0 {
 		err := self.AssociateEipWithPortId(loadbalancer.EipID, ret.VipPortID)
 		if err != nil {
-			return ret, err
+			return ret, errors.Wrap(err, "SRegion.CreateLoadBalancer.AssociateEipWithPortId")
 		}
 	}
 	return ret, nil

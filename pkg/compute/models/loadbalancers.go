@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
@@ -335,7 +336,8 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		params.EgressMbps = lb.EgressMbps
 	}
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || lb.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI || lb.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS, api.CLOUD_PROVIDER_QCLOUD}) {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
@@ -345,6 +347,9 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 			return nil, err
 		}
 		params.VpcID = iVpc.GetId()
+	}
+
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || utils.IsInStringArray(lb.SManagedResourceBase.GetProviderName(), []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_AWS}) {
 		networks, err := lb.GetNetworks()
 		if err != nil {
 			return nil, fmt.Errorf("failed to find network for lb %s: %s", lb.Name, err)
