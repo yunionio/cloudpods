@@ -88,7 +88,7 @@ type BaseOptions struct {
 
 	DomainizedNamespace bool `help:"turn on global name space, default is on" default:"false" json:"domainized_namespace,allowfalse"`
 
-	ApiServer string `help:"URL to access frontend webconsole" default:"http://webconsole.yunion.io"`
+	ApiServer string `help:"URL to access frontend webconsole"`
 
 	structarg.BaseOptions
 }
