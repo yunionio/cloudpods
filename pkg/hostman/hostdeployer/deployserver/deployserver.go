@@ -353,12 +353,13 @@ func (s *SDeployService) InitService() {
 	if len(DeployOption.DeployServerSocketPath) == 0 {
 		log.Fatalf("missing deploy server socket path")
 	}
-	// TODO implentment func onExit
 	s.SignalTrap(func() {
 		for {
 			if len(connectedEsxiDisks) > 0 {
 				log.Warningf("Waiting for esxi disks %d disconnect !!!", len(connectedEsxiDisks))
 				time.Sleep(time.Second * 1)
+			} else {
+				return
 			}
 		}
 	})
