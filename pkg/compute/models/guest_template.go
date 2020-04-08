@@ -133,6 +133,29 @@ func (gt *SGuestTemplate) PostUpdate(ctx context.Context, userCred mcclient.Toke
 	logclient.AddActionLogWithContext(ctx, gt, logclient.ACT_UPDATE, nil, userCred, true)
 }
 
+var HypervisorBrandMap = map[string]string{
+	computeapis.HYPERVISOR_KVM:       computeapis.CLOUD_PROVIDER_ONECLOUD,
+	computeapis.HYPERVISOR_ESXI:      computeapis.CLOUD_PROVIDER_VMWARE,
+	computeapis.HYPERVISOR_ALIYUN:    computeapis.CLOUD_PROVIDER_ALIYUN,
+	computeapis.HYPERVISOR_QCLOUD:    computeapis.CLOUD_PROVIDER_QCLOUD,
+	computeapis.HYPERVISOR_AZURE:     computeapis.CLOUD_PROVIDER_AZURE,
+	computeapis.HYPERVISOR_AWS:       computeapis.CLOUD_PROVIDER_AWS,
+	computeapis.HYPERVISOR_HUAWEI:    computeapis.CLOUD_PROVIDER_HUAWEI,
+	computeapis.HYPERVISOR_OPENSTACK: computeapis.CLOUD_PROVIDER_OPENSTACK,
+	computeapis.HYPERVISOR_UCLOUD:    computeapis.CLOUD_PROVIDER_UCLOUD,
+	computeapis.HYPERVISOR_ZSTACK:    computeapis.CLOUD_PROVIDER_ZSTACK,
+	computeapis.HYPERVISOR_GOOGLE:    computeapis.CLOUD_PROVIDER_GOOGLE,
+	computeapis.HYPERVISOR_CTYUN:     computeapis.CLOUD_PROVIDER_CTYUN,
+}
+
+func Hypervisor2Brand(hypervisor string) string {
+	brand, ok := HypervisorBrandMap[hypervisor]
+	if !ok {
+		return "unkown"
+	}
+	return brand
+}
+
 func (gtm *SGuestTemplateManager) validateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -286,6 +309,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		configInfo.Zone = input.PreferZone
 	}
 	configInfo.Hypervisor = gt.Hypervisor
+	out.Brand = Hypervisor2Brand(gt.Hypervisor)
 
 	// sku deal
 	if len(input.InstanceType) > 0 {
@@ -363,14 +387,20 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 		configInfo.Nets = networkList
 	}
 
-	// secgroup
-	if len(input.SecgroupId) > 0 {
-		secgroup := SecurityGroupManager.FetchSecgroupById(input.SecgroupId)
-		if secgroup != nil {
-			input.SecgroupId = secgroup.GetName()
+	if len(input.Secgroups) > 0 {
+		q := SecurityGroupManager.Query("id", "name").In("id", input.Secgroups)
+		rows, err := q.Rows()
+		if err != nil {
+			return out, errors.Wrap(err, "SQuery.Rows")
 		}
-		configInfo.Secgroup = input.SecgroupId
-		out.Secgroup = input.SecgroupId
+		names := make([]string, 0, len(input.Secgroups))
+		for rows.Next() {
+			var id, name string
+			rows.Scan(&id, &name)
+			names = append(names, name)
+		}
+		rows.Close()
+		out.Secgroups = names
 	}
 
 	// isolatedDevices
