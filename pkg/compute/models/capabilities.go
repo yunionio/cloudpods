@@ -315,6 +315,9 @@ func getStorageTypes2and3(region *SCloudregion, zone *SZone, isSysDisk bool, dom
 	for _, hypervisor := range hypervisors {
 		hostType := api.HYPERVISOR_HOSTTYPE[hypervisor]
 		ret[hypervisor], ret2[hypervisor] = getStorageTypes(region, zone, isSysDisk, domainId, hostType)
+		if utils.IsInStringArray(hypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
+			ret2[hypervisor] = nil
+		}
 	}
 	return ret, ret2
 }
