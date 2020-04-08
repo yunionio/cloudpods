@@ -753,7 +753,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lblis.LoadbalancerId)
 		} else {
-			if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
+			if lbbg != nil && utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
 				cachedLbbgs, err := lbbg.GetQcloudCachedlbbg()
 				if err != nil {
 					return nil, err

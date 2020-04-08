@@ -85,6 +85,7 @@ func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JS
 				q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 				q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), vpc.GetId()))
 				q = q.Filter(sqlchemy.NotEquals(wires.Field("zone_id"), zone.GetId()))
+				q = q.Equals("project_id", network.ProjectId)
 				err := q.First(secondNet)
 				if err != nil {
 					return nil, httperrors.NewInputParameterError("required at least %d subnet.", requiredMin)

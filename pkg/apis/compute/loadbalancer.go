@@ -235,6 +235,9 @@ type LoadbalancerCreateInput struct {
 	// 套餐名称
 	LoadbalancerSpec string `json:"loadbalancer_spec"`
 
+	// EIP ID
+	Eip string `json:"eip"`
+
 	// LB的其他配置信息
 	LBInfo jsonutils.JSONObject `json:"lb_info"`
 
