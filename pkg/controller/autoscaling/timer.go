@@ -67,7 +67,7 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 				// For unknown reasons, the scalingTimer did not execute at the specified time
 				scalingTimer.Update(timeScope.Start)
 				// scalingTimer should not exec for now.
-				if scalingTimer.NextTime.After(timeScope.End) {
+				if scalingTimer.NextTime.After(timeScope.End) || scalingTimer.IsExpired {
 					err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)
 					if err != nil {
 						log.Errorf("update ScalingTimer whose ScalingPolicyId is %s error: %s",

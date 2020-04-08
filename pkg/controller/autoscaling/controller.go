@@ -637,6 +637,7 @@ func (asc *SASController) actionAfterCreate(
 		params.Set("backend_type", jsonutils.NewString("guest"))
 		params.Set("port", jsonutils.NewInt(int64(sg.LoadbalancerBackendPort)))
 		params.Set("weight", jsonutils.NewInt(int64(sg.LoadbalancerBackendWeight)))
+		params.Set("backend_group", jsonutils.NewString(sg.BackendGroupId))
 		_, err := modules.LoadbalancerBackends.Create(session, params)
 		if err != nil {
 			rollback(fmt.Sprintf("bind instance '%s' to loadbalancer backend gropu '%s' failed: %s", ret.Id, sg.BackendGroupId, err.Error()))
@@ -655,7 +656,7 @@ func (asc *SASController) actionAfterCreate(
 }
 
 func (asc *SASController) randStringRunes(n int) string {
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]

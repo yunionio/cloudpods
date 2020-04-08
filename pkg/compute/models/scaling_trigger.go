@@ -209,7 +209,7 @@ func (st *SScalingTimer) Update(now time.Time) {
 	if now.Before(st.StartTime) {
 		now = st.StartTime
 	}
-	if now.Before(st.NextTime) {
+	if !st.NextTime.Before(now) {
 		return
 	}
 
@@ -349,11 +349,13 @@ func (st *SScalingTimer) TriggerId() string {
 	return st.GetId()
 }
 
+var cstSh, _ = time.LoadLocation("Asia/Shanghai")
+
 func (st *SScalingTimer) TriggerDescription() string {
 	var detail string
 	switch st.Type {
 	case api.TIMER_TYPE_ONCE:
-		detail = st.EndTime.String()
+		detail = st.EndTime.In(cstSh).Format("2006-01-02 15:04:05")
 	case api.TIMER_TYPE_DAY:
 		detail = fmt.Sprintf("%d:%d every day", st.Hour, st.Minute)
 	case api.TIMER_TYPE_WEEK:
@@ -430,7 +432,7 @@ func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
-	session := auth.GetSession(ctx, userCred, "", "")
+	session := auth.GetAdminSession(ctx, "", "")
 	notificationID, err := ScalingPolicyManager.NotificationID(session)
 	if err != nil {
 		return errors.Wrap(err, "ScalingPolicyManager.NotificationID")
