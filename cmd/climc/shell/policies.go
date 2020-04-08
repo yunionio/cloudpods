@@ -134,7 +134,7 @@ func init() {
 		return nil
 	}
 	R(&PolicyPatchOptions{}, "policy-patch", "Patch policy", updateFunc)
-	R(&PolicyPatchOptions{}, "policy-update", "Patch policy", updateFunc)
+	R(&PolicyPatchOptions{}, "policy-update", "Update policy", updateFunc)
 
 	type PolicyPerformOptions struct {
 		ID string `help:"ID of policy to update"`
