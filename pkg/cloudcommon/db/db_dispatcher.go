@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modulebase"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -1168,7 +1169,11 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		model.PostCreate(ctx, userCred, ownerId, query, data)
 	}()
 
-	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
+	{
+		notes := model.GetShortDesc(ctx)
+		OpsLog.LogEvent(model, ACT_CREATE, notes, userCred)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, notes, userCred, true)
+	}
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, ownerId, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
@@ -1549,6 +1554,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		return nil, httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
+	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
 
 	item.PostUpdate(ctx, userCred, query, data)
 
