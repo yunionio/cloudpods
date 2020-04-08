@@ -1850,20 +1850,20 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lb.GetIRegion()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIRegion")
 		}
 		params, err := lb.GetCreateLoadbalancerParams(iRegion)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetCreateLoadbalancerParams")
 		}
 		iLoadbalancer, err := iRegion.CreateILoadBalancer(params)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.CreateILoadBalancer")
 		}
 
 		lb.SetModelManager(models.LoadbalancerManager, lb)
 		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SetExternalId")
 		}
 
 		{
@@ -1872,7 +1872,7 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 			if len(eipId) > 0 {
 				ieip, err := iRegion.GetIEipById(eipId)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetIEipById")
 				}
 
 				conf := &cloudprovider.AssociateConfig{
@@ -1882,27 +1882,27 @@ func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancer(ctx context.Context, 
 
 				err = ieip.Associate(conf)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.Associate")
 				}
 
 				eip, err := db.FetchByExternalId(models.ElasticipManager, ieip.GetGlobalId())
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.FetchByExternalId")
 				}
 
 				err = eip.(*models.SElasticip).SyncWithCloudEip(ctx, userCred, lb.GetCloudprovider(), ieip, lb.GetOwnerId())
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudEip")
 				}
 			}
 		}
 
 		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil, lb.GetCloudprovider()); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.SyncWithCloudLoadbalancer")
 		}
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Huawei.RequestCreateLoadbalancer.GetILoadBalancerBackendGroups")
 		}
 		if len(lbbgs) > 0 {
 			provider := lb.GetCloudprovider()
