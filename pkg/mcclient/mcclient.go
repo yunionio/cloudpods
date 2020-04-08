@@ -61,6 +61,7 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 	tr.TLSClientConfig = tlsConf
 	tr.IdleConnTimeout = 5 * time.Second
 	tr.TLSHandshakeTimeout = 10 * time.Second
+	tr.ResponseHeaderTimeout = 0
 
 	client := Client{authUrl: authUrl,
 		timeout: timeout,
