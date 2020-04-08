@@ -19,14 +19,14 @@ func (v *ProxySetting) Sanitize() error {
 	v.HttpProxy = strings.TrimSpace(v.HttpProxy)
 	if u, err := parseProxy(v.HttpProxy); err != nil {
 		return errors.Wrap(err, "invalid https_proxy url")
-	} else {
+	} else if u != nil {
 		v.HttpProxy = u.String()
 	}
 
 	v.HttpsProxy = strings.TrimSpace(v.HttpsProxy)
 	if u, err := parseProxy(v.HttpsProxy); err != nil {
 		return errors.Wrap(err, "invalid http_proxy url")
-	} else {
+	} else if u != nil {
 		v.HttpsProxy = u.String()
 	}
 
