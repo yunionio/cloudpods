@@ -39,6 +39,10 @@ type ProxySettingDeleteOptions struct {
 	ID string `json:"-"`
 }
 
+type ProxySettingTestOptions struct {
+	ID string `json:"-"`
+}
+
 type ProxySettingListOptions struct {
 	BaseListOptions
 }
