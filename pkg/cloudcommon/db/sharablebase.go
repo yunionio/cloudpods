@@ -64,15 +64,11 @@ func (manager *SSharableBaseResourceManager) FetchCustomizeColumns(
 
 	var resType string
 	resIds := make([]string, len(rows))
-	var sharedTarget string
 	var resScope rbacutils.TRbacScope
 	for i := range rows {
 		if model, ok := objs[i].(ISharableBaseModel); ok {
 			if len(resType) == 0 {
 				resType = model.Keyword()
-			}
-			if len(sharedTarget) == 0 {
-				sharedTarget = string(model.GetPublicScope())
 			}
 			if len(resScope) == 0 {
 				resScope = model.GetModelManager().ResourceScope()
@@ -81,17 +77,8 @@ func (manager *SSharableBaseResourceManager) FetchCustomizeColumns(
 		}
 	}
 
-	if sharedTarget != SharedTargetProject && sharedTarget != SharedTargetDomain {
-		if resScope == rbacutils.ScopeProject && sharedTarget == string(rbacutils.ScopeNone) {
-			sharedTarget = SharedTargetProject
-		} else {
-			return rows
-		}
-	}
-
 	q := SharedResourceManager.Query()
 	q = q.Equals("resource_type", resType)
-	q = q.Equals("target_type", sharedTarget)
 
 	sharedResourceMap := make(map[string][]SSharedResource)
 	err := FetchQueryObjectsByIds(q, "resource_id", resIds, &sharedResourceMap)
@@ -100,58 +87,63 @@ func (manager *SSharableBaseResourceManager) FetchCustomizeColumns(
 		return rows
 	}
 
-	targetIds := stringutils2.NewSortedStrings([]string{})
+	targetTenantIds := stringutils2.NewSortedStrings([]string{})
+	targetDomainIds := stringutils2.NewSortedStrings([]string{})
 
 	for _, srs := range sharedResourceMap {
 		for _, sr := range srs {
-			targetIds = stringutils2.Append(targetIds, sr.TargetProjectId)
+			switch sr.TargetType {
+			case SharedTargetProject:
+				targetTenantIds = stringutils2.Append(targetTenantIds, sr.TargetProjectId)
+			case SharedTargetDomain:
+				targetDomainIds = stringutils2.Append(targetDomainIds, sr.TargetProjectId)
+			}
 		}
 	}
 
-	if len(targetIds) == 0 {
-		return rows
-	}
-
 	tenantMap := make(map[string]STenant)
-	var subq *sqlchemy.SQuery
-	switch sharedTarget {
-	case SharedTargetProject:
-		subq = TenantCacheManager.GetTenantQuery()
-	case SharedTargetDomain:
-		subq = TenantCacheManager.GetDomainQuery()
-	}
+	domainMap := make(map[string]STenant)
 
-	err = FetchQueryObjectsByIds(subq, "id", targetIds, &tenantMap)
-	if err != nil {
-		log.Errorf("FetchQueryObjectsByIds for tenant_cache fail %s", err)
-		return rows
+	if len(targetTenantIds) > 0 {
+		err = FetchQueryObjectsByIds(TenantCacheManager.GetTenantQuery(), "id", targetTenantIds, &tenantMap)
+		if err != nil {
+			log.Errorf("FetchQueryObjectsByIds for tenant_cache fail %s", err)
+		}
+	}
+	if len(targetDomainIds) > 0 {
+		err = FetchQueryObjectsByIds(TenantCacheManager.GetDomainQuery(), "id", targetDomainIds, &domainMap)
+		if err != nil {
+			log.Errorf("FetchQueryObjectsByIds for tenant_cache fail %s", err)
+		}
 	}
 
 	for i := range rows {
 		resId := resIds[i]
 		if srs, ok := sharedResourceMap[resId]; ok {
-			switch sharedTarget {
-			case SharedTargetProject:
-				projects := make([]apis.SharedProject, len(srs))
-				for si, sr := range srs {
-					projects[si].Id = sr.TargetProjectId
+			projects := make([]apis.SharedProject, 0)
+			domains := make([]apis.SharedDomain, 0)
+			for _, sr := range srs {
+				switch sr.TargetType {
+				case SharedTargetProject:
+					project := apis.SharedProject{}
+					project.Id = sr.TargetProjectId
 					if tenant, ok := tenantMap[sr.TargetProjectId]; ok {
-						projects[si].Name = tenant.Name
-						projects[si].Domain = tenant.Domain
-						projects[si].DomainId = tenant.DomainId
+						project.Name = tenant.Name
+						project.Domain = tenant.Domain
+						project.DomainId = tenant.DomainId
 					}
-				}
-				rows[i].SharedProjects = projects
-			case SharedTargetDomain:
-				domains := make([]apis.SharedDomain, len(srs))
-				for si, sr := range srs {
-					domains[si].Id = sr.TargetProjectId
-					if tenant, ok := tenantMap[sr.TargetProjectId]; ok {
-						domains[si].Name = tenant.Name
+					projects = append(projects, project)
+				case SharedTargetDomain:
+					domain := apis.SharedDomain{}
+					domain.Id = sr.TargetProjectId
+					if tenant, ok := domainMap[sr.TargetProjectId]; ok {
+						domain.Name = tenant.Name
 					}
+					domains = append(domains, domain)
 				}
-				rows[i].SharedDomains = domains
 			}
+			rows[i].SharedProjects = projects
+			rows[i].SharedDomains = domains
 		}
 	}
 
