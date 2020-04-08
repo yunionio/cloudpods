@@ -70,4 +70,12 @@ func init() {
 		printObject(proxysetting)
 		return nil
 	})
+	R(&options.ProxySettingTestOptions{}, "proxysetting-test", "Test proxysetting", func(s *mcclient.ClientSession, opts *options.ProxySettingTestOptions) error {
+		proxysetting, err := modules.ProxySettings.PerformAction(s, opts.ID, "test", nil)
+		if err != nil {
+			return err
+		}
+		printObject(proxysetting)
+		return nil
+	})
 }

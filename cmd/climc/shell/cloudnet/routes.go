@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	R(&options.RouteCreateOptions{}, "router-route-create", "Create router", func(s *mcclient.ClientSession, opts *options.RouteCreateOptions) error {
+	R(&options.RouteCreateOptions{}, "router-route-create", "Create router route", func(s *mcclient.ClientSession, opts *options.RouteCreateOptions) error {
 		params, err := base_options.StructToParams(opts)
 		if err != nil {
 			return err
@@ -34,7 +34,7 @@ func init() {
 		printObject(router)
 		return nil
 	})
-	R(&options.RouteGetOptions{}, "router-route-show", "Show router", func(s *mcclient.ClientSession, opts *options.RouteGetOptions) error {
+	R(&options.RouteGetOptions{}, "router-route-show", "Show router route", func(s *mcclient.ClientSession, opts *options.RouteGetOptions) error {
 		router, err := modules.Routes.Get(s, opts.ID, nil)
 		if err != nil {
 			return err
@@ -42,7 +42,7 @@ func init() {
 		printObject(router)
 		return nil
 	})
-	R(&options.RouteListOptions{}, "router-route-list", "List routers", func(s *mcclient.ClientSession, opts *options.RouteListOptions) error {
+	R(&options.RouteListOptions{}, "router-route-list", "List router routes", func(s *mcclient.ClientSession, opts *options.RouteListOptions) error {
 		params, err := base_options.ListStructToParams(opts)
 		if err != nil {
 			return err
@@ -54,7 +54,7 @@ func init() {
 		printList(result, modules.Routes.GetColumns(s))
 		return nil
 	})
-	R(&options.RouteUpdateOptions{}, "router-route-update", "Update router", func(s *mcclient.ClientSession, opts *options.RouteUpdateOptions) error {
+	R(&options.RouteUpdateOptions{}, "router-route-update", "Update router route", func(s *mcclient.ClientSession, opts *options.RouteUpdateOptions) error {
 		params, err := base_options.StructToParams(opts)
 		router, err := modules.Routes.Update(s, opts.ID, params)
 		if err != nil {
@@ -63,7 +63,7 @@ func init() {
 		printObject(router)
 		return nil
 	})
-	R(&options.RouteDeleteOptions{}, "router-route-delete", "Delete router", func(s *mcclient.ClientSession, opts *options.RouteDeleteOptions) error {
+	R(&options.RouteDeleteOptions{}, "router-route-delete", "Delete router route", func(s *mcclient.ClientSession, opts *options.RouteDeleteOptions) error {
 		router, err := modules.Routes.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err

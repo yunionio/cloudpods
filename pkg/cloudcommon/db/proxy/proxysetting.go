@@ -3,8 +3,11 @@ package proxy
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"golang.org/x/net/http/httpproxy"
 
@@ -97,6 +100,69 @@ func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (ps *SProxySetting) AllowPerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, ps, "test")
+}
+
+func (ps *SProxySetting) PerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	type TestURLResult struct {
+		Ok     bool   `json:"ok"`
+		Reason string `json:"reason"`
+	}
+	var (
+		r = map[string]TestURLResult{}
+		m = map[string]string{
+			"http_proxy":  ps.HTTPProxy,
+			"https_proxy": ps.HTTPSProxy,
+		}
+	)
+	for k, v := range m {
+		if v == "" {
+			r[k] = TestURLResult{Ok: true}
+			continue
+		}
+		u, err := url.Parse(v)
+		if err != nil {
+			r[k] = TestURLResult{
+				Reason: err.Error(),
+			}
+		} else if u == nil {
+			r[k] = TestURLResult{
+				Reason: fmt.Sprintf("bad url: %q", v),
+			}
+		} else {
+			host := u.Hostname()
+			port := u.Port()
+			if port == "" {
+				switch u.Scheme {
+				case "http":
+					port = "80"
+				case "https":
+					port = "443"
+				case "socks5":
+					port = "1080"
+				default:
+					r[k] = TestURLResult{
+						Reason: fmt.Sprintf("bad url scheme: %s", u.Scheme),
+					}
+					continue
+				}
+			}
+			addr := net.JoinHostPort(host, port)
+			conn, err := net.DialTimeout("tcp", addr, 7*time.Second)
+			if err != nil {
+				r[k] = TestURLResult{
+					Reason: err.Error(),
+				}
+			} else {
+				r[k] = TestURLResult{Ok: true}
+				conn.Close()
+			}
+		}
+	}
+	return jsonutils.Marshal(r), nil
 }
 
 func (man *SProxySettingManager) InitializeData() error {
