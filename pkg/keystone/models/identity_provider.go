@@ -177,25 +177,35 @@ func (ident *SIdentityProvider) SetSyncStatus(ctx context.Context, userCred mccl
 }
 
 func (ident *SIdentityProvider) MarkConnected(ctx context.Context, userCred mcclient.TokenCredential) error {
-	_, err := db.UpdateWithLock(ctx, ident, func() error {
-		ident.ErrorCount = 0
-		return nil
-	})
-	if err != nil {
-		return err
+	if ident.ErrorCount > 0 {
+		_, err := db.UpdateWithLock(ctx, ident, func() error {
+			ident.ErrorCount = 0
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "UpdateWithLock")
+		}
 	}
-	return ident.SetStatus(userCred, api.IdentityDriverStatusConnected, "")
+	if ident.Status != api.IdentityDriverStatusConnected {
+		logclient.AddSimpleActionLog(ident, logclient.ACT_ENABLE, nil, userCred, true)
+		return ident.SetStatus(userCred, api.IdentityDriverStatusConnected, "")
+	}
+	return nil
 }
 
-func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (ident *SIdentityProvider) MarkDisconnected(ctx context.Context, userCred mcclient.TokenCredential, reason error) error {
 	_, err := db.UpdateWithLock(ctx, ident, func() error {
 		ident.ErrorCount = ident.ErrorCount + 1
 		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "UpdateWithLock")
 	}
-	return ident.SetStatus(userCred, api.IdentityDriverStatusDisconnected, "")
+	logclient.AddSimpleActionLog(ident, logclient.ACT_DISABLE, reason.Error(), userCred, false)
+	if ident.Status != api.IdentityDriverStatusDisconnected {
+		return ident.SetStatus(userCred, api.IdentityDriverStatusDisconnected, reason.Error())
+	}
+	return nil
 }
 
 func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -229,7 +239,7 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
-	ident.MarkDisconnected(ctx, userCred)
+	ident.MarkDisconnected(ctx, userCred, fmt.Errorf("change config"))
 	submitIdpSyncTask(ctx, userCred, ident)
 	return ident.GetDetailsConfig(ctx, userCred, query)
 }
