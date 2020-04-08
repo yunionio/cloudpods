@@ -254,6 +254,8 @@ func (*DeployerServer) DisconnectEsxiDisks(
 
 type SDeployService struct {
 	*service.SServiceBase
+
+	grpcServer *grpc.Server
 }
 
 func NewDeployService() *SDeployService {
@@ -263,8 +265,8 @@ func NewDeployService() *SDeployService {
 }
 
 func (s *SDeployService) RunService() {
-	grpcServer := grpc.NewServer()
-	deployapi.RegisterDeployAgentServer(grpcServer, &DeployerServer{})
+	s.grpcServer = grpc.NewServer()
+	deployapi.RegisterDeployAgentServer(s.grpcServer, &DeployerServer{})
 	if fileutils2.Exists(DeployOption.DeployServerSocketPath) {
 		if conn, err := net.Dial("unix", DeployOption.DeployServerSocketPath); err == nil {
 			conn.Close()
@@ -281,7 +283,7 @@ func (s *SDeployService) RunService() {
 	}
 	defer listener.Close()
 	log.Infof("Init net listener on %s succ", DeployOption.DeployServerSocketPath)
-	grpcServer.Serve(listener)
+	s.grpcServer.Serve(listener)
 }
 
 func (s *SDeployService) FixPathEnv() error {
@@ -359,7 +361,11 @@ func (s *SDeployService) InitService() {
 				log.Warningf("Waiting for esxi disks %d disconnect !!!", len(connectedEsxiDisks))
 				time.Sleep(time.Second * 1)
 			} else {
-				return
+				if s.grpcServer != nil {
+					s.grpcServer.Stop()
+				} else {
+					os.Exit(0)
+				}
 			}
 		}
 	})
