@@ -29,6 +29,7 @@ import (
 
 	ansible_apis "yunion.io/x/onecloud/pkg/apis/ansible"
 	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -294,6 +295,7 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("empty host %s field", k)
 		}
 	}
+	authURL := options.Options.AuthURL
 	{
 		cli := mcclient.NewClient(options.Options.AuthURL, 10, false, true, "", "")
 		token, err := cli.Authenticate(host.Vars["user"], host.Vars["pass"], "", host.Vars["proj"], "")
@@ -303,12 +305,23 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 		if !token.HasSystemAdminPrivilege() {
 			return nil, httperrors.NewBadRequestError("user must have system admin privileges")
 		}
+		authURL, err = token.GetServiceURL(
+			identity_apis.SERVICE_TYPE,
+			options.Options.Region,
+			"",
+			identity_apis.EndpointInterfacePublic)
+		if err != nil {
+			return nil, httperrors.NewClientError("get %s service %s url: %v",
+				identity_apis.SERVICE_TYPE,
+				identity_apis.EndpointInterfacePublic,
+				err)
+		}
 	}
 	if err := lbagent.validateHost(ctx, userCred, &host); err != nil {
 		return nil, err
 	}
 	host.SetVar("region", options.Options.Region)
-	host.SetVar("auth_uri", options.Options.AuthURL)
+	host.SetVar("auth_uri", authURL)
 	host.SetVar("id", lbagent.Id)
 	host.SetVar("ansible_become", "yes")
 
