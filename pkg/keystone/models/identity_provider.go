@@ -203,7 +203,7 @@ func (self *SIdentityProvider) AllowGetDetailsConfig(ctx context.Context, userCr
 }
 
 func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := GetConfigs(self, false)
+	conf, err := GetConfigs(self, false, nil, nil)
 	if err != nil {
 		return nil, err
 	}

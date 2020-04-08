@@ -160,7 +160,15 @@ func (service *SService) AllowGetDetailsConfig(ctx context.Context, userCred mcc
 }
 
 func (service *SService) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	conf, err := GetConfigs(service, false)
+	var whiteList, blackList map[string][]string
+	if service.isCommonService() {
+		// whitelist common options
+		whiteList = api.CommonWhitelistOptionMap
+	} else {
+		// blacklist common options
+		blackList = api.CommonWhitelistOptionMap
+	}
+	conf, err := GetConfigs(service, false, whiteList, blackList)
 	if err != nil {
 		return nil, err
 	}

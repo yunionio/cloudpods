@@ -186,7 +186,27 @@ func (manager *SConfigOptionManager) syncConfigs(model db.IModel, newOpts TConfi
 	return nil
 }
 
-func getConfigOptions(conf api.TConfigs, model db.IModel, whiteList map[string][]string, blackList map[string][]string, sensitiveList map[string][]string) (TConfigOptions, TConfigOptions) {
+func filterOptions(opts TConfigOptions, whiteList map[string][]string, blackList map[string][]string) TConfigOptions {
+	if whiteList == nil && blackList == nil {
+		return opts
+	}
+	retOpts := make(TConfigOptions, 0)
+	for _, opt := range opts {
+		if whiteList != nil {
+			if v, ok := whiteList[opt.Group]; ok && utils.IsInStringArray(opt.Option, v) {
+				retOpts = append(retOpts, opt)
+			}
+		} else if blackList != nil {
+			if v, ok := blackList[opt.Group]; ok && utils.IsInStringArray(opt.Option, v) {
+			} else {
+				retOpts = append(retOpts, opt)
+			}
+		}
+	}
+	return retOpts
+}
+
+func getConfigOptions(conf api.TConfigs, model db.IModel, sensitiveList map[string][]string) (TConfigOptions, TConfigOptions) {
 	options := make(TConfigOptions, 0)
 	sensitive := make(TConfigOptions, 0)
 	for group, groupConf := range conf {
@@ -200,18 +220,7 @@ func getConfigOptions(conf api.TConfigs, model db.IModel, whiteList map[string][
 			if v, ok := sensitiveList[group]; ok && utils.IsInStringArray(optKey, v) {
 				sensitive = append(sensitive, opt)
 			} else {
-				if whiteList != nil {
-					if v, ok := whiteList[group]; ok && utils.IsInStringArray(optKey, v) {
-						options = append(options, opt)
-					}
-				} else if blackList != nil {
-					if v, ok := blackList[group]; ok && utils.IsInStringArray(optKey, v) {
-					} else {
-						options = append(options, opt)
-					}
-				} else {
-					options = append(options, opt)
-				}
+				options = append(options, opt)
 			}
 		}
 	}
@@ -294,12 +303,13 @@ func (manager *SConfigOptionManager) getDriver(idpId string) (string, error) {
 	return api.IdentityDriverSQL, nil
 }
 
-func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
+func GetConfigs(model db.IModel, sensitive bool, whiteList, blackList map[string][]string) (api.TConfigs, error) {
 	opts, err := WhitelistedConfigManager.fetchConfigs(model, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if all {
+	opts = filterOptions(opts, whiteList, blackList)
+	if sensitive {
 		opts2, err := SensitiveConfigManager.fetchConfigs(model, nil, nil)
 		if err != nil {
 			return nil, err
@@ -309,11 +319,13 @@ func GetConfigs(model db.IModel, all bool) (api.TConfigs, error) {
 	if len(opts) == 0 {
 		return nil, nil
 	}
+
 	return config2map(opts), nil
 }
 
 func saveConfigs(userCred mcclient.TokenCredential, action string, model db.IModel, opts api.TConfigs, whiteList map[string][]string, blackList map[string][]string, sensitiveConfs map[string][]string) error {
-	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, whiteList, blackList, sensitiveConfs)
+	whiteListedOpts, sensitiveOpts := getConfigOptions(opts, model, sensitiveConfs)
+	whiteListedOpts = filterOptions(whiteListedOpts, whiteList, blackList)
 	if action == "update" {
 		err := WhitelistedConfigManager.updateConfigs(whiteListedOpts)
 		if err != nil {
@@ -364,7 +376,7 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 	s.config = jsonutils.Marshal(opts).(*jsonutils.JSONDict)
 	s.service, _ = ServiceManager.fetchServiceByType(serviceType)
 	if s.service != nil {
-		serviceConf, err := GetConfigs(s.service, false)
+		serviceConf, err := GetConfigs(s.service, false, nil, nil)
 		if err != nil {
 			log.Errorf("GetConfigs for %s fail: %s", serviceType, err)
 		} else if serviceConf != nil {
@@ -378,7 +390,7 @@ func (s *dbServiceConfigSession) Merge(opts interface{}, serviceType string, ser
 	}
 	commonService, _ := ServiceManager.fetchServiceByType(consts.COMMON_SERVICE)
 	if commonService != nil {
-		commonConf, err := GetConfigs(commonService, false)
+		commonConf, err := GetConfigs(commonService, false, nil, nil)
 		if err != nil {
 			log.Errorf("GetConfigs for %s fail: %s", consts.COMMON_SERVICE, err)
 		} else if commonConf != nil {
