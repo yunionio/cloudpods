@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -509,4 +510,8 @@ func (role *SRole) PostCreate(
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
+}
+
+func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
 }
