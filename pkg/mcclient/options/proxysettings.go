@@ -30,10 +30,16 @@ type ProxySettingUpdateOptions struct {
 	ID   string `json:"-"`
 	Name string
 
-	BackendGroup string
+	HTTPProxy  string
+	HTTPSProxy string
+	NoProxy    string
 }
 
 type ProxySettingDeleteOptions struct {
+	ID string `json:"-"`
+}
+
+type ProxySettingTestOptions struct {
 	ID string `json:"-"`
 }
 
