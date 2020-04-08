@@ -98,7 +98,7 @@ type SRegionalCloudResourceDetailBaseKeys struct {
 }
 
 type SDomainRegionalCloudResourceKeys struct {
-	SBaseProjectQuotaKeys
+	SBaseDomainQuotaKeys
 	SCloudResourceBaseKeys
 	SRegionalBaseKeys
 }
