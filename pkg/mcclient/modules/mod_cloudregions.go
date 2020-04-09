@@ -52,6 +52,7 @@ func (this *SCloudregionManager) getRegionAttributeList(session *mcclient.Client
 	if limit, err := paramsDict.Int("limit"); err != nil || limit == 0 {
 		paramsDict.Set("limit", jsonutils.NewInt(2048))
 	}
+	paramsDict.Set("details", jsonutils.JSONFalse)
 
 	listResult, err := this.List(session, params)
 	if err != nil {

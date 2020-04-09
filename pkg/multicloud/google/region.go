@@ -723,6 +723,9 @@ func (region *SRegion) CreateEIP(args *cloudprovider.SEip) (cloudprovider.ICloud
 }
 
 func (region *SRegion) GetCapabilities() []string {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []string{cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE}
+	}
 	if region.capabilities == nil {
 		return region.client.GetCapabilities()
 	}
