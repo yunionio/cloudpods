@@ -89,17 +89,6 @@ func (asc *SASController) Init(options options.SASControllerOptions, cronm *cron
 	asc.scalingQueue = make(chan struct{}, options.ConcurrentUpper)
 	asc.scalingGroupSet = &SLockedSet{set: sets.NewString()}
 
-	// init scaling sql
-	//var (
-	//	scalingGroupAlias      = "sg"
-	//	scalingGroupGuestAlias = "sgg"
-	//)
-	//asc.scalingSql = fmt.Sprintf("select %s.id, %s.desire_instance_number, %s.total from %s as %s left join "+
-	//	"(select scaling_group_id, count(*) as total from %s where deleted='0' group by scaling_group_id) as %s "+
-	//	"on %s.id = %s.scaling_group_id and %s.desire_instance_number != %s.total where deleted='0' and enabled='1'",
-	//	scalingGroupAlias, scalingGroupAlias, scalingGroupGuestAlias, models.ScalingGroupManager.TableSpec().Name(),
-	//	scalingGroupAlias, models.ScalingGroupGuestManager.TableSpec().Name(), scalingGroupGuestAlias, scalingGroupAlias,
-	//	scalingGroupGuestAlias, scalingGroupAlias, scalingGroupGuestAlias)
 	sggQ := models.ScalingGroupGuestManager.Query("scaling_group_id").GroupBy("scaling_group_id")
 	sggQ = sggQ.AppendField(sqlchemy.COUNT("total", sggQ.Field("guest_id")))
 	sggSubQ := sggQ.SubQuery()
@@ -107,7 +96,20 @@ func (asc *SASController) Init(options options.SASControllerOptions, cronm *cron
 	asc.scalingQuery = sgQ.LeftJoin(sggSubQ, sqlchemy.AND(sqlchemy.Equals(sggSubQ.Field("scaling_group_id"),
 		sgQ.Field("id")), sqlchemy.NotEquals(sggSubQ.Field("total"), sgQ.Field("desire_instance_number"))))
 	sgQ.AppendField(sggSubQ.Field("total"))
-	asc.scalingQuery.DebugQuery()
+
+	// check all scaling activity
+	log.Infof("check and update scaling activities...")
+	sas := make([]models.SScalingActivity, 0, 10)
+	q := models.ScalingActivityManager.Query().Equals("status", compute.SA_STATUS_EXEC)
+	err := db.FetchModelObjects(models.ScalingActivityManager, q, &sas)
+	if err != nil {
+		log.Errorf("unable to check and update scaling activities")
+		return
+	}
+	for i := range sas {
+		sas[i].SetFailed("", "As the service restarts, the status becomes unknown")
+	}
+	log.Infof("check and update scalngactivities complete")
 }
 
 // SScalingGroupShort wrap the ScalingGroup's ID and DesireInstanceNumber with field 'total' which means the total
@@ -637,6 +639,7 @@ func (asc *SASController) actionAfterCreate(
 		params.Set("backend_type", jsonutils.NewString("guest"))
 		params.Set("port", jsonutils.NewInt(int64(sg.LoadbalancerBackendPort)))
 		params.Set("weight", jsonutils.NewInt(int64(sg.LoadbalancerBackendWeight)))
+		params.Set("backend_group", jsonutils.NewString(sg.BackendGroupId))
 		_, err := modules.LoadbalancerBackends.Create(session, params)
 		if err != nil {
 			rollback(fmt.Sprintf("bind instance '%s' to loadbalancer backend gropu '%s' failed: %s", ret.Id, sg.BackendGroupId, err.Error()))
@@ -655,7 +658,7 @@ func (asc *SASController) actionAfterCreate(
 }
 
 func (asc *SASController) randStringRunes(n int) string {
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]

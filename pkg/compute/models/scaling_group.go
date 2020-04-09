@@ -401,6 +401,9 @@ func (sg *SScalingGroup) ScalingPolicyNumber() (int, error) {
 
 func (sg *SScalingGroup) ScalingGroupGuests(guestIds []string) ([]SScalingGroupGuest, error) {
 	q := ScalingGroupGuestManager.Query().Equals("scaling_group_id", sg.GetId())
+	if len(guestIds) == 0 {
+		return nil, nil
+	}
 	if len(guestIds) == 1 {
 		q = q.Equals("guest_id", guestIds[0])
 	}

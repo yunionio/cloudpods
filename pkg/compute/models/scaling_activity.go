@@ -44,7 +44,7 @@ type SScalingActivity struct {
 	ActionDesc string    `width:"256" charset:"ascii" get:"user" list:"user"`
 	StartTime  time.Time `list:"user" get:"user"`
 	EndTime    time.Time `list:"user" get:"user"`
-	Reason     string    `width:"256" charset:"ascii" get:"user" list:"user"`
+	Reason     string    `width:"1024" charset:"ascii" get:"user" list:"user"`
 }
 
 var ScalingActivityManager *SScalingActivityManager
