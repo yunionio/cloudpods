@@ -1956,6 +1956,10 @@ func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred m
 }
 
 func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) (jsonutils.JSONObject, error) {
+	if !account.CanSync() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot public in sync")
+	}
+
 	if input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN && input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM {
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
 	}
@@ -1984,6 +1988,9 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
+	syncRange := &SSyncRange{FullSync: true}
+	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+
 	return nil, nil
 }
 
@@ -1992,6 +1999,10 @@ func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred 
 }
 
 func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	if !account.CanSync() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot private in sync")
+	}
+
 	providers := account.GetCloudproviders()
 	for i := range providers {
 		if providers[i].DomainId != account.DomainId {
@@ -2012,6 +2023,9 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
+	syncRange := &SSyncRange{FullSync: true}
+	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+
 	return nil, nil
 }
 
@@ -2022,6 +2036,7 @@ func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCre
 
 // Deprecated
 func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) (jsonutils.JSONObject, error) {
+
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrap(err, "CloudaccountShareModeInput.Validate")

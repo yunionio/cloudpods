@@ -306,7 +306,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -317,7 +317,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc, provider.GetOwnerId())
+		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -350,7 +350,7 @@ func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
@@ -363,7 +363,10 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 		log.Errorf("syncWithCloudWire error %s", err)
 	}
 
-	SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
@@ -380,7 +383,7 @@ func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc, syncOwnerId mcclient.IIdentityProvider) (*SWire, error) {
+func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc, provider *SCloudprovider) (*SWire, error) {
 	wire := SWire{}
 	wire.SetModelManager(manager, &wire)
 
@@ -409,7 +412,10 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 		return nil, err
 	}
 
-	SyncCloudDomain(userCred, &wire, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, &wire, provider.GetOwnerId())
+		wire.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil

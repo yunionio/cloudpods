@@ -1520,7 +1520,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1566,7 +1566,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extHost.GetName()
 
@@ -1612,7 +1612,10 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
@@ -1722,6 +1725,10 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
 
 	SyncCloudDomain(userCred, &host, provider.GetOwnerId())
+
+	if provider != nil {
+		host.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	if err := manager.ClearSchedDescCache(host.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", host.Name, err)

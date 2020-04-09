@@ -378,7 +378,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 			continue
@@ -490,7 +490,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
 		// self.Name = extVPC.GetName()
@@ -507,8 +507,9 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
-	if syncOwnerId != nil {
-		SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -541,6 +542,10 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	}
 
 	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
+
+	if provider != nil {
+		vpc.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogEvent(&vpc, db.ACT_CREATE, vpc.GetShortDesc(ctx), userCred)
 
