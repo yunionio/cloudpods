@@ -43,7 +43,7 @@ const (
 )
 
 type BucketCreateInput struct {
-	apis.VirtualResourceCreateInput
+	apis.SharableVirtualResourceCreateInput
 	CloudregionResourceInput
 	CloudproviderResourceInput
 
@@ -51,7 +51,7 @@ type BucketCreateInput struct {
 }
 
 type BucketDetails struct {
-	apis.VirtualResourceDetails
+	apis.SharableVirtualResourceDetails
 	ManagedResourceInfo
 	CloudregionResourceInfo
 
@@ -98,7 +98,7 @@ func (input *BucketMetadataInput) Validate() error {
 }
 
 type BucketListInput struct {
-	apis.VirtualResourceListInput
+	apis.SharableVirtualResourceListInput
 	apis.ExternalizedResourceBaseListInput
 
 	ManagedResourceListInput
@@ -118,5 +118,5 @@ type BucketSyncstatusInput struct {
 }
 
 type BucketUpdateInput struct {
-	apis.VirtualResourceBaseUpdateInput
+	apis.SharableVirtualResourceBaseUpdateInput
 }
