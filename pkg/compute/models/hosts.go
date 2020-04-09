@@ -99,7 +99,7 @@ type SHost struct {
 	// SN信息
 	SN string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	// CPU大小
+	// CPU核数
 	CpuCount int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// 物理CPU颗数
 	NodeCount int8 `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
