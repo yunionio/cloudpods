@@ -318,9 +318,28 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 		"proxy_setting",
 		proxy.ProxySettingManager.Keyword(),
 		userCred,
-	).Optional(true)
+	)
+	v.Optional(true)
 	if err := v.Validate(data); err != nil {
 		return nil, err
+	}
+
+	proxySetting := v.Model.(*proxy.SProxySetting)
+
+	if proxySetting != nil {
+		// updated proxy setting, so do the check
+		proxyFunc := proxySetting.HttpTransportProxyFunc()
+		secret, _ := self.getPassword()
+		_, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
+			Vendor:    self.Provider,
+			URL:       self.AccessUrl,
+			Account:   self.Account,
+			Secret:    secret,
+			ProxyFunc: proxyFunc,
+		})
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid proxy setting %s", err)
+		}
 	}
 
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
@@ -382,16 +401,14 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 
 	var proxyFunc httputils.TransportProxyFunc
 	{
-		if input.ProxySettingId == "" {
-			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
+		if input.ProxySetting == "" {
+			input.ProxySetting = proxyapi.ProxySettingId_DIRECT
 		}
-		m, err := proxy.ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+		var proxySetting *proxy.SProxySetting
+		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
 		if err != nil {
-			return input, httperrors.NewInputParameterError("fetch proxysetting %s: %s",
-				input.ProxySettingId, err)
+			return input, httperrors.NewInputParameterError("fetch proxysetting %s: %s", input.ProxySetting, err)
 		}
-		proxySetting := m.(*proxy.SProxySetting)
-		input.ProxySettingId = proxySetting.Id
 		proxyFunc = proxySetting.HttpTransportProxyFunc()
 	}
 	accountId, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
