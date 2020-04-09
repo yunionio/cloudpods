@@ -73,7 +73,7 @@ func init() {
 		return nil
 	})
 
-	R(&SecGroupRuleDetailOptions{}, "secgroup-rule-delete", "Delete a disk", func(s *mcclient.ClientSession, args *SecGroupRuleDetailOptions) error {
+	R(&SecGroupRuleDetailOptions{}, "secgroup-rule-delete", "Delete a secgroup rule", func(s *mcclient.ClientSession, args *SecGroupRuleDetailOptions) error {
 		if rule, e := modules.SecGroupRules.Delete(s, args.ID, nil); e != nil {
 			return e
 		} else {

@@ -121,7 +121,7 @@ func init() {
 		printObjectRecursive(routetable)
 		return nil
 	})
-	R(&options.RouteTableDeleteOptions{}, "routetable-delete", "Show routetable", func(s *mcclient.ClientSession, opts *options.RouteTableDeleteOptions) error {
+	R(&options.RouteTableDeleteOptions{}, "routetable-delete", "Delete routetable", func(s *mcclient.ClientSession, opts *options.RouteTableDeleteOptions) error {
 		routetable, err := modules.RouteTables.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err

@@ -65,7 +65,7 @@ func init() {
 		printList(result, modules.LoadbalancerClusters.GetColumns(s))
 		return nil
 	})
-	R(&options.LoadbalancerClusterDeleteOptions{}, "lbcluster-delete", "Show lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterDeleteOptions) error {
+	R(&options.LoadbalancerClusterDeleteOptions{}, "lbcluster-delete", "Delete lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterDeleteOptions) error {
 		lbagent, err := modules.LoadbalancerClusters.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err

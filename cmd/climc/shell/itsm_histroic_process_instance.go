@@ -68,7 +68,7 @@ func init() {
 	type HistoricProcessInstanceStaticticsOptions struct {
 		ID string `help:"ID of user"`
 	}
-	R(&HistoricProcessInstanceStaticticsOptions{}, "historic-process-instance-statistics", "Delete all contacts for the user", func(s *mcclient.ClientSession, args *HistoricProcessInstanceStaticticsOptions) error {
+	R(&HistoricProcessInstanceStaticticsOptions{}, "historic-process-instance-statistics", "Show statistics for historic process instance", func(s *mcclient.ClientSession, args *HistoricProcessInstanceStaticticsOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.ID), "user_id")
 

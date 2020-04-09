@@ -173,7 +173,7 @@ func init() {
 		NAME    string `help:"The name of parameter"`
 	}
 
-	R(&ParametersDeleteOptions{}, "parameter-delete", "delete notice", func(s *mcclient.ClientSession, args *ParametersDeleteOptions) error {
+	R(&ParametersDeleteOptions{}, "parameter-delete", "delete parameter", func(s *mcclient.ClientSession, args *ParametersDeleteOptions) error {
 		params := jsonutils.NewDict()
 
 		var parameter jsonutils.JSONObject

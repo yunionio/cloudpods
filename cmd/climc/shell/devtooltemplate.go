@@ -107,7 +107,7 @@ func init() {
 	R(
 		&options.DevtoolTemplateBindingOptions{},
 		"devtooltemplate-unbind",
-		"Binding devtool template to a host/vm",
+		"UnBinding devtool template to a host/vm",
 		func(s *mcclient.ClientSession, opts *options.DevtoolTemplateBindingOptions) error {
 			params := jsonutils.NewDict()
 			params.Set("server_id", jsonutils.NewString(opts.ServerID))
