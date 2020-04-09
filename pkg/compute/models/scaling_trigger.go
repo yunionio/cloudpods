@@ -215,7 +215,7 @@ func (st *SScalingTimer) Update(now time.Time) {
 
 	newNextTime := time.Date(now.Year(), now.Month(), now.Day(), st.Hour, st.Minute, 0, 0, now.Location())
 	if now.After(newNextTime) {
-		newNextTime.AddDate(0, 0, 1)
+		newNextTime = newNextTime.AddDate(0, 0, 1)
 	}
 	switch {
 	case st.WeekDays != 0:
@@ -238,9 +238,9 @@ func (st *SScalingTimer) Update(now time.Time) {
 				suitTime = suitTime.AddDate(0, 1, -suitTime.Day()+1)
 				continue
 			}
-			newNextTime = time.Date(suitTime.Year(), suitTime.Month(), suitTime.Day(), suitTime.Hour(),
+			newNextTime = time.Date(suitTime.Year(), suitTime.Month(), monthdays[index], suitTime.Hour(),
 				suitTime.Minute(), 0, 0, suitTime.Location())
-			return
+			break
 		}
 	default:
 		// day
@@ -248,6 +248,9 @@ func (st *SScalingTimer) Update(now time.Time) {
 	}
 	log.Debugf("The final NextTime: %s", newNextTime)
 	st.NextTime = newNextTime
+	if st.NextTime.After(st.EndTime) {
+		st.IsExpired = true
+	}
 }
 
 // MonthDaySum calculate the number of month's days

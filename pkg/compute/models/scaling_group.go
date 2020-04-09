@@ -494,6 +494,9 @@ func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret s
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
 func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) error {
+	if sg.Enabled.IsFalse() {
+		return nil
+	}
 	scalingActivity, err := ScalingActivityManager.CreateScalingActivity(sg.Id, triggerDesc.TriggerDescription(), api.SA_STATUS_EXEC)
 	if err != nil {
 		return errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
@@ -671,10 +674,12 @@ func (s *SGuest) PerformDetachScalingGroup(ctx context.Context, userCred mcclien
 	if len(sggs) == 0 {
 		return nil, httperrors.NewInputParameterError("Guest '%s' don't belong to ScalingGroup '%s'", s.Id, model.GetId())
 	}
+	sg := model.(*SScalingGroup)
 	input.ScalingGroup = sggs[0].ScalingGroupId
 	sggs[0].SetGuestStatus(api.SG_GUEST_STATUS_REMOVING)
 	taskData := jsonutils.Marshal(input).(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachScalingGroupTask", s, userCred, taskData, "", "")
+	taskData.Set("guest", jsonutils.NewString(s.GetId()))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachScalingGroupTask", sg, userCred, taskData, "", "")
 	if err != nil {
 		return nil, errors.Wrap(err, "Start GuestDetachScalingGroupTask failed")
 	}
