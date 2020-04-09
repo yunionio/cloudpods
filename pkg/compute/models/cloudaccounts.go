@@ -307,11 +307,12 @@ func (self *SCloudaccount) ValidateUpdateData(
 		if proxySetting != nil {
 			// updated proxy setting, so do the check
 			proxyFunc := proxySetting.HttpTransportProxyFunc()
+			secret, _ := self.getPassword()
 			_, err := cloudprovider.IsValidCloudAccount(cloudprovider.ProviderConfig{
 				Vendor:    self.Provider,
 				URL:       self.AccessUrl,
 				Account:   self.Account,
-				Secret:    self.Secret,
+				Secret:    secret,
 				ProxyFunc: proxyFunc,
 			})
 			if err != nil {
