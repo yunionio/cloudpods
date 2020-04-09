@@ -459,9 +459,11 @@ func getStorageTypes(
 				notFound = true
 				simpleStorage = &SimpleStorageInfo{Storages: []sStorage{}}
 			}
-			addStorageInfo(storage, simpleStorage)
-			sfs[storageType] = simpleStorage
-			hypervisorStorageInfos[storageHypervisor] = sfs
+			if !utils.IsInStringArray(storageHypervisor, api.PUBLIC_CLOUD_HYPERVISORS) {
+				addStorageInfo(storage, simpleStorage)
+				sfs[storageType] = simpleStorage
+				hypervisorStorageInfos[storageHypervisor] = sfs
+			}
 			return notFound
 		}
 	)
