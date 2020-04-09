@@ -55,8 +55,9 @@ type GuestTemplateDetails struct {
 	VpcResourceInfo
 	SGuestTemplate
 
-	Secgroup string `json:"secgroup"`
-	Zone     string `json:"zone"`
+	Secgroups []string `json:"secgroups"`
+	Zone      string   `json:"zone"`
+	Brand     string   `json:"brand"`
 
 	ConfigInfo GuestTemplateConfigInfo `json:"config_info"`
 }
