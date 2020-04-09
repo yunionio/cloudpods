@@ -55,3 +55,8 @@ type ProxySettingResourceInput struct {
 	// 代理配置
 	ProxySettingId string `json:"proxy_setting_id"`
 }
+
+type ProxySettingTestInput struct {
+	HttpProxy  string
+	HttpsProxy string
+}

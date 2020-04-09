@@ -129,19 +129,13 @@ func (ps *SProxySetting) AllowPerformTest(ctx context.Context, userCred mcclient
 	return db.IsAdminAllowPerform(userCred, ps, "test")
 }
 
-func (ps *SProxySetting) PerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (man *SProxySettingManager) test(ctx context.Context, urls map[string]string) (jsonutils.JSONObject, error) {
 	type TestURLResult struct {
 		Ok     bool   `json:"ok"`
 		Reason string `json:"reason"`
 	}
-	var (
-		r = map[string]TestURLResult{}
-		m = map[string]string{
-			"http_proxy":  ps.HTTPProxy,
-			"https_proxy": ps.HTTPSProxy,
-		}
-	)
-	for k, v := range m {
+	r := map[string]TestURLResult{}
+	for k, v := range urls {
 		if v == "" {
 			r[k] = TestURLResult{Ok: true}
 			continue
@@ -186,6 +180,22 @@ func (ps *SProxySetting) PerformTest(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	return jsonutils.Marshal(r), nil
+}
+
+func (ps *SProxySetting) PerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	urls := map[string]string{
+		"http_proxy":  ps.HTTPProxy,
+		"https_proxy": ps.HTTPSProxy,
+	}
+	return ProxySettingManager.test(ctx, urls)
+}
+
+func (man *SProxySettingManager) PerformTest(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data proxyapi.ProxySettingTestInput) (jsonutils.JSONObject, error) {
+	urls := map[string]string{
+		"http_proxy":  data.HttpProxy,
+		"https_proxy": data.HttpsProxy,
+	}
+	return man.test(ctx, urls)
 }
 
 func (man *SProxySettingManager) InitializeData() error {
