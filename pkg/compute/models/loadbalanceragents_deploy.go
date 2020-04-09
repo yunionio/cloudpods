@@ -160,7 +160,7 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 				return nil, errors.WithMessagef(err, "glob error %s", pattern)
 			}
 			if len(matches) == 0 {
-				return nil, errors.WithMessagef(err, "glob nomatch %s", pattern)
+				return nil, errors.Errorf("no match for %q", pattern)
 			}
 			path := matches[len(matches)-1]
 			name := filepath.Base(path)
