@@ -122,6 +122,11 @@ type SStorageCapacityInfo struct {
 	FreeCapacity int64 `json:"free_capacity"`
 }
 
+type StorageHost struct {
+	Id   string
+	Name string
+}
+
 type StorageDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 	ManagedResourceInfo
@@ -130,6 +135,8 @@ type StorageDetails struct {
 	SStorageCapacityInfo
 
 	SStorage
+
+	Hosts []StorageHost `json:"hosts"`
 
 	Schedtags []SchedtagShortDescDetails `json:"schedtags"`
 
