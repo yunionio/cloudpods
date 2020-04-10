@@ -222,7 +222,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 		q = q.Offset(int(offset))
 	}
 
-	data, err := manager.metaDataQuery2List(q, input.Details)
+	data, err := manager.metaDataQuery2List(ctx, q, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "metadataQuery2List")
 	}
@@ -235,7 +235,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(
 	return &emptyList, nil
 }
 
-func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery, details *bool) ([]jsonutils.JSONObject, error) {
+func (manager *SMetadataManager) metaDataQuery2List(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, input apis.MetadataListInput) ([]jsonutils.JSONObject, error) {
 	metadatas := make([]struct {
 		Key   string
 		Value string
@@ -248,8 +248,8 @@ func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery, details 
 
 	ret := make([]jsonutils.JSONObject, len(metadatas))
 	for i := range metadatas {
-		if details != nil && *details {
-			ret[i], err = manager.getKeyValueObjectCount(metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
+		if input.Details != nil && *input.Details {
+			ret[i], err = manager.getKeyValueObjectCount(ctx, userCred, input, metadatas[i].Key, metadatas[i].Value, metadatas[i].Count)
 			if err != nil {
 				return nil, errors.Wrap(err, "getKeyValueObjectCount")
 			}
@@ -261,17 +261,26 @@ func (manager *SMetadataManager) metaDataQuery2List(q *sqlchemy.SQuery, details 
 	return ret, nil
 }
 
-func (manager *SMetadataManager) getKeyValueObjectCount(key string, value string, count int64) (jsonutils.JSONObject, error) {
+func (manager *SMetadataManager) getKeyValueObjectCount(ctx context.Context, userCred mcclient.TokenCredential, input apis.MetadataListInput, key string, value string, count int64) (jsonutils.JSONObject, error) {
 	metadatas := manager.Query().SubQuery()
 	q := metadatas.Query(metadatas.Field("obj_type"), sqlchemy.COUNT("obj_count"))
-	q = q.Equals("key", key).Equals("value", value)
+	q, err := manager.ListItemFilter(ctx, q, userCred, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListItemFilter")
+	}
+	q = q.Equals("key", key)
+	if len(value) > 0 {
+		q = q.Equals("value", value)
+	} else {
+		q = q.IsNullOrEmpty("value")
+	}
 	q = q.GroupBy("key", "value", "obj_type")
 
 	objectCount := make([]struct {
 		ObjType  string
 		ObjCount int64
 	}, 0)
-	err := q.All(&objectCount)
+	err = q.All(&objectCount)
 	if err != nil {
 		return nil, errors.Wrap(err, "query.All")
 	}
