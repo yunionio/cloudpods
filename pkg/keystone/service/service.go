@@ -19,7 +19,6 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang-plus/uuid"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
@@ -41,14 +40,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-func keystoneUUIDGenerator() string {
-	id, _ := uuid.NewV4()
-	return id.Format(uuid.StyleWithoutDash)
-}
-
 func StartService() {
 	auth.DefaultTokenVerifier = tokens.FernetTokenVerifier
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
+	db.DefaultProjectFetcher = keystoneProjectFetcher
+	db.DefaultDomainFetcher = keystoneDomainFetcher
+	db.DefaultProjectsFetcher = keystoneProjectsFetcher
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
 	cronman.DefaultAdminSessionGenerator = models.GetDefaultAdminCred

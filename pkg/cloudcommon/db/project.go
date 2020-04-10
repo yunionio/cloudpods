@@ -143,7 +143,7 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 				projectIds = stringutils2.Append(projectIds, base.ProjectId)
 			}
 		}
-		projects := FetchProjects(projectIds, false)
+		projects := DefaultProjectsFetcher(ctx, projectIds, false)
 		if projects != nil {
 			for i := range objs {
 				var base *SProjectizedResourceBase
@@ -164,7 +164,7 @@ func (manager *SProjectizedResourceBaseManager) FetchCustomizeColumns(
 	return ret
 }
 
-func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
+func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[string]STenant {
 	deadline := time.Now().UTC().Add(-consts.GetTenantCacheExpireSeconds())
 	q := TenantCacheManager.Query().In("id", projectIds).GT("last_check", deadline)
 	if isDomain {
@@ -181,7 +181,6 @@ func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
 	for i := range projects {
 		ret[projects[i].Id] = projects[i]
 	}
-	ctx := context.Background()
 	for _, pid := range projectIds {
 		if _, ok := ret[pid]; !ok {
 			// not found

@@ -37,6 +37,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+var (
+	DefaultProjectFetcher  func(ctx context.Context, id string) (*STenant, error)
+	DefaultDomainFetcher   func(ctx context.Context, id string) (*STenant, error)
+	DefaultProjectsFetcher func(ctx context.Context, idList []string, isDomain bool) map[string]STenant
+)
+
 type STenantCacheManager struct {
 	SKeystoneCacheObjectManager
 }
@@ -64,6 +70,10 @@ func init() {
 	// log.Debugf("Initialize tenant cache manager %s %s", TenantCacheManager.KeywordPlural(), TenantCacheManager)
 
 	TenantCacheManager.SetVirtualObject(TenantCacheManager)
+
+	DefaultProjectFetcher = TenantCacheManager.FetchTenantByIdOrName
+	DefaultDomainFetcher = TenantCacheManager.FetchDomainByIdOrName
+	DefaultProjectsFetcher = fetchProjects
 }
 
 func RegistUserCredCacheUpdater() {

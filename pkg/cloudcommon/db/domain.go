@@ -146,7 +146,7 @@ func (manager *SDomainizedResourceBaseManager) FetchCustomizeColumns(
 				domainIds = stringutils2.Append(domainIds, base.DomainId)
 			}
 		}
-		domains := FetchProjects(domainIds, true)
+		domains := DefaultProjectsFetcher(ctx, domainIds, true)
 		if domains != nil {
 			for i := range objs {
 				var base *SDomainizedResourceBase

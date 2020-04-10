@@ -214,19 +214,26 @@ func (model *SInfrasResourceBase) Delete(ctx context.Context, userCred mcclient.
 }
 
 func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
-	if model.PublicScope != string(apis.OWNER_SOURCE_LOCAL) {
+	if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
 		diff, _ := Update(model, func() error {
+			model.PublicSrc = string(apis.OWNER_SOURCE_CLOUD)
 			switch shareInfo.ShareMode {
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
 				model.IsPublic = false
 				model.PublicScope = string(rbacutils.ScopeNone)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 				model.IsPublic = false
 				model.PublicScope = string(rbacutils.ScopeNone)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
 				if shareInfo.IsPublic && shareInfo.PublicScope == rbacutils.ScopeSystem {
 					model.IsPublic = true
 					model.PublicScope = string(rbacutils.ScopeSystem)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 				} else if len(shareInfo.SharedDomains) > 0 {
 					model.IsPublic = true
 					model.PublicScope = string(rbacutils.ScopeDomain)

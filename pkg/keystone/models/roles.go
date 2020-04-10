@@ -67,8 +67,8 @@ func init() {
 */
 
 type SRole struct {
-	SIdentityBaseResource `"name->update":""`
-	db.SSharableBaseResource
+	SIdentityBaseResource    `"name->update":""`
+	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
 }
 
 func (manager *SRoleManager) GetContextManagers() [][]db.IModelManager {

@@ -15,8 +15,9 @@
 package db
 
 import (
-	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/apis"
 )
 
 type IOwnerResourceBaseModel interface {

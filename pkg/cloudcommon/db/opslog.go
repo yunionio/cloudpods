@@ -480,7 +480,7 @@ func (manager *SOpsLogManager) ListItemFilter(
 	projStrs := jsonutils.GetQueryStringArray(query, "project")
 	if len(projStrs) > 0 {
 		for i := range projStrs {
-			projObj, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projStrs[i])
+			projObj, err := DefaultProjectFetcher(ctx, projStrs[i])
 			if err != nil {
 				if err == sql.ErrNoRows {
 					return nil, httperrors.NewResourceNotFoundError2("project", projStrs[i])

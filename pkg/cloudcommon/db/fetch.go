@@ -246,7 +246,7 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 	tenantId, key := jsonutils.GetAnyString2(data, []string{"project", "project_id", "tenant", "tenant_id"})
 	if len(tenantId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		t, err := TenantCacheManager.FetchTenantByIdOrName(ctx, tenantId)
+		t, err := DefaultProjectFetcher(ctx, tenantId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("project", tenantId)
@@ -271,7 +271,7 @@ func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.I
 	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
-		domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, domainId)
+		domain, err := DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2("domain", domainId)

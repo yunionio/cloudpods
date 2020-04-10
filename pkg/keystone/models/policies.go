@@ -66,7 +66,7 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
-	db.SSharableBaseResource
+	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
 
 	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" create:"domain_required" update:"domain"`
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" create:"domain_required" update:"domain"`

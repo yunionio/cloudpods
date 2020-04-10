@@ -101,20 +101,14 @@ func (manager *SSharableBaseResourceManager) FetchCustomizeColumns(
 		}
 	}
 
-	tenantMap := make(map[string]STenant)
-	domainMap := make(map[string]STenant)
+	var tenantMap map[string]STenant
+	var domainMap map[string]STenant
 
 	if len(targetTenantIds) > 0 {
-		err = FetchQueryObjectsByIds(TenantCacheManager.GetTenantQuery(), "id", targetTenantIds, &tenantMap)
-		if err != nil {
-			log.Errorf("FetchQueryObjectsByIds for tenant_cache fail %s", err)
-		}
+		tenantMap = DefaultProjectsFetcher(ctx, targetTenantIds, false)
 	}
 	if len(targetDomainIds) > 0 {
-		err = FetchQueryObjectsByIds(TenantCacheManager.GetDomainQuery(), "id", targetDomainIds, &domainMap)
-		if err != nil {
-			log.Errorf("FetchQueryObjectsByIds for tenant_cache fail %s", err)
-		}
+		domainMap = DefaultProjectsFetcher(ctx, targetDomainIds, true)
 	}
 
 	for i := range rows {
@@ -160,6 +154,10 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 				subq = subq.Equals("resource_type", manager.Keyword())
 				subq = subq.Equals("target_project_id", ownerProjectId)
 				subq = subq.Equals("target_type", SharedTargetProject)
+				subq2 := SharedResourceManager.Query("resource_id")
+				subq2 = subq2.Equals("resource_type", manager.Keyword())
+				subq2 = subq2.Equals("target_project_id", owner.GetProjectDomainId())
+				subq2 = subq2.Equals("target_type", SharedTargetDomain)
 				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("tenant_id"), ownerProjectId),
 					sqlchemy.AND(
@@ -169,7 +167,10 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 					sqlchemy.AND(
 						sqlchemy.IsTrue(q.Field("is_public")),
 						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
-						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+						sqlchemy.OR(
+							sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+							sqlchemy.In(q.Field("id"), subq2.SubQuery()),
+						),
 					),
 					sqlchemy.In(q.Field("id"), subq.SubQuery()),
 				))

@@ -18,9 +18,8 @@ import (
 	"context"
 	"database/sql"
 
-	"yunion.io/x/pkg/utils"
-
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -146,7 +145,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 	for i := 0; i < len(targetIds); i++ {
 		switch targetType {
 		case SharedTargetProject:
-			tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, targetIds[i])
+			tenant, err := DefaultProjectFetcher(ctx, targetIds[i])
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetch tenant %s error", targetIds[i])
 			}
@@ -158,7 +157,7 @@ func (manager *SSharedResourceManager) shareToTarget(
 			}
 			newIds = stringutils2.Append(newIds, tenant.GetId())
 		case SharedTargetDomain:
-			domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, targetIds[i])
+			domain, err := DefaultDomainFetcher(ctx, targetIds[i])
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetch domain %s error", targetIds[i])
 			}

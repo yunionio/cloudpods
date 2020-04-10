@@ -245,7 +245,7 @@ func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 		return nil
 	}
 
-	projects := db.FetchProjects(projectIds, false)
+	projects := db.DefaultProjectsFetcher(ctx, projectIds, false)
 
 	for i := range rows {
 		if account, ok := accounts[rows[i].AccountId]; ok {
