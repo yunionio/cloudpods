@@ -469,6 +469,7 @@ func (sp *SScalingPolicy) PerformDisable(ctx context.Context, userCred mcclient.
 
 func (sg *SScalingPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	sg.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	sg.SetStatus(userCred, api.SP_STATUS_CREATING, "")
 	go func() {
 		sp, err := sg.ScalingGroup()
 		if err != nil {

@@ -38,103 +38,91 @@ func init() {
 	taskman.RegisterTask(GuestDetachScalingGroupTask{})
 }
 
-func (self *GuestDetachScalingGroupTask) taskFailed(ctx context.Context, sgg *models.SScalingGroupGuest, sg *models.SScalingGroup, reason string) {
-	if sgg == nil {
-		return
-	}
-	sgg.SetGuestStatus(api.SG_GUEST_STATUS_REMOVE_FAILED)
+func (self *GuestDetachScalingGroupTask) taskFailed(ctx context.Context, sg *models.SScalingGroup, sgg *models.SScalingGroupGuest, reason string) {
 	if sg == nil {
-		model, _ := models.ScalingGroupManager.FetchById(sgg.ScalingGroupId)
-		if model == nil {
-			return
-		}
-		sg = model.(*models.SScalingGroup)
+		return
 	}
 	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_REMOVE_GUEST, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
+	if sgg == nil {
+		guestId, _ := self.Params.GetString("guest")
+		sggs, _ := models.ScalingGroupGuestManager.Fetch(sg.GetId(), guestId)
+		if len(sggs) > 0 {
+			sgg = &sggs[0]
+		} else {
+			return
+		}
+	}
+	sgg.SetGuestStatus(api.SG_GUEST_STATUS_REMOVE_FAILED)
 }
 
 func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	sgId, _ := self.Params.GetString("scaling_group")
-
-	var sgg *models.SScalingGroupGuest
-	sggs, _ := models.ScalingGroupGuestManager.Fetch(sgId, guest.Id)
-	if len(sggs) > 0 {
-		sgg = &sggs[0]
+	sg := obj.(*models.SScalingGroup)
+	guestId, _ := self.Params.GetString("guest")
+	guest := models.GuestManager.FetchGuestById(guestId)
+	if guest == nil {
+		self.taskFailed(ctx, sg, nil, "unable to FetchGuestById")
+		return
 	}
 	self.SetStage("OnDetachLoadbalancerComplete", nil)
-	// 进行一些准备工作, 比如从负载均衡组移除，从数据库组移除
 	q := models.LoadbalancerBackendManager.Query().Equals("backend_id", guest.Id)
 	var lbBackend models.SLoadbalancerBackend
 	err := q.First(&lbBackend)
 	if err != nil {
 		if errors.Cause(err) != sql.ErrNoRows {
-			self.taskFailed(ctx, sgg, nil, fmt.Sprintf("Fetch loadbalancer backend failed: %s", err.Error()))
+			self.taskFailed(ctx, sg, nil, fmt.Sprintf("Fetch loadbalancer backend failed: %s", err.Error()))
 			return
 		}
-		self.OnDetachLoadbalancerComplete(ctx, guest, body)
+		self.OnDetachLoadbalancerComplete(ctx, sg, body)
 		return
 	} else {
+		lbBackend.SetModelManager(models.LoadbalancerBackendManager, &lbBackend)
 		lbBackend.SetStatus(self.UserCred, api.LB_STATUS_DELETING, "")
 		if err = lbBackend.StartLoadBalancerBackendDeleteTask(ctx, self.UserCred, jsonutils.NewDict(), self.Id); err != nil {
-			self.taskFailed(ctx, sgg, nil, fmt.Sprintf("Detach guest with loadbalancer group failed: %s", err))
+			self.taskFailed(ctx, sg, nil, fmt.Sprintf("Detach guest with loadbalancer group failed: %s", err))
 		}
 	}
 }
 
-func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx context.Context, guest *models.SGuest,
-	data jsonutils.JSONObject) {
-	sgId, _ := self.Params.GetString("scaling_group")
-	var sgg *models.SScalingGroupGuest
-	sggs, _ := models.ScalingGroupGuestManager.Fetch(sgId, guest.Id)
-	if len(sggs) > 0 {
-		sgg = &sggs[0]
-	}
+func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
+	guestId, _ := self.Params.GetString("guest")
 	delete, _ := self.Params.Bool("delete_server")
 	self.SetStage("OnDeleteGuestComplete", nil)
 	if !delete {
-		self.OnDeleteGuestComplete(ctx, guest, data)
+		self.OnDeleteGuestComplete(ctx, sg, data)
 		return
 	}
+	guest := models.GuestManager.FetchGuestById(guestId)
+	if guest == nil {
+		self.taskFailed(ctx, sg, nil, "unable to FetchGuestById")
+		return
+	}
+	self.Params.Set("guest_name", jsonutils.NewString(guest.GetName()))
 	if err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, true, true, true); err != nil {
-		self.taskFailed(ctx, sgg, nil, err.Error())
+		self.taskFailed(ctx, sg, nil, err.Error())
 	}
 }
 
-func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerCompleteFailed(ctx context.Context, guest *models.SGuest,
+func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerCompleteFailed(ctx context.Context, sg *models.SScalingGroup,
 	data jsonutils.JSONObject) {
-	sgId, _ := self.Params.GetString("scaling_group")
-
-	var sgg *models.SScalingGroupGuest
-	sggs, _ := models.ScalingGroupGuestManager.Fetch(sgId, guest.Id)
-	if len(sggs) > 0 {
-		sgg = &sggs[0]
-	}
-	self.taskFailed(ctx, sgg, nil, "detach loadbalancer failed")
+	self.taskFailed(ctx, sg, nil, "detach loadbalancer failed")
 }
 
-func (self *GuestDetachScalingGroupTask) OnDeleteGuestComplete(ctx context.Context, guest *models.SGuest,
-	data jsonutils.JSONObject) {
+func (self *GuestDetachScalingGroupTask) OnDeleteGuestComplete(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
+	guestId, _ := self.Params.GetString("guest")
+	guestName, _ := self.Params.GetString("guest_name")
 
-	sgId, _ := self.Params.GetString("scaling_group")
-
-	sggs, _ := models.ScalingGroupGuestManager.Fetch(sgId, guest.Id)
+	sggs, _ := models.ScalingGroupGuestManager.Fetch(sg.GetId(), guestId)
 	if len(sggs) > 0 {
 		sggs[0].Detach(ctx, self.UserCred)
 	}
 
-	model, err := models.ScalingGroupManager.FetchById(sgId)
-	if err != nil {
-		log.Errorf("ScalingGroupManager.FetchById failed: %s", err.Error())
-		return
-	}
-	logclient.AddActionLogWithStartable(self, model, logclient.ACT_REMOVE_GUEST, fmt.Sprintf("Instance '%s' was removed", guest.Id), self.UserCred, true)
-	if auto, err := self.Params.Bool("auto"); err != nil && auto {
+	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_REMOVE_GUEST, fmt.Sprintf("Instance '%s' was removed", guestId), self.UserCred, true)
+	if auto, err := self.Params.Bool("auto"); err == nil || !auto {
 		// scale; change the desire number
-		err := model.(*models.SScalingGroup).Scale(ctx, SScalingTriggerDesc{guest.Name}, SScalingActionDesc{})
+		err := sg.Scale(ctx, SScalingTriggerDesc{guestName}, SScalingActionDesc{})
 		if err != nil {
-			log.Errorf("ScalingGroup '%s' scale after removing instance '%s' failed: %s", model.GetId(), guest.Id, err.Error())
+			log.Errorf("ScalingGroup '%s' scale after removing instance '%s' failed: %s", sg.GetId(), guestId, err.Error())
 		}
 	}
 }
@@ -161,13 +149,6 @@ func (s SScalingActionDesc) CheckCoolTime() bool {
 	return false
 }
 
-func (self *GuestDetachScalingGroupTask) OnDeleteGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	sgId, _ := self.Params.GetString("scaling_group")
-
-	var sgg *models.SScalingGroupGuest
-	sggs, _ := models.ScalingGroupGuestManager.Fetch(sgId, guest.Id)
-	if len(sggs) > 0 {
-		sgg = &sggs[0]
-	}
-	self.taskFailed(ctx, sgg, nil, "delete guest failed")
+func (self *GuestDetachScalingGroupTask) OnDeleteGuestCompleteFailed(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
+	self.taskFailed(ctx, sg, nil, "delete guest failed")
 }

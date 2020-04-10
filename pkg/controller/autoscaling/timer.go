@@ -56,13 +56,14 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 		return
 	}
 	log.Debugf("total %d need to exec, %v", len(scalingTimers), scalingTimers)
-	for _, scalingTimer := range scalingTimers {
+	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
+	for i := range scalingTimers {
+		scalingTimer := scalingTimers[i]
 		asc.timerQueue <- struct{}{}
 		go func(ctx context.Context) {
 			defer func() {
 				<-asc.timerQueue
 			}()
-			log.Debugf("location of nexttime: %s", scalingTimer.NextTime.Location())
 			if scalingTimer.NextTime.Before(timeScope.Start) {
 				// For unknown reasons, the scalingTimer did not execute at the specified time
 				scalingTimer.Update(timeScope.Start)

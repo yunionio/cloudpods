@@ -70,7 +70,8 @@ const (
 	SG_STATUS_CREATE_FAILED      = "create_failed"
 	SG_STATUS_DELETED            = "deleted" // 删除
 
-	SP_STATUS_READY         = "ready"         // 正常
+	SP_STATUS_READY         = "ready" // 正常
+	SP_STATUS_CREATING      = "creating"
 	SP_STATUS_CREATE_FAILED = "create_failed" // 创建失败
 	SP_STATUS_DELETING      = "deleting"      // 删除中
 	SP_STATUS_DELETE_FAILED = "delete_failed" // 删除失败
