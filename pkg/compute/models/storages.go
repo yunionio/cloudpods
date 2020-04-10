@@ -83,7 +83,7 @@ type SStorage struct {
 	// 超售比
 	Cmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin"`
 	// 存储配置信息
-	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`
+	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" list:"admin" update:"admin"`
 
 	// 存储缓存Id
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
@@ -441,13 +441,48 @@ func (manager *SStorageManager) FetchCustomizeColumns(
 	stdRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	manageRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	storageIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.StorageDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 			ZoneResourceInfo:                       zoneRows[i],
 			ManagedResourceInfo:                    manageRows[i],
 		}
-		rows[i] = objs[i].(*SStorage).getMoreDetails(ctx, rows[i])
+		storage := objs[i].(*SStorage)
+		storageIds[i] = storage.Id
+		rows[i] = storage.getMoreDetails(ctx, rows[i])
+	}
+	q := HoststorageManager.Query("storage_id", "host_id").In("storage_id", storageIds)
+	hoststorages, err := q.Rows()
+	if err != nil {
+		return rows
+	}
+	defer hoststorages.Close()
+	hostIds := []string{}
+	storageMap := make(map[string][]string, len(objs))
+	for hoststorages.Next() {
+		var storageId, hostId string
+		hoststorages.Scan(&storageId, &hostId)
+		if _, ok := storageMap[storageId]; !ok {
+			storageMap[storageId] = []string{}
+		}
+		storageMap[storageId] = append(storageMap[storageId], hostId)
+		hostIds = append(hostIds, hostId)
+	}
+	hostMap, err := db.FetchIdNameMap2(HostManager, hostIds)
+	if err != nil {
+		return rows
+	}
+	for i := range rows {
+		hostIds, ok := storageMap[storageIds[i]]
+		if ok {
+			rows[i].Hosts = []api.StorageHost{}
+			for _, hostId := range hostIds {
+				if name, ok := hostMap[hostId]; ok {
+					rows[i].Hosts = append(rows[i].Hosts, api.StorageHost{Id: hostId, Name: name})
+				}
+			}
+		}
 	}
 	return rows
 }
