@@ -85,7 +85,9 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	token, err := AuthenticateV3(ctx, input)
 	if err != nil {
 		switch errors.Cause(err) {
-		case sqlchemy.ErrDuplicateEntry, httperrors.ErrTooManyAttempts:
+		case sqlchemy.ErrDuplicateEntry:
+			httperrors.ConflictError(w, "duplicate username")
+		case httperrors.ErrTooManyAttempts:
 			httperrors.GeneralServerError(w, err)
 		default:
 			httperrors.UnauthorizedError(w, "unauthorized %s", err)
