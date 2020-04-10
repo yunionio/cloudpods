@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/vishvananda/netlink"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -145,14 +146,48 @@ func (h *SHostInfo) generateLocalNetworkConfig() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "find default source address & device")
 	}
+	log.Infof("Find dev: %s ip: %s", dev, netIp)
 
-	// test if dev is port of bridge
 	var bridgeName string
-	output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
-	if err != nil && !strings.Contains(string(output), "no port named") {
-		return "", errors.Wrapf(err, "port to br failed %s", output)
-	} else if err == nil {
-		bridgeName = strings.TrimSpace(string(output))
+	// test if dev is bridge
+	if err := procutils.NewCommand("ovs-vsctl", "br-exists", dev).Run(); err == nil {
+		portStr, err := procutils.NewCommand("ovs-vsctl", "list-ports", dev).Output()
+		if err != nil {
+			return "", errors.Wrap(err, "list port")
+		}
+		ports := strings.Split(string(portStr), "\n")
+
+		devs := []string{}
+		for i := 0; i < len(ports); i++ {
+			portName := strings.TrimSpace(ports[i])
+			if len(portName) > 0 {
+				lk, err := netlink.LinkByName(portName)
+				if err != nil {
+					log.Errorf("netlink.LinkByName %s failed %s", portName, err)
+					continue
+				} else {
+					log.Infof("port %s link type %s", portName, lk.Type())
+					if !utils.IsInStringArray(lk.Type(), []string{"veth", "tun"}) {
+						devs = append(devs, portName)
+					}
+				}
+			}
+		}
+		if len(devs) != 1 {
+			return "", fmt.Errorf("list ports of br got %v", dev)
+		}
+		bridgeName = dev
+		dev = devs[0]
+	} else {
+		log.Errorf("br-exists %s get error %s", dev, err)
+
+		// test if dev is port of bridge
+		output, err := procutils.NewCommand("ovs-vsctl", "port-to-br", dev).Output()
+		if err != nil && !strings.Contains(string(output), "no port named") {
+			return "", errors.Wrapf(err, "port to br failed %s", output)
+		} else if err == nil {
+			bridgeName = strings.TrimSpace(string(output))
+		}
 	}
 
 	if len(bridgeName) == 0 {
