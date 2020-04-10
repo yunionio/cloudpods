@@ -225,10 +225,12 @@ func (manager *SRoleManager) FetchCustomizeColumns(
 	rows := make([]api.RoleDetails, len(objs))
 
 	identRows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	shareRows := manager.SSharableBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	for i := range rows {
 		rows[i] = api.RoleDetails{
 			IdentityBaseResourceDetails: identRows[i],
+			SharableResourceBaseInfo:    shareRows[i],
 		}
 		role := objs[i].(*SRole)
 		rows[i].UserCount, _ = role.GetUserCount()
@@ -514,4 +516,16 @@ func (role *SRole) PostCreate(
 
 func (manager *SRoleManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+}
+
+func (role *SRole) GetSharableTargetDomainIds() []string {
+	return nil
+}
+
+func (role *SRole) GetRequiredSharedDomainIds() []string {
+	return []string{role.DomainId}
+}
+
+func (role *SRole) GetSharedDomains() []string {
+	return db.SharableGetSharedProjects(role, db.SharedTargetDomain)
 }

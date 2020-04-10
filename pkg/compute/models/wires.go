@@ -998,3 +998,26 @@ func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	model.PublicScope = string(rbacutils.ScopeSystem)
 	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
+
+func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
+	candidates := [][]string{
+		wire.SInfrasResourceBase.GetChangeOwnerCandidateDomainIds(),
+	}
+	vpc := wire.GetVpc()
+	if vpc != nil {
+		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(vpc))
+	}
+	return db.ISharableMergeChangeOwnerCandidateDomainIds(wire, candidates...)
+}
+
+func (wire *SWire) GetRequiredSharedDomainIds() []string {
+	networks, _ := wire.getNetworks()
+	if len(networks) == 0 {
+		return wire.SInfrasResourceBase.GetRequiredSharedDomainIds()
+	}
+	requires := make([][]string, len(networks))
+	for i := range networks {
+		requires[i] = db.ISharableChangeOwnerCandidateDomainIds(&networks[i])
+	}
+	return db.ISharableMergeShareRequireDomainIds(requires...)
+}

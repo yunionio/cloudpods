@@ -281,10 +281,9 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	var requireScope rbacutils.TRbacScope
 	if ownerId.GetProjectDomainId() != model.DomainId {
 		// change domain, do check
-		if managed, ok := model.GetIVirtualModel().(IManagedResoucceBase); ok {
-			if !managed.CanShareToDomain(ownerId.GetProjectDomainId()) {
-				return nil, errors.Wrap(httperrors.ErrForbidden, "cann't share across domain")
-			}
+		candidates := model.GetIVirtualModel().GetChangeOwnerCandidateDomainIds()
+		if len(candidates) > 0 && !utils.IsInStringArray(ownerId.GetProjectDomainId(), candidates) {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner candidate list")
 		}
 		requireScope = rbacutils.ScopeSystem
 	} else {
@@ -530,4 +529,12 @@ func (model *SVirtualResourceBase) ValidateUpdateData(
 		return input, errors.Wrap(err, "SStatusStandaloneResourceBase.ValidateUpdateData")
 	}
 	return input, nil
+}
+
+func (model *SVirtualResourceBase) AllowGetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "change-owner-candidate-domains")
+}
+
+func (model *SVirtualResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
+	return IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model.GetIVirtualModel())
 }

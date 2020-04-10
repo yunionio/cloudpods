@@ -4998,3 +4998,27 @@ func (host *SHost) GetUsages() []db.IUsage {
 		&usage,
 	}
 }
+
+func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	// perform public for all connected local storage
+	storages := host.GetAttachedLocalStorages()
+	for i := range storages {
+		_, err := storages[i].PerformPublic(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage.PerformPublic")
+		}
+	}
+	return host.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
+}
+
+func (host *SHost) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	// perform private for all connected local storage
+	storages := host.GetAttachedLocalStorages()
+	for i := range storages {
+		_, err := storages[i].PerformPrivate(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage.PerformPrivate")
+		}
+	}
+	return host.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
+}

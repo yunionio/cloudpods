@@ -576,6 +576,7 @@ func (manager *SVpcManager) InitializeData() error {
 			defVpc.Description = "Default VPC"
 			defVpc.Status = api.VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
+			defVpc.PublicScope = string(rbacutils.ScopeSystem)
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
 				log.Errorf("Insert default vpc fail: %s", err)
@@ -586,9 +587,10 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	} else {
 		vpc := vpcObj.(*SVpc)
-		if vpc.Status != api.VPC_STATUS_AVAILABLE {
+		if vpc.Status != api.VPC_STATUS_AVAILABLE || (vpc.PublicScope == string(rbacutils.ScopeSystem) && !vpc.IsPublic) {
 			_, err = db.Update(vpc, func() error {
 				vpc.Status = api.VPC_STATUS_AVAILABLE
+				vpc.IsPublic = true
 				return nil
 			})
 			return err
@@ -1090,4 +1092,27 @@ func (manager *SVpcManager) totalCount(
 	cnt, _ := q.CountWithError()
 
 	return cnt
+}
+
+func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
+	candidates := [][]string{
+		vpc.SEnabledStatusInfrasResourceBase.GetChangeOwnerCandidateDomainIds(),
+	}
+	globalVpc, _ := vpc.GetGlobalVpc()
+	if globalVpc != nil {
+		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(globalVpc))
+	}
+	return db.ISharableMergeChangeOwnerCandidateDomainIds(vpc, candidates...)
+}
+
+func (vpc *SVpc) GetRequiredSharedDomainIds() []string {
+	wires := vpc.GetWires()
+	if len(wires) == 0 {
+		return vpc.SEnabledStatusInfrasResourceBase.GetRequiredSharedDomainIds()
+	}
+	requires := make([][]string, len(wires))
+	for i := range wires {
+		requires[i] = db.ISharableChangeOwnerCandidateDomainIds(&wires[i])
+	}
+	return db.ISharableMergeShareRequireDomainIds(requires...)
 }

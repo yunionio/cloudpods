@@ -73,7 +73,7 @@ func init() {
 		NewComputeManager("bucket", "buckets",
 			[]string{"ID", "Name", "Storage_Class",
 				"Status", "location", "acl",
-				"region", "manager_id",
+				"region", "manager_id", "public_scope",
 			},
 			[]string{}),
 	}

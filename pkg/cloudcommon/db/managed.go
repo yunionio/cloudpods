@@ -14,6 +14,32 @@
 
 package db
 
-type IManagedResoucceBase interface {
-	CanShareToDomain(domainId string) bool
+import (
+	"yunion.io/x/onecloud/pkg/apis"
+	"yunion.io/x/pkg/errors"
+)
+
+type IOwnerResourceBaseModel interface {
+	GetChangeOwnerCandidateDomainIds() []string
+}
+
+func IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model IOwnerResourceBaseModel) (apis.ChangeOwnerCandidateDomainsOutput, error) {
+	output := apis.ChangeOwnerCandidateDomainsOutput{}
+	candidateIds := model.GetChangeOwnerCandidateDomainIds()
+	if len(candidateIds) == 0 {
+		return output, nil
+	}
+	domainMap := make(map[string]STenant)
+	err := FetchQueryObjectsByIds(TenantCacheManager.GetDomainQuery(), "id", candidateIds, &domainMap)
+	if err != nil {
+		return output, errors.Wrap(err, "FetchQueryObjectsByIds")
+	}
+	output.Candidates = make([]apis.SharedDomain, len(candidateIds))
+	for i := range candidateIds {
+		output.Candidates[i].Id = candidateIds[i]
+		if domain, ok := domainMap[candidateIds[i]]; ok {
+			output.Candidates[i].Name = domain.Name
+		}
+	}
+	return output, nil
 }

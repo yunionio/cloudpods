@@ -185,6 +185,7 @@ func init() {
 			"storage_size",
 			"expired_at",
 			"domain_id", "project_domain",
+			"public_scope",
 		},
 		[]string{})}
 	registerCompute(&Hosts)

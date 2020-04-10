@@ -725,10 +725,9 @@ func init() {
 	})
 
 	type HostPublicOptions struct {
-		ID             string   `help:"ID or name of host" json:"-"`
-		Scope          string   `help:"sharing scope" choices:"system|domain|project"`
-		SharedProjects []string `help:"Share to prjects"`
-		SharedDomains  []string `help:"share to domains"`
+		ID            string   `help:"ID or name of host" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
 	}
 	R(&HostPublicOptions{}, "host-public", "Make a host public", func(s *mcclient.ClientSession, args *HostPublicOptions) error {
 		params := jsonutils.Marshal(args)

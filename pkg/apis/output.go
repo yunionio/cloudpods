@@ -156,3 +156,7 @@ type StatusInfrasResourceBaseDetails struct {
 type EnabledStatusInfrasResourceBaseDetails struct {
 	StatusInfrasResourceBaseDetails
 }
+
+type ChangeOwnerCandidateDomainsOutput struct {
+	Candidates []SharedDomain `json:"candidates"`
+}

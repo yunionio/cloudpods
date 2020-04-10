@@ -178,4 +178,40 @@ func init() {
 		return nil
 	})
 
+	type VpcPublicOptions struct {
+		ID            string   `help:"ID or name of vpc" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
+	}
+	R(&VpcPublicOptions{}, "vpc-public", "Make vpc public", func(s *mcclient.ClientSession, args *VpcPublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Vpcs.PerformAction(s, args.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type VpcPrivateOptions struct {
+		ID string `help:"ID or name of vpc" json:"-"`
+	}
+	R(&VpcPrivateOptions{}, "vpc-private", "Make vpc private", func(s *mcclient.ClientSession, args *VpcPrivateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Vpcs.PerformAction(s, args.ID, "private", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&VpcShowOptions{}, "vpc-change-owner-candidate-domains", "Show candiate domains of a vpc for changing owner", func(s *mcclient.ClientSession, args *VpcShowOptions) error {
+		result, err := modules.Vpcs.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

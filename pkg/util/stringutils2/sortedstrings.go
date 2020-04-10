@@ -161,3 +161,21 @@ func Merge(a, b SSortedStrings) SSortedStrings {
 	}
 	return SSortedStrings(ret)
 }
+
+func Intersect(a, b SSortedStrings) SSortedStrings {
+	ret := make([]string, 0)
+	i := 0
+	j := 0
+	for i < len(a) && j < len(b) {
+		if a[i] == b[j] {
+			ret = append(ret, a[i])
+			i += 1
+			j += 1
+		} else if a[i] < b[j] {
+			i += 1
+		} else if a[i] > b[j] {
+			j += 1
+		}
+	}
+	return SSortedStrings(ret)
+}

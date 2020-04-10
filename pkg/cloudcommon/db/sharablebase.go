@@ -217,6 +217,62 @@ type ISharableBase interface {
 	SetShare(pub bool, scoe rbacutils.TRbacScope)
 	GetIsPublic() bool
 	GetPublicScope() rbacutils.TRbacScope
+	GetSharableTargetDomainIds() []string
+	GetRequiredSharedDomainIds() []string
+	GetSharedDomains() []string
+}
+
+func ISharableChangeOwnerCandidateDomainIds(model ISharableBaseModel) []string {
+	var candidates []string
+	if model.GetIsPublic() {
+		switch model.GetPublicScope() {
+		case rbacutils.ScopeSystem:
+			return candidates
+		case rbacutils.ScopeDomain:
+			candidates = model.GetSharedDomains()
+		}
+	}
+	ownerId := model.GetOwnerId()
+	if ownerId != nil && len(ownerId.GetProjectDomainId()) > 0 {
+		candidates = append(candidates, ownerId.GetProjectDomainId())
+	}
+	return candidates
+}
+
+func ISharableMergeChangeOwnerCandidateDomainIds(model ISharableBaseModel, candidates ...[]string) []string {
+	var ret stringutils2.SSortedStrings
+	for i := range candidates {
+		if len(candidates[i]) > 0 {
+			cand := stringutils2.NewSortedStrings(candidates[i])
+			ownerId := model.GetOwnerId()
+			if ownerId != nil && len(ownerId.GetProjectDomainId()) > 0 && !cand.Contains(ownerId.GetProjectDomainId()) {
+				cand = stringutils2.Append(cand, ownerId.GetProjectDomainId())
+			}
+			if len(ret) > 0 {
+				ret = stringutils2.Intersect(ret, cand)
+			} else {
+				ret = stringutils2.NewSortedStrings(cand)
+			}
+		}
+	}
+	return ret
+}
+
+func ISharableMergeShareRequireDomainIds(requiredIds ...[]string) []string {
+	var ret stringutils2.SSortedStrings
+	for i := range requiredIds {
+		if len(requiredIds[i]) > 0 {
+			req := stringutils2.NewSortedStrings(requiredIds[i])
+			if ret == nil {
+				ret = req
+			} else {
+				ret = stringutils2.Merge(ret, req)
+			}
+		} else {
+			return nil
+		}
+	}
+	return ret
 }
 
 func SharableModelIsSharable(model ISharableBaseModel, reqUsrId mcclient.IIdentityProvider) bool {
@@ -280,40 +336,52 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		return errors.Wrap(httperrors.ErrInputParameter, "cannot set shared_projects and shared_domains at the same time")
 	} else if len(input.SharedProjects) > 0 && targetScope != rbacutils.ScopeProject {
 		targetScope = rbacutils.ScopeProject
-		// return errors.Wrapf(httperrors.ErrInputParameter, "scope %s != project when shared_projects specified", targetScope)
 	} else if len(input.SharedDomains) > 0 && targetScope != rbacutils.ScopeDomain {
 		targetScope = rbacutils.ScopeDomain
-		// return errors.Wrapf(httperrors.ErrInputParameter, "scope %s != domain when shared_domains specified", targetScope)
 	}
 
 	shareResult := apis.PerformPublicInput{
 		Scope: string(targetScope),
 	}
 
+	candidateIds := model.GetSharableTargetDomainIds()
+	requireIds := model.GetRequiredSharedDomainIds()
+
 	switch targetScope {
 	case rbacutils.ScopeProject:
+		if len(requireIds) == 0 {
+			return errors.Wrap(httperrors.ErrForbidden, "require to be shared to system")
+		} else if len(requireIds) > 1 {
+			return errors.Wrap(httperrors.ErrForbidden, "require to be shared to other domain")
+		}
 		if len(input.SharedProjects) == 0 {
 			return errors.Wrap(httperrors.ErrEmptyRequest, "empty shared target project list")
 		}
-		shareResult.SharedProjects, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, input.SharedProjects)
+		shareResult.SharedProjects, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, input.SharedProjects, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget")
 		}
 	case rbacutils.ScopeDomain:
-		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil)
+		if len(requireIds) == 0 {
+			return errors.Wrap(httperrors.ErrForbidden, "require to be shared to system")
+		}
+		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget clean projects")
 		}
-		shareResult.SharedDomains, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, input.SharedDomains)
+		shareResult.SharedDomains, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, input.SharedDomains, candidateIds, requireIds)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget add domains")
 		}
 	case rbacutils.ScopeSystem:
-		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil)
+		if len(candidateIds) > 0 {
+			return errors.Wrapf(httperrors.ErrForbidden, "sharing is limited to domains %s", jsonutils.Marshal(candidateIds))
+		}
+		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget clean projects")
 		}
-		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil)
+		_, err = SharedResourceManager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "shareToTarget clean domainss")
 		}
@@ -340,8 +408,15 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 }
 
 func SharablePerformPrivate(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential) error {
-	if !model.GetIsPublic() {
+	if !model.GetIsPublic() && model.GetPublicScope() == rbacutils.ScopeNone {
 		return nil
+	}
+
+	requireIds := model.GetRequiredSharedDomainIds()
+	if len(requireIds) == 0 {
+		return errors.Wrap(httperrors.ErrForbidden, "require to be shared to system")
+	} else if len(requireIds) > 1 {
+		return errors.Wrap(httperrors.ErrForbidden, "require to be shared to other domain")
 	}
 
 	requireScope := model.GetPublicScope()

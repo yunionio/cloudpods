@@ -136,11 +136,14 @@ func init() {
 	R(&PolicyPatchOptions{}, "policy-patch", "Patch policy", updateFunc)
 	R(&PolicyPatchOptions{}, "policy-update", "Update policy", updateFunc)
 
-	type PolicyPerformOptions struct {
-		ID string `help:"ID of policy to update"`
+	type PolicyPublicOptions struct {
+		ID            string   `help:"ID of policy to update" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
 	}
-	R(&PolicyPerformOptions{}, "policy-public", "Mark a policy public", func(s *mcclient.ClientSession, args *PolicyPerformOptions) error {
-		result, err := modules.Policies.PerformAction(s, args.ID, "public", nil)
+	R(&PolicyPublicOptions{}, "policy-public", "Mark a policy public", func(s *mcclient.ClientSession, args *PolicyPublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Policies.PerformAction(s, args.ID, "public", params)
 		if err != nil {
 			return err
 		}
@@ -148,7 +151,10 @@ func init() {
 		return nil
 	})
 
-	R(&PolicyPerformOptions{}, "policy-private", "Mark a policy private", func(s *mcclient.ClientSession, args *PolicyPerformOptions) error {
+	type PolicyPrivateOptions struct {
+		ID string `help:"ID of policy to update" json:"-"`
+	}
+	R(&PolicyPrivateOptions{}, "policy-private", "Mark a policy private", func(s *mcclient.ClientSession, args *PolicyPrivateOptions) error {
 		result, err := modules.Policies.PerformAction(s, args.ID, "private", nil)
 		if err != nil {
 			return err
@@ -184,11 +190,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		yaml, err := result.GetString("policy")
-		if err != nil {
-			return err
-		}
-		fmt.Println(yaml)
+		printObject(result)
 		return nil
 	})
 

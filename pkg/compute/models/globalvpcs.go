@@ -218,3 +218,15 @@ func (globalVpc *SGlobalVpc) GetUsages() []db.IUsage {
 		&usage,
 	}
 }
+
+func (globalVpc *SGlobalVpc) GetRequiredSharedDomainIds() []string {
+	vpcs, _ := globalVpc.GetVpcs()
+	if len(vpcs) == 0 {
+		return globalVpc.SEnabledStatusInfrasResourceBase.GetRequiredSharedDomainIds()
+	}
+	requires := make([][]string, len(vpcs))
+	for i := range vpcs {
+		requires[i] = db.ISharableChangeOwnerCandidateDomainIds(&vpcs[i])
+	}
+	return db.ISharableMergeShareRequireDomainIds(requires...)
+}

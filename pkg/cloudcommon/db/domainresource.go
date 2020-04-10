@@ -17,6 +17,8 @@ package db
 import (
 	"context"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -153,10 +155,9 @@ func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, u
 	}
 
 	// change domain, do check
-	if managed, ok := model.GetIDomainLevelModel().(IManagedResoucceBase); ok {
-		if !managed.CanShareToDomain(ownerId.GetProjectDomainId()) {
-			return nil, errors.Wrap(httperrors.ErrForbidden, "cann't share across domain")
-		}
+	candidates := model.GetIDomainLevelModel().GetChangeOwnerCandidateDomainIds()
+	if len(candidates) > 0 && !utils.IsInStringArray(ownerId.GetProjectDomainId(), candidates) {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "target domain not in change owner candidate list")
 	}
 
 	if !IsAdminAllowPerform(userCred, model, "change-owner") {
@@ -298,4 +299,12 @@ func (model *SDomainLevelResourceBase) ValidateUpdateData(
 		return input, errors.Wrap(err, "SStandaloneResourceBase.ValidateUpdateData")
 	}
 	return input, nil
+}
+
+func (model *SDomainLevelResourceBase) AllowGetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "change-owner-candidate-domains")
+}
+
+func (model *SDomainLevelResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
+	return IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model.GetIDomainLevelModel())
 }

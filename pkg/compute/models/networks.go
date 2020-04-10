@@ -2515,3 +2515,14 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 	}
 	return net.SSharableVirtualResourceBase.PerformStatus(ctx, userCred, query, input)
 }
+
+func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
+	candidates := [][]string{
+		net.SSharableVirtualResourceBase.GetChangeOwnerCandidateDomainIds(),
+	}
+	wire := net.GetWire()
+	if wire != nil {
+		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(wire))
+	}
+	return db.ISharableMergeChangeOwnerCandidateDomainIds(net, candidates...)
+}

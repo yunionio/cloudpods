@@ -394,7 +394,7 @@ func (self *SStorage) GetSnapshotCount() (int, error) {
 }
 
 func (self *SStorage) IsLocal() bool {
-	return self.StorageType == api.STORAGE_LOCAL || self.StorageType == api.STORAGE_BAREMETAL
+	return utils.IsInStringArray(self.StorageType, api.HOST_STORAGE_LOCAL_TYPES)
 }
 
 func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
@@ -1455,4 +1455,26 @@ func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	// not allow to perform public for locally connected storage
+	if storage.IsLocal() {
+		hosts := storage.GetAttachedHosts()
+		if len(hosts) > 0 {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform public for local storage")
+		}
+	}
+	return storage.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
+}
+
+func (storage *SStorage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	// not allow to perform private for locally conencted storage
+	if storage.IsLocal() {
+		hosts := storage.GetAttachedHosts()
+		if len(hosts) > 0 {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform private for local storage")
+		}
+	}
+	return storage.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 }

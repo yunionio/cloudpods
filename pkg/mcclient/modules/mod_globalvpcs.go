@@ -29,7 +29,7 @@ var (
 func init() {
 	GlobalVpcs = GlobalVpcManager{NewComputeManager("globalvpc", "globalvpcs",
 		[]string{},
-		[]string{"ID", "Name", "Description", "Status", "Enabled"})}
+		[]string{"ID", "Name", "Description", "Status", "Enabled", "public_scope"})}
 
 	registerCompute(&GlobalVpcs)
 }

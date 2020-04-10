@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -69,16 +71,16 @@ func (manager *SSharedResourceManager) CleanModelShares(ctx context.Context, use
 	resScope := model.GetModelManager().ResourceScope()
 	switch resScope {
 	case rbacutils.ScopeProject:
-		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil)
+		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetProject, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "remove shared project")
 		}
-		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil)
+		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "remove shared domain")
 		}
 	case rbacutils.ScopeDomain:
-		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil)
+		_, err = manager.shareToTarget(ctx, userCred, model, SharedTargetDomain, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "remove shared domain")
 		}
@@ -92,6 +94,8 @@ func (manager *SSharedResourceManager) shareToTarget(
 	model ISharableBaseModel,
 	targetType string,
 	targetIds []string,
+	candidateIds []string,
+	requireDomainIds []string,
 ) ([]string, error) {
 	var requireScope rbacutils.TRbacScope
 	resScope := model.GetModelManager().ResourceScope()
@@ -159,7 +163,10 @@ func (manager *SSharedResourceManager) shareToTarget(
 				return nil, errors.Wrapf(err, "fetch domain %s error", targetIds[i])
 			}
 			if domain.GetId() == modelOwnerId.GetProjectDomainId() {
-				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't share to self domain")
+				return nil, errors.Wrapf(httperrors.ErrBadRequest, "can't share to self domain %s", modelOwnerId.GetProjectDomainId())
+			}
+			if len(candidateIds) > 0 && !utils.IsInStringArray(domain.GetId(), candidateIds) {
+				return nil, errors.Wrapf(httperrors.ErrForbidden, "share target domain %s not in candidate list %s", domain.GetId(), candidateIds)
 			}
 			newIds = stringutils2.Append(newIds, domain.GetId())
 		}
@@ -168,6 +175,14 @@ func (manager *SSharedResourceManager) shareToTarget(
 
 	if len(delIds) == 0 && len(addIds) == 0 {
 		return keepIds, nil
+	}
+
+	if targetType == SharedTargetDomain && len(requireDomainIds) > 0 && len(delIds) > 0 {
+		for _, delId := range delIds {
+			if utils.IsInStringArray(delId, requireDomainIds) {
+				return nil, errors.Wrapf(httperrors.ErrForbidden, "domain %s is required to share", delId)
+			}
+		}
 	}
 
 	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionPerform, "public")

@@ -295,6 +295,8 @@ type IDomainLevelModel interface {
 	SyncCloudDomainId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
 
 	GetIDomainLevelModel() IDomainLevelModel
+
+	IOwnerResourceBaseModel
 }
 
 type IInfrasModelManager interface {
@@ -308,7 +310,6 @@ type IInfrasModel interface {
 	ISharableBase
 
 	GetIInfrasModel() IInfrasModel
-	GetSharedDomains() []string
 }
 
 type IVirtualModelManager interface {
@@ -328,6 +329,8 @@ type IVirtualModel interface {
 	SyncCloudProjectId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider)
 
 	GetIVirtualModel() IVirtualModel
+
+	IOwnerResourceBaseModel
 }
 
 type ISharableVirtualModelManager interface {
@@ -342,7 +345,6 @@ type ISharableVirtualModel interface {
 
 	GetISharableVirtualModel() ISharableVirtualModel
 	GetSharedProjects() []string
-	GetSharedDomains() []string
 }
 
 type IAdminSharableVirtualModelManager interface {
