@@ -26,6 +26,8 @@ import (
 
 type Vpcs map[string]*Vpc
 type Networks map[string]*Network
+type Guests map[string]*Guest
+type Hosts map[string]*Host                 // host-vpc as key
 type Guestnetworks map[string]*Guestnetwork // guestId as key
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
@@ -78,6 +80,67 @@ func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 		m.Networks[subId] = subEntry
 	}
 	return correct
+}
+
+func (set Guests) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Servers
+}
+
+func (set Guests) NewModel() db.IModel {
+	return &Guest{}
+}
+
+func (set Guests) AddModel(i db.IModel) {
+	m := i.(*Guest)
+	set[m.Id] = m
+}
+
+func (set Guests) Copy() apihelper.IModelSet {
+	setCopy := Guests{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
+}
+
+func (set Guests) joinHosts(subEntries Hosts) bool {
+	correct := true
+	for gId, g := range set {
+		hId := g.HostId
+		if hId == "" {
+			continue
+		}
+		h, ok := subEntries[hId]
+		if !ok {
+			log.Warningf("guest %s(%s): host id %s not found",
+				gId, g.Name, hId)
+			correct = false
+			continue
+		}
+		g.Host = h
+	}
+	return correct
+}
+
+func (set Hosts) ModelManager() mcclient_modulebase.IBaseManager {
+	return &mcclient_modules.Hosts
+}
+
+func (set Hosts) NewModel() db.IModel {
+	return &Host{}
+}
+
+func (set Hosts) AddModel(i db.IModel) {
+	m := i.(*Host)
+	set[m.Id] = m
+}
+
+func (set Hosts) Copy() apihelper.IModelSet {
+	setCopy := Hosts{}
+	for id, el := range set {
+		setCopy[id] = el.Copy()
+	}
+	return setCopy
 }
 
 func (set Networks) ModelManager() mcclient_modulebase.IBaseManager {
@@ -145,4 +208,20 @@ func (set Guestnetworks) Copy() apihelper.IModelSet {
 		setCopy[id] = el.Copy()
 	}
 	return setCopy
+}
+
+func (set Guestnetworks) joinGuests(subEntries Guests) bool {
+	correct := true
+	for _, gn := range set {
+		gId := gn.GuestId
+		g, ok := subEntries[gId]
+		if !ok {
+			log.Warningf("guestnetwork %d(%s,%s) guest id %s not found",
+				gn.Index, gn.NetworkId, gn.IpAddr, gId)
+			correct = false
+			continue
+		}
+		gn.Guest = g
+	}
+	return correct
 }
