@@ -146,6 +146,9 @@ func (p *SLoadbalancerAgentParamsVrrp) validatePeer(pp *SLoadbalancerAgentParams
 	if p.VirtualRouterId != pp.VirtualRouterId {
 		return fmt.Errorf("vrrp virtual_router_id of peer lbagents must be the same: %d != %d", p.VirtualRouterId, pp.VirtualRouterId)
 	}
+	if p.AdvertInt != pp.AdvertInt {
+		return fmt.Errorf("vrrp advert_int of peer lbagents must be the same: %d != %d", p.AdvertInt, pp.AdvertInt)
+	}
 	if p.Preempt != pp.Preempt {
 		return fmt.Errorf("vrrp preempt property of peer lbagents must be the same: %v != %v", p.Preempt, pp.Preempt)
 	}
@@ -160,6 +163,9 @@ func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentPar
 	if p.VirtualRouterId != pp.VirtualRouterId {
 		return true
 	}
+	if p.AdvertInt != pp.AdvertInt {
+		return true
+	}
 	if p.Preempt != pp.Preempt {
 		return true
 	}
@@ -171,6 +177,7 @@ func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentPar
 
 func (p *SLoadbalancerAgentParamsVrrp) updateBy(pp *SLoadbalancerAgentParamsVrrp) {
 	p.VirtualRouterId = pp.VirtualRouterId
+	p.AdvertInt = pp.AdvertInt
 	p.Preempt = pp.Preempt
 	p.Pass = pp.Pass
 }
