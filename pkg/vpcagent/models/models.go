@@ -49,11 +49,34 @@ func (el *Network) Copy() *Network {
 type Guestnetwork struct {
 	compute_models.SGuestnetwork
 
+	Guest   *Guest   `json:"-"`
 	Network *Network `json:"-"`
 }
 
 func (el *Guestnetwork) Copy() *Guestnetwork {
 	return &Guestnetwork{
 		SGuestnetwork: el.SGuestnetwork,
+	}
+}
+
+type Guest struct {
+	compute_models.SGuest
+
+	Host *Host `json:"-"`
+}
+
+func (el *Guest) Copy() *Guest {
+	return &Guest{
+		SGuest: el.SGuest,
+	}
+}
+
+type Host struct {
+	compute_models.SHost
+}
+
+func (el *Host) Copy() *Host {
+	return &Host{
+		SHost: el.SHost,
 	}
 }
