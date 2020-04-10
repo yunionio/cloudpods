@@ -276,6 +276,10 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 func (self *SGuestImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	out api.GuestImageDetails) api.GuestImageDetails {
 
+	if query.Contains("image_ids") {
+		out.ImageIds, _ = query.Get("image_ids")
+	}
+
 	if self.Status != api.IMAGE_STATUS_ACTIVE {
 		self.checkStatus(ctx, userCred)
 		out.Status = self.Status
