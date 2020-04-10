@@ -200,9 +200,9 @@ func SharableManagerFilterByOwner(manager IStandaloneModelManager, q *sqlchemy.S
 
 type SSharableBaseResource struct {
 	// 是否共享
-	IsPublic bool `default:"false" nullable:"false" list:"user"`
+	IsPublic bool `default:"false" nullable:"false" list:"user" create:"domain_optional"`
 	// 默认共享范围
-	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" list:"user"`
+	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" list:"user" create:"domain_optional"`
 	// 共享设置的来源, local: 本地设置, cloud: 从云上同步过来
 	// example: local
 	PublicSrc string `width:"10" charset:"ascii" nullable:"true" list:"user" json:"public_src"`
