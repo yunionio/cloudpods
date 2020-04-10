@@ -138,6 +138,8 @@ class ModelAPI(FuncDispatcher):
     def gen_identity(self):
         self.run(pkg=["keystone", "models"], out=["identity"])
 
+    def gen_monitor(self):
+        self.run(pkg=["monitor", "models"], out=["monitor"])
 
 class SwaggerCode(FuncDispatcher):
 
@@ -172,6 +174,9 @@ class SwaggerCode(FuncDispatcher):
     def gen_image(self):
         self.run("image", pkg=["models"], out="image")
 
+    def gen_monitor(self):
+        self.run("monitor", pkg=["models"], out="monitor")
+
 
 class SwaggerYAML(FuncDispatcher):
 
@@ -195,6 +200,9 @@ class SwaggerYAML(FuncDispatcher):
 
     def gen_image(self):
         self.run("image")
+
+    def gen_monitor(self):
+        self.run("monitor")
 
 
 class SwaggerServe(object):
