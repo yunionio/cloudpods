@@ -1232,7 +1232,12 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 
 func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	conf := b.GetRawIPMIConfig()
-	if conf == nil || conf.Password == "" {
+	if conf == nil {
+		log.Debugf("GetIPMIConfig conf is nil")
+		return nil
+	}
+	if conf.Password == "" {
+		log.Debugf("GetIPMIConfig password is nil")
 		return nil
 	}
 	if conf.Username == "" {
@@ -1251,6 +1256,7 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	}
 	conf.Password = utils.Unquote(conf.Password) // XXX: remove quotes!!!
 	if conf.IpAddr == "" {
+		log.Debugf("GetIPMIConfig ipaddr s nil")
 		return nil
 	}
 	return conf
@@ -1333,6 +1339,7 @@ func (b *SBaremetalInstance) SetExistingIPMIIPAddr(ipAddr string) {
 func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
 	conf := b.GetIPMIConfig()
 	if conf == nil {
+		log.Debugf("GetIPMIConfig is nil")
 		return nil
 	}
 	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
@@ -1629,6 +1636,10 @@ func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jso
 }
 
 func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if data == nil {
+		session := b.manager.GetClientSession()
+		data, _ = b.manager.fetchBaremetal(session, b.GetId())
+	}
 	err := b.SaveDesc(data)
 	return nil, err
 }
