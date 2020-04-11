@@ -108,7 +108,9 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	if len(raidDiskInfo) > 0 {
 		raidDrivers := []string{}
 		for _, drv := range raidDiskInfo {
-			raidDrivers = append(raidDrivers, drv.Driver)
+			if !utils.IsInStringArray(drv.Driver, raidDrivers) {
+				raidDrivers = append(raidDrivers, drv.Driver)
+			}
 		}
 		storageDriver = strings.Join(raidDrivers, ",")
 	} else {
