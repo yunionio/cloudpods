@@ -35,6 +35,12 @@ func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Co
 	return &ResourceManager{man}
 }
 
+type IClusterResourceManager interface {
+	modulebase.Manager
+	GetRaw(s *mcclient.ClientSession, id string, params *jsonutils.JSONDict) (jsonutils.JSONObject, error)
+	UpdateRaw(s *mcclient.ClientSession, id string, query, body *jsonutils.JSONDict) (jsonutils.JSONObject, error)
+}
+
 type ClusterResourceManager struct {
 	*ResourceManager
 }
@@ -48,6 +54,14 @@ func NewClusterResourceManager(keyword, keywordPlural string, columns, adminColu
 func (man ClusterResourceManager) GetCluster(obj jsonutils.JSONObject) interface{} {
 	cluster, _ := obj.GetString("cluster")
 	return cluster
+}
+
+func (man ClusterResourceManager) GetRaw(s *mcclient.ClientSession, id string, params *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return man.GetSpecific(s, id, "rawdata", params)
+}
+
+func (man ClusterResourceManager) UpdateRaw(s *mcclient.ClientSession, id string, query, rawdata *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return man.PutSpecific(s, id, "rawdata", query, rawdata)
 }
 
 type MetaResourceManager struct {
