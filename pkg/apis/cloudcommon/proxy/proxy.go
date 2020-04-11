@@ -39,3 +39,8 @@ func (ps *SProxySetting) IsZero() bool {
 	}
 	return false
 }
+
+type ProxySettingTestInput struct {
+	HttpProxy  string
+	HttpsProxy string
+}
