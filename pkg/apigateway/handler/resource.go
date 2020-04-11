@@ -606,28 +606,45 @@ func (f *ResourceHandlers) patchJointHandler(ctx context.Context, w http.Respons
 	}
 }
 
-// batch update Joint
+// * batch update Joint
+// * put specific
+// /<resname>/<resid>/<resname2>
+// /<resname>/<resid>/<spec>
 func (f *ResourceHandlers) batchUpdateJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	req := newRequest(ctx, w, r).WithMod1().WithMod2()
+	req := newRequest(ctx, w, r).WithMod1()
 	if err := req.Error(); err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	session := req.Session()
 	module := req.Mod1()
-	module2 := req.Mod2()
 	body := req.Body()
 	query := req.Query()
 
-	idlist := fetchIdList(query, w)
-	if idlist == nil {
+	if idlist, _ := query.GetArray("id"); len(idlist) == 0 {
+		// do put specific
+		spec := req.ResName2()
+		obj, e := module.PutSpecific(session, req.ResID(), spec, query, body)
+		if e != nil {
+			httperrors.GeneralServerError(w, e)
+		} else {
+			appsrv.SendJSON(w, obj)
+		}
 		return
 	}
+
+	req = req.WithMod2()
+	if err := req.Error(); err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	module2 := req.Mod2()
 	jmod, e := modulebase.GetJointModule2(session, module, module2)
 	if e != nil { // update joint
 		httperrors.GeneralServerError(w, e)
 		return
 	}
+	idlist := fetchIdList(query, w)
 	ret := jmod.BatchUpdate(session, req.ResID(), idlist, query, body)
 	w.WriteHeader(207)
 	appsrv.SendJSON(w, modulebase.SubmitResults2JSON(ret))
