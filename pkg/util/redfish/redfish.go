@@ -535,10 +535,12 @@ func (r *SBaseRedfishClient) readLogs(ctx context.Context, path string, subsys s
 	for {
 		resp, err := r.Get(ctx, path)
 		if err != nil {
-			if httputils.ErrorCode(err) == 404 {
-				break
-			}
-			return nil, errors.Wrap(err, path)
+			log.Errorf("Get %s fail %s", path, err)
+			break
+			// if httputils.ErrorCode(err) == 404 {
+			// 	break
+			// }
+			// return nil, errors.Wrap(err, path)
 		}
 		tmpEvents := make([]SEvent, 0)
 		err = resp.Unmarshal(&tmpEvents, r.IRedfishDriver().LogItemsKey())
