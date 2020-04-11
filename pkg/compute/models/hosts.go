@@ -108,7 +108,7 @@ type SHost struct {
 	// 物理机序列号信息
 	SN string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	// CPU大小
+	// CPU核数
 	CpuCount int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// 物理CPU颗数
 	NodeCount int8 `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
@@ -3120,15 +3120,17 @@ func (self *SHost) GetNetifName(netif *SNetInterface) string {
 func fetchIpmiInfo(data api.HostIpmiAttributes, hostId string) (types.SIPMIInfo, error) {
 	info := types.SIPMIInfo{}
 	info.Username = data.IpmiUsername
-	if len(hostId) > 0 {
-		value, err := utils.EncryptAESBase64(hostId, data.IpmiPassword)
-		if err != nil {
-			log.Errorf("encrypt password failed %s", err)
-			return info, errors.Wrap(err, "utils.EncryptAESBase64")
+	if len(data.IpmiPassword) > 0 {
+		if len(hostId) > 0 {
+			value, err := utils.EncryptAESBase64(hostId, data.IpmiPassword)
+			if err != nil {
+				log.Errorf("encrypt password failed %s", err)
+				return info, errors.Wrap(err, "utils.EncryptAESBase64")
+			}
+			info.Password = value
+		} else {
+			info.Password = data.IpmiPassword
 		}
-		info.Password = value
-	} else {
-		info.Password = data.IpmiPassword
 	}
 	if len(data.IpmiIpAddr) > 0 && !regutils.MatchIP4Addr(data.IpmiIpAddr) {
 		msg := fmt.Sprintf("ipmi_ip_addr: %s not valid ipv4 address", data.IpmiIpAddr)
