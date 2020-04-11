@@ -839,6 +839,7 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb 
 	instance.Properties.StorageProfile.OsDisk.Name = ""
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
+	instance.Properties.VmId = ""
 	err = region.client.Update(jsonutils.Marshal(instance), nil)
 	if err != nil {
 		// 更新失败，需要删除之前交换过的系统盘
