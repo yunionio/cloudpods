@@ -51,7 +51,7 @@ type SDomainLevelResourceBase struct {
 
 	// 归属Domain信息的来源, local: 本地设置, cloud: 从云上同步过来
 	// example: local
-	DomainSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:"" json:"domain_src"`
+	DomainSrc string `width:"10" charset:"ascii" nullable:"true" list:"user" default:"" json:"domain_src"`
 }
 
 func (self *SDomainLevelResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

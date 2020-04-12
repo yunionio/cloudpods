@@ -55,7 +55,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -4808,39 +4807,13 @@ func (self *SHost) AllowGetDetailsJnlp(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SHost) GetDetailsJnlp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ipmi, err := self.GetIpmiInfo()
+	url := fmt.Sprintf("/baremetals/%s/jnlp", self.Id)
+	header := mcclient.GetTokenHeaders(userCred)
+	resp, err := self.BaremetalSyncRequest(ctx, "POST", url, header, nil)
 	if err != nil {
-		return nil, httperrors.NewInvalidStatusError("no valid ipmi_info")
+		return nil, errors.Wrap(err, "BaremetalSyncRequest")
 	}
-	if !ipmi.Verified {
-		return nil, httperrors.NewInvalidStatusError("no veried ipmi_info")
-	}
-	if self.SysInfo == nil {
-		return nil, httperrors.NewInvalidStatusError("no valid sys_info")
-	}
-	ipmiPass, err := utils.DescryptAESBase64(self.Id, ipmi.Password)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("decrypt ipmi password fail: %s", err)
-	}
-	bmc := bmconsole.NewBMCConsole(ipmi.IpAddr, ipmi.Username, ipmiPass, false)
-	manufacture, _ := self.SysInfo.GetString("manufacture")
-	var jnlp string
-	switch strings.ToLower(manufacture) {
-	case "hp", "hpe":
-		jnlp, err = bmc.GetIloConsoleJNLP(ctx)
-	case "dell", "dell inc.":
-		sku, _ := self.SysInfo.GetString("sku")
-		model, _ := self.SysInfo.GetString("model")
-		jnlp, err = bmc.GetIdracConsoleJNLP(ctx, sku, model)
-	default:
-		return nil, httperrors.NewNotImplementedError("Unsupported manufacture %s", manufacture)
-	}
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(jnlp), "jnlp")
-	return ret, nil
+	return resp, nil
 }
 
 func (self *SHost) AllowPerformInsertIso(ctx context.Context,
