@@ -539,7 +539,7 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		if err != nil {
 			return errors.Wrap(err, "JSONDict.unmarshalStruct")
 		}
-		depInfo, ok := fieldValues[index].Info.Tags["deprecated-by"]
+		depInfo, ok := fieldValues[index].Info.Tags[TAG_DEPRECATED_BY]
 		if ok {
 			err := setStructFieldAt(depInfo, v, fieldValues, visited)
 			if err != nil {
