@@ -85,6 +85,8 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.ClassicCompute/domainNames":            "2015-12-01", //2014-01-01, 2014-06-01, 2015-06-01, 2015-10-01, 2015-12-01, 2016-04-01, 2016-11-01, 2017-11-01, 2017-11-15
 	"Microsoft.Compute/locations":                     "2018-06-01",
 	"microsoft.insights/eventtypes/management/values": "2017-03-01-preview",
+	"Microsoft.Authorization/policyDefinitions":       "2019-09-01",
+	"Microsoft.Authorization/policyAssignments":       "2019-09-01",
 }
 
 type AzureClientConfig struct {
@@ -128,6 +130,7 @@ func (cfg *AzureClientConfig) Debug(debug bool) *AzureClientConfig {
 func NewAzureClient(cfg *AzureClientConfig) (*SAzureClient, error) {
 	client := SAzureClient{
 		AzureClientConfig: cfg,
+		debug:             cfg.debug,
 	}
 	err := client.fetchRegions()
 	if err != nil {

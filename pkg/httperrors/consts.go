@@ -83,6 +83,8 @@ const (
 
 	ErrTooManyAttempts = errors.Error("TooManyFailedAttempts")
 	ErrTooManyRequests = errors.Error("TooManyRequests")
+
+	ErrPolicyDefinition = errors.Error("PolicyDefinitionError")
 )
 
 var (
@@ -155,6 +157,8 @@ var (
 
 		ErrTooManyAttempts: 429,
 		ErrTooManyRequests: 429,
+
+		ErrPolicyDefinition: 409,
 	}
 )
 
