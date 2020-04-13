@@ -15,8 +15,6 @@
 package shell
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -78,24 +76,6 @@ func init() {
 			return err
 		}
 		printObject(proxysetting)
-		return nil
-	})
-	R(&options.ProxySettingPublicOptions{}, "proxysetting-public", "Make proxysetting public", func(s *mcclient.ClientSession, opts *options.ProxySettingPublicOptions) error {
-		params := jsonutils.Marshal(opts)
-		result, err := modules.ProxySettings.PerformAction(s, opts.ID, "public", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-	R(&options.ProxySettingPrivateOptions{}, "proxysetting-private", "Make proxysetting private", func(s *mcclient.ClientSession, opts *options.ProxySettingPrivateOptions) error {
-		params := jsonutils.Marshal(opts)
-		result, err := modules.ProxySettings.PerformAction(s, opts.ID, "private", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
 		return nil
 	})
 }

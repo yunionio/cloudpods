@@ -84,7 +84,7 @@ type SCloudAccountCreateBaseOptions struct {
 
 	ProjectDomain string `help:"domain for this account"`
 
-	ProxySetting string `help:"proxy setting id or name" json:"proxy_setting"`
+	ProxySettingId string `help:"proxy setting id or name" json:"proxy_setting_id"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {
@@ -231,7 +231,7 @@ type SCloudAccountUpdateBaseOptions struct {
 
 	SyncIntervalSeconds int    `help:"auto synchornize interval in seconds"`
 	AutoCreateProject   *bool  `help:"automatically create local project for new remote project"`
-	ProxySetting        string `help:"proxy setting name or id" json:"proxy_setting"`
+	ProxySettingId      string `help:"proxy setting name or id" json:"proxy_setting_id"`
 
 	Desc string `help:"Description" json:"description" token:"desc"`
 }
