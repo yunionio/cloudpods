@@ -118,7 +118,7 @@ func (self *GuestDetachScalingGroupTask) OnDeleteGuestComplete(ctx context.Conte
 	}
 
 	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_REMOVE_GUEST, fmt.Sprintf("Instance '%s' was removed", guestId), self.UserCred, true)
-	if auto, err := self.Params.Bool("auto"); err == nil || !auto {
+	if auto, _ := self.Params.Bool("auto"); !auto {
 		// scale; change the desire number
 		err := sg.Scale(ctx, SScalingTriggerDesc{guestName}, SScalingActionDesc{})
 		if err != nil {

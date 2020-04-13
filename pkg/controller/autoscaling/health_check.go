@@ -44,7 +44,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 	checkEarliestTime := time.Now().Add(-10 * time.Minute)
 	// Fetch all unhealth status instace
 	unnormalGuests := make([]sUnnormalGuest, 0, 5)
-	sgQ := models.ScalingGroupManager.Query("id").IsFalse("enabled").SubQuery()
+	sgQ := models.ScalingGroupManager.Query("id").IsTrue("enabled").SubQuery()
 	sggQ := models.ScalingGroupGuestManager.Query("guest_id", "scaling_group_id").In("scaling_group_id", sgQ).SubQuery()
 	q := models.GuestManager.Query("id", "status").In("status", UnhealthStatus).LT("created_at", checkEarliestTime)
 	q = q.Join(sggQ, sqlchemy.Equals(q.Field("id"), sggQ.Field("guest_id")))
@@ -55,7 +55,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 	}
 	for rows.Next() {
 		var ug sUnnormalGuest
-		rows.Scan(&ug)
+		rows.Scan(&ug.Id, &ug.Status, &ug.ScalngGroupId)
 		unnormalGuests = append(unnormalGuests, ug)
 	}
 	rows.Close()
@@ -83,7 +83,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 
 	if len(readyGuestList) > 0 {
 		go func() {
-			time.Sleep(3 * time.Minute)
+			time.Sleep(2 * time.Minute)
 			q := models.GuestManager.Query("id").In("id", readyGuestList).Equals("status", apis.VM_READY)
 			rows, err := q.Rows()
 			if err != nil {
