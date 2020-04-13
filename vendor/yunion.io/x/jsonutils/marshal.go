@@ -83,21 +83,60 @@ func marshalStruct(val reflect.Value, info *reflectutils.SStructFieldInfo) JSONO
 	}
 }
 
+func findValueByKey(pairs []JSONPair, key string) JSONObject {
+	for i := range pairs {
+		if pairs[i].key == key {
+			return pairs[i].val
+		}
+	}
+	return nil
+}
+
 func struct2JSONPairs(val reflect.Value) []JSONPair {
 	fields := reflectutils.FetchStructFieldValueSet(val)
 	objPairs := make([]JSONPair, 0, len(fields))
+	depFields := make(map[string]string)
 	for i := 0; i < len(fields); i += 1 {
 		jsonInfo := fields[i].Info
 		if jsonInfo.Ignore {
 			continue
 		}
 		key := jsonInfo.MarshalName()
+		if deprecatedBy, ok := fields[i].Info.Tags[TAG_DEPRECATED_BY]; ok {
+			depFields[key] = deprecatedBy
+			continue
+		}
 		val := marshalValue(fields[i].Value, jsonInfo)
 		if val != nil && val != JSONNull {
 			objPair := JSONPair{key: key, val: val}
 			objPairs = append(objPairs, objPair)
 		}
 	}
+	depPairs := make([]JSONPair, 0, len(depFields))
+	for depKey, key := range depFields {
+		findLoop := false
+		for {
+			if okey, ok := depFields[key]; ok {
+				if okey == depKey {
+					// loop detected
+					findLoop = true
+					break
+				}
+				key = okey
+			} else {
+				break
+			}
+		}
+		if findLoop {
+			continue
+		}
+		val := findValueByKey(objPairs, key)
+		if val != nil {
+			objPair := JSONPair{key: depKey, val: val}
+			depPairs = append(depPairs, objPair)
+		}
+	}
+	objPairs = append(objPairs, depPairs...)
 	return objPairs
 }
 

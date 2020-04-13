@@ -80,8 +80,7 @@ type CloudaccountCreateInput struct {
 	// 额外信息,例如账单的access key
 	Options *jsonutils.JSONObject `json:"options"`
 
-	// 代理配置
-	ProxySettingId string `json:"proxy_setting_id"`
+	proxyapi.ProxySettingResourceInput
 
 	cloudprovider.SCloudaccount
 	cloudprovider.SCloudaccountCredential
