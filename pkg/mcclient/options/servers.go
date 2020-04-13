@@ -61,6 +61,8 @@ type ServerListOptions struct {
 	ScalingGroup string `help:"ScalingGroup's id or name'"`
 
 	BaseListOptions
+
+	VpcProvider string `help:"filter by vpc's provider" json:"vpc_provider"`
 }
 
 type ServerIdOptions struct {

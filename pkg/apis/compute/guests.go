@@ -30,7 +30,7 @@ type ServerListInput struct {
 
 	HostFilterListInput
 
-	NetworkFilterListInput
+	NetworkFilterListInput `"yunion:ambiguous-prefix":"vpc_"`
 
 	billing.BillingResourceListInput
 
