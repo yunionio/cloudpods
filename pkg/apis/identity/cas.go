@@ -25,9 +25,9 @@ type SCASIdpConfigOptions struct {
 
 	AutoCreateCasProject tristate.TriState `json:"auto_create_cas_project"`
 
-	DefaultProjectId string `json:"default_project_id"`
+	DefaultCasProjectId string `json:"default_cas_project_id"`
 
 	CasRoleAttribute string `json:"cas_role_attribute"`
 
-	DefaultRoleId string `json:"default_role_id"`
+	DefaultCasRoleId string `json:"default_cas_role_id"`
 }

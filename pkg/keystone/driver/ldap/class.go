@@ -37,6 +37,10 @@ func (self *SLDAPDriverClass) Name() string {
 	return api.IdentityDriverLDAP
 }
 
+func (self *SLDAPDriverClass) ValidateConfig(conf api.TConfigs) error {
+	return nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SLDAPDriverClass{})
 }

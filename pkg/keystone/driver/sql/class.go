@@ -37,6 +37,10 @@ func (self *SSQLDriverClass) Name() string {
 	return api.IdentityDriverSQL
 }
 
+func (self *SSQLDriverClass) ValidateConfig(conf api.TConfigs) error {
+	return nil
+}
+
 func init() {
 	driver.RegisterDriverClass(&SSQLDriverClass{})
 }

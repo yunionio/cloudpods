@@ -171,10 +171,10 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 			}
 		}
 	}
-	if targetProject == nil && len(self.casConfig.DefaultProjectId) > 0 {
-		targetProject, err = models.ProjectManager.FetchProjectById(self.casConfig.DefaultProjectId)
+	if targetProject == nil && len(self.casConfig.DefaultCasProjectId) > 0 {
+		targetProject, err = models.ProjectManager.FetchProjectById(self.casConfig.DefaultCasProjectId)
 		if err != nil {
-			log.Errorf("fetch default project %s fail %s", self.casConfig.DefaultProjectId, err)
+			log.Errorf("fetch default project %s fail %s", self.casConfig.DefaultCasProjectId, err)
 		}
 	}
 	if targetProject != nil {
@@ -189,10 +189,10 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 				}
 			}
 		}
-		if targetRole == nil && len(self.casConfig.DefaultRoleId) > 0 {
-			targetRole, err = models.RoleManager.FetchRoleById(self.casConfig.DefaultRoleId)
+		if targetRole == nil && len(self.casConfig.DefaultCasRoleId) > 0 {
+			targetRole, err = models.RoleManager.FetchRoleById(self.casConfig.DefaultCasRoleId)
 			if err != nil {
-				log.Errorf("fetch default role %s fail %s", self.casConfig.DefaultRoleId, err)
+				log.Errorf("fetch default role %s fail %s", self.casConfig.DefaultCasRoleId, err)
 			}
 		}
 		if targetRole != nil {

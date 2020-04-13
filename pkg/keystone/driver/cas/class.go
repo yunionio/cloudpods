@@ -15,8 +15,16 @@
 package cas
 
 import (
+	"database/sql"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
+	"yunion.io/x/onecloud/pkg/keystone/models"
 )
 
 type SCASDriverClass struct{}
@@ -35,6 +43,38 @@ func (self *SCASDriverClass) NewDriver(idpId, idpName, template, targetDomainId 
 
 func (self *SCASDriverClass) Name() string {
 	return api.IdentityDriverCAS
+}
+
+func (self *SCASDriverClass) ValidateConfig(tconf api.TConfigs) error {
+
+	conf := api.SCASIdpConfigOptions{}
+	confJson := jsonutils.Marshal(tconf["cas"])
+	log.Debugf("%s %s", tconf, confJson)
+	err := confJson.Unmarshal(&conf)
+	if err != nil {
+		return errors.Wrap(err, "unmarshal config")
+	}
+	if len(conf.DefaultCasProjectId) > 0 {
+		_, err := models.ProjectManager.FetchProjectById(conf.DefaultCasProjectId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultCasProjectId)
+			} else {
+				return errors.Wrap(err, "FetchProjectById")
+			}
+		}
+	}
+	if len(conf.DefaultCasRoleId) > 0 {
+		_, err := models.RoleManager.FetchRoleById(conf.DefaultCasRoleId)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultCasRoleId)
+			} else {
+				return errors.Wrap(err, "FetchRoleById")
+			}
+		}
+	}
+	return nil
 }
 
 func init() {
