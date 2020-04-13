@@ -894,7 +894,7 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 	for i := range projects {
 		for j := range roles {
 			if isUser {
-				err = AssignmentManager.projectAddUser(ctx, userCred, projects[i], ident.(*SUser), roles[j])
+				err = AssignmentManager.ProjectAddUser(ctx, userCred, projects[i], ident.(*SUser), roles[j])
 			} else {
 				err = AssignmentManager.projectAddGroup(ctx, userCred, projects[i], ident.(*SGroup), roles[j])
 			}

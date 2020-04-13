@@ -345,7 +345,7 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	}
 	switch obj := ctxObjs[1].(type) {
 	case *SUser:
-		return nil, AssignmentManager.projectAddUser(ctx, userCred, project, obj, role)
+		return nil, AssignmentManager.ProjectAddUser(ctx, userCred, project, obj, role)
 	case *SGroup:
 		return nil, AssignmentManager.projectAddGroup(ctx, userCred, project, obj, role)
 	default:

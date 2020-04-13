@@ -760,23 +760,13 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 	}
 
 	if self.AutoCreateProject.IsTrue() && consts.GetNonDefaultDomainProjects() {
-		project := &SProject{}
-		project.SetModelManager(ProjectManager, project)
-		projectName := NormalizeProjectName(fmt.Sprintf("%s_default_project", extName))
-		newName, err := db.GenerateName(ProjectManager, nil, projectName)
+		_, err := ProjectManager.NewProject(ctx,
+			fmt.Sprintf("%s_default_project", extName),
+			fmt.Sprintf("Default project for domain %s", extName),
+			domain,
+		)
 		if err != nil {
-			// ignore the error
-			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
-			newName = projectName
-		}
-		project.Name = newName
-		project.DomainId = domain.Id
-		project.Description = fmt.Sprintf("Default project for domain %s", extName)
-		project.IsDomain = tristate.False
-		project.ParentId = domain.Id
-		err = ProjectManager.TableSpec().Insert(project)
-		if err != nil {
-			log.Errorf("ProjectManager.Insert fail %s", err)
+			log.Errorf("ProjectManager.NewProject fail %s", err)
 		}
 	}
 

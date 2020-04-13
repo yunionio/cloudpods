@@ -29,11 +29,13 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -390,12 +392,21 @@ func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) 
 
 func NormalizeProjectName(name string) string {
 	name = pinyinutils.Text2Pinyin(name)
-	for _, illChar := range []string{
-		"/", ".", " ",
-	} {
-		name = strings.Replace(name, illChar, "", -1)
+	newName := strings.Builder{}
+	lastSlash := false
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			newName.WriteRune(c)
+			lastSlash = false
+		} else if c >= 'A' && c <= 'Z' {
+			newName.WriteRune(c - 'A' + 'a')
+			lastSlash = false
+		} else if !lastSlash {
+			newName.WriteRune('-')
+			lastSlash = true
+		}
 	}
-	return name
+	return newName.String()
 }
 
 func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExtended, error) {
@@ -516,7 +527,7 @@ func (project *SProject) PerformJoin(
 
 	for i := range users {
 		for j := range roles {
-			err = AssignmentManager.projectAddUser(ctx, userCred, project, users[i], roles[j])
+			err = AssignmentManager.ProjectAddUser(ctx, userCred, project, users[i], roles[j])
 			if err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -614,4 +625,33 @@ func (project *SProject) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (manager *SProjectManager) NewProject(ctx context.Context, name string, desc string, domain *SDomain) (*SProject, error) {
+	lockman.LockClass(ctx, manager, domain.Id)
+	defer lockman.ReleaseClass(ctx, manager, domain.Id)
+
+	project := &SProject{}
+	project.SetModelManager(ProjectManager, project)
+	projectName := NormalizeProjectName(name)
+	ownerId := &db.SOwnerId{}
+	if manager.NamespaceScope() == rbacutils.ScopeDomain {
+		ownerId.DomainId = domain.Id
+	}
+	newName, err := db.GenerateName(ProjectManager, ownerId, projectName)
+	if err != nil {
+		// ignore the error
+		log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
+		newName = projectName
+	}
+	project.Name = newName
+	project.DomainId = domain.Id
+	project.Description = desc
+	project.IsDomain = tristate.False
+	project.ParentId = domain.Id
+	err = ProjectManager.TableSpec().Insert(project)
+	if err != nil {
+		return nil, errors.Wrap(err, "Insert")
+	}
+	return project, nil
 }
