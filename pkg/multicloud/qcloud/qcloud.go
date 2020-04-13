@@ -50,6 +50,7 @@ const (
 	QCLOUD_CLB_API_VERSION     = "2018-03-17"
 	QCLOUD_BILLING_API_VERSION = "2018-07-09"
 	QCLOUD_AUDIT_API_VERSION   = "2019-03-19"
+	QCLOUD_CAM_API_VERSION     = "2019-01-16"
 )
 
 type QcloudClientConfig struct {
@@ -180,6 +181,11 @@ func vpc2017Request(client *common.Client, apiName string, params map[string]str
 func billingRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "billing.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
+}
+
+func camRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "cam.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_CAM_API_VERSION, apiName, params, debug, true)
 }
 
 func monitorRequest(client *common.Client, apiName string, params map[string]string,
@@ -519,6 +525,14 @@ func (client *SQcloudClient) billingRequest(apiName string, params map[string]st
 	return billingRequest(cli, apiName, params, client.debug)
 }
 
+func (client *SQcloudClient) camRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return camRequest(cli, apiName, params, client.debug)
+}
+
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -665,6 +679,10 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 
 func (client *SQcloudClient) GetAccountId() string {
 	return client.ownerName
+}
+
+func (client *SQcloudClient) GetIamLoginUrl() string {
+	return fmt.Sprintf("https://cloud.tencent.com/login/subAccount?account=%s", client.ownerName)
 }
 
 func (client *SQcloudClient) GetIRegions() []cloudprovider.ICloudRegion {

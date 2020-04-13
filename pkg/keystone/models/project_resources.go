@@ -24,28 +24,30 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
-type SProjectResourceManager struct {
+type SScopeResourceManager struct {
 	db.SModelBaseManager
 }
 
-var ProjectResourceManager *SProjectResourceManager
+var ScopeResourceManager *SScopeResourceManager
 
 func init() {
-	ProjectResourceManager = &SProjectResourceManager{
+	ScopeResourceManager = &SScopeResourceManager{
 		SModelBaseManager: db.NewModelBaseManager(
-			SProjectResource{},
-			"project_resource_tbl",
-			"project_resource",
-			"project_resources",
+			SScopeResource{},
+			"scope_resource_tbl",
+			"scope_resource",
+			"scope_resources",
 		),
 	}
-	ProjectResourceManager.SetVirtualObject(ProjectResourceManager)
+	ScopeResourceManager.SetVirtualObject(ScopeResourceManager)
 }
 
-type SProjectResource struct {
+type SScopeResource struct {
 	db.SModelBase
 
+	DomainId  string `width:"64" charset:"ascii" primary:"true"`
 	ProjectId string `width:"64" charset:"ascii" primary:"true"`
+	OwnerId   string `width:"64" charset:"ascii" primary:"true"`
 	RegionId  string `width:"32" charset:"ascii" primary:"true"`
 	ServiceId string `width:"32" charset:"ascii" primary:"true"`
 	Resource  string `width:"32" charset:"ascii" primary:"true"`
@@ -53,22 +55,30 @@ type SProjectResource struct {
 	UpdatedAt time.Time `nullable:"true" updated_at:"true"`
 }
 
-type sProjectResourceCount struct {
+type sScopeResourceCount struct {
 	Resource   string
 	ResCount   int
 	LastUpdate time.Time
 }
 
-func (manager *SProjectResourceManager) getProjectResource(projId string) (map[string]int, time.Time, error) {
+func (manager *SScopeResourceManager) getScopeResource(domainId, projId, ownerId string) (map[string]int, time.Time, error) {
 	resources := manager.Query().SubQuery()
 	q := resources.Query(
 		resources.Field("resource"),
 		sqlchemy.SUM("res_count", resources.Field("count")),
 		sqlchemy.MAX("last_update", resources.Field("updated_at")),
 	)
-	q = q.Filter(sqlchemy.Equals(resources.Field("project_id"), projId))
+	if len(domainId) > 0 {
+		q = q.Filter(sqlchemy.Equals(resources.Field("domain_id"), domainId))
+	}
+	if len(projId) > 0 {
+		q = q.Filter(sqlchemy.Equals(resources.Field("project_id"), projId))
+	}
+	if len(ownerId) > 0 {
+		q = q.Filter(sqlchemy.Equals(resources.Field("owner_id"), ownerId))
+	}
 	q = q.GroupBy(resources.Field("resource"))
-	resCnts := make([]sProjectResourceCount, 0)
+	resCnts := make([]sScopeResourceCount, 0)
 	err := q.All(&resCnts)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, time.Time{}, errors.Wrap(err, "query.All")

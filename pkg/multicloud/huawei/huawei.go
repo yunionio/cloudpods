@@ -86,7 +86,8 @@ type SHuaweiClient struct {
 
 	isMainProject bool // whether the project is the main project in the region
 
-	ownerId string
+	ownerId   string
+	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -121,7 +122,7 @@ func (self *SHuaweiClient) init() error {
 		return errors.Wrap(err, "fetchOwner")
 	}
 	if self.debug {
-		log.Debugf("OwnerId: %s", self.ownerId)
+		log.Debugf("OwnerId: %s name: %s", self.ownerId, self.ownerName)
 	}
 	return nil
 }
@@ -312,6 +313,10 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 
 func (client *SHuaweiClient) GetAccountId() string {
 	return client.ownerId
+}
+
+func (client *SHuaweiClient) GetIamLoginUrl() string {
+	return fmt.Sprintf("https://auth.huaweicloud.com/authui/login.html#/login?account=%s", client.ownerName)
 }
 
 func (self *SHuaweiClient) GetIRegions() []cloudprovider.ICloudRegion {
@@ -508,6 +513,7 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 
 	type user struct {
 		DomainId string `json:"domain_id"`
+		Name     string `json:"name"`
 	}
 
 	ret := &user{}
@@ -515,7 +521,7 @@ func (self *SHuaweiClient) GetOwnerId() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.DoGet")
 	}
-
+	self.ownerName = ret.Name
 	return ret.DomainId, nil
 }
 

@@ -19,6 +19,7 @@ import (
 	_ "yunion.io/x/onecloud/cmd/climc/shell"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/ansible"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/cloudevent"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/cloudid"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/cloudnet"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/compute"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/etcd"

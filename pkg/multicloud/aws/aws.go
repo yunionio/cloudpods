@@ -15,12 +15,19 @@
 package aws
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	sdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/client/metadata"
+	"github.com/aws/aws-sdk-go/aws/corehandlers"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	"github.com/aws/aws-sdk-go/private/protocol/query"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -74,6 +81,7 @@ func (cfg *AwsClientConfig) CloudproviderConfig(cpcfg cloudprovider.ProviderConf
 
 func (cfg *AwsClientConfig) Debug(debug bool) *AwsClientConfig {
 	cfg.debug = debug
+	DEBUG = debug
 	return cfg
 }
 
@@ -396,6 +404,45 @@ func (self *SAwsClient) GetAccessEnv() string {
 	}
 }
 
+func (self *SAwsClient) request(serviceName, serviceId, apiVersion string, apiName string, params map[string]string, retval interface{}) error {
+	session, err := self.getAwsSession("")
+	if err != nil {
+		return err
+	}
+	c := session.ClientConfig(serviceName)
+	metadata := metadata.ClientInfo{
+		ServiceName:   serviceName,
+		ServiceID:     serviceId,
+		SigningName:   c.SigningName,
+		SigningRegion: c.SigningRegion,
+		Endpoint:      c.Endpoint,
+		APIVersion:    apiVersion,
+	}
+
+	if self.debug {
+		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
+		c.Config.LogLevel = &logLevel
+	}
+
+	client := client.New(*c.Config, metadata, c.Handlers)
+	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
+	client.Handlers.Build.PushBackNamed(buildHandler)
+	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
+	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
+	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
+	client.Handlers.Validate.Remove(corehandlers.ValidateEndpointHandler)
+	return jsonRequest(client, apiName, params, retval, true)
+
+}
+
+func (self *SAwsClient) iamRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.request(IAM_SERVICE_NAME, IAM_SERVICE_ID, "2010-05-08", apiName, params, retval)
+}
+
+func (self *SAwsClient) stsRequest(apiName string, params map[string]string, retval interface{}) error {
+	return self.request(STS_SERVICE_NAME, STS_SERVICE_ID, "2011-06-15", apiName, params, retval)
+}
+
 func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
 	op := &request.Operation{
 		Name:       apiName,
@@ -412,6 +459,9 @@ func jsonRequest(cli *client.Client, apiName string, params map[string]string, r
 	req := cli.NewRequest(op, params, retval)
 	err := req.Send()
 	if err != nil {
+		if e, ok := err.(awserr.RequestFailure); ok && e.StatusCode() == 404 {
+			return cloudprovider.ErrNotFound
+		}
 		return err
 	}
 	return nil
@@ -444,4 +494,19 @@ func cloudWatchRequest(cli *client.Client, apiName string, params *cloudwatch.Ge
 		return err
 	}
 	return nil
+}
+
+func (client *SAwsClient) GetIamLoginUrl() string {
+	identity, err := client.GetCallerIdentity()
+	if err != nil {
+		log.Errorf("failed to get caller identity error: %v", err)
+		return ""
+	}
+
+	switch client.accessUrl {
+	case "ChinaCloud":
+		return fmt.Sprintf("https://%s.signin.amazonaws.cn/console/", identity.Account)
+	default:
+		return fmt.Sprintf("https://%s.signin.aws.amazon.com/console/", identity.Account)
+	}
 }

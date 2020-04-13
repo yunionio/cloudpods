@@ -424,7 +424,7 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 
 func (manager *SLoadbalancerAclManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }
 
 func (manager *SLoadbalancerAclManager) InitializeData() error {

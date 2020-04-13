@@ -36,7 +36,7 @@ type SKeystoneOptions struct {
 
 	DefaultSyncIntervalSeconds int `help:"frequency to do auto sync tasks" default:"900"`
 
-	FetchProjectResourceCountIntervalSeconds int `help:"frequency tp fetch project resource counts" default:"900"`
+	FetchScopeResourceCountIntervalSeconds int `help:"frequency tp fetch project resource counts" default:"900"`
 
 	PasswordExpirationSeconds  int `help:"password expires after the duration in seconds"`
 	PasswordMinimalLength      int `help:"password minimal length" default:"6"`

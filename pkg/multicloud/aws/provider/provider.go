@@ -43,6 +43,14 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SAwsProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (self *SAwsProviderFactory) IsSupportCreateCloudgroup() bool {
+	return true
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {
 	output := cloudprovider.SCloudaccount{}
 	if len(input.AccessKeyId) == 0 {
@@ -117,6 +125,14 @@ func (self *SAwsProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SAwsProvider) GetIamLoginUrl() string {
+	return self.client.GetIamLoginUrl()
+}
+
+func (self *SAwsProvider) IsSupportCloudId() bool {
+	return cloudprovider.IsSupportCloudId(self)
+}
+
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -162,4 +178,32 @@ func (self *SAwsProvider) GetCloudRegionExternalIdPrefix() string {
 
 func (self *SAwsProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SAwsProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SAwsProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SAwsProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroups()
+}
+
+func (self *SAwsProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return self.client.GetICloudgroupByName(name)
+}
+
+func (self *SAwsProvider) CreateICloudgroup(name, desc string) (cloudprovider.ICloudgroup, error) {
+	return self.client.CreateICloudgroup(name, desc)
+}
+
+func (self *SAwsProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetICloudpolicies()
+}
+
+func (self *SAwsProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
 }

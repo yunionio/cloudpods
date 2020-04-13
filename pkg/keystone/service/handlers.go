@@ -63,7 +63,7 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.FernetKeyManager,
 
-		models.ProjectResourceManager,
+		models.ScopeResourceManager,
 
 		db.SharedResourceManager,
 

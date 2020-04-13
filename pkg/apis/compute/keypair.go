@@ -21,7 +21,7 @@ var KEYPAIR_SCHEMAS = []string{
 }
 
 type KeypairCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.UserResourceCreateInput
 
 	// 公钥内容,若为空则自动生成公钥
 	PublicKey string `json:"public_key"`
@@ -32,9 +32,6 @@ type KeypairCreateInput struct {
 	// swagger:ignore
 	Fingerprint string
 
-	// swagger:ignore
-	OwnerId string
-
 	// 秘钥类型
 	// enum: RSA
 	// default: RSA
@@ -42,14 +39,11 @@ type KeypairCreateInput struct {
 }
 
 type KeypairDetails struct {
-	apis.StandaloneResourceDetails
+	apis.UserResourceDetails
 	SKeypair
 
 	// 私钥长度
 	PrivateKeyLen int `json:"private_key_len"`
 	// 关联云主机次数
 	LinkedGuestCount int `json:"linked_guest_count"`
-
-	// 用户名称
-	OwnerName string `json:"owner_name"`
 }

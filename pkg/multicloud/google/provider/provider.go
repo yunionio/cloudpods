@@ -49,6 +49,30 @@ func (self *SGoogleProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SGoogleProviderFactory) IsClouduserSupportPassword() bool {
+	return false
+}
+
+func (factory *SGoogleProviderFactory) IsSupportClouduser() bool {
+	return true
+}
+
+func (factory *SGoogleProviderFactory) IsClouduserNeedInitPolicy() bool {
+	return true
+}
+
+func (factory *SGoogleProviderFactory) IsSupportResetClouduserPassword() bool {
+	return false
+}
+
+func (factory *SGoogleProviderFactory) GetClouduserMinPolicyCount() int {
+	return 1
+}
+
+func (self *SGoogleProviderFactory) IsClouduserBelongCloudprovider() bool {
+	return true
+}
+
 func (self *SGoogleProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -182,6 +206,14 @@ func (self *SGoogleProvider) GetAccountId() string {
 	return self.client.GetAccountId()
 }
 
+func (self *SGoogleProvider) GetIamLoginUlr() string {
+	return "https://console.cloud.google.com"
+}
+
+func (self *SGoogleProvider) IsSupportCloudId() bool {
+	return self.client.IsSupportCloudId()
+}
+
 func (self *SGoogleProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -206,4 +238,28 @@ func (self *SGoogleProvider) GetStorageClasses(regionId string) []string {
 
 func (self *SGoogleProvider) GetCapabilities() []string {
 	return self.client.GetCapabilities()
+}
+
+func (self *SGoogleProvider) GetICloudusers() ([]cloudprovider.IClouduser, error) {
+	return self.client.GetICloudusers()
+}
+
+func (self *SGoogleProvider) GetICloudgroups() ([]cloudprovider.ICloudgroup, error) {
+	return []cloudprovider.ICloudgroup{}, nil
+}
+
+func (self *SGoogleProvider) GetICloudgroupByName(name string) (cloudprovider.ICloudgroup, error) {
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SGoogleProvider) GetISystemCloudpolicies() ([]cloudprovider.ICloudpolicy, error) {
+	return self.client.GetISystemCloudpolicies()
+}
+
+func (self *SGoogleProvider) CreateIClouduser(conf *cloudprovider.SClouduserCreateConfig) (cloudprovider.IClouduser, error) {
+	return self.client.CreateIClouduser(conf)
+}
+
+func (self *SGoogleProvider) GetIClouduserByName(name string) (cloudprovider.IClouduser, error) {
+	return self.client.GetIClouduserByName(name)
 }

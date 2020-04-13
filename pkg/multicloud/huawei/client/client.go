@@ -84,6 +84,8 @@ type Client struct {
 	CloudEye           *modules.SCloudEyeManager
 	Quotas             *modules.SQuotaManager
 	EnterpriseProjects *modules.SEnterpriseProjectManager
+	Roles              *modules.SRoleManager
+	Groups             *modules.SGroupManager
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
@@ -137,6 +139,8 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.Traces.SetHttpClient(httpClient)
 	self.CloudEye.SetHttpClient(httpClient)
 	self.EnterpriseProjects.SetHttpClient(httpClient)
+	self.Roles.SetHttpClient(httpClient)
+	self.Groups.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithOptions(regionId, domainId, projectId string, credential auth.Credential) error {
@@ -198,6 +202,7 @@ func (self *Client) initManagers() {
 		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Subnets = modules.NewSubnetManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Users = modules.NewUserManager(self.signer, self.debug)
+		self.Users.SetDomainId(self.domainId)
 		self.Interface = modules.NewInterfaceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Jobs = modules.NewJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Balances = modules.NewBalanceManager(self.signer, self.debug)
@@ -218,6 +223,10 @@ func (self *Client) initManagers() {
 		self.Quotas = modules.NewQuotaManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.EnterpriseProjects = modules.NewEnterpriseProjectManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.EnterpriseProjects.SetDomainId(self.domainId)
+		self.Roles = modules.NewRoleManager(self.signer, self.debug)
+		self.Roles.SetDomainId(self.domainId)
+		self.Groups = modules.NewGroupManager(self.signer, self.debug)
+		self.Groups.SetDomainId(self.domainId)
 	}
 
 	self.init = true

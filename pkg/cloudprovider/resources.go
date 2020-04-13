@@ -952,3 +952,44 @@ type ICloudQuota interface {
 	GetMaxQuotaCount() int
 	GetCurrentQuotaUsedCount() int
 }
+
+// 公有云子账号
+type IClouduser interface {
+	GetGlobalId() string
+	GetName() string
+
+	GetICloudgroups() ([]ICloudgroup, error)
+
+	GetISystemCloudpolicies() ([]ICloudpolicy, error)
+	AttachSystemPolicy(policyType string) error
+	DetachSystemPolicy(policyId string) error
+	Delete() error
+
+	ResetPassword(password string) error
+	IsConsoleLogin() bool
+}
+
+// 公有云子账号权限
+type ICloudpolicy interface {
+	GetGlobalId() string
+	GetName() string
+	//GetPolicyType() string
+	GetDescription() string
+}
+
+// 公有云用户组
+type ICloudgroup interface {
+	GetGlobalId() string
+	GetName() string
+	GetDescription() string
+	GetISystemCloudpolicies() ([]ICloudpolicy, error)
+	GetICloudusers() ([]IClouduser, error)
+
+	AddUser(name string) error
+	RemoveUser(name string) error
+
+	AttachSystemPolicy(policyId string) error
+	DetachSystemPolicy(policyId string) error
+
+	Delete() error
+}

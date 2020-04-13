@@ -402,5 +402,5 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(ctx context.Contex
 
 func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SScopeResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
-	return db.CalculateProjectResourceCount(virts)
+	return db.CalculateResourceCount(virts, "tenant_id")
 }

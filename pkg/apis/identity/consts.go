@@ -14,8 +14,10 @@
 
 package identity
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	SERVICE_TYPE = "identity"
+	SERVICE_TYPE = apis.SERVICE_TYPE_KEYSTONE
 
 	DEFAULT_DOMAIN_ID   = "default"
 	DEFAULT_DOMAIN_NAME = "Default"

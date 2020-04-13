@@ -15,7 +15,12 @@
 package modules
 
 import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
 type SUserManager struct {
@@ -28,10 +33,35 @@ func NewUserManager(signer auth.Signer, debug bool) *SUserManager {
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
-		version:       "v3.0",
+		version:       "v3.0/OS-USER",
 		Keyword:       "user",
 		KeywordPlural: "users",
 
-		ResourceKeyword: "OS-USER/users",
+		ResourceKeyword: "users",
 	}}
+}
+
+func (self *SUserManager) List(querys map[string]string) (*responses.ListResult, error) {
+	self.SetVersion("v3")
+	return self.SResourceManager.List(querys)
+}
+
+func (self *SUserManager) Delete(id string) (jsonutils.JSONObject, error) {
+	self.SetVersion("v3")
+	return self.SResourceManager.Delete(id, nil)
+}
+
+func (self *SUserManager) ResetPassword(id, password string) error {
+	params := map[string]interface{}{
+		"user": map[string]string{
+			"password": password,
+		},
+	}
+	_, err := self.SResourceManager.Update(id, jsonutils.Marshal(params))
+	return err
+}
+
+func (self *SUserManager) ListGroups(userId string) (*responses.ListResult, error) {
+	self.SetVersion("v3")
+	return self.SResourceManager.ListInContextWithSpec(nil, fmt.Sprintf("%s/groups", userId), nil, "groups")
 }

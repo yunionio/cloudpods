@@ -22,10 +22,11 @@ import (
 )
 
 type ListResult struct {
-	Data   []jsonutils.JSONObject
-	Total  int
-	Limit  int
-	Offset int
+	Data     []jsonutils.JSONObject
+	Total    int
+	Limit    int
+	Offset   int
+	NextLink string
 }
 
 func ListResult2JSONWithKey(result *ListResult, key string) jsonutils.JSONObject {

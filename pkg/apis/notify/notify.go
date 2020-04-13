@@ -14,7 +14,9 @@
 
 package notify
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	SERVICE_TYPE    = "notify"
+	SERVICE_TYPE    = apis.SERVICE_TYPE_NOTIFY
 	SERVICE_VERSION = ""
 )

@@ -14,6 +14,8 @@
 
 package yunionconf
 
+import "yunion.io/x/onecloud/pkg/apis"
+
 const (
-	SERVICE_TYPE = "yunionconf"
+	SERVICE_TYPE = apis.SERVICE_TYPE_YUNIONCONF
 )

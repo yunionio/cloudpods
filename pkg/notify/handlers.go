@@ -43,7 +43,8 @@ var API_VERSION = "api/v1"
 func InitHandlers(app *appsrv.Application) {
 	// add version handler with API_VERSION prefix
 	app.AddDefaultHandler("GET", API_VERSION+"/version", appsrv.VersionHandler, "version")
-	db.AddProjectResourceCountHandler(API_VERSION, app)
+	db.AddScopeResourceCountHandler(API_VERSION, app)
+
 	db.RegisterModelManager(models.ContactManager)
 	db.RegisterModelManager(models.VerifyManager)
 	db.RegisterModelManager(models.NotificationManager)

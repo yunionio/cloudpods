@@ -359,7 +359,7 @@ func (manager *SDomainManager) FetchCustomizeColumns(
 			if update.IsZero() {
 				update = time.Now()
 			}
-			nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
+			nextUpdate := update.Add(time.Duration(options.Options.FetchScopeResourceCountIntervalSeconds) * time.Second)
 			rows[i].ExtResourcesNextUpdate = nextUpdate
 		}
 	}
@@ -485,7 +485,7 @@ func (domain *SDomain) UnlinkIdp(idpId string) error {
 }
 
 func (domain *SDomain) getExternalResources() (map[string]int, time.Time, error) {
-	return ProjectResourceManager.getProjectResource(domain.Id)
+	return ScopeResourceManager.getScopeResource(domain.Id, "", "")
 }
 
 func (manager *SDomainManager) ValidateCreateData(
