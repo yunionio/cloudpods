@@ -277,7 +277,7 @@ func (manager *SQuotaManager) FetchIdNames(ctx context.Context, idMap map[string
 }
 
 func (manager *SQuotaManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return fetchDomainInfo(data)
+	return db.FetchDomainInfo(ctx, data)
 }
 
 ///////////////////////////////////////////////////

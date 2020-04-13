@@ -69,6 +69,12 @@ func (model *SDomainizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
+// returns candiate domain Id list that the resource can change owner to
+// nil or empty means any domain
+func (model *SDomainizedResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	return nil
+}
+
 func ValidateCreateDomainId(domainId string) error {
 	if !consts.GetNonDefaultDomainProjects() && domainId != identity.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("project in non-default domain is prohibited")
@@ -140,7 +146,7 @@ func (manager *SDomainizedResourceBaseManager) FetchCustomizeColumns(
 				domainIds = stringutils2.Append(domainIds, base.DomainId)
 			}
 		}
-		domains := FetchProjects(domainIds, true)
+		domains := DefaultProjectsFetcher(ctx, domainIds, true)
 		if domains != nil {
 			for i := range objs {
 				var base *SDomainizedResourceBase

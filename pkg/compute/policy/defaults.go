@@ -269,6 +269,18 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "proxysettings",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  api.SERVICE_TYPE,
+					Resource: "proxysettings",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{

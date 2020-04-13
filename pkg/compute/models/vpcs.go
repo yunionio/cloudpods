@@ -378,7 +378,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 			continue
@@ -490,7 +490,7 @@ func (self *SVpc) SyncGlobalVpc(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
 		// self.Name = extVPC.GetName()
@@ -507,8 +507,9 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
-	if syncOwnerId != nil {
-		SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -542,6 +543,10 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 
 	SyncCloudDomain(userCred, &vpc, provider.GetOwnerId())
 
+	if provider != nil {
+		vpc.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
+
 	db.OpsLog.LogEvent(&vpc, db.ACT_CREATE, vpc.GetShortDesc(ctx), userCred)
 
 	return &vpc, nil
@@ -571,6 +576,7 @@ func (manager *SVpcManager) InitializeData() error {
 			defVpc.Description = "Default VPC"
 			defVpc.Status = api.VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
+			defVpc.PublicScope = string(rbacutils.ScopeSystem)
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
 				log.Errorf("Insert default vpc fail: %s", err)
@@ -581,9 +587,10 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	} else {
 		vpc := vpcObj.(*SVpc)
-		if vpc.Status != api.VPC_STATUS_AVAILABLE {
+		if vpc.Status != api.VPC_STATUS_AVAILABLE || (vpc.PublicScope == string(rbacutils.ScopeSystem) && !vpc.IsPublic) {
 			_, err = db.Update(vpc, func() error {
 				vpc.Status = api.VPC_STATUS_AVAILABLE
+				vpc.IsPublic = true
 				return nil
 			})
 			return err
@@ -1085,4 +1092,27 @@ func (manager *SVpcManager) totalCount(
 	cnt, _ := q.CountWithError()
 
 	return cnt
+}
+
+func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
+	candidates := [][]string{
+		vpc.SEnabledStatusInfrasResourceBase.GetChangeOwnerCandidateDomainIds(),
+	}
+	globalVpc, _ := vpc.GetGlobalVpc()
+	if globalVpc != nil {
+		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(globalVpc))
+	}
+	return db.ISharableMergeChangeOwnerCandidateDomainIds(vpc, candidates...)
+}
+
+func (vpc *SVpc) GetRequiredSharedDomainIds() []string {
+	wires := vpc.GetWires()
+	if len(wires) == 0 {
+		return vpc.SEnabledStatusInfrasResourceBase.GetRequiredSharedDomainIds()
+	}
+	requires := make([][]string, len(wires))
+	for i := range wires {
+		requires[i] = db.ISharableChangeOwnerCandidateDomainIds(&wires[i])
+	}
+	return db.ISharableMergeShareRequireDomainIds(requires...)
 }

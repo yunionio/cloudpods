@@ -1354,6 +1354,9 @@ func (self *SImage) PerformMarkStandard(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	if self.IsGuestImage.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot mark standard to a guest image")
+	}
 	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
 	if !self.IsStandard.IsTrue() && isStandard {
 		input := apis.PerformPublicInput{
@@ -1440,4 +1443,24 @@ func (img *SImage) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	if img.IsStandard.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for standard image")
+	}
+	if img.IsGuestImage.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for guest image")
+	}
+	return img.SSharableVirtualResourceBase.PerformPublic(ctx, userCred, query, input)
+}
+
+func (img *SImage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	if img.IsStandard.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform private for standard image")
+	}
+	if img.IsGuestImage.IsTrue() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform private for guest image")
+	}
+	return img.SSharableVirtualResourceBase.PerformPrivate(ctx, userCred, query, input)
 }

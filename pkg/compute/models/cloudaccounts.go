@@ -1957,18 +1957,32 @@ func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred m
 }
 
 func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountPerformPublicInput) (jsonutils.JSONObject, error) {
-	if input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN && input.ShareMode != api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM {
-		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
+	if !account.CanSync() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot public in sync")
 	}
 
-	if input.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN {
-		providers := account.GetCloudproviders()
-		for i := range providers {
-			if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomains) {
-				log.Warningf("provider's domainId %s is outside of list of shared domains", providers[i].DomainId)
-				input.SharedDomains = append(input.SharedDomains, providers[i].DomainId)
+	switch input.ShareMode {
+	case api.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
+		if len(input.SharedDomains) == 0 {
+			input.Scope = string(rbacutils.ScopeSystem)
+		} else {
+			input.Scope = string(rbacutils.ScopeDomain)
+			providers := account.GetCloudproviders()
+			for i := range providers {
+				if !utils.IsInStringArray(providers[i].DomainId, input.SharedDomains) && providers[i].DomainId != account.DomainId {
+					log.Warningf("provider's domainId %s is outside of list of shared domains", providers[i].DomainId)
+					input.SharedDomains = append(input.SharedDomains, providers[i].DomainId)
+				}
 			}
 		}
+	case api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
+		if len(input.SharedDomains) == 0 {
+			input.Scope = string(rbacutils.ScopeSystem)
+		} else {
+			input.Scope = string(rbacutils.ScopeDomain)
+		}
+	default:
+		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
 	}
 
 	_, err := account.SInfrasResourceBase.PerformPublic(ctx, userCred, query, input.PerformPublicInput)
@@ -1985,6 +1999,9 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
+	syncRange := &SSyncRange{FullSync: true}
+	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+
 	return nil, nil
 }
 
@@ -1993,6 +2010,10 @@ func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred 
 }
 
 func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	if !account.CanSync() {
+		return nil, errors.Wrap(httperrors.ErrInvalidStatus, "cannot private in sync")
+	}
+
 	providers := account.GetCloudproviders()
 	for i := range providers {
 		if providers[i].DomainId != account.DomainId {
@@ -2013,6 +2034,9 @@ func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mccli
 		return nil, errors.Wrap(err, "account.setShareMode")
 	}
 
+	syncRange := &SSyncRange{FullSync: true}
+	account.StartSyncCloudProviderInfoTask(ctx, userCred, syncRange, "")
+
 	return nil, nil
 }
 
@@ -2023,6 +2047,7 @@ func (account *SCloudaccount) AllowPerformShareMode(ctx context.Context, userCre
 
 // Deprecated
 func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.CloudaccountShareModeInput) (jsonutils.JSONObject, error) {
+
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrap(err, "CloudaccountShareModeInput.Validate")
@@ -2081,14 +2106,14 @@ func (manager *SCloudaccountManager) filterByDomainId(q *sqlchemy.SQuery, domain
 		),
 		// share_mode=system/public_scope=domain
 		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			// sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.In(q.Field("id"), subq.SubQuery()),
 			sqlchemy.IsTrue(q.Field("is_public")),
 			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
 		),
 		// share_mode=system/public_scope=system
 		sqlchemy.AND(
-			sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
+			// sqlchemy.Equals(q.Field("share_mode"), api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM),
 			sqlchemy.IsTrue(q.Field("is_public")),
 			sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
 		),

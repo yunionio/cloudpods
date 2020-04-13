@@ -31,7 +31,7 @@ import (
 
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
-	SSharableBaseResource
+	SSharableBaseResource `"is_public=>create":"optional" "public_scope=>create":"optional"`
 	// IsPublic    bool   `default:"false" nullable:"false" create:"domain_optional" list:"user" json:"is_public"`
 	// PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"domain_optional" list:"user" json:"public_scope"`
 }
@@ -70,7 +70,7 @@ func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Contex
 }
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
-	err := SharablePerformPublic(model, ctx, userCred, input)
+	err := SharablePerformPublic(model.GetISharableVirtualModel(), ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
@@ -82,7 +82,7 @@ func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Conte
 }
 
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
-	err := SharablePerformPrivate(model, ctx, userCred)
+	err := SharablePerformPrivate(model.GetISharableVirtualModel(), ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
@@ -207,23 +207,30 @@ func (model *SSharableVirtualResourceBase) Delete(ctx context.Context, userCred 
 }
 
 func (model *SSharableVirtualResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
-	if model.PublicScope != string(apis.OWNER_SOURCE_LOCAL) {
+	if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
 		diff, _ := Update(model, func() error {
+			model.PublicSrc = string(apis.OWNER_SOURCE_CLOUD)
 			switch shareInfo.ShareMode {
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
 				model.IsPublic = true
 				model.PublicScope = string(rbacutils.ScopeDomain)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 				model.IsPublic = true
 				model.PublicScope = string(rbacutils.ScopeDomain)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
 				model.IsPublic = true
 				if shareInfo.IsPublic && shareInfo.PublicScope == rbacutils.ScopeSystem {
 					model.PublicScope = string(rbacutils.ScopeSystem)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
 				} else {
 					model.PublicScope = string(rbacutils.ScopeDomain)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, shareInfo.SharedDomains)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, shareInfo.SharedDomains, nil, nil)
 				}
 			}
 			return nil
@@ -232,4 +239,12 @@ func (model *SSharableVirtualResourceBase) SyncShareState(ctx context.Context, u
 			OpsLog.LogEvent(model, ACT_SYNC_SHARE, diff, userCred)
 		}
 	}
+}
+
+func (model *SSharableVirtualResourceBase) GetSharableTargetDomainIds() []string {
+	return model.GetISharableVirtualModel().GetChangeOwnerCandidateDomainIds()
+}
+
+func (model *SSharableVirtualResourceBase) GetRequiredSharedDomainIds() []string {
+	return []string{model.DomainId}
 }

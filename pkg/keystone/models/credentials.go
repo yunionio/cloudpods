@@ -261,7 +261,7 @@ func (self *SCredential) GetOwnerId() mcclient.IIdentityProvider {
 func (manager *SCredentialManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
 	if len(userStr) > 0 {
-		domainOwner, err := fetchDomainInfo(data)
+		domainOwner, err := db.FetchDomainInfo(ctx, data)
 		if err != nil {
 			return nil, err
 		}

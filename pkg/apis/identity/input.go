@@ -438,6 +438,7 @@ type GroupCreateInput struct {
 
 type PolicyCreateInput struct {
 	EnabledIdentityBaseResourceCreateInput
+	apis.SharableResourceBaseCreateInput
 
 	Type string `json:"type"`
 
@@ -446,4 +447,6 @@ type PolicyCreateInput struct {
 
 type RoleCreateInput struct {
 	IdentityBaseResourceCreateInput
+
+	apis.SharableResourceBaseCreateInput
 }

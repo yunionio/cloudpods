@@ -28,7 +28,8 @@ func init() {
 			"guest_count", "project_domain", "domain_id",
 			"Provider", "Brand",
 			"Enable_Auto_Sync", "Sync_Interval_Seconds",
-			"Share_Mode"},
+			"Share_Mode", "is_public", "public_scope",
+		},
 		[]string{})
 
 	registerCompute(&Cloudaccounts)

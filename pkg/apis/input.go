@@ -59,16 +59,20 @@ type ProjectizedResourceCreateInput struct {
 	ProjectizedResourceInput
 }
 
-type SharableVirtualResourceCreateInput struct {
-	VirtualResourceCreateInput
-
-	// description: indicate the resource is a public resource
+type SharableResourceBaseCreateInput struct {
+	// 是否共享
 	// required: false
 	IsPublic *bool `json:"is_public"`
 
-	// description: indicate the shared scope for a public resource, which can be domain or system or none
+	// 共享范围
 	// required: false
 	PublicScope string `json:"public_scope"`
+}
+
+type SharableVirtualResourceCreateInput struct {
+	VirtualResourceCreateInput
+
+	SharableResourceBaseCreateInput
 }
 
 type VirtualResourceCreateInput struct {
@@ -207,6 +211,8 @@ type PerformDisableInput struct {
 
 type InfrasResourceBaseCreateInput struct {
 	DomainLevelResourceCreateInput
+
+	SharableResourceBaseCreateInput
 }
 
 type StatusInfrasResourceBaseCreateInput struct {

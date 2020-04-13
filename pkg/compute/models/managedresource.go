@@ -245,7 +245,7 @@ func (manager *SManagedResourceBaseManager) FetchCustomizeColumns(
 		return nil
 	}
 
-	projects := db.FetchProjects(projectIds, false)
+	projects := db.DefaultProjectsFetcher(ctx, projectIds, false)
 
 	for i := range rows {
 		if account, ok := accounts[rows[i].AccountId]; ok {
@@ -348,15 +348,14 @@ func (manager *SManagedResourceBaseManager) GetOrderByFields(query api.ManagedRe
 	return []string{query.OrderByManager, query.OrderByAccount, query.OrderByProvider, query.OrderByBrand}
 }
 
-func (model *SManagedResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (api.ChangeOwnerCandidateDomainsOutput, error) {
-	output := api.ChangeOwnerCandidateDomainsOutput{}
+func (model *SManagedResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 	provider := model.GetCloudprovider()
 	if provider == nil {
-		return output, nil
+		return nil
 	}
 	account := model.GetCloudaccount()
 	if account == nil {
-		return output, nil
+		return nil
 	}
 	var candidateIds []string
 	switch account.ShareMode {
@@ -370,19 +369,7 @@ func (model *SManagedResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx con
 			candidateIds = append(candidateIds, account.DomainId)
 		}
 	}
-	domainMap := make(map[string]db.STenant)
-	err := db.FetchQueryObjectsByIds(db.TenantCacheManager.GetDomainQuery(), "id", candidateIds, &domainMap)
-	if err != nil {
-		return output, errors.Wrap(err, "FetchQueryObjectsByIds")
-	}
-	output.Candidates = make([]apis.SharedDomain, len(candidateIds))
-	for i := range candidateIds {
-		output.Candidates[i].Id = candidateIds[i]
-		if domain, ok := domainMap[candidateIds[i]]; ok {
-			output.Candidates[i].Name = domain.Name
-		}
-	}
-	return output, nil
+	return candidateIds
 }
 
 func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {

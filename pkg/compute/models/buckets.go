@@ -36,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -49,7 +48,7 @@ import (
 )
 
 type SBucketManager struct {
-	db.SVirtualResourceBaseManager
+	db.SSharableVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SCloudregionResourceBaseManager
 	SManagedResourceBaseManager
@@ -59,7 +58,7 @@ var BucketManager *SBucketManager
 
 func init() {
 	BucketManager = &SBucketManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
 			SBucket{},
 			"buckets_tbl",
 			"bucket",
@@ -70,7 +69,7 @@ func init() {
 }
 
 type SBucket struct {
-	db.SVirtualResourceBase
+	db.SSharableVirtualResourceBase
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	SManagedResourceBase
@@ -95,7 +94,7 @@ func (manager *SBucketManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInf
 		log.Debugf("upload object, set process timeout to 2 hour!!!")
 		return 2 * time.Hour
 	}
-	return manager.SVirtualResourceBaseManager.SetHandlerProcessTimeout(info, r)
+	return manager.SSharableVirtualResourceBaseManager.SetHandlerProcessTimeout(info, r)
 }
 
 func (manager *SBucketManager) fetchBuckets(provider *SCloudprovider, region *SCloudregion) ([]SBucket, error) {
@@ -233,7 +232,7 @@ func (bucket *SBucket) getStats() cloudprovider.SBucketStats {
 }
 
 func (bucket *SBucket) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
-	desc := bucket.SVirtualResourceBase.GetShortDesc(ctx)
+	desc := bucket.SSharableVirtualResourceBase.GetShortDesc(ctx)
 
 	desc.Add(jsonutils.NewInt(bucket.SizeBytes), "size_bytes")
 	desc.Add(jsonutils.NewInt(int64(bucket.ObjectCnt)), "object_cnt")
@@ -318,7 +317,7 @@ func (bucket *SBucket) Delete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (bucket *SBucket) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return bucket.SVirtualResourceBase.Delete(ctx, userCred)
+	return bucket.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (bucket *SBucket) RemoteDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -398,23 +397,16 @@ func (manager *SBucketManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	input api.BucketCreateInput,
 ) (api.BucketCreateInput, error) {
-	data := input.JSON(input)
-
-	cloudRegionV := validators.NewModelIdOrNameValidator("cloudregion", CloudregionManager.Keyword(), ownerId)
-	managerV := validators.NewModelIdOrNameValidator("manager", CloudproviderManager.Keyword(), ownerId)
-	for _, v := range []validators.IValidator{
-		cloudRegionV,
-		managerV,
-	} {
-		err := v.Validate(data)
-		if err != nil {
-			return input, err
-		}
-	}
-
-	err := data.Unmarshal(&input)
+	var err error
+	var cloudRegionV *SCloudregion
+	cloudRegionV, input.CloudregionResourceInput, err = ValidateCloudregionResourceInput(userCred, input.CloudregionResourceInput)
 	if err != nil {
-		return input, httperrors.NewInternalServerError("unmarshal input fail %s", err)
+		return input, errors.Wrap(err, "ValidateCloudregionResourceInput")
+	}
+	var managerV *SCloudprovider
+	managerV, input.CloudproviderResourceInput, err = ValidateCloudproviderResourceInput(userCred, input.CloudproviderResourceInput)
+	if err != nil {
+		return input, errors.Wrap(err, "ValidateCloudproviderResourceInput")
 	}
 
 	if len(input.Name) == 0 {
@@ -425,18 +417,16 @@ func (manager *SBucketManager) ValidateCreateData(
 		return input, httperrors.NewInputParameterError("invalid bucket name %s: %s", input.Name, err)
 	}
 
-	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId,
-		cloudRegionV.Model.(*SCloudregion),
-		managerV.Model.(*SCloudprovider))
+	quotaKeys := fetchRegionalQuotaKeys(rbacutils.ScopeProject, ownerId, cloudRegionV, managerV)
 	pendingUsage := SRegionQuota{Bucket: 1}
 	pendingUsage.SetKeys(quotaKeys)
 	if err := quotas.CheckSetPendingQuota(ctx, userCred, &pendingUsage); err != nil {
 		return input, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
-	input.VirtualResourceCreateInput, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.VirtualResourceCreateInput)
+	input.SharableVirtualResourceCreateInput, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.SharableVirtualResourceCreateInput)
 	if err != nil {
-		return input, err
+		return input, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ValidateCreateData")
 	}
 	return input, nil
 }
@@ -495,9 +485,9 @@ func (bucket *SBucket) ValidateUpdateData(
 			return input, httperrors.NewInputParameterError("invalid bucket name(%s): %s", input.Name, err)
 		}
 	}
-	input.VirtualResourceBaseUpdateInput, err = bucket.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.VirtualResourceBaseUpdateInput)
+	input.SharableVirtualResourceBaseUpdateInput, err = bucket.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input.SharableVirtualResourceBaseUpdateInput)
 	if err != nil {
-		return input, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+		return input, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
 	return input, nil
 }
@@ -539,14 +529,14 @@ func (manager *SBucketManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.BucketDetails {
 	rows := make([]api.BucketDetails, len(objs))
-	virtRows := manager.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	virtRows := manager.SSharableVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	regionRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.BucketDetails{
-			VirtualResourceDetails:  virtRows[i],
-			ManagedResourceInfo:     managerRows[i],
-			CloudregionResourceInfo: regionRows[i],
+			SharableVirtualResourceDetails: virtRows[i],
+			ManagedResourceInfo:            managerRows[i],
+			CloudregionResourceInfo:        regionRows[i],
 		}
 		rows[i] = objs[i].(*SBucket).getMoreDetails(rows[i])
 	}
@@ -616,9 +606,9 @@ func (manager *SBucketManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
 	}
 
-	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemFilter")
 	}
 
 	if len(query.StorageClass) > 0 {
@@ -636,7 +626,7 @@ func (manager *SBucketManager) ListItemFilter(
 
 func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err = manager.SSharableVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -669,9 +659,9 @@ func (manager *SBucketManager) OrderByExtraFields(
 		return nil, errors.Wrap(err, "SManagedResourceBaseManager.OrderByExtraFields")
 	}
 
-	q, err = manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
+	q, err = manager.SSharableVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SharableVirtualResourceListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.OrderByExtraFields")
 	}
 
 	return q, nil
@@ -1145,7 +1135,7 @@ func (bucket *SBucket) PerformSync(
 }
 
 func (bucket *SBucket) ValidatePurgeCondition(ctx context.Context) error {
-	return bucket.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return bucket.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context) error {

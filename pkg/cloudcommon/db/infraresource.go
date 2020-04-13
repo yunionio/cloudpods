@@ -47,7 +47,7 @@ func NewInfrasResourceBaseManager(
 
 type SInfrasResourceBase struct {
 	SDomainLevelResourceBase
-	SSharableBaseResource
+	SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
 }
 
 func (manager *SInfrasResourceBaseManager) GetIInfrasModelManager() IInfrasModelManager {
@@ -75,7 +75,7 @@ func (model *SInfrasResourceBase) AllowPerformPublic(ctx context.Context, userCr
 }
 
 func (model *SInfrasResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
-	err := SharablePerformPublic(model, ctx, userCred, input)
+	err := SharablePerformPublic(model.GetIInfrasModel(), ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
@@ -87,7 +87,7 @@ func (model *SInfrasResourceBase) AllowPerformPrivate(ctx context.Context, userC
 }
 
 func (model *SInfrasResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
-	err := SharablePerformPrivate(model, ctx, userCred)
+	err := SharablePerformPrivate(model.GetIInfrasModel(), ctx, userCred)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPrivate")
 	}
@@ -214,29 +214,36 @@ func (model *SInfrasResourceBase) Delete(ctx context.Context, userCred mcclient.
 }
 
 func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
-	if model.PublicScope != string(apis.OWNER_SOURCE_LOCAL) {
+	if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
 		diff, _ := Update(model, func() error {
+			model.PublicSrc = string(apis.OWNER_SOURCE_CLOUD)
 			switch shareInfo.ShareMode {
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
 				model.IsPublic = false
 				model.PublicScope = string(rbacutils.ScopeNone)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
 				model.IsPublic = false
 				model.PublicScope = string(rbacutils.ScopeNone)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+				SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 			case compute.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
 				if shareInfo.IsPublic && shareInfo.PublicScope == rbacutils.ScopeSystem {
 					model.IsPublic = true
 					model.PublicScope = string(rbacutils.ScopeSystem)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 				} else if len(shareInfo.SharedDomains) > 0 {
 					model.IsPublic = true
 					model.PublicScope = string(rbacutils.ScopeDomain)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, shareInfo.SharedDomains)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, shareInfo.SharedDomains, nil, nil)
 				} else {
 					model.IsPublic = false
 					model.PublicScope = string(rbacutils.ScopeNone)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetProject, nil, nil, nil)
+					SharedResourceManager.shareToTarget(ctx, userCred, model.GetIInfrasModel(), SharedTargetDomain, nil, nil, nil)
 				}
 			}
 			return nil
@@ -245,4 +252,12 @@ func (model *SInfrasResourceBase) SyncShareState(ctx context.Context, userCred m
 			OpsLog.LogEvent(model, ACT_SYNC_SHARE, diff, userCred)
 		}
 	}
+}
+
+func (model *SInfrasResourceBase) GetSharableTargetDomainIds() []string {
+	return model.GetIInfrasModel().GetChangeOwnerCandidateDomainIds()
+}
+
+func (model *SInfrasResourceBase) GetRequiredSharedDomainIds() []string {
+	return []string{model.DomainId}
 }

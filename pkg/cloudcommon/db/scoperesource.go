@@ -151,7 +151,7 @@ func (m *SScopedResourceBaseManager) PerformSetScope(
 	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "domain", "project_domain_id", "project_domain"})
 	projectId := jsonutils.GetAnyString(data, []string{"project_id", "project"})
 	if projectId != "" {
-		project, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
+		project, err := DefaultProjectFetcher(ctx, projectId)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +159,7 @@ func (m *SScopedResourceBaseManager) PerformSetScope(
 		domainId = project.GetDomainId()
 	}
 	if domainId != "" {
-		domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, domainId)
+		domain, err := DefaultDomainFetcher(ctx, domainId)
 		if err != nil {
 			return nil, err
 		}

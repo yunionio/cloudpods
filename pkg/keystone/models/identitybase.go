@@ -16,16 +16,13 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -223,7 +220,7 @@ func (manager *SEnabledIdentityBaseResourceManager) QueryDistinctExtraField(q *s
 	return q, httperrors.ErrNotFound
 }
 
-func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+/*func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
 		data.(*jsonutils.JSONDict).Remove(key)
@@ -243,7 +240,7 @@ func fetchDomainInfo(data jsonutils.JSONObject) (mcclient.IIdentityProvider, err
 
 func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return fetchDomainInfo(data)
-}
+}*/
 
 func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.IdentityBaseResourceCreateInput) (api.IdentityBaseResourceCreateInput, error) {
 	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
@@ -319,21 +316,22 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
 	rows := make([]api.IdentityBaseResourceDetails, len(objs))
 
 	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	domainRows := manager.SDomainizedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
-	domainIds := stringutils2.SSortedStrings{}
+	// domainIds := stringutils2.SSortedStrings{}
 	for i := range rows {
 		rows[i] = api.IdentityBaseResourceDetails{
 			StandaloneResourceDetails: stdRows[i],
-			DomainizedResourceInfo:    apis.DomainizedResourceInfo{},
+			DomainizedResourceInfo:    domainRows[i],
 		}
-		var base *SIdentityBaseResource
+		/*var base *SIdentityBaseResource
 		reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if base != nil && len(base.DomainId) > 0 && base.DomainId != api.KeystoneDomainRoot {
 			domainIds = stringutils2.Append(domainIds, base.DomainId)
-		}
+		}*/
 	}
 
-	if len(fields) == 0 || fields.Contains("project_domain") {
+	/*if len(fields) == 0 || fields.Contains("project_domain") {
 		domains := fetchDomain(domainIds)
 		if domains != nil {
 			for i := range rows {
@@ -346,7 +344,7 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(
 				}
 			}
 		}
-	}
+	}*/
 	return rows
 }
 
@@ -380,6 +378,7 @@ func (manager *SEnabledIdentityBaseResourceManager) FetchCustomizeColumns(
 	return rows
 }
 
+/*
 func fetchDomain(domainIds []string) map[string]SDomain {
 	q := DomainManager.Query().In("id", domainIds)
 	domains := make([]SDomain, 0)
@@ -392,7 +391,7 @@ func fetchDomain(domainIds []string) map[string]SDomain {
 		ret[domains[i].Id] = domains[i]
 	}
 	return ret
-}
+}*/
 
 func (model *SIdentityBaseResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	model.DomainId = ownerId.GetProjectDomainId()

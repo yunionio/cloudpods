@@ -394,7 +394,7 @@ func (self *SStorage) GetSnapshotCount() (int, error) {
 }
 
 func (self *SStorage) IsLocal() bool {
-	return self.StorageType == api.STORAGE_LOCAL || self.StorageType == api.STORAGE_BAREMETAL
+	return utils.IsInStringArray(self.StorageType, api.HOST_STORAGE_LOCAL_TYPES)
 }
 
 func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
@@ -716,7 +716,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -757,7 +757,7 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extStorage.GetName()
 		self.Status = extStorage.GetStatus()
@@ -780,8 +780,9 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
 
-	if syncOwnerId != nil {
-		SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
@@ -820,6 +821,10 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	}
 
 	SyncCloudDomain(userCred, &storage, provider.GetOwnerId())
+
+	if provider != nil {
+		storage.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
 
@@ -1450,4 +1455,26 @@ func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	// not allow to perform public for locally connected storage
+	if storage.IsLocal() {
+		hosts := storage.GetAttachedHosts()
+		if len(hosts) > 0 {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform public for local storage")
+		}
+	}
+	return storage.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
+}
+
+func (storage *SStorage) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	// not allow to perform private for locally conencted storage
+	if storage.IsLocal() {
+		hosts := storage.GetAttachedHosts()
+		if len(hosts) > 0 {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform private for local storage")
+		}
+	}
+	return storage.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 }

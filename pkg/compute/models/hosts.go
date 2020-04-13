@@ -1519,7 +1519,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider.GetOwnerId())
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1565,7 +1565,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, syncOwnerId mcclient.IIdentityProvider) error {
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extHost.GetName()
 
@@ -1611,7 +1611,10 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudDomain(userCred, self, syncOwnerId)
+	if provider != nil {
+		SyncCloudDomain(userCred, self, provider.GetOwnerId())
+		self.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
@@ -1721,6 +1724,10 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
 
 	SyncCloudDomain(userCred, &host, provider.GetOwnerId())
+
+	if provider != nil {
+		host.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
+	}
 
 	if err := manager.ClearSchedDescCache(host.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", host.Name, err)
@@ -4965,4 +4972,28 @@ func (host *SHost) GetUsages() []db.IUsage {
 	return []db.IUsage{
 		&usage,
 	}
+}
+
+func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+	// perform public for all connected local storage
+	storages := host.GetAttachedLocalStorages()
+	for i := range storages {
+		_, err := storages[i].PerformPublic(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage.PerformPublic")
+		}
+	}
+	return host.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
+}
+
+func (host *SHost) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
+	// perform private for all connected local storage
+	storages := host.GetAttachedLocalStorages()
+	for i := range storages {
+		_, err := storages[i].PerformPrivate(ctx, userCred, query, input)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage.PerformPrivate")
+		}
+	}
+	return host.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 }

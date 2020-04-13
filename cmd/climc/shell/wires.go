@@ -132,4 +132,41 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type WirePublicOptions struct {
+		ID            string   `help:"ID or name of wire" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
+	}
+	R(&WirePublicOptions{}, "wire-public", "Make wire public", func(s *mcclient.ClientSession, args *WirePublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Wires.PerformAction(s, args.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type WirePrivateOptions struct {
+		ID string `help:"ID or name of wire" json:"-"`
+	}
+	R(&WirePrivateOptions{}, "wire-private", "Make wire private", func(s *mcclient.ClientSession, args *WirePrivateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Wires.PerformAction(s, args.ID, "private", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&WireShowOptions{}, "wire-change-owner-candidate-domains", "Show candiate domains of a wire for changing owner", func(s *mcclient.ClientSession, args *WireShowOptions) error {
+		result, err := modules.Wires.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

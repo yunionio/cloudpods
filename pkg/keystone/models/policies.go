@@ -66,7 +66,7 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
-	db.SSharableBaseResource
+	db.SSharableBaseResource `"is_public=>create":"domain_optional" "public_scope=>create":"domain_optional"`
 
 	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" create:"domain_required" update:"domain"`
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" create:"domain_required" update:"domain"`
@@ -308,9 +308,11 @@ func (manager *SPolicyManager) FetchCustomizeColumns(
 ) []api.PolicyDetails {
 	rows := make([]api.PolicyDetails, len(objs))
 	identRows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	shareRows := manager.SSharableBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	for i := range rows {
 		rows[i] = api.PolicyDetails{
 			EnabledIdentityBaseResourceDetails: identRows[i],
+			SharableResourceBaseInfo:           shareRows[i],
 		}
 	}
 	return rows
@@ -329,4 +331,16 @@ func (policy *SPolicy) GetUsages() []db.IUsage {
 
 func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	return db.SharableManagerFilterByOwner(manager, q, owner, scope)
+}
+
+func (policy *SPolicy) GetSharableTargetDomainIds() []string {
+	return nil
+}
+
+func (policy *SPolicy) GetRequiredSharedDomainIds() []string {
+	return []string{policy.DomainId}
+}
+
+func (policy *SPolicy) GetSharedDomains() []string {
+	return db.SharableGetSharedProjects(policy, db.SharedTargetDomain)
 }

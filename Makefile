@@ -10,7 +10,7 @@ BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
 ifeq ($(ONECLOUD_CI_BUILD),)
 	GIT_COMMIT := $(shell git rev-parse --short HEAD)
 	GIT_BRANCH := $(shell git name-rev --name-only HEAD)
-	GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
+	GIT_VERSION := $(shell git describe --always --tags --abbrev=14 $(GIT_COMMIT)^{commit})
 	GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
 	BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 else

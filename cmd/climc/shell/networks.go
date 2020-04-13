@@ -185,10 +185,7 @@ func init() {
 		SharedDomains  []string `help:"share to domains"`
 	}
 	R(&NetworkShareOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShareOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
+		params := jsonutils.Marshal(args)
 		result, err := modules.Networks.PerformAction(s, args.ID, "public", params)
 		if err != nil {
 			return err
@@ -393,6 +390,15 @@ func init() {
 	R(&NetworkStatusOptions{}, "network-status", "Set on-premise network status", func(s *mcclient.ClientSession, args *NetworkStatusOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Networks.PerformAction(s, args.NETWORK, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&NetworkIdOptions{}, "network-change-owner-candidate-domains", "Show candiate domains of a network for changing owner", func(s *mcclient.ClientSession, args *NetworkIdOptions) error {
+		result, err := modules.Networks.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
 		if err != nil {
 			return err
 		}
