@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
@@ -71,6 +72,7 @@ func initBaremetalsHandler(app *appsrv.Application) {
 	AddHandler(app, "POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
 	AddHandler(app, "POST", bmActionPrefix("ipmi-probe"), bmObjMiddleware(handleBaremetalIpmiProbe))
 	AddHandler(app, "POST", bmActionPrefix("cdrom"), bmObjMiddleware(handleBaremetalCdromTask))
+	AddHandler(app, "POST", bmActionPrefix("jnlp"), bmObjMiddleware(handleBaremetalJnlpTask))
 
 	// server actions handler
 	AddHandler(app, "POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
@@ -158,6 +160,22 @@ func handleBaremetalIpmiProbe(ctx *Context, bm *baremetal.SBaremetalInstance) {
 func handleBaremetalCdromTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	bm.StartBaremetalCdromTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
+}
+
+func handleBaremetalJnlpTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	cli := bm.GetRedfishCli(ctx)
+	if cli == nil {
+		ctx.ResponseError(httperrors.NewNotSupportedError("Redfish API"))
+		return
+	}
+	jnlp, err := cli.GetConsoleJNLP(ctx)
+	if err != nil {
+		ctx.ResponseError(errors.Wrap(err, "GetConsoleJNLP"))
+		return
+	}
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.NewString(jnlp), "jnlp")
+	ctx.ResponseJson(result)
 }
 
 func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
