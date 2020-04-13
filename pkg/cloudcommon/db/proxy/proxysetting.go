@@ -88,8 +88,7 @@ func (ps *SProxySetting) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewConflictError("DIRECT setting cannot be deleted")
 	}
 	for _, man := range referrersMen {
-		t := man.TableSpec().Instance()
-		n, err := t.Query().
+		n, err := man.Query().
 			Equals("proxy_setting_id", ps.Id).
 			CountWithError()
 		if err != nil {
