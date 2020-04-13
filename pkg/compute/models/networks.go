@@ -143,17 +143,21 @@ func (self *SNetwork) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 	return networkinterfaces, nil
 }
 
+func (self *SNetwork) GetReservedIPs() ([]SReservedip, error) {
+	reservedIps := []SReservedip{}
+	q := ReservedipManager.Query().Equals("network_id", self.Id)
+	err := db.FetchModelObjects(ReservedipManager, q, &reservedIps)
+	if err != nil {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return reservedIps, nil
+}
+
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
-	cnt, err := self.GetTotalNicCount()
+	cnt, err := self.GetAllocatedNicCount()
 	if err != nil {
-		return httperrors.NewInternalServerError("GetTotalNicCount fail %s", err)
+		return httperrors.NewInternalServerError("GetAllocatedNicCount fail %s", err)
 	}
-	// 弹性网卡
-	nicnt, err := self.GetNetworkInterfacesCount()
-	if err != nil {
-		return httperrors.NewInternalServerError("GetNetworkInterfacesCount fail %v", err)
-	}
-	cnt -= nicnt
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("not an empty network")
 	}
@@ -161,6 +165,24 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SNetwork) GetTotalNicCount() (int, error) {
+	total, err := self.GetAllocatedNicCount()
+	if err != nil {
+		return -1, err
+	}
+	cnt, err := self.GetReservedNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetNetworkInterfacesCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	return total, nil
+}
+
+func (self *SNetwork) GetAllocatedNicCount() (int, error) {
 	total := 0
 	cnt, err := self.GetGuestnicsCount()
 	if err != nil {
@@ -177,22 +199,17 @@ func (self *SNetwork) GetTotalNicCount() (int, error) {
 		return -1, err
 	}
 	total += cnt
-	cnt, err = self.GetReservedNicsCount()
-	if err != nil {
-		return -1, err
-	}
-	total += cnt
 	cnt, err = self.GetLoadbalancerIpsCount()
 	if err != nil {
 		return -1, err
 	}
 	total += cnt
-	cnt, err = self.GetEipsCount()
+	cnt, err = self.GetDBInstanceIpsCount()
 	if err != nil {
 		return -1, err
 	}
 	total += cnt
-	cnt, err = self.GetNetworkInterfacesCount()
+	cnt, err = self.GetEipsCount()
 	if err != nil {
 		return -1, err
 	}
@@ -278,6 +295,10 @@ func (self *SNetwork) GetReservedNicsCount() (int, error) {
 
 func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
 	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
+}
+
+func (self *SNetwork) GetDBInstanceIpsCount() (int, error) {
+	return DBInstanceNetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetEipsCount() (int, error) {
@@ -1595,6 +1616,16 @@ func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCre
 		err = networkinterfaces[i].purge(ctx, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "networkinterface.purge %s(%s)", networkinterfaces[i].Name, networkinterfaces[i].Id)
+		}
+	}
+	reservedIps, err := self.GetReservedIPs()
+	if err != nil {
+		return errors.Wrap(err, "GetReservedNicsCount")
+	}
+	for i := range reservedIps {
+		err = reservedIps[i].Release(ctx, userCred, self)
+		if err != nil {
+			return errors.Wrapf(err, "reservedIps.Release %s(%d)", reservedIps[i].IpAddr, reservedIps[i].Id)
 		}
 	}
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
