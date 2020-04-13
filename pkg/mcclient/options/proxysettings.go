@@ -46,3 +46,13 @@ type ProxySettingTestOptions struct {
 type ProxySettingListOptions struct {
 	BaseListOptions
 }
+
+type ProxySettingPublicOptions struct {
+	ProxySettingGetOptions
+	Scope        string   `json:"scope" help:"share scope" choices:"domain|system"`
+	SharedDomain []string `json:"share"`
+}
+
+type ProxySettingPrivateOptions struct {
+	ProxySettingGetOptions
+}

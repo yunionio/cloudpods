@@ -52,6 +52,7 @@ var (
 		"natsentries",
 		"natdentries",
 		"policy_assignments",
+		"proxysettings",
 	}
 	computeUserResources = []string{
 		"keypairs",
