@@ -282,7 +282,15 @@ func (region *SRegion) constructHTTPCreateListenerParams(params map[string]strin
 		}
 		params["HealthCheckTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
 	}
+
+	if listener.ClientRequestTimeout < 1 || listener.ClientRequestTimeout > 180 {
+		listener.ClientRequestTimeout = 60
+	}
 	params["RequestTimeout"] = fmt.Sprintf("%d", listener.ClientRequestTimeout)
+
+	if listener.ClientIdleTimeout < 1 || listener.ClientIdleTimeout > 60 {
+		listener.ClientIdleTimeout = 15
+	}
 	params["IdleTimeout"] = fmt.Sprintf("%d", listener.ClientIdleTimeout)
 
 	params["StickySession"] = listener.StickySession
