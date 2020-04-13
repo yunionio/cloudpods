@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SAwsRegionDriver struct {
@@ -51,6 +52,20 @@ func init() {
 
 func (self *SAwsRegionDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AWS
+}
+
+func networkCheck(network *models.SNetwork) error {
+	total := network.GetPorts()
+	used, err := network.GetTotalNicCount()
+	if err != nil {
+		return errors.Wrap(err, "validateAwsLbNetwork.GetTotalNicCount")
+	}
+
+	if (total - used) < 8 {
+		return fmt.Errorf("network %s free ip is less than 8", network.GetId())
+	}
+
+	return nil
 }
 
 func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, requiredMin int) (*jsonutils.JSONDict, error) {
@@ -74,21 +89,44 @@ func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JS
 		}
 
 		network := networkV.Model.(*models.SNetwork)
+		err := networkCheck(network)
+		if err != nil {
+			return nil, errors.Wrap(err, "validateAwsLbNetwork.networkCheck")
+		}
+
 		region, zone, vpc, _, err := network.ValidateElbNetwork(nil)
 		if err != nil {
 			return nil, err
 		} else {
 			//随机选择一个子网
 			if requiredMin == 2 && len(networkIds) == 1 {
+				var nets []models.SNetwork
 				wires := models.WireManager.Query().SubQuery()
 				q := models.NetworkManager.Query().IsFalse("pending_deleted")
+				q = models.NetworkManager.FilterByOwner(q, network.GetOwnerId(), rbacutils.ScopeProject)
 				q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 				q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), vpc.GetId()))
 				q = q.Filter(sqlchemy.NotEquals(wires.Field("zone_id"), zone.GetId()))
-				q = q.Equals("project_id", network.ProjectId)
-				err := q.First(secondNet)
+				err := q.All(&nets)
 				if err != nil {
 					return nil, httperrors.NewInputParameterError("required at least %d subnet.", requiredMin)
+				}
+
+				secondNetFound := false
+				for i := range nets {
+					net := nets[i]
+					err := networkCheck(&net)
+					if err != nil {
+						continue
+					}
+
+					secondNet = &net
+					secondNetFound = true
+					break
+				}
+
+				if !secondNetFound {
+					return nil, httperrors.NewInputParameterError("required at least %d subnet with at least 8 free ip.", requiredMin)
 				}
 			}
 		}
