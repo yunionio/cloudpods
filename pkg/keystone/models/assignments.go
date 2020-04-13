@@ -242,7 +242,7 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 	return union.Query()
 }
 
-func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+func (manager *SAssignmentManager) ProjectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
 	err := db.ValidateCreateDomainId(project.DomainId)
 	if err != nil {
 		return err
