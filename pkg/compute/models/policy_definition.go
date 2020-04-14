@@ -16,20 +16,24 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -59,12 +63,16 @@ type SPolicyDefinition struct {
 	SManagedResourceBase
 
 	// 参数
-	Parameters *jsonutils.JSONDict `get:"domain" list:"domain" create:"admin_optional"`
+	Parameters jsonutils.JSONObject `nullable:"true" get:"domain" list:"domain" create:"admin_optional"`
 
 	// 条件
 	Condition string `width:"32" charset:"ascii" nullable:"false" get:"domain" list:"domain" create:"required"`
 	// 类别
 	Category string `width:"16" charset:"ascii" nullable:"false" get:"domain" list:"domain" create:"required"`
+}
+
+func (self *SPolicyDefinitionManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
 }
 
 // 策略列表
@@ -84,7 +92,94 @@ func (manager *SPolicyDefinitionManager) ListItemFilter(ctx context.Context, q *
 }
 
 func (manager *SPolicyDefinitionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.PolicyDefinitionCreateInput) (api.PolicyDefinitionCreateInput, error) {
-	return input, httperrors.NewUnsupportOperationError("not support create definition")
+	input.Status = api.POLICY_DEFINITION_STATUS_READY
+	domainIds := []string{}
+	for _, _domain := range input.Domains {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, _domain)
+		if err != nil {
+			return input, httperrors.NewGeneralError(errors.Wrap(err, "FetchDomainByIdOrName"))
+		}
+		domainIds = append(domainIds, domain.GetId())
+	}
+	conditions, ok := api.POLICY_CONDITIONS[input.Category]
+	if !ok {
+		return input, httperrors.NewUnsupportOperationError("category %s not suppored", input.Category)
+	}
+	if !utils.IsInStringArray(input.Condition, conditions) {
+		return input, httperrors.NewUnsupportOperationError("not support condition %s, support %s", input.Condition, conditions)
+	}
+	switch input.Category {
+	case api.POLICY_DEFINITION_CATEGORY_CLOUDREGION:
+		if len(input.Cloudregions) == 0 {
+			return input, httperrors.NewMissingParameterError("cloudregions")
+		}
+		input.Parameters.Cloudregions = []api.SCloudregionPolicyDefinition{}
+		for _, _region := range input.Cloudregions {
+			region, err := CloudregionManager.FetchByIdOrName(userCred, _region)
+			if err != nil {
+				if errors.Cause(err) == sql.ErrNoRows {
+					return input, httperrors.NewResourceNotFoundError2("cloudregion", _region)
+				}
+				return input, httperrors.NewGeneralError(err)
+			}
+			input.Parameters.Cloudregions = append(input.Parameters.Cloudregions, api.SCloudregionPolicyDefinition{Id: region.GetId(), Name: region.GetName()})
+		}
+	case api.POLICY_DEFINITION_CATEGORY_EXPIRED:
+		switch input.Condition {
+		case api.POLICY_DEFINITION_CONDITION_IN_USE:
+		case api.POLICY_DEFINITION_CONDITION_LE:
+			if len(input.Duration) == 0 {
+				return input, httperrors.NewMissingParameterError("duration")
+			}
+			_, err := billing.ParseBillingCycle(input.Duration)
+			if err != nil {
+				return input, httperrors.NewInputParameterError("invalid duration %v", err)
+			}
+			input.Parameters.Duration = input.Duration
+		}
+	case api.POLICY_DEFINITION_CATEGORY_TAG:
+		if len(input.Tags) == 0 {
+			return input, httperrors.NewMissingParameterError("tags")
+		}
+		input.Parameters.Tags = input.Tags
+	case api.POLICY_DEFINITION_CATEGORY_BILLING_TYPE:
+		if len(input.BillingType) == 0 {
+			return input, httperrors.NewMissingParameterError("billing_type")
+		}
+		if !utils.IsInStringArray(input.BillingType, []string{billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID}) {
+			return input, httperrors.NewInputParameterError("invalid billing type %s", input.BillingType)
+		}
+		input.Parameters.BillingType = input.BillingType
+	case api.POLICY_DEFINITION_CATEGORY_BATCH_CREATE:
+		if input.Count <= 0 {
+			return input, httperrors.NewInputParameterError("count must be greater than 0")
+		}
+		input.Parameters.Count = &input.Count
+	}
+	return input, nil
+}
+
+func (self *SPolicyDefinition) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	input := api.PolicyDefinitionCreateInput{}
+	data.Unmarshal(&input)
+	for _, domainId := range input.Domains {
+		err := PolicyAssignmentManager.newAssignment(self, domainId)
+		if err != nil {
+			log.Errorf("failed to attach policy assignment for domain %s error: %v", domainId, err)
+		}
+	}
+}
+
+func (self *SPolicyDefinition) ValidateDeleteCondition(ctx context.Context) error {
+	assignments, err := self.GetPolicyAssignments()
+	if err != nil {
+		return errors.Wrap(err, "GetPolicyAssignments")
+	}
+	if len(assignments) > 0 {
+		return fmt.Errorf("%d available assignments on policy definition", len(assignments))
+	}
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (manager *SPolicyDefinitionManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query api.PolicyDefinitionListInput) (*sqlchemy.SQuery, error) {
@@ -135,12 +230,15 @@ func (manager *SPolicyDefinitionManager) getPolicyDefinitionsByManagerId(provide
 	return definitions, nil
 }
 
-func (manager *SPolicyDefinitionManager) GetAvailablePolicyDefinitions(ctx context.Context, userCred mcclient.TokenCredential) ([]SPolicyDefinition, error) {
+func (manager *SPolicyDefinitionManager) GetAvailablePolicyDefinitions(ctx context.Context, userCred mcclient.TokenCredential, category string) ([]SPolicyDefinition, error) {
 	q := manager.Query()
 	sq := PolicyAssignmentManager.Query().SubQuery()
 	q = q.Join(sq, sqlchemy.Equals(q.Field("id"), sq.Field("policydefinition_id"))).Filter(
 		sqlchemy.Equals(sq.Field("domain_id"), userCred.GetDomainId()),
 	).Equals("status", api.POLICY_DEFINITION_STATUS_READY)
+	if len(category) > 0 {
+		q = q.Equals("category", category)
+	}
 	definitions := []SPolicyDefinition{}
 	err := db.FetchModelObjects(manager, q, &definitions)
 	if err != nil {

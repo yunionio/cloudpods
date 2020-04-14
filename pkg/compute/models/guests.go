@@ -965,6 +965,21 @@ func (manager *SGuestManager) BatchPreValidate(
 			return errors.Wrap(err, "manager.checkCreateQuota")
 		}
 	}
+
+	definitions, err := PolicyDefinitionManager.GetAvailablePolicyDefinitions(ctx, userCred, api.POLICY_DEFINITION_CATEGORY_BATCH_CREATE)
+	if err != nil {
+		return errors.Wrap(err, "GetAvailablePolicyDefinitions")
+	}
+	for i := range definitions {
+		limit, err := definitions[i].Parameters.Int("count")
+		if err != nil {
+			return httperrors.NewPolicyDefinitionError("invalid policy definition %s count", definitions[i].Name)
+		}
+		if int64(count) > limit {
+			return httperrors.NewPolicyDefinitionError("policy definition %s required max batch create count less or equal %d", definitions[i].Name, limit)
+		}
+	}
+
 	return nil
 }
 
@@ -1351,23 +1366,35 @@ func (manager *SGuestManager) validateCreateData(
 }
 
 func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input *api.ServerCreateInput) error {
-	definitions, err := PolicyDefinitionManager.GetAvailablePolicyDefinitions(ctx, userCred)
+	definitions, err := PolicyDefinitionManager.GetAvailablePolicyDefinitions(ctx, userCred, "")
 	if err != nil {
 		return httperrors.NewGeneralError(err)
 	}
 	for i := range definitions {
+		if definitions[i].Category == api.POLICY_DEFINITION_CATEGORY_BATCH_CREATE {
+			continue
+		}
+		parameters := api.SPolicyDefinitionParameters{}
+		if definitions[i].Parameters != nil {
+			err = definitions[i].Parameters.Unmarshal(&parameters)
+			if err != nil {
+				return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) parameters error: %v", definitions[i].Name, definitions[i].Id, err)
+			}
+		}
+		conditions, ok := api.POLICY_CONDITIONS[definitions[i].Category]
+		if !ok {
+			return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) category %s", definitions[i].Name, definitions[i].Id, definitions[i].Name, definitions[i].Category)
+		}
+		if !utils.IsInStringArray(definitions[i].Condition, conditions) {
+			return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Name, definitions[i].Condition)
+		}
 		switch definitions[i].Category {
 		case api.POLICY_DEFINITION_CATEGORY_CLOUDREGION:
 			if len(input.PreferRegion) == 0 {
 				return httperrors.NewMissingParameterError(fmt.Sprintf("policy definition %s require prefer_region_id parameter", definitions[i].Name))
 			}
-			if definitions[i].Parameters == nil {
-				return httperrors.NewPolicyDefinitionError("invalid parameters for policy definition %s", definitions[i].Name)
-			}
-			regionDefinitions := api.SCloudregionPolicyDefinitions{}
-			definitions[i].Parameters.Unmarshal(&regionDefinitions)
 			regions := []string{}
-			for _, region := range regionDefinitions.Cloudregions {
+			for _, region := range parameters.Cloudregions {
 				regions = append(regions, region.Id)
 				regions = append(regions, region.Name)
 			}
@@ -1375,26 +1402,19 @@ func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, use
 			switch definitions[i].Condition {
 			case api.POLICY_DEFINITION_CONDITION_IN:
 				if !isIn {
-					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion in %s", definitions[i].Name, definitions[i].Parameters)
+					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion in %s", definitions[i].Name, regions)
 				}
 			case api.POLICY_DEFINITION_CONDITION_NOT_IN:
 				if isIn {
-					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion not in %s", definitions[i].Name, definitions[i].Parameters)
+					return httperrors.NewPolicyDefinitionError("policy definition %s require cloudregion not in %s", definitions[i].Name, regions)
 				}
-			default:
-				return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
 			}
 		case api.POLICY_DEFINITION_CATEGORY_TAG:
-			tags := []string{}
-			if definitions[i].Parameters == nil {
-				return httperrors.NewPolicyDefinitionError("invalid parameters for policy definition %s", definitions[i].Name)
-			}
-			definitions[i].Parameters.Unmarshal(&tags, "tags")
 			metadataKeys := []string{}
 			for k, _ := range input.Metadata {
 				metadataKeys = append(metadataKeys, strings.TrimPrefix(k, db.USER_TAG_PREFIX))
 			}
-			for _, tag := range tags {
+			for _, tag := range parameters.Tags {
 				isIn := utils.IsInStringArray(tag, metadataKeys)
 				switch definitions[i].Condition {
 				case api.POLICY_DEFINITION_CONDITION_CONTAINS:
@@ -1405,12 +1425,39 @@ func (manager *SGuestManager) ValidatePolicyDefinitions(ctx context.Context, use
 					if isIn {
 						return httperrors.NewPolicyDefinitionError("policy definition %s require except tag %s", definitions[i].Name, tag)
 					}
-				default:
-					return httperrors.NewPolicyDefinitionError("invalid policy definition %s(%s) condition %s", definitions[i].Name, definitions[i].Id, definitions[i].Condition)
 				}
 			}
-		default:
-			return httperrors.NewPolicyDefinitionError("invalid category %s for policy definition %s(%s)", definitions[i].Category, definitions[i].Name, definitions[i].Id)
+		case api.POLICY_DEFINITION_CATEGORY_EXPIRED:
+			if input.BillingType == billing_api.BILLING_TYPE_PREPAID {
+				continue
+			}
+			if len(input.Duration) == 0 {
+				return httperrors.NewPolicyDefinitionError("policy definition %s required set durition", definitions[i].Name)
+			}
+			switch definitions[i].Condition {
+			case api.POLICY_DEFINITION_CONDITION_IN_USE:
+			case api.POLICY_DEFINITION_CONDITION_LE:
+				billingCycle, _ := billing.ParseBillingCycle(input.Duration)
+				policyBillingCycle, _ := billing.ParseBillingCycle(parameters.Duration)
+				if billingCycle.Duration() > policyBillingCycle.Duration() {
+					return httperrors.NewPolicyDefinitionError("policy definition %s required durition less or equal %s", definitions[i].Name, parameters.Duration)
+				}
+			}
+		case api.POLICY_DEFINITION_CATEGORY_BILLING_TYPE:
+			billingType := input.BillingType
+			if len(billingType) == 0 {
+				billingType = string(billing_api.BILLING_TYPE_POSTPAID)
+			}
+			switch definitions[i].Condition {
+			case api.POLICY_DEFINITION_CONDITION_IN_USE:
+				if billingType != parameters.BillingType {
+					return httperrors.NewPolicyDefinitionError("policy definition %s required billing type be %s", definitions[i].Name, parameters.BillingType)
+				}
+			case api.POLICY_DEFINITION_CONDITION_NOT_USE:
+				if billingType == parameters.BillingType {
+					return httperrors.NewPolicyDefinitionError("policy definition %s required billing type not be %s", definitions[i].Name, parameters.BillingType)
+				}
+			}
 		}
 	}
 	return nil
