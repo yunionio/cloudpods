@@ -46,3 +46,17 @@ func TestXmlUnmarshal(t *testing.T) {
 		t.Logf("%#v", casresp)
 	}
 }
+
+func TestFetchAttribute(t *testing.T) {
+	xmlstr := `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+    <cas:authenticationSuccess>
+        <cas:user>casuser</cas:user>
+        <cas:proj>casproj</cas:proj>
+    </cas:authenticationSuccess>
+</cas:serviceResponse>`
+	got := fetchAttribute([]byte(xmlstr), "cas:proj")
+	want := "casproj"
+	if got != want {
+		t.Errorf("want %s got %s", want, got)
+	}
+}
