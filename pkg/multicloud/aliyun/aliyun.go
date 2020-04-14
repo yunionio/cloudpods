@@ -119,6 +119,13 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
+			for _, code := range []string{
+				"InvalidAccessKeyId.NotFound",
+			} {
+				if strings.Contains(err.Error(), code) {
+					return nil, err
+				}
+			}
 			for _, code := range []string{"404 Not Found"} {
 				if strings.Contains(err.Error(), code) {
 					return nil, cloudprovider.ErrNotFound
