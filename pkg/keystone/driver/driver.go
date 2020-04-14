@@ -26,7 +26,7 @@ type IIdentityBackendClass interface {
 	SyncMethod() string
 	Name() string
 	NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TConfigs) (IIdentityBackend, error)
-	ValidateConfig(conf api.TConfigs) error
+	ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error)
 }
 
 type IIdentityBackend interface {

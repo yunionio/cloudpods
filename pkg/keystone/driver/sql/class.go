@@ -15,8 +15,11 @@
 package sql
 
 import (
+	"context"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SSQLDriverClass struct{}
@@ -37,8 +40,8 @@ func (self *SSQLDriverClass) Name() string {
 	return api.IdentityDriverSQL
 }
 
-func (self *SSQLDriverClass) ValidateConfig(conf api.TConfigs) error {
-	return nil
+func (self *SSQLDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error) {
+	return conf, nil
 }
 
 func init() {

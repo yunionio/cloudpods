@@ -15,8 +15,11 @@
 package ldap
 
 import (
+	"context"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SLDAPDriverClass struct{}
@@ -37,8 +40,8 @@ func (self *SLDAPDriverClass) Name() string {
 	return api.IdentityDriverLDAP
 }
 
-func (self *SLDAPDriverClass) ValidateConfig(conf api.TConfigs) error {
-	return nil
+func (self *SLDAPDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, conf api.TConfigs) (api.TConfigs, error) {
+	return conf, nil
 }
 
 func init() {

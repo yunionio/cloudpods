@@ -237,7 +237,8 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInvalidStatusError("cannot update config when not idle")
 	}
 
-	err := ident.getDriverClass().ValidateConfig(input.Config)
+	var err error
+	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, input.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "ValidateConfig")
 	}
@@ -316,7 +317,8 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		input.TargetDomainId = domain.Id
 	}
 
-	err := drvCls.ValidateConfig(input.Config)
+	var err error
+	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Config)
 	if err != nil {
 		return input, errors.Wrap(err, "ValidateConfig")
 	}

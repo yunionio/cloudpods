@@ -15,16 +15,17 @@
 package cas
 
 import (
+	"context"
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SCASDriverClass struct{}
@@ -45,36 +46,38 @@ func (self *SCASDriverClass) Name() string {
 	return api.IdentityDriverCAS
 }
 
-func (self *SCASDriverClass) ValidateConfig(tconf api.TConfigs) error {
+func (self *SCASDriverClass) ValidateConfig(ctx context.Context, userCred mcclient.TokenCredential, tconf api.TConfigs) (api.TConfigs, error) {
 
 	conf := api.SCASIdpConfigOptions{}
 	confJson := jsonutils.Marshal(tconf["cas"])
-	log.Debugf("%s %s", tconf, confJson)
 	err := confJson.Unmarshal(&conf)
 	if err != nil {
-		return errors.Wrap(err, "unmarshal config")
+		return tconf, errors.Wrap(err, "unmarshal config")
 	}
 	if len(conf.DefaultCasProjectId) > 0 {
-		_, err := models.ProjectManager.FetchProjectById(conf.DefaultCasProjectId)
+		obj, err := models.ProjectManager.FetchByIdOrName(userCred, conf.DefaultCasProjectId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultCasProjectId)
+				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "project %s", conf.DefaultCasProjectId)
 			} else {
-				return errors.Wrap(err, "FetchProjectById")
+				return tconf, errors.Wrap(err, "FetchProjectById")
 			}
 		}
+		tconf["cas"]["default_cas_project_id"] = jsonutils.NewString(obj.GetId())
 	}
 	if len(conf.DefaultCasRoleId) > 0 {
-		_, err := models.RoleManager.FetchRoleById(conf.DefaultCasRoleId)
+		obj, err := models.RoleManager.FetchByIdOrName(userCred, conf.DefaultCasRoleId)
 		if err != nil {
 			if errors.Cause(err) == sql.ErrNoRows {
-				return errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultCasRoleId)
+				return tconf, errors.Wrapf(httperrors.ErrResourceNotFound, "role %s", conf.DefaultCasRoleId)
 			} else {
-				return errors.Wrap(err, "FetchRoleById")
+				return tconf, errors.Wrap(err, "FetchRoleById")
 			}
 		}
+		tconf["cas"]["default_cas_role_id"] = jsonutils.NewString(obj.GetId())
 	}
-	return nil
+
+	return tconf, nil
 }
 
 func init() {
