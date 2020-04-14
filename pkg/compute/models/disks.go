@@ -1894,6 +1894,8 @@ func (self *SDisk) getMoreDetails(ctx context.Context, userCred mcclient.TokenCr
 		policy := api.SimpleSnapshotPolicy{}
 		policy.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysToIntArray(sps[i].RepeatWeekdays)
 		policy.TimePoints = SnapshotPolicyManager.TimePointsToIntArray(sps[i].TimePoints)
+		policy.Id = sps[i].Id
+		policy.Name = sps[i].Name
 		out.Snapshotpolicies = append(out.Snapshotpolicies, policy)
 	}
 	storage := self.GetStorage()
