@@ -16,8 +16,11 @@ package cas
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -144,7 +147,70 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")
 	}
+
+	self.userTryJoinProject(ctx, usr, domain, resp)
+
 	return extUser, nil
+}
+
+func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUser, domain *models.SDomain, resp []byte) {
+	var err error
+	var targetProject *models.SProject
+	if len(self.casConfig.CasProjectAttribute) > 0 {
+		projName := fetchAttribute(resp, self.casConfig.CasProjectAttribute)
+		if len(projName) > 0 {
+			targetProject, err = models.ProjectManager.FetchProject("", projName, domain.Id, domain.Name)
+			if err != nil {
+				log.Errorf("fetch project %s fail %s", projName, err)
+				if errors.Cause(err) == sql.ErrNoRows && self.casConfig.AutoCreateCasProject.IsTrue() {
+					targetProject, err = models.ProjectManager.NewProject(ctx, projName, "cas project", domain)
+					if err != nil {
+						log.Errorf("auto create project %s fail %s", projName, err)
+					}
+				}
+			}
+		}
+	}
+	if targetProject == nil && len(self.casConfig.DefaultCasProjectId) > 0 {
+		targetProject, err = models.ProjectManager.FetchProjectById(self.casConfig.DefaultCasProjectId)
+		if err != nil {
+			log.Errorf("fetch default project %s fail %s", self.casConfig.DefaultCasProjectId, err)
+		}
+	}
+	if targetProject != nil {
+		// put user in project
+		var targetRole *models.SRole
+		if len(self.casConfig.CasRoleAttribute) > 0 {
+			roleName := fetchAttribute(resp, self.casConfig.CasRoleAttribute)
+			if len(roleName) > 0 {
+				targetRole, err = models.RoleManager.FetchRole("", roleName, domain.Id, domain.Name)
+				if err != nil {
+					log.Errorf("fetch role %s fail %s", roleName, err)
+				}
+			}
+		}
+		if targetRole == nil && len(self.casConfig.DefaultCasRoleId) > 0 {
+			targetRole, err = models.RoleManager.FetchRoleById(self.casConfig.DefaultCasRoleId)
+			if err != nil {
+				log.Errorf("fetch default role %s fail %s", self.casConfig.DefaultCasRoleId, err)
+			}
+		}
+		if targetRole != nil {
+			err = models.AssignmentManager.ProjectAddUser(ctx, models.GetDefaultAdminCred(), targetProject, usr, targetRole)
+			if err != nil {
+				log.Errorf("CAS user join project fail %s", err)
+			}
+		}
+	}
+}
+
+func fetchAttribute(heystack []byte, name string) string {
+	pattern := regexp.MustCompile(fmt.Sprintf(`<%s>(\w+)</%s>`, name, name))
+	result := pattern.FindAllStringSubmatch(string(heystack), -1)
+	if len(result) > 0 && len(result[0]) > 1 {
+		return strings.TrimSpace(result[0][1])
+	}
+	return ""
 }
 
 func (self *SCASDriver) Sync(ctx context.Context) error {
