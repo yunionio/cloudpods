@@ -19,6 +19,7 @@ import "yunion.io/x/onecloud/pkg/apis"
 type ScalingGroupCreateInput struct {
 	apis.VirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
+	VpcResourceInput
 
 	// description: cloud region id or name
 	// required: true
@@ -31,13 +32,6 @@ type ScalingGroupCreateInput struct {
 	// description: hypervisor
 	// example: kvm
 	Hypervisor string `json:"hypervisor"`
-
-	// description: VPC(ID or Name)
-	// example: vpc-1234
-	Vpc string `json:"vpc"`
-
-	// swagger: ignore
-	VpcId string `json:"vpc_id"`
 
 	// description: 多个网络(ID或者Name),
 	// example: n-test-one
@@ -113,6 +107,10 @@ type ScalingGroupListInput struct {
 	// description: hypervisor
 	// example: kvm
 	Hypervisor string `json:"hypervisor"`
+
+	// desription: 平台
+	// example: OneCloud
+	Brand string `json:"brand"`
 }
 
 type ScalingGroupDetails struct {
@@ -131,6 +129,10 @@ type ScalingGroupDetails struct {
 	// description: 伸缩策略的数量
 	// example: 3
 	ScalingPolicyNumber int `json:"scaling_policy_number"`
+
+	// description: 平台
+	// example: OneCloud
+	Brand string `json:"brand"`
 
 	// description: 网络ID
 	// example: net-12345

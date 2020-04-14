@@ -87,7 +87,6 @@ func (self *GuestDetachScalingGroupTask) OnInit(ctx context.Context, obj db.ISta
 func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx context.Context, sg *models.SScalingGroup, data jsonutils.JSONObject) {
 	guestId, _ := self.Params.GetString("guest")
 	delete, _ := self.Params.Bool("delete_server")
-	self.SetStage("OnDeleteGuestComplete", nil)
 	if !delete {
 		self.OnDeleteGuestComplete(ctx, sg, data)
 		return
@@ -98,6 +97,7 @@ func (self *GuestDetachScalingGroupTask) OnDetachLoadbalancerComplete(ctx contex
 		return
 	}
 	self.Params.Set("guest_name", jsonutils.NewString(guest.GetName()))
+	self.SetStage("OnDeleteGuestComplete", nil)
 	if err := guest.StartDeleteGuestTask(ctx, self.UserCred, self.Id, true, true, true); err != nil {
 		self.taskFailed(ctx, sg, nil, err.Error())
 	}

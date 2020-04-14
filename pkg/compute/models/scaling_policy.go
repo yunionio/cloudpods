@@ -374,18 +374,19 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 		return nil, nil
 	}
 
-	if !data.Contains("alarm_id") {
-		// considered manual trigger
+	unmanual, _ := data.Bool("unmanual")
+	if !unmanual {
 		triggerDesc = SScalingManual{SScalingPolicyBase{sp.Id}}
-
 	} else {
-		alarmId, _ := data.GetString("alarm_id")
 		trigger, err := sp.Trigger(nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "fetch trigger failed")
 		}
-		if alarmId != triggerDesc.(*SScalingAlarm).AlarmId {
-			return nil, httperrors.NewInputParameterError("mismatched alarm id")
+		if data.Contains("alarm_id") {
+			alarmId, _ := data.GetString("alarm_id")
+			if alarmId != trigger.(*SScalingAlarm).AlarmId {
+				return nil, httperrors.NewInputParameterError("mismatched alarm id")
+			}
 		}
 		if !trigger.IsTrigger() {
 			return nil, nil

@@ -67,6 +67,7 @@ type GuestTemplateListInput struct {
 	RegionalFilterListInput
 	VpcFilterListInput
 	BillingType string `json:"billing_type"`
+	Brand       string `json:"brand"`
 }
 
 type GuestTemplateConfigInfo struct {

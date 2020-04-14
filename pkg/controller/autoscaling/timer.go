@@ -18,12 +18,15 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type STimeScope struct {
@@ -57,6 +60,9 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 	}
 	log.Debugf("total %d need to exec, %v", len(scalingTimers), scalingTimers)
 	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
+	session := auth.GetSession(ctx, userCred, "", "")
+	triggerParams := jsonutils.NewDict()
+	triggerParams.Set("unmanual", jsonutils.JSONTrue)
 	for i := range scalingTimers {
 		scalingTimer := scalingTimers[i]
 		asc.timerQueue <- struct{}{}
@@ -77,19 +83,10 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 					return
 				}
 			}
-			sp, err := scalingTimer.ScalingPolicy()
+			_, err = modules.ScalingPolicy.PerformAction(session, scalingTimer.ScalingPolicyId, "trigger",
+				triggerParams)
 			if err != nil {
-				log.Errorf("fail to get ScalingPolicy of ScalingTimer '%s': %s", scalingTimer.Id, err)
-				return
-			}
-			sg, err := sp.ScalingGroup()
-			if err != nil {
-				log.Errorf("fail to get ScalingGroup of ScalingPolicy '%s': %s", sp.Id, err)
-				return
-			}
-			err = sg.Scale(ctx, &scalingTimer, sp)
-			if err != nil {
-				log.Errorf("ScalingGroup '%s' scale error", sg.Id)
+				log.Errorf("unable to request to trigger ScalingPolicy '%s'", scalingTimer.ScalingPolicyId)
 			}
 			scalingTimer.Update(timeScope.End)
 			err = models.ScalingTimerManager.TableSpec().InsertOrUpdate(&scalingTimer)

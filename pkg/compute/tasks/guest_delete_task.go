@@ -182,6 +182,8 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 
 	// try to leave all groups
 	guest.LeaveAllGroups(ctx, self.UserCred)
+	// detach
+	guest.DetachScalingGroup(ctx, self.UserCred)
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 
@@ -295,8 +297,6 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
-	// detach
-	guest.DetachScalingGroup(ctx, self.UserCred)
 	self.DeleteGuest(ctx, guest)
 }
 

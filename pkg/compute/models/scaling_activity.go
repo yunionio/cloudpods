@@ -178,5 +178,10 @@ func (sam *SScalingActivityManager) ListItemFilter(ctx context.Context, q *sqlch
 	if err != nil {
 		return nil, err
 	}
-	return sam.SScalingGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ScalingGroupFilterListInput)
+	q, err = sam.SScalingGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ScalingGroupFilterListInput)
+	if err != nil {
+		return nil, err
+	}
+	q = q.Desc("start_time").Desc("end_time")
+	return q, nil
 }

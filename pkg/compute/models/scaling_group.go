@@ -84,6 +84,8 @@ type SScalingGroup struct {
 
 	// Time to allow scale
 	AllowScaleTime time.Time
+	// NextCheckTime descripe the next time to check instance's health
+	NextCheckTime time.Time
 }
 
 var ScalingGroupManager *SScalingGroupManager
@@ -134,18 +136,10 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 	input.CloudregionId = cloudregion.GetId()
 
 	// check vpc
-	idOrName = input.Vpc
-	if len(input.Vpc) != 0 {
-		idOrName = input.Vpc
-	}
-	vpc, err := VpcManager.FetchByIdOrName(userCred, idOrName)
-	if errors.Cause(err) == sql.ErrNoRows {
-		return input, httperrors.NewInputParameterError("no such vpc %s", idOrName)
-	}
+	_, input.VpcResourceInput, err = ValidateVpcResourceInput(userCred, input.VpcResourceInput)
 	if err != nil {
-		return input, errors.Wrap(err, "VpcManager.FetchByIdOrName")
+		return input, err
 	}
-	input.VpcId = vpc.GetId()
 
 	// check networks
 	if len(input.Networks) == 0 {
@@ -172,8 +166,8 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 		if vpc == nil {
 			return input, fmt.Errorf("Get vpc of network '%s' failed", networks[i].Id)
 		}
-		if vpc.Id != input.VpcId {
-			return input, httperrors.NewInputParameterError("network '%s' not in vpc '%s'", networks[i].Id, input.VpcId)
+		if vpc.Id != input.Vpc {
+			return input, httperrors.NewInputParameterError("network '%s' not in vpc '%s'", networks[i].Id, input.Vpc)
 		}
 		input.Networks[i] = networks[i].Id
 	}
@@ -191,7 +185,7 @@ func (sgm *SScalingGroupManager) ValidateCreateData(ctx context.Context, userCre
 		return input, errors.Wrap(err, "GuestTempalteManager.FetchByIdOrName")
 	}
 	if ok, reason := guestTemplate.(*SGuestTemplate).Validate(ctx, userCred, ownerId,
-		SGuestTemplateValidate{input.Hypervisor, input.CloudregionId, input.VpcId, input.Networks}); !ok {
+		SGuestTemplateValidate{input.Hypervisor, input.CloudregionId, input.Vpc, input.Networks}); !ok {
 		return input, httperrors.NewInputParameterError("the guest template %s is not valid in cloudregion %s, "+
 			"reason: %s", idOrName, input.CloudregionId, reason)
 	}
@@ -328,8 +322,11 @@ func (sgm *SScalingGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if err != nil {
 		return q, err
 	}
-	if len(input.Hypervisor) != 0 {
+	if len(input.Hypervisor) > 0 {
 		q = q.Equals("hypervisor", input.Hypervisor)
+	}
+	if len(input.Brand) > 0 {
+		q = q.Equals("hypervisor", Brand2Hypervisor(input.Brand))
 	}
 	return q, nil
 }
@@ -369,6 +366,7 @@ func (sgm *SScalingGroupManager) FetchCustomizeColumns(
 		rows[i].InstanceNumber = n
 		n, _ = sg.ScalingPolicyNumber()
 		rows[i].ScalingPolicyNumber = n
+		rows[i].Brand = Hypervisor2Brand(sg.Hypervisor)
 	}
 	return rows
 }
@@ -594,9 +592,11 @@ func (sg *SScalingGroup) PostCreate(ctx context.Context, userCred mcclient.Token
 			return
 		}
 	}
+	now := time.Now()
 	db.Update(sg, func() error {
 		sg.Status = api.SG_STATUS_READY
-		sg.AllowScaleTime = time.Now()
+		sg.AllowScaleTime = now
+		sg.NextCheckTime = now.Add(time.Duration(sg.HealthCheckCycle) * time.Second)
 		sg.SetEnabled(true)
 		return nil
 	})

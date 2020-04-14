@@ -148,12 +148,35 @@ var HypervisorBrandMap = map[string]string{
 	computeapis.HYPERVISOR_CTYUN:     computeapis.CLOUD_PROVIDER_CTYUN,
 }
 
+var BrandHypervisorMap = map[string]string{
+	computeapis.CLOUD_PROVIDER_ONECLOUD:  computeapis.HYPERVISOR_KVM,
+	computeapis.CLOUD_PROVIDER_VMWARE:    computeapis.HYPERVISOR_ESXI,
+	computeapis.CLOUD_PROVIDER_ALIYUN:    computeapis.HYPERVISOR_ALIYUN,
+	computeapis.CLOUD_PROVIDER_QCLOUD:    computeapis.HYPERVISOR_QCLOUD,
+	computeapis.CLOUD_PROVIDER_AZURE:     computeapis.HYPERVISOR_AZURE,
+	computeapis.CLOUD_PROVIDER_AWS:       computeapis.HYPERVISOR_AWS,
+	computeapis.CLOUD_PROVIDER_HUAWEI:    computeapis.HYPERVISOR_HUAWEI,
+	computeapis.CLOUD_PROVIDER_OPENSTACK: computeapis.HYPERVISOR_OPENSTACK,
+	computeapis.CLOUD_PROVIDER_UCLOUD:    computeapis.HYPERVISOR_UCLOUD,
+	computeapis.CLOUD_PROVIDER_ZSTACK:    computeapis.HYPERVISOR_ZSTACK,
+	computeapis.CLOUD_PROVIDER_GOOGLE:    computeapis.HYPERVISOR_GOOGLE,
+	computeapis.CLOUD_PROVIDER_CTYUN:     computeapis.HYPERVISOR_CTYUN,
+}
+
 func Hypervisor2Brand(hypervisor string) string {
 	brand, ok := HypervisorBrandMap[hypervisor]
 	if !ok {
 		return "unkown"
 	}
 	return brand
+}
+
+func Brand2Hypervisor(brand string) string {
+	hypervisor, ok := BrandHypervisorMap[brand]
+	if !ok {
+		return "unkown"
+	}
+	return hypervisor
 }
 
 func (gtm *SGuestTemplateManager) validateData(
@@ -595,6 +618,9 @@ func (manager *SGuestTemplateManager) ListItemFilter(
 	}
 	if len(input.BillingType) > 0 {
 		q = q.Equals("billing_type", input.BillingType)
+	}
+	if len(input.Brand) > 0 {
+		q = q.Equals("hypervisor", Brand2Hypervisor(input.Brand))
 	}
 	return q, nil
 }
