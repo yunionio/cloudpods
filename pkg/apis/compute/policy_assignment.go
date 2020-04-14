@@ -28,7 +28,11 @@ type PolicyAssignmentListInput struct {
 }
 
 type PolicyAssignmentCreateInput struct {
-	SPolicyAssignment
+	apis.DomainLevelResourceCreateInput
+
+	// swagger:ignore
+	PolicydefinitionId string `json:"policydefinition_id"`
+	Policydefinition   string `json:"policydefinition"`
 }
 
 type SPolicyDefinitionDetails struct {

@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -41,6 +43,15 @@ func init() {
 		ID string `help:"policy definition name or id"`
 	}
 
+	R(&PolicyIdOptions{}, "policy-definition-delete", "Delete policy definition", func(s *mcclient.ClientSession, args *PolicyIdOptions) error {
+		result, err := modules.PolicyDefinition.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&PolicyIdOptions{}, "policy-definition-show", "Show policy definition", func(s *mcclient.ClientSession, args *PolicyIdOptions) error {
 		result, err := modules.PolicyDefinition.Get(s, args.ID, nil)
 		if err != nil {
@@ -52,6 +63,28 @@ func init() {
 
 	R(&PolicyIdOptions{}, "policy-definition-syncstatus", "Sync policy definition status", func(s *mcclient.ClientSession, args *PolicyIdOptions) error {
 		result, err := modules.PolicyDefinition.PerformAction(s, args.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type PolicyDefinitionCreateOptions struct {
+		NAME         string `help:"policy name"`
+		CATEGORY     string `help:"policy definition category" choices:"cloudregion|tag|expired|billing_type|batch_create"`
+		CONDITION    string `help:"policy condition"`
+		Domains      string `help:"domains"`
+		Duration     string
+		Cloudregions []string
+		Tags         []string
+		Count        int
+		BillingType  string `help:"server billing type" choices:"postpaid|prepaid"`
+	}
+
+	R(&PolicyDefinitionCreateOptions{}, "policy-definition-create", "Create policy definition", func(s *mcclient.ClientSession, args *PolicyDefinitionCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.PolicyDefinition.Create(s, params)
 		if err != nil {
 			return err
 		}

@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -93,7 +94,23 @@ func (manager *SPolicyAssignmentManager) OrderByExtraFields(ctx context.Context,
 }
 
 func (manager *SPolicyAssignmentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, input api.PolicyAssignmentCreateInput) (api.PolicyAssignmentCreateInput, error) {
-	return input, httperrors.NewInputParameterError("not support create")
+
+	if len(input.Policydefinition) == 0 {
+		return input, httperrors.NewMissingParameterError("poilcydefinition")
+	}
+	definition, err := PolicyDefinitionManager.FetchByIdOrName(nil, input.Policydefinition)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return input, httperrors.NewResourceNotFoundError2("policy_definition", input.Policydefinition)
+		}
+		return input, httperrors.NewGeneralError(err)
+	}
+	input.PolicydefinitionId = definition.GetId()
+	input.DomainLevelResourceCreateInput, err = manager.SDomainLevelResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.DomainLevelResourceCreateInput)
+	if err != nil {
+		return input, err
+	}
+	return input, nil
 }
 
 func (manager *SPolicyAssignmentManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {

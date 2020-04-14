@@ -47,6 +47,15 @@ func init() {
 		ID string `help:"policy assignment id or name"`
 	}
 
+	R(&PolicyIdOptions{}, "policy-assignment-delete", "Delete policy assignment", func(s *mcclient.ClientSession, args *PolicyIdOptions) error {
+		result, err := modules.PolicyAssignment.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&PolicyIdOptions{}, "policy-assignment-show", "Show policy assignment details", func(s *mcclient.ClientSession, args *PolicyIdOptions) error {
 		result, err := modules.PolicyAssignment.Get(s, args.ID, nil)
 		if err != nil {
@@ -54,6 +63,22 @@ func init() {
 		}
 		printObject(result)
 		return nil
-
 	})
+
+	type PolicyAssignmentCreateOptions struct {
+		NAME             string
+		ProjectDomain    string
+		POLICYDEFINITION string
+	}
+
+	R(&PolicyAssignmentCreateOptions{}, "policy-assignment-create", "Create policy assignment", func(s *mcclient.ClientSession, args *PolicyAssignmentCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.PolicyAssignment.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
