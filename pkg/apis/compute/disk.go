@@ -138,8 +138,10 @@ type SimpleGuest struct {
 }
 
 type SimpleSnapshotPolicy struct {
-	RepeatWeekdays []int `json:"repeat_weekdays"`
-	TimePoints     []int `json:"time_points"`
+	Id             string `json:"id"`
+	Name           string `json:"name"`
+	RepeatWeekdays []int  `json:"repeat_weekdays"`
+	TimePoints     []int  `json:"time_points"`
 }
 
 type DiskDetails struct {
