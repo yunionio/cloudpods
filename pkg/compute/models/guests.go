@@ -3843,6 +3843,12 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		desc.Add(jsonutils.JSONFalse, "pending_deleted")
 	}
 
+	// add scaling group
+	sggs, err := ScalingGroupGuestManager.Fetch("", self.Id)
+	if err == nil && len(sggs) > 0 {
+		desc.Add(jsonutils.NewString(sggs[0].ScalingGroupId), "scaling_group_id")
+	}
+
 	return desc
 }
 
