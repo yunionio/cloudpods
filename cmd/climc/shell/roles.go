@@ -85,6 +85,8 @@ func init() {
 		NAME   string `help:"Role name"`
 		Domain string `help:"Domain"`
 		Desc   string `help:"Description"`
+
+		PublicScope string `help:"public scope" choices:"none|system"`
 	}
 	R(&RoleCreateOptions{}, "role-create", "Create a new role", func(s *mcclient.ClientSession, args *RoleCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -98,6 +100,9 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if len(args.PublicScope) > 0 {
+			params.Add(jsonutils.NewString(args.PublicScope), "public_scope")
 		}
 		role, err := modules.RolesV3.Create(s, params)
 		if err != nil {

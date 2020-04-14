@@ -446,7 +446,7 @@ func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (role *SRole) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	role.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	db.SharableModelCustomizeCreate(role, ctx, userCred, ownerId, query, data)
 	return role.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -470,6 +470,10 @@ func (manager *SRoleManager) ValidateCreateData(
 	input.IdentityBaseResourceCreateInput, err = manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, input.IdentityBaseResourceCreateInput)
 	if err != nil {
 		return input, errors.Wrap(err, "SIdentityBaseResourceManager.ValidateCreateData")
+	}
+	input.SharableResourceBaseCreateInput, err = db.SharableManagerValidateCreateData(manager, ctx, userCred, ownerId, query, input.SharableResourceBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SharableManagerValidateCreateData")
 	}
 
 	quota := &SIdentityQuota{

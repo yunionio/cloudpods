@@ -107,9 +107,6 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 	if len(idstr) > 0 {
 		self.Id = idstr
 	}
-	// make vpc default to share to system
-	self.IsPublic = true
-	self.PublicScope = string(rbacutils.ScopeSystem)
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

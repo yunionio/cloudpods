@@ -24,6 +24,10 @@ type IOwnerResourceBaseModel interface {
 	GetChangeOwnerCandidateDomainIds() []string
 }
 
+type IManagedResourceBase interface {
+	IsManaged() bool
+}
+
 func IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model IOwnerResourceBaseModel) (apis.ChangeOwnerCandidateDomainsOutput, error) {
 	output := apis.ChangeOwnerCandidateDomainsOutput{}
 	candidateIds := model.GetChangeOwnerCandidateDomainIds()

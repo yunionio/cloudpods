@@ -99,6 +99,10 @@ func (manager *SSharableVirtualResourceBaseManager) ValidateCreateData(ctx conte
 	if err != nil {
 		return input, errors.Wrap(err, "manager.VirtualResourceBaseManager.ValidateCreateData")
 	}
+	input.SharableResourceBaseCreateInput, err = SharableManagerValidateCreateData(manager.GetISharableVirtualModelManager(), ctx, userCred, ownerId, query, input.SharableResourceBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SharableManagerValidateCreateData")
+	}
 	return input, nil
 }
 
@@ -197,7 +201,7 @@ func (model *SSharableVirtualResourceBase) PerformChangeOwner(
 }
 
 func (model *SSharableVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	model.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	SharableModelCustomizeCreate(model.GetISharableVirtualModel(), ctx, userCred, ownerId, query, data)
 	return model.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

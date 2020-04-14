@@ -233,9 +233,6 @@ func (manager *SStorageManager) ValidateCreateData(
 func (self *SStorage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.SetEnabled(true)
 	self.SetStatus(userCred, api.STORAGE_OFFLINE, "CustomizeCreate")
-	// make storage shared to system by default
-	self.IsPublic = true
-	self.PublicScope = string(rbacutils.ScopeSystem)
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -1465,6 +1462,10 @@ func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.To
 			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform public for local storage")
 		}
 	}
+	return storage.performPublicInternal(ctx, userCred, query, input)
+}
+
+func (storage *SStorage) performPublicInternal(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
 	return storage.SEnabledStatusInfrasResourceBase.PerformPublic(ctx, userCred, query, input)
 }
 
@@ -1476,5 +1477,9 @@ func (storage *SStorage) PerformPrivate(ctx context.Context, userCred mcclient.T
 			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to perform private for local storage")
 		}
 	}
+	return storage.performPrivateInternal(ctx, userCred, query, input)
+}
+
+func (storage *SStorage) performPrivateInternal(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	return storage.SEnabledStatusInfrasResourceBase.PerformPrivate(ctx, userCred, query, input)
 }
