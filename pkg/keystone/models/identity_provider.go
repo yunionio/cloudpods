@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -222,6 +221,10 @@ func (self *SIdentityProvider) GetDetailsConfig(ctx context.Context, userCred mc
 	return result, nil
 }
 
+func (ident *SIdentityProvider) getDriverClass() driver.IIdentityBackendClass {
+	return driver.GetDriverClass(ident.Driver)
+}
+
 func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, ident, "config")
 }
@@ -233,9 +236,16 @@ func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mccl
 	if ident.SyncStatus != api.IdentitySyncStatusIdle {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when not idle")
 	}
+
+	var err error
+	input.Config, err = ident.getDriverClass().ValidateConfig(ctx, userCred, input.Config)
+	if err != nil {
+		return nil, errors.Wrap(err, "ValidateConfig")
+	}
+
 	opts := input.Config
 	action := input.Action
-	err := saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
+	err = saveConfigs(userCred, action, ident, opts, nil, nil, api.SensitiveDomainConfigMap)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("saveConfig fail %s", err)
 	}
@@ -248,74 +258,77 @@ func (manager *SIdentityProviderManager) getDriveInstanceCount(drvName string) (
 	return manager.Query().Equals("driver", drvName).CountWithError()
 }
 
-func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SIdentityProviderManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.IdentityProviderCreateInput,
+) (api.IdentityProviderCreateInput, error) {
 	var drvName string
 
-	template, _ := data.GetString("template")
+	template := input.Template
 	if len(template) > 0 {
 		if _, ok := api.IdpTemplateDriver[template]; !ok {
-			return nil, httperrors.NewInputParameterError("invalid template")
+			return input, httperrors.NewInputParameterError("invalid template")
 		}
 		drvName = api.IdpTemplateDriver[template]
-		data.Set("driver", jsonutils.NewString(drvName))
+		input.Driver = drvName
 	} else {
-		drvName, _ = data.GetString("driver")
+		drvName = input.Driver
 		if len(drvName) == 0 {
-			return nil, httperrors.NewInputParameterError("missing driver")
+			return input, httperrors.NewInputParameterError("missing driver")
 		}
 	}
 
 	drvCls := driver.GetDriverClass(drvName)
 	if drvCls == nil {
-		return nil, httperrors.NewInputParameterError("driver %s not supported", drvName)
+		return input, httperrors.NewInputParameterError("driver %s not supported", drvName)
 	}
 
 	if drvCls.SingletonInstance() {
 		cnt, err := manager.getDriveInstanceCount(drvName)
 		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
+			return input, httperrors.NewGeneralError(err)
 		}
 		if cnt >= 1 {
-			return nil, httperrors.NewConflictError("driver %s already exists", drvName)
+			return input, httperrors.NewConflictError("driver %s already exists", drvName)
 		}
 	}
 
-	if data.Contains("sync_interval_seconds") {
-		secs, _ := data.Int("sync_interval_seconds")
+	if input.SyncIntervalSeconds != nil {
+		secs := *input.SyncIntervalSeconds
 		if secs < api.MinimalSyncIntervalSeconds {
-			data.Set("sync_interval_seconds", jsonutils.NewInt(int64(api.MinimalSyncIntervalSeconds)))
+			secs = api.MinimalSyncIntervalSeconds
+			input.SyncIntervalSeconds = &secs
 		}
 	}
 
-	targetDomainStr, _ := data.GetString("target_domain")
+	targetDomainStr := input.TargetDomainId
 	if len(targetDomainStr) > 0 {
 		domain, err := DomainManager.FetchDomainById(targetDomainStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
+				return input, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
 			} else {
-				return nil, httperrors.NewGeneralError(err)
+				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		data.Set("target_domain_id", jsonutils.NewString(domain.Id))
+		input.TargetDomainId = domain.Id
 	}
 
-	opts := api.TConfigs{}
-	err := data.Unmarshal(&opts, "config")
+	var err error
+	input.Config, err = drvCls.ValidateConfig(ctx, userCred, input.Config)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("parse config error: %s", err)
+		return input, errors.Wrap(err, "ValidateConfig")
 	}
-	input := apis.EnabledStatusStandaloneResourceCreateInput{}
-	err = data.Unmarshal(&input)
+
+	input.EnabledStatusStandaloneResourceCreateInput, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.EnabledStatusStandaloneResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
 }
 
 func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

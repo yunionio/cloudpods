@@ -57,3 +57,28 @@ type IdpResourceInfo struct {
 	// 认证源类型, 例如sql, cas, ldap等
 	IdpDriver string `json:"idp_driver"`
 }
+
+type IdentityProviderCreateInput struct {
+	apis.EnabledStatusStandaloneResourceCreateInput
+
+	// 后端驱动名称
+	Driver string `json:"driver"`
+
+	// 模板名称
+	Template string `json:"template"`
+
+	// 默认导入用户和组的域
+	TargetDomainId string `json:"target_domain_id"`
+	// swagger:ignore
+	// Deprecated
+	TargetDomain string `json:"target_domain" "yunion:deprecated-by":"target_domain_id"`
+
+	// 新建域的时候是否自动新建第一个项目
+	AutoCreateProject *bool `json:"auto_create_project"`
+
+	// 自动同步间隔，单位：秒
+	SyncIntervalSeconds *int `json:"sync_interval_seconds"`
+
+	// 配置信息
+	Config TConfigs `json:"config"`
+}
