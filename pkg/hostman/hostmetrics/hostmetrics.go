@@ -189,6 +189,7 @@ func (s *SGuestMonitorCollector) GetGuests() map[string]*SGuestMonitor {
 					return true
 				}
 			}
+			gm.ScalingGroupId, _ = guest.Desc.GetString("scaling_group_id")
 			gms[guestId] = gm
 		}
 		return true
@@ -222,15 +223,16 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) string {
 	ret := []string{}
 	for guestId, report := range data.Value() {
-		var vmName, vmIp string
+		var vmName, vmIp, scalingGroupId string
 		if gm, ok := s.monitors[guestId]; ok {
 			vmName = gm.Name
 			vmIp = gm.Ip
+			scalingGroupId = gm.ScalingGroupId
 		}
 		for metrics, stat := range report.(*jsonutils.JSONDict).Value() {
 			tags := map[string]string{
 				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
-				"is_vm": "true", "platform": "kvm",
+				"is_vm": "true", "platform": "kvm", "vm_scaling_group_id": scalingGroupId,
 			}
 			if val, ok := stat.(*jsonutils.JSONDict); ok {
 				line := s.addTelegrafLine(metrics, tags, val)
@@ -382,13 +384,14 @@ func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject
 }
 
 type SGuestMonitor struct {
-	Name    string
-	Id      string
-	Pid     int
-	Nics    []jsonutils.JSONObject
-	CpuCnt  int
-	Ip      string
-	Process *process.Process
+	Name           string
+	Id             string
+	Pid            int
+	Nics           []jsonutils.JSONObject
+	CpuCnt         int
+	Ip             string
+	Process        *process.Process
+	ScalingGroupId string
 }
 
 func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuCount int,
@@ -401,7 +404,7 @@ func NewGuestMonitor(name, id string, pid int, nics []jsonutils.JSONObject, cpuC
 	if err != nil {
 		return nil, err
 	}
-	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc}, nil
+	return &SGuestMonitor{name, id, pid, nics, cpuCount, ip, proc, ""}, nil
 }
 
 func (m *SGuestMonitor) UpdateVmName(name string) {

@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/pkg/tristate"
 
@@ -93,6 +94,8 @@ func (sgg *SScalingGroupGuest) SetGuestStatus(status string) error {
 	}
 	_, err := db.Update(sgg, func() error {
 		sgg.GuestStatus = status
+		sgg.UpdatedAt = time.Now()
+		sgg.UpdateVersion += 1
 		return nil
 	})
 	return err

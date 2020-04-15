@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SASController struct {
@@ -45,7 +46,9 @@ type SASController struct {
 	scalingQueue    chan struct{}
 	timerQueue      chan struct{}
 	scalingGroupSet *SLockedSet
-	scalingQuery    *sqlchemy.SQuery
+	scalingSql      *sqlchemy.SQuery
+	// record the consecutive failures of scaling group's scale
+	failRecord map[string]int
 }
 
 type SScalingInfo struct {
@@ -82,20 +85,23 @@ var ASController = new(SASController)
 
 func (asc *SASController) Init(options options.SASControllerOptions, cronm *cronman.SCronJobManager) {
 	asc.options = options
-	cronm.AddJobAtIntervals("CheckTimer", time.Duration(options.TimerInterval)*time.Second, asc.Timer)
-	cronm.AddJobAtIntervals("CheckScale", time.Duration(options.CheckScaleInterval)*time.Second, asc.CheckScale)
-	cronm.AddJobAtIntervals("CheckInstanceHealth", time.Duration(options.CheckHealthInterval)*time.Minute, asc.CheckInstanceHealth)
+	cronm.AddJobAtIntervalsWithStartRun("CheckTimer", time.Duration(options.TimerInterval)*time.Second, asc.Timer, true)
+	cronm.AddJobAtIntervalsWithStartRun("CheckScale", time.Duration(options.CheckScaleInterval)*time.Second, asc.CheckScale, true)
+	cronm.AddJobAtIntervalsWithStartRun("CheckInstanceHealth", time.Duration(options.CheckHealthInterval)*time.Minute, asc.CheckInstanceHealth, true)
 	asc.timerQueue = make(chan struct{}, 20)
 	asc.scalingQueue = make(chan struct{}, options.ConcurrentUpper)
 	asc.scalingGroupSet = &SLockedSet{set: sets.NewString()}
+	asc.failRecord = make(map[string]int)
 
+	// init scalingSql
 	sggQ := models.ScalingGroupGuestManager.Query("scaling_group_id").GroupBy("scaling_group_id")
 	sggQ = sggQ.AppendField(sqlchemy.COUNT("total", sggQ.Field("guest_id")))
 	sggSubQ := sggQ.SubQuery()
 	sgQ := models.ScalingGroupManager.Query("id", "desire_instance_number").IsTrue("enabled")
-	asc.scalingQuery = sgQ.LeftJoin(sggSubQ, sqlchemy.AND(sqlchemy.Equals(sggSubQ.Field("scaling_group_id"),
+	sgQ = sgQ.LeftJoin(sggSubQ, sqlchemy.AND(sqlchemy.Equals(sggSubQ.Field("scaling_group_id"),
 		sgQ.Field("id")), sqlchemy.NotEquals(sggSubQ.Field("total"), sgQ.Field("desire_instance_number"))))
 	sgQ.AppendField(sggSubQ.Field("total"))
+	asc.scalingSql = sgQ
 
 	// check all scaling activity
 	log.Infof("check and update scaling activities...")
@@ -110,6 +116,33 @@ func (asc *SASController) Init(options options.SASControllerOptions, cronm *cron
 		sas[i].SetFailed("", "As the service restarts, the status becomes unknown")
 	}
 	log.Infof("check and update scalngactivities complete")
+}
+
+func (asc *SASController) PreScale(group *models.SScalingGroup, userCred mcclient.TokenCredential) bool {
+	maxFailures := 3
+	disableReason := fmt.Sprintf("The number of consecutive failures of creating a machine exceeds %d times", maxFailures)
+	times := asc.failRecord[group.GetId()]
+	if times >= maxFailures {
+		_, err := db.Update(group, func() error {
+			group.SetEnabled(false)
+			return nil
+		})
+		if err != nil {
+			return false
+		}
+		logclient.AddSimpleActionLog(group, logclient.ACT_DISABLE, disableReason, userCred, true)
+		return false
+	}
+	return true
+}
+
+func (asc *SASController) Finish(groupId string, success bool) {
+	asc.scalingGroupSet.Delete(groupId)
+	if success {
+		asc.failRecord[groupId] = 0
+		return
+	}
+	asc.failRecord[groupId]++
 }
 
 // SScalingGroupShort wrap the ScalingGroup's ID and DesireInstanceNumber with field 'total' which means the total
@@ -143,12 +176,19 @@ func (asc *SASController) CheckScale(ctx context.Context, userCred mcclient.Toke
 
 func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCredential, short SScalingGroupShort) {
 	log.Debugf("scale for ScalingGroup '%s', desire: %d, total: %d", short.ID, short.DesireInstanceNumber, short.Total)
-	var err error
+	var (
+		err     error
+		success = true
+	)
+	setFail := func(sa *models.SScalingActivity, reason string) {
+		success = false
+		err = sa.SetFailed("", reason)
+	}
 	defer func() {
 		if err != nil {
 			log.Errorf("Scaling for ScalingGroup '%s': %s", short.ID, err.Error())
 		}
-		asc.scalingGroupSet.Delete(short.ID)
+		asc.Finish(short.ID, success)
 		<-asc.scalingQueue
 		log.Debugf("Scale for ScalingGroup '%s' finished", short.ID)
 	}()
@@ -161,8 +201,11 @@ func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCred
 		}
 		return
 	}
-	log.Debugf("fetch the latest total")
 	sg := model.(*models.SScalingGroup)
+	if !asc.PreScale(sg, userCred) {
+		success = true
+		return
+	}
 	total, err := sg.GuestNumber()
 	if err != nil {
 		return
@@ -195,12 +238,12 @@ func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCred
 		// check guest template
 		gt := sg.GetGuestTemplate()
 		if gt == nil {
-			err = scalingActivity.SetFailed("", fmt.Sprintf("fetch GuestTemplate of ScalingGroup '%s' error", sg.Id))
+			setFail(scalingActivity, fmt.Sprintf("fetch GuestTemplate of ScalingGroup '%s' error", sg.Id))
 			return
 		}
 		nets, err := sg.NetworkIds()
 		if err != nil {
-			err = scalingActivity.SetFailed("", fmt.Sprintf("fetch Networks of ScalingGroup '%s' error", sg.Id))
+			setFail(scalingActivity, fmt.Sprintf("fetch Networks of ScalingGroup '%s' error", sg.Id))
 			return
 		}
 		valid, msg := gt.Validate(context.TODO(), auth.AdminCredential(), gt.GetOwnerId(),
@@ -218,7 +261,7 @@ func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCred
 		succeedInstances, err := asc.CreateInstances(ctx, userCred, ownerId, sg, gt, nets[0], num)
 		switch len(succeedInstances) {
 		case 0:
-			err = scalingActivity.SetFailed("", fmt.Sprintf("All instances create failed: %s", err.Error()))
+			setFail(scalingActivity, fmt.Sprintf("All instances create failed: %s", err.Error()))
 		case num:
 			var action bytes.Buffer
 			action.WriteString("Instances ")
@@ -244,7 +287,7 @@ func (asc *SASController) Scale(ctx context.Context, userCred mcclient.TokenCred
 		succeedInstances, err := asc.DetachInstances(ctx, userCred, ownerId, sg, num)
 		switch len(succeedInstances) {
 		case 0:
-			err = scalingActivity.SetFailed("", fmt.Sprintf("All instance remove failed: %s", err.Error()))
+			setFail(scalingActivity, fmt.Sprintf("All instance remove failed: %s", err.Error()))
 		case num:
 			var action bytes.Buffer
 			action.WriteString("Instances ")
@@ -679,7 +722,7 @@ func (asc *SASController) countPRAndRequests(num int) (int, int) {
 
 // ScalingGroupNeedScale will fetch all ScalingGroup need to scale
 func (asc *SASController) ScalingGroupsNeedScale() ([]SScalingGroupShort, error) {
-	rows, err := asc.scalingQuery.Rows()
+	rows, err := asc.scalingSql.Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "execute scaling sql error")
 	}
@@ -687,7 +730,7 @@ func (asc *SASController) ScalingGroupsNeedScale() ([]SScalingGroupShort, error)
 	sgShorts := make([]SScalingGroupShort, 0, 10)
 	for rows.Next() {
 		sgPro := SScalingGroupShort{}
-		err := asc.scalingQuery.Row2Struct(rows, &sgPro)
+		err := asc.scalingSql.Row2Struct(rows, &sgPro)
 		if err != nil {
 			return nil, errors.Wrap(err, "sqlchemy.SQuery.Row2Struct error")
 		}
