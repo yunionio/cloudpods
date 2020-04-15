@@ -4341,7 +4341,7 @@ func (manager *SGuestManager) getNeedRenewPrepaidGuests() ([]SGuest, error) {
 
 	q := manager.Query()
 	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).
-		IsFalse("pending_deleted").In("hypervisor", GetNotSupportAutoRenewHypervisors).IsTrue("auto_renew")
+		IsFalse("pending_deleted").In("hypervisor", GetNotSupportAutoRenewHypervisors()).IsTrue("auto_renew")
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
