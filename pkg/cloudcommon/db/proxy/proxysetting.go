@@ -227,14 +227,14 @@ func RegisterReferrer(man db.IModelManager) {
 }
 
 func ValidateProxySettingResourceInput(userCred mcclient.TokenCredential, input proxyapi.ProxySettingResourceInput) (*SProxySetting, proxyapi.ProxySettingResourceInput, error) {
-	m, err := ProxySettingManager.FetchByIdOrName(userCred, input.ProxySettingId)
+	m, err := ProxySettingManager.FetchByIdOrName(userCred, input.ProxySetting)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ProxySettingManager.Keyword(), input.ProxySettingId)
+			return nil, input, errors.Wrapf(httperrors.ErrResourceNotFound, "%s %s", ProxySettingManager.Keyword(), input.ProxySetting)
 		} else {
 			return nil, input, errors.Wrapf(err, "ProxySettingManager.FetchByIdOrName")
 		}
 	}
-	input.ProxySettingId = m.GetId()
+	input.ProxySetting = m.GetId()
 	return m.(*SProxySetting), input, nil
 }

@@ -16,11 +16,8 @@ package prettytable
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"unicode"
-
-	"golang.org/x/sys/unix"
 )
 
 type AlignmentType uint8
@@ -54,15 +51,6 @@ func NewPrettyTable(fields []string) *PrettyTable {
 		pt.columns = append(pt.columns, col)
 	}
 	return &pt
-}
-
-func termWidth() (int, error) {
-	fd := int(os.Stdout.Fd())
-	wsz, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
-	if err != nil {
-		return -1, err
-	}
-	return int(wsz.Col), nil
 }
 
 func rowLine(buf *bytes.Buffer, widths []int) {

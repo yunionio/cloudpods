@@ -297,7 +297,7 @@ func (self *SCloudaccount) ValidateUpdateData(
 		input.Options = optionsJson
 	}
 
-	if len(input.ProxySettingId) > 0 {
+	if len(input.ProxySetting) > 0 {
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
 		if err != nil {
@@ -391,8 +391,8 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 
 	var proxyFunc httputils.TransportProxyFunc
 	{
-		if input.ProxySettingId == "" {
-			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
+		if input.ProxySetting == "" {
+			input.ProxySetting = proxyapi.ProxySettingId_DIRECT
 		}
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
