@@ -496,7 +496,7 @@ func getStorageTypes(
 			if storage.Cmtbound == 0 {
 				storage.Cmtbound = options.Options.DefaultStorageOvercommitBound
 			}
-			storage.VirtualCapacity = int64(float32((storage.Capacity - storage.WasteCapacity.Int64)) * storage.Cmtbound)
+			storage.VirtualCapacity = int64(float32((storage.Capacity - storage.Reserved)) * storage.Cmtbound)
 			storage.FreeCapacity = storage.VirtualCapacity - storage.UsedCapacity.Int64 - storage.WasteCapacity.Int64
 			addStorageInfo(&storage, simpleStorage)
 			storageInfos[storageType] = simpleStorage
