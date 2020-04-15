@@ -257,27 +257,18 @@ func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool, tags ma
 }
 
 func (fields SStructFieldValueSet) GetStructFieldIndex(name string) int {
-	for i := range fields {
-		if fields[i].Info.Ignore {
-			continue
-		}
-		if fields[i].Info.MarshalName() == name {
-			return i
-		}
-		/*if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
-			return i
-		}
-		if jsonInfo.FieldName == name {
-			return i
-		}
-		if jsonInfo.FieldName == utils.Capitalize(name) {
-			return i
-		}*/
+	indexes := fields.GetStructFieldIndexes(name)
+	if len(indexes) > 0 {
+		return indexes[0]
 	}
 	return -1
 }
 
 func (fields SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
+	return fields.GetStructFieldIndexes2(name, false)
+}
+
+func (fields SStructFieldValueSet) GetStructFieldIndexes2(name string, strictMode bool) []int {
 	ret := make([]int, 0)
 	for i := range fields {
 		if fields[i].Info.Ignore {
@@ -287,18 +278,20 @@ func (fields SStructFieldValueSet) GetStructFieldIndexes(name string) []int {
 			ret = append(ret, i)
 			continue
 		}
-		/*if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
-			ret = append(ret, i)
-			continue
+		if !strictMode {
+			if utils.CamelSplit(fields[i].Info.FieldName, "_") == utils.CamelSplit(name, "_") {
+				ret = append(ret, i)
+				continue
+			}
+			if fields[i].Info.FieldName == name {
+				ret = append(ret, i)
+				continue
+			}
+			if fields[i].Info.FieldName == utils.Capitalize(name) {
+				ret = append(ret, i)
+				continue
+			}
 		}
-		if jsonInfo.FieldName == name {
-			ret = append(ret, i)
-			continue
-		}
-		if jsonInfo.FieldName == utils.Capitalize(name) {
-			ret = append(ret, i)
-			continue
-		}*/
 	}
 	return ret
 }

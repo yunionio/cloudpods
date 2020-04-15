@@ -520,7 +520,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	return nil
 }
 
-func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStructFieldValueSet, visited map[string]bool) error {
+func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStructFieldValueSet, keyIndexMap map[string][]int, visited map[string]bool) error {
 	if visited == nil {
 		visited = make(map[string]bool)
 	}
@@ -529,10 +529,14 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		return nil
 	}
 	visited[key] = true
-	indexes := fieldValues.GetStructFieldIndexes(key)
-	if len(indexes) == 0 {
-		// no field match k, ignore
-		return nil
+	indexes, ok := keyIndexMap[key]
+	if !ok || len(indexes) == 0 {
+		// try less strict match name
+		indexes = fieldValues.GetStructFieldIndexes2(key, false)
+		if len(indexes) == 0 {
+			// no field match k, ignore
+			return nil
+		}
 	}
 	for _, index := range indexes {
 		err := v.unmarshalValue(fieldValues[index].Value)
@@ -541,7 +545,7 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 		}
 		depInfo, ok := fieldValues[index].Info.Tags[TAG_DEPRECATED_BY]
 		if ok {
-			err := setStructFieldAt(depInfo, v, fieldValues, visited)
+			err := setStructFieldAt(depInfo, v, fieldValues, keyIndexMap, visited)
 			if err != nil {
 				return errors.Wrap(err, "setStructFieldAt")
 			}
@@ -552,8 +556,9 @@ func setStructFieldAt(key string, v JSONObject, fieldValues reflectutils.SStruct
 
 func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
 	fieldValues := reflectutils.FetchStructFieldValueSetForWrite(val)
+	keyIndexMap := fieldValues.GetStructFieldIndexesMap()
 	for k, v := range this.data {
-		err := setStructFieldAt(k, v, fieldValues, nil)
+		err := setStructFieldAt(k, v, fieldValues, keyIndexMap, nil)
 		if err != nil {
 			return errors.Wrapf(err, "setStructFieldAt %s: %s", k, v)
 		}
