@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudproviderQuotaManager struct {
@@ -148,6 +150,38 @@ func (man *SCloudproviderQuotaManager) QueryDistinctExtraField(q *sqlchemy.SQuer
 		return q, nil
 	}
 	return q, httperrors.ErrNotFound
+}
+
+func (self *SCloudproviderQuota) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.CloudproviderQuotaDetails, error) {
+	return api.CloudproviderQuotaDetails{}, nil
+}
+
+func (manager *SCloudproviderQuotaManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.CloudproviderQuotaDetails {
+	rows := make([]api.CloudproviderQuotaDetails, len(objs))
+	stdRows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+
+	for i := range rows {
+		rows[i] = api.CloudproviderQuotaDetails{
+			StandaloneResourceDetails: stdRows[i],
+			ManagedResourceInfo:       manRows[i],
+			CloudregionResourceInfo:   regRows[i],
+		}
+	}
+	return rows
 }
 
 func (manager *SCloudproviderQuotaManager) GetQuotas(provider *SCloudprovider, region *SCloudregion, quotaRange string) ([]SCloudproviderQuota, error) {

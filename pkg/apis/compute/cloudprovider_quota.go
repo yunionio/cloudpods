@@ -34,3 +34,11 @@ type CloudproviderQuotaListInput struct {
 	// 配额范围
 	QuotaRange string `json:"quota_range"`
 }
+
+type CloudproviderQuotaDetails struct {
+	apis.StandaloneResourceDetails
+	CloudregionResourceInfo
+	ManagedResourceInfo
+
+	SCloudproviderQuota
+}
