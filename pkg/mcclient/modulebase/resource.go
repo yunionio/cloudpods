@@ -409,6 +409,32 @@ func (this *ResourceManager) PutInContexts(session *mcclient.ClientSession, id s
 	return this.filterSingleResult(session, result, nil)
 }
 
+func (this *ResourceManager) PutSpecific(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.PutSpecificInContexts(session, id, spec, query, body, nil)
+}
+
+func (this *ResourceManager) PutSpecificInContext(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error) {
+	return this.PutSpecificInContexts(session, id, spec, query, body, []ManagerContext{{ctx, ctxid}})
+}
+
+func (this *ResourceManager) PutSpecificInContexts(session *mcclient.ClientSession, id string, spec string, query, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
+	path := fmt.Sprintf("/%s/%s/%s", this.ContextPath(ctxs), url.PathEscape(id), url.PathEscape(spec))
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
+	if body != nil {
+		body = this.params2Body(session, body, this.Keyword)
+	}
+	result, err := this._put(session, path, body, this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(session, result, nil)
+}
+
 func (this *ResourceManager) BatchUpdate(session *mcclient.ClientSession, idlist []string, params jsonutils.JSONObject) []SubmitResult {
 	return this.BatchPutInContexts(session, idlist, params, nil)
 }

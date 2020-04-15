@@ -16,6 +16,11 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+
+	"github.com/ghodss/yaml"
 
 	"yunion.io/x/jsonutils"
 
@@ -57,7 +62,7 @@ func init() {
 	initPVC()
 	initJob()
 	initCronJob()
-
+	initEvent()
 	initRbac()
 
 	initApp()
@@ -217,6 +222,71 @@ func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cm
 	)
 }
 
+func NewK8sNsResourceGetRawCmd(cmdN CmdNameFactory, manager k8s.IClusterResourceManager) *Cmd {
+	return NewCommand(
+		&o.NamespaceResourceGetOptions{},
+		cmdN.Do("show-raw"),
+		fmt.Sprintf("Show k8s %s raw data", cmdN.Kind),
+		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
+			ret, err := manager.GetRaw(s, args.NAME, args.Params())
+			if err != nil {
+				return err
+			}
+			printObjectYAML(ret)
+			return nil
+		},
+	)
+}
+
+func NewK8sResourceEditRawCmd(cmdN CmdNameFactory, manager k8s.IClusterResourceManager) *Cmd {
+	return NewCommand(
+		&o.NamespaceResourceGetOptions{},
+		cmdN.Do("edit-raw"),
+		fmt.Sprintf("Edit and update k8s %s raw data", cmdN.Kind),
+		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
+			rawData, err := manager.GetRaw(s, args.NAME, args.Params())
+			if err != nil {
+				return err
+			}
+			yamlBytes := rawData.YAMLString()
+			tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s-%s*.yaml", cmdN.Kind, args.NAME))
+			if err != nil {
+				return err
+			}
+			defer os.Remove(tempfile.Name())
+			if _, err := tempfile.Write([]byte(yamlBytes)); err != nil {
+				return err
+			}
+			if err := tempfile.Close(); err != nil {
+				return err
+			}
+
+			cmd := exec.Command("vim", tempfile.Name())
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+			content, err := ioutil.ReadFile(tempfile.Name())
+			if err != nil {
+				return err
+			}
+			jsonBytes, err := yaml.YAMLToJSON(content)
+			if err != nil {
+				return err
+			}
+			body, err := jsonutils.Parse(jsonBytes)
+			if err != nil {
+				return err
+			}
+			if _, err := manager.UpdateRaw(s, args.NAME, args.Params(), body.(*jsonutils.JSONDict)); err != nil {
+				return err
+			}
+			return nil
+		},
+	)
+}
+
 func NewK8sResourceDeleteCmd(cmdN CmdNameFactory, manager modulebase.Manager) *Cmd {
 	return NewCommand(
 		&o.ResourceDeleteOptions{},
@@ -244,11 +314,13 @@ func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modulebase.Manager) 
 	return deleteCmd
 }
 
-func initK8sNamespaceResource(kind string, manager modulebase.Manager) *ShellCommands {
+func initK8sNamespaceResource(kind string, manager k8s.IClusterResourceManager) *ShellCommands {
 	cmdN := NewCmdNameFactory(kind)
 	return NewShellCommands(cmdN.Do).AddR(
 		NewK8sNsResourceListCmd(cmdN, manager),
 		NewK8sNsResourceGetCmd(cmdN, manager),
 		NewK8sNsResourceDeleteCmd(cmdN, manager),
+		NewK8sNsResourceGetRawCmd(cmdN, manager),
+		NewK8sResourceEditRawCmd(cmdN, manager),
 	)
 }
