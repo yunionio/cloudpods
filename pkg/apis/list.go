@@ -107,11 +107,11 @@ type ModelBaseListInput struct {
 	Filter []string `json:"filter"`
 	// 指定关联过滤条件，允许指定多个，后端将根据关联过滤条件和其他表关联查询，支持的查询语法和filter相同，
 	// 和其他表关联的语法如下：
-	//     joint_tbl.related_key(origin_key).filter_col.filter_ops(values)
-	// 其中，joint_tbl为要关联的表，related_key为关联表column，origin_key为当前表column, filter_col为
+	//     joint_resources.related_key(origin_key).filter_col.filter_ops(values)
+	// 其中，joint_resources为要关联的资源名称，related_key为关联表column，origin_key为当前表column, filter_col为
 	// 关联表用于查询匹配的field名称，field_ops为filter支持的操作，values为匹配的值
 	// 举例：
-	//     guestnetworks_tbl.guest_id(id).ip_addr.equals('10.168.21.222')
+	//     guestnetworks.guest_id(id).ip_addr.equals('10.168.21.222')
 	JointFilter []string `json:"joint_filter"`
 	// 如果filter_any为true，则查询所有filter的并集，否则为交集
 	FilterAny *bool `json:"filter_any"`

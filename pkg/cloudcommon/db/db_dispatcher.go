@@ -215,6 +215,9 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 		jfc := filterclause.ParseJointFilterClause(f)
 		if jfc != nil {
 			jointModelManager := GetModelManager(jfc.GetJointModelName())
+			if jointModelManager == nil {
+				return nil, httperrors.NewResourceNotFoundError("invalid joint resources %s", jfc.GetJointModelName())
+			}
 			schFields := searchFields(jointModelManager, userCred)
 			if schFields.Contains(jfc.GetField()) {
 				sq := jointModelManager.Query(jfc.RelatedKey)
@@ -300,7 +303,10 @@ func listItemQueryFiltersRaw(manager IModelManager,
 	}
 	jointFilter := jsonutils.GetQueryStringArray(query, "joint_filter")
 	if len(jointFilter) > 0 {
-		q, _ = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
+		q, err = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return q, nil
 }
