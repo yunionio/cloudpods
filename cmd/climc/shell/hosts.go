@@ -203,6 +203,36 @@ func init() {
 		return nil
 	})
 
+	R(&HostListOptions{}, "host-node-count", "Get host node count", func(s *mcclient.ClientSession, opts *HostListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
+		}
+
+		if opts.Empty {
+			params.Add(jsonutils.JSONTrue, "is_empty")
+		} else if opts.Occupied {
+			params.Add(jsonutils.JSONFalse, "is_empty")
+		}
+		if opts.Enabled {
+			params.Add(jsonutils.NewInt(1), "enabled")
+		} else if opts.Disabled {
+			params.Add(jsonutils.NewInt(0), "enabled")
+		}
+		if len(opts.Uuid) > 0 {
+			params.Add(jsonutils.NewString(opts.Uuid), "uuid")
+		}
+		if len(opts.Sn) > 0 {
+			params.Add(jsonutils.NewString(opts.Sn), "sn")
+		}
+		result, err := modules.Hosts.Get(s, "node-count", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type HostUpdateOptions struct {
 		ID                string  `help:"ID or Name of Host"`
 		Name              string  `help:"New name of the host"`

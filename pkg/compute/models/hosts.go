@@ -955,6 +955,39 @@ func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, 
 	return res, nil
 }
 
+func (self *SHostManager) AllowGetPropertyNodeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) bool {
+	return userCred.HasSystemAdminPrivilege()
+}
+
+func (self *SHostManager) GetPropertyNodeCount(ctx context.Context, userCred mcclient.TokenCredential, query api.HostListInput) (jsonutils.JSONObject, error) {
+	hosts := self.Query().SubQuery()
+	q := hosts.Query(hosts.Field("host_type"), sqlchemy.SUM("node_count_total", hosts.Field("node_count")))
+	q, err := self.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.GroupBy("host_type").Rows()
+	if err != nil {
+		return nil, err
+	}
+
+	ret := jsonutils.NewDict()
+	defer rows.Close()
+	for rows.Next() {
+		var hostType string
+		var count int64
+		err = rows.Scan(&hostType, &count)
+		if err != nil {
+			log.Errorf("Get host node count scan err: %v", err)
+			return ret, nil
+		}
+
+		ret.Add(jsonutils.NewInt(count), hostType)
+	}
+
+	return ret, nil
+}
+
 func (self *SHostManager) ClearAllSchedDescCache() error {
 	return self.ClearSchedDescSessionCache("", "")
 }
