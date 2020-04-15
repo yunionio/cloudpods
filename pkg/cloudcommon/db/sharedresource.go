@@ -153,7 +153,9 @@ func (manager *SSharedResourceManager) shareToTarget(
 				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't shared project to other domain")
 			}
 			if tenant.GetId() == modelOwnerId.GetProjectId() {
-				return nil, errors.Wrap(httperrors.ErrBadRequest, "can't share to self project")
+				// ignore self project
+				continue
+				// return nil, errors.Wrap(httperrors.ErrBadRequest, "can't share to self project")
 			}
 			newIds = stringutils2.Append(newIds, tenant.GetId())
 		case SharedTargetDomain:
@@ -162,7 +164,9 @@ func (manager *SSharedResourceManager) shareToTarget(
 				return nil, errors.Wrapf(err, "fetch domain %s error", targetIds[i])
 			}
 			if domain.GetId() == modelOwnerId.GetProjectDomainId() {
-				return nil, errors.Wrapf(httperrors.ErrBadRequest, "can't share to self domain %s", modelOwnerId.GetProjectDomainId())
+				// ignore self domain
+				continue
+				// return nil, errors.Wrapf(httperrors.ErrBadRequest, "can't share to self domain %s", modelOwnerId.GetProjectDomainId())
 			}
 			if len(candidateIds) > 0 && !utils.IsInStringArray(domain.GetId(), candidateIds) {
 				return nil, errors.Wrapf(httperrors.ErrForbidden, "share target domain %s not in candidate list %s", domain.GetId(), candidateIds)

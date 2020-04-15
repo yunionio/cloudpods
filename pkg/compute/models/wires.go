@@ -992,10 +992,15 @@ func (man *SWireManager) removeWiresByVpc(ctx context.Context, userCred mcclient
 	return errors.NewAggregate(errs)
 }
 
+func (self *SWire) IsManaged() bool {
+	vpc := self.GetVpc()
+	if vpc == nil {
+		return false
+	}
+	return vpc.IsManaged()
+}
+
 func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	// make host default public
-	model.IsPublic = true
-	model.PublicScope = string(rbacutils.ScopeSystem)
 	return model.SInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

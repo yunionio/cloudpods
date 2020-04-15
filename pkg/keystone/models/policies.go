@@ -127,6 +127,10 @@ func (manager *SPolicyManager) ValidateCreateData(
 	if err != nil {
 		return input, errors.Wrap(err, "SEnabledIdentityBaseResourceManager.ValidateCreateData")
 	}
+	input.SharableResourceBaseCreateInput, err = db.SharableManagerValidateCreateData(manager, ctx, userCred, ownerId, query, input.SharableResourceBaseCreateInput)
+	if err != nil {
+		return input, errors.Wrap(err, "SharableManagerValidateCreateData")
+	}
 
 	quota := &SIdentityQuota{
 		SBaseDomainQuotaKeys: quotas.SBaseDomainQuotaKeys{DomainId: ownerId.GetProjectDomainId()},
@@ -222,7 +226,7 @@ func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.Tok
 }
 
 func (policy *SPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	policy.SSharableBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	db.SharableModelCustomizeCreate(policy, ctx, userCred, ownerId, query, data)
 	return policy.SEnabledIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 

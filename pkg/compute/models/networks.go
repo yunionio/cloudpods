@@ -1550,17 +1550,28 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 	return false
 }
 
+func (self *SNetwork) IsManaged() bool {
+	wire := self.GetWire()
+	if wire == nil {
+		return false
+	}
+	return wire.IsManaged()
+}
+
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsDomainAllowCreate(userCred, self.GetModelManager()) && ownerId.GetProjectId() == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
-		self.IsPublic = true
-		if options.Options.NonDefaultDomainProjects {
-			self.PublicScope = string(rbacutils.ScopeDomain)
+	if !data.Contains("public_scope") {
+		if self.ServerType == api.NETWORK_TYPE_GUEST && !self.IsManaged() {
+			if db.IsAdminAllowPerform(userCred, self, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+				self.SetShare(rbacutils.ScopeSystem)
+			} else if db.IsDomainAllowPerform(userCred, self, "public") && ownerId.GetProjectId() == userCred.GetProjectId() {
+				self.SetShare(rbacutils.ScopeDomain)
+			} else {
+				self.SetShare(rbacutils.ScopeNone)
+			}
 		} else {
-			self.PublicScope = string(rbacutils.ScopeSystem)
+			self.SetShare(rbacutils.ScopeNone)
 		}
-	} else {
-		self.IsPublic = false
-		self.PublicScope = string(rbacutils.ScopeNone)
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
 	}
 	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

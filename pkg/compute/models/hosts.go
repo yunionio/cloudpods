@@ -4920,8 +4920,6 @@ func (self *SHost) StartSyncConfig(ctx context.Context, userCred mcclient.TokenC
 
 func (model *SHost) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	// make host default public
-	model.IsPublic = true
-	model.PublicScope = string(rbacutils.ScopeSystem)
 	return model.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -4978,7 +4976,7 @@ func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCre
 	// perform public for all connected local storage
 	storages := host.GetAttachedLocalStorages()
 	for i := range storages {
-		_, err := storages[i].PerformPublic(ctx, userCred, query, input)
+		_, err := storages[i].performPublicInternal(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "storage.PerformPublic")
 		}
@@ -4990,7 +4988,7 @@ func (host *SHost) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 	// perform private for all connected local storage
 	storages := host.GetAttachedLocalStorages()
 	for i := range storages {
-		_, err := storages[i].PerformPrivate(ctx, userCred, query, input)
+		_, err := storages[i].performPrivateInternal(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "storage.PerformPrivate")
 		}
