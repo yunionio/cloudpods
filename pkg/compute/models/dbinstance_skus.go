@@ -59,7 +59,7 @@ type SDBInstanceSku struct {
 	SCloudregionResourceBase
 	Provider string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	StorageType   string `list:"user" create:"optional"`
+	StorageType   string `width:"32" index:"true" list:"user" create:"optional"`
 	DiskSizeStep  int    `list:"user" default:"1" create:"optional"` //步长
 	MaxDiskSizeGb int    `list:"user" create:"optional"`
 	MinDiskSizeGb int    `list:"user" create:"optional"`
@@ -72,9 +72,9 @@ type SDBInstanceSku struct {
 	VcpuCount  int `nullable:"false" default:"1" list:"user" create:"optional"`
 	VmemSizeMb int `nullable:"false" list:"user" create:"required"`
 
-	Category      string `nullable:"false" list:"user" create:"optional"`
-	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	Category      string `width:"32" index:"true" nullable:"false" list:"user" create:"optional"`
+	Engine        string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	EngineVersion string `width:"16" index:"true" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	Zone1  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	Zone2  string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
