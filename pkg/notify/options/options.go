@@ -22,10 +22,10 @@ type NotifyOption struct {
 	common_options.CommonOptions
 	common_options.DBOptions
 
-	DingtalkEnabled    bool   `help:"Enable dingtalk"`
-	SocketFileDir      string `help:"Socket file directory" default:"/etc/yunion/notify"`
-	UpdateInterval     int    `help:"Update send services interval(unit:min)" default:"30"`
-	VerifyEmailUrlPath string `help:"url of verify email" json:"verify_email_url_path"`
+	DingtalkEnabled bool   `help:"Enable dingtalk"`
+	SocketFileDir   string `help:"Socket file directory" default:"/etc/yunion/notify"`
+	UpdateInterval  int    `help:"Update send services interval(unit:min)" default:"30"`
+	// VerifyEmailUrlPath string `help:"url of verify email" json:"verify_email_url_path"`
 
 	// Deprecated
 	VerifyEmailUrl string `help:"url of verify email" json:"verify_email_url"`
