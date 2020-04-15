@@ -40,10 +40,10 @@ type IdentityProviderCreateInput struct {
 	Template string `json:"template"`
 
 	// 默认导入用户和组的域
-	TargetDomainId string `json:"target_domain_id"`
+	TargetDomain string `json:"target_domain"`
 	// swagger:ignore
 	// Deprecated
-	TargetDomain string `json:"target_domain" "yunion:deprecated-by":"target_domain_id"`
+	TargetDomainId string `json:"target_domain_id" "yunion:deprecated-by":"target_domain"`
 
 	// 新建域的时候是否自动新建第一个项目
 	AutoCreateProject *bool `json:"auto_create_project"`

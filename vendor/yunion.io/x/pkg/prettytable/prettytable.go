@@ -16,8 +16,11 @@ package prettytable
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"unicode"
+
+	"golang.org/x/sys/unix"
 )
 
 type AlignmentType uint8
@@ -37,15 +40,29 @@ type ptColumn struct {
 
 type PrettyTable struct {
 	columns []ptColumn
+
+	maxLineWidth int
+	tryTermWidth bool
 }
 
 func NewPrettyTable(fields []string) *PrettyTable {
-	var pt = PrettyTable{}
+	var pt = PrettyTable{
+		tryTermWidth: true,
+	}
 	for _, field := range fields {
 		col := ptColumn{Title: field, Align: AlignLeft}
 		pt.columns = append(pt.columns, col)
 	}
 	return &pt
+}
+
+func termWidth() (int, error) {
+	fd := int(os.Stdout.Fd())
+	wsz, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
+	if err != nil {
+		return -1, err
+	}
+	return int(wsz.Col), nil
 }
 
 func rowLine(buf *bytes.Buffer, widths []int) {
@@ -128,9 +145,14 @@ func runeDisplayWidth(r rune) int {
 	return 1
 }
 
-// cellDisplayWidth returns display width of the cell when printed as the
-// nthCol.  prevWidth is the total display width (as return by this same func)
-// of previous cells in the same line
+// cellDisplayWidth returns display width of the cell content (excluding bars
+// and paddings) when printed as the nthCol.
+//
+// nthCol is 0-based
+//
+// prevWidth is the total display width (as return by this same func) of
+// previous cells in the same line.  It will be used to calculate width of tab
+// characters
 func cellDisplayWidth(cell string, nthCol int, prevWidth int) int {
 	// `| ` at the front and ` | ` in the middle
 	sX := prevWidth + nthCol*3 + 2
@@ -157,14 +179,100 @@ func cellDisplayWidth(cell string, nthCol int, prevWidth int) int {
 	return width
 }
 
+func wrapCell(cell string, nthCol int, prevWidth int, newWidth int) string {
+	sX := prevWidth + nthCol*3 + 2
+	var (
+		wrapped = false
+		newCell = ""
+		cline   = make([]rune, 0, newWidth+1)
+		cw      = 0
+		cx      = sX
+	)
+	for _, c := range cell {
+		var incr int
+		if c == '\n' {
+			cline = append(cline, c)
+			newCell += string(cline)
+			cline = cline[:0]
+			cw = 0
+			cx = sX
+			continue
+		} else if c != '\t' {
+			incr = runeDisplayWidth(c)
+		} else {
+			// terminal with have the char TabWidth aligned
+			incr = TabWidth - (cx & (TabWidth - 1))
+		}
+		t := cw + incr
+		if t < newWidth {
+			cline = append(cline, c)
+			cw += incr
+			cx += incr
+		} else if t == newWidth {
+			cline = append(cline, c, '\n')
+			newCell += string(cline)
+			cline = cline[:0]
+			cw = 0
+			cx = sX
+			if !wrapped {
+				wrapped = true
+			}
+		} else {
+			if len(cline) == 0 {
+				newCell += string(c) + "\n"
+			} else {
+				newCell += string(cline) + "\n"
+				cline = cline[:1]
+				cline[0] = c
+			}
+			cw = 0
+			cx = sX
+			if !wrapped {
+				wrapped = true
+			}
+		}
+	}
+	if len(cline) > 0 {
+		newCell += string(cline)
+	} else if !wrapped && newCell != "" {
+		l := len(newCell) - 1
+		c := newCell[l]
+		if c == '\n' {
+			newCell = newCell[:l]
+		}
+	}
+	return newCell
+}
+
+func (this *PrettyTable) MaxLineWidth(w int) {
+	this.maxLineWidth = w
+}
+
+func (this *PrettyTable) hasMaxLineWidth() (int, bool) {
+	if this.maxLineWidth > 0 {
+		return this.maxLineWidth, true
+	}
+	if this.tryTermWidth {
+		w, err := termWidth()
+		if err != nil {
+			return 0, false
+		}
+		return w, true
+	}
+	return 0, false
+}
+
 func (this *PrettyTable) GetString(fields [][]string) string {
 	if len(fields) == 0 {
 		return ""
 	}
-	var widths = make([]int, len(this.columns))
+	var (
+		widths   = make([]int, len(this.columns))
+		widthAcc = 0
+	)
 	{
 		// width of title columns
-		widthAcc := 0
+		widthAcc = 0
 		for i, c := range this.columns {
 			widths[i] = cellDisplayWidth(c.Title, i, widthAcc)
 			widthAcc += widths[i]
@@ -172,7 +280,7 @@ func (this *PrettyTable) GetString(fields [][]string) string {
 	}
 	{
 		// width of content columns
-		widthAcc := 0
+		widthAcc = 0
 		for col := 0; ; col++ {
 			cont := false
 			colWidth := 0
@@ -192,6 +300,48 @@ func (this *PrettyTable) GetString(fields [][]string) string {
 				widthAcc += widths[col]
 			} else {
 				break
+			}
+		}
+	}
+	if maxLineWidth, ok := this.hasMaxLineWidth(); ok {
+		nCols := len(this.columns)
+		maxContWidth := maxLineWidth - 3*nCols - 1
+		if maxContWidth < nCols {
+			// ensure at least 1 ascii char print
+			maxContWidth = nCols
+		}
+		if widthAcc > maxContWidth {
+			assured := maxContWidth / len(this.columns)
+
+			rem := maxContWidth
+			nwrap := 0
+			for _, w := range widths {
+				if w <= assured {
+					rem -= w
+				} else {
+					nwrap += 1
+				}
+			}
+			// break long lines
+			widthAcc := 0
+			wrapped := rem / nwrap
+			wrappedRem := rem % nwrap
+			for col, w := range widths {
+				if w > assured {
+					newW := wrapped
+					if wrappedRem > 0 {
+						newW += 1
+						wrappedRem -= 1
+					}
+					this.columns[col].Title = wrapCell(this.columns[col].Title, col, widthAcc, newW)
+					for _, line := range fields {
+						line[col] = wrapCell(line[col], col, widthAcc, newW)
+					}
+					widths[col] = newW // later tabs may need correction
+					widthAcc += newW
+				} else {
+					widthAcc += w
+				}
 			}
 		}
 	}

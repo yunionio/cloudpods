@@ -27,15 +27,15 @@ type RegionalFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudregionId string `json:"cloudregion_id" deprecated-by:"cloudregion"`
+	CloudregionId string `json:"cloudregion_id" "yunion:deprecated-by":"cloudregion"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Region string `json:"region" deprecated-by:"cloudregion"`
+	Region string `json:"region" "yunion:deprecated-by":"cloudregion"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	RegionId string `json:"region_id" deprecated-by:"cloudregion"`
+	RegionId string `json:"region_id" "yunion:deprecated-by":"cloudregion"`
 }
 
 type ZonalFilterListInput struct {
@@ -46,7 +46,7 @@ type ZonalFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by zone_id
-	ZoneId string `json:"zone_id" deprecated-by:"zone"`
+	ZoneId string `json:"zone_id" "yunion:deprecated-by":"zone"`
 	// 过滤处于多个指定可用区内的资源
 	Zones []string `json:"zones"`
 }
@@ -67,7 +67,7 @@ type HostFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by host_id
-	HostId string `json:"host_id" deprecated-by:"host"`
+	HostId string `json:"host_id" "yunion:deprecated-by":"host"`
 }
 
 type CloudregionListInput struct {

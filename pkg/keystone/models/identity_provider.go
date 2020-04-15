@@ -303,7 +303,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 		}
 	}
 
-	targetDomainStr := input.TargetDomainId
+	targetDomainStr := input.TargetDomain
 	if len(targetDomainStr) > 0 {
 		domain, err := DomainManager.FetchDomainById(targetDomainStr)
 		if err != nil {
@@ -313,7 +313,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 				return input, httperrors.NewGeneralError(err)
 			}
 		}
-		input.TargetDomainId = domain.Id
+		input.TargetDomain = domain.Id
 	}
 
 	var err error
