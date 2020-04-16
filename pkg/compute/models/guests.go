@@ -1272,13 +1272,13 @@ func (manager *SGuestManager) validateCreateData(
 		input.IsolatedDevices[idx] = devConfig
 	}
 
-	keypairId := input.KeypairId
+	keypairId := input.Keypair
 	if len(keypairId) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
-		input.KeypairId = keypairObj.GetId()
+		input.Keypair = keypairObj.GetId()
 	}
 
 	secGrpIds := []string{}
@@ -4880,7 +4880,7 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.ShutdownBehavior = genInput.ShutdownBehavior
 	userInput.IsSystem = genInput.IsSystem
 	userInput.SecgroupId = genInput.SecgroupId
-	userInput.KeypairId = genInput.KeypairId
+	userInput.Keypair = genInput.Keypair
 	userInput.EipBw = genInput.EipBw
 	userInput.EipChargeType = genInput.EipChargeType
 	// cloned server should belongs to the project creating it
@@ -4942,7 +4942,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.IsolatedDevices = self.ToIsolatedDevicesConfig()
 
 	if keypair := self.getKeypair(); keypair != nil {
-		r.KeypairId = keypair.Id
+		r.Keypair = keypair.Id
 	}
 	if host := self.GetHost(); host != nil {
 		r.ResourceType = host.ResourceType

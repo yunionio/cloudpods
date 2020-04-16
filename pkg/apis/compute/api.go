@@ -285,7 +285,7 @@ type ServerConfigs struct {
 	// swagger:ignore
 	// Deprecated
 	// alias for InstanceType
-	Sku string `json:"sku" deprecated-by:"instance_type"`
+	Sku string `json:"sku" "yunion:deprecated-by":"instance_type"`
 
 	// 虚拟机高可用(创建备机)
 	// default: false
@@ -358,11 +358,12 @@ type ServerCreateInput struct {
 	UserData string `json:"user_data"`
 
 	// swagger:ignore
-	Keypair string `json:"keypair" deprecated-by:"keypair_id"`
+	// Deprecated
+	KeypairId string `json:"keypair_id" "yunion:deprecated-by":"keypair"`
 
 	// 秘钥对Id
 	// required: false
-	KeypairId string `json:"keypair_id"`
+	Keypair string `json:"keypair"`
 
 	// 密码
 	// 要求: 密码长度 >= 20, 至少包含一个数字一个小写字母一个大小字母及特殊字符~`!@#$%^&*()-_=+[]{}|:';\",./<>?中的一个

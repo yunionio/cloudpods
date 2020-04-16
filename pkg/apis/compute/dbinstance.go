@@ -306,7 +306,7 @@ type DBInstanceResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	DBInstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
+	DBInstanceId string `json:"dbinstance_id" "yunion:deprecated-by":"dbinstance"`
 }
 
 type DBInstanceFilterListInputBase struct {

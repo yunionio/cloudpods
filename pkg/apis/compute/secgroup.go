@@ -178,7 +178,7 @@ type SecgroupResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by secgroup_id
-	SecgroupId string `json:"secgroup_id" deprecated-by:"secgroup"`
+	SecgroupId string `json:"secgroup_id" "yunion:deprecated-by":"secgroup"`
 }
 
 type SecgroupFilterListInput struct {

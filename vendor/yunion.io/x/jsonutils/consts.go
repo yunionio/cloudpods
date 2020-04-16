@@ -14,6 +14,10 @@
 
 package jsonutils
 
+import (
+	"yunion.io/x/pkg/util/reflectutils"
+)
+
 const (
-	TAG_DEPRECATED_BY = "deprecated-by"
+	TAG_DEPRECATED_BY = reflectutils.TAG_DEPRECATED_BY
 )

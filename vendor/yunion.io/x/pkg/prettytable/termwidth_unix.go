@@ -1,5 +1,5 @@
 // Copyright 2019 Yunion
-//
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,31 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package yunionconf
+// +build !windows
+
+package prettytable
 
 import (
-	"yunion.io/x/onecloud/pkg/apis"
+	"os"
+
+	"golang.org/x/sys/unix"
 )
 
-type ParameterListInput struct {
-	apis.ResourceBaseListInput
-
-	NamespaceId string `json:"namespace_id"`
-
-	// 服务名称或ID
-	Service string `json:"service"`
-
-	// Deprecated
-	// swagger:ignore
-	ServiceId string `json:"service_id" "yunion:deprecated-by":"service"`
-
-	// 用户名称或ID
-	User string `json:"user"`
-
-	// Deprecated
-	// swagger:ignore
-	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
-
-	// filter by name
-	Name []string `json:"name"`
+func termWidth() (int, error) {
+	fd := int(os.Stdout.Fd())
+	wsz, err := unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
+	if err != nil {
+		return -1, err
+	}
+	return int(wsz.Col), nil
 }

@@ -30,7 +30,7 @@ type ServerListInput struct {
 
 	HostFilterListInput
 
-	NetworkFilterListInput
+	NetworkFilterListInput `"yunion:ambiguous-prefix":"vpc_"`
 
 	billing.BillingResourceListInput
 
@@ -262,15 +262,15 @@ type ServerResourceInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	ServerId string `json:"server_id" deprecated-by:"server"`
+	ServerId string `json:"server_id" "yunion:deprecated-by":"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	Guest string `json:"guest" deprecated-by:"server"`
+	Guest string `json:"guest" "yunion:deprecated-by":"server"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by guest Id
-	GuestId string `json:"guest_id" deprecated-by:"server"`
+	GuestId string `json:"guest_id" "yunion:deprecated-by":"server"`
 }
 
 type ServerFilterListInput struct {

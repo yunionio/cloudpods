@@ -48,22 +48,22 @@ type ProjectFilterListInput struct {
 	ProjectDomain string `json:"project_domain"`
 	// swagger:ignore
 	// Deprecated
-	ProjectDomainId string `json:"project_domain_id" deprecated-by:"project-domain"`
+	ProjectDomainId string `json:"project_domain_id" "yunion:deprecated-by":"project-domain"`
 
 	// 以项目（ID或Name）过滤列表结果
 	Project string `json:"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by project_id
-	ProjectId string `json:"project_id" deprecated-by:"project"`
+	ProjectId string `json:"project_id" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant
-	Tenant string `json:"tenant" deprecated-by:"project"`
+	Tenant string `json:"tenant" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant_id
-	TenantId string `json:"tenant_id" deprecated-by:"project"`
+	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project"`
 }
 
 type UserFilterListInput struct {
@@ -78,7 +78,7 @@ type UserFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by user_id
-	UserId string `json:"user_id" deprecated-by:"user"`
+	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
 }
 
 type GroupFilterListInput struct {
@@ -93,7 +93,7 @@ type GroupFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by group_id
-	GroupId string `json:"group_id" deprecated-by:"group"`
+	GroupId string `json:"group_id" "yunion:deprecated-by":"group"`
 }
 
 type RoleFilterListInput struct {
@@ -108,7 +108,7 @@ type RoleFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by role_id
-	RoleId string `json:"role_id" deprecated-by:"role"`
+	RoleId string `json:"role_id" "yunion:deprecated-by":"role"`
 }
 
 type ServiceFilterListInput struct {
@@ -120,7 +120,7 @@ type ServiceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by service_id
-	ServiceId string `json:"service_id" deprecated-by:"service"`
+	ServiceId string `json:"service_id" "yunion:deprecated-by":"service"`
 
 	// 以服务名称排序
 	OrderByService string `json:"order_by_service"`
@@ -320,7 +320,7 @@ type RegionFilterListInput struct {
 	Region string `json:"region"`
 	// swagger:ignore
 	// Deprecated
-	RegionId string `json:"region_id" deprecated-by:"region"`
+	RegionId string `json:"region_id" "yunion:deprecated-by":"region"`
 }
 
 type RegionListInput struct {

@@ -89,7 +89,7 @@ type NatGatewayResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	NatgatewayId string `json:"natgateway_id" deprecated-by:"natgateway"`
+	NatgatewayId string `json:"natgateway_id" "yunion:deprecated-by":"natgateway"`
 }
 
 type NatGatewayFilterListInput struct {

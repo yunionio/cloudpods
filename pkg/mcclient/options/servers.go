@@ -61,6 +61,8 @@ type ServerListOptions struct {
 	ScalingGroup string `help:"ScalingGroup's id or name'"`
 
 	BaseListOptions
+
+	VpcProvider string `help:"filter by vpc's provider" json:"vpc_provider"`
 }
 
 type ServerIdOptions struct {
@@ -374,7 +376,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 	params := &computeapi.ServerCreateInput{
 		ServerConfigs:      config,
 		VcpuCount:          opts.VcpuCount,
-		KeypairId:          opts.Keypair,
+		Keypair:            opts.Keypair,
 		Password:           opts.Password,
 		Cdrom:              opts.Iso,
 		Vga:                opts.Vga,

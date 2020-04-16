@@ -43,7 +43,7 @@ type LoadbalancerCertificateResourceInput struct {
 
 	// swagger:ignore
 	// Deprecated
-	CertificateId string `json:"certificate_id" deprecated-by:"certificate"`
+	CertificateId string `json:"certificate_id" "yunion:deprecated-by":"certificate"`
 }
 
 type LoadbalancerCertificateFilterListInput struct {
