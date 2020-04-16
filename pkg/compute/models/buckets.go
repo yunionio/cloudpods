@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identity_apis "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -548,7 +549,8 @@ func joinPath(ep, path string) string {
 }
 
 func (bucket *SBucket) getMoreDetails(out api.BucketDetails) api.BucketDetails {
-	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", "public")
+	s3gwUrl, _ := auth.GetServiceURL("s3gateway", options.Options.Region, "", identity_apis.EndpointInterfacePublic)
+
 	if len(s3gwUrl) > 0 {
 		accessUrls := make([]cloudprovider.SBucketAccessUrl, 0)
 		if bucket.AccessUrls != nil {
