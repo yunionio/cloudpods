@@ -294,7 +294,10 @@ gen-swagger: gen-swagger-check
 swagger-serve: gen-model-api gen-swagger
 	$(ROOT_DIR)/scripts/codegen.py swagger-serve
 
-.PHONY: gen-model-api-check gen-model-api gen-swagger-check gen-swagger swagger-serve
+swagger-site: gen-model-api gen-swagger
+	$(ROOT_DIR)/scripts/codegen.py swagger-site
+
+.PHONY: gen-model-api-check gen-model-api gen-swagger-check gen-swagger swagger-serve swagger-site
 
 REGISTRY ?= "registry.cn-beijing.aliyuncs.com/yunionio"
 VERSION ?= $(shell git describe --exact-match 2> /dev/null || \
