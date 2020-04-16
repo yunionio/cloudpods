@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -148,22 +149,27 @@ func (self *SCASDriver) Authenticate(ctx context.Context, ident mcclient.SAuthen
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserExtended")
 	}
 
-	self.userTryJoinProject(ctx, usr, domain, resp)
+	self.userTryJoinProject(ctx, usr, domain.Id, resp)
 
 	return extUser, nil
 }
 
-func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUser, domain *models.SDomain, resp []byte) {
+func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUser, domainId string, resp []byte) {
 	var err error
 	var targetProject *models.SProject
+	log.Debugf("userTryJoinProject resp %s proj %s", string(resp), self.casConfig.CasProjectAttribute)
+	if !consts.GetNonDefaultDomainProjects() {
+		domainId = api.DEFAULT_DOMAIN_ID
+	}
 	if len(self.casConfig.CasProjectAttribute) > 0 {
-		projName := fetchAttribute(resp, self.casConfig.CasProjectAttribute)
-		if len(projName) > 0 {
-			targetProject, err = models.ProjectManager.FetchProject("", projName, domain.Id, domain.Name)
+		casProjName := fetchAttribute(resp, self.casConfig.CasProjectAttribute)
+		if len(casProjName) > 0 {
+			projName := models.NormalizeProjectName(casProjName)
+			targetProject, err = models.ProjectManager.FetchProject("", projName, domainId, "")
 			if err != nil {
 				log.Errorf("fetch project %s fail %s", projName, err)
 				if errors.Cause(err) == sql.ErrNoRows && self.casConfig.AutoCreateCasProject.IsTrue() {
-					targetProject, err = models.ProjectManager.NewProject(ctx, projName, "cas project", domain)
+					targetProject, err = models.ProjectManager.NewProject(ctx, projName, "cas project", domainId)
 					if err != nil {
 						log.Errorf("auto create project %s fail %s", projName, err)
 					}
@@ -183,7 +189,7 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 		if len(self.casConfig.CasRoleAttribute) > 0 {
 			roleName := fetchAttribute(resp, self.casConfig.CasRoleAttribute)
 			if len(roleName) > 0 {
-				targetRole, err = models.RoleManager.FetchRole("", roleName, domain.Id, domain.Name)
+				targetRole, err = models.RoleManager.FetchRole("", roleName, domainId, "")
 				if err != nil {
 					log.Errorf("fetch role %s fail %s", roleName, err)
 				}
@@ -205,7 +211,7 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 }
 
 func fetchAttribute(heystack []byte, name string) string {
-	pattern := regexp.MustCompile(fmt.Sprintf(`<%s>(\w+)</%s>`, name, name))
+	pattern := regexp.MustCompile(fmt.Sprintf(`<%s>([^<]*)</%s>`, name, name))
 	result := pattern.FindAllStringSubmatch(string(heystack), -1)
 	if len(result) > 0 && len(result[0]) > 1 {
 		return strings.TrimSpace(result[0][1])

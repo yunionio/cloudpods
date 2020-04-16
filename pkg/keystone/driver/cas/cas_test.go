@@ -48,15 +48,32 @@ func TestXmlUnmarshal(t *testing.T) {
 }
 
 func TestFetchAttribute(t *testing.T) {
-	xmlstr := `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+	cases := []struct {
+		Xml  string
+		Key  string
+		Want string
+	}{
+		{
+			Xml: `<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
     <cas:authenticationSuccess>
         <cas:user>casuser</cas:user>
         <cas:proj>casproj</cas:proj>
     </cas:authenticationSuccess>
-</cas:serviceResponse>`
-	got := fetchAttribute([]byte(xmlstr), "cas:proj")
-	want := "casproj"
-	if got != want {
-		t.Errorf("want %s got %s", want, got)
+</cas:serviceResponse>`,
+			Key:  "cas:proj",
+			Want: "casproj",
+		},
+		{
+			Xml: `<?xml version="1.0" encoding="UTF-8"?>
+			<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas"><cas:authenticationSuccess><cas:user>lcftest0416</cas:user><cas:proj>周凌测试无线公司1112342</cas:proj></cas:authenticationSuccess></cas:serviceResponse>`,
+			Key:  "cas:proj",
+			Want: "周凌测试无线公司1112342",
+		},
+	}
+	for _, c := range cases {
+		got := fetchAttribute([]byte(c.Xml), c.Key)
+		if got != c.Want {
+			t.Errorf("want %s got %s", c.Want, got)
+		}
 	}
 }

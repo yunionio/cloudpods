@@ -530,16 +530,16 @@ func (project *SProject) PerformLeave(
 	return nil, nil
 }
 
-func (manager *SProjectManager) NewProject(ctx context.Context, name string, desc string, domain *SDomain) (*SProject, error) {
-	lockman.LockClass(ctx, manager, domain.Id)
-	defer lockman.ReleaseClass(ctx, manager, domain.Id)
+func (manager *SProjectManager) NewProject(ctx context.Context, name string, desc string, domainId string) (*SProject, error) {
+	lockman.LockClass(ctx, manager, domainId)
+	defer lockman.ReleaseClass(ctx, manager, domainId)
 
 	project := &SProject{}
 	project.SetModelManager(ProjectManager, project)
 	projectName := NormalizeProjectName(name)
 	ownerId := &db.SOwnerId{}
 	if manager.NamespaceScope() == rbacutils.ScopeDomain {
-		ownerId.DomainId = domain.Id
+		ownerId.DomainId = domainId
 	}
 	newName, err := db.GenerateName(ProjectManager, ownerId, projectName)
 	if err != nil {
@@ -548,10 +548,10 @@ func (manager *SProjectManager) NewProject(ctx context.Context, name string, des
 		newName = projectName
 	}
 	project.Name = newName
-	project.DomainId = domain.Id
+	project.DomainId = domainId
 	project.Description = desc
 	project.IsDomain = tristate.False
-	project.ParentId = domain.Id
+	project.ParentId = domainId
 	err = ProjectManager.TableSpec().Insert(project)
 	if err != nil {
 		return nil, errors.Wrap(err, "Insert")
