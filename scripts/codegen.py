@@ -35,14 +35,15 @@ def run_swagger_gen(input_dirs, out_pkg):
     return run_generator('swagger-gen', input_dirs, out_pkg)
 
 
-def run_swagger_serve(output_dir):
+def run_swagger_serve(output_dir, serve=False):
     def is_swagger_yaml(file):
         return file.endswith('.yaml') and file.startswith('swagger')
     yamls = [pjoin(output_dir, x) for x in os.listdir(output_dir) if is_swagger_yaml(x)]
     cmd = ['swagger-serve', 'generate']
     cmd.extend(['-i', ','.join(yamls), '-o', output_dir])
-    cmd.extend(['-p', "40900"])
-    cmd.append('--serve')
+    if serve:
+        cmd.extend(['-p', "40900"])
+        cmd.append('--serve')
     run_cmd(cmd)
 
 
@@ -212,7 +213,21 @@ class SwaggerServe(object):
 
     def get_parser(self, subparsers):
         parser = subparsers.add_parser(
-                "swagger-serve", help="generate swagger web site")
+                "swagger-serve", help="generate swagger web site and serve")
+        parser.set_defaults(func=self.run)
+
+    def run(self, opt):
+        run_swagger_serve(self.output_dir, serve=True)
+
+
+class SwaggerSite(object):
+
+    def __init__(self, output_dir):
+        self.output_dir = output_dir
+
+    def get_parser(self, subparsers):
+        parser = subparsers.add_parser(
+                "swagger-site", help="generate swagger web site")
         parser.set_defaults(func=self.run)
 
     def run(self, opt):
@@ -235,12 +250,13 @@ if __name__ == "__main__":
     swagger_yaml = SwaggerYAML(SWAGGER_PKG, OUTPUT_SWAGGER_DIR)
     swagger_code = SwaggerCode(PKG_ONECLOUD, PKG_SWAGGER)
     swagger_serve = SwaggerServe(OUTPUT_SWAGGER_DIR)
+    swagger_site = SwaggerSite(OUTPUT_SWAGGER_DIR)
 
     parser = argparse.ArgumentParser(description="Code generate helper.")
     subparsers = parser.add_subparsers(dest='cmd')
     subparsers.required = True
 
-    for cmd in [model_api, swagger_code, swagger_yaml, swagger_serve]:
+    for cmd in [model_api, swagger_code, swagger_yaml, swagger_serve, swagger_site]:
         cmd.get_parser(subparsers)
 
     if len(sys.argv) == 1:
