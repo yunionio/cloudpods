@@ -18,3 +18,15 @@ const (
 	SERVICE_TYPE    = "webconsole"
 	SERVICE_VERSION = ""
 )
+
+const (
+	VNC       = "vnc"
+	ALIYUN    = "aliyun"
+	QCLOUD    = "qcloud"
+	OPENSTACK = "openstack"
+	SPICE     = "spice"
+	WMKS      = "wmks"
+	VMRC      = "vmrc"
+	ZSTACK    = "zstack"
+	CTYUN     = "ctyun"
+)
