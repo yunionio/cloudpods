@@ -147,30 +147,30 @@ type ManagedResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Manager string `json:"manager" deprecated-by:"cloudprovider"`
+	Manager string `json:"manager" "yunion:deprecated-by":"cloudprovider"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	ManagerId string `json:"manager_id" deprecated-by:"cloudprovider"`
+	ManagerId string `json:"manager_id" "yunion:deprecated-by":"cloudprovider"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudproviderId string `json:"cloudprovider_id" deprecated-by:"cloudprovider"`
+	CloudproviderId string `json:"cloudprovider_id" "yunion:deprecated-by":"cloudprovider"`
 
 	// 列出关联指定云账号(ID或Name)的资源
 	Cloudaccount string `json:"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	CloudaccountId string `json:"cloudaccount_id" deprecated-by:"cloudaccount"`
+	CloudaccountId string `json:"cloudaccount_id" "yunion:deprecated-by":"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	Account string `json:"account" deprecated-by:"cloudaccount"`
+	Account string `json:"account" "yunion:deprecated-by":"cloudaccount"`
 	// swagger:ignore
 	// Deprecated
 	// description: this param will be deprecate at 3.0
-	AccountId string `json:"account_id" deprecated-by:"cloudaccount"`
+	AccountId string `json:"account_id" "yunion:deprecated-by":"cloudaccount"`
 
 	// 列出指定云平台的资源，支持的云平台如下
 	//
@@ -196,7 +196,7 @@ type ManagedResourceListInput struct {
 	Providers []string `json:"providers"`
 	// swagger:ignore
 	// Deprecated
-	Provider []string `json:"provider" deprecated-by:"providers"`
+	Provider []string `json:"provider" "yunion:deprecated-by":"providers"`
 
 	// 列出指定云平台品牌的资源，一般来说brand和provider相同，除了以上支持的provider之外，还支持以下band
 	//
@@ -207,7 +207,7 @@ type ManagedResourceListInput struct {
 	Brands []string `json:"brands"`
 	// swagger:ignore
 	// Deprecated
-	Brand []string `json:"brand" deprecated-by:"brands"`
+	Brand []string `json:"brand" "yunion:deprecated-by":"brands"`
 
 	// 列出指定云环境的资源，支持云环境如下：
 	//

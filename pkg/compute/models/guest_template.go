@@ -246,8 +246,8 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 	configInfo.Disks = disks
 
 	// keypair
-	if len(input.KeypairId) > 0 {
-		model, err := KeypairManager.FetchById(input.KeypairId)
+	if len(input.Keypair) > 0 {
+		model, err := KeypairManager.FetchByIdOrName(userCred, input.Keypair)
 		if err == nil {
 			keypair := model.(*SKeypair)
 			configInfo.Keypair = keypair.GetName()
@@ -341,7 +341,7 @@ func (gt *SGuestTemplate) PerformPublic(ctx context.Context, userCred mcclient.T
 
 	// check for below private resource in the guest template
 	privateResource := map[string]int{
-		"keypair":           len(input.KeypairId),
+		"keypair":           len(input.Keypair),
 		"instance group":    len(input.InstanceGroupIds),
 		"instance snapshot": len(input.InstanceSnapshotId),
 	}

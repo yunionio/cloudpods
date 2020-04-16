@@ -364,7 +364,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 	params := &computeapi.ServerCreateInput{
 		ServerConfigs:      config,
 		VcpuCount:          opts.VcpuCount,
-		KeypairId:          opts.Keypair,
+		Keypair:            opts.Keypair,
 		Password:           opts.Password,
 		Cdrom:              opts.Iso,
 		Vga:                opts.Vga,

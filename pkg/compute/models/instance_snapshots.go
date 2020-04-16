@@ -262,7 +262,7 @@ func (self *SInstanceSnapshot) ToInstanceCreateInput(
 		sourceInput.VcpuCount = serverConfig.Ncpu
 	}
 	if len(self.KeypairId) > 0 {
-		sourceInput.KeypairId = self.KeypairId
+		sourceInput.Keypair = self.KeypairId
 	}
 	if self.SecGroups != nil {
 		secGroups := make([]string, 0)

@@ -24,7 +24,7 @@ type VpcFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by vpc Id
-	VpcId string `json:"vpc_id" deprecated-by:"vpc"`
+	VpcId string `json:"vpc_id" "yunion:deprecated-by":"vpc"`
 }
 
 type WireFilterListInput struct {
@@ -35,7 +35,7 @@ type WireFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// fitler by wire id
-	WireId string `json:"wire_id" deprecated-by:"wire"`
+	WireId string `json:"wire_id" "yunion:deprecated-by":"wire"`
 }
 
 type NetworkFilterListInput struct {
@@ -46,7 +46,7 @@ type NetworkFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by networkId
-	NetworkId string `json:"network_id" deprecated-by:"network"`
+	NetworkId string `json:"network_id" "yunion:deprecated-by":"network"`
 }
 
 type NetworkListInput struct {

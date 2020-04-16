@@ -89,7 +89,7 @@ type SnapshotPolicyFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter disk by snapshotpolicy_id
-	SnapshotpolicyId string `json:"snapshotpolicy_id" deprecated-by:"snapshotpolicy"`
+	SnapshotpolicyId string `json:"snapshotpolicy_id" "yunion:deprecated-by":"snapshotpolicy"`
 }
 
 type DiskListInput struct {
@@ -109,7 +109,7 @@ type DiskListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by disk type
-	Type string `json:"type" deprecated-by:"disk_type"`
+	Type string `json:"type" "yunion:deprecated-by":"disk_type"`
 	// 过滤指定disk_type的磁盘列表，可能的值为：sys, data, swap. volume
 	//
 	// | disk_type值 | 说明 |
@@ -128,7 +128,7 @@ type DiskFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by disk_id
-	DiskId string `json:"disk_id" deprecated-by:"disk"`
+	DiskId string `json:"disk_id" "yunion:deprecated-by":"disk"`
 }
 
 type SimpleGuest struct {

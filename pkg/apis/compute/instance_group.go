@@ -41,5 +41,5 @@ type GroupFilterListInput struct {
 	// swagger:ignore
 	// deprecated: true
 	// Filter by instance group Id
-	GroupId string `json:"group_id" deprecated-by:"group"`
+	GroupId string `json:"group_id" "yunion:deprecated-by":"group"`
 }

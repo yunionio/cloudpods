@@ -48,15 +48,15 @@ type ProjectFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by project_id
-	ProjectId string `json:"project_id" deprecated-by:"project"`
+	ProjectId string `json:"project_id" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant
-	Tenant string `json:"tenant" deprecated-by:"project"`
+	Tenant string `json:"tenant" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// filter by tenant_id
-	TenantId string `json:"tenant_id" deprecated-by:"project"`
+	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project"`
 }
 
 type UserFilterListInput struct {
@@ -65,7 +65,7 @@ type UserFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by user_id
-	UserId string `json:"user_id" deprecated-by:"user"`
+	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
 }
 
 type GroupFilterListInput struct {
@@ -74,7 +74,7 @@ type GroupFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by group_id
-	GroupId string `json:"group_id" deprecated-by:"group"`
+	GroupId string `json:"group_id" "yunion:deprecated-by":"group"`
 }
 
 type RoleFilterListInput struct {
@@ -83,7 +83,7 @@ type RoleFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by role_id
-	RoleId string `json:"role_id" deprecated-by:"role"`
+	RoleId string `json:"role_id" "yunion:deprecated-by":"role"`
 }
 
 type ServiceFilterListInput struct {
@@ -92,7 +92,7 @@ type ServiceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by service_id
-	ServiceId string `json:"service_id" deprecated-by:"service"`
+	ServiceId string `json:"service_id" "yunion:deprecated-by":"service"`
 }
 
 type RoleListInput struct {

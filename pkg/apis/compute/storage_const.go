@@ -144,7 +144,7 @@ type StorageFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by storage_id
-	StorageId string `json:"storage_id" deprecated-by:"storage"`
+	StorageId string `json:"storage_id" "yunion:deprecated-by":"storage"`
 }
 
 type StorageShareFilterListInput struct {

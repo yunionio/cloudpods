@@ -212,7 +212,7 @@ type DbinstanceFilterListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// filter by dbinstance_id
-	DbinstanceId string `json:"dbinstance_id" deprecated-by:"dbinstance"`
+	DbinstanceId string `json:"dbinstance_id" "yunion:deprecated-by":"dbinstance"`
 }
 
 type DBInstanceDetails struct {

@@ -28,11 +28,11 @@ type DomainizedResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Project domain Id filter, alias for project_domain
-	ProjectDomainId string `json:"project_domain_id" deprecated-by:"project_domain"`
+	ProjectDomainId string `json:"project_domain_id" "yunion:deprecated-by":"project_domain"`
 	// swagger:ignore
 	// Deprecated
 	// Domain Id filter, alias for project_domain
-	DomainId string `json:"domain_id" deprecated-by:"project_domain"`
+	DomainId string `json:"domain_id" "yunion:deprecated-by":"project_domain"`
 }
 
 type DomainizedResourceCreateInput struct {
@@ -53,15 +53,15 @@ type ProjectizedResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by project_id, alias for project
-	ProjectId string `json:"project_id" deprecated-by:"project"`
+	ProjectId string `json:"project_id" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant ID or Name, alias for project
-	Tenant string `json:"tenant" deprecated-by:"project"`
+	Tenant string `json:"tenant" "yunion:deprecated-by":"project"`
 	// swagger:ignore
 	// Deprecated
 	// Filter by tenant_id, alias for project
-	TenantId string `json:"tenant_id" deprecated-by:"project"`
+	TenantId string `json:"tenant_id" "yunion:deprecated-by":"project"`
 }
 
 type ProjectizedResourceCreateInput struct {
@@ -82,7 +82,7 @@ type UserResourceListInput struct {
 	// swagger:ignore
 	// Deprecated
 	// Filter by userId
-	UserId string `json:"user_id" deprecated-by:"user"`
+	UserId string `json:"user_id" "yunion:deprecated-by":"user"`
 }
 
 func (input UserResourceListInput) UserStr() string {
