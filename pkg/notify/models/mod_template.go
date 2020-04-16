@@ -72,9 +72,13 @@ type STemplate struct {
 	Content      string `length:"text" nullable:"false" create:"required" get:"user" list:"user" update:"user"`
 }
 
+const (
+	verifyUrlPath = "/v2/email-verification/id/{0}/token/{1}?region=%s"
+)
+
 func (tm *STemplateManager) GetEmailUrl() string {
-	if len(options.Options.ApiServer) > 0 && len(options.Options.VerifyEmailUrlPath) > 0 {
-		return httputils.JoinPath(options.Options.ApiServer, options.Options.VerifyEmailUrlPath)
+	if len(options.Options.ApiServer) > 0 {
+		return httputils.JoinPath(options.Options.ApiServer, fmt.Sprintf(verifyUrlPath, options.Options.Region))
 	}
 	return options.Options.VerifyEmailUrl
 }
