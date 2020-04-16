@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/monitor/models"
 )
 
@@ -28,6 +29,14 @@ func InitHandlers(app *appsrv.Application) {
 	db.RegisterModelManager(db.UserCacheManager)
 	db.RegistUserCredCacheUpdater()
 	for _, manager := range []db.IModelManager{
+		taskman.TaskManager,
+		taskman.SubTaskManager,
+		taskman.TaskObjectManager,
+	} {
+		db.RegisterModelManager(manager)
+	}
+
+	for _, manager := range []db.IModelManager{
 		db.OpsLog,
 		db.Metadata,
 		models.DataSourceManager,
@@ -35,6 +44,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.NodeAlertManager,
 		models.MeterAlertManager,
 		models.NotificationManager,
+		models.SuggestSysRuleManager,
+		models.SuggestSysAlertManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

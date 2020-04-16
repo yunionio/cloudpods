@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package vcenter
+package monitor
 
-type SVCenterAccessInfo struct {
-	VcenterId string
-	Host      string
-	Port      int
-	Account   string
-	Password  string
-	PrivateId string
+import (
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+)
+
+type SuggestSysAlertListOptions struct {
+	options.BaseListOptions
+	Type string `help:"Type of suggest rule" choices:"EIP_UNUSED|"`
+}
+
+type SSuggestAlertShowOptions struct {
+	ID string `help:"ID or name of the alert" json:"-"`
 }

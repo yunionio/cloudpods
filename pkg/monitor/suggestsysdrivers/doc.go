@@ -12,13 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package vcenter
-
-type SVCenterAccessInfo struct {
-	VcenterId string
-	Host      string
-	Port      int
-	Account   string
-	Password  string
-	PrivateId string
-}
+package suggestsysdrivers // import "yunion.io/x/onecloud/pkg/monitor/suggestsysdrivers"
