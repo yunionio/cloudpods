@@ -284,6 +284,13 @@ type DBInstanceDetails struct {
 	// IP子网名称
 	// example: test-network
 	Network string `json:"network"`
+
+	// Zone1名称
+	Zone1Name string `json:"zone1_name"`
+	// Zone2名称
+	Zone2Name string `json:"zone2_name"`
+	// Zone3名称
+	Zone3Name string `json:"zone3_name"`
 }
 
 type DBInstanceResourceInfoBase struct {
