@@ -139,7 +139,7 @@ type SDBInstance struct {
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
-		{VpcManager},
+		{CloudregionManager},
 	}
 }
 
@@ -481,14 +481,21 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 	regRows := manager.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 
 	vpcIds := make([]string, len(rows))
+	zone1Ids := make([]string, len(rows))
+	zone2Ids := make([]string, len(rows))
+	zone3Ids := make([]string, len(rows))
 	for i := range rows {
 		rows[i] = api.DBInstanceDetails{
 			VirtualResourceDetails:  virtRows[i],
 			ManagedResourceInfo:     manRows[i],
 			CloudregionResourceInfo: regRows[i],
 		}
-		rows[i] = objs[i].(*SDBInstance).getMoreDetails(rows[i])
-		vpcIds[i] = objs[i].(*SDBInstance).VpcId
+		instance := objs[i].(*SDBInstance)
+		rows[i] = instance.getMoreDetails(rows[i])
+		vpcIds[i] = instance.VpcId
+		zone1Ids[i] = instance.Zone1
+		zone2Ids[i] = instance.Zone2
+		zone3Ids[i] = instance.Zone3
 	}
 
 	vpcs := make(map[string]SVpc)
@@ -504,6 +511,27 @@ func (manager *SDBInstanceManager) FetchCustomizeColumns(
 			rows[i].Vpc = vpc.Name
 			rows[i].VpcExtId = vpc.ExternalId
 		}
+	}
+
+	zone1, err := db.FetchIdNameMap2(ZoneManager, zone1Ids)
+	if err != nil {
+		return rows
+	}
+
+	zone2, err := db.FetchIdNameMap2(ZoneManager, zone2Ids)
+	if err != nil {
+		return rows
+	}
+
+	zone3, err := db.FetchIdNameMap2(ZoneManager, zone3Ids)
+	if err != nil {
+		return rows
+	}
+
+	for i := range rows {
+		rows[i].Zone1Name = zone1[zone1Ids[i]]
+		rows[i].Zone2Name = zone2[zone2Ids[i]]
+		rows[i].Zone3Name = zone3[zone3Ids[i]]
 	}
 
 	return rows
