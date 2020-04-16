@@ -1432,8 +1432,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 			secgroup.Name = "DefaultGroup"
 		}
 		// 避免有的云不支持重名安全组
-		groupName := secgroup.Name
-		for i := 0; i < 30; i++ {
+		randomString := func(prefix string, length int) string {
+			return fmt.Sprintf("%s-%s", prefix, rand.String(length))
+		}
+		groupName := randomString(secgroup.Name, 1)
+		for i := 2; i < 30; i++ {
 			_, err := iRegion.GetISecurityGroupByName(vpc.ExternalId, groupName)
 			if err != nil {
 				if errors.Cause(err) == cloudprovider.ErrNotFound {
@@ -1443,7 +1446,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncSecurityGroup(ctx con
 					return "", err
 				}
 			}
-			groupName = fmt.Sprintf("%s-%d", secgroup.Name, i)
+			groupName = randomString(secgroup.Name, i)
 		}
 		conf := &cloudprovider.SecurityGroupCreateInput{
 			Name:  groupName,
