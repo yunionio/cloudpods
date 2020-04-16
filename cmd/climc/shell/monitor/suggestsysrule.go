@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	aN := cmdN("suggessystrule")
+	aN := cmdN("suggestsysrule")
 	R(&options.SuggestRuleListOptions{}, aN("list"), "List all suggestsysrules",
 		func(s *mcclient.ClientSession, args *options.SuggestRuleListOptions) error {
 			params, err := args.Params()

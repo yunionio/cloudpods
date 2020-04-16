@@ -31,12 +31,17 @@ var (
 type ISuggestSysRuleDriver interface {
 	GetType() string
 	GetResourceType() string
-	Run(instance *monitor.SSuggestSysAlertSetting)
+	//validate on create
 	ValidateSetting(input *monitor.SSuggestSysAlertSetting) error
+
+	//method call for cronjob
 	DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
-	Resolve(data *SSuggestSysAlert) error
-	StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, suggestSysAlert *SSuggestSysAlert,
+	Run(instance *monitor.SSuggestSysAlertSetting)
+
+	//resolve thing for the rule
+	StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential, suggestSysAlert *SSuggestSysAlert,
 		params *jsonutils.JSONDict) error
+	Resolve(data *SSuggestSysAlert) error
 }
 
 func RegisterSuggestSysRuleDrivers(drvs ...ISuggestSysRuleDriver) {

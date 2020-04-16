@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/monitor/options"
 	"yunion.io/x/onecloud/pkg/monitor/registry"
 	"yunion.io/x/onecloud/pkg/monitor/suggestsysdrivers"
+	_ "yunion.io/x/onecloud/pkg/monitor/tasks"
 	_ "yunion.io/x/onecloud/pkg/monitor/tsdb/driver/influxdb"
 )
 

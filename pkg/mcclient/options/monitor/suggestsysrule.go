@@ -38,7 +38,7 @@ type SuggestSysRuleAlertSettingOptions struct {
 type SuggestRuleCreateOptions struct {
 	SuggestSysRuleAlertSettingOptions
 	Name    string `help:"Name of the alert"`
-	Type    string `help:"Type of suggest rule" choices:"EIP_UNUSED|"`
+	Type    string `help:"Type of suggest rule" choices:"EIP_UNUSED|DISK_UNUSED"`
 	Enabled bool   `help:"Enable rule"`
 	Period  string `help:"Period of suggest rule e.g. '5s', '1m'" default:"30s""`
 }
@@ -51,9 +51,7 @@ func (opt SuggestRuleCreateOptions) Params() (jsonutils.JSONObject, error) {
 	input.Enabled = &opt.Enabled
 	if input.Type == monitor.EIP_UN_USED {
 		input.Setting = &monitor.SSuggestSysAlertSetting{
-			EIPUnused: &monitor.EIPUnused{
-				Status: opt.Status,
-			},
+			EIPUnused: &monitor.EIPUnused{},
 		}
 	}
 	return input.JSON(input), nil
@@ -62,6 +60,7 @@ func (opt SuggestRuleCreateOptions) Params() (jsonutils.JSONObject, error) {
 type SuggestRuleUpdateOptions struct {
 	SuggestSysRuleAlertSettingOptions
 	ID      string `help:"ID or name of the alert" json:"-"`
+	Name    string `help:"Name of the alert"`
 	Period  string `help:"Period of suggest rule e.g. '5s', '1m'" default:"30s""`
 	Enabled bool   `help:"Enable rule"`
 	Type    string `help:"Type of suggest rule" choices:"EIP_UNUSED|"`
@@ -69,14 +68,12 @@ type SuggestRuleUpdateOptions struct {
 
 func (opt SuggestRuleUpdateOptions) Params() (jsonutils.JSONObject, error) {
 	input := new(monitor.SuggestSysRuleUpdateInput)
-	input.Type = opt.Type
 	input.Period = opt.Period
 	input.Enabled = &opt.Enabled
+	input.Name = opt.Name
 	if input.Type == monitor.EIP_UN_USED {
 		input.Setting = &monitor.SSuggestSysAlertSetting{
-			EIPUnused: &monitor.EIPUnused{
-				Status: opt.Status,
-			},
+			EIPUnused: &monitor.EIPUnused{},
 		}
 	}
 	return input.JSON(input), nil

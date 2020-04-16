@@ -17,7 +17,6 @@ package suggestsysdrivers
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -47,15 +46,14 @@ func (_ *EIPUnused) GetResourceType() string {
 func NewEIPUsedDriver() models.ISuggestSysRuleDriver {
 	return &EIPUnused{
 		monitor.EIPUnused{
-			Status: "",
+			//Status: "",
 		},
 	}
 }
 
 func (dri *EIPUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) error {
-	if input.EIPUnused == nil {
-		return errors.Wrap(errors.ErrNotFound, monitor.EIP_UN_USED)
-	}
+	obj := new(monitor.EIPUnused)
+	input.EIPUnused = obj
 	return nil
 }
 
@@ -81,6 +79,7 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 	//处理逻辑
 	session := auth.GetAdminSession(context.Background(), "", "")
 	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewString("0"), "limit")
 	query.Add(jsonutils.NewString("system"), "scope")
 	rtn, err := modules.Elasticips.List(session, query)
 	if err != nil {
@@ -91,83 +90,53 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		if row.ContainsIgnoreCases("associate_type") || row.ContainsIgnoreCases("associate_id") {
 			continue
 		}
+		suggestSysAlert := new(models.SSuggestSysAlert)
 		alertData := jsonutils.DeepCopy(row).(*jsonutils.JSONDict)
 		id, _ := alertData.GetString("id")
 		alertData.Add(jsonutils.NewString(id), "res_id")
 		alertData.Remove("id")
 
-		input := &monitor.SSuggestSysAlertSetting{
-			EIPUnused: &monitor.EIPUnused{Status: rule.Status},
+		err := alertData.Unmarshal(suggestSysAlert)
+		if err != nil {
+			return EIPUnsedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
 		}
-		alertData.Add(jsonutils.Marshal(input), "monitor_config")
+		if val, err := alertData.GetString("account"); err == nil {
+			suggestSysAlert.Cloudaccount = val
+		}
+
+		input := &monitor.SSuggestSysAlertSetting{
+			EIPUnused: &monitor.EIPUnused{},
+		}
+		suggestSysAlert.MonitorConfig = jsonutils.Marshal(input)
 		if instance != nil {
-			alertData.Add(jsonutils.Marshal(instance), "monitor_config")
+			suggestSysAlert.MonitorConfig = jsonutils.Marshal(instance)
 		}
 
 		problem := jsonutils.NewDict()
 		problem.Add(jsonutils.NewString(rule.GetType()), "eip")
-		alertData.Add(problem, "problem")
+		suggestSysAlert.Problem = problem
 
-		alertData.Add(jsonutils.NewString("释放未使用的EIP"), "suggest")
-		alertData.Add(jsonutils.NewString(rule.GetType()), "type")
+		suggestSysAlert.Type = rule.GetType()
 
-		alertData.Add(jsonutils.NewString(monitor.DRIVER_ACTION), "action")
-
-		alertData.Add(row, "res_meta")
-		EIPUnsedArr.Add(alertData)
+		suggestSysAlert.Action = monitor.DRIVER_ACTION
+		suggestSysAlert.ResMeta = row
+		EIPUnsedArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
 	return EIPUnsedArr, nil
 }
 
-func DealAlertData(oldAlerts []models.SSuggestSysAlert, newAlerts []jsonutils.JSONObject) {
-	oldMap := make(map[string]models.SSuggestSysAlert, 0)
-	for _, alert := range oldAlerts {
-		oldMap[alert.ResId] = alert
-	}
-
-	for _, newAlert := range newAlerts {
-		res_id, _ := newAlert.GetString("res_id")
-		if oldAlert, ok := oldMap[res_id]; ok {
-			//更新的alert
-			_, err := db.Update(&oldAlert, func() error {
-				err := newAlert.Unmarshal(&oldAlert)
-				if err != nil {
-					errMsg := fmt.Sprintf("unmarshal fail: %s", err)
-					log.Errorf(errMsg)
-				}
-				return nil
-			})
-			if err != nil {
-				log.Errorln("更新alert失败", err)
-			}
-			delete(oldMap, res_id)
-		} else {
-			//新增的alert
-			adminCredential := auth.AdminCredential()
-			_, err := db.DoCreate(models.SuggestSysAlertManager, context.Background(), adminCredential, nil, newAlert,
-				adminCredential)
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	for _, oldAlert := range oldMap {
-		err := oldAlert.Delete(context.Background(), auth.AdminCredential())
-		if err != nil {
-			log.Errorln("删除旧alert数据失败", err)
-		}
-	}
-}
-
 func (rule *EIPUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential,
 	isStart bool) {
+	var instance *monitor.SSuggestSysAlertSetting
 	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlartSettings(rule.GetType())
 	if err != nil {
 		log.Errorln("DoSuggestSysRule error :", err)
 		return
 	}
-	rule.Run(suggestSysSettingMap[rule.GetType()].Setting)
+	if details, ok := suggestSysSettingMap[rule.GetType()]; ok {
+		instance = details.Setting
+	}
+	rule.Run(instance)
 }
 
 func (rule *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
@@ -180,9 +149,9 @@ func (rule *EIPUnused) Resolve(data *models.SSuggestSysAlert) error {
 	return nil
 }
 
-func (rule *EIPUnused) StartDeleteTask(ctx context.Context, userCred mcclient.TokenCredential,
+func (rule *EIPUnused) StartResolveTask(ctx context.Context, userCred mcclient.TokenCredential,
 	suggestSysAlert *models.SSuggestSysAlert, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "ResolveUnusedTask", suggestSysAlert, userCred, params, "", "", nil)
 	if err != nil {
 		return err
 	}

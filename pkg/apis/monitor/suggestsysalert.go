@@ -50,10 +50,11 @@ type SuggestSysAlertCreateInput struct {
 type SuggestSysAlertDetails struct {
 	apis.VirtualResourceDetails
 	compute.CloudregionResourceInfo
-	Account  string `json:"account"`
-	Brand    string `json:"brand"`
 	RuleName string `json:"rule_name"`
 	ResType  string `json:"res_type"`
+	Suggest  string `json:"suggest"`
+	Brand    string `json:"brand"`
+	Account  string `json:"account"`
 }
 
 type SuggestSysAlertUpdateInput struct {

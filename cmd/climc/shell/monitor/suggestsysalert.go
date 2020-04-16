@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	aN := cmdN("suggessystalert")
+	aN := cmdN("suggestsysalert")
 	R(&options.SuggestSysAlertListOptions{}, aN("list"), "List all suggestsysrules",
 		func(s *mcclient.ClientSession, args *options.SuggestSysAlertListOptions) error {
 			params, err := args.Params()

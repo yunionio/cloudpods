@@ -143,9 +143,11 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 		if err != nil {
 			return data, err
 		}
-		err = dri.ValidateSetting(data.Setting)
-		if err != nil {
-			return data, errors.Wrap(err, "validate setting error")
+		if data.Setting != nil {
+			err = dri.ValidateSetting(data.Setting)
+			if err != nil {
+				return data, errors.Wrap(err, "validate setting error")
+			}
 		}
 	}
 	return data, nil

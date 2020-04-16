@@ -27,15 +27,15 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type EipUnusedTask struct {
+type ResolveUnusedTask struct {
 	taskman.STask
 }
 
 func init() {
-	taskman.RegisterTask(EipUnusedTask{})
+	taskman.RegisterTask(ResolveUnusedTask{})
 }
 
-func (self *EipUnusedTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ResolveUnusedTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	suggestSysAlert := obj.(*models.SSuggestSysAlert)
 	err := models.GetSuggestSysRuleDrivers()[suggestSysAlert.Type].Resolve(suggestSysAlert)
 	if err != nil {
@@ -51,7 +51,7 @@ func (self *EipUnusedTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *EipUnusedTask) taskFail(ctx context.Context, alert *models.SSuggestSysAlert, msg string) {
+func (self *ResolveUnusedTask) taskFail(ctx context.Context, alert *models.SSuggestSysAlert, msg string) {
 	alert.SetStatus(self.UserCred, api.EIP_UNUSED_DELETE_FAIL, msg)
 	db.OpsLog.LogEvent(alert, db.ACT_DELOCATE, msg, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, alert, logclient.ACT_DELETE, msg, self.UserCred, false)

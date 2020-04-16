@@ -63,9 +63,15 @@ type SSuggestSysAlert struct {
 	Type    string               `width:"256" charset:"ascii" list:"user" update:"user"`
 	ResMeta jsonutils.JSONObject `list:"user" update:"user"`
 	Problem jsonutils.JSONObject `list:"user" update:"user"`
-	Suggest string               `width:"256"  list:"user" update:"user"`
-	Action  string               `width:"256" charset:"ascii" list:"user" update:"user"`
-	ResId   string               `width:"256" charset:"ascii" list:"user" update:"user"`
+	//Suggest string               `width:"256"  list:"user" update:"user"`
+	Action string `width:"256" charset:"ascii" list:"user" update:"user"`
+	ResId  string `width:"256" charset:"ascii" list:"user" update:"user"`
+
+	//
+	CloudEnv     string `list:"user" update:"user"`
+	Provider     string `list:"user" update:"user"`
+	Project      string `list:"user" update:"user"`
+	Cloudaccount string `list:"user" update:"user"`
 }
 
 func NewSuggestSysAlertManager(dt interface{}, keyword, keywordPlural string) *SSuggestSysAlertManager {
@@ -101,49 +107,20 @@ func (manager *SSuggestSysAlertManager) ListItemFilter(
 	if len(query.ResId) > 0 {
 		q = q.Equals("res_id", query.ResId)
 	}
+	//if len(query.Project) > 0 {
+	//
+	//	q = q.Equals("project", query.Project)
+	//}
+	if len(query.Providers) > 0 {
+		q = q.In("provider", query.Providers)
+	}
+	if len(query.Brands) > 0 {
+		q = q.In("provider", query.Brands)
+	}
+	if len(query.Cloudaccount) > 0 {
+		q.Equals("cloudaccount", query.Cloudaccount)
+	}
 	return q, nil
-}
-
-func (manager *SSuggestSysAlertManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
-	filters := db.NewCustomizeListFilters()
-	input := new(monitor.SuggestSysAlertListInput)
-	if err := query.Unmarshal(input); err != nil {
-		return nil, err
-	}
-	wrapF := func(key string, inputValue []string) func(object jsonutils.JSONObject) (bool, error) {
-		return func(data jsonutils.JSONObject) (bool, error) {
-			id, err := data.GetString("id")
-			if err != nil {
-				return false, err
-			}
-			obj, err := manager.GetAlert(id)
-			if err != nil {
-				return false, err
-			}
-			value, err := obj.ResMeta.GetString(key)
-			if err != nil {
-				return false, errors.Wrapf(err, "SSuggestSysAlert's ResMeta get %s error,id is %s", key, obj.GetId())
-			}
-			return strings.Contains(value, strings.Join(inputValue, ",")), nil
-		}
-	}
-	if input.CloudEnv != "" {
-		filters.Append(wrapF("cloud_env", []string{input.CloudEnv}))
-	}
-	if len(input.Brands) > 0 {
-		filters.Append(wrapF("brand", input.Brands))
-	}
-	if len(input.Providers) > 0 {
-		filters.Append(wrapF("provider", input.Providers))
-	}
-	if input.Tenant != "" {
-		filters.Append(wrapF("tenant", []string{input.Project}))
-	}
-	if input.Account != "" {
-		filters.Append(wrapF("account", []string{input.Cloudaccount}))
-	}
-
-	return filters, nil
 }
 
 func (manager *SSuggestSysAlertManager) GetAlert(id string) (*SSuggestSysAlert, error) {
@@ -206,10 +183,19 @@ func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails)
 	if err != nil {
 		log.Errorln("SSuggestSysAlert getMoreDetails's error:", err)
 	}
+	out.Account = self.Cloudaccount
 	suggestSysSettingMap, _ := SuggestSysRuleManager.FetchSuggestSysAlartSettings(self.Type)
-	out.RuleName = suggestSysSettingMap[self.Type].Name
 	out.ResType = GetSuggestSysRuleDrivers()[self.Type].GetResourceType()
-
+	out.RuleName = strings.ToLower(GetSuggestSysRuleDrivers()[self.Type].GetType())
+	if _, ok := suggestSysSettingMap[self.Type]; ok {
+		out.RuleName = suggestSysSettingMap[self.Type].Name
+	}
+	switch self.Type {
+	case monitor.EIP_UN_USED:
+		out.Suggest = string(monitor.EIP_MONITOR_SUGGEST)
+	case monitor.DISK_UN_USED:
+		out.Suggest = string(monitor.DISK_MONITOR_SUGGEST)
+	}
 	return out
 }
 
@@ -217,6 +203,12 @@ func (manager *SSuggestSysAlertManager) QueryDistinctExtraField(q *sqlchemy.SQue
 	var err error
 	q, err = manager.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
+		return q, nil
+	}
+	switch field {
+	case "account":
+		q.AppendField(sqlchemy.DISTINCT(field, q.Field("cloudaccount"))).Distinct()
+		q.NotEquals("cloudaccount", "")
 		return q, nil
 	}
 	return q, httperrors.ErrNotFound
@@ -272,5 +264,5 @@ func (self *SSuggestSysAlert) StartDeleteTask(
 	ctx context.Context, userCred mcclient.TokenCredential) error {
 	params := jsonutils.NewDict()
 	self.SetStatus(userCred, api.EIP_UNUSED_START_DELETE, "")
-	return GetSuggestSysRuleDrivers()[self.Type].StartDeleteTask(ctx, userCred, self, params)
+	return GetSuggestSysRuleDrivers()[self.Type].StartResolveTask(ctx, userCred, self, params)
 }

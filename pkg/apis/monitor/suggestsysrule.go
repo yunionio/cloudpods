@@ -17,10 +17,7 @@ package monitor
 import (
 	"time"
 
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SuggestSysRuleListInput struct {
@@ -43,6 +40,7 @@ type SuggestSysRuleUpdateInput struct {
 
 	// 查询指标周期
 	Period   string                   `json:"period"`
+	Name     string                   `json:"name"`
 	Type     string                   `json:"type"`
 	Setting  *SSuggestSysAlertSetting `json:"setting"`
 	Enabled  *bool                    `json:"enabled"`
@@ -59,16 +57,13 @@ type SuggestSysRuleDetails struct {
 }
 
 type SSuggestSysAlertSetting struct {
-	EIPUnused *EIPUnused `json:"eip_unused"`
+	EIPUnused  *EIPUnused  `json:"eip_unused"`
+	DiskUnused *DiskUnused `json:"disk_unused"`
 }
 
 type EIPUnused struct {
-	Status string `json:"status"`
+	//Status string `json:"status"`
 }
 
-func (rule *EIPUnused) Validate() error {
-	if len(rule.Status) == 0 {
-		return errors.Wrap(httperrors.ErrEmptyRequest, "status")
-	}
-	return nil
+type DiskUnused struct {
 }
