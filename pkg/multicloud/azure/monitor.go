@@ -87,6 +87,7 @@ func (self *SRegion) GetMonitorData(name string, ns string, external_id string, 
 	until time.Time) (*ResponseMetirc, error) {
 	params := map[string]string{
 		"metricnamespace": ns,
+		"metricnames":     name,
 		"interval":        "PT1M",
 		"aggregation":     "Average",
 		"api-version":     "2018-01-01",
