@@ -64,6 +64,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/influxdb"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/redfish"
+	"yunion.io/x/onecloud/pkg/util/redfish/bmconsole"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -1933,6 +1934,23 @@ func (b *SBaremetalInstance) fetchPowerThermalMetrics(ctx context.Context) ([]in
 		thermalMetrics = append(thermalMetrics, t.ToMetric())
 	}
 	return powerMetrics, thermalMetrics, nil
+}
+
+func (b *SBaremetalInstance) GetConsoleJNLP(ctx context.Context) (string, error) {
+	cli := b.GetRedfishCli(ctx)
+	if cli != nil {
+		return cli.GetConsoleJNLP(ctx)
+	}
+	conf := b.GetIPMIConfig()
+	bmc := bmconsole.NewBMCConsole(conf.IpAddr, conf.Username, conf.Password, false)
+	manufacture := b.GetManufacture()
+	switch strings.ToLower(manufacture) {
+	case "hp", "hpe":
+		return bmc.GetIloConsoleJNLP(ctx)
+	case "dell", "dell inc.":
+		return bmc.GetIdracConsoleJNLP(ctx, "", "")
+	}
+	return "", httperrors.NewNotImplementedError("Unsupported manufacture %s", manufacture)
 }
 
 func (b *SBaremetalInstance) getTags() []influxdb.SKeyValue {

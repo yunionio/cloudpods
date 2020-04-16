@@ -163,12 +163,7 @@ func handleBaremetalCdromTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
 }
 
 func handleBaremetalJnlpTask(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	cli := bm.GetRedfishCli(ctx)
-	if cli == nil {
-		ctx.ResponseError(httperrors.NewNotSupportedError("Redfish API"))
-		return
-	}
-	jnlp, err := cli.GetConsoleJNLP(ctx)
+	jnlp, err := bm.GetConsoleJNLP(ctx)
 	if err != nil {
 		ctx.ResponseError(errors.Wrap(err, "GetConsoleJNLP"))
 		return
