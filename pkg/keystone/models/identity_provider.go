@@ -776,7 +776,7 @@ func (self *SIdentityProvider) SyncOrCreateDomain(ctx context.Context, extId str
 		_, err := ProjectManager.NewProject(ctx,
 			fmt.Sprintf("%s_default_project", extName),
 			fmt.Sprintf("Default project for domain %s", extName),
-			domain,
+			domain.Id,
 		)
 		if err != nil {
 			log.Errorf("ProjectManager.NewProject fail %s", err)
