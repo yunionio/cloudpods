@@ -175,33 +175,15 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		args      []string
 		ocVersion = fmt.Sprintf("%s.%d", network.UpdatedAt, network.UpdateVersion)
 	)
-	irows := []ovnutil.IRow{
+	allFound, args := cmp(&keeper.DB, ocVersion,
 		lsnet,
 		lrnetp,
 		lsnetp,
 		lsnetmp,
 		dhcpopts,
-	}
-	{
-		irowsFound := make([]ovnutil.IRow, 0, len(irows))
-		for _, irow := range irows {
-			irowFound := keeper.DB.FindOneMatchNonZeros(irow)
-			if irowFound != nil {
-				irowsFound = append(irowsFound, irowFound)
-			}
-		}
-		// mark them anyway even if not all found, to avoid the destroy
-		// call at sweep stage
-		for _, irowFound := range irowsFound {
-			irowFound.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
-		}
-		if len(irowsFound) == len(irows) {
-			return nil
-		}
-		args := ovnutil.OvnNbctlArgsDestroy(irowsFound)
-		if len(args) > 0 {
-			keeper.cli.Must(ctx, "ClaimNetwork cleanup", args)
-		}
+	)
+	if allFound {
+		return nil
 	}
 	args = append(args, ovnCreateArgs(lsnet, "lsnet")...)
 	args = append(args, ovnCreateArgs(lrnetp, "lrnetp")...)
