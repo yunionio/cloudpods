@@ -131,34 +131,29 @@ func hashMac(in ...string) string {
 
 func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network) error {
 	var (
-		lsnetName   = fmt.Sprintf("subnet-ls-%s", network.Id)
-		lrnetpName  = fmt.Sprintf("subnet-lrp-%s", network.Id)
-		lsnetpName  = fmt.Sprintf("subnet-lsp-%s", network.Id)
-		lsnetmpName = fmt.Sprintf("subnet-lsmp-%s", network.Id)
-
 		rpMac   = hashMac(network.Id, "rp")
 		dhcpMac = hashMac(network.Id, "dhcp")
 		mdMac   = hashMac(network.Id, "md")
 		mdIp    = "169.254.169.254"
 	)
-	lsnet := &ovnutil.LogicalSwitch{
-		Name: lsnetName,
+	netLs := &ovnutil.LogicalSwitch{
+		Name: netLsName(network.Id),
 	}
-	lrnetp := &ovnutil.LogicalRouterPort{
-		Name:     lrnetpName,
+	netRnp := &ovnutil.LogicalRouterPort{
+		Name:     netRnpName(network.Id),
 		Mac:      rpMac,
 		Networks: []string{fmt.Sprintf("%s/%d", network.GuestGateway, network.GuestIpMask)},
 	}
-	lsnetp := &ovnutil.LogicalSwitchPort{
-		Name:      lsnetpName,
+	netNrp := &ovnutil.LogicalSwitchPort{
+		Name:      netNrpName(network.Id),
 		Type:      "router",
 		Addresses: []string{"router"},
 		Options: map[string]string{
-			"router-port": lrnetpName,
+			"router-port": netRnpName(network.Id),
 		},
 	}
-	lsnetmp := &ovnutil.LogicalSwitchPort{
-		Name:      lsnetmpName,
+	netMdp := &ovnutil.LogicalSwitchPort{
+		Name:      netMdpName(network.Id),
 		Type:      "localport",
 		Addresses: []string{fmt.Sprintf("%s %s", mdMac, mdIp)},
 	}
@@ -181,29 +176,27 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		ocVersion = fmt.Sprintf("%s.%d", network.UpdatedAt, network.UpdateVersion)
 	)
 	allFound, args := cmp(&keeper.DB, ocVersion,
-		lsnet,
-		lrnetp,
-		lsnetp,
-		lsnetmp,
+		netLs,
+		netRnp,
+		netNrp,
+		netMdp,
 		dhcpopts,
 	)
 	if allFound {
 		return nil
 	}
-	args = append(args, ovnCreateArgs(lsnet, "lsnet")...)
-	args = append(args, ovnCreateArgs(lrnetp, "lrnetp")...)
-	args = append(args, ovnCreateArgs(lsnetp, "lsnetp")...)
-	args = append(args, ovnCreateArgs(lsnetmp, "lsnetmp")...)
+	args = append(args, ovnCreateArgs(netLs, netLs.Name)...)
+	args = append(args, ovnCreateArgs(netRnp, netRnp.Name)...)
+	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
+	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
 	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
-	args = append(args, "--", "add", "Logical_Switch", lsnetName, "ports", "@lsnetp", "@lsnetmp")
-	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.VpcId), "ports", "@lrnetp")
+	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.VpcId), "ports", "@"+netRnp.Name)
 	return keeper.cli.Must(ctx, "ClaimNetwork", args)
 }
 
 func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
 	var (
-		lsName    = fmt.Sprintf("subnet-ls-%s", guestnetwork.NetworkId)
-		lspName   = fmt.Sprintf("iface-%s-%s", guestnetwork.NetworkId, guestnetwork.Ifname)
 		ocVersion = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
 		dhcpOpt   string
 	)
@@ -226,19 +219,20 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		}
 	}
 
-	lsp := &ovnutil.LogicalSwitchPort{
-		Name:          lspName,
+	gnp := &ovnutil.LogicalSwitchPort{
+		Name:          gnpName(guestnetwork.NetworkId, guestnetwork.Ifname),
 		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
 		PortSecurity:  []string{fmt.Sprintf("%s %s/%d", guestnetwork.MacAddr, guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)},
 		Dhcpv4Options: &dhcpOpt,
 	}
-	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(lsp); m != nil {
-		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
+	allFound, args := cmp(&keeper.DB, ocVersion,
+		gnp,
+	)
+	if allFound {
 		return nil
 	}
-	var args []string
-	args = append(args, ovnCreateArgs(lsp, "lsp")...)
-	args = append(args, "--", "add", "Logical_Switch", lsName, "ports", "@lsp")
+	args = append(args, ovnCreateArgs(gnp, gnp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
 
