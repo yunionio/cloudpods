@@ -95,8 +95,13 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 			"router-port": vpcRhpName(vpc.Id),
 		},
 	}
-	if m := keeper.DB.LogicalRouter.FindOneMatchNonZeros(vpcLr); m != nil {
-		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
+	allFound, args := cmp(&keeper.DB, ocVersion,
+		vpcLr,
+		vpcHostLs,
+		vpcRhp,
+		vpcHrp,
+	)
+	if allFound {
 		return nil
 	}
 	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
