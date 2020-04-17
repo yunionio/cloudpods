@@ -28,10 +28,10 @@ func NewUserManager(signer auth.Signer, debug bool) *SUserManager {
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",
-		version:       "v3",
+		version:       "v3.0",
 		Keyword:       "user",
 		KeywordPlural: "users",
 
-		ResourceKeyword: "users",
+		ResourceKeyword: "OS-USER/users",
 	}}
 }
