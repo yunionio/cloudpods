@@ -217,6 +217,9 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 			res := keeper.cli.Must(ctx, "find dhcpopt", args)
 			dhcpOpt = strings.TrimSpace(res.Output)
 		}
+		if dhcpOpt == "" {
+			return fmt.Errorf("cannot find dhcpopt for subnet %s", guestnetwork.NetworkId)
+		}
 	}
 
 	gnp := &ovnutil.LogicalSwitchPort{
