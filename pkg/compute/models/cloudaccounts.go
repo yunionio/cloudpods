@@ -401,8 +401,8 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 
 	var proxyFunc httputils.TransportProxyFunc
 	{
-		if input.ProxySettingId == "" {
-			input.ProxySettingId = proxyapi.ProxySettingId_DIRECT
+		if input.ProxySetting == "" {
+			input.ProxySetting = proxyapi.ProxySettingId_DIRECT
 		}
 		var proxySetting *proxy.SProxySetting
 		proxySetting, input.ProxySettingResourceInput, err = proxy.ValidateProxySettingResourceInput(userCred, input.ProxySettingResourceInput)
