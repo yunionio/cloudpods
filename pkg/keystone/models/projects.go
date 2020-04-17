@@ -41,7 +41,6 @@ import (
 
 type SProjectManager struct {
 	SIdentityBaseResourceManager
-	db.SDnsNameValidatorManager
 }
 
 var ProjectManager *SProjectManager
@@ -80,8 +79,6 @@ type SProject struct {
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
 	IsDomain tristate.TriState `default:"false" nullable:"false"`
-
-	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -285,9 +282,6 @@ func (manager *SProjectManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	model.ParentId = ownerId.GetProjectDomainId()
 	model.IsDomain = tristate.False
-	if len(model.Displayname) == 0 {
-		model.Displayname = model.Name
-	}
 	return model.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -627,13 +621,12 @@ func (project *SProject) GetUsages() []db.IUsage {
 	}
 }
 
-func (manager *SProjectManager) NewProject(ctx context.Context, name string, desc string, domainId string) (*SProject, error) {
+func (manager *SProjectManager) NewProject(ctx context.Context, projectName string, desc string, domainId string) (*SProject, error) {
 	lockman.LockClass(ctx, manager, domainId)
 	defer lockman.ReleaseClass(ctx, manager, domainId)
 
 	project := &SProject{}
 	project.SetModelManager(ProjectManager, project)
-	projectName := NormalizeProjectName(name)
 	ownerId := &db.SOwnerId{}
 	if manager.NamespaceScope() == rbacutils.ScopeDomain {
 		ownerId.DomainId = domainId
