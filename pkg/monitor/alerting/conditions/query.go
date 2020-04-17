@@ -119,8 +119,12 @@ func (c *QueryCondition) Eval(context *alerting.EvalContext) (*alerting.Conditio
 			evalMatchCount++
 		}
 		tags := c.filterTags(series.Tags)
+		var meta *tsdb.QueryResultMeta
+		if len(metas) > idx {
+			meta = &metas[idx]
+		}
 		matches = append(matches, &monitor.EvalMatch{
-			Condition: c.GenerateFormatCond(&metas[idx]).String(),
+			Condition: c.GenerateFormatCond(meta).String(),
 			Metric:    series.Name,
 			Value:     reducedValue,
 			Tags:      tags,

@@ -382,6 +382,9 @@ func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 	if len(input.Alarm.Operator) == 0 {
 		input.Alarm.Operator = api.OPERATOR_GT
 	}
+	if input.Alarm.Cycle == 0 {
+		input.Alarm.Cycle = 300
+	}
 	if !utils.IsInStringArray(input.Alarm.Operator, []string{api.OPERATOR_GT, api.OPERATOR_LT}) {
 		return input, httperrors.NewInputParameterError("unkown operator in alarm %s", input.Alarm.Operator)
 	}
@@ -391,6 +394,9 @@ func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 	}
 	if !utils.IsInStringArray(input.Alarm.Wrapper, []string{api.WRAPPER_MIN, api.WRAPPER_MAX, api.WRAPPER_AVER}) {
 		return input, httperrors.NewInputParameterError("unkown wrapper in alarm %s", input.Alarm.Wrapper)
+	}
+	if input.Alarm.Cycle < 300 {
+		return input, httperrors.NewInputParameterError("the min value of cycle in alarm is 300")
 	}
 	return input, nil
 }

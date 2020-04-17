@@ -298,6 +298,11 @@ func (sg *SScalingGroup) ScalingPolicies() ([]SScalingPolicy, error) {
 func (sgm *SScalingGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, input api.ScalingGroupListInput) (*sqlchemy.SQuery, error) {
 
+	// hack
+	// vpc and backendgroup may be empty, and these subresoruce shouldn't be fiter by brand
+	brand := input.Brand
+	input.Brand = ""
+
 	q, err := sgm.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, input.RegionalFilterListInput)
 	if err != nil {
 		return q, err
@@ -325,9 +330,10 @@ func (sgm *SScalingGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(input.Hypervisor) > 0 {
 		q = q.Equals("hypervisor", input.Hypervisor)
 	}
-	if len(input.Brand) > 0 {
+	if len(brand) > 0 {
 		q = q.Equals("hypervisor", Brand2Hypervisor(input.Brand))
 	}
+	input.Brand = brand
 	return q, nil
 }
 
@@ -491,27 +497,30 @@ func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret s
 
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
-func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) error {
+func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) (bool, error) {
+	isExec := false
 	if sg.Enabled.IsFalse() {
-		return nil
+		return isExec, nil
 	}
 	scalingActivity, err := ScalingActivityManager.CreateScalingActivity(sg.Id, triggerDesc.TriggerDescription(), api.SA_STATUS_EXEC)
 	if err != nil {
-		return errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
+		return isExec, errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
 	}
 	if action.CheckCoolTime() && !sg.AllowScale() {
 		err = scalingActivity.SetReject("",
 			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s",
 				sg.AllowScaleTime))
-		return nil
+		return isExec, nil
 	}
 
 	ret := sg.exec(ctx, action)
 	switch ret.code {
 	case 0:
 		err = scalingActivity.SetResult(ret.actionStr, api.SA_STATUS_SUCCEED, "", ret.intanceNum)
+		isExec = true
 	case 1:
 		err = scalingActivity.SetResult(ret.actionStr, api.SA_STATUS_PART_SUCCEED, ret.reason, ret.intanceNum)
+		isExec = true
 	case 2:
 		err = scalingActivity.SetReject("", ret.reason)
 	case 3:
@@ -521,7 +530,7 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	if err != nil {
 		log.Errorf("ScalingActivity set result failed: %s", err.Error())
 	}
-	return nil
+	return isExec, nil
 }
 
 func (sgm *SScalingGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
