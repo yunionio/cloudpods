@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/pkg/errors"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
 )
@@ -75,14 +76,35 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		ocVersion = fmt.Sprintf("%s.%d", vpc.UpdatedAt, vpc.UpdateVersion)
 	)
 
-	lrvpc := &ovnutil.LogicalRouter{
-		Name: fmt.Sprintf("vpc-lr-%s", vpc.Id),
+	vpcLr := &ovnutil.LogicalRouter{
+		Name: vpcLrName(vpc.Id),
 	}
-	if m := keeper.DB.LogicalRouter.FindOneMatchNonZeros(lrvpc); m != nil {
+	vpcHostLs := &ovnutil.LogicalSwitch{
+		Name: vpcHostLsName(vpc.Id),
+	}
+	vpcRhp := &ovnutil.LogicalRouterPort{
+		Name:     vpcRhpName(vpc.Id),
+		Mac:      hashMac(vpc.Id, "rp"),
+		Networks: []string{fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask)},
+	}
+	vpcHrp := &ovnutil.LogicalSwitchPort{
+		Name:      vpcHrpName(vpc.Id),
+		Type:      "router",
+		Addresses: []string{"router"},
+		Options: map[string]string{
+			"router-port": vpcRhpName(vpc.Id),
+		},
+	}
+	if m := keeper.DB.LogicalRouter.FindOneMatchNonZeros(vpcLr); m != nil {
 		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
 		return nil
 	}
-	args = append(args, ovnCreateArgs(lrvpc, "lrvpc")...)
+	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
+	args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
+	args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
+	args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
 }
 
@@ -108,7 +130,6 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		lrnetpName  = fmt.Sprintf("subnet-lrp-%s", network.Id)
 		lsnetpName  = fmt.Sprintf("subnet-lsp-%s", network.Id)
 		lsnetmpName = fmt.Sprintf("subnet-lsmp-%s", network.Id)
-		lrvpcName   = fmt.Sprintf("vpc-lr-%s", network.VpcId)
 
 		rpMac   = hashMac(network.Id, "rp")
 		dhcpMac = hashMac(network.Id, "dhcp")
@@ -188,7 +209,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 	args = append(args, ovnCreateArgs(lsnetmp, "lsnetmp")...)
 	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
 	args = append(args, "--", "add", "Logical_Switch", lsnetName, "ports", "@lsnetp", "@lsnetmp")
-	args = append(args, "--", "add", "Logical_Router", lrvpcName, "ports", "@lrnetp")
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.VpcId), "ports", "@lrnetp")
 	return keeper.cli.Must(ctx, "ClaimNetwork", args)
 }
 
