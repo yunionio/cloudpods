@@ -19,20 +19,21 @@ import (
 	"net/url"
 	"os/exec"
 
+	api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
-	VNC       = "vnc"
-	ALIYUN    = "aliyun"
-	QCLOUD    = "qcloud"
-	OPENSTACK = "openstack"
-	SPICE     = "spice"
-	WMKS      = "wmks"
-	VMRC      = "vmrc"
-	ZSTACK    = "zstack"
-	CTYUN     = "ctyun"
+	VNC       = api.VNC
+	ALIYUN    = api.ALIYUN
+	QCLOUD    = api.QCLOUD
+	OPENSTACK = api.OPENSTACK
+	SPICE     = api.SPICE
+	WMKS      = api.WMKS
+	VMRC      = api.VMRC
+	ZSTACK    = api.ZSTACK
+	CTYUN     = api.CTYUN
 )
 
 type RemoteConsoleInfo struct {

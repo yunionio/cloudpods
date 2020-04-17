@@ -22,11 +22,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	webconsole_api "yunion.io/x/onecloud/pkg/apis/webconsole"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	o "yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
-	"yunion.io/x/onecloud/pkg/webconsole/session"
 )
 
 const (
@@ -61,8 +61,8 @@ func init() {
 		}
 		protocol := query.Get("protocol")
 		if !utils.IsInStringArray(protocol, []string{
-			command.PROTOCOL_TTY, session.VNC,
-			session.SPICE, session.WMKS,
+			command.PROTOCOL_TTY, webconsole_api.VNC,
+			webconsole_api.SPICE, webconsole_api.WMKS,
 		}) {
 			fmt.Println(connParams)
 			return nil
