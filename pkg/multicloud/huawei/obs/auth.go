@@ -1,16 +1,14 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
@@ -24,7 +22,14 @@ import (
 
 func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, expires int64) (requestUrl string, err error) {
-
+	isAkSkEmpty := obsClient.conf.securityProvider == nil || obsClient.conf.securityProvider.ak == "" || obsClient.conf.securityProvider.sk == ""
+	if isAkSkEmpty == false && obsClient.conf.securityProvider.securityToken != "" {
+		if obsClient.conf.signature == SignatureObs {
+			params[HEADER_STS_TOKEN_OBS] = obsClient.conf.securityProvider.securityToken
+		} else {
+			params[HEADER_STS_TOKEN_AMZ] = obsClient.conf.securityProvider.securityToken
+		}
+	}
 	requestUrl, canonicalizedUrl := obsClient.conf.formatUrls(bucketName, objectKey, params, true)
 	parsedRequestUrl, err := url.Parse(requestUrl)
 	if err != nil {
@@ -36,18 +41,28 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 	isV4 := obsClient.conf.signature == SignatureV4
 	prepareHostAndDate(headers, hostName, isV4)
 
-	if obsClient.conf.securityProvider == nil || obsClient.conf.securityProvider.ak == "" || obsClient.conf.securityProvider.sk == "" {
+	if isAkSkEmpty {
 		doLog(LEVEL_WARN, "No ak/sk provided, skip to construct authorization")
 	} else {
-		if obsClient.conf.securityProvider.securityToken != "" {
-			params[HEADER_STS_TOKEN_AMZ] = obsClient.conf.securityProvider.securityToken
-		}
-
 		if isV4 {
-			date, _ := time.Parse(RFC1123_FORMAT, headers[HEADER_DATE_CAMEL][0])
+			date, parseDateErr := time.Parse(RFC1123_FORMAT, headers[HEADER_DATE_CAMEL][0])
+			if parseDateErr != nil {
+				doLog(LEVEL_WARN, "Failed to parse date with reason: %v", parseDateErr)
+				return "", parseDateErr
+			}
 			delete(headers, HEADER_DATE_CAMEL)
 			shortDate := date.Format(SHORT_DATE_FORMAT)
 			longDate := date.Format(LONG_DATE_FORMAT)
+			if len(headers[HEADER_HOST_CAMEL]) != 0 {
+				index := strings.LastIndex(headers[HEADER_HOST_CAMEL][0], ":")
+				if index != -1 {
+					port := headers[HEADER_HOST_CAMEL][0][index+1:]
+					if port == "80" || port == "443" {
+						headers[HEADER_HOST_CAMEL] = []string{headers[HEADER_HOST_CAMEL][0][:index]}
+					}
+				}
+
+			}
 
 			signedHeaders, _headers := getSignedHeaders(headers)
 
@@ -59,7 +74,12 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 			params[PARAM_SIGNEDHEADERS_AMZ_CAMEL] = strings.Join(signedHeaders, ";")
 
 			requestUrl, canonicalizedUrl = obsClient.conf.formatUrls(bucketName, objectKey, params, true)
-			parsedRequestUrl, _ = url.Parse(requestUrl)
+			parsedRequestUrl, _err := url.Parse(requestUrl)
+			if _err != nil {
+				doLog(LEVEL_WARN, "Failed to parse requestUrl with reason: %v", _err)
+				return "", _err
+			}
+
 			stringToSign := getV4StringToSign(method, canonicalizedUrl, parsedRequestUrl.RawQuery, scope, longDate, UNSIGNED_PAYLOAD, signedHeaders, _headers)
 			signature := getSignature(stringToSign, obsClient.conf.securityProvider.sk, obsClient.conf.region, shortDate)
 
@@ -67,7 +87,11 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 
 		} else {
 			originDate := headers[HEADER_DATE_CAMEL][0]
-			date, _ := time.Parse(RFC1123_FORMAT, originDate)
+			date, parseDateErr := time.Parse(RFC1123_FORMAT, originDate)
+			if parseDateErr != nil {
+				doLog(LEVEL_WARN, "Failed to parse date with reason: %v", parseDateErr)
+				return "", parseDateErr
+			}
 			expires += date.Unix()
 			headers[HEADER_DATE_CAMEL] = []string{Int64ToString(expires)}
 
@@ -79,8 +103,11 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 				requestUrl += "&"
 			}
 			delete(headers, HEADER_DATE_CAMEL)
-			requestUrl += fmt.Sprintf("AWSAccessKeyId=%s&Expires=%d&Signature=%s", UrlEncode(obsClient.conf.securityProvider.ak, false),
-				expires, signature)
+
+			if obsClient.conf.signature != SignatureObs {
+				requestUrl += "AWS"
+			}
+			requestUrl += fmt.Sprintf("AccessKeyId=%s&Expires=%d&Signature=%s", UrlEncode(obsClient.conf.securityProvider.ak, false), expires, signature)
 		}
 	}
 
@@ -89,6 +116,14 @@ func (obsClient ObsClient) doAuthTemporary(method, bucketName, objectKey string,
 
 func (obsClient ObsClient) doAuth(method, bucketName, objectKey string, params map[string]string,
 	headers map[string][]string, hostName string) (requestUrl string, err error) {
+	isAkSkEmpty := obsClient.conf.securityProvider == nil || obsClient.conf.securityProvider.ak == "" || obsClient.conf.securityProvider.sk == ""
+	if isAkSkEmpty == false && obsClient.conf.securityProvider.securityToken != "" {
+		if obsClient.conf.signature == SignatureObs {
+			headers[HEADER_STS_TOKEN_OBS] = []string{obsClient.conf.securityProvider.securityToken}
+		} else {
+			headers[HEADER_STS_TOKEN_AMZ] = []string{obsClient.conf.securityProvider.securityToken}
+		}
+	}
 	isObs := obsClient.conf.signature == SignatureObs
 	requestUrl, canonicalizedUrl := obsClient.conf.formatUrls(bucketName, objectKey, params, true)
 	parsedRequestUrl, err := url.Parse(requestUrl)
@@ -104,12 +139,9 @@ func (obsClient ObsClient) doAuth(method, bucketName, objectKey string, params m
 	isV4 := obsClient.conf.signature == SignatureV4
 	prepareHostAndDate(headers, hostName, isV4)
 
-	if obsClient.conf.securityProvider == nil || obsClient.conf.securityProvider.ak == "" || obsClient.conf.securityProvider.sk == "" {
+	if isAkSkEmpty {
 		doLog(LEVEL_WARN, "No ak/sk provided, skip to construct authorization")
 	} else {
-		if obsClient.conf.securityProvider.securityToken != "" {
-			headers[HEADER_STS_TOKEN_AMZ] = []string{obsClient.conf.securityProvider.securityToken}
-		}
 		ak := obsClient.conf.securityProvider.ak
 		sk := obsClient.conf.securityProvider.sk
 		var authorization string
@@ -287,6 +319,7 @@ func getV4StringToSign(method, canonicalizedUrl, queryUrl, scope, longDate, payl
 	canonicalRequest = append(canonicalRequest, payload)
 
 	_canonicalRequest := strings.Join(canonicalRequest, "")
+
 	doLog(LEVEL_DEBUG, "The v4 auth canonicalRequest:\n%s", _canonicalRequest)
 
 	stringToSign := make([]string, 0, 7)
