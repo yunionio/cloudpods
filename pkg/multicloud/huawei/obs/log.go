@@ -287,7 +287,7 @@ func logEnabled() bool {
 }
 
 func DoLog(level Level, format string, v ...interface{}) {
-	doLog(level, format, v)
+	doLog(level, format, v...)
 }
 
 func doLog(level Level, format string, v ...interface{}) {
