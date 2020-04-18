@@ -62,7 +62,6 @@ func (asc *SASController) Timer(ctx context.Context, userCred mcclient.TokenCred
 	log.Debugf("timeScope: start: %s, end: %s", timeScope.Start, timeScope.End)
 	session := auth.GetSession(ctx, userCred, "", "")
 	triggerParams := jsonutils.NewDict()
-	triggerParams.Set("unmanual", jsonutils.JSONTrue)
 	for i := range scalingTimers {
 		scalingTimer := scalingTimers[i]
 		asc.timerQueue <- struct{}{}

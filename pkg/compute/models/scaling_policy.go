@@ -374,8 +374,8 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 		return nil, nil
 	}
 
-	unmanual, _ := data.Bool("unmanual")
-	if !unmanual {
+	manual, _ := data.Bool("manual")
+	if manual {
 		triggerDesc = SScalingManual{SScalingPolicyBase{sp.Id}}
 	} else {
 		trigger, err := sp.Trigger(nil)
@@ -393,11 +393,11 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 		}
 		triggerDesc = trigger
 	}
-	err = sg.Scale(ctx, triggerDesc, sp)
+	isExec, err := sg.Scale(ctx, triggerDesc, sp)
 	if err != nil {
 		return nil, errors.Wrap(err, "ScalingPolicy.Scale")
 	}
-	if sp.CoolingTime > 0 {
+	if isExec && sp.CoolingTime > 0 {
 		sg.SetAllowScaleTime(time.Now().Add(time.Duration(sp.CoolingTime) * time.Second))
 	}
 	return nil, err
