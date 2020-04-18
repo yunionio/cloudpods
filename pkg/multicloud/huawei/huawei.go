@@ -87,8 +87,7 @@ type SHuaweiClient struct {
 
 	isMainProject bool // whether the project is the main project in the region
 
-	ownerId   string
-	ownerName string
+	ownerId string
 
 	iregions []cloudprovider.ICloudRegion
 	iBuckets []cloudprovider.ICloudBucket
@@ -118,12 +117,12 @@ func (self *SHuaweiClient) init() error {
 	if err != nil {
 		return errors.Wrap(err, "initSigner")
 	}
-	err = self.fetchBuckets()
+	err = self.initOwner()
 	if err != nil {
 		return errors.Wrap(err, "fetchOwner")
 	}
 	if self.debug {
-		log.Debugf("OwnerId: %s OwnerName: %s", self.ownerId, self.ownerName)
+		log.Debugf("OwnerId: %s", self.ownerId)
 	}
 	return nil
 }
@@ -238,7 +237,6 @@ func (self *SHuaweiClient) fetchBuckets() error {
 		return errors.Wrap(err, "obscli.ListBuckets")
 	}
 	self.ownerId = output.Owner.ID
-	self.ownerName = output.Owner.DisplayName
 
 	ret := make([]cloudprovider.ICloudBucket, 0)
 	for i := range output.Buckets {
@@ -478,4 +476,58 @@ func (self *SHuaweiClient) GetCapabilities() []string {
 		caps = append(caps, cloudprovider.CLOUD_CAPABILITY_OBJECTSTORE)
 	}
 	return caps
+}
+
+func (self *SHuaweiClient) GetUserId() (string, error) {
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.newGeneralAPIClient")
+	}
+
+	type cred struct {
+		UserId string `json:"user_id"`
+	}
+
+	ret := &cred{}
+	err = DoGet(client.Credentials.Get, self.accessKey, nil, ret)
+	if err != nil {
+		return "", errors.Wrap(err, "SHuaweiClient.GetUserId.DoGet")
+	}
+
+	return ret.UserId, nil
+}
+
+// owner id == domain_id == account id
+func (self *SHuaweiClient) GetOwnerId() (string, error) {
+	userId, err := self.GetUserId()
+	if err != nil {
+		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.GetUserId")
+	}
+
+	client, err := self.newGeneralAPIClient()
+	if err != nil {
+		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.newGeneralAPIClient")
+	}
+
+	type user struct {
+		DomainId string `json:"domain_id"`
+	}
+
+	ret := &user{}
+	err = DoGet(client.Users.Get, userId, nil, ret)
+	if err != nil {
+		return "", errors.Wrap(err, "SHuaweiClient.GetOwnerId.DoGet")
+	}
+
+	return ret.DomainId, nil
+}
+
+func (self *SHuaweiClient) initOwner() error {
+	ownerId, err := self.GetOwnerId()
+	if err != nil {
+		return errors.Wrap(err, "SHuaweiClient.initOwner")
+	}
+
+	self.ownerId = ownerId
+	return nil
 }
