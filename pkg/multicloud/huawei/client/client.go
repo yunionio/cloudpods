@@ -35,6 +35,7 @@ type Client struct {
 
 	Balances           *modules.SBalanceManager
 	Bandwidths         *modules.SBandwidthManager
+	Credentials        *modules.SCredentialManager
 	Disks              *modules.SDiskManager
 	Domains            *modules.SDomainManager
 	Eips               *modules.SEipManager
@@ -85,6 +86,7 @@ type Client struct {
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
+	self.Credentials.SetHttpClient(httpClient)
 	self.Servers.SetHttpClient(httpClient)
 	self.ServersV2.SetHttpClient(httpClient)
 	self.NovaServers.SetHttpClient(httpClient)
@@ -199,6 +201,7 @@ func (self *Client) initManagers() {
 		self.Jobs = modules.NewJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Balances = modules.NewBalanceManager(self.signer, self.debug)
 		self.Bandwidths = modules.NewBandwidthManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Credentials = modules.NewCredentialManager(self.signer, self.debug)
 		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.VpcRoutes = modules.NewVpcRouteManager(self.regionId, self.projectId, self.signer, self.debug)
