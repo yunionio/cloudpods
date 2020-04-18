@@ -162,9 +162,8 @@ func (self *SCASDriver) userTryJoinProject(ctx context.Context, usr *models.SUse
 		domainId = api.DEFAULT_DOMAIN_ID
 	}
 	if len(self.casConfig.CasProjectAttribute) > 0 {
-		casProjName := fetchAttribute(resp, self.casConfig.CasProjectAttribute)
-		if len(casProjName) > 0 {
-			projName := models.NormalizeProjectName(casProjName)
+		projName := fetchAttribute(resp, self.casConfig.CasProjectAttribute)
+		if len(projName) > 0 {
 			targetProject, err = models.ProjectManager.FetchProject("", projName, domainId, "")
 			if err != nil {
 				log.Errorf("fetch project %s fail %s", projName, err)

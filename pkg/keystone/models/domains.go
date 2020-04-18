@@ -36,7 +36,6 @@ import (
 
 type SDomainManager struct {
 	db.SStandaloneResourceBaseManager
-	db.SDnsNameValidatorManager
 }
 
 var (
@@ -67,8 +66,6 @@ type SDomain struct {
 
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
 	ParentId string `width:"64" charset:"ascii"`
-
-	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SDomainManager) InitializeData() error {
@@ -225,9 +222,6 @@ func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.To
 	// domain.ParentId = api.KeystoneDomainRoot
 	domain.DomainId = api.KeystoneDomainRoot
 	domain.IsDomain = tristate.True
-	if len(domain.Displayname) == 0 {
-		domain.Displayname = domain.Name
-	}
 	return domain.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -509,8 +503,4 @@ func (manager *SDomainManager) ValidateCreateData(
 	}
 
 	return input, nil
-}
-
-func (manager *SDomainManager) ValidateName(name string) error {
-	return manager.SDnsNameValidatorManager.ValidateName(name)
 }
