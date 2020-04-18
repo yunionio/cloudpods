@@ -103,7 +103,7 @@ func validateAwsLbNetwork(ownerId mcclient.IIdentityProvider, data *jsonutils.JS
 				var nets []models.SNetwork
 				wires := models.WireManager.Query().SubQuery()
 				q := models.NetworkManager.Query().IsFalse("pending_deleted")
-				q = models.NetworkManager.FilterByOwner(q, network.GetOwnerId(), rbacutils.ScopeProject)
+				q = models.NetworkManager.FilterByOwner(q, ownerId, rbacutils.ScopeProject)
 				q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 				q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), vpc.GetId()))
 				q = q.Filter(sqlchemy.NotEquals(wires.Field("zone_id"), zone.GetId()))

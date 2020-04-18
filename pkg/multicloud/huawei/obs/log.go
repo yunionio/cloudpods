@@ -1,21 +1,18 @@
-// Copyright 2019 Yunion
+// Copyright 2019 Huawei Technologies Co.,Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+// this file except in compliance with the License.  You may obtain a copy of the
+// License at
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Unless required by applicable law or agreed to in writing, software distributed
+// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations under the License.
 
 package obs
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -86,19 +83,31 @@ func (lw *loggerWrapper) doInit() {
 func (lw *loggerWrapper) rotate() {
 	stat, err := lw.fd.Stat()
 	if err != nil {
-		lw.fd.Close()
+		_err := lw.fd.Close()
+		if _err != nil {
+			doLog(LEVEL_WARN, "Failed to close file with reason: %v", _err)
+		}
 		panic(err)
 	}
 	if stat.Size() >= logConf.maxLogSize {
-		lw.fd.Sync()
-		lw.fd.Close()
+		_err := lw.fd.Sync()
+		if _err != nil {
+			panic(err)
+		}
+		_err = lw.fd.Close()
+		if _err != nil {
+			doLog(LEVEL_WARN, "Failed to close file with reason: %v", _err)
+		}
 		if lw.index > logConf.backups {
 			lw.index = 1
 		}
-		os.Rename(lw.fullPath, lw.fullPath+"."+IntToString(lw.index))
-		lw.index += 1
+		_err = os.Rename(lw.fullPath, lw.fullPath+"."+IntToString(lw.index))
+		if _err != nil {
+			panic(err)
+		}
+		lw.index++
 
-		fd, err := os.OpenFile(lw.fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		fd, err := os.OpenFile(lw.fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			panic(err)
 		}
@@ -112,7 +121,10 @@ func (lw *loggerWrapper) doFlush() {
 	for _, m := range lw.queue {
 		lw.logger.Println(m)
 	}
-	lw.fd.Sync()
+	err := lw.fd.Sync()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (lw *loggerWrapper) doClose() {
@@ -127,7 +139,10 @@ func (lw *loggerWrapper) doWrite() {
 		msg, ok := <-lw.ch
 		if !ok {
 			lw.doFlush()
-			lw.fd.Close()
+			_err := lw.fd.Close()
+			if _err != nil {
+				doLog(LEVEL_WARN, "Failed to close file with reason: %v", _err)
+			}
 			break
 		}
 		if len(lw.queue) >= lw.cacheCount {
@@ -148,7 +163,7 @@ func (lw *loggerWrapper) Printf(format string, v ...interface{}) {
 
 var consoleLogger *log.Logger
 var fileLogger *loggerWrapper
-var lock *sync.RWMutex = new(sync.RWMutex)
+var lock = new(sync.RWMutex)
 
 func isDebugLogEnabled() bool {
 	return logConf.level <= LEVEL_DEBUG
@@ -198,12 +213,12 @@ func InitLogWithCacheCnt(logFullPath string, maxLogSize int64, backups int, leve
 
 		stat, err := os.Stat(_fullPath)
 		if err == nil && stat.IsDir() {
-			return errors.New(fmt.Sprintf("logFullPath:[%s] is a directory", _fullPath))
-		} else if err := os.MkdirAll(filepath.Dir(_fullPath), os.ModePerm); err != nil {
+			return fmt.Errorf("logFullPath:[%s] is a directory", _fullPath)
+		} else if err = os.MkdirAll(filepath.Dir(_fullPath), os.ModePerm); err != nil {
 			return err
 		}
 
-		fd, err := os.OpenFile(_fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		fd, err := os.OpenFile(_fullPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return err
 		}
@@ -211,7 +226,10 @@ func InitLogWithCacheCnt(logFullPath string, maxLogSize int64, backups int, leve
 		if stat == nil {
 			stat, err = os.Stat(_fullPath)
 			if err != nil {
-				fd.Close()
+				_err := fd.Close()
+				if _err != nil {
+					doLog(LEVEL_WARN, "Failed to close file with reason: %v", _err)
+				}
 				return err
 			}
 		}
@@ -230,7 +248,10 @@ func InitLogWithCacheCnt(logFullPath string, maxLogSize int64, backups int, leve
 		}
 
 		if err = filepath.Walk(filepath.Dir(_fullPath), walkFunc); err != nil {
-			fd.Close()
+			_err := fd.Close()
+			if _err != nil {
+				doLog(LEVEL_WARN, "Failed to close file with reason: %v", _err)
+			}
 			return err
 		}
 
