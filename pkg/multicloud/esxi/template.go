@@ -95,7 +95,10 @@ func (t *SVMTemplate) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (t *SVMTemplate) GetSizeByte() int64 {
-	return int64(t.GetMinRamSizeMb()) * 1024 * 1024
+	if len(t.vm.vdisks) == 0 {
+		return 30 * (1 << 30)
+	}
+	return int64(t.vm.vdisks[0].GetDiskSizeMB()) * (1 << 20)
 }
 
 func (t *SVMTemplate) GetImageType() string {
@@ -127,14 +130,11 @@ func (t *SVMTemplate) GetOsArch() string {
 }
 
 func (t *SVMTemplate) GetMinOsDiskSizeGb() int {
-	return t.GetMinRamSizeMb() / 1024
+	return int(t.GetSizeByte() / (1 << 30))
 }
 
 func (t *SVMTemplate) GetMinRamSizeMb() int {
-	if len(t.vm.vdisks) == 0 {
-		return 30 * 1024
-	}
-	return t.vm.vdisks[0].GetDiskSizeMB()
+	return 0
 }
 
 func (t *SVMTemplate) GetImageFormat() string {
