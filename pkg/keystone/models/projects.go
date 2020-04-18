@@ -76,7 +76,7 @@ type SProject struct {
 
 	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"domain_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -530,13 +530,12 @@ func (project *SProject) PerformLeave(
 	return nil, nil
 }
 
-func (manager *SProjectManager) NewProject(ctx context.Context, name string, desc string, domainId string) (*SProject, error) {
+func (manager *SProjectManager) NewProject(ctx context.Context, projectName string, desc string, domainId string) (*SProject, error) {
 	lockman.LockClass(ctx, manager, domainId)
 	defer lockman.ReleaseClass(ctx, manager, domainId)
 
 	project := &SProject{}
 	project.SetModelManager(ProjectManager, project)
-	projectName := NormalizeProjectName(name)
 	ownerId := &db.SOwnerId{}
 	if manager.NamespaceScope() == rbacutils.ScopeDomain {
 		ownerId.DomainId = domainId
