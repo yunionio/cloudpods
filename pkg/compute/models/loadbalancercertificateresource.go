@@ -163,3 +163,22 @@ func (manager *SLoadbalancerCertificateResourceBaseManager) GetOrderBySubQuery(
 func (manager *SLoadbalancerCertificateResourceBaseManager) GetOrderByFields(query api.LoadbalancerCertificateFilterListInput) []string {
 	return []string{query.OrderByCertificate}
 }
+
+func (manager *SLoadbalancerCertificateResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := LoadbalancerCertificateManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("certificate_id"), subq.Field("id")))
+		if keys.Contains("certificate") {
+			q = q.AppendField(subq.Field("name", "certificate"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SLoadbalancerCertificateResourceBaseManager) GetExportKeys() []string {
+	return []string{"certificate"}
+}

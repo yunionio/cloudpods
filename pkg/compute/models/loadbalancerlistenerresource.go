@@ -223,3 +223,32 @@ func (manager *SLoadbalancerListenerResourceBaseManager) GetOrderByFields(query 
 	fields = append(fields, query.OrderByListener)
 	return fields
 }
+
+func (manager *SLoadbalancerListenerResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := LoadbalancerListenerManager.Query("id", "name", "loadbalancer_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("loadbalancer_id"), subq.Field("id")))
+		if keys.Contains("listener") {
+			q = q.AppendField(subq.Field("name", "listener"))
+		}
+		if keys.ContainsAny(manager.SLoadbalancerResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SLoadbalancerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+
+	return q, nil
+}
+
+func (manager *SLoadbalancerListenerResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"listener"}
+	keys = append(keys, manager.SLoadbalancerResourceBaseManager.GetExportKeys()...)
+	return keys
+}

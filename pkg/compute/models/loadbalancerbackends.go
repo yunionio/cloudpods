@@ -651,3 +651,25 @@ func (manager *SLoadbalancerBackendManager) GetResourceCount() ([]db.SScopeResou
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }
+
+func (manager *SLoadbalancerBackendManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SLoadbalancerBackendgroupResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerBackendgroupResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerBackendgroupResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

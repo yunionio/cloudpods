@@ -538,3 +538,35 @@ func (man *SCachedLoadbalancerCertificateManager) QueryDistinctExtraField(q *sql
 
 	return q, httperrors.ErrNotFound
 }
+
+func (manager *SCachedLoadbalancerCertificateManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SLoadbalancerCertificateResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerCertificateResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerCertificateResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

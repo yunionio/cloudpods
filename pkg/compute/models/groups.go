@@ -405,3 +405,22 @@ func (group *SGroup) fetchAllGuests() ([]SGuest, error) {
 	}
 	return guests, nil
 }
+
+func (manager *SGroupManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

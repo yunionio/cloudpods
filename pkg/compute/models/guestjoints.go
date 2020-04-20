@@ -164,3 +164,24 @@ func (self *SGuestJointsBase) ValidateUpdateData(
 	}
 	return input, nil
 }
+
+func (manager *SGuestJointsManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SGuestResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SGuestResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SGuestResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

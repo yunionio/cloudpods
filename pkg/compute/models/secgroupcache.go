@@ -478,3 +478,46 @@ func (manager *SSecurityGroupCacheManager) InitializeData() error {
 	log.Debugf("SSecurityGroupCacheManager cleaned %d deprecated security group cache.", len(deprecatedSecgroups))
 	return nil
 }
+
+func (manager *SSecurityGroupCacheManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	if keys.ContainsAny(manager.SSecurityGroupResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SSecurityGroupResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemExportKey")
+		}
+	}
+
+	return q, nil
+}

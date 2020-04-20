@@ -2617,3 +2617,23 @@ func (disk *SDisk) PerformUnbindSnapshotpolicy(ctx context.Context, userCred mcc
 	}
 	return nil, nil
 }
+
+func (manager *SDiskManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SStorageResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SStorageResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

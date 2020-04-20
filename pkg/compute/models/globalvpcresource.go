@@ -133,3 +133,22 @@ func (manager *SGlobalVpcResourceBaseManager) OrderByExtraFields(
 	q = db.OrderByStandaloneResourceName(q, GlobalVpcManager, "globalvpc_id", query.OrderByGlobalvpc)
 	return q, nil
 }
+
+func (manager *SGlobalVpcResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := GlobalVpcManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("globalvpc_id"), subq.Field("id")))
+		if keys.Contains("globalvpc") {
+			q = q.AppendField(subq.Field("name", "globalvpc"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SGlobalVpcResourceBaseManager) GetExportKeys() []string {
+	return []string{"globalvpc"}
+}

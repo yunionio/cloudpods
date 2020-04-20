@@ -637,6 +637,27 @@ func (manager *SLoadbalancerAgentManager) FetchCustomizeColumns(
 	return q, nil
 }*/
 
+func (manager *SLoadbalancerAgentManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SLoadbalancerClusterResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerClusterResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerClusterResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}
+
 func (man *SLoadbalancerAgentManager) getByClusterId(clusterId string) ([]SLoadbalancerAgent, error) {
 	r := []SLoadbalancerAgent{}
 	q := man.Query().Equals("cluster_id", clusterId)

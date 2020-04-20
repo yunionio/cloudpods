@@ -348,3 +348,22 @@ func (manager *SElasticcacheParameterManager) FetchCustomizeColumns(
 
 	return rows
 }
+
+func (manager *SElasticcacheParameterManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SElasticcacheResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SElasticcacheResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SElasticcacheResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

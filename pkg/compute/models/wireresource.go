@@ -270,3 +270,38 @@ func (manager *SWireResourceBaseManager) GetOrderByFields(query api.WireFilterLi
 	fields = append(fields, query.OrderByWire)
 	return fields
 }
+
+func (manager *SWireResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := WireManager.Query("id", "name", "vpc_id", "zone_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("wire_id"), subq.Field("id")))
+		if keys.Contains("wire") {
+			q = q.AppendField(subq.Field("name", "wire"))
+		}
+		if keys.Contains("zone") {
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SWireResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"wire"}
+	keys = append(keys, "zone")
+	keys = append(keys, manager.SVpcResourceBaseManager.GetExportKeys()...)
+	return keys
+}

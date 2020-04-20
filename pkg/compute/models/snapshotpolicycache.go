@@ -507,3 +507,31 @@ func (spc *SSnapshotPolicyCache) UpdateCloudSnapshotPolicy(input *cloudprovider.
 
 	return nil
 }
+
+func (manager *SSnapshotPolicyCacheManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

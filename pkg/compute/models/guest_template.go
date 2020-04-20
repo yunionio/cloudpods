@@ -700,3 +700,30 @@ func (gt *SGuestTemplate) Validate(ctx context.Context, userCred mcclient.TokenC
 	}
 	return true, ""
 }
+
+func (manager *SGuestTemplateManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

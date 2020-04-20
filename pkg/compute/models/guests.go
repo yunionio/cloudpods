@@ -1871,47 +1871,13 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.AppendField(eipsSubQuery.Field("ip_addr", "eip"))
 	}
 
-	if keys.Contains("host") {
-		hostQuery := HostManager.Query("id", "name").GroupBy("id")
-		hostSubQuery := hostQuery.SubQuery()
-		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
-		q.AppendField(hostSubQuery.Field("name", "host"))
+	if keys.ContainsAny(manager.SHostResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SHostResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemExportKeys")
+		}
 	}
 
-	if keys.Contains("zone") {
-		zoneQuery := ZoneManager.Query("id", "name").SubQuery()
-		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
-		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id")))
-		hostQuery.AppendField(zoneQuery.Field("name", "zone"))
-		hostSubQuery := hostQuery.SubQuery()
-		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
-		q.AppendField(hostSubQuery.Field("zone"))
-	}
-
-	// host_id as filter key
-	if keys.Contains("region") {
-		zoneQuery := ZoneManager.Query("id", "cloudregion_id").SubQuery()
-		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
-		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
-		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id"))).
-			LeftJoin(cloudregionQuery, sqlchemy.OR(sqlchemy.Equals(cloudregionQuery.Field("id"),
-				zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
-		hostQuery.AppendField(cloudregionQuery.Field("name", "region"))
-		hostSubQuery := hostQuery.SubQuery()
-		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
-		q.AppendField(hostSubQuery.Field("region"))
-	}
-
-	if keys.Contains("manager") {
-		hostQuery := HostManager.Query("id", "manager_id").GroupBy("id")
-		cloudProviderQuery := CloudproviderManager.Query("id", "name").SubQuery()
-		hostQuery.LeftJoin(cloudProviderQuery, sqlchemy.Equals(hostQuery.Field("manager_id"),
-			cloudProviderQuery.Field("id")))
-		hostQuery.AppendField(cloudProviderQuery.Field("name", "manager"))
-		hostSubQuery := hostQuery.SubQuery()
-		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
-		q.AppendField(hostSubQuery.Field("manager"))
-	}
 	return q, nil
 }
 

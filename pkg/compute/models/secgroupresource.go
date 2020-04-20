@@ -161,3 +161,20 @@ func (manager *SSecurityGroupResourceBaseManager) GetOrderBySubQuery(
 func (manager *SSecurityGroupResourceBaseManager) GetOrderByFields(query api.SecgroupFilterListInput) []string {
 	return []string{query.OrderBySecgroup}
 }
+
+func (manager *SSecurityGroupResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := SecurityGroupManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("secgroup_id"), subq.Field("id")))
+		q = q.AppendField(subq.Field("name", "secgroup"))
+	}
+	return q, nil
+}
+
+func (manager *SSecurityGroupResourceBaseManager) GetExportKeys() []string {
+	return []string{"secgroup"}
+}

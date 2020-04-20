@@ -686,3 +686,23 @@ func (self *SDBInstanceAccount) StartDBInstanceAccountDeleteTask(ctx context.Con
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (manager *SDBInstanceAccountManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SDBInstanceResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDBInstanceResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

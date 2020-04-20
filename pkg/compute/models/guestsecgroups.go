@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGuestsecgroupManager struct {
@@ -168,6 +169,27 @@ func (manager *SGuestsecgroupManager) OrderByExtraFields(
 	q, err = manager.SSecurityGroupResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.SecgroupFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.OrderByExtraFields")
+	}
+
+	return q, nil
+}
+
+func (manager *SGuestsecgroupManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SSecurityGroupResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SSecurityGroupResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SSecurityGroupResourceBaseManager.ListItemExportKeys")
+		}
 	}
 
 	return q, nil

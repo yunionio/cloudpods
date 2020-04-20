@@ -155,3 +155,22 @@ func (manager *SCloudregionResourceBaseManager) GetOrderBySubQuery(
 func (manager *SCloudregionResourceBaseManager) GetOrderByFields(query api.RegionalFilterListInput) []string {
 	return []string{query.OrderByRegion, query.OrderByCity}
 }
+
+func (manager *SCloudregionResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		regionsQ := CloudregionManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(regionsQ, sqlchemy.Equals(q.Field("cloudregion_id"), regionsQ.Field("id")))
+		if keys.Contains("region") {
+			q = q.AppendField(regionsQ.Field("name", "region"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SCloudregionResourceBaseManager) GetExportKeys() []string {
+	return []string{"region"}
+}

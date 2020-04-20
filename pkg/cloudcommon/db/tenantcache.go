@@ -41,6 +41,8 @@ var (
 	DefaultProjectFetcher  func(ctx context.Context, id string) (*STenant, error)
 	DefaultDomainFetcher   func(ctx context.Context, id string) (*STenant, error)
 	DefaultProjectsFetcher func(ctx context.Context, idList []string, isDomain bool) map[string]STenant
+	DefaultDomainQuery     func(fields ...string) *sqlchemy.SQuery
+	DefaultProjectQuery    func(fields ...string) *sqlchemy.SQuery
 )
 
 type STenantCacheManager struct {
@@ -74,6 +76,8 @@ func init() {
 	DefaultProjectFetcher = TenantCacheManager.FetchTenantByIdOrName
 	DefaultDomainFetcher = TenantCacheManager.FetchDomainByIdOrName
 	DefaultProjectsFetcher = fetchProjects
+	DefaultDomainQuery = TenantCacheManager.GetDomainQuery
+	DefaultProjectQuery = TenantCacheManager.GetTenantQuery
 }
 
 func RegistUserCredCacheUpdater() {
