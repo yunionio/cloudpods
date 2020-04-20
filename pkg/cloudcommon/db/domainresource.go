@@ -307,3 +307,15 @@ func (model *SDomainLevelResourceBase) AllowGetDetailsChangeOwnerCandidateDomain
 func (model *SDomainLevelResourceBase) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
 	return IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(model.GetIDomainLevelModel())
 }
+
+func (manager *SDomainLevelResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	q, err = manager.SDomainizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemExportKeys")
+	}
+	return q, nil
+}

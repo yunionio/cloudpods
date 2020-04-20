@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -104,4 +105,12 @@ func keystoneProjectsFetcher(ctx context.Context, idList []string, isDomain bool
 		}
 		return ret
 	}
+}
+
+func keystoneProjectQuery(fields ...string) *sqlchemy.SQuery {
+	return models.ProjectManager.Query(fields...)
+}
+
+func keystoneDomainQuery(fields ...string) *sqlchemy.SQuery {
+	return models.DomainManager.Query(fields...)
 }

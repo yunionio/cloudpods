@@ -211,3 +211,16 @@ func ValidateProjectizedResourceInput(ctx context.Context, input apis.Projectize
 	input.Project = tenant.GetId()
 	return tenant, input, nil
 }
+
+func (manager *SProjectizedResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SDomainizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.Contains("tenant") {
+		projectsQ := DefaultProjectQuery().SubQuery()
+		q = q.LeftJoin(projectsQ, sqlchemy.Equals(q.Field("tenant_id"), projectsQ.Field("id")))
+		q = q.AppendField(projectsQ.Field("name", "tenant"))
+	}
+	return q, nil
+}

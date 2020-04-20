@@ -162,3 +162,22 @@ func (manager *SSnapshotPolicyResourceBaseManager) GetOrderBySubQuery(
 func (manager *SSnapshotPolicyResourceBaseManager) GetOrderByFields(query api.SnapshotPolicyFilterListInput) []string {
 	return []string{query.OrderBySnapshotpolicy}
 }
+
+func (manager *SSnapshotPolicyResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := SnapshotPolicyManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("snapshotpolicy_id"), subq.Field("id")))
+		if keys.Contains("snapshotpolicy") {
+			q = q.AppendField(subq.Field("name", "snapshotpolicy"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SSnapshotPolicyResourceBaseManager) GetExportKeys() []string {
+	return []string{"snapshotpolicy"}
+}

@@ -438,3 +438,15 @@ func (manager *SIdentityBaseResourceManager) totalCount(scope rbacutils.TRbacSco
 	cnt, _ := q.CountWithError()
 	return cnt
 }
+
+func (manager *SIdentityBaseResourceManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SStandaloneResourceBaseManager.ListItemExportKeys")
+	}
+	q, err = manager.SDomainizedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SDomainizedResourceBaseManager.ListItemExportKeys")
+	}
+	return q, nil
+}

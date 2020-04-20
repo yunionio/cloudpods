@@ -45,6 +45,8 @@ func StartService() {
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
 	db.DefaultProjectFetcher = keystoneProjectFetcher
 	db.DefaultDomainFetcher = keystoneDomainFetcher
+	db.DefaultDomainQuery = keystoneDomainQuery
+	db.DefaultProjectQuery = keystoneProjectQuery
 	db.DefaultProjectsFetcher = keystoneProjectsFetcher
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession

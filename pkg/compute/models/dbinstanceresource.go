@@ -236,3 +236,31 @@ func (manager *SDBInstanceResourceBaseManager) FilterByParentId(q *sqlchemy.SQue
 	return q
 }
 */
+
+func (manager *SDBInstanceResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := DBInstanceManager.Query("id", "name", "vpc_id", "manager_id", "cloudregion_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("dbinstance_id"), subq.Field("id")))
+		if keys.Contains("dbinstance") {
+			q = q.AppendField(subq.Field("name", "dbinstance"))
+		}
+		if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SDBInstanceResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"dbinstance"}
+	keys = append(keys, manager.SVpcResourceBaseManager.GetExportKeys()...)
+	return keys
+}

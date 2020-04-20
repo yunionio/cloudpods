@@ -566,3 +566,30 @@ func (manager *SSnapshotPolicyDiskManager) QueryDistinctExtraField(q *sqlchemy.S
 
 	return q, httperrors.ErrNotFound
 }
+
+func (manager *SSnapshotPolicyDiskManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SVirtualJointResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualJointResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SSnapshotPolicyResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SSnapshotPolicyResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SSnapshotPolicyResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SDiskResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

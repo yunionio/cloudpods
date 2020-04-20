@@ -224,3 +224,31 @@ func (manager *SDiskResourceBaseManager) GetOrderByFields(query api.DiskFilterLi
 	orders = append(orders, query.OrderByDisk)
 	return orders
 }
+
+func (manager *SDiskResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := DiskManager.Query("id", "name", "storage_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("storage_id"), subq.Field("id")))
+		if keys.Contains("disk") {
+			q = q.AppendField(subq.Field("name", "disk"))
+		}
+		if keys.ContainsAny(manager.SStorageResourceBaseManager.GetExportKeys()...) {
+			var err error
+			q, err = manager.SStorageResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SStorageResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SDiskResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"disk"}
+	keys = append(keys, manager.SStorageResourceBaseManager.GetExportKeys()...)
+	return keys
+}

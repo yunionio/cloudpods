@@ -240,3 +240,42 @@ func (manager *SHostResourceBaseManager) GetOrderByFields(query api.HostFilterLi
 	fields = append(fields, query.OrderByHost, query.OrderByHostSN)
 	return fields
 }
+
+func (manager *SHostResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		hostsQ := HostManager.Query("id", "name", "sn", "zone_id", "manager_id").SubQuery()
+		q = q.LeftJoin(hostsQ, sqlchemy.Equals(q.Field(manager.getHostIdFieldName()), hostsQ.Field("id")))
+		if keys.Contains("host") {
+			q = q.AppendField(hostsQ.Field("name", "host"))
+		}
+		if keys.Contains("host_sn") {
+			q = q.AppendField(hostsQ.Field("sn", "host_sn"))
+		}
+		if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+			var err error
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+			var err error
+			q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SHostResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"host", "host_sn"}
+	keys = append(keys, manager.SZoneResourceBaseManager.GetExportKeys()...)
+	keys = append(keys, manager.SManagedResourceBaseManager.GetExportKeys()...)
+	return keys
+}

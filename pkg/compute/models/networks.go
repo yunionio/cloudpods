@@ -2568,3 +2568,22 @@ func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
 	}
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(net, candidates...)
 }
+
+func (manager *SNetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SWireResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

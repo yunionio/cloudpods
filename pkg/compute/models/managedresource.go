@@ -372,6 +372,38 @@ func (model *SManagedResourceBase) GetChangeOwnerCandidateDomainIds() []string {
 	return candidateIds
 }
 
+func (manager *SManagedResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		cloudprovidersQ := CloudproviderManager.Query("id", "name", "cloudaccount_id").SubQuery()
+		q = q.LeftJoin(cloudprovidersQ, sqlchemy.Equals(q.Field(manager.getManagerIdFileName()), cloudprovidersQ.Field("id")))
+		if keys.Contains("manager") {
+			q = q.AppendField(cloudprovidersQ.Field("name", "manager"))
+		}
+		if keys.Contains("account") || keys.Contains("provider") || keys.Contains("brand") {
+			cloudaccountsQ := CloudaccountManager.Query("id", "name", "provider", "brand").SubQuery()
+			q = q.LeftJoin(cloudaccountsQ, sqlchemy.Equals(cloudprovidersQ.Field("cloudaccount_id"), cloudaccountsQ.Field("id")))
+			if keys.Contains("account") {
+				q = q.AppendField(cloudaccountsQ.Field("name", "account"))
+			}
+			if keys.Contains("provider") {
+				q = q.AppendField(cloudaccountsQ.Field("provider"))
+			}
+			if keys.Contains("brand") {
+				q = q.AppendField(cloudaccountsQ.Field("provider"))
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SManagedResourceBaseManager) GetExportKeys() []string {
+	return []string{"manager", "account", "provider", "brand"}
+}
+
 func _managedResourceFilterByDomain(managerIdFieldName string, q *sqlchemy.SQuery, query apis.DomainizedResourceListInput, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	domainStr := query.ProjectDomain
 	if len(domainStr) > 0 {

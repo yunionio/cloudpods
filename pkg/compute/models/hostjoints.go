@@ -149,3 +149,25 @@ func (manager *SHostJointsManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (manager *SHostJointsManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SJointResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SJointResourceBaseManager.ListItemExportKeys")
+	}
+
+	if keys.ContainsAny(manager.SHostResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SHostResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

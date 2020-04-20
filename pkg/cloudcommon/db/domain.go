@@ -178,3 +178,12 @@ func ValidateDomainizedResourceInput(ctx context.Context, input apis.DomainizedR
 	input.ProjectDomain = domain.GetId()
 	return domain, input, nil
 }
+
+func (manager *SDomainizedResourceBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, keys stringutils2.SSortedStrings) (*sqlchemy.SQuery, error) {
+	if keys.Contains("project_domain") {
+		domainsQ := DefaultDomainQuery().SubQuery()
+		q = q.LeftJoin(domainsQ, sqlchemy.Equals(q.Field("domain_id"), domainsQ.Field("id")))
+		q = q.AppendField(domainsQ.Field("name", "project_domain"))
+	}
+	return q, nil
+}
