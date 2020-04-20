@@ -248,7 +248,9 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
 
-	ctx = context.WithValue(ctx, "ownerId", ownerId)
+	owner := backendGroup.GetOwnerId()
+	ctx = context.WithValue(ctx, "ownerId", owner)
+	data.Set("tenant_id", jsonutils.NewString(owner.GetProjectId()))
 	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendModel)
 }
 

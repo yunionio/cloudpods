@@ -327,8 +327,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	// if len(lb.ManagerId) > 0 {
 	//	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	// }
-
-	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroupV.Model)
+	lbOwner := lb.GetOwnerId()
+	data.Set("tenant_id", jsonutils.NewString(lbOwner.GetProjectId()))
+	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, lbOwner, data, lb, backendGroupV.Model)
 }
 
 func (man *SLoadbalancerListenerManager) CheckTypeV(listenerType string) validators.IValidator {

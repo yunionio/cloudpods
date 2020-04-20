@@ -499,7 +499,9 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		return nil, err
 	}
 
-	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, data, backendGroupV.Model)
+	lisOwner := listener.GetOwnerId()
+	data.Set("tenant_id", jsonutils.NewString(lisOwner.GetProjectId()))
+	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, lisOwner, data, backendGroupV.Model)
 }
 
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {

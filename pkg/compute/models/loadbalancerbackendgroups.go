@@ -180,8 +180,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	data.Update(jsonutils.Marshal(input))
 
 	lb := lbV.Model.(*SLoadbalancer)
-	// data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	// data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	data.Set("tenant_id", jsonutils.NewString(lb.ProjectId))
 	backends := []cloudprovider.SLoadbalancerBackend{}
 	if data.Contains("backends") {
 		if err := data.Unmarshal(&backends, "backends"); err != nil {
