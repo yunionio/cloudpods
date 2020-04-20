@@ -38,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -406,10 +407,21 @@ func (asc *SASController) findSuitableInstance(sg *models.SScalingGroup, num int
 
 func (asc *SASController) createInstances(session *mcclient.ClientSession, params jsonutils.JSONObject, count int,
 	failedList []string, succeedList []SInstance) ([]string, []SInstance) {
+	// forcast first
+	dict := params.(*jsonutils.JSONDict)
+	dict.Set("count", jsonutils.NewInt(int64(count)))
+	_, err := modules.SchedManager.DoForecast(session, dict)
+	if err != nil {
+		clientErr := err.(*httputils.JSONClientError)
+		failedList = append(failedList, clientErr.Details)
+	}
+	dict.Remove("count")
+
 	if count == 1 {
 		ret, err := modules.Servers.Create(session, params)
 		if err != nil {
-			failedList = append(failedList, err.Error())
+			clientErr := err.(*httputils.JSONClientError)
+			failedList = append(failedList, clientErr.Details)
 			return failedList, succeedList
 		}
 		id, _ := ret.GetString("id")
