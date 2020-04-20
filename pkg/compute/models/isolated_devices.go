@@ -26,11 +26,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -112,28 +113,28 @@ func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, user
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
-func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	hostId, _ := data.GetString("host_id")
-	host := HostManager.FetchHostById(hostId)
-	if host == nil {
-		return nil, httperrors.NewNotFoundError("Host %s not found", hostId)
+func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	input api.IsolatedDeviceCreateInput,
+) (api.IsolatedDeviceCreateInput, error) {
+	var err error
+	var host *SHost
+	host, input.HostResourceInput, err = ValidateHostResourceInput(userCred, input.HostResourceInput)
+	if err != nil {
+		return input, errors.Wrap(err, "ValidateHostResourceInput")
 	}
-	if name, _ := data.GetString("name"); len(name) == 0 {
-		name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
-		data.Set("name", jsonutils.NewString(name))
+	if len(input.Name) == 0 {
+		input.Name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
 	}
 
-	input := apis.StandaloneResourceCreateInput{}
-	err := data.Unmarshal(&input)
+	input.StandaloneResourceCreateInput, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.StandaloneResourceCreateInput)
 	if err != nil {
-		return nil, httperrors.NewInternalServerError("unmarshal StandaloneRes  ourceCreateInput fail %s", err)
+		return input, errors.Wrap(err, "SStandaloneResourceBaseManager.ValidateCreateData")
 	}
-	input, err = manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
-	if err != nil {
-		return nil, err
-	}
-	data.Update(jsonutils.Marshal(input))
-	return data, nil
+
+	return input, nil
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -728,4 +729,52 @@ func (manager *SIsolatedDeviceManager) GetDevsOnHost(hostId string, model string
 		return nil, nil
 	}
 	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("host_id")
+	return parentId
+}
+
+func (manager *SIsolatedDeviceManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("host_id", parentId)
+	}
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) NamespaceScope() rbacutils.TRbacScope {
+	if consts.IsDomainizedNamespace() {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (manager *SIsolatedDeviceManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}
+
+func (manager *SIsolatedDeviceManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			hosts := HostManager.Query("id", "domain_id").SubQuery()
+			q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+			q = q.Filter(sqlchemy.Equals(hosts.Field("domain_id"), owner.GetProjectDomainId()))
+		}
+	}
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchDomainInfo(ctx, data)
+}
+
+func (model *SIsolatedDevice) GetOwnerId() mcclient.IIdentityProvider {
+	host := model.getHost()
+	if host != nil {
+		return host.GetOwnerId()
+	}
+	return nil
 }
