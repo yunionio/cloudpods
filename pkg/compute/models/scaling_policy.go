@@ -95,6 +95,13 @@ func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchem
 		return q, err
 	}
 	q, err = spm.SScalingGroupResourceBaseManager.ListItemFilter(ctx, q, userCred, input.ScalingGroupFilterListInput)
+	if err != nil {
+		return q, err
+	}
+	q, err = spm.SEnabledResourceBaseManager.ListItemFilter(ctx, q, userCred, input.EnabledResourceBaseListInput)
+	if err != nil {
+		return q, err
+	}
 	if len(input.TriggerType) != 0 {
 		q = q.Equals("trigger_type", input.TriggerType)
 	}
