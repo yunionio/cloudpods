@@ -91,7 +91,7 @@ func GetNotifyTemplateConfig(ctx *alerting.EvalContext) monitor.NotificationTemp
 		level = "重要"
 	case "fatal", "critical":
 		priority = notify.NotifyPriorityCritical
-		level = "严重"
+		level = "致命"
 	}
 	topic := fmt.Sprintf("[%s]", level)
 
@@ -117,7 +117,15 @@ func (oc *OneCloudNotifier) Notify(ctx *alerting.EvalContext, _ jsonutils.JSONOb
 	log.Infof("Sending alert notification %s to onecloud", ctx.GetRuleTitle())
 	config := GetNotifyTemplateConfig(ctx)
 	contentConfig := oc.buildContent(config)
-	content, err := contentConfig.GenerateMarkdown()
+
+	var content string
+	var err error
+	switch oc.Setting.Channel {
+	case string(notify.NotifyByEmail):
+		content, err = contentConfig.GenerateEmailMarkdown()
+	default:
+		content, err = contentConfig.GenerateMarkdown()
+	}
 	if err != nil {
 		return errors.Wrap(err, "build content")
 	}
