@@ -396,6 +396,15 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 	return q, nil
 }
 
+func (man *SLoadbalancerListenerRuleManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", nil)
+	if err := listenerV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+
+	return listenerV.Model.GetOwnerId(), nil
+}
+
 func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input := apis.VirtualResourceCreateInput{}
 	err := data.Unmarshal(&input)

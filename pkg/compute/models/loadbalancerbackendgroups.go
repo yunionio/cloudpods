@@ -101,6 +101,16 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context,
 	return q, nil
 }
 
+func (man *SLoadbalancerBackendGroupManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", nil)
+	err := lbV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+
+	return lbV.Model.GetOwnerId(), nil
+}
+
 func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
 	err := lbV.Validate(data)
