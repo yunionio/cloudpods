@@ -16,7 +16,7 @@ package templates
 
 import (
 	"bytes"
-	"text/template"
+	"html/template"
 )
 
 func CompileTEmplateFromMap(tmplt string, configMap interface{}) (string, error) {

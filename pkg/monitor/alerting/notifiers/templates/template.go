@@ -26,29 +26,59 @@ func NewTemplateConfig(c monitor.NotificationTemplateConfig) *TemplateConfig {
 	}
 }
 
-const MarkdownTemplate = `
-## {{.Title}}
+const DefaultMarkdownTemplate = `
+	## {{.Title}}
 
-- 时间: {{.StartTime}}
-- 级别: {{.Level}}
+	- 时间: {{.StartTime}}
+	- 级别: {{.Level}}
 
-{{range .Matches}}
+	{{range .Matches}}
 
-- 指标: {{.Metric}}
-- 当前值: {{.Value}}
+	- 指标: {{.Metric}}
+	- 当前值: {{.Value}}
 
-### 触发条件:
+	### 触发条件:
 
-> {{.Condition}}
+	> {{.Condition}}
 
-### 标签
+	### 标签
 
-{{range $key, $value := .Tags}}
-> {{ $key }}: {{ $value}}
-{{end}}
-{{end}}
+	{{range $key, $value := .Tags}}
+		> {{ $key }}: {{ $value}}
+	{{end}}
+	{{end}}
+`
+
+const EmailMarkdownTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+	  <meta charset="UTF-8">
+	</head>
+	<body>
+		<p>## {{.Title}}</p>
+		<p>- 时间: {{.StartTime}}</p>
+		<p>- 级别: {{.Level}}</p>
+		<p>{{range .Matches}}</p>
+		<p>- 指标: {{.Metric}}</p>
+		<p>- 当前值: {{.Value}}</p>
+		</br><p>## 触发条件:</p>
+		<p> {{.Condition}}</p>
+		</br><p>## 标签</p>
+		<p>
+			{{range $key, $value := .Tags}}
+				{{ $key }}: {{ $value}} </br>
+			{{end}}
+			{{end}}
+		</p>
+	</body>
+</html>
 `
 
 func (c TemplateConfig) GenerateMarkdown() (string, error) {
-	return CompileTEmplateFromMap(MarkdownTemplate, c)
+	return CompileTEmplateFromMap(DefaultMarkdownTemplate, c)
+}
+
+func (c TemplateConfig) GenerateEmailMarkdown() (string, error) {
+	return CompileTEmplateFromMap(EmailMarkdownTemplate, c)
 }
