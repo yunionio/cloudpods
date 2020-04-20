@@ -16,6 +16,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -196,4 +197,17 @@ func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[
 		}
 	}
 	return ret
+}
+
+func ValidateProjectizedResourceInput(ctx context.Context, input apis.ProjectizedResourceInput) (*STenant, apis.ProjectizedResourceInput, error) {
+	tenant, err := DefaultProjectFetcher(ctx, input.Project)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, httperrors.NewResourceNotFoundError2("project", input.Project)
+		} else {
+			return nil, input, errors.Wrap(err, "TenantCacheManager.FetchTenantByIdOrName")
+		}
+	}
+	input.Project = tenant.GetId()
+	return tenant, input, nil
 }
