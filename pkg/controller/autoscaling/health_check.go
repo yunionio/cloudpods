@@ -106,7 +106,7 @@ func (asc *SASController) CheckInstanceHealth(ctx context.Context, userCred mccl
 	session := auth.GetSession(ctx, userCred, "", "")
 	for i := range unnormalGuests {
 		ug := unnormalGuests[i]
-		if ug.CreateCompleteTime.Add(time.Duration(scalingGroupMap[ug.Id].HealthCheckGov) * time.Second).After(now) {
+		if ug.CreateCompleteTime.Add(time.Duration(scalingGroupMap[ug.ScalngGroupId].HealthCheckGov) * time.Second).After(now) {
 			continue
 		}
 		if ug.Status == apis.VM_READY {

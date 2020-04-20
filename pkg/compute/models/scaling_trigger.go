@@ -276,6 +276,7 @@ func (st *SScalingTimer) CycleTimerDetails() api.ScalingCycleTimerDetails {
 		Hour:      st.Hour,
 		WeekDays:  st.GetWeekDays(),
 		MonthDays: st.GetMonthDays(),
+		StartTime: st.StartTime,
 		EndTime:   st.EndTime,
 		CycleType: st.Type,
 	}
