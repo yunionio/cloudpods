@@ -342,15 +342,11 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 		return input, err
 	}
 
-	if len(input.Tenant) > 0 {
-		tenantObj, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, input.Tenant)
+	if len(input.Project) > 0 {
+		_, input.ProjectizedResourceInput, err = db.ValidateProjectizedResourceInput(ctx, input.ProjectizedResourceInput)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return input, httperrors.NewResourceNotFoundError("failed to found tenant %s", input.Tenant)
-			}
-			return input, httperrors.NewGeneralError(errors.Wrap(err, "FetchTenantByIdOrName"))
+			return input, errors.Wrap(err, "db.ValidateProjectizedResourceInput")
 		}
-		input.TenantId = tenantObj.GetId()
 	}
 
 	if !cloudprovider.IsSupported(input.Provider) {
@@ -474,7 +470,12 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 	}
 	self.DomainId = ownerId.GetProjectDomainId()
 	// self.EnableAutoSync = false
+	// force private and share_mode=account_domain
 	self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
+	self.IsPublic = false
+	self.PublicScope = string(rbacutils.ScopeNone)
+	// mark the public_scope has been set
+	data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
