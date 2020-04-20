@@ -296,6 +296,15 @@ func (man *SLoadbalancerListenerManager) QueryDistinctExtraField(q *sqlchemy.SQu
 	return q, httperrors.ErrNotFound
 }
 
+func (man *SLoadbalancerListenerManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", nil)
+	if err := lbV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+
+	return lbV.Model.GetOwnerId(), nil
+}
+
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
 	if err := lbV.Validate(data); err != nil {
@@ -327,7 +336,6 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	// if len(lb.ManagerId) > 0 {
 	//	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	// }
-
 	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroupV.Model)
 }
 
