@@ -161,6 +161,16 @@ func (man *SLoadbalancerBackendGroupManager) QueryDistinctExtraField(q *sqlchemy
 	return q, httperrors.ErrNotFound
 }
 
+func (man *SLoadbalancerBackendGroupManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", nil)
+	err := lbV.Validate(data.(*jsonutils.JSONDict))
+	if err != nil {
+		return nil, err
+	}
+
+	return lbV.Model.GetOwnerId(), nil
+}
+
 func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
 	err := lbV.Validate(data)
@@ -180,8 +190,6 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	data.Update(jsonutils.Marshal(input))
 
 	lb := lbV.Model.(*SLoadbalancer)
-	// data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	// data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	backends := []cloudprovider.SLoadbalancerBackend{}
 	if data.Contains("backends") {
 		if err := data.Unmarshal(&backends, "backends"); err != nil {
