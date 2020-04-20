@@ -54,3 +54,24 @@ type IsolatedDeviceListInput struct {
 	// 设备VENDOE编号
 	VendorDeviceId []string `json:"vendor_device_id"`
 }
+
+type IsolatedDeviceCreateInput struct {
+	apis.StandaloneResourceCreateInput
+
+	HostResourceInput
+
+	// 设备类型USB/GPU
+	// example: GPU
+	DevType string `json:"dev_type"`
+
+	// 设备型号
+	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
+	Model string `json:"model"`
+
+	// PCI地址
+	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
+	Addr string `json:"addr"`
+
+	// 设备VendorId
+	VendorDeviceId string `json:"vendor_device_id"`
+}

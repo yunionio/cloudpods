@@ -405,4 +405,21 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type NetworkChangeOwnerOptions struct {
+		ID      string `help:"Network to change owner" json:"-"`
+		PROJECT string `help:"Project ID or change" json:"tenant"`
+	}
+	R(&NetworkChangeOwnerOptions{}, "network-change-owner", "Change owner project of a network", func(s *mcclient.ClientSession, args *NetworkChangeOwnerOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		net, err := modules.Networks.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(net)
+		return nil
+	})
 }

@@ -26,9 +26,11 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -315,4 +317,56 @@ func (rip *SReservedip) IsExpired() bool {
 		return true
 	}
 	return false
+}
+
+func (manager *SReservedipManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+	parentId, _ := data.GetString("network_id")
+	return parentId
+}
+
+func (manager *SReservedipManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
+	if len(parentId) > 0 {
+		q = q.Equals("network_id", parentId)
+	}
+	return q
+}
+
+func (manager *SReservedipManager) NamespaceScope() rbacutils.TRbacScope {
+	if consts.IsDomainizedNamespace() {
+		return rbacutils.ScopeDomain
+	} else {
+		return rbacutils.ScopeSystem
+	}
+}
+
+func (manager *SReservedipManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (manager *SReservedipManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			nets := NetworkManager.Query("id", "domain_id", "tenant_id").SubQuery()
+			q = q.Join(nets, sqlchemy.Equals(q.Field("network_id"), nets.Field("id")))
+			if scope == rbacutils.ScopeProject {
+				q = q.Filter(sqlchemy.Equals(nets.Field("tenant_id"), owner.GetProjectId()))
+			} else {
+				q = q.Filter(sqlchemy.Equals(nets.Field("domain_id"), owner.GetProjectDomainId()))
+			}
+		}
+	}
+	return q
+}
+
+func (manager *SReservedipManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchProjectInfo(ctx, data)
+}
+
+func (rip *SReservedip) GetOwnerId() mcclient.IIdentityProvider {
+	network := rip.GetNetwork()
+	if network != nil {
+		return network.GetOwnerId()
+	}
+	return nil
 }
