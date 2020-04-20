@@ -3674,12 +3674,11 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	if len(self.BackupHostId) > 0 {
 		if self.HostId == host.Id {
 			desc.Set("is_master", jsonutils.JSONTrue)
-			desc.Set("host_id", jsonutils.NewString(self.HostId))
 		} else if self.BackupHostId == host.Id {
 			desc.Set("is_slave", jsonutils.JSONTrue)
-			desc.Set("host_id", jsonutils.NewString(self.BackupHostId))
 		}
 	}
+	desc.Set("host_id", jsonutils.NewString(host.Id))
 
 	// isolated devices
 	isolatedDevs := IsolatedDeviceManager.generateJsonDescForGuest(self)
