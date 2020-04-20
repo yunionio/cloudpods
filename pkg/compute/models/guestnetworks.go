@@ -438,8 +438,12 @@ func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHos
 }
 
 func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.JSONDict {
+	vpc := network.GetVpc()
+
 	vpcDesc := jsonutils.NewDict()
+	vpcDesc.Set("id", jsonutils.NewString(vpc.Id))
 	vpcDesc.Set("provider", jsonutils.NewString(api.VPC_PROVIDER_OVN))
+	vpcDesc.Set("mapped_ip_addr", jsonutils.NewString(self.MappedIpAddr))
 	desc := self.getJsonDesc(network)
 	desc.Set("vpc", vpcDesc)
 	return desc
