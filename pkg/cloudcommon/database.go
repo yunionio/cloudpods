@@ -44,7 +44,7 @@ func InitDB(options *common_options.DBOptions) {
 
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
-		log.Fatalf("Invalid SqlConnection string: %s", options.SqlConnection)
+		log.Fatalf("Invalid SqlConnection string: %s error: %v", options.SqlConnection, err)
 	}
 	dbConn, err := sql.Open(dialect, sqlStr)
 	if err != nil {
