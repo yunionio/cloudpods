@@ -1206,7 +1206,8 @@ func (self *SElasticip) getMoreDetails(out api.ElasticipDetails) api.ElasticipDe
 	return out
 }
 
-func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, host *SHost, bw int, chargeType string, pendingUsage quotas.IQuota) (*SElasticip, error) {
+func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest,
+	host *SHost, bw int, chargeType string, autoDellocate bool, pendingUsage quotas.IQuota) (*SElasticip, error) {
 	region := host.GetRegion()
 
 	if len(chargeType) == 0 {
@@ -1221,6 +1222,7 @@ func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCre
 	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
+	eip.AutoDellocate = tristate.NewFromBool(autoDellocate)
 	eip.DomainId = vm.DomainId
 	eip.ProjectId = vm.ProjectId
 	eip.ProjectSrc = string(apis.OWNER_SOURCE_LOCAL)
