@@ -52,9 +52,9 @@ type SSnapshotPolicy struct {
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
 	// 1~7, 1 is Monday
-	RepeatWeekdays uint8 `charset:"utf8" create:"required"`
+	RepeatWeekdays uint8 `charset:"utf8" create:"required" list:"user" get:"user"`
 	// 0~23
-	TimePoints  uint32            `charset:"utf8" create:"required"`
+	TimePoints  uint32            `charset:"utf8" create:"required" list:"user" get:"user"`
 	IsActivated tristate.TriState `list:"user" get:"user" create:"optional" default:"true"`
 }
 
@@ -89,6 +89,27 @@ func (manager *SSnapshotPolicyManager) ValidateListConditions(ctx context.Contex
 		query.Add(jsonutils.NewInt(int64(manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays))), "time_points")
 	}
 	return query, nil
+}
+
+func (manager *SSnapshotPolicyManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+	filters.Append(func(item jsonutils.JSONObject) (bool, error) {
+		itemDict, ok := item.(*jsonutils.JSONDict)
+		if !ok {
+			return false, nil
+		}
+		if days, err := itemDict.Int("repeat_weekdays"); err == nil {
+			newDays := manager.RepeatWeekdaysToIntArray(uint8(days))
+			itemDict.Set("repeat_weekdays", jsonutils.Marshal(newDays))
+		}
+		if tpoints, err := itemDict.Int("time_points"); err == nil {
+			newPoints := manager.TimePointsToIntArray(uint32(tpoints))
+			itemDict.Set("time_points", jsonutils.Marshal(newPoints))
+		}
+		return true, nil
+	})
+	return filters, nil
 }
 
 func (sp *SSnapshotPolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -287,9 +308,7 @@ func (sp *SSnapshotPolicy) DetachAfterDelete(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.
-	JSONObject, data jsonutils.JSONObject) error {
-
+func (sp *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	// check if sp bind to some disks
 	sds, err := SnapshotPolicyDiskManager.FetchAllBySnapshotpolicyID(ctx, userCred, sp.GetId())
 	if err != nil {
@@ -679,8 +698,7 @@ func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(inpu
 	return &ret
 }
 
-func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.
-	SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
+func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
 	return nil
 }
 
