@@ -445,9 +445,10 @@ type ServerCreateInput struct {
 	// 指定此参数后会创建新的弹性公网IP并绑定到新建的虚拟机
 	// 私有云不支持此参数
 	EipBw int `json:"eip_bw,omitzero"`
-
 	// 弹性公网IP计费类型
 	EipChargeType string `json:"eip_charge_type,omitempty"`
+	// 是否跟随主机删除而自动释放
+	EipAutoDellocate bool `json:"eip_auto_dellocate,omitempty"`
 
 	// 弹性公网IP名称或ID
 	// 绑定已有弹性公网IP, 此参数会限制虚拟机再谈下公网IP所在的区域创建

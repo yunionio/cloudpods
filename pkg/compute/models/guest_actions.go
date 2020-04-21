@@ -2932,6 +2932,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}
 	}
+	autoDellocate, _ := data.Bool("auto_dellocate")
 
 	if len(self.ExternalId) == 0 {
 		return nil, httperrors.NewInvalidStatusError("Not a managed VM")
@@ -2967,7 +2968,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
-	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, self, host, int(bw), chargeType, eipPendingUsage)
+	eip, err := ElasticipManager.NewEipForVMOnHost(ctx, userCred, self, host, int(bw), chargeType, autoDellocate, eipPendingUsage)
 	if err != nil {
 		quotas.CancelPendingUsage(ctx, userCred, eipPendingUsage, eipPendingUsage, false)
 		return nil, httperrors.NewGeneralError(err)
