@@ -30,7 +30,7 @@ var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ss := s.(*jsonutils.JSONDict)
-	ret := ss.CopyIncludes("id", "type", "enabled", "domain_id", "domain", "project_domain", "can_update", "can_delete", "is_public", "description", "delete_fail_reason", "update_fail_reason", "public_scope", "shared_domains")
+	ret := ss.CopyIncludes("id", "type", "enabled", "domain_id", "domain", "project_domain", "can_update", "can_delete", "is_public", "description", "delete_fail_reason", "update_fail_reason", "public_scope", "shared_domains", "created_at", "updated_at")
 	blobJson, _ := ss.Get("blob")
 	if blobJson != nil {
 		policy := rbacutils.SRbacPolicy{}
