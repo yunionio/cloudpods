@@ -16,6 +16,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -268,6 +269,10 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		passwd, err = body.GetString("password")
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("get password in body")
+		}
+		// try base64 decryption
+		if decPasswd, err := base64.StdEncoding.DecodeString(passwd); err == nil {
+			passwd = string(decPasswd)
 		}
 		if len(uname) == 0 || len(passwd) == 0 {
 			return nil, httperrors.NewInputParameterError("username or password is empty")
@@ -531,14 +536,6 @@ func FetchRegion(req *http.Request) string {
 	}
 	log.Errorf("FetchRegion: no valid region")
 	return ""
-}
-
-func fetchDomain(req *http.Request) string {
-	r, e := req.Cookie("domain")
-	if e != nil {
-		return ""
-	}
-	return r.Value
 }
 
 type role struct {

@@ -23,6 +23,7 @@ import (
 
 type IdentityBaseResourceCreateInput struct {
 	apis.StandaloneResourceCreateInput
+	apis.DomainizedResourceCreateInput
 }
 
 type EnabledIdentityBaseResourceCreateInput struct {
