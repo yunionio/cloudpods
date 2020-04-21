@@ -444,5 +444,5 @@ func (self *SRegion) rebuildDisk(diskId string) error {
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }

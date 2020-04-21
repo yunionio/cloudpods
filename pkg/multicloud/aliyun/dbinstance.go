@@ -746,6 +746,10 @@ func (region *SRegion) RecoveryDBInstanceFromBackup(instanceId string, backupId 
 
 }
 
+func (rds *SDBInstance) GetProjectId() string {
+	return rds.ResourceGroupId
+}
+
 func (rds *SDBInstance) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCreateConfig) error {
 	return rds.region.CreateDBInstanceDatabae(rds.DBInstanceId, conf.CharacterSet, conf.Name, conf.Description)
 }
