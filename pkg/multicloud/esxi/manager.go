@@ -418,6 +418,22 @@ func findDatacenterByMoId(dcs []*SDatacenter, dcId string) (*SDatacenter, error)
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (cli *SESXiClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	dcs, err := cli.GetDatacenters()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDatacenters")
+	}
+	ret := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(dcs); i++ {
+		iprojects, err := dcs[i].GetResourcePools()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResourcePools")
+		}
+		ret = append(ret, iprojects...)
+	}
+	return ret, nil
+}
+
 func (cli *SESXiClient) FindHostByMoId(moId string) (cloudprovider.ICloudHost, error) {
 	dcs, err := cli.GetDatacenters()
 	if err != nil {
@@ -492,7 +508,7 @@ func (cli *SESXiClient) IsValid() bool {
 
 func (cli *SESXiClient) GetCapabilities() []string {
 	caps := []string{
-		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		// cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		// cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,

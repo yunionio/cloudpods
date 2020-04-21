@@ -14,12 +14,30 @@
 
 package esxi
 
-import "github.com/vmware/govmomi/vim25/mo"
+import (
+	"github.com/vmware/govmomi/vim25/mo"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
+)
 
 var RESOURCEPOOL_PROPS = []string{"name", "parent"}
 
 type SResourcePool struct {
+	multicloud.SResourceBase
 	SManagedObject
+}
+
+func (pool *SResourcePool) GetGlobalId() string {
+	return pool.GetId()
+}
+
+func (pool *SResourcePool) GetStatus() string {
+	return ""
+}
+
+func (pool *SResourcePool) GetName() string {
+	path := pool.GetPath()
+	return path[len(path)-1]
 }
 
 func NewResourcePool(manager *SESXiClient, rp *mo.ResourcePool, dc *SDatacenter) *SResourcePool {
