@@ -372,16 +372,21 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		}
 
 		if exportKeys != nil {
-			extraData := jsonutils.NewDict()
-			RowMap, err := q.Row2Map(rows)
+			rowMap, err := q.Row2Map(rows)
 			if err != nil {
 				return nil, err
 			}
-			extraKeys := manager.GetExportExtraKeys(ctx, exportKeys, RowMap)
+			extraData := jsonutils.NewDict()
+			for k, v := range rowMap {
+				if len(v) > 0 {
+					extraData.Add(jsonutils.NewString(v), k)
+				}
+			}
+			extraKeys := manager.GetExportExtraKeys(ctx, exportKeys, rowMap)
 			if extraKeys != nil {
 				extraData.Update(extraKeys)
 			}
-			err = q.RowMap2Struct(RowMap, item)
+			err = q.RowMap2Struct(rowMap, item)
 			if err != nil {
 				return nil, err
 			}

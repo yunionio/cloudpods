@@ -232,3 +232,31 @@ func (manager *SNetworkResourceBaseManager) GetOrderByFields(query api.NetworkFi
 	orders = append(orders, query.OrderByNetwork)
 	return orders
 }
+
+func (manager *SNetworkResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := NetworkManager.Query("id", "name", "wire_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("network_id"), subq.Field("id")))
+		if keys.Contains("network") {
+			q = q.AppendField(subq.Field("name", "network"))
+		}
+		if keys.ContainsAny(manager.SWireResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SNetworkResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"network"}
+	keys = append(keys, manager.SWireResourceBaseManager.GetExportKeys()...)
+	return keys
+}

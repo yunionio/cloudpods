@@ -254,3 +254,24 @@ func (manager *SHostwireManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (manager *SHostwireManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SHostJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SHostJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SWireResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

@@ -226,3 +226,38 @@ func (manager *SLoadbalancerClusterResourceBaseManager) GetOrderByFields(query a
 	fields = append(fields, query.OrderByCluster)
 	return fields
 }
+
+func (manager *SLoadbalancerClusterResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := LoadbalancerClusterManager.Query("id", "name", "wire_d", "zone_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("cluster_id"), subq.Field("id")))
+
+		if keys.Contains("cluster") {
+			q = q.AppendField(subq.Field("name", "cluster"))
+		}
+		if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.Contains("wire") {
+			q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SLoadbalancerClusterResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"cluster"}
+	keys = append(keys, manager.SWireResourceBaseManager.GetExportKeys()...)
+	return keys
+}

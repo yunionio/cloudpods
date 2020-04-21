@@ -267,3 +267,38 @@ func (manager *SElasticcacheResourceBaseManager) FilterByParentId(q *sqlchemy.SQ
 	return q
 }
 */
+
+func (manager *SElasticcacheResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := ElasticcacheManager.Query("id", "name", "vpc_id", "zone_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("elasticcache_id"), subq.Field("id")))
+		if keys.Contains("elasticcache") {
+			q = q.AppendField(subq.Field("name", "elasticcache"))
+		}
+		if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.Contains("zone") {
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SElasticcacheResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"elasticcache"}
+	keys = append(keys, manager.SVpcResourceBaseManager.GetExportKeys()...)
+	keys = append(keys, "zone")
+	return keys
+}

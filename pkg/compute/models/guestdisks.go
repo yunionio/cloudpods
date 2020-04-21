@@ -382,3 +382,24 @@ func (manager *SGuestdiskManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (manager *SGuestdiskManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGuestJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGuestJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SDiskResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

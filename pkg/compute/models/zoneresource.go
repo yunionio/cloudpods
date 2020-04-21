@@ -187,3 +187,29 @@ func (manager *SZoneResourceBaseManager) GetOrderByFields(query api.ZonalFilterL
 	orders = append(orders, query.OrderByZone)
 	return orders
 }
+
+func (manager *SZoneResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		zonesQ := ZoneManager.Query("id", "name", "cloudregion_id").SubQuery()
+		q = q.LeftJoin(zonesQ, sqlchemy.Equals(q.Field("zone_id"), zonesQ.Field("id")))
+		if keys.Contains("zone") {
+			q = q.AppendField(zonesQ.Field("name", "zone"))
+		}
+		if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+			var err error
+			q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SZoneResourceBaseManager) GetExportKeys() []string {
+	return append(manager.SCloudregionResourceBaseManager.GetExportKeys(), "zones")
+}
