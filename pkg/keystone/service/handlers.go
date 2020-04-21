@@ -88,6 +88,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.PolicyManager,
 		models.CredentialManager,
 		models.IdentityProviderManager,
+		models.ServiceCertificateManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

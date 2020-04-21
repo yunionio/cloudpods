@@ -73,13 +73,14 @@ func init() {
 type SEndpoint struct {
 	db.SStandaloneResourceBase
 
-	LegacyEndpointId string              `width:"64" charset:"ascii" nullable:"true"`
-	Interface        string              `width:"8" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	ServiceId        string              `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	Url              string              `charset:"utf8" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
-	Extra            *jsonutils.JSONDict `nullable:"true"`
-	Enabled          tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	RegionId         string              `width:"255" charset:"utf8" nullable:"true" list:"admin" create:"admin_required"`
+	LegacyEndpointId     string              `width:"64" charset:"ascii" nullable:"true"`
+	Interface            string              `width:"8" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	ServiceId            string              `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	Url                  string              `charset:"utf8" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	Extra                *jsonutils.JSONDict `nullable:"true"`
+	Enabled              tristate.TriState   `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	RegionId             string              `width:"255" charset:"utf8" nullable:"true" list:"admin" create:"admin_required"`
+	ServiceCertificateId string              `nullable:"true" create:"admin_optional" update:"admin"`
 }
 
 func (manager *SEndpointManager) InitializeData() error {
@@ -245,7 +246,23 @@ func (endpoint *SEndpoint) GetExtraDetails(
 	query jsonutils.JSONObject,
 	isList bool,
 ) (api.EndpointDetails, error) {
-	return api.EndpointDetails{}, nil
+	res, err := endpoint.getMoreDetails(api.EndpointDetails{})
+	if err != nil {
+		return api.EndpointDetails{}, err
+	}
+	return res, nil
+}
+
+func (endpoint *SEndpoint) getMoreDetails(details api.EndpointDetails) (api.EndpointDetails, error) {
+	if len(endpoint.ServiceCertificateId) > 0 {
+		icert, _ := ServiceCertificateManager.FetchById(endpoint.ServiceCertificateId)
+		if icert != nil {
+			cert := icert.(*SServiceCertificate)
+			certOutput := cert.ToOutput()
+			details.CertificateDetails = *certOutput
+		}
+	}
+	return details, nil
 }
 
 func (manager *SEndpointManager) FetchCustomizeColumns(
@@ -266,6 +283,8 @@ func (manager *SEndpointManager) FetchCustomizeColumns(
 		}
 		ep := objs[i].(*SEndpoint)
 		serviceIds = stringutils2.Append(serviceIds, ep.ServiceId)
+		ep.SetModelManager(manager, ep)
+		rows[i], _ = ep.getMoreDetails(rows[i])
 	}
 	if len(fields) == 0 || fields.Contains("service_name") || fields.Contains("service_type") {
 		svs := fetchServices(serviceIds)
@@ -307,7 +326,10 @@ func (endpoint *SEndpoint) ValidateDeleteCondition(ctx context.Context) error {
 	return endpoint.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SEndpointManager) ValidateCreateData(
+	ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
 	infname, _ := data.GetString("interface")
 	if len(infname) == 0 {
 		return nil, httperrors.NewInputParameterError("missing input field interface")
@@ -330,6 +352,17 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 	} else {
 		return nil, httperrors.NewInputParameterError("missing input field service/service_id")
 	}
+	if certId, _ := data.GetString("service_certificate"); len(certId) > 0 {
+		cert, err := ServiceCertificateManager.FetchByIdOrName(userCred, certId)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("not found cert %s", certId)
+		}
+		if err != nil {
+			return nil, err
+		}
+		data.Set("service_certificate_id", jsonutils.NewString(cert.GetId()))
+	}
+
 	input := apis.StandaloneResourceCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
@@ -432,4 +465,21 @@ func (endpoint *SEndpoint) PostDelete(ctx context.Context, userCred mcclient.Tok
 	endpoint.SStandaloneResourceBase.PostDelete(ctx, userCred)
 	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_DELETE, nil, userCred, true)
 	refreshDefaultClientServiceCatalog()
+}
+
+func (endpoint *SEndpoint) ValidateUpdateData(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
+	if certId, _ := data.GetString("service_certificate"); len(certId) > 0 {
+		cert, err := ServiceCertificateManager.FetchByIdOrName(userCred, certId)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("not found cert %s", certId)
+		}
+		if err != nil {
+			return nil, err
+		}
+		data.Set("service_certificate_id", jsonutils.NewString(cert.GetId()))
+	}
+	return data, nil
 }
