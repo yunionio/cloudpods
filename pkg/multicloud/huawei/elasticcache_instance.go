@@ -98,6 +98,10 @@ func (self *SElasticcache) GetGlobalId() string {
 	return self.GetId()
 }
 
+func (self *SElasticcache) GetProjectId() string {
+	return self.EnterpriseProjectID
+}
+
 func (self *SElasticcache) Refresh() error {
 	cache, err := self.region.GetElasticCache(self.GetId())
 	if err != nil {
