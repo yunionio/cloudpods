@@ -455,7 +455,7 @@ func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error)
 
 func (region *SAliyunClient) GetCapabilities() []string {
 	caps := []string{
-		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,

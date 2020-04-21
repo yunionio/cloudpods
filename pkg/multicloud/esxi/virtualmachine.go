@@ -954,6 +954,13 @@ func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
 }
 
 func (self *SVirtualMachine) GetProjectId() string {
+	pool, err := self.getResourcePool()
+	if err != nil {
+		return ""
+	}
+	if pool != nil {
+		return pool.GetId()
+	}
 	return ""
 }
 
