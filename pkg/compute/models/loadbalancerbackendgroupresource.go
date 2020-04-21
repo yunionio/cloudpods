@@ -258,3 +258,31 @@ func (manager *SLoadbalancerBackendgroupResourceBaseManager) GetOrderByFields(qu
 	fields = append(fields, query.OrderByBackendGroup)
 	return fields
 }
+
+func (manager *SLoadbalancerBackendgroupResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := LoadbalancerBackendGroupManager.Query("id", "name", "loadbalancer_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("backend_group_id"), subq.Field("id")))
+		if keys.Contains("backend_group") {
+			q = q.AppendField(subq.Field("name", "backend_group"))
+		}
+		if keys.ContainsAny(manager.SLoadbalancerResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SLoadbalancerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SLoadbalancerResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SLoadbalancerBackendgroupResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"backend_group"}
+	keys = append(keys, manager.SLoadbalancerResourceBaseManager.GetExportKeys()...)
+	return keys
+}

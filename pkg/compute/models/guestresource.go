@@ -223,3 +223,31 @@ func (manager *SGuestResourceBaseManager) GetOrderByFields(query api.ServerFilte
 	orders = append(orders, query.OrderByServer)
 	return orders
 }
+
+func (manager *SGuestResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := GuestManager.Query("id", "name", "host_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("id"), subq.Field("id")))
+		if keys.Contains("guest") {
+			q = q.AppendField(subq.Field("name", "guest"))
+		}
+		if keys.ContainsAny(manager.SHostResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SHostResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SHostResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SGuestResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"guest"}
+	keys = append(keys, manager.SHostResourceBaseManager.GetExportKeys()...)
+	return keys
+}

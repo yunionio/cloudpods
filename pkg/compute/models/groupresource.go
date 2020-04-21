@@ -160,3 +160,22 @@ func (manager *SGroupResourceBaseManager) GetOrderBySubQuery(
 func (manager *SGroupResourceBaseManager) GetOrderByFields(query api.GroupFilterListInput) []string {
 	return []string{query.OrderByGroup}
 }
+
+func (manager *SGroupResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		subq := GroupManager.Query("id", "name").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("group_id"), subq.Field("id")))
+		if keys.Contains("group") {
+			q = q.AppendField(subq.Field("name", "group"))
+		}
+	}
+	return q, nil
+}
+
+func (manager *SGroupResourceBaseManager) GetExportKeys() []string {
+	return []string{"group"}
+}

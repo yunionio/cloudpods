@@ -309,3 +309,38 @@ func (manager *SLoadbalancerResourceBaseManager) GetOrderByFields(query api.Load
 	fields = append(fields, query.OrderByLoadbalancer)
 	return fields
 }
+
+func (manager *SLoadbalancerResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := LoadbalancerManager.Query("id", "name", "vpc_id", "zone_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("loadbalancer_id"), q.Field("id")))
+		if keys.Contains("loadbalancer") {
+			q = q.AppendField(subq.Field("name", "loadbalancer"))
+		}
+		if keys.Contains("vpc") {
+			q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SLoadbalancerResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"loadbalancer"}
+	keys = append(keys, manager.SZoneResourceBaseManager.GetExportKeys()...)
+	keys = append(keys, "vpc")
+	return keys
+}

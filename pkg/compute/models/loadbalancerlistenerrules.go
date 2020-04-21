@@ -940,3 +940,22 @@ func (manager *SLoadbalancerListenerRuleManager) GetResourceCount() ([]db.SScope
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }
+
+func (manager *SLoadbalancerListenerRuleManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SVirtualResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SLoadbalancerListenerResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerListenerResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerListenerResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	return q, nil
+}

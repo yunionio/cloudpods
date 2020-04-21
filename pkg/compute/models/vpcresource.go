@@ -275,3 +275,38 @@ func (manager *SVpcResourceBaseManager) GetOrderByFields(query api.VpcFilterList
 	fields = append(fields, query.OrderByVpc)
 	return fields
 }
+
+func (manager *SVpcResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := VpcManager.Query("id", "name", "manager_id", "cloudregion_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("vpc_id"), subq.Field("id")))
+		if keys.Contains("vpc") {
+			q = q.AppendField(subq.Field("name", "vpc"))
+		}
+		if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SVpcResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"vpc"}
+	keys = append(keys, manager.SManagedResourceBaseManager.GetExportKeys()...)
+	keys = append(keys, manager.SCloudregionResourceBaseManager.GetExportKeys()...)
+	return keys
+}

@@ -233,3 +233,38 @@ func (manager *SStorageResourceBaseManager) GetOrderByFields(query api.StorageFi
 	fields = append(fields, query.OrderByStorage)
 	return fields
 }
+
+func (manager *SStorageResourceBaseManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	if keys.ContainsAny(manager.GetExportKeys()...) {
+		var err error
+		subq := StorageManager.Query("id", "name", "zone_id", "manager_id").SubQuery()
+		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("storage_id"), subq.Field("id")))
+		if keys.Contains("storage") {
+			q = q.AppendField(subq.Field("name", "storage"))
+		}
+		if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
+			}
+		}
+		if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+			q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			if err != nil {
+				return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+			}
+		}
+	}
+	return q, nil
+}
+
+func (manager *SStorageResourceBaseManager) GetExportKeys() []string {
+	keys := []string{"storage"}
+	keys = append(keys, manager.SZoneResourceBaseManager.GetExportKeys()...)
+	keys = append(keys, manager.SManagedResourceBaseManager.GetExportKeys()...)
+	return keys
+}

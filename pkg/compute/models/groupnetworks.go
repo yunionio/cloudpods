@@ -178,3 +178,24 @@ func (manager *SGroupnetworkManager) OrderByExtraFields(
 
 	return q, nil
 }
+
+func (manager *SGroupnetworkManager) ListItemExportKeys(ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	keys stringutils2.SSortedStrings,
+) (*sqlchemy.SQuery, error) {
+	var err error
+
+	q, err = manager.SGroupJointsManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if err != nil {
+		return nil, errors.Wrap(err, "SGroupJointsManager.ListItemExportKeys")
+	}
+	if keys.ContainsAny(manager.SNetworkResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SNetworkResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.ListItemExportKeys")
+		}
+	}
+
+	return q, nil
+}

@@ -40,7 +40,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(result, modules.UsersV3.GetColumns(s))
+		if len(args.ExportFile) > 0 {
+			exportList(result, args.ExportFile, args.ExportKeys, args.ExportTexts, modules.UsersV3.GetColumns(s))
+		} else {
+			printList(result, modules.UsersV3.GetColumns(s))
+		}
 		return nil
 	})
 
