@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SResourceGroup struct {
@@ -42,6 +43,9 @@ func (self *SResourceGroup) GetId() string {
 }
 
 func (self *SResourceGroup) GetName() string {
+	if len(self.DisplayName) > 0 {
+		return self.DisplayName
+	}
 	return self.Name
 }
 
