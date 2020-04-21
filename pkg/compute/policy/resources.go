@@ -32,8 +32,7 @@ var (
 		"metadatas",
 		"loadbalancerclusters",
 		"loadbalanceragents",
-		"isolated-devices",
-		"reservedips",
+		// "reservedips",
 		"policy_definitions",
 	}
 	computeDomainResources = []string{
@@ -42,6 +41,7 @@ var (
 		"recyclebins",
 		// migrate system resources to domain resources
 		"hosts",
+		"isolated-devices",
 		"vpcs",
 		"storages",
 		"wires",
