@@ -85,8 +85,9 @@ type SEipAddress struct {
 
 	OperationLocks string
 
-	ChargeType  TChargeType
-	ExpiredTime time.Time
+	ChargeType      TChargeType
+	ExpiredTime     time.Time
+	ResourceGroupId string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -376,5 +377,5 @@ func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 }
 
 func (self *SEipAddress) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
