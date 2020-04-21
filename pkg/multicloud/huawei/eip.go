@@ -83,6 +83,7 @@ type SEipAddress struct {
 	EnterpriseProjectID string    `json:"enterprise_project_id"`
 	IPVersion           int64     `json:"ip_version"`
 	PortId              string    `json:"port_id"`
+	EnterpriseProjectId string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -385,4 +386,8 @@ func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
 	bandwidth := Bandwidth{}
 	err := DoGet(self.ecsClient.Bandwidths.Get, bandwidthId, nil, &bandwidth)
 	return bandwidth, err
+}
+
+func (self *SEipAddress) GetProjectId() string {
+	return self.EnterpriseProjectId
 }
