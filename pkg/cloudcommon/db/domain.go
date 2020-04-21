@@ -16,8 +16,10 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
@@ -162,4 +164,17 @@ func (manager *SDomainizedResourceBaseManager) FetchCustomizeColumns(
 		}
 	}
 	return ret
+}
+
+func ValidateDomainizedResourceInput(ctx context.Context, input apis.DomainizedResourceInput) (*STenant, apis.DomainizedResourceInput, error) {
+	domain, err := DefaultDomainFetcher(ctx, input.ProjectDomain)
+	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return nil, input, httperrors.NewResourceNotFoundError2("domain", input.ProjectDomain)
+		} else {
+			return nil, input, errors.Wrap(err, "TenantCacheManager.FetchDomainByIdOrName")
+		}
+	}
+	input.ProjectDomain = domain.GetId()
+	return domain, input, nil
 }

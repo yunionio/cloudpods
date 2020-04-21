@@ -167,10 +167,11 @@ type CloudaccountCreateInput struct {
 	IsOnPremise bool
 
 	// 指定云账号所属的项目
-	Tenant string `json:"tenant"`
-
+	// Tenant string `json:"tenant"`
 	// swagger:ignore
-	TenantId string
+	// TenantId string
+
+	apis.ProjectizedResourceInput
 
 	// 启用自动同步
 	// default: false
