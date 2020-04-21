@@ -64,14 +64,15 @@ func init() {
 	})
 
 	type EndpointCreateOptions struct {
-		SERVICE   string `help:"Service ID or Name"`
-		REGION    string `help:"Region"`
-		INTERFACE string `help:"Interface types" choices:"internal|public|admin|console"`
-		URL       string `help:"URL"`
-		Zone      string `help:"Zone"`
-		Name      string `help:"Name"`
-		Enabled   bool   `help:"Enabled"`
-		Disabled  bool   `help:"Disabled"`
+		SERVICE            string `help:"Service ID or Name"`
+		REGION             string `help:"Region"`
+		INTERFACE          string `help:"Interface types" choices:"internal|public|admin|console"`
+		URL                string `help:"URL"`
+		Zone               string `help:"Zone"`
+		Name               string `help:"Name"`
+		Enabled            bool   `help:"Enabled"`
+		Disabled           bool   `help:"Disabled"`
+		ServiceCertificate string `help:"Service certificate id or name"`
 	}
 	R(&EndpointCreateOptions{}, "endpoint-create", "Create endpoint", func(s *mcclient.ClientSession, args *EndpointCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -95,6 +96,9 @@ func init() {
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
+		if len(args.ServiceCertificate) > 0 {
+			params.Add(jsonutils.NewString(args.ServiceCertificate), "service_certificate")
+		}
 		ep, err := modules.EndpointsV3.Create(s, params)
 		if err != nil {
 			return err
@@ -104,11 +108,12 @@ func init() {
 	})
 
 	type EndpointUpdateOptions struct {
-		ID       string `help:"ID or name of endpoint"`
-		Url      string `help:"URL"`
-		Name     string `help:"Name"`
-		Enabled  bool   `help:"Enabled"`
-		Disabled bool   `help:"Disabled"`
+		ID                 string `help:"ID or name of endpoint"`
+		Url                string `help:"URL"`
+		Name               string `help:"Name"`
+		Enabled            bool   `help:"Enabled"`
+		Disabled           bool   `help:"Disabled"`
+		ServiceCertificate string `help:"Service certificate id or name"`
 	}
 	R(&EndpointUpdateOptions{}, "endpoint-update", "Update a endpoint", func(s *mcclient.ClientSession, args *EndpointUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -122,6 +127,9 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
+		}
+		if len(args.ServiceCertificate) > 0 {
+			params.Add(jsonutils.NewString(args.ServiceCertificate), "service_certificate")
 		}
 		ep, err := modules.EndpointsV3.Patch(s, args.ID, params)
 		if err != nil {

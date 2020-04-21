@@ -15,6 +15,7 @@
 package validators
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -24,8 +25,12 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type ValidatorPEM struct {
@@ -371,4 +376,70 @@ func (v *ValidatorPrivateKey) MatchCertificate(cert *x509.Certificate) error {
 		return newInvalidValueError(v.Key, "unknown private key type")
 	}
 	return nil
+}
+
+type ValidatorCertKey struct {
+	*ValidatorCertificate
+	*ValidatorPrivateKey
+
+	certPubKeyAlgo string
+}
+
+func NewCertKeyValidator(cert, key string) *ValidatorCertKey {
+	return &ValidatorCertKey{
+		ValidatorCertificate: NewCertificateValidator(cert),
+		ValidatorPrivateKey:  NewPrivateKeyValidator(key),
+	}
+}
+
+func (v *ValidatorCertKey) Validate(data *jsonutils.JSONDict) error {
+	keyV := map[string]IValidator{
+		"certificate": v.ValidatorCertificate,
+		"private_key": v.ValidatorPrivateKey,
+	}
+	for _, v := range keyV {
+		if err := v.Validate(data); err != nil {
+			return err
+		}
+	}
+	cert := v.ValidatorCertificate.Certificates[0]
+	var certPubKeyAlgo string
+	{
+		// x509.PublicKeyAlgorithm.String() is only available since go1.10
+		switch cert.PublicKeyAlgorithm {
+		case x509.RSA:
+			certPubKeyAlgo = api.LB_TLS_CERT_PUBKEY_ALGO_RSA
+		case x509.ECDSA:
+			certPubKeyAlgo = api.LB_TLS_CERT_PUBKEY_ALGO_ECDSA
+		default:
+			certPubKeyAlgo = fmt.Sprintf("algo %#v", cert.PublicKeyAlgorithm)
+		}
+		if !api.LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
+			return httperrors.NewInputParameterError("invalid cert pubkey algorithm: %s, want %s",
+				certPubKeyAlgo, api.LB_TLS_CERT_PUBKEY_ALGOS.String())
+		}
+	}
+	v.certPubKeyAlgo = certPubKeyAlgo
+	if err := v.ValidatorPrivateKey.MatchCertificate(cert); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *ValidatorCertKey) UpdateCertKeyInfo(ctx context.Context, data *jsonutils.JSONDict) *jsonutils.JSONDict {
+	cert := v.ValidatorCertificate.Certificates[0]
+	// NOTE subject alternative names also includes email, url, ip addresses,
+	// but we ignore them here.
+	//
+	// NOTE we use white space to separate names
+	data.Set("common_name", jsonutils.NewString(cert.Subject.CommonName))
+	data.Set("subject_alternative_names", jsonutils.NewString(strings.Join(cert.DNSNames, " ")))
+
+	data.Set("not_before", jsonutils.NewTimeString(cert.NotBefore))
+	data.Set("not_after", jsonutils.NewTimeString(cert.NotAfter))
+	data.Set("public_key_algorithm", jsonutils.NewString(v.certPubKeyAlgo))
+	data.Set("public_key_bit_len", jsonutils.NewInt(int64(v.ValidatorCertificate.PublicKeyBitLen())))
+	data.Set("signature_algorithm", jsonutils.NewString(cert.SignatureAlgorithm.String()))
+	data.Set("fingerprint", jsonutils.NewString(api.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256+":"+v.ValidatorCertificate.FingerprintSha256String()))
+	return data
 }
