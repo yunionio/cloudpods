@@ -89,6 +89,30 @@ func (s *SRbdStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return ""
 }
 
+func (s *SRbdStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
+	var exist bool
+	pool, _ := s.StorageConf.GetString("pool")
+	_, err := s.withImage(pool, diskId,
+		func(src *rbd.Image) (interface{}, error) {
+			sps, err := src.GetSnapshotNames()
+			if err != nil {
+				return nil, errors.Wrap(err, "get snapshot names")
+			}
+			for i := 0; i < len(sps); i++ {
+				if sps[i].Name == snapshotId {
+					exist = true
+					break
+				}
+			}
+			return nil, nil
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+	return exist, nil
+}
+
 func (s *SRbdStorage) GetSnapshotDir() string {
 	return ""
 }
