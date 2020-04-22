@@ -89,6 +89,7 @@ type IStorage interface {
 	GetSnapshotDir() string
 	GetSnapshotPathByIds(diskId, snapshotId string) string
 	DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	IsSnapshotExist(diskId, snapshotId string) (bool, error)
 
 	GetFreeSizeMb() int
 	GetCapacity() int

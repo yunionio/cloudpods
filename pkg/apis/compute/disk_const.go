@@ -55,4 +55,7 @@ const (
 	DISK_BACKING_IMAGE = "image"
 
 	DISK_SIZE_AUTOEXTEND = -1
+
+	DISK_NOT_EXIST = "not_exist"
+	DISK_EXIST     = "exist"
 )
