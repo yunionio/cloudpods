@@ -62,10 +62,6 @@ func init() {
 	ScalingActivityManager.SetVirtualObject(ScalingActivityManager)
 }
 
-func (sam *SScalingActivityManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
-}
-
 func (sam *SScalingActivityManager) FetchByStatus(ctx context.Context, saIds, status []string, action string) (ids []string, err error) {
 	q := sam.Query("id").In("id", saIds)
 	if action == "not" {
@@ -189,4 +185,36 @@ func (sam *SScalingActivityManager) ListItemFilter(ctx context.Context, q *sqlch
 	}
 	q = q.Desc("start_time").Desc("end_time")
 	return q, nil
+}
+
+func (sam *SScalingActivityManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (sam *SScalingActivityManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (sam *SScalingActivityManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			scalingGroupQ := ScalingGroupManager.Query("id", "domain_id").SubQuery()
+			q = q.Join(scalingGroupQ, sqlchemy.Equals(q.Field("scaling_group_id"), scalingGroupQ.Field("id")))
+			q = q.Filter(sqlchemy.Equals(scalingGroupQ.Field("domain_id"), owner.GetProjectDomainId()))
+		}
+	}
+	return q
+}
+
+func (sam *SScalingActivityManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchDomainInfo(ctx, data)
+}
+
+func (sa *SScalingActivity) GetOwnerId() mcclient.IIdentityProvider {
+	scalingGroup := sa.GetScalingGroup()
+	if scalingGroup != nil {
+		return scalingGroup.GetOwnerId()
+	}
+	return nil
 }
