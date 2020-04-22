@@ -391,12 +391,6 @@ func (manager *SModelBaseManager) BatchCreateValidateCreateData(ctx context.Cont
 }
 
 func (manager *SModelBaseManager) OnCreateFailed(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if CancelPendingUsagesInContext != nil {
-		err := CancelPendingUsagesInContext(ctx, userCred)
-		if err != nil {
-			return errors.Wrap(err, "CancelPendingUsagesInContext")
-		}
-	}
 	return nil
 }
 
