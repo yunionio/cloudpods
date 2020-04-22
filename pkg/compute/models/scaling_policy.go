@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -106,6 +107,10 @@ func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("trigger_type", input.TriggerType)
 	}
 	return q, nil
+}
+
+func (spm *SScalingPolicyManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
 func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {

@@ -415,6 +415,7 @@ func (asc *SASController) createInstances(session *mcclient.ClientSession, param
 		clientErr := err.(*httputils.JSONClientError)
 		failedList = append(failedList, clientErr.Details)
 	}
+	dict.Remove("domain_id")
 	dict.Remove("count")
 
 	if count == 1 {
@@ -471,8 +472,8 @@ func (asc *SASController) CreateInstances(
 	// For compatibility
 	content.Remove("__count__")
 	// set onwer project and id
-	content.Set("tenant", jsonutils.NewString(ownerId.GetProjectId()))
-	content.Set("user", jsonutils.NewString(ownerId.GetUserId()))
+	content.Set("project_id", jsonutils.NewString(ownerId.GetProjectId()))
+	content.Set("user_id", jsonutils.NewString(ownerId.GetUserId()))
 
 	countPR, requests := asc.countPRAndRequests(num)
 	log.Debugf("countPR: %d, requests: %d", countPR, requests)

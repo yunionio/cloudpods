@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -59,6 +60,10 @@ func init() {
 		),
 	}
 	ScalingActivityManager.SetVirtualObject(ScalingActivityManager)
+}
+
+func (sam *SScalingActivityManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }
 
 func (sam *SScalingActivityManager) FetchByStatus(ctx context.Context, saIds, status []string, action string) (ids []string, err error) {
