@@ -540,6 +540,14 @@ func _managedResourceFilterByAccount(managerIdFieldName string, q *sqlchemy.SQue
 		q = _filterByProviderStrs(managerIdFieldName, q, filterField, subqFunc, "brand", input.Brands)
 	}
 
+	if input.IsManaged != nil {
+		if *input.IsManaged {
+			q = q.IsNotEmpty(managerIdFieldName)
+		} else {
+			q = q.IsNullOrEmpty(managerIdFieldName)
+		}
+	}
+
 	q = _filterByCloudType(managerIdFieldName, q, input, filterField, subqFunc)
 
 	q, err := _managedResourceFilterByDomain(managerIdFieldName, q, input.DomainizedResourceListInput, filterField, subqFunc)
@@ -668,7 +676,7 @@ func _filterByCloudType(managerIdFieldName string, q *sqlchemy.SQuery, input api
 		}
 	}
 
-	if input.IsManaged {
+	/*if input.IsManaged {
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.IsNotEmpty(q.Field(managerIdFieldName)))
 		} else {
@@ -676,7 +684,7 @@ func _filterByCloudType(managerIdFieldName string, q *sqlchemy.SQuery, input api
 			sq = sq.Filter(sqlchemy.IsNotEmpty(sq.Field(managerIdFieldName)))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
-	}
+	}*/
 
 	return q
 }

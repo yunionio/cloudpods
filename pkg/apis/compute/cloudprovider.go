@@ -181,7 +181,7 @@ type ManagedResourceListInput struct {
 
 	// 过滤资源，是否为非OneCloud内置私有云管理的资源
 	// default: false
-	IsManaged bool `json:"is_managed"`
+	IsManaged *bool `json:"is_managed"`
 
 	// 以云账号名称排序
 	// pattern:asc|desc
