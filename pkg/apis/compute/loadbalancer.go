@@ -164,7 +164,11 @@ type LoadbalancerAclListInput struct {
 
 type LoadbalancerDetails struct {
 	apis.VirtualResourceDetails
-	VpcResourceInfo
+
+	ManagedResourceInfo
+	CloudregionResourceInfo
+
+	VpcResourceInfoBase
 	ZoneResourceInfoBase
 	NetworkResourceInfoBase
 

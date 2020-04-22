@@ -106,7 +106,7 @@ func (manager *SWireResourceBaseManager) FetchCustomizeColumns(
 		var base *SWireResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SWireResourceBase in object %#v: %s", objs[i], err)
 			continue
 		}
 		wireIds[i] = base.WireId

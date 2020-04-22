@@ -101,7 +101,7 @@ func (manager *SLoadbalancerListenerResourceBaseManager) FetchCustomizeColumns(
 		var base *SLoadbalancerListenerResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SLoadbalancerListenerResourceBase in object %#v: %s", objs[i], err)
 			continue
 		}
 		listenerIds[i] = base.ListenerId
@@ -119,7 +119,7 @@ func (manager *SLoadbalancerListenerResourceBaseManager) FetchCustomizeColumns(
 			rows[i].Listener = listener.Name
 			rows[i].LoadbalancerId = listener.LoadbalancerId
 		}
-		lbs[i] = SLoadbalancerResourceBase{rows[i].LoadbalancerId}
+		lbs[i] = &SLoadbalancerResourceBase{rows[i].LoadbalancerId}
 	}
 
 	lbRows := manager.SLoadbalancerResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, lbs, fields, isList)

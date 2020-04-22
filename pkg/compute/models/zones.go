@@ -538,8 +538,12 @@ func (manager *SZoneManager) ListItemFilter(
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if query.IsManaged {
-		q = q.IsNotEmpty("external_id")
+	if query.IsManaged != nil {
+		if *query.IsManaged {
+			q = q.IsNotEmpty("external_id")
+		} else {
+			q = q.IsNullOrEmpty("external_id")
+		}
 	}
 
 	data := jsonutils.Marshal(query.DomainizedResourceListInput)
