@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -357,6 +358,9 @@ func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStor
 			storage := SStorage{
 				zone:        self.host.zone,
 				storageType: storageaccounts[i].Sku.Name,
+			}
+			if !utils.IsInStringArray(storage.storageType, STORAGETYPES) {
+				storage.storageType = STORAGE_STD_LRS
 			}
 			return &storage, nil, nil
 		}
