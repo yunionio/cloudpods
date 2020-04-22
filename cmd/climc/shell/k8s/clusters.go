@@ -226,7 +226,33 @@ func initKubeCluster() {
 		return nil
 	})
 
-	R(&o.ClusterEnableComponentCephCSIOpt{}, cmdN("component-enable-ceph-csi"), "Enable cluster component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentCephCSIOpt) error {
+	R(&o.ClusterEnableComponentCephCSIOpt{}, cmdN("component-enable-ceph-csi"), "Enable cluster ceph csi component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentCephCSIOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentMonitorOpt{}, cmdN("component-enable-monitor"), "Enable cluster monitor component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentMonitorOpt) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "enable-component", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.ClusterEnableComponentFluentBitOpt{}, cmdN("component-enable-fluentbit"), "Enable cluster fluentbit component", func(s *mcclient.ClientSession, args *o.ClusterEnableComponentFluentBitOpt) error {
 		params, err := args.Params()
 		if err != nil {
 			return err
