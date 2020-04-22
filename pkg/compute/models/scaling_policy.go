@@ -109,10 +109,6 @@ func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func (spm *SScalingPolicyManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
-}
-
 func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
 	q, err := spm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
@@ -517,4 +513,36 @@ func (sg *SScalingPolicy) PostCreate(ctx context.Context, userCred mcclient.Toke
 			return nil
 		})
 	}()
+}
+
+func (spm *SScalingPolicyManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (spm *SScalingPolicyManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
+func (spm *SScalingPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			scalingGroupQ := ScalingGroupManager.Query("id", "domain_id").SubQuery()
+			q = q.Join(scalingGroupQ, sqlchemy.Equals(q.Field("scaling_group_id"), scalingGroupQ.Field("id")))
+			q = q.Filter(sqlchemy.Equals(scalingGroupQ.Field("domain_id"), owner.GetProjectDomainId()))
+		}
+	}
+	return q
+}
+
+func (spm *SScalingPolicyManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchDomainInfo(ctx, data)
+}
+
+func (sp *SScalingPolicy) GetOwnerId() mcclient.IIdentityProvider {
+	scalingGroup := sp.GetScalingGroup()
+	if scalingGroup != nil {
+		return scalingGroup.GetOwnerId()
+	}
+	return nil
 }
