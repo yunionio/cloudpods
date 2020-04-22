@@ -1947,10 +1947,11 @@ func (self *SGuest) getDisksDetails() string {
 	return buf.String()
 }
 
-func (self *SGuest) getDisksInfoDetails() *jsonutils.JSONArray {
-	details := jsonutils.NewArray()
-	for _, disk := range self.GetDisks() {
-		details.Add(disk.GetDetailedJson())
+func (self *SGuest) getDisksInfoDetails() []api.GuestDiskInfo {
+	disks := self.GetDisks()
+	details := make([]api.GuestDiskInfo, len(disks))
+	for i := range details {
+		details[i] = disks[i].GetDetailedInfo()
 	}
 	return details
 }
