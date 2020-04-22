@@ -72,10 +72,11 @@ type SResourceManager struct {
 	ctx           manager.IManagerContext
 	ServiceName   ServiceNameType // 服务名称： ecs
 	Region        string          // 区域： cn-north-1
-	ProjectId     string          // 项目ID： uuid
-	version       string          // api 版本号
-	Keyword       string          // 资源名称单数。构建URL时使用
-	KeywordPlural string          // 资源名称复数形式。构建URL时使用
+	DomainId      string
+	ProjectId     string // 项目ID： uuid
+	version       string // api 版本号
+	Keyword       string // 资源名称单数。构建URL时使用
+	KeywordPlural string // 资源名称复数形式。构建URL时使用
 
 	ResourceKeyword string // 资源名称。url中使用
 }
@@ -102,6 +103,10 @@ func (self *SResourceManager) ServiceType() string {
 
 func (self *SResourceManager) GetColumns() []string {
 	return []string{}
+}
+
+func (self *SResourceManager) SetDomainId(domainId string) {
+	self.DomainId = domainId
 }
 
 func (self *SResourceManager) getReourcePath(ctx manager.IManagerContext, rid string, spec string) string {
@@ -143,6 +148,9 @@ func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext,
 	request := self.newRequest("GET", "", spec, ctx)
 	for k, v := range queries {
 		request.AddQueryParam(k, v)
+	}
+	if len(self.DomainId) > 0 {
+		request.AddHeaderParam("X-Domain-Id", self.DomainId)
 	}
 
 	return self._list(request, responseKey)
