@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
@@ -922,6 +923,52 @@ func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, u
 func (self *SKVMRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {
 	task.SetStage("OnKvmSnapshotDelete", nil)
 	task.ScheduleRun(data)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncDiskStatus(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		storage := disk.GetStorage()
+		host := storage.GetMasterHost()
+		header := task.GetTaskRequestHeader()
+		url := fmt.Sprintf("%s/disks/%s/%s/status", host.ManagerUri, storage.Id, disk.Id)
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		var diskStatus string
+		originStatus, _ := task.GetParams().GetString("origin_status")
+		status, _ := res.GetString("status")
+		if status == api.DISK_EXIST {
+			diskStatus = originStatus
+		} else {
+			diskStatus = api.DISK_UNKNOWN
+		}
+		return nil, disk.SetStatus(userCred, diskStatus, "sync status")
+	})
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncSnapshotStatus(ctx context.Context, userCred mcclient.TokenCredential, snapshot *models.SSnapshot, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		storage := snapshot.GetStorage()
+		host := storage.GetMasterHost()
+		header := task.GetTaskRequestHeader()
+		url := fmt.Sprintf("%s/snapshots/%s/%s/%s/status", host.ManagerUri, storage.Id, snapshot.DiskId, snapshot.Id)
+		_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		var snapshotStatus string
+		originStatus, _ := task.GetParams().GetString("origin_status")
+		status, _ := res.GetString("status")
+		if status == api.SNAPSHOT_EXIST {
+			snapshotStatus = originStatus
+		} else {
+			snapshotStatus = api.SNAPSHOT_UNKNOWN
+		}
+		return nil, snapshot.SetStatus(userCred, snapshotStatus, "sync status")
+	})
 	return nil
 }
 

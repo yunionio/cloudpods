@@ -52,4 +52,7 @@ const (
 	SNAPSHOT_POLICY_CACHE_STATUS_READY         = "ready"
 	SNAPSHOT_POLICY_CACHE_STATUS_DELETING      = "deleting"
 	SNAPSHOT_POLICY_CACHE_STATUS_DELETE_FAILED = "delete_failed"
+
+	SNAPSHOT_EXIST     = "exist"
+	SNAPSHOT_NOT_EXIST = "not_exist"
 )
