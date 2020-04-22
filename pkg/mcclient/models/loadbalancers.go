@@ -21,6 +21,7 @@ import (
 type Loadbalancer struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	EgressMbps  int
 	Address     string
@@ -72,6 +73,7 @@ type LoadbalancerHTTPRedirect struct {
 type LoadbalancerListener struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	LoadbalancerId string
@@ -122,6 +124,7 @@ type LoadbalancerListener struct {
 type LoadbalancerListenerRule struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	ListenerId     string
@@ -137,6 +140,7 @@ type LoadbalancerListenerRule struct {
 type LoadbalancerBackendGroup struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	Type           string
 	LoadbalancerId string
@@ -146,6 +150,7 @@ type LoadbalancerBackendGroup struct {
 type LoadbalancerBackend struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	CloudregionId  string
 	BackendGroupId string
@@ -168,6 +173,7 @@ type LoadbalancerAclEntries []*LoadbalancerAclEntry
 type LoadbalancerAcl struct {
 	SharableVirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	AclEntries    *LoadbalancerAclEntries
 	CloudregionId string
@@ -176,6 +182,7 @@ type LoadbalancerAcl struct {
 type LoadbalancerCertificate struct {
 	VirtualResource
 	ManagedResource
+	ExternalizedResource
 
 	Certificate string
 	PrivateKey  string
