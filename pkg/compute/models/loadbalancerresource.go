@@ -146,7 +146,7 @@ func (manager *SLoadbalancerResourceBaseManager) FetchCustomizeColumns(
 		var base *SLoadbalancerResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SLoadbalancerResourceBase in object %#v: %s", objs[i], err)
 			continue
 		}
 		lbIds[i] = base.LoadbalancerId

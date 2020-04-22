@@ -163,7 +163,7 @@ func elasticcacheSubResourceFetchOwnerId(ctx context.Context, data jsonutils.JSO
 		return ec.(*SElasticcache).GetOwnerId(), nil
 	}
 
-	return nil, nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
 // elastic cache 子资源获取owner query
