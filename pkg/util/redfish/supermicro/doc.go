@@ -12,18 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package loader
-
-import (
-	"yunion.io/x/log"
-
-	_ "yunion.io/x/onecloud/pkg/util/redfish/generic"
-	_ "yunion.io/x/onecloud/pkg/util/redfish/idrac"
-	_ "yunion.io/x/onecloud/pkg/util/redfish/idrac9"
-	_ "yunion.io/x/onecloud/pkg/util/redfish/ilo"
-	_ "yunion.io/x/onecloud/pkg/util/redfish/supermicro"
-)
-
-func init() {
-	log.Infof("Redfish drivers loaded!")
-}
+package supermicro // import "yunion.io/x/onecloud/pkg/util/redfish/supermicro"
