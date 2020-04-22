@@ -935,12 +935,29 @@ func (man *SLoadbalancerBackendGroupManager) initBackendGroupType() error {
 }
 
 func (man *SLoadbalancerBackendGroupManager) InitializeData() error {
-	if err := man.initBackendGroupType(); err != nil {
-		return err
+	q := man.Query().IsNullOrEmpty("loadbalancer_id")
+	lbbgs := make([]SLoadbalancerBackendGroup, 0)
+	err := db.FetchModelObjects(man, q, &lbbgs)
+	if err != nil {
+		return errors.Wrap(err, "SLoadbalancerBackendGroupManager.InitializeData")
 	}
-	return man.initBackendGroupRegion()
+
+	for i := range lbbgs {
+		lbbg := lbbgs[i]
+		_, err = db.UpdateWithLock(context.Background(), &lbbg, func() error {
+			lbbg.MarkDelete()
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "SLoadbalancerBackendGroupManager.InitializeData.MarkDelete")
+		}
+	}
+
+	log.Debugf("SLoadbalancerBackendGroupManager.InitializeData removed %d invalid loadbalancer backendgroup.", len(lbbgs))
+	return nil
 }
 
+/*
 func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error {
 	groups := []SLoadbalancerBackendGroup{}
 	q := manager.Query()
@@ -962,7 +979,7 @@ func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error 
 		}
 	}
 	return nil
-}
+}*/
 
 func (manager *SLoadbalancerBackendGroupManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
