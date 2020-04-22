@@ -103,11 +103,11 @@ func (manager *SLoadbalancerClusterResourceBaseManager) FetchCustomizeColumns(
 		rows[i] = api.LoadbalancerClusterResourceInfo{}
 		if cluster, ok := clusters[clusterIds[i]]; ok {
 			rows[i].Cluster = cluster.Name
-			zones[i] = SZoneResourceBase{cluster.ZoneId}
-			wires[i] = SWireResourceBase{cluster.WireId}
+			zones[i] = &SZoneResourceBase{cluster.ZoneId}
+			wires[i] = &SWireResourceBase{cluster.WireId}
 		} else {
-			zones[i] = SZoneResourceBase{}
-			wires[i] = SWireResourceBase{}
+			zones[i] = &SZoneResourceBase{}
+			wires[i] = &SWireResourceBase{}
 		}
 	}
 

@@ -298,11 +298,10 @@ func (man *SLoadbalancerListenerManager) QueryDistinctExtraField(q *sqlchemy.SQu
 
 func (man *SLoadbalancerListenerManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", nil)
-	if err := lbV.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
+	if err := lbV.Validate(data.(*jsonutils.JSONDict)); err == nil {
+		return lbV.Model.GetOwnerId(), nil
 	}
-
-	return lbV.Model.GetOwnerId(), nil
+	return man.SVirtualResourceBaseManager.FetchOwnerId(ctx, data)
 }
 
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

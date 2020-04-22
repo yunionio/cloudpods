@@ -74,7 +74,7 @@ func (manager *SZoneResourceBaseManager) FetchCustomizeColumns(
 		var base *SZoneResourceBase
 		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
 		if err != nil {
-			log.Errorf("Cannot find SCloudregionResourceBase in object %s", objs[i])
+			log.Errorf("Cannot find SZoneResourceBase in object %#v: %s", objs[i], err)
 			continue
 		}
 		zoneIds[i] = base.ZoneId

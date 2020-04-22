@@ -694,8 +694,12 @@ func (manager *SCloudregionManager) ListItemFilter(
 		))
 	}
 
-	if query.IsManaged {
-		q = q.IsNotEmpty("external_id")
+	if query.IsManaged != nil {
+		if *query.IsManaged {
+			q = q.IsNotEmpty("external_id")
+		} else {
+			q = q.IsNullOrEmpty("external_id")
+		}
 	}
 
 	managerStr := query.Cloudprovider

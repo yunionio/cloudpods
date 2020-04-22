@@ -81,8 +81,10 @@ func (manager *SCloudregionResourceBaseManager) FetchCustomizeColumns(
 	regionIds := make([]string, len(objs))
 	for i := range objs {
 		var base *SCloudregionResourceBase
-		reflectutils.FindAnonymouStructPointer(objs[i], &base)
-		if base != nil && len(base.CloudregionId) > 0 {
+		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if err != nil {
+			log.Errorf("Cannot find SCloudregionResourceBase in %#v: %s", objs[i], err)
+		} else if base != nil && len(base.CloudregionId) > 0 {
 			regionIds[i] = base.CloudregionId
 		}
 	}
