@@ -374,7 +374,7 @@ func (disk *SVirtualDisk) Rebuild(ctx context.Context) error {
 }
 
 func (disk *SVirtualDisk) GetProjectId() string {
-	return ""
+	return disk.vm.GetProjectId()
 }
 
 func (disk *SVirtualDisk) GetFilename() string {
