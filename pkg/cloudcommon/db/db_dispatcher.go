@@ -1155,6 +1155,12 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
 		// log.Errorf("fail to doCreateItem %s", err)
+		if CancelPendingUsagesInContext != nil {
+			err := CancelPendingUsagesInContext(ctx, userCred)
+			if err != nil {
+				log.Errorf("CancelPendingUsagesInContext fail %s", err)
+			}
+		}
 		failErr := manager.OnCreateFailed(ctx, userCred, ownerId, query, data)
 		if failErr != nil {
 			log.Errorf("manager.OnCreateFailed %s", failErr)
@@ -1345,6 +1351,19 @@ func managerPerformCheckCreateData(
 		}
 	} else if !manager.AllowPerformCheckCreateData(ctx, userCred, query, data) {
 		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
+	}
+
+	if InitPendingUsagesInContext != nil {
+		ctx = InitPendingUsagesInContext(ctx)
+
+		defer func() {
+			if CancelPendingUsagesInContext != nil {
+				err := CancelPendingUsagesInContext(ctx, userCred)
+				if err != nil {
+					log.Errorf("CancelPendingUsagesInContext fail %s", err)
+				}
+			}
+		}()
 	}
 
 	return ValidateCreateData(manager, ctx, userCred, ownerId, query, bodyDict)
