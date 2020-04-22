@@ -77,6 +77,10 @@ func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
 }
 
+func (s *SLocalStorage) IsSnapshotExist(diskId, snapshotId string) (bool, error) {
+	return fileutils2.Exists(s.GetSnapshotPathByIds(diskId, snapshotId)), nil
+}
+
 func (s *SLocalStorage) GetComposedName() string {
 	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
 }
