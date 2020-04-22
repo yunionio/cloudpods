@@ -926,6 +926,12 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 			lb.LBInfo = extLb.GetMetadata()
 		}
 
+		if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
+			if vpc, err := db.FetchByExternalId(VpcManager, vpcId); err == nil && vpc != nil {
+				lb.VpcId = vpc.GetId()
+			}
+		}
+
 		return nil
 	})
 
