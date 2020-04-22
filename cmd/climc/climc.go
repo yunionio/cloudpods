@@ -62,6 +62,8 @@ type BaseOptions struct {
 	OsAccessKey string `default:"$OS_ACCESS_KEY" help:"ak/sk access key, defaults to env[OS_ACCESS_KEY]"`
 	OsSecretKey string `default:"$OS_SECRET_KEY" help:"ak/s secret, defaults to env[OS_SECRET_KEY]"`
 
+	OsAuthToken string `default:"$OS_AUTH_TOKEN" help:"token authenticate, defaults to env[OS_AUTH_TOKEN]"`
+
 	OsAuthURL string `default:"$OS_AUTH_URL" help:"Defaults to env[OS_AUTH_URL]"`
 
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
@@ -131,17 +133,14 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	if len(options.OsAuthURL) == 0 {
 		return nil, fmt.Errorf("Missing OS_AUTH_URL")
 	}
-	if len(options.OsUsername) == 0 && len(options.OsAccessKey) == 0 {
-		return nil, fmt.Errorf("Missing OS_USERNAME or OS_ACCESS_KEY")
+	if len(options.OsUsername) == 0 && len(options.OsAccessKey) == 0 && len(options.OsAuthToken) == 0 {
+		return nil, fmt.Errorf("Missing OS_USERNAME or OS_ACCESS_KEY or OS_AUTH_TOKEN")
 	}
 	if len(options.OsUsername) > 0 && len(options.OsPassword) == 0 {
 		return nil, fmt.Errorf("Missing OS_PASSWORD")
 	}
 	if len(options.OsAccessKey) > 0 && len(options.OsSecretKey) == 0 {
 		return nil, fmt.Errorf("Missing OS_SECRET_KEY")
-	}
-	if len(options.OsRegionName) == 0 {
-		return nil, fmt.Errorf("Missing OS_REGION_NAME")
 	}
 
 	logLevel := "info"
@@ -185,7 +184,11 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	if cacheToken == nil {
 		var token mcclient.TokenCredential
 		var err error
-		if len(options.OsAccessKey) > 0 {
+		if len(options.OsAuthToken) > 0 {
+			token, err = client.AuthenticateToken(options.OsAuthToken, options.OsProjectName,
+				options.OsProjectDomain,
+				mcclient.AuthSourceCli)
+		} else if len(options.OsAccessKey) > 0 {
 			token, err = client.AuthenticateByAccessKey(options.OsAccessKey,
 				options.OsSecretKey, mcclient.AuthSourceCli)
 		} else {
