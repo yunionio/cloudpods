@@ -302,56 +302,60 @@ func (self *SCloudprovider) getPassword() (string, error) {
 	return utils.DescryptAESBase64(self.Id, self.Secret)
 }
 
-func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if len(self.ProjectId) > 0 {
-		_, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
-		if err != nil && err != sql.ErrNoRows {
-			log.Errorf("fetch existing tenant by id fail %s", err)
-			return errors.Wrap(err, "db.TenantCacheManager.FetchTenantById")
-		} else if err == nil {
-			return nil // find the project, skip sync
+func getTenant(ctx context.Context, projectId string, name string) (*db.STenant, error) {
+	if len(projectId) > 0 {
+		tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+		if err != nil {
+			return nil, errors.Wrap(err, "TenantCacheManager.FetchTenantById")
 		}
+		return tenant, nil
 	}
-
-	if len(self.Name) == 0 {
-		log.Errorf("syncProject: provider name is empty???")
-		return errors.Error("cannot syncProject for empty name")
+	if len(name) == 0 {
+		return nil, errors.Error("cannot syncProject for empty name")
 	}
+	return db.TenantCacheManager.FetchTenantByName(ctx, name)
+}
 
-	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, self.Name)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("fetchTenantByIdorName error %s: %s", self.Name, err)
-		return errors.Wrap(err, "db.TenantCacheManager.FetchTenantByIdOrName")
+func createTenant(ctx context.Context, name, domainId, desc string) (string, string, error) {
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(name), "generate_name")
+
+	params.Add(jsonutils.NewString(domainId), "domain_id")
+	params.Add(jsonutils.NewString(desc), "description")
+
+	resp, err := modules.Projects.Create(s, params)
+	if err != nil {
+		return "", "", errors.Wrap(err, "Projects.Create")
 	}
+	projectId, err := resp.GetString("id")
+	if err != nil {
+		return "", "", errors.Wrap(err, "resp.GetString")
+	}
+	return domainId, projectId, nil
+}
 
+func getOrCreateTenant(ctx context.Context, name, domainId, projectId, desc string) (string, string, error) {
+	tenant, err := getTenant(ctx, projectId, name)
+	if err != nil && errors.Cause(err) != sql.ErrNoRows {
+		return "", "", err
+	}
+	if err == sql.ErrNoRows || tenant.DomainId != domainId {
+		return createTenant(ctx, name, domainId, desc)
+	}
+	return tenant.DomainId, tenant.Id, nil
+}
+
+func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.TokenCredential) error {
 	account := self.GetCloudaccount()
 	if account == nil {
 		return errors.Error("no valid cloudaccount???")
 	}
 
-	var projectId, domainId string
-	if err == sql.ErrNoRows || tenant.DomainId != account.DomainId { // create one
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(self.Name), "generate_name")
-
-		domainId = account.DomainId
-		params.Add(jsonutils.NewString(domainId), "domain_id")
-		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
-
-		project, err := modules.Projects.Create(s, params)
-
-		if err != nil {
-			log.Errorf("create project fail %s", err)
-			return err
-		}
-		projectId, err = project.GetString("id")
-		if err != nil {
-			return err
-		}
-	} else {
-		domainId = tenant.DomainId
-		projectId = tenant.Id
+	desc := fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)
+	domainId, projectId, err := getOrCreateTenant(ctx, self.Name, account.DomainId, self.ProjectId, desc)
+	if err != nil {
+		return errors.Wrap(err, "getOrCreateTenant")
 	}
 
 	return self.saveProject(userCred, domainId, projectId)
