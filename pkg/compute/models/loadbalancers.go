@@ -50,6 +50,9 @@ type SLoadbalancerManager struct {
 	SVpcResourceBaseManager
 	SZoneResourceBaseManager
 	SNetworkResourceBaseManager
+
+	SManagedResourceBaseManager
+	SCloudregionResourceBaseManager
 }
 
 var LoadbalancerManager *SLoadbalancerManager
@@ -137,7 +140,18 @@ func (man *SLoadbalancerManager) ListItemFilter(
 	if err != nil {
 		return nil, errors.Wrap(err, "SExternalizedResourceBaseManager.ListItemFilter")
 	}
-	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, query.VpcFilterListInput)
+	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	vpcQuery := api.VpcFilterListInput{
+		VpcFilterListInputBase: query.VpcFilterListInputBase,
+	}
+	q, err = man.SVpcResourceBaseManager.ListItemFilter(ctx, q, userCred, vpcQuery)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemFilter")
 	}
@@ -197,7 +211,18 @@ func (man *SLoadbalancerManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.OrderByExtraFields")
 	}
-	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VpcFilterListInput)
+	q, err = man.SManagedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ManagedResourceListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemFilter")
+	}
+	q, err = man.SCloudregionResourceBaseManager.ListItemFilter(ctx, q, userCred, query.RegionalFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
+	}
+	vpcQuery := api.VpcFilterListInput{
+		VpcFilterListInputBase: query.VpcFilterListInputBase,
+	}
+	q, err = man.SVpcResourceBaseManager.OrderByExtraFields(ctx, q, userCred, vpcQuery)
 	if err != nil {
 		return nil, errors.Wrap(err, "SVpcResourceBaseManager.OrderByExtraFields")
 	}
@@ -524,6 +549,8 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	rows := make([]api.LoadbalancerDetails, len(objs))
 
 	virtRows := man.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	manRows := man.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	regRows := man.SCloudregionResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	vpcRows := man.SVpcResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	zoneRows := man.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	netRows := man.SNetworkResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
@@ -531,7 +558,9 @@ func (man *SLoadbalancerManager) FetchCustomizeColumns(
 	for i := range rows {
 		rows[i] = api.LoadbalancerDetails{
 			VirtualResourceDetails:  virtRows[i],
-			VpcResourceInfo:         vpcRows[i],
+			ManagedResourceInfo:     manRows[i],
+			CloudregionResourceInfo: regRows[i],
+			VpcResourceInfoBase:     vpcRows[i].VpcResourceInfoBase,
 			ZoneResourceInfoBase:    zoneRows[i].ZoneResourceInfoBase,
 			NetworkResourceInfoBase: netRows[i].NetworkResourceInfoBase,
 		}
@@ -1069,7 +1098,19 @@ func (manager *SLoadbalancerManager) ListItemExportKeys(ctx context.Context,
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemExportKeys")
 	}
 
-	if keys.ContainsAny(manager.SZoneResourceBaseManager.GetExportKeys()...) {
+	if keys.ContainsAny(manager.SManagedResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SManagedResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SManagedResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SCloudregionResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.Contains("zone") {
 		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
