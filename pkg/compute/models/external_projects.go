@@ -196,8 +196,10 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
-		self.ProjectId = provider.ProjectId
-		self.DomainId = provider.DomainId
+		if self.DomainId != provider.DomainId {
+			self.ProjectId = provider.ProjectId
+			self.DomainId = provider.DomainId
+		}
 		return nil
 	})
 	if err != nil {
