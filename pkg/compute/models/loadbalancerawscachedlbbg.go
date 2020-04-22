@@ -229,14 +229,8 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	}
 	for i := 0; i < len(commondb); i++ {
 		var elb *SLoadbalancer
-		elbIds := commonext[i].GetLoadbalancerId()
-		if err != nil {
-			syncResult.UpdateError(err)
-			continue
-		}
-
 		elbId := commonext[i].GetLoadbalancerId()
-		if len(elbIds) > 0 {
+		if len(elbId) > 0 {
 			ielb, err := db.FetchByExternalId(LoadbalancerManager, elbId)
 			if err == nil {
 				elb = ielb.(*SLoadbalancer)
@@ -244,10 +238,8 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 		}
 
 		if elb == nil {
-			elb = &SLoadbalancer{}
-			elb.Id = ""
-			// elb.CloudregionId = region.GetId()
-			// elb.ManagerId = provider.GetId()
+			log.Debugf("Aws.SyncLoadbalancerBackendgroups skiped external backendgroup %s", elbId)
+			continue
 		}
 
 		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, elb, commonext[i], provider.GetOwnerId(), provider)
@@ -264,23 +256,18 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 	for i := 0; i < len(added); i++ {
 		var elb *SLoadbalancer
 		elbId := added[i].GetLoadbalancerId()
-		if err != nil {
-			syncResult.AddError(err)
-			continue
-		}
-
 		if len(elbId) > 0 {
 			elb, err = LoadbalancerManager.FetchByExternalId(provider.GetId(), elbId)
 			if err != nil {
 				log.Debugf("awsCachedLbbgManager.SyncLoadbalancerBackendgroups %s", err)
+				syncResult.AddError(err)
+				continue
 			}
 		}
 
 		if elb == nil {
-			elb = &SLoadbalancer{}
-			elb.Id = ""
-			// elb.CloudregionId = region.GetId()
-			// elb.ManagerId = provider.GetId()
+			log.Debugf("Aws.SyncLoadbalancerBackendgroups skiped external backendgroup %s", elbId)
+			continue
 		}
 
 		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, elb, added[i], syncOwnerId, provider)
