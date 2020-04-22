@@ -539,17 +539,19 @@ func SharableModelIsShared(model ISharableBaseModel) bool {
 func SharableModelCustomizeCreate(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if !data.Contains("public_scope") {
 		resScope := model.GetModelManager().ResourceScope()
-		isManaged := false
-		if managedModel, ok := model.(IManagedResourceBase); ok {
-			isManaged = managedModel.IsManaged()
+		if resScope == rbacutils.ScopeDomain {
+			isManaged := false
+			if managedModel, ok := model.(IManagedResourceBase); ok {
+				isManaged = managedModel.IsManaged()
+			}
+			if !isManaged && IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+				model.SetShare(rbacutils.ScopeSystem)
+				data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(string(rbacutils.ScopeSystem)))
+			}
 		}
-		if !isManaged && IsAdminAllowPerform(userCred, model, "public") && ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-			model.SetShare(rbacutils.ScopeSystem)
-		} else if !isManaged && IsDomainAllowPerform(userCred, model, "public") && resScope == rbacutils.ScopeProject && ownerId.GetProjectId() == userCred.GetProjectId() {
-			model.SetShare(rbacutils.ScopeDomain)
-		} else {
-			model.SetShare(rbacutils.ScopeNone)
-		}
+	}
+	if !data.Contains("public_scope") {
+		model.SetShare(rbacutils.ScopeNone)
 	}
 	return nil
 }
