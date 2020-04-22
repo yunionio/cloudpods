@@ -147,11 +147,10 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 
 func (man *SLoadbalancerBackendManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", nil)
-	if err := backendGroupV.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
+	if err := backendGroupV.Validate(data.(*jsonutils.JSONDict)); err == nil {
+		return backendGroupV.Model.GetOwnerId(), nil
 	}
-
-	return backendGroupV.Model.GetOwnerId(), nil
+	return man.SVirtualResourceBaseManager.FetchOwnerId(ctx, data)
 }
 
 func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
