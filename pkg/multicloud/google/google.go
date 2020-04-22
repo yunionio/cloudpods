@@ -704,6 +704,7 @@ func _jsonRequest(client *http.Client, method httputils.THttpMethod, url string,
 				"EOF",
 				"i/o timeout",
 				"TLS handshake timeout",
+				"connection reset by peer",
 			} {
 				if strings.Index(err.Error(), msg) >= 0 {
 					retry = true
