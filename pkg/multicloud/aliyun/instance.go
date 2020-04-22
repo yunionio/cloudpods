@@ -985,7 +985,7 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
 
 func (self *SInstance) GetError() error {

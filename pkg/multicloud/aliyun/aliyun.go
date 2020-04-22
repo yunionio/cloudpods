@@ -52,6 +52,7 @@ const (
 
 	ALIYUN_RAM_API_VERSION = "2015-05-01"
 	ALIYUN_API_VERION_RDS  = "2014-08-15"
+	ALIYUN_RM_API_VERSION  = "2020-03-31"
 )
 
 type AliyunClientConfig struct {
@@ -207,6 +208,14 @@ func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 		},
 	)
 	return client, err
+}
+
+func (self *SAliyunClient) rmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(cli, "resourcemanager.aliyuncs.com", ALIYUN_RM_API_VERSION, apiName, params, self.debug)
 }
 
 func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -423,16 +432,30 @@ func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	// 阿里云并未公布资源组的api地址
-	// params := map[string]string{}
-	// body, err := region.ecsRequest("ListResourceGroups", params)
-	return nil, cloudprovider.ErrNotImplemented
+func (self *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	pageSize, pageNumber := 50, 1
+	resourceGroups := []SResourceGroup{}
+	for {
+		parts, total, err := self.GetResourceGroups(pageNumber, pageSize)
+		if err != nil {
+			return nil, errors.Wrap(err, "GetResourceGroups")
+		}
+		resourceGroups = append(resourceGroups, parts...)
+		if len(resourceGroups) >= total {
+			break
+		}
+		pageNumber += 1
+	}
+	ret := []cloudprovider.ICloudProject{}
+	for i := range resourceGroups {
+		ret = append(ret, &resourceGroups[i])
+	}
+	return ret, nil
 }
 
 func (region *SAliyunClient) GetCapabilities() []string {
 	caps := []string{
-		// cloudprovider.CLOUD_CAPABILITY_PROJECT,
+		cloudprovider.CLOUD_CAPABILITY_PROJECT,
 		cloudprovider.CLOUD_CAPABILITY_COMPUTE,
 		cloudprovider.CLOUD_CAPABILITY_NETWORK,
 		cloudprovider.CLOUD_CAPABILITY_LOADBALANCER,

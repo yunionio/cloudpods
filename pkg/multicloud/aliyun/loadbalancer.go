@@ -394,5 +394,5 @@ func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoad
 }
 
 func (lb *SLoadbalancer) GetProjectId() string {
-	return ""
+	return lb.ResourceGroupId
 }

@@ -112,6 +112,7 @@ type SDisk struct {
 	UserID              string              `json:"user_id"`
 	ConsistencygroupID  string              `json:"consistencygroup_id"`
 	UpdatedAt           string              `json:"updated_at"`
+	EnterpriseProjectId string
 
 	ExpiredTime time.Time
 }
@@ -538,5 +539,5 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return self.EnterpriseProjectId
 }
