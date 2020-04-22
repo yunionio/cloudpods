@@ -138,7 +138,7 @@ func (self *SHuaweiClient) initSigner() error {
 }
 
 func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, error) {
-	cli, err := client.NewClientWithAccessKey(regionId, self.projectId, self.accessKey, self.accessSecret, self.debug)
+	cli, err := client.NewClientWithAccessKey(regionId, self.ownerId, self.projectId, self.accessKey, self.accessSecret, self.debug)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 }
 
 func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
-	cli, err := client.NewClientWithAccessKey("", "", self.accessKey, self.accessSecret, self.debug)
+	cli, err := client.NewClientWithAccessKey("", self.ownerId, "", self.accessKey, self.accessSecret, self.debug)
 	if err != nil {
 		return nil, err
 	}

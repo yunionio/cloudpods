@@ -20,10 +20,10 @@ import (
 )
 
 func init() {
-	type EnterpriceProjectListOptions struct {
+	type EnterpriseProjectListOptions struct {
 	}
-	shellutils.R(&EnterpriceProjectListOptions{}, "enterprice-project-list", "List regions", func(cli *huawei.SRegion, args *EnterpriceProjectListOptions) error {
-		projects, err := cli.GetClient().GetEnterpriceProjects()
+	shellutils.R(&EnterpriseProjectListOptions{}, "enterprise-project-list", "List regions", func(cli *huawei.SRegion, args *EnterpriseProjectListOptions) error {
+		projects, err := cli.GetClient().GetEnterpriseProjects()
 		if err != nil {
 			return err
 		}
