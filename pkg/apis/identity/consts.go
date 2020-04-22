@@ -146,6 +146,10 @@ var (
 			"etcd_cacert",
 			"etcd_cert",
 			"etcd_key",
+
+			"bootstrap_admin_user_password",
+			"reset_admin_user_password",
+			"fernet_key_repository",
 		},
 	}
 )
