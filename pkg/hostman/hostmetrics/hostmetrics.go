@@ -232,7 +232,10 @@ func (s *SGuestMonitorCollector) toTelegrafReportData(data *jsonutils.JSONDict) 
 		for metrics, stat := range report.(*jsonutils.JSONDict).Value() {
 			tags := map[string]string{
 				"vm_id": guestId, "vm_name": vmName, "vm_ip": vmIp,
-				"is_vm": "true", "platform": "kvm", "vm_scaling_group_id": scalingGroupId,
+				"is_vm": "true", "platform": "kvm",
+			}
+			if len(scalingGroupId) > 0 {
+				tags["vm_scaling_group_id"] = scalingGroupId
 			}
 			if val, ok := stat.(*jsonutils.JSONDict); ok {
 				line := s.addTelegrafLine(metrics, tags, val)
