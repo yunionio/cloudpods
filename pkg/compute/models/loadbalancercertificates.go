@@ -22,8 +22,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -70,18 +68,7 @@ type SLoadbalancerCertificate struct {
 	// SManagedResourceBase
 	// SCloudregionResourceBase
 
-	Certificate string `create:"required" list:"user" update:"user"`
-	PrivateKey  string `create:"required" list:"admin" update:"user"`
-
-	// derived attributes
-	PublicKeyAlgorithm      string    `create:"optional" list:"user" update:"user"`
-	PublicKeyBitLen         int       `create:"optional" list:"user" update:"user"`
-	SignatureAlgorithm      string    `create:"optional" list:"user" update:"user"`
-	Fingerprint             string    `create:"optional" list:"user" update:"user"`
-	NotBefore               time.Time `create:"optional" list:"user" update:"user"`
-	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
-	CommonName              string    `create:"optional" list:"user" update:"user"`
-	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
+	db.SCertificateResourceBase
 }
 
 func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerCertificate, error) {
@@ -201,55 +188,6 @@ func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	certV := validators.NewCertificateValidator("certificate")
-	pkeyV := validators.NewPrivateKeyValidator("private_key")
-	keyV := map[string]validators.IValidator{
-		"certificate": certV,
-		"private_key": pkeyV,
-	}
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
-	cert := certV.Certificates[0]
-	var certPubKeyAlgo string
-	{
-		// x509.PublicKeyAlgorithm.String() is only available since go1.10
-		switch cert.PublicKeyAlgorithm {
-		case x509.RSA:
-			certPubKeyAlgo = api.LB_TLS_CERT_PUBKEY_ALGO_RSA
-		case x509.ECDSA:
-			certPubKeyAlgo = api.LB_TLS_CERT_PUBKEY_ALGO_ECDSA
-		default:
-			certPubKeyAlgo = fmt.Sprintf("algo %#v", cert.PublicKeyAlgorithm)
-		}
-		if !api.LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
-			return nil, httperrors.NewInputParameterError("invalid cert pubkey algorithm: %s, want %s",
-				certPubKeyAlgo, api.LB_TLS_CERT_PUBKEY_ALGOS.String())
-		}
-	}
-	err := pkeyV.MatchCertificate(cert)
-	if err != nil {
-		return nil, err
-	}
-	// NOTE subject alternative names also includes email, url, ip addresses,
-	// but we ignore them here.
-	//
-	// NOTE we use white space to separate names
-	data.Set("common_name", jsonutils.NewString(cert.Subject.CommonName))
-	data.Set("subject_alternative_names", jsonutils.NewString(strings.Join(cert.DNSNames, " ")))
-
-	data.Set("not_before", jsonutils.NewTimeString(cert.NotBefore))
-	data.Set("not_after", jsonutils.NewTimeString(cert.NotAfter))
-	data.Set("public_key_algorithm", jsonutils.NewString(certPubKeyAlgo))
-	data.Set("public_key_bit_len", jsonutils.NewInt(int64(certV.PublicKeyBitLen())))
-	data.Set("signature_algorithm", jsonutils.NewString(cert.SignatureAlgorithm.String()))
-	data.Set("fingerprint", jsonutils.NewString(api.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256+":"+certV.FingerprintSha256String()))
-	return data, nil
-}
-
 func (man *SLoadbalancerCertificateManager) ListItemFilter(
 	ctx context.Context,
 	q *sqlchemy.SQuery,
@@ -335,13 +273,14 @@ func (man *SLoadbalancerCertificateManager) QueryDistinctExtraField(q *sqlchemy.
 }
 
 func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := man.validateCertKey(ctx, data)
-	if err != nil {
+	v := validators.NewCertKeyValidator("certificate", "private_key")
+	if err := v.Validate(data); err != nil {
 		return nil, err
 	}
+	data = v.UpdateCertKeyInfo(ctx, data)
 
 	input := apis.VirtualResourceCreateInput{}
-	err = data.Unmarshal(&input)
+	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("unmarshal VirtualResourceCreateInput fail %s", err)
 	}
