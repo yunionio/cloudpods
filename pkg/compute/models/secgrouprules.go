@@ -113,7 +113,7 @@ func (manager *SSecurityGroupRuleManager) FetchOwnerId(ctx context.Context, data
 		}
 		return secgroup.(*SSecurityGroup).GetOwnerId(), nil
 	}
-	return nil, nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
 func (manager *SSecurityGroupRuleManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
