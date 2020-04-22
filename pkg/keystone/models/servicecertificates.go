@@ -47,10 +47,17 @@ func (man *SServiceCertificateManager) ValidateCreateData(ctx context.Context, u
 	}
 	data = v.UpdateCertKeyInfo(ctx, data)
 
-	// validate ca cert key
-	v = validators.NewCertKeyValidator("ca_certificate", "ca_private_key")
-	if err := v.Validate(data); err != nil {
-		return nil, err
+	if caCert, _ := data.GetString("ca_certificate"); len(caCert) > 0 {
+		vc := validators.NewCertificateValidator("ca_certificate")
+		if err := vc.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+	if caPkey, _ := data.GetString("ca_private_key"); len(caPkey) > 0 {
+		vp := validators.NewPrivateKeyValidator("ca_private_key")
+		if err := vp.Validate(data); err != nil {
+			return nil, err
+		}
 	}
 
 	input := apis.StandaloneResourceCreateInput{}
@@ -76,10 +83,17 @@ func (cert *SServiceCertificate) ValidateUpdateData(
 	}
 	data = v.UpdateCertKeyInfo(ctx, data)
 
-	// validate ca cert key
-	v = validators.NewCertKeyValidator("ca_certificate", "ca_private_key")
-	if err := v.Validate(data); err != nil {
-		return nil, err
+	if caCert, _ := data.GetString("ca_certificate"); len(caCert) > 0 {
+		vc := validators.NewCertificateValidator("ca_certificate")
+		if err := vc.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+	if caPkey, _ := data.GetString("ca_private_key"); len(caPkey) > 0 {
+		vp := validators.NewPrivateKeyValidator("ca_private_key")
+		if err := vp.Validate(data); err != nil {
+			return nil, err
+		}
 	}
 
 	updateData := jsonutils.NewDict()
