@@ -305,7 +305,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(
 
 	targetDomainStr := input.TargetDomain
 	if len(targetDomainStr) > 0 {
-		domain, err := DomainManager.FetchDomainById(targetDomainStr)
+		domain, err := DomainManager.FetchDomainByIdOrName(targetDomainStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return input, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
@@ -463,6 +463,10 @@ func (self *SIdentityProvider) GetUserCount() (int, error) {
 }
 
 func (self *SIdentityProvider) getNonlocalUserCount() (int, error) {
+	return self.getNonlocalUserQuery().CountWithError()
+}
+
+func (self *SIdentityProvider) getNonlocalUserQuery() *sqlchemy.SQuery {
 	users := UserManager.Query().SubQuery()
 	idmaps := IdmappingManager.Query().SubQuery()
 
@@ -473,7 +477,17 @@ func (self *SIdentityProvider) getNonlocalUserCount() (int, error) {
 	))
 	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
 
-	return q.CountWithError()
+	return q
+}
+
+func (self *SIdentityProvider) getNonlocalUsers() ([]SUser, error) {
+	q := self.getNonlocalUserQuery()
+	users := make([]SUser, 0)
+	err := db.FetchModelObjects(UserManager, q, &users)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return users, nil
 }
 
 func (self *SIdentityProvider) getLocalUserCount() (int, error) {
@@ -491,6 +505,10 @@ func (self *SIdentityProvider) GetGroupCount() (int, error) {
 }
 
 func (self *SIdentityProvider) getNonlocalGroupCount() (int, error) {
+	return self.getNonlocalGroupQuery().CountWithError()
+}
+
+func (self *SIdentityProvider) getNonlocalGroupQuery() *sqlchemy.SQuery {
 	groups := GroupManager.Query().SubQuery()
 	idmaps := IdmappingManager.Query().SubQuery()
 
@@ -501,7 +519,17 @@ func (self *SIdentityProvider) getNonlocalGroupCount() (int, error) {
 	))
 	q = q.Filter(sqlchemy.Equals(idmaps.Field("domain_id"), self.Id))
 
-	return q.CountWithError()
+	return q
+}
+
+func (self *SIdentityProvider) getNonlocalGroups() ([]SGroup, error) {
+	q := self.getNonlocalGroupQuery()
+	groups := make([]SGroup, 0)
+	err := db.FetchModelObjects(GroupManager, q, &groups)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return groups, nil
 }
 
 func (self *SIdentityProvider) getLocalGroupCount() (int, error) {
@@ -579,6 +607,9 @@ func (self *SIdentityProvider) ValidateDeleteCondition(ctx context.Context) erro
 	if self.Driver == api.IdentityDriverSQL {
 		return httperrors.NewForbiddenError("cannot delete default SQL identity provider")
 	}
+	if self.Enabled {
+		return httperrors.NewInvalidStatusError("cannot delete enabled idp")
+	}
 	prjCnt, err := self.GetProjectCount()
 	if err != nil {
 		return httperrors.NewGeneralError(err)
@@ -628,6 +659,45 @@ func (ident *SIdentityProvider) deleteConfigs(ctx context.Context, userCred mccl
 }
 
 func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// delete users
+	users, err := self.getNonlocalUsers()
+	if err != nil {
+		return errors.Wrap(err, "getNonlocalUsers")
+	}
+	for i := range users {
+		err = users[i].UnlinkIdp(self.Id)
+		if err != nil {
+			return errors.Wrap(err, "users[i].UnlinkIdp")
+		}
+		err = users[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			return errors.Wrap(err, "users[i].ValidateDeleteCondition")
+		}
+		err = users[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "delete users[i]")
+		}
+	}
+	// delete groups
+	groups, err := self.getNonlocalGroups()
+	if err != nil {
+		return errors.Wrap(err, "getNonlocalGroups")
+	}
+	for i := range groups {
+		err = groups[i].UnlinkIdp(self.Id)
+		if err != nil {
+			return errors.Wrap(err, "groups[i].UnlinkIdp")
+		}
+		err = groups[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			return errors.Wrap(err, "groups[i].ValidateDeleteCondition")
+		}
+		err = groups[i].Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "delete groups[i]")
+		}
+	}
+	// delete domains
 	domains, err := self.getDomains()
 	if err != nil {
 		return errors.Wrap(err, "getDomains")
