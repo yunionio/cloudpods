@@ -36,7 +36,7 @@ type ServerListInput struct {
 
 	GroupFilterListInput
 	SecgroupFilterListInput
-	DiskFilterListInput
+	DiskFilterListInput `"yunion:ambiguous-prefix":"storage_"`
 	ScalingGroupFilterListInput
 
 	// 只列出裸金属主机
