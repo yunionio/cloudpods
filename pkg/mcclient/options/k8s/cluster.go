@@ -274,6 +274,24 @@ func (o ClusterEnableComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) 
 	return params, nil
 }
 
+type ClusterEnableComponentMonitorOpt struct {
+	ClusterComponentOptions
+}
+
+func (o ClusterEnableComponentMonitorOpt) Params() (*jsonutils.JSONDict, error) {
+	params := o.ClusterComponentOptions.Params("monitor")
+	return params, nil
+}
+
+type ClusterEnableComponentFluentBitOpt struct {
+	ClusterComponentOptions
+}
+
+func (o ClusterEnableComponentFluentBitOpt) Params() (*jsonutils.JSONDict, error) {
+	params := o.ClusterComponentOptions.Params("fluentbit")
+	return params, nil
+}
+
 type ClusterDisableComponent struct {
 	ClusterComponentOptions
 	TYPE string `help:"component type"`
