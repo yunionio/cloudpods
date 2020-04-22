@@ -82,7 +82,7 @@ type Client struct {
 	DBInstanceJob      *modules.SDBInstanceJobManager
 	Traces             *modules.STraceManager
 	CloudEye           *modules.SCloudEyeManager
-	EnterpriceProjects *modules.SEnterpriceProjectManager
+	EnterpriseProjects *modules.SEnterpriseProjectManager
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
@@ -135,10 +135,10 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.DBInstanceJob.SetHttpClient(httpClient)
 	self.Traces.SetHttpClient(httpClient)
 	self.CloudEye.SetHttpClient(httpClient)
-	self.EnterpriceProjects.SetHttpClient(httpClient)
+	self.EnterpriseProjects.SetHttpClient(httpClient)
 }
 
-func (self *Client) InitWithOptions(regionId, projectId string, credential auth.Credential) error {
+func (self *Client) InitWithOptions(regionId, domainId, projectId string, credential auth.Credential) error {
 	// 从signer中初始化
 	signer, err := auth.NewSignerWithCredential(credential)
 	if err != nil {
@@ -147,21 +147,20 @@ func (self *Client) InitWithOptions(regionId, projectId string, credential auth.
 	self.signer = signer
 	self.regionId = regionId
 	self.projectId = projectId
-	// 暂时还未用到domainId
-	self.domainId = ""
+	self.domainId = domainId
 	// 初始化 resource manager
 	self.initManagers()
 	return err
 }
 
-func (self *Client) InitWithAccessKey(regionId, projectId, accessKey, secretKey string) error {
+func (self *Client) InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string) error {
 	// accessKey signer
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     accessKey,
 		AccessKeySecret: secretKey,
 	}
 
-	return self.InitWithOptions(regionId, projectId, credential)
+	return self.InitWithOptions(regionId, domainId, projectId, credential)
 }
 
 func (self *Client) initManagers() {
@@ -215,14 +214,15 @@ func (self *Client) initManagers() {
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Traces = modules.NewTraceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.CloudEye = modules.NewCloudEyeManager(self.regionId, self.projectId, self.signer, self.debug)
-		self.EnterpriceProjects = modules.NewEnterpriceProjectManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.EnterpriseProjects = modules.NewEnterpriseProjectManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.EnterpriseProjects.SetDomainId(self.domainId)
 	}
 
 	self.init = true
 }
 
-func NewClientWithAccessKey(regionId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
+func NewClientWithAccessKey(regionId, domainId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
 	c := &Client{debug: debug}
-	err := c.InitWithAccessKey(regionId, projectId, accessKey, secretKey)
+	err := c.InitWithAccessKey(regionId, domainId, projectId, accessKey, secretKey)
 	return c, err
 }
