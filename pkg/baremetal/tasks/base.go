@@ -306,7 +306,13 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 	if err != nil {
 		return errors.Wrapf(err, "Get power status")
 	}
+	maxTries := 10
+	count := 0
 	for status == "" || status == types.POWER_STATUS_OFF {
+		if count > maxTries {
+			break
+		}
+		log.Infof("Try power on %d times, pxe boot %v", count+1, self.PxeBoot)
 		if status == types.POWER_STATUS_OFF {
 			if self.PxeBoot {
 				err = self.Baremetal.DoPXEBoot()
@@ -314,7 +320,7 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 				err = self.Baremetal.DoRedfishPowerOn()
 			}
 			if err != nil {
-				return errors.Wrapf(err, "Do boot power on")
+				log.Warningf("Do boot power on error: %v", err)
 			}
 		}
 		status, err = self.Baremetal.GetPowerStatus()
@@ -328,6 +334,7 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 				return err
 			}
 		}
+		count++
 	}
 	if status != types.POWER_STATUS_ON {
 		return fmt.Errorf("Baremetal invalid restart status: %s", status)
