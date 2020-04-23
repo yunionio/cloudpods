@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
