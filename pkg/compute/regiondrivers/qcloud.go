@@ -207,8 +207,6 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
 }
 

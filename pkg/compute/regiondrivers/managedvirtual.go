@@ -117,17 +117,12 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListen
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	_, err := self.ValidateManagerId(ctx, userCred, data)
-	if err != nil {
-		return nil, err
-	}
-
 	if aclStatus, _ := data.GetString("acl_status"); aclStatus == api.LB_BOOL_ON {
 		aclId, _ := data.GetString("acl_id")
 		if len(aclId) == 0 {
 			return nil, httperrors.NewMissingParameterError("acl")
 		}
-		_, err = models.LoadbalancerAclManager.FetchById(aclId)
+		_, err := models.LoadbalancerAclManager.FetchById(aclId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("failed to find acl %s", aclId)
