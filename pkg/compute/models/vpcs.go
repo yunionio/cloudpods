@@ -68,20 +68,20 @@ type SVpc struct {
 
 	SManagedResourceBase
 
-	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"admin_required" default:"default"`
+	SCloudregionResourceBase `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
 
 	SGlobalVpcResourceBase `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
 
 	// 是否是默认VPC
 	// example: true
-	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
+	IsDefault bool `default:"false" list:"domain" create:"domain_optional"`
 
 	// CIDR地址段
 	// example: 192.168.222.0/24
-	CidrBlock string `charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	CidrBlock string `charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
 
 	// 区域Id
-	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"admin_required" default:"default"`
+	// CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required" default:"default"`
 
 	// 全局VPC Id
 	// GlobalvpcId string `width:"36" charset:"ascii" list:"user" json:"globalvpc_id"`
