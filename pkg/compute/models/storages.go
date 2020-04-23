@@ -64,39 +64,39 @@ func init() {
 }
 
 type SStorage struct {
-	db.SEnabledStatusInfrasResourceBase `"status->default":"offline" "status->update":"admin" "enabled->default":"true"`
+	db.SEnabledStatusInfrasResourceBase `"status->default":"offline" "status->update":"domain" "enabled->default":"true"`
 	db.SExternalizedResourceBase
 
 	SManagedResourceBase
 	SZoneResourceBase
 
 	// 容量大小,单位Mb
-	Capacity int64 `nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	Capacity int64 `nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 	// 预留容量大小
-	Reserved int64 `nullable:"true" default:"0" list:"admin" update:"admin"`
+	Reserved int64 `nullable:"true" default:"0" list:"domain" update:"domain"`
 	// 存储类型
 	// example: local
-	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
+	StorageType string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"domain_required"`
 	// 介质类型
 	// example: ssd
-	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"`
+	MediumType string `width:"32" charset:"ascii" nullable:"false" list:"user" update:"domain" create:"domain_required"`
 	// 超售比
-	Cmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin"`
+	Cmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain"`
 	// 存储配置信息
-	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" list:"admin" update:"admin"`
+	StorageConf jsonutils.JSONObject `nullable:"true" get:"domain" list:"domain" update:"domain"`
 
 	// 存储缓存Id
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"domain" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 是否启用
 	// Enabled tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional"`
 	// 状态
-	// Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
+	// Status string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"domain" list:"user" create:"optional"`
 
 	// indicating whether system disk can be allocated in this storage
 	// 是否可以用作系统盘存储
 	// example: true
-	IsSysDiskStore tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
+	IsSysDiskStore tristate.TriState `nullable:"false" default:"true" list:"user" create:"optional" update:"domain"`
 }
 
 func (manager *SStorageManager) GetContextManagers() [][]db.IModelManager {
