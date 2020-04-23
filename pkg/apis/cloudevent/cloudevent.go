@@ -22,9 +22,21 @@ import (
 )
 
 type CloudeventListInput struct {
-	apis.VirtualResourceListInput
+	apis.ModelBaseListInput
 
-	compute.ManagedResourceListInput
+	compute.CloudenvResourceListInput
+
+	// 服务类型
+	Service []string `json:"service"`
+
+	// 订阅
+	Manager []string `json:"manager"`
+
+	// 账号
+	Account []string `json:"account"`
+
+	// 操作类型
+	Action []string `json:"action"`
 
 	// 操作日志起始时间
 	Since time.Time `json:"since"`
