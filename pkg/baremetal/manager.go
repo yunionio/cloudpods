@@ -1949,6 +1949,8 @@ func (b *SBaremetalInstance) GetConsoleJNLP(ctx context.Context) (string, error)
 		return bmc.GetIloConsoleJNLP(ctx)
 	case "dell", "dell inc.":
 		return bmc.GetIdracConsoleJNLP(ctx, "", "")
+	case "supermicro":
+		return bmc.GetSupermicroConsoleJNLP(ctx)
 	}
 	return "", httperrors.NewNotImplementedError("Unsupported manufacture %s", manufacture)
 }
