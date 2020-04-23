@@ -15,24 +15,116 @@
 package promputils
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
 
 	prompt "github.com/c-bata/go-prompt"
+
+	"yunion.io/x/structarg"
 )
 
-type Cmd struct {
-	desc    string
-	optArgs []prompt.Suggest
-	posArgs []prompt.Suggest
-}
-
-var cmds = make(map[string]*Cmd)
+var (
+	subcmds = make(map[string]*Cmd)
+	rootCmd *Cmd
+)
 
 var optionHelp = []prompt.Suggest{
 	{Text: "-h"},
 	{Text: "--help"},
+}
+
+type Cmd struct {
+	Name      string
+	Desc      string
+	optArgs   []CmdArgument
+	posArgs   []CmdArgument
+	ParentCmd *Cmd
+	SubCmds   []*Cmd
+}
+
+func InitRootCmd(name, desc string, optArgs, posArgs []structarg.Argument) *Cmd {
+	rootCmd = NewCmd(name, desc)
+	for _, optA := range optArgs {
+		rootCmd.AddOptArgument(optA, optA.Token(), optA.HelpString(""))
+	}
+	for _, posA := range posArgs {
+		rootCmd.AddPosArgument(posA, posA.Token(), posA.HelpString(""))
+	}
+	return rootCmd
+}
+
+func GetRootCmd() *Cmd {
+	return rootCmd
+}
+
+func NewCmd(name, desc string) *Cmd {
+	return &Cmd{
+		Name:    name,
+		Desc:    desc,
+		optArgs: make([]CmdArgument, 0),
+		posArgs: make([]CmdArgument, 0),
+		SubCmds: make([]*Cmd, 0),
+	}
+}
+
+func (c Cmd) getPromptSuggests(args []CmdArgument) []prompt.Suggest {
+	ret := make([]prompt.Suggest, 0)
+	for _, arg := range args {
+		ret = append(ret, arg.Suggest)
+	}
+	return ret
+}
+
+func (c *Cmd) Root() *Cmd {
+	if c.ParentCmd == nil {
+		return c
+	}
+	return c.ParentCmd.Root()
+}
+
+func (c Cmd) GetName() string {
+	return c.Name
+}
+
+func (c *Cmd) AddCmd(cmd *Cmd) {
+	c.SubCmds = append(c.SubCmds, cmd)
+}
+
+func (c Cmd) GetPromptOptSuggests() []prompt.Suggest {
+	return c.getPromptSuggests(c.optArgs)
+}
+
+func (c Cmd) GetPromptPosSuggests() []prompt.Suggest {
+	return c.getPromptSuggests(c.posArgs)
+}
+
+func (c Cmd) GetOptArguments() []structarg.Argument {
+	return c.getArguments(c.optArgs)
+}
+
+func (c Cmd) GetArguments() []structarg.Argument {
+	ret := c.GetOptArguments()
+	ret = append(ret, c.GetPosArguments()...)
+	return ret
+}
+
+func (c Cmd) GetPosArguments() []structarg.Argument {
+	return c.getArguments(c.posArgs)
+}
+
+func (c Cmd) getArguments(args []CmdArgument) []structarg.Argument {
+	ret := make([]structarg.Argument, 0)
+	for _, a := range args {
+		ret = append(ret, a.Argument)
+	}
+	return ret
+}
+
+type CmdArgument struct {
+	Suggest  prompt.Suggest
+	Argument structarg.Argument
 }
 
 func optionCompleter(args []string, long bool) []prompt.Suggest {
@@ -47,11 +139,11 @@ func optionCompleter(args []string, long bool) []prompt.Suggest {
 		return optionHelp
 	}
 
-	if cmds[args[0]] == nil {
+	if subcmds[args[0]] == nil {
 		return []prompt.Suggest{}
 	}
 
-	_cmd := cmds[args[0]].optArgs
+	_cmd := subcmds[args[0]].GetPromptOptSuggests()
 	return prompt.FilterContains(_cmd, strings.TrimLeft(args[l-1], "-"), true)
 }
 
@@ -100,7 +192,7 @@ func argumentsCompleter(args []string) []prompt.Suggest {
 	if len(args) == 1 {
 		return prompt.FilterHasPrefix(commands, args[0], true)
 	}
-	_cmd, ok := cmds[args[0]]
+	_cmd, ok := subcmds[args[0]]
 	if !ok {
 		return []prompt.Suggest{}
 	}
@@ -111,48 +203,75 @@ func argumentsCompleter(args []string) []prompt.Suggest {
 
 	prm := _cmd.posArgs[len(args)-2]
 	subcommands := []prompt.Suggest{
-		prm,
+		prm.Suggest,
 	}
 
 	return prompt.FilterHasPrefix(subcommands, args[len(args)-1], true)
 }
 
-func AppendCommand(text, desc string) {
+func AppendCommand(parentCmd *Cmd, text, desc string) {
 	commands = append(commands, prompt.Suggest{Text: text, Description: desc})
-	cmds[text] = &Cmd{}
-	cmds[text].desc = desc
-	cmds[text].posArgs = []prompt.Suggest{}
-	cmds[text].optArgs = []prompt.Suggest{}
+	cmd := &Cmd{
+		Name:      text,
+		Desc:      desc,
+		posArgs:   make([]CmdArgument, 0),
+		optArgs:   make([]CmdArgument, 0),
+		ParentCmd: parentCmd,
+	}
+	subcmds[text] = cmd
+	parentCmd.AddCmd(cmd)
 }
 
-func AppendPos(text, cmd, desc string) {
-	var v = []prompt.Suggest{{Text: cmd, Description: desc}}
-	cmds[text].posArgs = append(cmds[text].posArgs, v...)
+func (c *Cmd) addArgument(target *[]CmdArgument, arg structarg.Argument, argStr string, desc string) {
+	*target = append(*target, CmdArgument{
+		Suggest: prompt.Suggest{
+			Text:        argStr,
+			Description: desc,
+		},
+		Argument: arg,
+	})
 }
 
-func AppendOpt(text, cmd, desc string) {
-	var v = []prompt.Suggest{{Text: cmd, Description: desc}}
-	cmds[text].optArgs = append(cmds[text].optArgs, v...)
+func (c *Cmd) AddPosArgument(arg structarg.Argument, argStr string, desc string) {
+	c.addArgument(&c.posArgs, arg, argStr, desc)
 }
 
-func GenerateAutoCompleteCmds(shell string) string {
+func (c *Cmd) AddOptArgument(arg structarg.Argument, argStr string, desc string) {
+	c.addArgument(&c.optArgs, arg, argStr, desc)
+}
+
+func AppendPos(text, cmd, desc string, arg structarg.Argument) {
+	cmdObj := subcmds[text]
+	cmdObj.AddPosArgument(arg, cmd, desc)
+}
+
+func AppendOpt(text, cmd, desc string, arg structarg.Argument) {
+	cmdObj := subcmds[text]
+	cmdObj.AddOptArgument(arg, cmd, desc)
+}
+
+func GenerateAutoCompleteCmds(rootCmd *Cmd, shell string) string {
 	var ret = []string{}
 	var i = 0
 	if strings.ToLower(shell) == "zsh" {
-		i = 1
+		out := bytes.NewBufferString("")
+		if err := rootCmd.GenZshCompletion(out); err != nil {
+			panic(err)
+		}
+		return out.String()
 	}
-	for cmd, options := range cmds {
+	for _, cmd := range subcmds {
 		var (
 			strPosArgs = []string{}
 			strOptArgs = []string{}
 		)
-		for _, posArg := range options.posArgs {
+		for _, posArg := range cmd.GetPromptPosSuggests() {
 			strPosArgs = append(strPosArgs, posArg.Text)
 		}
-		for _, optArg := range options.optArgs {
+		for _, optArg := range cmd.GetPromptOptSuggests() {
 			strOptArgs = append(strOptArgs, strings.Split(optArg.Text, " ")[0])
 		}
-		ret = append(ret, fmt.Sprintf(`arr[%d]="%s# %s %s"`, i, cmd,
+		ret = append(ret, fmt.Sprintf(`arr[%d]="%s# %s %s"`, i, cmd.Name,
 			strings.Join(strPosArgs, " "), strings.Join(strOptArgs, " ")))
 		i += 1
 	}
