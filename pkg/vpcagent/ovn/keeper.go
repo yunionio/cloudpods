@@ -155,6 +155,11 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			externalKeyOcRef: network.Id,
 		},
 	}
+	if network.GuestDns != "" {
+		dhcpopts.Options["dns_server"] = "{" + network.GuestDns + "}"
+	} else {
+		dhcpopts.Options["dns_server"] = "{223.5.5.5,223.6.6.6}"
+	}
 
 	var (
 		args      []string
