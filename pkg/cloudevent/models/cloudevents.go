@@ -91,25 +91,28 @@ func (manager *SCloudeventManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SVirtualResourceBaseManager.ListItemFilter")
 	}
 
-	/* input.Cloudprovider = input.CloudproviderStr()
-	if len(input.Cloudprovider) > 0 {
-		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, input.Cloudprovider)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), input.Cloudprovider)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		q = q.Equals("cloudprovider_id", providerObj.GetId())
-	}*/
-
 	if len(input.Providers) > 0 {
 		q = q.In("provider", input.Providers)
 	}
 
 	if len(input.Brands) > 0 {
 		q = q.In("brand", input.Brands)
+	}
+
+	if len(input.Service) > 0 {
+		q = q.In("service", input.Service)
+	}
+
+	if len(input.Manager) > 0 {
+		q = q.In("manager", input.Manager)
+	}
+
+	if len(input.Account) > 0 {
+		q = q.In("account", input.Account)
+	}
+
+	if len(input.Action) > 0 {
+		q = q.In("action", input.Action)
 	}
 
 	if !input.Since.IsZero() {
