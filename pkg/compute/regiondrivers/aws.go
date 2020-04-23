@@ -307,8 +307,6 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 	}
 
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }
@@ -378,8 +376,6 @@ func (self *SAwsRegionDriver) validateCreateNetworkListenerData(ctx context.Cont
 	data.Set("health_check_fall", jsonutils.NewInt(healthCheckRise))
 	data.Set("sticky_session", jsonutils.NewString(api.LB_BOOL_OFF))
 	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
-	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	data.Set("scheduler", jsonutils.NewString(api.LB_SCHEDULER_RR)) // aws 不支持指定调度算法
 	return data, nil
 }

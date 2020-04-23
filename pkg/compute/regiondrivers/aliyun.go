@@ -618,7 +618,6 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		}
 	}
 
-	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.GetId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
 }
 
