@@ -24,14 +24,17 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -660,4 +663,62 @@ func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
 		MarkerFields: []string{"id"},
 		DefaultLimit: 20,
 	}
+}
+
+func (manager *SOpsLogManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return FetchProjectInfo(ctx, data)
+}
+
+func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data apis.OpsLogCreateInput,
+) (apis.OpsLogCreateInput, error) {
+	data.Project = ownerId.GetProjectName()
+	data.ProjectId = ownerId.GetProjectId()
+	data.ProjectDomainId = ownerId.GetProjectDomainId()
+	data.ProjectDomain = ownerId.GetProjectDomain()
+	return data, nil
+}
+
+func (manager *SOpsLogManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []apis.OpsLogDetails {
+	rows := make([]apis.OpsLogDetails, len(objs))
+
+	projectIds := make([]string, len(rows))
+	domainIds := make([]string, len(rows))
+	for i := range rows {
+		var base *SOpsLog
+		err := reflectutils.FindAnonymouStructPointer(objs[i], &base)
+		if err != nil {
+			log.Errorf("Cannot find OpsLog in %#v: %s", objs[i], err)
+		} else {
+			if len(base.OwnerProjectId) > 0 {
+				projectIds[i] = base.OwnerProjectId
+			} else if len(base.OwnerDomainId) > 0 {
+				domainIds[i] = base.OwnerDomainId
+			}
+		}
+	}
+
+	projects := DefaultProjectsFetcher(ctx, projectIds, false)
+	domains := DefaultProjectsFetcher(ctx, domainIds, true)
+
+	for i := range rows {
+		if project, ok := projects[projectIds[i]]; ok {
+			rows[i].OwnerProject = project.Name
+			rows[i].OwnerDomain = project.Domain
+		} else if domain, ok := domains[domainIds[i]]; ok {
+			rows[i].OwnerDomain = domain.Name
+		}
+	}
+
+	return rows
 }

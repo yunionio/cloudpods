@@ -224,3 +224,28 @@ type EnabledStatusInfrasResourceBaseCreateInput struct {
 	StatusInfrasResourceBaseCreateInput
 	EnabledBaseResourceCreateInput
 }
+
+type OpsLogCreateInput struct {
+	ModelBaseCreateInput
+
+	ObjType string `json:"obj_type"`
+	ObjId   string `json:"obj_id"`
+	ObjName string `json:"obj_name"`
+	Action  string `json:"action"`
+	Notes   string `json:"notes"`
+
+	ProjectId string `json:"tenant_id"`
+	Project   string `json:"tenant"`
+
+	ProjectDomainId string `json:"project_domain_id"`
+	ProjectDomain   string `json:"project_domain"`
+
+	UserId   string `json:"user_id"`
+	User     string `json:"user"`
+	DomainId string `json:"domain_id"`
+	Domain   string `json:"domain"`
+	Roles    string `json:"roles"`
+
+	OwnerDomainId  string `json:"owner_domain_id"`
+	OwnerProjectId string `json:"owner_tenant_id"`
+}
