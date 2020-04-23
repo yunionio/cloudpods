@@ -214,18 +214,25 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project := SExternalProject{}
 	project.SetModelManager(manager, &project)
 
-	newName, err := db.GenerateName(manager, userCred, extProject.GetName())
-	if err != nil {
-		return nil, err
-	}
-	project.Name = newName
+	project.Name = extProject.GetName()
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
 	project.DomainId = provider.DomainId
 	project.ProjectId = provider.ProjectId
+	account := provider.GetCloudaccount()
+	if account != nil && account.AutoCreateProject {
+		desc := fmt.Sprintf("auto create from cloud project %s (%s)", project.Name, project.ExternalId)
+		domainId, projectId, err := getOrCreateTenant(ctx, project.Name, provider.DomainId, "", desc)
+		if err != nil {
+			log.Errorf("failed to get or create tenant %s(%s) %v", project.Name, project.ExternalId, err)
+		} else {
+			project.DomainId = domainId
+			project.ProjectId = projectId
+		}
+	}
 
-	err = manager.TableSpec().Insert(&project)
+	err := manager.TableSpec().Insert(&project)
 	if err != nil {
 		log.Errorf("newFromCloudProject fail %s", err)
 		return nil, err
