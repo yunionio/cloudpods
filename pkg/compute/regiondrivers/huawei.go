@@ -369,8 +369,6 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, err
 	}
 
-	data.Set("manager_id", jsonutils.NewString(lb.GetCloudproviderId()))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.GetRegionId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
 }
 
