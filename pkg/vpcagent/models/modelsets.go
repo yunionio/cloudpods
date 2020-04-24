@@ -40,6 +40,8 @@ func init() {
 type ModelSetsMaxUpdatedAt struct {
 	Vpcs          time.Time
 	Networks      time.Time
+	Guests        time.Time
+	Hosts         time.Time
 	Guestnetworks time.Time
 }
 
@@ -47,6 +49,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 	return &ModelSetsMaxUpdatedAt{
 		Vpcs:          apihelper.PseudoZeroTime,
 		Networks:      apihelper.PseudoZeroTime,
+		Guests:        apihelper.PseudoZeroTime,
+		Hosts:         apihelper.PseudoZeroTime,
 		Guestnetworks: apihelper.PseudoZeroTime,
 	}
 }
@@ -54,6 +58,8 @@ func NewModelSetsMaxUpdatedAt() *ModelSetsMaxUpdatedAt {
 type ModelSets struct {
 	Vpcs          Vpcs
 	Networks      Networks
+	Guests        Guests
+	Hosts         Hosts
 	Guestnetworks Guestnetworks
 }
 
@@ -61,6 +67,8 @@ func NewModelSets() *ModelSets {
 	return &ModelSets{
 		Vpcs:          Vpcs{},
 		Networks:      Networks{},
+		Guests:        Guests{},
+		Hosts:         Hosts{},
 		Guestnetworks: Guestnetworks{},
 	}
 }
@@ -70,6 +78,8 @@ func (mss *ModelSets) ModelSetList() []apihelper.IModelSet {
 	return []apihelper.IModelSet{
 		mss.Vpcs,
 		mss.Networks,
+		mss.Guests,
+		mss.Hosts,
 		mss.Guestnetworks,
 	}
 }
@@ -82,6 +92,8 @@ func (mss *ModelSets) Copy() apihelper.IModelSets {
 	mssCopy := &ModelSets{
 		Vpcs:          mss.Vpcs.Copy().(Vpcs),
 		Networks:      mss.Networks.Copy().(Networks),
+		Guests:        mss.Guests.Copy().(Guests),
+		Hosts:         mss.Hosts.Copy().(Hosts),
 		Guestnetworks: mss.Guestnetworks.Copy().(Guestnetworks),
 	}
 	mssCopy.join()
@@ -109,7 +121,15 @@ func (mss *ModelSets) ApplyUpdates(mssNews apihelper.IModelSets) apihelper.Model
 }
 
 func (mss *ModelSets) join() bool {
-	correct0 := mss.Vpcs.joinNetworks(mss.Networks)
-	correct1 := mss.Networks.joinGuestnetworks(mss.Guestnetworks)
-	return correct0 && correct1
+	var p []bool
+	p = append(p, mss.Vpcs.joinNetworks(mss.Networks))
+	p = append(p, mss.Networks.joinGuestnetworks(mss.Guestnetworks))
+	p = append(p, mss.Guests.joinHosts(mss.Hosts))
+	p = append(p, mss.Guestnetworks.joinGuests(mss.Guests))
+	for _, b := range p {
+		if !b {
+			return false
+		}
+	}
+	return true
 }

@@ -182,6 +182,9 @@ type SHost struct {
 
 	// 主机启动模式, 可能值位PXE和ISO
 	BootMode string `width:"8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+
+	// IPv4地址，作为么有云vpc访问外网时的网关
+	OvnMappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
@@ -3121,6 +3124,23 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 
 	if data.Contains("cpu_cmtbound") || data.Contains("mem_cmtbound") {
 		self.ClearSchedDescCache()
+	}
+
+	if self.OvnVersion != "" && self.OvnMappedIpAddr == "" {
+		addr, err := HostManager.allocOvnMappedIpAddr(ctx)
+		if err != nil {
+			log.Errorf("host %s(%s): alloc vpc mapped addr: %v",
+				self.Name, self.Id, err)
+			return
+		}
+		if _, err := db.Update(self, func() error {
+			self.OvnMappedIpAddr = addr
+			return nil
+		}); err != nil {
+			log.Errorf("host %s(%s): db update vpc mapped addr: %v",
+				self.Name, self.Id, err)
+			return
+		}
 	}
 }
 

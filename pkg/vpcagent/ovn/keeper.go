@@ -16,13 +16,14 @@ package ovn
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"strings"
 
 	"yunion.io/x/pkg/errors"
 
+	apis "yunion.io/x/onecloud/pkg/apis/compute"
 	agentmodels "yunion.io/x/onecloud/pkg/vpcagent/models"
+	"yunion.io/x/onecloud/pkg/vpcagent/ovn/mac"
 	"yunion.io/x/onecloud/pkg/vpcagent/ovnutil"
 )
 
@@ -43,6 +44,7 @@ func DumpOVNNorthbound(ctx context.Context, cli *ovnutil.OvnNbCtl) (*OVNNorthbou
 		&db.LogicalSwitchPort,
 		&db.LogicalRouter,
 		&db.LogicalRouterPort,
+		&db.LogicalRouterStaticRoute,
 		&db.DHCPOptions,
 	}
 	args := []string{"--format=json", "list", "<tbl>"}
@@ -75,64 +77,68 @@ func (keeper *OVNNorthboundKeeper) ClaimVpc(ctx context.Context, vpc *agentmodel
 		ocVersion = fmt.Sprintf("%s.%d", vpc.UpdatedAt, vpc.UpdateVersion)
 	)
 
-	lrvpc := &ovnutil.LogicalRouter{
-		Name: fmt.Sprintf("vpc-lr-%s", vpc.Id),
+	vpcLr := &ovnutil.LogicalRouter{
+		Name: vpcLrName(vpc.Id),
 	}
-	if m := keeper.DB.LogicalRouter.FindOneMatchNonZeros(lrvpc); m != nil {
-		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
+	vpcHostLs := &ovnutil.LogicalSwitch{
+		Name: vpcHostLsName(vpc.Id),
+	}
+	vpcRhp := &ovnutil.LogicalRouterPort{
+		Name:     vpcRhpName(vpc.Id),
+		Mac:      apis.VpcMappedGatewayMac,
+		Networks: []string{fmt.Sprintf("%s/%d", apis.VpcMappedGatewayIP(), apis.VpcMappedIPMask)},
+	}
+	vpcHrp := &ovnutil.LogicalSwitchPort{
+		Name:      vpcHrpName(vpc.Id),
+		Type:      "router",
+		Addresses: []string{"router"},
+		Options: map[string]string{
+			"router-port": vpcRhpName(vpc.Id),
+		},
+	}
+	allFound, args := cmp(&keeper.DB, ocVersion,
+		vpcLr,
+		vpcHostLs,
+		vpcRhp,
+		vpcHrp,
+	)
+	if allFound {
 		return nil
 	}
-	args = append(args, ovnCreateArgs(lrvpc, "lrvpc")...)
+	args = append(args, ovnCreateArgs(vpcLr, vpcLr.Name)...)
+	args = append(args, ovnCreateArgs(vpcHostLs, vpcHostLs.Name)...)
+	args = append(args, ovnCreateArgs(vpcRhp, vpcRhp.Name)...)
+	args = append(args, ovnCreateArgs(vpcHrp, vpcHrp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", vpcHostLs.Name, "ports", "@"+vpcHrp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLr.Name, "ports", "@"+vpcRhp.Name)
 	return keeper.cli.Must(ctx, "ClaimVpc", args)
-}
-
-func hashMac(in ...string) string {
-	h := md5.New()
-	for _, s := range in {
-		h.Write([]byte(s))
-	}
-	sum := h.Sum(nil)
-	b := sum[0]
-	b &= 0xfe
-	b |= 0x02
-	mac := fmt.Sprintf("%02x", b)
-	for _, b := range sum[1:6] {
-		mac += fmt.Sprintf(":%02x", b)
-	}
-	return mac
 }
 
 func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *agentmodels.Network) error {
 	var (
-		lsnetName   = fmt.Sprintf("subnet-ls-%s", network.Id)
-		lrnetpName  = fmt.Sprintf("subnet-lrp-%s", network.Id)
-		lsnetpName  = fmt.Sprintf("subnet-lsp-%s", network.Id)
-		lsnetmpName = fmt.Sprintf("subnet-lsmp-%s", network.Id)
-		lrvpcName   = fmt.Sprintf("vpc-lr-%s", network.VpcId)
-
-		rpMac   = hashMac(network.Id, "rp")
-		dhcpMac = hashMac(network.Id, "dhcp")
-		mdMac   = hashMac(network.Id, "md")
+		rpMac   = mac.HashMac(network.Id, "rp")
+		dhcpMac = mac.HashMac(network.Id, "dhcp")
+		mdMac   = mac.HashMac(network.Id, "md")
 		mdIp    = "169.254.169.254"
 	)
-	lsnet := &ovnutil.LogicalSwitch{
-		Name: lsnetName,
+	netLs := &ovnutil.LogicalSwitch{
+		Name: netLsName(network.Id),
 	}
-	lrnetp := &ovnutil.LogicalRouterPort{
-		Name:     lrnetpName,
+	netRnp := &ovnutil.LogicalRouterPort{
+		Name:     netRnpName(network.Id),
 		Mac:      rpMac,
 		Networks: []string{fmt.Sprintf("%s/%d", network.GuestGateway, network.GuestIpMask)},
 	}
-	lsnetp := &ovnutil.LogicalSwitchPort{
-		Name:      lsnetpName,
+	netNrp := &ovnutil.LogicalSwitchPort{
+		Name:      netNrpName(network.Id),
 		Type:      "router",
 		Addresses: []string{"router"},
 		Options: map[string]string{
-			"router-port": lrnetpName,
+			"router-port": netRnpName(network.Id),
 		},
 	}
-	lsnetmp := &ovnutil.LogicalSwitchPort{
-		Name:      lsnetmpName,
+	netMdp := &ovnutil.LogicalSwitchPort{
+		Name:      netMdpName(network.Id),
 		Type:      "localport",
 		Addresses: []string{fmt.Sprintf("%s %s", mdMac, mdIp)},
 	}
@@ -149,54 +155,73 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			externalKeyOcRef: network.Id,
 		},
 	}
+	if network.GuestDns != "" {
+		dhcpopts.Options["dns_server"] = "{" + network.GuestDns + "}"
+	} else {
+		dhcpopts.Options["dns_server"] = "{223.5.5.5,223.6.6.6}"
+	}
 
 	var (
 		args      []string
 		ocVersion = fmt.Sprintf("%s.%d", network.UpdatedAt, network.UpdateVersion)
 	)
-	irows := []ovnutil.IRow{
-		lsnet,
-		lrnetp,
-		lsnetp,
-		lsnetmp,
+	allFound, args := cmp(&keeper.DB, ocVersion,
+		netLs,
+		netRnp,
+		netNrp,
+		netMdp,
 		dhcpopts,
+	)
+	if allFound {
+		return nil
 	}
-	{
-		irowsFound := make([]ovnutil.IRow, 0, len(irows))
-		for _, irow := range irows {
-			irowFound := keeper.DB.FindOneMatchNonZeros(irow)
-			if irowFound != nil {
-				irowsFound = append(irowsFound, irowFound)
-			}
+	args = append(args, ovnCreateArgs(netLs, netLs.Name)...)
+	args = append(args, ovnCreateArgs(netRnp, netRnp.Name)...)
+	args = append(args, ovnCreateArgs(netNrp, netNrp.Name)...)
+	args = append(args, ovnCreateArgs(netMdp, netMdp.Name)...)
+	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
+	args = append(args, "--", "add", "Logical_Switch", netLs.Name, "ports", "@"+netNrp.Name, "@"+netMdp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(network.VpcId), "ports", "@"+netRnp.Name)
+	return keeper.cli.Must(ctx, "ClaimNetwork", args)
+}
+
+func (keeper *OVNNorthboundKeeper) ClaimVpcHost(ctx context.Context, vpc *agentmodels.Vpc, host *agentmodels.Host) error {
+	var (
+		ocVersion = fmt.Sprintf("%s.%d", host.UpdatedAt, host.UpdateVersion)
+	)
+	vpcHostLsp := &ovnutil.LogicalSwitchPort{
+		Name:      vpcHostLspName(vpc.Id, host.Id),
+		Addresses: []string{fmt.Sprintf("%s %s", mac.HashMac(host.Id), host.OvnMappedIpAddr)},
+	}
+	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(vpcHostLsp); m != nil {
+		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
+		return nil
+	} else {
+		args := []string{
+			"--bare", "--columns=_uuid", "find", vpcHostLsp.OvnTableName(),
+			fmt.Sprintf("name=%q", vpcHostLsp.Name),
 		}
-		// mark them anyway even if not all found, to avoid the destroy
-		// call at sweep stage
-		for _, irowFound := range irowsFound {
-			irowFound.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
-		}
-		if len(irowsFound) == len(irows) {
+		res := keeper.cli.Must(ctx, "find vpcHostLsp", args)
+		vpcHostLspUuid := strings.TrimSpace(res.Output)
+		if vpcHostLspUuid != "" {
 			return nil
 		}
-		args := ovnutil.OvnNbctlArgsDestroy(irowsFound)
-		if len(args) > 0 {
-			keeper.cli.Must(ctx, "ClaimNetwork cleanup", args)
-		}
 	}
-	args = append(args, ovnCreateArgs(lsnet, "lsnet")...)
-	args = append(args, ovnCreateArgs(lrnetp, "lrnetp")...)
-	args = append(args, ovnCreateArgs(lsnetp, "lsnetp")...)
-	args = append(args, ovnCreateArgs(lsnetmp, "lsnetmp")...)
-	args = append(args, ovnCreateArgs(dhcpopts, "dhcpopts")...)
-	args = append(args, "--", "add", "Logical_Switch", lsnetName, "ports", "@lsnetp", "@lsnetmp")
-	args = append(args, "--", "add", "Logical_Router", lrvpcName, "ports", "@lrnetp")
-	return keeper.cli.Must(ctx, "ClaimNetwork", args)
+	var args []string
+	args = append(args, ovnCreateArgs(vpcHostLsp, vpcHostLsp.Name)...)
+	args = append(args, "--", "add", "Logical_Switch", vpcHostLsName(vpc.Id), "ports", "@"+vpcHostLsp.Name)
+	return keeper.cli.Must(ctx, "ClaimVpcHost", args)
 }
 
 func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestnetwork *agentmodels.Guestnetwork) error {
 	var (
-		lsName    = fmt.Sprintf("subnet-ls-%s", guestnetwork.NetworkId)
-		lspName   = fmt.Sprintf("iface-%s-%s", guestnetwork.NetworkId, guestnetwork.Ifname)
+		guest   = guestnetwork.Guest
+		network = guestnetwork.Network
+		vpc     = network.Vpc
+		host    = guest.Host
+
 		ocVersion = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
+		ocGnrRef  = fmt.Sprintf("gnr/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		dhcpOpt   string
 	)
 
@@ -216,21 +241,39 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 			res := keeper.cli.Must(ctx, "find dhcpopt", args)
 			dhcpOpt = strings.TrimSpace(res.Output)
 		}
+		if dhcpOpt == "" {
+			return fmt.Errorf("cannot find dhcpopt for subnet %s", guestnetwork.NetworkId)
+		}
 	}
 
-	lsp := &ovnutil.LogicalSwitchPort{
-		Name:          lspName,
+	gnp := &ovnutil.LogicalSwitchPort{
+		Name:          gnpName(guestnetwork.NetworkId, guestnetwork.Ifname),
 		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
 		PortSecurity:  []string{fmt.Sprintf("%s %s/%d", guestnetwork.MacAddr, guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)},
 		Dhcpv4Options: &dhcpOpt,
 	}
-	if m := keeper.DB.LogicalSwitchPort.FindOneMatchNonZeros(lsp); m != nil {
-		m.OvnSetExternalIds(externalKeyOcVersion, ocVersion)
+
+	gnrPolicy := "src-ip"
+	gnr := &ovnutil.LogicalRouterStaticRoute{
+		Policy:   &gnrPolicy,
+		IpPrefix: guestnetwork.IpAddr + "/32",
+		Nexthop:  host.OvnMappedIpAddr,
+		ExternalIds: map[string]string{
+			externalKeyOcRef: ocGnrRef,
+		},
+	}
+
+	allFound, args := cmp(&keeper.DB, ocVersion,
+		gnp,
+		gnr,
+	)
+	if allFound {
 		return nil
 	}
-	var args []string
-	args = append(args, ovnCreateArgs(lsp, "lsp")...)
-	args = append(args, "--", "add", "Logical_Switch", lsName, "ports", "@lsp")
+	args = append(args, ovnCreateArgs(gnp, gnp.Name)...)
+	args = append(args, ovnCreateArgs(gnr, "gnr")...)
+	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
+	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@gnr")
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
 
@@ -241,6 +284,7 @@ func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
 		&db.LogicalSwitchPort,
 		&db.LogicalRouter,
 		&db.LogicalRouterPort,
+		&db.LogicalRouterStaticRoute,
 		&db.DHCPOptions,
 	}
 	for _, itbl := range itbls {
@@ -271,7 +315,27 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 	}
 	args := ovnutil.OvnNbctlArgsDestroy(irows)
 	if len(args) > 0 {
-		return keeper.cli.Must(ctx, "Sweep", args)
+		keeper.cli.Must(ctx, "Sweep", args)
+	}
+
+	{
+		var args []string
+		for _, irow := range db.LogicalRouterStaticRoute.Rows() {
+			_, ok := irow.OvnGetExternalIds(externalKeyOcVersion)
+			if !ok {
+				ref, ok := irow.OvnGetExternalIds(externalKeyOcRef)
+				if ok {
+					parts := strings.SplitN(ref, "/", 4)
+					if len(parts) == 4 {
+						vpcId := parts[1]
+						args = append(args, "--", "remove", "Logical_Router", vpcLrName(vpcId), "static_routes", irow.OvnUuid())
+					}
+				}
+			}
+		}
+		if len(args) > 0 {
+			keeper.cli.Must(ctx, "Sweep static routes", args)
+		}
 	}
 	return nil
 }
