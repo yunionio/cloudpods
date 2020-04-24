@@ -75,25 +75,25 @@ func init() {
 
 type SIsolatedDevice struct {
 	db.SStandaloneResourceBase
-	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
+	SHostResourceBase `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// 宿主机Id
-	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"`
+	// HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required"`
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
 	// 设备类型
-	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"`
+	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
-	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"`
+	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"domain" create:"domain_required" update:"domain"`
 
 	// 云主机Id
-	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"admin"`
+	GuestId string `width:"36" charset:"ascii" nullable:"true" index:"true" list:"domain"`
 
 	// # pci address of `Bus:Device.Function` format, or usb bus address of `bus.addr`
-	Addr string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Addr string `width:"16" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
+	VendorDeviceId string `width:"16" charset:"ascii" nullable:"true" list:"domain" create:"domain_optional"`
 }
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
