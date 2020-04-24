@@ -211,7 +211,7 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("id", diskQ.SubQuery())
 	}
 
-	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").Snapshot()
+	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").NotEquals("guest_status", api.SG_GUEST_STATUS_PENDING_REMOVE).Snapshot()
 	scalingGroupQ, err = manager.SScalingGroupResourceBaseManager.ListItemFilter(ctx, scalingGroupQ, userCred, query.ScalingGroupFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SScaligGroupResourceBaseManager.ListItemFilter")
@@ -4604,13 +4604,13 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 	return ihost.GetIVMById(self.ExternalId)
 }
 
-func (self *SGuest) DetachScalingGroup(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SGuest) PendingDetachScalingGroup() error {
 	sggs, err := ScalingGroupGuestManager.Fetch("", self.GetId())
 	if err != nil {
 		return err
 	}
 	for i := range sggs {
-		sggs[i].Detach(ctx, userCred)
+		sggs[i].SetGuestStatus(api.SG_GUEST_STATUS_PENDING_REMOVE)
 	}
 	return nil
 }

@@ -182,8 +182,6 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 
 	// try to leave all groups
 	guest.LeaveAllGroups(ctx, self.UserCred)
-	// detach
-	guest.DetachScalingGroup(ctx, self.UserCred)
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
 	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
 
@@ -193,6 +191,8 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 			return
 		}
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
+		// pending detach
+		guest.PendingDetachScalingGroup()
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
 			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED, api.VM_DISK_FAILED,

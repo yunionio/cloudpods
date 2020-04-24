@@ -77,7 +77,7 @@ func (sgg *SScalingGroupGuest) Detach(ctx context.Context, userCred mcclient.Tok
 func (sggm *SScalingGroupGuestManager) Fetch(scalingGroupId, guestId string) ([]SScalingGroupGuest, error) {
 
 	sggs := make([]SScalingGroupGuest, 0)
-	q := sggm.Query()
+	q := sggm.Query().NotEquals("guest_status", compute.SG_GUEST_STATUS_PENDING_REMOVE)
 	if len(scalingGroupId) != 0 {
 		q = q.Equals("scaling_group_id", scalingGroupId)
 	}

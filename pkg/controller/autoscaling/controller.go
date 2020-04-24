@@ -356,7 +356,7 @@ Loop:
 				case compute.SG_GUEST_STATUS_REMOVE_FAILED:
 					succeedList.Delete(sggs[i].GetId())
 					failedList = append(failedList, fmt.Sprintf("remove instance '%s' failed", sggs[i].GetId()))
-				case compute.SG_GUEST_STATUS_READY, compute.SG_GUEST_STATUS_REMOVING:
+				case compute.SG_GUEST_STATUS_READY, compute.SG_GUEST_STATUS_REMOVING, compute.SG_GUEST_STATUS_PENDING_REMOVE:
 					waitList = append(waitList, sggs[i].GetId())
 				default:
 					log.Errorf("unkown guest status for ScalingGroupGuest '%s'", sggs[i].GetId())
