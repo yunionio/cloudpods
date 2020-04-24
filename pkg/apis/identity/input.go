@@ -194,8 +194,8 @@ type EndpointListInput struct {
 }
 
 type SJoinProjectsInput struct {
-	Projects []string
-	Roles    []string
+	Projects []string `json:"projects"`
+	Roles    []string `json:"roles"`
 }
 
 func (input SJoinProjectsInput) Validate() error {
@@ -209,11 +209,12 @@ func (input SJoinProjectsInput) Validate() error {
 }
 
 type SProjectRole struct {
-	Project string
-	Role    string
+	Project string `json:"project"`
+	Role    string `json:"role"`
 }
+
 type SLeaveProjectsInput struct {
-	ProjectRoles []SProjectRole
+	ProjectRoles []SProjectRole `json:"project_roles"`
 }
 
 func (input SLeaveProjectsInput) Validate() error {
@@ -450,4 +451,14 @@ type RoleCreateInput struct {
 	IdentityBaseResourceCreateInput
 
 	apis.SharableResourceBaseCreateInput
+}
+
+type PerformGroupAddUsersInput struct {
+	// 带添加用户列表（ID或名称）
+	User []string `json:"user"`
+}
+
+type PerformGroupRemoveUsersInput struct {
+	// 带删除用户列表（ID或名称）
+	User []string `json:"user"`
 }

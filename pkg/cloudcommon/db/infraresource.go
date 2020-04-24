@@ -70,12 +70,12 @@ func (model *SInfrasResourceBase) IsShared() bool {
 	return SharableModelIsShared(model)
 }
 
-func (model *SInfrasResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+func (model *SInfrasResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
 	return true
 }
 
-func (model *SInfrasResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
-	err := SharablePerformPublic(model.GetIInfrasModel(), ctx, userCred, input)
+func (model *SInfrasResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
+	err := SharablePerformPublic(model.GetIInfrasModel(), ctx, userCred, apis.PerformPublicProjectInput{PerformPublicDomainInput: input})
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}

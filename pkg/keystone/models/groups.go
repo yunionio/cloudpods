@@ -338,18 +338,19 @@ func (group *SGroup) UnlinkIdp(idpId string) error {
 func (group *SGroup) AllowPerformJoin(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, group, "join")
 }
 
+// 组加入项目
 func (group *SGroup) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := joinProjects(group, false, ctx, userCred, data)
+	err := joinProjects(group, false, ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
@@ -359,18 +360,19 @@ func (group *SGroup) PerformJoin(
 func (group *SGroup) AllowPerformLeave(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, group, "leave")
 }
 
+// 组退出项目
 func (group *SGroup) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := leaveProjects(group, false, ctx, userCred, data)
+	err := leaveProjects(group, false, ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
@@ -441,4 +443,76 @@ func (group *SGroup) PostCreate(
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
+}
+
+func (group *SGroup) AllowPerformAddUsers(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupAddUsersInput,
+) bool {
+	return db.IsDomainAllowPerform(userCred, group, "add-users")
+}
+
+// 组添加用户
+func (group *SGroup) PerformAddUsers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupAddUsersInput,
+) (jsonutils.JSONObject, error) {
+	users := make([]*SUser, 0)
+	for _, uid := range input.User {
+		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)
+			} else {
+				return nil, errors.Wrap(err, "UserManager.FetchByIdOrName")
+			}
+		}
+		users = append(users, usr.(*SUser))
+	}
+	for i := range users {
+		err := UsergroupManager.add(ctx, userCred, users[i], group)
+		if err != nil {
+			return nil, errors.Wrap(err, "UsergroupManager.add")
+		}
+	}
+	return nil, nil
+}
+
+func (group *SGroup) AllowPerformRemoveUsers(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupRemoveUsersInput,
+) bool {
+	return db.IsDomainAllowPerform(userCred, group, "remove-users")
+}
+
+// 组删除用户
+func (group *SGroup) PerformRemoveUsers(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	input api.PerformGroupRemoveUsersInput,
+) (jsonutils.JSONObject, error) {
+	users := make([]*SUser, 0)
+	for _, uid := range input.User {
+		usr, err := UserManager.FetchByIdOrName(userCred, uid)
+		if err != nil {
+			if errors.Cause(err) == sql.ErrNoRows {
+				return nil, errors.Wrapf(httperrors.ErrResourceNotFound, "user %s", uid)
+			} else {
+				return nil, errors.Wrap(err, "UserManager.FetchByIdOrName")
+			}
+		}
+		users = append(users, usr.(*SUser))
+	}
+	for i := range users {
+		err := UsergroupManager.remove(ctx, userCred, users[i], group)
+		if err != nil {
+			return nil, errors.Wrap(err, "UsergroupManager.add")
+		}
+	}
+	return nil, nil
 }

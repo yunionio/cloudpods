@@ -1986,7 +1986,7 @@ func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclie
 		return nil, errors.Wrap(httperrors.ErrInputParameter, "share_mode cannot be account_domain")
 	}
 
-	_, err := account.SInfrasResourceBase.PerformPublic(ctx, userCred, query, input.PerformPublicInput)
+	_, err := account.SInfrasResourceBase.PerformPublic(ctx, userCred, query, input.PerformPublicDomainInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SInfrasResourceBase.PerformPublic")
 	}
@@ -2062,7 +2062,7 @@ func (account *SCloudaccount) PerformShareMode(ctx context.Context, userCred mcc
 	} else {
 		input2 := api.CloudaccountPerformPublicInput{
 			ShareMode: input.ShareMode,
-			PerformPublicInput: apis.PerformPublicInput{
+			PerformPublicDomainInput: apis.PerformPublicDomainInput{
 				Scope: string(rbacutils.ScopeSystem),
 			},
 		}

@@ -65,11 +65,11 @@ func (model *SSharableVirtualResourceBase) IsShared() bool {
 	return SharableModelIsShared(model)
 }
 
-func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) bool {
 	return true
 }
 
-func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	err := SharablePerformPublic(model.GetISharableVirtualModel(), ctx, userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")

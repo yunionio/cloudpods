@@ -1359,9 +1359,8 @@ func (self *SImage) PerformMarkStandard(
 	}
 	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
 	if !self.IsStandard.IsTrue() && isStandard {
-		input := apis.PerformPublicInput{
-			Scope: "system",
-		}
+		input := apis.PerformPublicProjectInput{}
+		input.Scope = "system"
 		_, err := self.PerformPublic(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "PerformPublic")
@@ -1445,7 +1444,7 @@ func (img *SImage) GetUsages() []db.IUsage {
 	}
 }
 
-func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+func (img *SImage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicProjectInput) (jsonutils.JSONObject, error) {
 	if img.IsStandard.IsTrue() {
 		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot perform public for standard image")
 	}
