@@ -32,33 +32,66 @@ const (
 )
 
 type SCloudaccountCredential struct {
-	ProjectName string //OpenStack
-	DomainName  string //OpenStack
-	Username    string //OpenStack Esxi ZStack
-	Password    string //OpenStack Esxi ZStack
-	AuthUrl     string //OpenStack ZStack
+	// 账号所在的项目 (openstack)
+	ProjectName string `json:"project_name"`
 
-	AccessKeyId     string //Huawei Aliyun Ucloud Aws
-	AccessKeySecret string //Huawei Aliyun Ucloud Aws
-	Environment     string //Huawei Azure Aws
+	// 账号所在的域 (openstack)
+	// default: Default
+	DomainName string `json:"domain_name"`
 
-	DirectoryId  string //Azure
-	ClientId     string //Azure
-	ClientSecret string //Azure
+	// 用户名 (openstack, zstack, esxi)
+	Username string `json:"username"`
 
-	Host string //Esxi
-	Port int    //Esxi
+	// 密码 (openstack, zstack, esxi)
+	Password string `json:"password"`
 
-	Endpoint string
+	// 认证地址 (openstack,zstack)
+	AuthUrl string `json:"auto_url"`
 
-	AppId     string //Qcloud
-	SecretId  string //Qcloud
-	SecretKey string //Qcloud
+	// 秘钥id (Aliyun, Aws, huawei, ucloud, ctyun, zstack, s3)
+	AccessKeyId string `json:"access_key_id"`
 
-	ClientEmail  string //Google
-	ProjectId    string //Google
-	PrivateKeyId string //Google
-	PrivateKey   string //Google
+	// 秘钥key (Aliyun, Aws, huawei, ucloud, ctyun, zstack, s3)
+	AccessKeySecret string `json:"access_key_secret"`
+
+	// 环境 (Azure, Aws, huawei, ctyun)
+	Environment string `json:"environment"`
+
+	// 目录ID (Azure)
+	DirectoryId string `json:"directory_id"`
+
+	// 客户端ID (Azure)
+	ClientId string `json:"client_id"`
+
+	// 客户端秘钥 (Azure)
+	ClientSecret string `json:"client_secret"`
+
+	// 主机IP (esxi)
+	Host string `json:"host"`
+
+	// 主机端口 (esxi)
+	Port int `json:"port"`
+
+	// 端点 (s3)
+	Endpoint string `json:"endpoint"`
+
+	// app id (Qcloud)
+	AppId string `json:"app_id"`
+
+	//秘钥ID (Qcloud)
+	SecretId string `json:"secret_id"`
+
+	//秘钥key (Qcloud)
+	SecretKey string `json:"secret_key"`
+
+	// Google服务账号email (gcp)
+	GCPClientEmail string `json:"gcp_client_email"`
+	// Google服务账号project id (gcp)
+	GCPProjectId string `json:"gcp_project_id"`
+	// Google服务账号秘钥id (gcp)
+	GCPPrivateKeyId string `json:"gcp_private_key_id"`
+	// Google服务账号秘钥 (gcp)
+	GCPPrivateKey string `json:"gcp_private_key"`
 }
 
 type SCloudaccount struct {
