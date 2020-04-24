@@ -225,10 +225,12 @@ func (ident *SIdentityProvider) getDriverClass() driver.IIdentityBackendClass {
 	return driver.GetDriverClass(ident.Driver)
 }
 
+// 配置认证源
 func (ident *SIdentityProvider) AllowPerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) bool {
 	return db.IsAdminAllowUpdateSpec(userCred, ident, "config")
 }
 
+// 配置认证源
 func (ident *SIdentityProvider) PerformConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input api.PerformConfigInput) (jsonutils.JSONObject, error) {
 	if ident.Status == api.IdentityDriverStatusConnected && ident.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("cannot update config when enabled and connected")
@@ -408,6 +410,7 @@ func (self *SIdentityProvider) AllowPerformSync(ctx context.Context, userCred mc
 	return db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
+// 手动同步认证源
 func (self *SIdentityProvider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !self.GetEnabled() {
 		return nil, httperrors.NewInvalidStatusError("Account disabled")

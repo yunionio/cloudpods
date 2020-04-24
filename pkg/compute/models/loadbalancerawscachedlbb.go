@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SAwsCachedLbManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager

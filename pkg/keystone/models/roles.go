@@ -419,12 +419,12 @@ func (role *SRole) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
 	return db.SharableModelIsSharable(role, reqUsrId)
 }
 
-func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
 	return true
 }
 
-func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
-	err := db.SharablePerformPublic(role, ctx, userCred, input)
+func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPublic(role, ctx, userCred, apis.PerformPublicProjectInput{PerformPublicDomainInput: input})
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}

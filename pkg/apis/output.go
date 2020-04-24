@@ -32,7 +32,7 @@ type ModelBaseDetails struct {
 	// example: true
 	CanUpdate bool `json:"can_update"`
 
-	// 资源不能删除的原因
+	// 资源不能更新的原因
 	UpdateFailReason string `json:"update_fail_reason"`
 }
 
