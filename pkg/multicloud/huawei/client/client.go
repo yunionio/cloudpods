@@ -82,6 +82,7 @@ type Client struct {
 	DBInstanceJob      *modules.SDBInstanceJobManager
 	Traces             *modules.STraceManager
 	CloudEye           *modules.SCloudEyeManager
+	EnterpriceProjects *modules.SEnterpriceProjectManager
 }
 
 func (self *Client) SetHttpClient(httpClient *http.Client) {
@@ -134,6 +135,7 @@ func (self *Client) SetHttpClient(httpClient *http.Client) {
 	self.DBInstanceJob.SetHttpClient(httpClient)
 	self.Traces.SetHttpClient(httpClient)
 	self.CloudEye.SetHttpClient(httpClient)
+	self.EnterpriceProjects.SetHttpClient(httpClient)
 }
 
 func (self *Client) InitWithOptions(regionId, projectId string, credential auth.Credential) error {
@@ -213,6 +215,7 @@ func (self *Client) initManagers() {
 		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Traces = modules.NewTraceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.CloudEye = modules.NewCloudEyeManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.EnterpriceProjects = modules.NewEnterpriceProjectManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true

@@ -50,6 +50,7 @@ const (
 	ServiceNameRDS  ServiceNameType = "rds"  // 关系型数据库 RDS
 	ServiceNameCTS  ServiceNameType = "cts"  // 云审计服务
 	ServiceNameCES  ServiceNameType = "ces"  // 监控服务 CloudEye
+	ServiceNameEPS  ServiceNameType = "eps"  // 企业项目
 )
 
 type SManagerContext struct {

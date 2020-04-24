@@ -22,6 +22,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -32,9 +33,10 @@ var DATACENTER_PROPS = []string{"name", "parent", "datastore", "network"}
 type SDatacenter struct {
 	SManagedObject
 
-	ihosts    []cloudprovider.ICloudHost
-	istorages []cloudprovider.ICloudStorage
-	inetworks []IVMNetwork
+	ihosts       []cloudprovider.ICloudHost
+	istorages    []cloudprovider.ICloudStorage
+	inetworks    []IVMNetwork
+	iresoucePool []cloudprovider.ICloudProject
 
 	Name string
 }
@@ -63,6 +65,25 @@ func (dc *SDatacenter) getObjectDatacenter() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
+func (dc *SDatacenter) scanResourcePool() error {
+	if dc.iresoucePool == nil {
+		var pools []mo.ResourcePool
+		err := dc.manager.scanMObjects(dc.object.Entity().Self, RESOURCEPOOL_PROPS, &pools)
+		if err != nil {
+			return errors.Wrap(err, "scanMObjects")
+		}
+		dc.iresoucePool = []cloudprovider.ICloudProject{}
+		for i := 0; i < len(pools); i++ {
+			p := NewResourcePool(dc.manager, &pools[i], dc)
+			rpPath := p.GetPath()
+			if utils.IsInStringArray("Resources", rpPath) && rpPath[len(rpPath)-1] != "Resources" {
+				dc.iresoucePool = append(dc.iresoucePool, p)
+			}
+		}
+	}
+	return nil
+}
+
 func (dc *SDatacenter) scanHosts() error {
 	if dc.ihosts == nil {
 		var hosts []mo.HostSystem
@@ -86,6 +107,14 @@ func (dc *SDatacenter) scanHosts() error {
 		}
 	}
 	return nil
+}
+
+func (dc *SDatacenter) GetResourcePools() ([]cloudprovider.ICloudProject, error) {
+	err := dc.scanResourcePool()
+	if err != nil {
+		return nil, errors.Wrap(err, "dc.scanResourcePool")
+	}
+	return dc.iresoucePool, nil
 }
 
 func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {

@@ -158,7 +158,3 @@ func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
 	err := doListAllWithMarker(self.ecsClient.Port.List, querys, &ports)
 	return ports, err
 }
-
-func (self *SEipAddress) GetProjectId() string {
-	return ""
-}

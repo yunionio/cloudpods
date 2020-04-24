@@ -171,5 +171,5 @@ func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
 }
 
 func (self *SNetwork) GetProjectId() string {
-	return ""
+	return self.wire.vpc.EnterpriseProjectID
 }

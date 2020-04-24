@@ -273,5 +273,5 @@ func (vsw *SVSwitch) dissociateWithSNAT() error {
 }
 
 func (self *SVSwitch) GetProjectId() string {
-	return ""
+	return self.ResourceGroupId
 }
