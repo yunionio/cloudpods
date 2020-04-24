@@ -535,7 +535,7 @@ func (self *SGuestImage) PerformPublic(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	input apis.PerformPublicInput,
+	input apis.PerformPublicProjectInput,
 ) (jsonutils.JSONObject, error) {
 	images, err := GuestImageJointManager.GetImagesByGuestImageId(self.Id)
 	if err != nil {

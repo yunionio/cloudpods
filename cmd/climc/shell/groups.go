@@ -224,4 +224,29 @@ func init() {
 			printObject(sp)
 			return nil
 		})
+
+	type GroupAddUsersOptions struct {
+		GROUP string   `help:"group Id or Name" json:"-"`
+		USER  []string `help:"list of user id or name" json:"user"`
+	}
+	R(&GroupAddUsersOptions{}, "group-add-users", "Add users into group",
+		func(s *mcclient.ClientSession, args *GroupAddUsersOptions) error {
+			params := jsonutils.Marshal(args)
+			result, err := modules.Groups.PerformAction(s, args.GROUP, "add-users", params)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+			return nil
+		})
+	R(&GroupAddUsersOptions{}, "group-remove-users", "Add users into group",
+		func(s *mcclient.ClientSession, args *GroupAddUsersOptions) error {
+			params := jsonutils.Marshal(args)
+			result, err := modules.Groups.PerformAction(s, args.GROUP, "remove-users", params)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+			return nil
+		})
 }

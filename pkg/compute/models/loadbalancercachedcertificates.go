@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SCachedLoadbalancerCertificateManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager

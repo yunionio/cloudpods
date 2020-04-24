@@ -100,7 +100,7 @@ type SHost struct {
 	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
 
 	// 管理地址
-	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain"`
+	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 系统信息
 	SysInfo jsonutils.JSONObject `nullable:"true" search:"domain" list:"domain" update:"domain" create:"domain_optional"`
@@ -5005,7 +5005,7 @@ func (host *SHost) GetUsages() []db.IUsage {
 	}
 }
 
-func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
+func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	// perform public for all connected local storage
 	storages := host.GetAttachedLocalStorages()
 	for i := range storages {

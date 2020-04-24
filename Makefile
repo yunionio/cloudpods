@@ -291,8 +291,10 @@ gen-swagger: gen-swagger-check
 	$(ROOT_DIR)/scripts/codegen.py swagger-code
 	$(ROOT_DIR)/scripts/codegen.py swagger-yaml
 
-swagger-serve: gen-model-api gen-swagger
+swagger-serve-only:
 	$(ROOT_DIR)/scripts/codegen.py swagger-serve
+
+swagger-serve: gen-model-api gen-swagger swagger-serve-only
 
 swagger-site: gen-model-api gen-swagger
 	$(ROOT_DIR)/scripts/codegen.py swagger-site

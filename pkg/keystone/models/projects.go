@@ -471,14 +471,9 @@ func (project *SProject) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectAddUserGroupInput,
 ) (jsonutils.JSONObject, error) {
-	input := api.SProjectAddUserGroupInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal project add user group input error %s", err)
-	}
-	err = input.Validate()
+	err := input.Validate()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
@@ -551,14 +546,9 @@ func (project *SProject) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectRemoveUserGroupInput,
 ) (jsonutils.JSONObject, error) {
-	input := api.SProjectRemoveUserGroupInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("unmarshal project remove usergroup input error %s", err)
-	}
-	err = input.Validate()
+	err := input.Validate()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}

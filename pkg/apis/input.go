@@ -180,16 +180,20 @@ type GetDetailsStatusOutput struct {
 	Status string `json:"status"`
 }
 
-type PerformPublicInput struct {
+type PerformPublicDomainInput struct {
 	// 共享项目资源的共享范围，可能的值为：project, domain和system
 	// pattern: project|domain|system
 	Scope string `json:"scope"`
 
-	// 如果共享范围为项目，则在此列表中指定共享的目标项目
-	SharedProjects []string `json:"shared_projects"`
-
 	// 如果共享范围为域，则在此列表中指定共享的目标域
 	SharedDomains []string `json:"shared_domains"`
+}
+
+type PerformPublicProjectInput struct {
+	PerformPublicDomainInput
+
+	// 如果共享范围为项目，则在此列表中指定共享的目标项目
+	SharedProjects []string `json:"shared_projects"`
 }
 
 type PerformPrivateInput struct {
@@ -249,3 +253,29 @@ type OpsLogCreateInput struct {
 	OwnerDomainId  string `json:"owner_domain_id"`
 	OwnerProjectId string `json:"owner_tenant_id"`
 }
+
+// 设置资源的标签（元数据）输入
+type PerformMetadataInput map[string]string
+
+// 设置资源的用户标签（元数据）输入
+type PerformUserMetadataInput map[string]string
+
+// 全量替换资源的用户标签（元数据）输入
+type PerformSetUserMetadataInput map[string]string
+
+// 获取资源的元数据输入
+type GetMetadataInput struct {
+	// 指定需要获取的所有标签的KEY列表，如果列表为空，则获取全部标签
+	// 标签分为
+	//
+	// | 类型     | 说明                                        |
+	// |----------|---------------------------------------------|
+	// | 系统标签 | 平台定义的标签                              |
+	// | 用户标签 | key以user:为前缀，用户自定义标签            |
+	// | 外部标签 | key以ext:为前缀，为从其他平台同步过来的标签 |
+	//
+	Field []string `json:"field"`
+}
+
+// 获取资源标签（元数据）输出
+type GetMetadataOutput map[string]string

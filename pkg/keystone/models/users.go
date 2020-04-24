@@ -835,32 +835,27 @@ func (user *SUser) UnlinkIdp(idpId string) error {
 func (user *SUser) AllowPerformJoin(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, user, "join")
 }
 
+// 用户加入项目
 func (user *SUser) PerformJoin(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SJoinProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := joinProjects(user, true, ctx, userCred, data)
+	err := joinProjects(user, true, ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
-	input := api.SJoinProjectsInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return httperrors.NewInputParameterError("unmarshal input error %s", err)
-	}
-
-	err = input.Validate()
+func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, input api.SJoinProjectsInput) error {
+	err := input.Validate()
 	if err != nil {
 		return httperrors.NewInputParameterError(err.Error())
 	}
@@ -910,30 +905,26 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 func (user *SUser) AllowPerformLeave(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, user, "leave")
 }
 
+// 用户退出项目
 func (user *SUser) PerformLeave(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SLeaveProjectsInput,
 ) (jsonutils.JSONObject, error) {
-	err := leaveProjects(user, true, ctx, userCred, data)
+	err := leaveProjects(user, true, ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
-	input := api.SLeaveProjectsInput{}
-	err := data.Unmarshal(&input)
-	if err != nil {
-		return httperrors.NewInputParameterError("unmarshal leave porject input error: %s", err)
-	}
+func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, input api.SLeaveProjectsInput) error {
 	for i := range input.ProjectRoles {
 		projObj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectRoles[i].Project)
 		if err != nil {

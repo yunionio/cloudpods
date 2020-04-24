@@ -361,97 +361,88 @@ func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Contex
 	return IsAllowGetSpec(rbacutils.ScopeSystem, userCred, model, "metadata")
 }
 
-func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	fields := jsonutils.GetQueryStringArray(query, "field")
-	val, err := Metadata.GetAll(model, fields, userCred)
+// 获取资源标签（元数据）
+func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, input apis.GetMetadataInput) (apis.GetMetadataOutput, error) {
+	val, err := Metadata.GetAll(model, input.Field, userCred)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Metadata.GetAll")
 	}
-	return jsonutils.Marshal(val), nil
+	return val, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// +onecloud:swagger-gen-ignore
+func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
+	for k, v := range input {
 		// 已双下滑线开头的metadata是系统内置，普通用户不可添加，只能查看
 		if strings.HasPrefix(k, SYS_TAG_PREFIX) && (userCred == nil || !IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "metadata")) {
 			return nil, httperrors.NewForbiddenError("not allow to set system key, please remove the underscore at the beginning")
 		}
-		dictStore[k], _ = v.GetString()
+		dictStore[k] = v
 	}
-	err = model.SetAllMetadata(ctx, dictStore, userCred)
-	return nil, err
+	err := model.SetAllMetadata(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetAllMetadata")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "user-metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// 更新资源的用户标签
+// +onecloud:swagger-gen-ignore
+func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformUserMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
-		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
+	for k, v := range input {
+		dictStore[USER_TAG_PREFIX+k] = v
 	}
-	err = model.SetUserMetadataValues(ctx, dictStore, userCred)
-	return nil, err
+	err := model.SetUserMetadataValues(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataValues")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) AllowPerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "set-user-metadata")
 }
 
-func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	dict, ok := data.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, httperrors.NewInputParameterError("input data not key value dict")
-	}
-	dictMap, err := dict.GetMap()
-	if err != nil {
-		return nil, err
-	}
+// 全量替换资源的所有用户标签
+func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
-	for k, v := range dictMap {
-		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
+	for k, v := range input {
+		dictStore[USER_TAG_PREFIX+k] = v
 	}
-	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
-	return nil, err
+	err := model.SetUserMetadataAll(ctx, dictStore, userCred)
+	if err != nil {
+		return nil, errors.Wrap(err, "SetUserMetadataAll")
+	}
+	return nil, nil
 }
 
 func (model *SStandaloneResourceBase) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostUpdate(ctx, userCred, query, data)
 
-	jsonMeta, _ := data.Get("__meta__")
-	if jsonMeta != nil {
-		model.PerformMetadata(ctx, userCred, nil, jsonMeta)
+	meta := make(map[string]string)
+	err := data.Unmarshal(&meta, "__meta__")
+	if err == nil {
+		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
 }
 
 func (model *SStandaloneResourceBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	model.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
-	jsonMeta, _ := data.Get("__meta__")
-	if jsonMeta != nil {
-		model.PerformMetadata(ctx, userCred, nil, jsonMeta)
+	meta := make(map[string]string)
+	err := data.Unmarshal(&meta, "__meta__")
+	if err == nil {
+		model.PerformMetadata(ctx, userCred, nil, meta)
 	}
 }
 

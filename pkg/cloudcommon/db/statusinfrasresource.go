@@ -51,6 +51,7 @@ func (self *SStatusInfrasResourceBase) AllowPerformStatus(ctx context.Context, u
 	return IsDomainAllowPerform(userCred, self, "status")
 }
 
+// 更新资源状态
 func (self *SStatusInfrasResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
 	err := StatusBasePerformStatus(self, userCred, input)
 	if err != nil {

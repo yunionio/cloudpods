@@ -199,12 +199,12 @@ func (policy *SPolicy) IsShared() bool {
 	return db.SharableModelIsShared(policy)
 }
 
-func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) bool {
+func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) bool {
 	return true
 }
 
-func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicInput) (jsonutils.JSONObject, error) {
-	err := db.SharablePerformPublic(policy, ctx, userCred, input)
+func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
+	err := db.SharablePerformPublic(policy, ctx, userCred, apis.PerformPublicProjectInput{PerformPublicDomainInput: input})
 	if err != nil {
 		return nil, errors.Wrap(err, "SharablePerformPublic")
 	}
