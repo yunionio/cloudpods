@@ -257,35 +257,41 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
+func (self *SGuestdisk) GetDetailedInfo() api.GuestDiskInfo {
+	desc := api.GuestDiskInfo{}
 	disk := self.GetDisk()
-	storage := disk.GetStorage()
-	if fs := disk.GetFsFormat(); len(fs) > 0 {
-		desc.Add(jsonutils.NewString(fs), "fs")
+	if disk == nil {
+		return desc
 	}
-	desc.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
-	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
-	desc.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
-	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
-	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
-	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	desc.Add(jsonutils.NewInt(int64(self.Iops)), "iops")
-	desc.Add(jsonutils.NewInt(int64(self.Bps)), "bps")
+	desc.Id = disk.Id
+	desc.Name = disk.Name
+	desc.FsFormat = disk.FsFormat
+	desc.DiskType = disk.DiskType
+	desc.Index = self.Index
+	desc.SizeMb = disk.DiskSize
+	desc.DiskFormat = disk.DiskFormat
+	desc.Driver = self.Driver
+	desc.CacheMode = self.CacheMode
+	desc.AioMode = self.AioMode
+	desc.Iops = self.Iops
+	desc.Bps = self.Bps
 
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
-		desc.Add(jsonutils.NewString(imageId), "image_id")
+		desc.ImageId = imageId
 		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
 		if cachedImageObj != nil {
 			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Add(jsonutils.NewString(cachedImage.GetName()), "image")
+			desc.Image = cachedImage.GetName()
 		}
 	}
 
+	storage := disk.GetStorage()
+	if storage == nil {
+		return desc
+	}
+	desc.MediumType = storage.MediumType
+	desc.StorageType = storage.StorageType
 	return desc
 }
 
