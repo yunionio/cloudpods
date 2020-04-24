@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/bwutils"
-	"yunion.io/x/onecloud/pkg/util/ovsutils"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
@@ -35,7 +34,7 @@ type SOVSBridgeDriver struct {
 }
 
 func (o *SOVSBridgeDriver) CleanupConfig() {
-	ovsutils.CleanAllHiddenPorts()
+	//ovsutils.CleanAllHiddenPorts()
 	// if enableopenflowcontroller ...
 }
 
@@ -263,7 +262,7 @@ func OVSPrepare() error {
 }
 
 func cleanOvsBridge() {
-	ovsutils.CleanAllHiddenPorts()
+	//ovsutils.CleanAllHiddenPorts()
 }
 
 func NewOVSBridgeDriver(bridge, inter, ip string) (*SOVSBridgeDriver, error) {
