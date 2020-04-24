@@ -91,6 +91,7 @@ func RemovePortFromBridge(brname, port string) {
 }
 
 func CleanHiddenPorts(brname string) {
+	// BUG patch ports are not included in dpPorts
 	dbPorts := GetDbPorts(brname)
 	dpPorts := GetDpPorts(brname)
 	for _, p := range dbPorts {
