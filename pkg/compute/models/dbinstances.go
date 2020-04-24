@@ -776,6 +776,15 @@ func (self *SDBInstance) AllowPerformSyncstatus(ctx context.Context, userCred mc
 }
 
 func (self *SDBInstance) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
 }
 
@@ -784,6 +793,15 @@ func (self *SDBInstance) AllowPerformSync(ctx context.Context, userCred mcclient
 }
 
 func (self *SDBInstance) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
 	return nil, self.StartDBInstanceSyncTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -792,6 +810,15 @@ func (self *SDBInstance) AllowPerformSyncStatus(ctx context.Context, userCred mc
 }
 
 func (self *SDBInstance) PerformSyncStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count, err := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("DBInstance has %d task active, can't sync status", count)
+	}
+
 	return nil, StartResourceSyncStatusTask(ctx, userCred, self, "DBInstanceSyncStatusTask", "")
 }
 
