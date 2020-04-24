@@ -49,7 +49,7 @@ type BaseOptions struct {
 	CertFile string `default:"$YUNION_CERT_FILE" help:"certificate file"`
 	KeyFile  string `default:"$YUNION_KEY_FILE" help:"private key file"`
 
-	Completion     string `default:"" help:"Generate climc auto complete script" choices:"bash"`
+	Completion     string `default:"" help:"Generate climc auto complete script" choices:"bash|zsh"`
 	UseCachedToken bool   `default:"$YUNION_USE_CACHED_TOKEN|false" help:"Use cached token"`
 
 	OsUsername string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
@@ -75,9 +75,13 @@ type BaseOptions struct {
 }
 
 func getSubcommandsParser() (*structarg.ArgumentParser, error) {
+	var (
+		prog = "climc"
+		desc = `Command-line interface to the API server.`
+	)
 	parse, e := structarg.NewArgumentParser(&BaseOptions{},
-		"climc",
-		`Command-line interface to the API server.`,
+		prog,
+		desc,
 		`See "climc help COMMAND" for help on a specific command.`)
 	if e != nil {
 		return nil, e
@@ -98,26 +102,28 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 			return nil
 		}
 	})
+
+	promptRootCmd := promputils.InitRootCmd(prog, desc, parse.GetOptArgs(), parse.GetPosArgs())
 	for _, v := range shell.CommandTable {
 		_par, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
 
 		if e != nil {
 			return nil, e
 		}
-		promputils.AppendCommand(v.Command, v.Desc)
+		promputils.AppendCommand(promptRootCmd, v.Command, v.Desc)
 		cmd := v.Command
 
 		for _, v := range _par.GetOptArgs() {
 			text := v.String()
 			text = strings.TrimLeft(text, "[<")
 			text = strings.TrimRight(text, "]>")
-			promputils.AppendOpt(cmd, text, v.HelpString(""))
+			promputils.AppendOpt(cmd, text, v.HelpString(""), v)
 		}
 		for _, v := range _par.GetPosArgs() {
 			text := v.String()
 			text = strings.TrimLeft(text, "[<")
 			text = strings.TrimRight(text, "]>")
-			promputils.AppendPos(cmd, text, v.HelpString(""))
+			promputils.AppendPos(cmd, text, v.HelpString(""), v)
 		}
 	}
 	return parse, nil
@@ -273,7 +279,7 @@ func main() {
 	options := parser.Options().(*BaseOptions)
 
 	if len(options.Completion) > 0 {
-		completeScript := promputils.GenerateAutoCompleteCmds(options.Completion)
+		completeScript := promputils.GenerateAutoCompleteCmds(promputils.GetRootCmd(), options.Completion)
 		if len(completeScript) > 0 {
 			fmt.Printf("%s", completeScript)
 		}
