@@ -97,6 +97,9 @@ type SGuestnetwork struct {
 
 	// bind配对网卡MAC地址
 	TeamWith string `width:"32" charset:"ascii" nullable:"false" list:"user"`
+
+	// IPv4映射地址，当子网属于私有云vpc的时候分配，用于访问外网
+	MappedIpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user"`
 }
 
 func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
@@ -195,7 +198,8 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 	return "", fmt.Errorf("maximal retry reached")
 }
 
-func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
+func (manager *SGuestnetworkManager) newGuestNetwork(
+	ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int,
 	virtual bool, reserved bool,
 	allocDir api.IPAllocationDirection,
@@ -253,6 +257,16 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 				return nil, fmt.Errorf("candidate ip %s is occupied!", address)
 			}
 			gn.IpAddr = ipAddr
+		}
+
+		if vpc := network.GetVpc(); vpc == nil {
+			return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
+		} else if vpc.Id != api.DEFAULT_VPC_ID && vpc.GetProviderName() == api.CLOUD_PROVIDER_ONECLOUD {
+			var err error
+			gn.MappedIpAddr, err = GuestnetworkManager.allocMappedIpAddr(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	ifname, err = gn.checkOrAllocateIfname(network, ifname)
