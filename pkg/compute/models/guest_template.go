@@ -471,7 +471,7 @@ func (gt *SGuestTemplate) PerformPublic(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data apis.PerformPublicInput,
+	data apis.PerformPublicProjectInput,
 ) (jsonutils.JSONObject, error) {
 
 	// image, network, secgroup, instancegroup

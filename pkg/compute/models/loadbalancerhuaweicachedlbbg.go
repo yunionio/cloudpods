@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SHuaweiCachedLbbgManager struct {
 	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager

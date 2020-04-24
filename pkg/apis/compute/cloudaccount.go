@@ -314,7 +314,7 @@ type CloudaccountUpdateInput struct {
 }
 
 type CloudaccountPerformPublicInput struct {
-	apis.PerformPublicInput
+	apis.PerformPublicDomainInput
 
 	// 共享模式，可能值为provider_domain, system
 	// example: provider_domain

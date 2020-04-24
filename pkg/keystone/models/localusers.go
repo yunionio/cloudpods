@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
+// +onecloud:swagger-gen-ignore
 type SLocalUserManager struct {
 	db.SResourceBaseManager
 }

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
+// +onecloud:swagger-gen-ignore
 type SIdmappingManager struct {
 	db.SResourceBaseManager
 }

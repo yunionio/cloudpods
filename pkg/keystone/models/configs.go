@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+// +onecloud:swagger-gen-ignore
 type SConfigOptionManager struct {
 	db.SResourceBaseManager
 	IsSensitive bool

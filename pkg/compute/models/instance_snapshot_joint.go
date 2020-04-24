@@ -32,6 +32,7 @@ func init() {
 	})
 }
 
+// +onecloud:swagger-gen-ignore
 type SInstanceSnapshotJoint struct {
 	db.SVirtualJointResourceBase
 
@@ -40,6 +41,7 @@ type SInstanceSnapshotJoint struct {
 	DiskIndex          int8   `nullable:"false" default:"0" list:"user" create:"required"`
 }
 
+// +onecloud:swagger-gen-ignore
 type SInstanceSnapshotJointManager struct {
 	db.SVirtualJointResourceBaseManager
 }

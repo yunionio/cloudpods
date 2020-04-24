@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
+// +onecloud:swagger-gen-ignore
 type SPasswordManager struct {
 	db.SResourceBaseManager
 }

@@ -47,6 +47,7 @@ func (self *SEnabledStatusStandaloneResourceBase) AllowPerformEnable(ctx context
 	return IsAdminAllowPerform(userCred, self, "enable")
 }
 
+// 启用资源
 func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformEnableInput) (jsonutils.JSONObject, error) {
 	err := EnabledPerformEnable(self, ctx, userCred, true)
 	if err != nil {
@@ -59,6 +60,7 @@ func (self *SEnabledStatusStandaloneResourceBase) AllowPerformDisable(ctx contex
 	return IsAdminAllowPerform(userCred, self, "disable")
 }
 
+// 禁用资源
 func (self *SEnabledStatusStandaloneResourceBase) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformDisableInput) (jsonutils.JSONObject, error) {
 	err := EnabledPerformEnable(self, ctx, userCred, false)
 	if err != nil {

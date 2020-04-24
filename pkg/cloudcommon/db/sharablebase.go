@@ -376,8 +376,7 @@ func (m SSharableBaseResource) GetPublicScope() rbacutils.TRbacScope {
 	return rbacutils.String2Scope(m.PublicScope)
 }
 
-func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential, input apis.PerformPublicInput) error {
-	log.Debugf("%s", jsonutils.Marshal(input))
+func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCred mcclient.TokenCredential, input apis.PerformPublicProjectInput) error {
 	var err error
 
 	resourceScope := model.GetModelManager().ResourceScope()
@@ -394,9 +393,8 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 		targetScope = rbacutils.ScopeDomain
 	}
 
-	shareResult := apis.PerformPublicInput{
-		Scope: string(targetScope),
-	}
+	shareResult := apis.PerformPublicProjectInput{}
+	shareResult.Scope = string(targetScope)
 
 	candidateIds := model.GetSharableTargetDomainIds()
 	requireIds := model.GetRequiredSharedDomainIds()
