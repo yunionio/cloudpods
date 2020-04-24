@@ -170,21 +170,12 @@ func (manager *SGuestManager) FetchCustomizeColumns(
 			}
 		}
 	}
-	if len(fields) == 0 || fields.Contains("scaling_status") {
+	if len(fields) == 0 || fields.Contains("scaling_group") {
 		sggs := fetchScalingGroupGuest(guestIds...)
 		if sggs != nil && len(sggs) != 0 {
 			for i := range rows {
 				if sgg, ok := sggs[guestIds[i]]; ok {
 					rows[i].ScalingStatus = sgg.GuestStatus
-				}
-			}
-		}
-	}
-	if fields.Contains("scaling_group_id") {
-		sggs := fetchScalingGroupGuest(guestIds...)
-		if sggs != nil && len(sggs) != 0 {
-			for i := range rows {
-				if sgg, ok := sggs[guestIds[i]]; ok {
 					rows[i].ScalingGroupId = sgg.ScalingGroupId
 				}
 			}

@@ -56,10 +56,11 @@ const (
 	TIMER_TYPE_MONTH = "month"
 
 	// 加入中 和 加入失败 的不算是 ScalingGroup 的机器
-	SG_GUEST_STATUS_JOINING       = "joining"       // 加入中
-	SG_GUEST_STATUS_READY         = "ready"         // 正常
-	SG_GUEST_STATUS_REMOVING      = "removing"      // 移除中
-	SG_GUEST_STATUS_REMOVE_FAILED = "remove_failed" // 移除失败
+	SG_GUEST_STATUS_JOINING        = "joining"        // 加入中
+	SG_GUEST_STATUS_READY          = "ready"          // 正常
+	SG_GUEST_STATUS_REMOVING       = "removing"       // 移除中
+	SG_GUEST_STATUS_REMOVE_FAILED  = "remove_failed"  // 移除失败
+	SG_GUEST_STATUS_PENDING_REMOVE = "pending_remove" // 机器进入回收站
 
 	// 只有ready状态是正常的
 	SG_STATUS_READY              = "ready"              // 正常

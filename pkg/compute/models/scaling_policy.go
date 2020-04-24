@@ -32,18 +32,17 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SScalingPolicyManager struct {
-	db.SStatusStandaloneResourceBaseManager
+	db.SVirtualResourceBaseManager
 	SScalingGroupResourceBaseManager
 	db.SEnabledResourceBaseManager
 }
 
 type SScalingPolicy struct {
-	db.SStatusStandaloneResourceBase
+	db.SVirtualResourceBase
 	SScalingGroupResourceBase
 	db.SEnabledResourceBase
 
@@ -65,7 +64,7 @@ var ScalingPolicyManager *SScalingPolicyManager
 
 func init() {
 	ScalingPolicyManager = &SScalingPolicyManager{
-		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
 			SScalingPolicy{},
 			"scalingpolicies_tbl",
 			"scalingpolicy",
@@ -78,7 +77,7 @@ func init() {
 func (spm *SScalingPolicyManager) ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential,
 	query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var err error
-	query, err = spm.SStandaloneResourceBaseManager.ValidateListConditions(ctx, userCred, query)
+	query, err = spm.SVirtualResourceBaseManager.ValidateListConditions(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +90,7 @@ func (spm *SScalingPolicyManager) ValidateListConditions(ctx context.Context, us
 func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, input api.ScalingPolicyListInput) (*sqlchemy.SQuery, error) {
 	var err error
-	q, err = spm.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, input.StatusStandaloneResourceListInput)
+	q, err = spm.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, input.VirtualResourceListInput)
 	if err != nil {
 		return q, err
 	}
@@ -110,7 +109,7 @@ func (spm *SScalingPolicyManager) ListItemFilter(ctx context.Context, q *sqlchem
 }
 
 func (spm *SScalingPolicyManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
-	q, err := spm.SStatusStandaloneResourceBaseManager.QueryDistinctExtraField(q, field)
+	q, err := spm.SVirtualResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -127,7 +126,7 @@ func (spm *SScalingPolicyManager) FilterByParentId(q *sqlchemy.SQuery, parentId 
 
 func (spm *SScalingPolicyManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query api.ScalingPolicyListInput) (*sqlchemy.SQuery, error) {
-	return spm.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.StatusStandaloneResourceListInput)
+	return spm.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.VirtualResourceListInput)
 }
 
 func (sgm *SScalingPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential,
@@ -144,7 +143,7 @@ func (spm *SScalingPolicyManager) FetchCustomizeColumns(
 	isList bool,
 ) []api.ScalingPolicyDetails {
 	rows := make([]api.ScalingPolicyDetails, len(objs))
-	statusRows := spm.SStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	statusRows := spm.SVirtualResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	sgRows := spm.SScalingGroupResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
 	var err error
 	for i := range rows {
@@ -152,7 +151,7 @@ func (spm *SScalingPolicyManager) FetchCustomizeColumns(
 		if err != nil {
 			log.Errorf("SScalingPolicy.getMoreDetails error: %s", err)
 		}
-		rows[i].StatusStandaloneResourceDetails = statusRows[i]
+		rows[i].VirtualResourceDetails = statusRows[i]
 		rows[i].ScalingGroupResourceInfo = sgRows[i]
 	}
 	return rows
@@ -200,8 +199,8 @@ func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCr
 	api.ScalingPolicyCreateInput, error) {
 	log.Debugf("insert validateCreateData")
 	var err error
-	input.StandaloneResourceCreateInput, err = spm.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query,
-		input.StandaloneResourceCreateInput)
+	input.VirtualResourceCreateInput, err = spm.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query,
+		input.VirtualResourceCreateInput)
 	if err != nil {
 		return input, err
 	}
@@ -513,36 +512,4 @@ func (sg *SScalingPolicy) PostCreate(ctx context.Context, userCred mcclient.Toke
 			return nil
 		})
 	}()
-}
-
-func (spm *SScalingPolicyManager) NamespaceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
-}
-
-func (spm *SScalingPolicyManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
-}
-
-func (spm *SScalingPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	if owner != nil {
-		switch scope {
-		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
-			scalingGroupQ := ScalingGroupManager.Query("id", "domain_id").SubQuery()
-			q = q.Join(scalingGroupQ, sqlchemy.Equals(q.Field("scaling_group_id"), scalingGroupQ.Field("id")))
-			q = q.Filter(sqlchemy.Equals(scalingGroupQ.Field("domain_id"), owner.GetProjectDomainId()))
-		}
-	}
-	return q
-}
-
-func (spm *SScalingPolicyManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return db.FetchDomainInfo(ctx, data)
-}
-
-func (sp *SScalingPolicy) GetOwnerId() mcclient.IIdentityProvider {
-	scalingGroup := sp.GetScalingGroup()
-	if scalingGroup != nil {
-		return scalingGroup.GetOwnerId()
-	}
-	return nil
 }

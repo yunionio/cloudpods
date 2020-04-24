@@ -379,7 +379,7 @@ func (sgm *SScalingGroupManager) FetchCustomizeColumns(
 
 func (sg *SScalingGroup) GuestNumber() (int, error) {
 	q := GuestManager.Query().In("id", ScalingGroupGuestManager.Query("guest_id").Equals("scaling_group_id",
-		sg.Id).SubQuery()).IsFalse("pending_deleted")
+		sg.Id).NotEquals("guest_status", api.SG_GUEST_STATUS_PENDING_REMOVE).SubQuery()).IsFalse("pending_deleted")
 	return q.CountWithError()
 }
 
