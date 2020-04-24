@@ -402,12 +402,8 @@ func (sa *SScalingAlarm) ValidateCreateData(input api.ScalingPolicyCreateInput) 
 	return input, nil
 }
 
-var notificationID = ""
-
 func (spm *SScalingPolicyManager) NotificationID(session *mcclient.ClientSession) (string, error) {
-	if len(notificationID) != 0 {
-		return notificationID, nil
-	}
+	var notificationID = ""
 	params := jsonutils.NewDict()
 	params.Set("type", jsonutils.NewString(monapi.AlertNotificationTypeAutoScaling))
 
@@ -422,7 +418,7 @@ func (spm *SScalingPolicyManager) NotificationID(session *mcclient.ClientSession
 	// To create new one
 	conTrue, conFalse := true, false
 	ncinput := monapi.NotificationCreateInput{
-		Name:                  "autoscaling",
+		Name:                  fmt.Sprintf("as-%s-%s", session.GetDomainName(), session.GetProjectName()),
 		Type:                  monapi.AlertNotificationTypeAutoScaling,
 		IsDefault:             false,
 		SendReminder:          &conFalse,
@@ -433,7 +429,7 @@ func (spm *SScalingPolicyManager) NotificationID(session *mcclient.ClientSession
 	if err != nil {
 		return "", errors.Wrap(err, "Notification.Create")
 	}
-	notificationID, _ := ret.GetString("id")
+	notificationID, _ = ret.GetString("id")
 	return notificationID, nil
 }
 
@@ -442,7 +438,7 @@ func (sa *SScalingAlarm) Register(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
-	session := auth.GetAdminSession(ctx, "", "")
+	session := auth.GetSession(ctx, userCred, "", "")
 	notificationID, err := ScalingPolicyManager.NotificationID(session)
 	if err != nil {
 		return errors.Wrap(err, "ScalingPolicyManager.NotificationID")

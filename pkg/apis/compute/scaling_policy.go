@@ -17,7 +17,7 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 type ScalingPolicyDetails struct {
-	apis.StatusStandaloneResourceDetails
+	apis.VirtualResourceDetails
 	ScalingGroupResourceInfo
 	SScalingPolicy
 	// 定时方式触发
@@ -29,7 +29,7 @@ type ScalingPolicyDetails struct {
 }
 
 type ScalingPolicyCreateInput struct {
-	apis.StandaloneResourceCreateInput
+	apis.VirtualResourceCreateInput
 	apis.EnabledBaseResourceCreateInput
 
 	// description: scaling_group ID or Name
@@ -67,7 +67,7 @@ type ScalingPolicyCreateInput struct {
 }
 
 type ScalingPolicyListInput struct {
-	apis.StatusStandaloneResourceListInput
+	apis.VirtualResourceListInput
 	apis.EnabledResourceBaseListInput
 
 	// description: scaling group
