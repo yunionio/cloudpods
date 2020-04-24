@@ -46,7 +46,15 @@ func RegisterModelManager(modelMan IModelManager) {
 
 func mustCheckModelManager(modelMan IModelManager) {
 	allowedTags := map[string][]string{
-		"create": {"required", "optional", "domain_required", "domain_optional", "admin_required", "admin_optional"},
+		"create": {
+			"required",
+			"optional",
+			"domain",
+			"domain_required",
+			"domain_optional",
+			"admin_required",
+			"admin_optional",
+		},
 		"search": {"user", "domain", "admin"},
 		"get":    {"user", "domain", "admin"},
 		"list":   {"user", "domain", "admin"},
