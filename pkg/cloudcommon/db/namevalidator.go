@@ -115,7 +115,7 @@ func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hi
 }
 
 var (
-	dnsNameREG = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]*$`)
+	dnsNameREG = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 )
 
 type SDnsNameValidatorManager struct{}
