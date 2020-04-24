@@ -70,31 +70,32 @@ type SDBInstance struct {
 
 	flavorCache []SDBInstanceFlavor
 
-	BackupStrategy    SBackupStrategy
-	Created           string //time.Time
-	Datastore         SDatastore
-	DbUserName        string
-	DIskEncryptionId  string
-	FlavorRef         string
-	Ha                SHa
-	Id                string
-	MaintenanceWindow string
-	Name              string
-	Nodes             []SNonde
-	Port              int
-	PrivateIps        []string
-	PublicIps         []string
-	Region            string
-	RelatedInstance   []SRelatedInstance
-	SecurityGroupId   string
-	Status            string
-	SubnetId          string
-	SwitchStrategy    string
-	TimeZone          string
-	Type              string
-	Updated           string //time.Time
-	Volume            SVolume
-	VpcId             string
+	BackupStrategy      SBackupStrategy
+	Created             string //time.Time
+	Datastore           SDatastore
+	DbUserName          string
+	DIskEncryptionId    string
+	FlavorRef           string
+	Ha                  SHa
+	Id                  string
+	MaintenanceWindow   string
+	Name                string
+	Nodes               []SNonde
+	Port                int
+	PrivateIps          []string
+	PublicIps           []string
+	Region              string
+	RelatedInstance     []SRelatedInstance
+	SecurityGroupId     string
+	Status              string
+	SubnetId            string
+	SwitchStrategy      string
+	TimeZone            string
+	Type                string
+	Updated             string //time.Time
+	Volume              SVolume
+	VpcId               string
+	EnterpriseProjectId string
 }
 
 func (region *SRegion) GetDBInstances() ([]SDBInstance, error) {
@@ -269,6 +270,10 @@ func (rds *SDBInstance) GetMaintainTime() string {
 
 func (rds *SDBInstance) GetIVpcId() string {
 	return rds.VpcId
+}
+
+func (rds *SDBInstance) GetProjectId() string {
+	return rds.EnterpriseProjectId
 }
 
 func (rds *SDBInstance) Refresh() error {

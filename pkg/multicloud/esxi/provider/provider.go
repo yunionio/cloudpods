@@ -186,7 +186,7 @@ func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, er
 }
 
 func (self *SESXiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return self.client.GetIProjects()
 }
 
 func (self *SESXiProvider) GetStorageClasses(regionId string) []string {

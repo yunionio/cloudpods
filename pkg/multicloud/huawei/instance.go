@@ -146,6 +146,7 @@ type SInstance struct {
 	OSSRVUSGTerminatedAt             time.Time                          `json:"OS-SRV-USG:terminated_at"`
 	SysTags                          []SysTag                           `json:"sys_tags"`
 	SecurityGroups                   []SecurityGroup                    `json:"security_groups"`
+	EnterpriseProjectId              string
 }
 
 func compareSet(currentSet []string, newSet []string) (add []string, remove []string, keep []string) {
@@ -1324,7 +1325,7 @@ func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (js
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return self.EnterpriseProjectId
 }
 
 func (self *SInstance) GetError() error {
