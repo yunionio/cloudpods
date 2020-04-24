@@ -18,19 +18,19 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 )
 
-type SEnterpriceProjectManager struct {
+type SEnterpriseProjectManager struct {
 	SResourceManager
 }
 
-func NewEnterpriceProjectManager(regionId string, projectId string, signer auth.Signer, debug bool) *SEnterpriceProjectManager {
-	return &SEnterpriceProjectManager{SResourceManager: SResourceManager{
+func NewEnterpriseProjectManager(regionId string, projectId string, signer auth.Signer, debug bool) *SEnterpriseProjectManager {
+	return &SEnterpriseProjectManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameEPS,
 		Region:        "",
 		ProjectId:     "",
 		version:       "v1.0",
-		Keyword:       "enterprise-project",
-		KeywordPlural: "enterprise-projects",
+		Keyword:       "enterprise_project",
+		KeywordPlural: "enterprise_projects",
 
 		ResourceKeyword: "enterprise-projects",
 	}}

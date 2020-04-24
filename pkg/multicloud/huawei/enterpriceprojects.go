@@ -23,7 +23,7 @@ import (
 )
 
 // https://support.huaweicloud.com/api-em/zh-cn_topic_0121230880.html
-type SEnterpriceProject struct {
+type SEnterpriseProject struct {
 	multicloud.SResourceBase
 
 	Id          string
@@ -34,13 +34,13 @@ type SEnterpriceProject struct {
 	UpdatedAt   time.Time
 }
 
-func (self *SHuaweiClient) GetEnterpriceProjects() ([]SEnterpriceProject, error) {
-	projects := []SEnterpriceProject{}
+func (self *SHuaweiClient) GetEnterpriseProjects() ([]SEnterpriseProject, error) {
+	projects := []SEnterpriseProject{}
 	client, err := self.newGeneralAPIClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "newGeneralAPIClient")
 	}
-	err = doListAllWithOffset(client.EnterpriceProjects.List, map[string]string{}, &projects)
+	err = doListAllWithOffset(client.EnterpriseProjects.List, map[string]string{}, &projects)
 	if err != nil {
 		return nil, errors.Wrap(err, "doListAllWithOffset")
 	}
