@@ -65,22 +65,22 @@ type SWire struct {
 	db.SInfrasResourceBase
 	db.SExternalizedResourceBase
 
-	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
-	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	SVpcResourceBase  `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	SZoneResourceBase `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
 
 	// 带宽大小, 单位Mbps
 	// example: 1000
-	Bandwidth int `list:"admin" update:"admin" nullable:"false" create:"admin_required" json:"bandwidth"`
+	Bandwidth int `list:"domain" update:"domain" nullable:"false" create:"domain_required" json:"bandwidth"`
 	// MTU
 	// example: 1500
-	Mtu int `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500" json:"mtu"`
+	Mtu int `list:"domain" update:"domain" nullable:"false" create:"domain_optional" default:"1500" json:"mtu"`
 	// swagger:ignore
-	ScheduleRank int `list:"admin" update:"admin" json:"schedule_rank"`
+	ScheduleRank int `list:"domain" update:"domain" json:"schedule_rank"`
 
 	// 可用区Id
-	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	// ZoneId string `width:"36" charset:"ascii" nullable:"true" list:"domain" create:"domain_required"`
 	// VPC Id
-	// VpcId string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	// VpcId string `wdith:"36" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
 }
 
 func (manager *SWireManager) GetContextManagers() [][]db.IModelManager {

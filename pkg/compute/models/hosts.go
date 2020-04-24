@@ -89,99 +89,99 @@ type SHost struct {
 	SBillingResourceBase
 
 	// 机架
-	Rack string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	Rack string `width:"16" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// 机位
-	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	Slots string `width:"16" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 管理口MAC
-	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin"`
+	AccessMac string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"domain" update:"domain"`
 
 	// 管理口Ip地址
-	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"`
+	AccessIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
 
 	// 管理地址
-	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain"`
 
 	// 系统信息
-	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`
+	SysInfo jsonutils.JSONObject `nullable:"true" search:"domain" list:"domain" update:"domain" create:"domain_optional"`
 	// 物理机序列号信息
-	SN string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	SN string `width:"128" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// CPU核数
-	CpuCount int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	CpuCount int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 物理CPU颗数
-	NodeCount int8 `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	NodeCount int8 `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// CPU描述信息
-	CpuDesc string `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	CpuDesc string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU频率
-	CpuMhz int `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	CpuMhz int `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU缓存大小,单位KB
-	CpuCache int `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	CpuCache int `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// 预留CPU大小
-	CpuReserved int `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`
+	CpuReserved int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// CPU超分比
-	CpuCmtbound float32 `nullable:"true" default:"8" list:"admin" update:"admin" create:"admin_optional"`
+	CpuCmtbound float32 `nullable:"true" default:"8" list:"domain" update:"domain" create:"domain_optional"`
 	// CPUMicrocode
-	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	CpuMicrocode string `width:"64" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// CPU架构
-	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"admin" create:"admin_optional"`
+	CpuArchitecture string `width:"16" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 内存大小,单位Mb
-	MemSize int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	MemSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 预留内存大小
-	MemReserved int `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`
+	MemReserved int `nullable:"true" default:"0" list:"domain" update:"domain" create:"domain_optional"`
 	// 内存超分比
-	MemCmtbound float32 `nullable:"true" default:"1" list:"admin" update:"admin" create:"admin_optional"`
+	MemCmtbound float32 `nullable:"true" default:"1" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 存储大小,单位Mb
-	StorageSize int `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	StorageSize int `nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储类型
-	StorageType string `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	StorageType string `width:"20" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 	// 存储驱动类型
-	StorageDriver string `width:"20" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	StorageDriver string `width:"20" charset:"ascii" nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 	// 存储详情
-	StorageInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	StorageInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// IPMI地址
-	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"admin"`
+	IpmiIp string `width:"16" charset:"ascii" nullable:"true" list:"domain"`
 
 	// IPMI详情
-	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`
+	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"domain" update:"domain" create:"domain_optional"`
 
 	// 宿主机状态
 	// example: online
-	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"`
+	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"domain"`
 
 	// 宿主机类型
-	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+	HostType string `width:"36" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_required"`
 
 	// host服务软件版本
-	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
+	Version string `width:"64" charset:"ascii" list:"domain" update:"domain" create:"domain_optional"`
 	// OVN软件版本
-	OvnVersion string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"`
+	OvnVersion string `width:"64" charset:"ascii" list:"domain" update:"domain" create:"domain_optional"`
 
-	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+	IsBaremetal bool `nullable:"true" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 是否处于维护状态
-	IsMaintenance bool `nullable:"true" default:"false" list:"admin"`
+	IsMaintenance bool `nullable:"true" default:"false" list:"domain"`
 
 	LastPingAt time.Time ``
 
-	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional" default:"shared"`
+	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional" default:"shared"`
 
-	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
+	RealExternalId string `width:"256" charset:"utf8" get:"domain"`
 
 	// 是否为导入的宿主机
-	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
+	IsImport bool `nullable:"true" default:"false" list:"domain" create:"domain_optional"`
 
 	// 是否允许PXE启动
-	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"admin" create:"admin_optional" update:"admin"`
+	EnablePxeBoot tristate.TriState `nullable:"false" default:"true" list:"domain" create:"domain_optional" update:"domain"`
 
 	// 主机UUID
-	Uuid string `width:"64" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Uuid string `width:"64" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	// 主机启动模式, 可能值位PXE和ISO
-	BootMode string `width:"8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	BootMode string `width:"8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
