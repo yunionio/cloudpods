@@ -124,6 +124,14 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		var fullErrMsgs []core.PredicateFailureReason
 		found := false
 
+		if len(networks) == 0 {
+			fullErrMsgs = append(fullErrMsgs, &FailReason{
+				Reason: "Not found random available networks",
+				Type:   NetworkMatch,
+			})
+			return fullErrMsgs
+		}
+
 		for _, n := range networks {
 			errMsgs := []core.PredicateFailureReason{}
 			appendError := func(msg core.PredicateFailureReason) {
@@ -141,7 +149,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				appendError(FailReason{Reason: ErrExitIsNotMatch})
 			}
 
-			if !(n.GetPorts() > 0 || isMigrate()) {
+			if !(c.Getter().GetFreePort(n.GetId()) > 0 || isMigrate()) {
 				appendError(FailReason{
 					Reason: fmt.Sprintf("%v(%v): ports use up", n.Name, n.Id),
 					Type:   NetworkPort,
@@ -235,6 +243,13 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters, networks []*api.CandidateNetwork) []core.PredicateFailureReason {
 		errMsgs := make([]core.PredicateFailureReason, 0)
+		if len(networks) == 0 {
+			errMsgs = append(errMsgs, &FailReason{
+				Reason: ErrNoAvailableNetwork,
+				Type:   NetworkMatch,
+			})
+			return errMsgs
+		}
 		for _, net := range networks {
 			if !(n.Network == net.GetId() || n.Network == net.GetName()) {
 				errMsgs = append(errMsgs, &FailReason{
@@ -243,7 +258,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				})
 				continue
 			}
-			if !(net.GetPorts() > 0 || isMigrate()) {
+			if !(c.Getter().GetFreePort(net.GetId()) > 0 || isMigrate()) {
 				errMsgs = append(errMsgs, &FailReason{
 					Reason: fmt.Sprintf("%v(%v): ports use up", net.Name, net.Id),
 					Type:   NetworkPort,
