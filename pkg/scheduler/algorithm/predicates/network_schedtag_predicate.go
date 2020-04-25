@@ -114,6 +114,14 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 		}
 	}
 
+	freeCnt := c.Getter().GetFreePort(network.GetId())
+	if freeCnt <= 0 {
+		return &FailReason{
+			Reason: fmt.Sprintf("Network %s no free address", network.GetName()),
+			Type:   NetworkFreeCount,
+		}
+	}
+
 	if net.Network == "" {
 		if network.Provider == computeapi.CLOUD_PROVIDER_ONECLOUD {
 			return &FailReason{
@@ -150,11 +158,12 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candi
 				}
 			}
 			if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
+				// domain-wide share
 				netDomain := network.DomainId
 				reqDomain := net.Domain
-				if netDomain != reqDomain {
+				if !(netDomain == reqDomain || utils.IsInStringArray(reqDomain, network.GetSharedDomains())) {
 					return &FailReason{
-						fmt.Sprintf("Network domain scope %s not owner by %s", netDomain, reqDomain),
+						fmt.Sprintf("Network %s domain scope %s not owner by %s", network.Name, netDomain, reqDomain),
 						NetworkDomain,
 					}
 				}
