@@ -239,7 +239,7 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 		}
 		return &ownerId, nil
 	}
-	return nil, nil
+	return FetchProjectInfo(ctx, data)
 }
 
 func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
