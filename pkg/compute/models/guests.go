@@ -69,7 +69,6 @@ type SGuestManager struct {
 	db.SVirtualResourceBaseManager
 	db.SExternalizedResourceBaseManager
 	SDeletePreventableResourceBaseManager
-	db.SDnsNameValidatorManager
 
 	SHostResourceBaseManager
 	SBillingResourceBaseManager
@@ -5225,4 +5224,15 @@ func (guest *SGuest) GetUsages() []db.IUsage {
 		&usage,
 		&regionUsage,
 	}
+}
+
+var (
+	serverNameREG = regexp.MustCompile(`^[a-z$][a-z0-9-${}.]*$`)
+)
+
+func (manager *SGuestManager) ValidateName(name string) error {
+	if serverNameREG.MatchString(name) {
+		return nil
+	}
+	return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and - only")
 }
