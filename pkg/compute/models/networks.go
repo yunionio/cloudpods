@@ -36,9 +36,11 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -310,7 +312,7 @@ func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
 	return NetworkInterfaceManager.Query().In("id", sq).CountWithError()
 }
 
-func (manager *SNetworkManager) NewClassicNetwork(wire *SWire) (*SNetwork, error) {
+func (manager *SNetworkManager) GetOrCreateClassicNetwork(wire *SWire) (*SNetwork, error) {
 	_network, err := db.FetchByExternalId(manager, wire.Id)
 	if err == nil {
 		return _network.(*SNetwork), nil
@@ -575,7 +577,7 @@ func (self *SNetwork) IsExitNetwork() bool {
 }
 
 func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, error) {
-	return wire.getNetworks()
+	return wire.getNetworks(nil, rbacutils.ScopeNone)
 	/* nets := make([]SNetwork, 0)
 	q := manager.Query().Equals("wire_id", wire.Id)
 	err := db.FetchModelObjects(manager, q, &nets)
@@ -2586,4 +2588,16 @@ func (manager *SNetworkManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	return q, nil
+}
+
+func (manager *SNetworkManager) AllowScope(userCred mcclient.TokenCredential) rbacutils.TRbacScope {
+	if consts.IsRbacEnabled() {
+		return policy.PolicyManager.AllowScope(userCred, api.SERVICE_TYPE, NetworkManager.KeywordPlural(), policy.PolicyActionGet)
+	} else {
+		if userCred.HasSystemAdminPrivilege() {
+			return rbacutils.ScopeSystem
+		} else {
+			return rbacutils.ScopeProject
+		}
+	}
 }

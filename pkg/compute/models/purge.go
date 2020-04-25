@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IPurgeableManager interface {
@@ -939,7 +940,7 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (wire *SWire) purgeNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	nets, err := wire.getNetworks()
+	nets, err := wire.getNetworks(nil, rbacutils.ScopeNone)
 	if err != nil {
 		return err
 	}
