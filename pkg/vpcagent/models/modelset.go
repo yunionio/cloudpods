@@ -216,9 +216,11 @@ func (set Guestnetworks) joinGuests(subEntries Guests) bool {
 		gId := gn.GuestId
 		g, ok := subEntries[gId]
 		if !ok {
-			log.Warningf("guestnetwork %d(%s,%s) guest id %s not found",
-				gn.Index, gn.NetworkId, gn.IpAddr, gId)
-			correct = false
+			if gn.Network != nil && gn.Network.Vpc != nil {
+				log.Warningf("guestnetwork %d(net:%s,ip:%s) guest id %s not found",
+					gn.RowId, gn.NetworkId, gn.IpAddr, gId)
+				correct = false
+			}
 			continue
 		}
 		gn.Guest = g
