@@ -1084,7 +1084,7 @@ func (manager *SVpcManager) totalCount(
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
 	}
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 
 	cnt, _ := q.CountWithError()
 
