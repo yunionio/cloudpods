@@ -41,6 +41,20 @@ func init() {
 		printList(result, modules.ScalingGroup.GetColumns(s))
 		return nil
 	})
+
+	type ScalingGroupShowOptions struct {
+		ID string
+	}
+	R(&ScalingGroupShowOptions{}, "scaling-group-show", "Show scaling group", func(s *mcclient.ClientSession,
+		args *ScalingGroupShowOptions) error {
+		result, err := modules.ScalingGroup.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type ScalingGroupCreateOptions struct {
 		NAME string
 

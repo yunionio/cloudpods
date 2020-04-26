@@ -379,7 +379,7 @@ func (sgm *SScalingGroupManager) FetchCustomizeColumns(
 
 func (sg *SScalingGroup) GuestNumber() (int, error) {
 	q := GuestManager.Query().In("id", ScalingGroupGuestManager.Query("guest_id").Equals("scaling_group_id",
-		sg.Id).NotEquals("guest_status", api.SG_GUEST_STATUS_PENDING_REMOVE).SubQuery()).IsFalse("pending_deleted")
+		sg.Id).SubQuery()).IsFalse("pending_deleted")
 	return q.CountWithError()
 }
 
@@ -440,8 +440,6 @@ type sExecResult struct {
 func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret sExecResult) {
 	ret.code = 3
 	ret.intanceNum = -1
-	lockman.LockObject(ctx, sg)
-	defer lockman.ReleaseObject(ctx, sg)
 	// query again to fetch the latest desire instance number of sg
 	model, err := ScalingGroupManager.FetchById(sg.Id)
 	if err != nil {
@@ -497,20 +495,27 @@ func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret s
 
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
-func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction) (bool, error) {
+func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction,
+	coolingTime int) error {
+	lockman.LockObject(ctx, sg)
+	defer lockman.ReleaseObject(ctx, sg)
 	isExec := false
+	defer func() {
+		if isExec && coolingTime > 0 {
+			sg.SetAllowScaleTime(time.Now().Add(time.Duration(coolingTime) * time.Second))
+		}
+	}()
 	if sg.Enabled.IsFalse() {
-		return isExec, nil
+		return nil
 	}
 	scalingActivity, err := ScalingActivityManager.CreateScalingActivity(sg.Id, triggerDesc.TriggerDescription(), api.SA_STATUS_EXEC)
 	if err != nil {
-		return isExec, errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
+		return errors.Wrapf(err, "create ScalingActivity whose ScalingGroup is %s error", sg.Id)
 	}
 	if action.CheckCoolTime() && !sg.AllowScale() {
 		err = scalingActivity.SetReject("",
-			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s",
-				sg.AllowScaleTime))
-		return isExec, nil
+			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s", sg.AllowScaleTime.Format("2006-01-02 15:04:05")))
+		return nil
 	}
 
 	ret := sg.exec(ctx, action)
@@ -530,7 +535,7 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	if err != nil {
 		log.Errorf("ScalingActivity set result failed: %s", err.Error())
 	}
-	return isExec, nil
+	return nil
 }
 
 func (sgm *SScalingGroupManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {

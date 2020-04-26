@@ -514,7 +514,15 @@ func (asc *SASController) CreateInstances(
 		instanceMap[instane.ID] = instane
 	}
 	// check all server's status
-	go asc.checkAllServer(session, guestIds, retChan)
+	var waitLimit, waitinterval time.Duration
+	if sg.Hypervisor == compute.HYPERVISOR_KVM {
+		waitLimit = 5 * time.Minute
+		waitinterval = 3 * time.Second
+	} else {
+		waitLimit = 10 * time.Minute
+		waitinterval = 10 * time.Second
+	}
+	go asc.checkAllServer(session, guestIds, retChan, waitLimit, waitinterval)
 
 	// fourth stage: bind lb and db
 	failRecord := &SFailRecord{
@@ -558,10 +566,11 @@ type SCreateRet struct {
 	Status string
 }
 
-func (asc *SASController) checkAllServer(session *mcclient.ClientSession, guestIds []string, retChan chan SCreateRet) {
+func (asc *SASController) checkAllServer(session *mcclient.ClientSession, guestIds []string, retChan chan SCreateRet,
+	waitLimit, waitInterval time.Duration) {
 	guestIDSet := sets.NewString(guestIds...)
-	ticker := time.NewTicker(3 * time.Second)
-	timer := time.NewTimer(5 * time.Minute)
+	timer := time.NewTimer(waitLimit)
+	ticker := time.NewTicker(waitInterval)
 	defer func() {
 		close(retChan)
 		ticker.Stop()
