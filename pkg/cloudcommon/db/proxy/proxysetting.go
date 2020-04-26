@@ -56,9 +56,9 @@ func init() {
 type SProxySetting struct {
 	db.SInfrasResourceBase
 
-	HTTPProxy  string `create:"admin_optional" list:"admin" update:"admin"`
-	HTTPSProxy string `create:"admin_optional" list:"admin" update:"admin"`
-	NoProxy    string `create:"admin_optional" list:"admin" update:"admin"`
+	HTTPProxy  string `create:"domain_optional" list:"domain" update:"domain"`
+	HTTPSProxy string `create:"domain_optional" list:"domain" update:"domain"`
+	NoProxy    string `create:"domain_optional" list:"domain" update:"domain"`
 }
 
 func (man *SProxySettingManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data proxyapi.ProxySettingCreateInput) (proxyapi.ProxySettingCreateInput, error) {
