@@ -14,7 +14,11 @@
 
 package options
 
-import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+import (
+	"os"
+
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+)
 
 type SHostOptions struct {
 	common_options.CommonOptions
@@ -120,4 +124,25 @@ type SHostOptions struct {
 	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"mapped" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
 }
 
-var HostOptions SHostOptions
+var (
+	HostOptions SHostOptions
+)
+
+func Parse() (hostOpts SHostOptions) {
+	common_options.ParseOptions(&hostOpts, os.Args, "host.conf", "host")
+	if len(hostOpts.CommonConfigFile) > 0 {
+		commonCfg := &common_options.CommonOptions{}
+		commonCfg.Config = hostOpts.CommonConfigFile
+		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
+
+		baseOpt := hostOpts.BaseOptions.BaseOptions
+		hostOpts.CommonOptions = *commonCfg
+		// keep base options
+		hostOpts.BaseOptions.BaseOptions = baseOpt
+	}
+	return hostOpts
+}
+
+func Init() {
+	HostOptions = Parse()
+}
