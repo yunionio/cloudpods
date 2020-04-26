@@ -263,6 +263,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
 		} else if vpc.Id != api.DEFAULT_VPC_ID && vpc.GetProviderName() == api.CLOUD_PROVIDER_ONECLOUD {
 			var err error
+			GuestnetworkManager.lockAllocMappedAddr(ctx)
+			defer GuestnetworkManager.unlockAllocMappedAddr(ctx)
 			gn.MappedIpAddr, err = GuestnetworkManager.allocMappedIpAddr(ctx)
 			if err != nil {
 				return nil, err
