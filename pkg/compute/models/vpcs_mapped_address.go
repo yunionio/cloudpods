@@ -44,7 +44,7 @@ func (man *SGuestnetworkManager) allocMappedIpAddr_(ctx context.Context) (string
 
 	sip := api.VpcMappedIPStart()
 	eip := api.VpcMappedIPEnd()
-	for i := sip; i <= eip; i++ {
+	for i := eip; i >= sip; i-- {
 		s := i.String()
 		if !utils.IsInStringArray(s, used) {
 			return s, nil
