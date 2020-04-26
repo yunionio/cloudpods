@@ -2584,6 +2584,10 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 	out.StorageCommitRate = capa.GetCommitRate()
 	out.Spec = self.GetHardwareSpecification()
 
+	// custom cpu mem commit bound
+	out.CpuCmtbound = self.GetCPUOvercommitBound()
+	out.MemCmtbound = self.GetMemoryOvercommitBound()
+
 	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
 
 	out.IsPrepaidRecycle = false
