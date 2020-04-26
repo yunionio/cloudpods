@@ -55,3 +55,16 @@ type BaremetalOptions struct {
 var (
 	Options BaremetalOptions
 )
+
+func OnOptionsChange(oldO, newO interface{}) bool {
+	oldOpts := oldO.(*BaremetalOptions)
+	newOpts := newO.(*BaremetalOptions)
+
+	changed := false
+
+	if common_options.OnCommonOptionsChange(&oldOpts.CommonOptions, &newOpts.CommonOptions) {
+		changed = true
+	}
+
+	return changed
+}
