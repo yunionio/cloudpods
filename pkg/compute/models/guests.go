@@ -201,14 +201,14 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("id", netQ.SubQuery())
 	}
 
-	diskQ := GuestdiskManager.Query("guest_id").Snapshot()
-	diskQ, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, diskQ, userCred, query.DiskFilterListInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
-	}
-	if diskQ.IsAltered() {
-		q = q.In("id", diskQ.SubQuery())
-	}
+	//diskQ := GuestdiskManager.Query("guest_id").Snapshot()
+	//diskQ, err = manager.SDiskResourceBaseManager.ListItemFilter(ctx, diskQ, userCred, query.DiskFilterListInput)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemFilter")
+	//}
+	//if diskQ.IsAltered() {
+	//	q = q.In("id", diskQ.SubQuery())
+	//}
 
 	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").NotEquals("guest_status", api.SG_GUEST_STATUS_PENDING_REMOVE).Snapshot()
 	scalingGroupQ, err = manager.SScalingGroupResourceBaseManager.ListItemFilter(ctx, scalingGroupQ, userCred, query.ScalingGroupFilterListInput)
@@ -337,7 +337,7 @@ func (manager *SGuestManager) ListItemFilter(
 		q = q.In("host_id", sq)
 	}
 
-	/*diskFilter := query.Disk
+	diskFilter := query.AttachableServersForDisk
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {
@@ -362,7 +362,7 @@ func (manager *SGuestManager) ListItemFilter(
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
-	}*/
+	}
 
 	withEip := (query.WithEip != nil && *query.WithEip)
 	withoutEip := (query.WithoutEip != nil && *query.WithoutEip)
@@ -501,15 +501,15 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 			return nil, errors.Wrap(err, "SNetworkResourceBaseManager.OrderByExtraFields")
 		}
 	}
-	fields = manager.SDiskResourceBaseManager.GetOrderByFields(query.DiskFilterListInput)
-	if db.NeedOrderQuery(fields) {
-		diskQ := GuestdiskManager.Query("guest_id", "disk_id").SubQuery()
-		q = q.LeftJoin(diskQ, sqlchemy.Equals(q.Field("id"), diskQ.Field("guest_id"))).Distinct()
-		q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
-		if err != nil {
-			return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
-		}
-	}
+	//fields = manager.SDiskResourceBaseManager.GetOrderByFields(query.DiskFilterListInput)
+	//if db.NeedOrderQuery(fields) {
+	//	diskQ := GuestdiskManager.Query("guest_id", "disk_id").SubQuery()
+	//	q = q.LeftJoin(diskQ, sqlchemy.Equals(q.Field("id"), diskQ.Field("guest_id"))).Distinct()
+	//	q, err = manager.SDiskResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.DiskFilterListInput)
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "SDiskResourceBaseManager.OrderByExtraFields")
+	//	}
+	//}
 
 	return q, nil
 }

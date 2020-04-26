@@ -155,7 +155,7 @@ func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient
 func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) {
 		return nil, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
-	} else if !data.Contains("name") {
+	} else if !data.Contains("name") && !data.Contains("generate_name") {
 		return nil, httperrors.NewInputParameterError("Image name is required")
 	} else if disks := self.CategorizeDisks(); disks.Root == nil {
 		return nil, httperrors.NewInputParameterError("No root image")

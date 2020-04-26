@@ -34,7 +34,7 @@ type ServerListInput struct {
 
 	GroupFilterListInput
 	SecgroupFilterListInput
-	DiskFilterListInput `"yunion:ambiguous-prefix":"storage_"`
+	//DiskFilterListInput `"yunion:ambiguous-prefix":"storage_"`
 	ScalingGroupFilterListInput
 
 	// 只列出裸金属主机
@@ -60,6 +60,9 @@ type ServerListInput struct {
 
 	// 列出可以挂载指定EIP的主机
 	UsableServerForEip string `json:"usable_server_for_eip"`
+
+	// 列出可以挂载磁盘的主机
+	AttachableServersForDisk string `json:"attachable_servers_for_disk" "yunion:deprecated-by":"disk"`
 
 	// 按主机资源类型进行排序
 	// enum: shared,prepaid,dedicated

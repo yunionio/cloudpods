@@ -973,15 +973,18 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
 	}
 	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
-	name, _ := data.GetString("name")
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"}))
-	if err != nil {
-		return "", err
+	if !data.Contains("generate_name") {
+		name, _ := data.GetString("name")
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
+		imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"}))
+		if err != nil {
+			return "", err
+		}
+		if imageList.Total > 0 {
+			return "", httperrors.NewConflictError("Duplicate image name %s", name)
+		}
 	}
-	if imageList.Total > 0 {
-		return "", httperrors.NewConflictError("Duplicate image name %s", name)
-	}
+
 	/*
 		no need to check quota anymore
 		session := auth.GetSession(userCred, options.Options.Region, "v2")
