@@ -221,6 +221,9 @@ func (st *SScalingTimer) Update(now time.Time) {
 	case st.WeekDays != 0:
 		// week
 		nowDay, weekdays := int(newNextTime.Weekday()), st.GetWeekDays()
+		if nowDay == 0 {
+			nowDay = 7
+		}
 
 		// weekdays[0]+7 is for the case that all time nodes has been missed in this week
 		weekdays = append(weekdays, weekdays[0]+7)
