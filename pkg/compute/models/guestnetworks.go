@@ -440,6 +440,24 @@ func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHos
 }
 
 func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.JSONDict {
+	if self.MappedIpAddr == "" {
+		var (
+			err  error
+			addr string
+		)
+		addr, err = GuestnetworkManager.allocMappedIpAddr(context.TODO())
+		if err != nil {
+			log.Errorf("getJsonDescOneCloudVpc: row %d: alloc mapped ipaddr: %v", self.RowId, err)
+		} else {
+			if _, err := db.Update(self, func() error {
+				self.MappedIpAddr = addr
+				return nil
+			}); err != nil {
+				log.Errorf("getJsonDescOneCloudVpc: row %d: db update mapped addr: %v", self.RowId, err)
+				self.MappedIpAddr = ""
+			}
+		}
+	}
 	vpc := network.GetVpc()
 
 	vpcDesc := jsonutils.NewDict()
