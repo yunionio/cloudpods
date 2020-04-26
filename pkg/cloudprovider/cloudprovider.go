@@ -33,66 +33,66 @@ const (
 )
 
 type SCloudaccountCredential struct {
-	// 账号所在的项目
+	// 账号所在的项目 (openstack)
 	ProjectName string `json:"project_name"`
 
-	// 账号所在的域
+	// 账号所在的域 (openstack)
 	// default: Default
 	DomainName string `json:"domain_name"`
 
-	// 用户名
+	// 用户名 (openstack, zstack, esxi)
 	Username string `json:"username"`
 
-	// 密码
+	// 密码 (openstack, zstack, esxi)
 	Password string `json:"password"`
 
-	// 认证地址
+	// 认证地址 (openstack,zstack)
 	AuthUrl string `json:"auto_url"`
 
-	// 秘钥id
+	// 秘钥id (Aliyun, Aws, huawei, ucloud, ctyun, zstack, s3)
 	AccessKeyId string `json:"access_key_id"`
 
-	// 秘钥key
+	// 秘钥key (Aliyun, Aws, huawei, ucloud, ctyun, zstack, s3)
 	AccessKeySecret string `json:"access_key_secret"`
 
-	// 环境
+	// 环境 (Azure, Aws, huawei, ctyun)
 	Environment string `json:"environment"`
 
-	// 目录ID
+	// 目录ID (Azure)
 	DirectoryId string `json:"directory_id"`
 
-	// 客户端ID
+	// 客户端ID (Azure)
 	ClientId string `json:"client_id"`
 
-	// 客户端秘钥
+	// 客户端秘钥 (Azure)
 	ClientSecret string `json:"client_secret"`
 
-	// 主机IP
+	// 主机IP (esxi)
 	Host string `json:"host"`
 
-	// 主机端口
+	// 主机端口 (esxi)
 	Port int `json:"port"`
 
-	// 端点
+	// 端点 (s3)
 	Endpoint string `json:"endpoint"`
 
-	// app id
+	// app id (Qcloud)
 	AppId string `json:"app_id"`
 
-	//秘钥ID
+	//秘钥ID (Qcloud)
 	SecretId string `json:"secret_id"`
 
-	//秘钥key
+	//秘钥key (Qcloud)
 	SecretKey string `json:"secret_key"`
 
-	// Google服务账号email
-	ClientEmail string `json:"client_email"`
-	// Google服务账号project id
-	ProjectId string `json:"project_id"`
-	// Google服务账号秘钥id
-	PrivateKeyId string `json:"private_key_id"`
-	// Google服务账号秘钥
-	PrivateKey string `json:"private_key"`
+	// Google服务账号email (gcp)
+	GCPClientEmail string `json:"gcp_client_email"`
+	// Google服务账号project id (gcp)
+	GCPProjectId string `json:"gcp_project_id"`
+	// Google服务账号秘钥id (gcp)
+	GCPPrivateKeyId string `json:"gcp_private_key_id"`
+	// Google服务账号秘钥 (gcp)
+	GCPPrivateKey string `json:"gcp_private_key"`
 }
 
 type SCloudaccount struct {
