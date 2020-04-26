@@ -68,7 +68,7 @@ type SecurityGroup struct {
 
 type ExtraSpecs struct {
 	CpuPolicy   string `json:"hw:cpu_policy,omitempty"`
-	MemPageSize int    `json:"hw:mem_page_size,omitempty"`
+	MemPageSize string `json:"hw:mem_page_size,omitempty"`
 }
 
 type Resource struct {
