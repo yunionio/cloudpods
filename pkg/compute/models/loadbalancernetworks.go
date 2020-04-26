@@ -293,7 +293,7 @@ func totalLBNicCount(
 	case rbacutils.ScopeProject:
 		q = q.Filter(sqlchemy.Equals(lbs.Field("tenant_id"), ownerId.GetProjectId()))
 	}
-	q = rangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, lbs.Field("zone_id"), lbs.Field("manager_id"))
 	q = CloudProviderFilter(q, lbs.Field("manager_id"), providers, brands, cloudEnv)
 	return q.CountWithError()
 }

@@ -1196,7 +1196,7 @@ func (manager *SBucketManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers []
 }
 
 func (manager *SBucketManager) usageQByRanges(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel) *sqlchemy.SQuery {
-	return rangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
+	return RangeObjectsFilter(q, rangeObjs, q.Field("cloudregion_id"), nil, q.Field("manager_id"))
 }
 
 func (manager *SBucketManager) usageQ(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {

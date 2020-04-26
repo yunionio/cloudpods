@@ -450,7 +450,7 @@ func (manager *SWireManager) totalCountQ(
 		hostsQ = CloudProviderFilter(hostsQ, hostsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
 	if len(rangeObjs) > 0 {
-		hostsQ = rangeObjectsFilter(hostsQ, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"))
+		hostsQ = RangeObjectsFilter(hostsQ, rangeObjs, nil, hostsQ.Field("zone_id"), hostsQ.Field("manager_id"))
 	}
 	hosts := hostsQ.SubQuery()
 	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
@@ -459,7 +459,7 @@ func (manager *SWireManager) totalCountQ(
 		lbsQ = CloudProviderFilter(lbsQ, lbsQ.Field("manager_id"), providers, brands, cloudEnv)
 	}
 	if len(rangeObjs) > 0 {
-		lbsQ = rangeObjectsFilter(lbsQ, rangeObjs, lbsQ.Field("cloudregion_id"), lbsQ.Field("zone_id"), lbsQ.Field("manager_id"))
+		lbsQ = RangeObjectsFilter(lbsQ, rangeObjs, lbsQ.Field("cloudregion_id"), lbsQ.Field("zone_id"), lbsQ.Field("manager_id"))
 	}
 	lbs := lbsQ.SubQuery()
 
