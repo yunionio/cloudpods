@@ -34,6 +34,8 @@ func init() {
 			"http_proxy",
 			"https_proxy",
 			"no_proxy",
+			"is_public",
+			"public_scope",
 		},
 		[]string{})}
 	registerCompute(&ProxySettings)
