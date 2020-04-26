@@ -16,14 +16,12 @@ package suggestsysdrivers
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -45,9 +43,7 @@ func (_ *EIPUnused) GetResourceType() string {
 
 func NewEIPUsedDriver() models.ISuggestSysRuleDriver {
 	return &EIPUnused{
-		monitor.EIPUnused{
-			//Status: "",
-		},
+		EIPUnused: monitor.EIPUnused{},
 	}
 }
 
@@ -58,12 +54,9 @@ func (dri *EIPUnused) ValidateSetting(input *monitor.SSuggestSysAlertSetting) er
 }
 
 func (rule *EIPUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
-	oldAlert := make([]models.SSuggestSysAlert, 0)
-	q := models.SuggestSysAlertManager.Query()
-	q.Equals("type", monitor.EIP_UN_USED)
-	err := db.FetchModelObjects(models.SuggestSysAlertManager, q, &oldAlert)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorln(errors.Wrap(err, "db.FetchModelObjects"))
+	oldAlert, err := getLastAlerts(rule)
+	if err != nil {
+		log.Errorln(err)
 		return
 	}
 	newAlert, err := rule.getEIPUnused(instance)
@@ -90,18 +83,9 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		if row.ContainsIgnoreCases("associate_type") || row.ContainsIgnoreCases("associate_id") {
 			continue
 		}
-		suggestSysAlert := new(models.SSuggestSysAlert)
-		alertData := jsonutils.DeepCopy(row).(*jsonutils.JSONDict)
-		id, _ := alertData.GetString("id")
-		alertData.Add(jsonutils.NewString(id), "res_id")
-		alertData.Remove("id")
-
-		err := alertData.Unmarshal(suggestSysAlert)
+		suggestSysAlert, err := getSuggestSysAlertFromJson(row, rule)
 		if err != nil {
 			return EIPUnsedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
-		}
-		if val, err := alertData.GetString("account"); err == nil {
-			suggestSysAlert.Cloudaccount = val
 		}
 
 		input := &monitor.SSuggestSysAlertSetting{
@@ -116,10 +100,6 @@ func (rule *EIPUnused) getEIPUnused(instance *monitor.SSuggestSysAlertSetting) (
 		problem.Add(jsonutils.NewString(rule.GetType()), "eip")
 		suggestSysAlert.Problem = problem
 
-		suggestSysAlert.Type = rule.GetType()
-
-		suggestSysAlert.Action = monitor.DRIVER_ACTION
-		suggestSysAlert.ResMeta = row
 		EIPUnsedArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
 	return EIPUnsedArr, nil
