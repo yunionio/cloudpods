@@ -1311,6 +1311,10 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		return input, httperrors.NewInputParameterError("Invalid masklen %d", input.GuestIpMask)
 	}
 
+	if len(input.GuestDns) == 0 {
+		input.GuestDns = options.Options.DNSServer
+	}
+
 	for key, ipStr := range map[string]string{"guest_gateway": input.GuestGateway, "guest_dns": input.GuestDns, "guest_dhcp": input.GuestDHCP} {
 		if len(ipStr) > 0 {
 			if key == "guest_dhcp" {
