@@ -121,9 +121,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
+			net, _ = wire.GetCandidatePublicNetwork(userCred, models.NetworkManager.AllowScope(userCred), netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)

@@ -179,7 +179,7 @@ func (manager *SVpcManager) getVpcExternalIdForClassicNetwork(regionId, cloudpro
 	return fmt.Sprintf("%s-%s", regionId, cloudproviderId)
 }
 
-func (manager *SVpcManager) NewVpcForClassicNetwork(host *SHost) (*SVpc, error) {
+func (manager *SVpcManager) GetOrCreateVpcForClassicNetwork(host *SHost) (*SVpc, error) {
 	region := host.GetRegion()
 	cloudprovider := host.GetCloudprovider()
 	externalId := manager.getVpcExternalIdForClassicNetwork(region.Id, cloudprovider.Id)

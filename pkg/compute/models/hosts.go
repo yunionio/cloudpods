@@ -2137,7 +2137,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	netInterfaces := self.GetNetInterfaces()
 	for _, netInterface := range netInterfaces {
-		network, err := netInterface.GetCandidateNetworkForIp(auth.AdminCredential(), ipAddr)
+		network, err := netInterface.GetCandidateNetworkForIp(nil, rbacutils.ScopeNone, ipAddr)
 		if err == nil && network != nil {
 			return network, nil
 		}
@@ -2993,7 +2993,7 @@ func (manager *SHostManager) ValidateCreateData(
 					wire := wireObj.(*SWire)
 					lockman.LockObject(ctx, wire)
 					defer lockman.ReleaseObject(ctx, wire)
-					net, err := wire.GetCandidatePrivateNetwork(userCred, false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
+					net, err := wire.GetCandidatePrivateNetwork(userCred, NetworkManager.AllowScope(userCred), false, []string{api.NETWORK_TYPE_PXE, api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST})
 					if err != nil {
 						return input, httperrors.NewGeneralError(err)
 					}
@@ -3703,7 +3703,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				return httperrors.NewInputParameterError("invalid ipaddr %s", ipAddr)
 			}
 			findAddr := false
-			swNets, err := sw.getNetworks()
+			swNets, err := sw.getNetworks(userCred, NetworkManager.AllowScope(userCred))
 			if err != nil {
 				return httperrors.NewInputParameterError("no networks on wire %s", wire)
 			}
@@ -3876,7 +3876,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	var net *SNetwork
 	var err error
 	if len(ipAddr) > 0 {
-		net, err = netif.GetCandidateNetworkForIp(userCred, ipAddr)
+		net, err = netif.GetCandidateNetworkForIp(userCred, NetworkManager.AllowScope(userCred), ipAddr)
 		if net != nil {
 			log.Infof("find network %s for ip %s", net.GetName(), ipAddr)
 		} else if requireDesignatedIp {
@@ -3915,7 +3915,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 			} else {
 				netTypes = []string{api.NETWORK_TYPE_BAREMETAL}
 			}
-			net, err = wire.GetCandidatePrivateNetwork(userCred, false, netTypes)
+			net, err = wire.GetCandidatePrivateNetwork(userCred, NetworkManager.AllowScope(userCred), false, netTypes)
 			if err != nil {
 				return fmt.Errorf("fail to find network %s", err)
 			}

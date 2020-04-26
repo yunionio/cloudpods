@@ -2690,16 +2690,16 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost, ipList []stri
 	vnet := vnic.GetINetwork()
 	if vnet == nil {
 		if vnic.InClassicNetwork() {
-			vpc, err := VpcManager.NewVpcForClassicNetwork(host)
+			vpc, err := VpcManager.GetOrCreateVpcForClassicNetwork(host)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewVpcForClassicNetwork")
 			}
 			zone := host.GetZone()
-			wire, err := WireManager.NewWireForClassicNetwork(vpc, zone)
+			wire, err := WireManager.GetOrCreateWireForClassicNetwork(vpc, zone)
 			if err != nil {
 				return nil, errors.Wrap(err, "NewWireForClassicNetwork")
 			}
-			return NetworkManager.NewClassicNetwork(wire)
+			return NetworkManager.GetOrCreateClassicNetwork(wire)
 		}
 		ip := vnic.GetIP()
 		if len(ip) == 0 {

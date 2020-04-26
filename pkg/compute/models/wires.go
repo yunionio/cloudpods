@@ -183,7 +183,7 @@ func (manager *SWireManager) getWireExternalIdForClassicNetwork(provider string,
 	return vpcId
 }
 
-func (manager *SWireManager) NewWireForClassicNetwork(vpc *SVpc, zone *SZone) (*SWire, error) {
+func (manager *SWireManager) GetOrCreateWireForClassicNetwork(vpc *SVpc, zone *SZone) (*SWire, error) {
 	cloudprovider := vpc.GetCloudprovider()
 	if cloudprovider == nil {
 		return nil, fmt.Errorf("failed to found cloudprovider for vpc %s(%s)", vpc.Id, vpc.Id)
@@ -373,7 +373,7 @@ func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
-	nets, err := self.getNetworks()
+	nets, err := self.getNetworks(nil, rbacutils.ScopeNone)
 	if err != nil {
 		return err
 	}
@@ -602,12 +602,16 @@ func (manager *SWireManager) TotalCount(
 	return stat
 }
 
-func (self *SWire) getNetworkQuery() *sqlchemy.SQuery {
-	return NetworkManager.Query().Equals("wire_id", self.Id)
+func (self *SWire) getNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q := NetworkManager.Query().Equals("wire_id", self.Id)
+	if ownerId != nil {
+		q = NetworkManager.FilterByOwner(q, ownerId, scope)
+	}
+	return q
 }
 
-func (self *SWire) getNetworks() ([]SNetwork, error) {
-	q := self.getNetworkQuery()
+func (self *SWire) getNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+	q := self.getNetworkQuery(ownerId, scope)
 	nets := make([]SNetwork, 0)
 	err := db.FetchModelObjects(NetworkManager, q, &nets)
 	if err != nil {
@@ -616,15 +620,15 @@ func (self *SWire) getNetworks() ([]SNetwork, error) {
 	return nets, nil
 }
 
-func (self *SWire) getGatewayNetworkQuery() *sqlchemy.SQuery {
-	q := self.getNetworkQuery()
+func (self *SWire) getGatewayNetworkQuery(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q := self.getNetworkQuery(ownerId, scope)
 	q = q.IsNotNull("guest_gateway").IsNotEmpty("guest_gateway")
 	q = q.Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	return q
 }
 
-func (self *SWire) getPublicNetworks() ([]SNetwork, error) {
-	q := self.getGatewayNetworkQuery()
+func (self *SWire) getPublicNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+	q := self.getGatewayNetworkQuery(ownerId, scope)
 	q = q.IsTrue("is_public")
 	nets := make([]SNetwork, 0)
 	err := db.FetchModelObjects(NetworkManager, q, &nets)
@@ -634,9 +638,9 @@ func (self *SWire) getPublicNetworks() ([]SNetwork, error) {
 	return nets, nil
 }
 
-func (self *SWire) getPrivateNetworks(userCred mcclient.TokenCredential) ([]SNetwork, error) {
-	q := self.getGatewayNetworkQuery()
-	q = q.Equals("tenant_id", userCred.GetProjectId()).IsFalse("is_public")
+func (self *SWire) getPrivateNetworks(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) ([]SNetwork, error) {
+	q := self.getGatewayNetworkQuery(ownerId, scope)
+	q = q.IsFalse("is_public")
 	nets := make([]SNetwork, 0)
 	err := db.FetchModelObjects(NetworkManager, q, &nets)
 	if err != nil {
@@ -645,28 +649,28 @@ func (self *SWire) getPrivateNetworks(userCred mcclient.TokenCredential) ([]SNet
 	return nets, nil
 }
 
-func (self *SWire) GetCandidatePrivateNetwork(userCred mcclient.TokenCredential, isExit bool, serverTypes []string) (*SNetwork, error) {
-	nets, err := self.getPrivateNetworks(userCred)
+func (self *SWire) GetCandidatePrivateNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+	nets, err := self.getPrivateNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
 	}
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverTypes []string) (*SNetwork, error) {
-	nets, err := self.getPublicNetworks()
+func (self *SWire) GetCandidatePublicNetwork(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, isExit bool, serverTypes []string) (*SNetwork, error) {
+	nets, err := self.getPublicNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
 	}
 	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
+func (self *SWire) GetCandidateNetworkForIp(ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, ipAddr string) (*SNetwork, error) {
 	ip, err := netutils.NewIPV4Addr(ipAddr)
 	if err != nil {
 		return nil, err
 	}
-	netPrivates, err := self.getPrivateNetworks(userCred)
+	netPrivates, err := self.getPrivateNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +679,7 @@ func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, i
 			return &net, nil
 		}
 	}
-	netPublics, err := self.getPublicNetworks()
+	netPublics, err := self.getPublicNetworks(ownerId, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,7 +1020,7 @@ func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
 }
 
 func (wire *SWire) GetRequiredSharedDomainIds() []string {
-	networks, _ := wire.getNetworks()
+	networks, _ := wire.getNetworks(nil, rbacutils.ScopeNone)
 	if len(networks) == 0 {
 		return wire.SInfrasResourceBase.GetRequiredSharedDomainIds()
 	}
