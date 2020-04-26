@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -184,17 +185,22 @@ func (self *SSuggestSysAlert) getMoreDetails(out monitor.SuggestSysAlertDetails)
 		log.Errorln("SSuggestSysAlert getMoreDetails's error:", err)
 	}
 	out.Account = self.Cloudaccount
-	suggestSysSettingMap, _ := SuggestSysRuleManager.FetchSuggestSysAlartSettings(self.Type)
 	out.ResType = GetSuggestSysRuleDrivers()[self.Type].GetResourceType()
 	out.RuleName = strings.ToLower(GetSuggestSysRuleDrivers()[self.Type].GetType())
-	if _, ok := suggestSysSettingMap[self.Type]; ok {
-		out.RuleName = suggestSysSettingMap[self.Type].Name
+	rule, _ := SuggestSysRuleManager.GetRules(self.Type)
+	if len(rule) != 0 {
+		out.ShowName = fmt.Sprintf("%s-%s", self.Name, rule[0].Name)
+	} else {
+		out.ShowName = fmt.Sprintf("%s-%s", self.Name, self.Type)
 	}
 	switch self.Type {
 	case monitor.EIP_UN_USED:
 		out.Suggest = string(monitor.EIP_MONITOR_SUGGEST)
 	case monitor.DISK_UN_USED:
 		out.Suggest = string(monitor.DISK_MONITOR_SUGGEST)
+	case monitor.LB_UN_USED:
+		out.Suggest = string(monitor.LB_MONITOR_SUGGEST)
+
 	}
 	return out
 }
@@ -265,4 +271,29 @@ func (self *SSuggestSysAlert) StartDeleteTask(
 	params := jsonutils.NewDict()
 	self.SetStatus(userCred, api.EIP_UNUSED_START_DELETE, "")
 	return GetSuggestSysRuleDrivers()[self.Type].StartResolveTask(ctx, userCred, self, params)
+}
+
+func (self *SSuggestSysAlertManager) GetResources(tp ...string) ([]SSuggestSysAlert, error) {
+	resources := make([]SSuggestSysAlert, 0)
+	query := self.Query()
+	if len(tp) > 0 {
+		query.In("type", tp)
+	}
+	err := db.FetchModelObjects(self, query, &resources)
+	if err != nil {
+		return resources, err
+	}
+	return resources, nil
+}
+
+func (manager *SSuggestSysAlertManager) GetExportExtraKeys(ctx context.Context, keys stringutils2.SSortedStrings, rowMap map[string]string) *jsonutils.JSONDict {
+	alert := new(SSuggestSysAlert)
+	manager.Query().RowMap2Struct(rowMap, alert)
+	input := monitor.SuggestSysAlertDetails{}
+	input = alert.getMoreDetails(input)
+	res := jsonutils.Marshal(&input)
+	dic := res.(*jsonutils.JSONDict)
+	dic.Add(jsonutils.NewString(input.Account), "manager")
+	dic.Add(jsonutils.NewString(alert.Provider), "hypervisor")
+	return dic
 }
