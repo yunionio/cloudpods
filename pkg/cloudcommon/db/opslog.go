@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
@@ -613,6 +614,10 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
 		switch scope {
+		case rbacutils.ScopeUser:
+			if len(ownerId.GetUserId()) > 0 {
+				q = q.Filter(sqlchemy.Equals(q.Field("user_id"), ownerId.GetUserId()))
+			}
 		case rbacutils.ScopeProject:
 			if len(ownerId.GetProjectId()) > 0 {
 				q = q.Filter(sqlchemy.OR(
@@ -627,25 +632,24 @@ func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.I
 					sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
 				))
 			}
+		default:
+			// systemScope, no filter
 		}
-		/* if len(ownerId.GetProjectId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
-				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
-			))
-		} else if len(ownerId.GetProjectDomainId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("owner_domain_id"), ownerId.GetProjectDomainId()),
-				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
-			))
-		}
-		*/
 	}
 	return q
 }
 
 func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
-	owner := SOwnerId{DomainId: self.OwnerDomainId, ProjectId: self.OwnerProjectId}
+	owner := SOwnerId{
+		Domain:       self.ProjectDomain,
+		DomainId:     self.ProjectDomainId,
+		Project:      self.Project,
+		ProjectId:    self.ProjectId,
+		User:         self.User,
+		UserId:       self.UserId,
+		UserDomain:   self.Domain,
+		UserDomainId: self.DomainId,
+	}
 	return &owner
 }
 
@@ -654,7 +658,7 @@ func (self *SOpsLog) IsSharable(reqCred mcclient.IIdentityProvider) bool {
 }
 
 func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
-	return rbacutils.ScopeProject
+	return rbacutils.ScopeUser
 }
 
 func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
@@ -666,7 +670,15 @@ func (manager *SOpsLogManager) GetPagingConfig() *SPagingConfig {
 }
 
 func (manager *SOpsLogManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	return FetchProjectInfo(ctx, data)
+	ownerId := SOwnerId{}
+	err := data.Unmarshal(&ownerId)
+	if err != nil {
+		return nil, errors.Wrap(err, "data.Unmarshal")
+	}
+	if ownerId.IsValid() {
+		return &ownerId, nil
+	}
+	return FetchUserInfo(ctx, data)
 }
 
 func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
@@ -675,11 +687,23 @@ func (manager *SOpsLogManager) ValidateCreateData(ctx context.Context,
 	query jsonutils.JSONObject,
 	data apis.OpsLogCreateInput,
 ) (apis.OpsLogCreateInput, error) {
-	data.Project = ownerId.GetProjectName()
-	data.ProjectId = ownerId.GetProjectId()
-	data.ProjectDomainId = ownerId.GetProjectDomainId()
-	data.ProjectDomain = ownerId.GetProjectDomain()
 	return data, nil
+}
+
+func (log *SOpsLog) CustomizeCreate(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) error {
+	log.User = ownerId.GetUserName()
+	log.UserId = ownerId.GetUserId()
+	log.Domain = ownerId.GetDomainName()
+	log.DomainId = ownerId.GetDomainId()
+	log.Project = ownerId.GetProjectName()
+	log.ProjectId = ownerId.GetProjectId()
+	log.ProjectDomain = ownerId.GetProjectDomain()
+	log.ProjectDomainId = ownerId.GetProjectDomainId()
+	return log.SModelBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SOpsLogManager) FetchCustomizeColumns(
