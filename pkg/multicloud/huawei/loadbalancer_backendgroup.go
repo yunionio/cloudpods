@@ -167,7 +167,7 @@ func (self *SElbBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerSt
 		StickySession:              api.LB_BOOL_ON,
 		StickySessionCookie:        self.SessionPersistence.CookieName,
 		StickySessionType:          stickySessionType,
-		StickySessionCookieTimeout: self.SessionPersistence.PersistenceTimeout,
+		StickySessionCookieTimeout: self.SessionPersistence.PersistenceTimeout * 60,
 	}
 
 	return &ret, nil
