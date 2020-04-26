@@ -771,10 +771,11 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	}
 	q := manager.Query()
 	wires := WireManager.Query().SubQuery()
-	vpcs := VpcManager.Query().SubQuery()
+	// vpcs := VpcManager.Query().SubQuery()
 	q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
-	q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-	q = q.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	// q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+	// q = q.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	q = q.Filter(sqlchemy.Equals(wires.Field("vpc_id"), api.DEFAULT_VPC_ID))
 	if len(serverType) > 0 {
 		q = q.Filter(sqlchemy.Equals(q.Field("server_type"), serverType))
 	}
