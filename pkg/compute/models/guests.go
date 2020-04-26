@@ -3684,18 +3684,14 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 
 	// nics, domain
 	jsonNics := make([]jsonutils.JSONObject, 0)
-
 	nics, _ := self.GetNetworks("")
-
 	domain := options.Options.DNSDomain
-	if nics != nil && len(nics) > 0 {
-		for _, nic := range nics {
-			nicDesc := nic.getJsonDescAtHost(host)
-			jsonNics = append(jsonNics, nicDesc)
-			nicDomain, _ := nicDesc.GetString("domain")
-			if len(nicDomain) > 0 && len(domain) == 0 {
-				domain = nicDomain
-			}
+	for _, nic := range nics {
+		nicDesc := nic.getJsonDescAtHost(host)
+		jsonNics = append(jsonNics, nicDesc)
+		nicDomain, _ := nicDesc.GetString("domain")
+		if len(nicDomain) > 0 && len(domain) == 0 {
+			domain = nicDomain
 		}
 	}
 	desc.Add(jsonutils.NewArray(jsonNics...), "nics")

@@ -12,19 +12,23 @@ import (
 
 const (
 	errMappedIpExhausted = errors.Error("mapped ip exhaused")
+
+	LOCK_CLASS_guestnetworks_mapped_addr = "guestnetworks-mapped-addr"
+	LOCK_OBJ_guestnetworks_mapped_addr   = "the-addr"
+
+	LOCK_CLASS_hosts_mapped_addr = "hosts-mapped-addr"
+	LOCK_OBJ_hosts_mapped_addr   = "the-addr"
 )
 
-func (man *SGuestnetworkManager) allocMappedIpAddr(ctx context.Context) (string, error) {
-	const (
-		LOCK_CLASS = "guestnetworks-mapped-addr"
-		LOCK_OBJ   = "the-addr"
-	)
-	lockman.LockRawObject(ctx, LOCK_CLASS, LOCK_OBJ)
-	defer lockman.ReleaseRawObject(ctx, LOCK_CLASS, LOCK_OBJ)
-	return man.allocMappedIpAddr_(ctx)
+func (man *SGuestnetworkManager) lockAllocMappedAddr(ctx context.Context) {
+	lockman.LockRawObject(ctx, LOCK_CLASS_guestnetworks_mapped_addr, LOCK_OBJ_guestnetworks_mapped_addr)
 }
 
-func (man *SGuestnetworkManager) allocMappedIpAddr_(ctx context.Context) (string, error) {
+func (man *SGuestnetworkManager) unlockAllocMappedAddr(ctx context.Context) {
+	defer lockman.ReleaseRawObject(ctx, LOCK_CLASS_guestnetworks_mapped_addr, LOCK_OBJ_guestnetworks_mapped_addr)
+}
+
+func (man *SGuestnetworkManager) allocMappedIpAddr(ctx context.Context) (string, error) {
 	var (
 		used []string
 		ip   string
@@ -44,7 +48,7 @@ func (man *SGuestnetworkManager) allocMappedIpAddr_(ctx context.Context) (string
 
 	sip := api.VpcMappedIPStart()
 	eip := api.VpcMappedIPEnd()
-	for i := sip; i <= eip; i++ {
+	for i := eip; i >= sip; i-- {
 		s := i.String()
 		if !utils.IsInStringArray(s, used) {
 			return s, nil
@@ -53,17 +57,15 @@ func (man *SGuestnetworkManager) allocMappedIpAddr_(ctx context.Context) (string
 	return "", errors.Wrap(errMappedIpExhausted, "guests")
 }
 
-func (man *SHostManager) allocOvnMappedIpAddr(ctx context.Context) (string, error) {
-	const (
-		LOCK_CLASS = "hosts-vpc-mapped-addr"
-		LOCK_OBJ   = "the-addr"
-	)
-	lockman.LockRawObject(ctx, LOCK_CLASS, LOCK_OBJ)
-	defer lockman.ReleaseRawObject(ctx, LOCK_CLASS, LOCK_OBJ)
-	return man.allocOvnMappedIpAddr_(ctx)
+func (man *SHostManager) lockAllocOvnMappedIpAddr(ctx context.Context) {
+	lockman.LockRawObject(ctx, LOCK_CLASS_hosts_mapped_addr, LOCK_OBJ_hosts_mapped_addr)
 }
 
-func (man *SHostManager) allocOvnMappedIpAddr_(ctx context.Context) (string, error) {
+func (man *SHostManager) unlockAllocOvnMappedIpAddr(ctx context.Context) {
+	lockman.ReleaseRawObject(ctx, LOCK_CLASS_hosts_mapped_addr, LOCK_OBJ_hosts_mapped_addr)
+}
+
+func (man *SHostManager) allocOvnMappedIpAddr(ctx context.Context) (string, error) {
 	var (
 		used []string
 		ip   string

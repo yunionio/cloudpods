@@ -15,15 +15,12 @@
 package hostman
 
 import (
-	"os"
-
 	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -48,16 +45,7 @@ type SHostService struct {
 }
 
 func (host *SHostService) InitService() {
-	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
-	if len(options.HostOptions.CommonConfigFile) > 0 {
-		baseOpt := options.HostOptions.BaseOptions.BaseOptions
-		commonCfg := new(common_options.CommonOptions)
-		commonCfg.Config = options.HostOptions.CommonConfigFile
-		common_options.ParseOptions(commonCfg, []string{"host"}, "common.conf", "host")
-		options.HostOptions.CommonOptions = *commonCfg
-		// keep base options
-		options.HostOptions.BaseOptions.BaseOptions = baseOpt
-	}
+	options.Init()
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("host service must running with root permissions")
