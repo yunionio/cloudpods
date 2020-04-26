@@ -178,7 +178,7 @@ func (self *SVpc) fetchNetworks() error {
 	}
 
 	if len(networks) == 0 {
-		self.iwires = append(self.iwires, &SWire{region: self.region, vpc: self})
+		self.iwires = []cloudprovider.ICloudWire{&SWire{region: self.region, vpc: self}}
 		return nil
 	}
 
