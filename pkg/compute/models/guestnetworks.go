@@ -263,6 +263,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(
 			return nil, fmt.Errorf("cannot find vpc of network %s(%s)", network.Id, network.Name)
 		} else if vpc.Id != api.DEFAULT_VPC_ID && vpc.GetProviderName() == api.CLOUD_PROVIDER_ONECLOUD {
 			var err error
+			GuestnetworkManager.lockAllocMappedAddr(ctx)
+			defer GuestnetworkManager.unlockAllocMappedAddr(ctx)
 			gn.MappedIpAddr, err = GuestnetworkManager.allocMappedIpAddr(ctx)
 			if err != nil {
 				return nil, err
@@ -438,6 +440,24 @@ func (self *SGuestnetwork) getJsonDescHostwire(network *SNetwork, hostwire *SHos
 }
 
 func (self *SGuestnetwork) getJsonDescOneCloudVpc(network *SNetwork) *jsonutils.JSONDict {
+	if self.MappedIpAddr == "" {
+		var (
+			err  error
+			addr string
+		)
+		addr, err = GuestnetworkManager.allocMappedIpAddr(context.TODO())
+		if err != nil {
+			log.Errorf("getJsonDescOneCloudVpc: row %d: alloc mapped ipaddr: %v", self.RowId, err)
+		} else {
+			if _, err := db.Update(self, func() error {
+				self.MappedIpAddr = addr
+				return nil
+			}); err != nil {
+				log.Errorf("getJsonDescOneCloudVpc: row %d: db update mapped addr: %v", self.RowId, err)
+				self.MappedIpAddr = ""
+			}
+		}
+	}
 	vpc := network.GetVpc()
 
 	vpcDesc := jsonutils.NewDict()

@@ -3131,6 +3131,8 @@ func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	if self.OvnVersion != "" && self.OvnMappedIpAddr == "" {
+		HostManager.lockAllocOvnMappedIpAddr(ctx)
+		defer HostManager.unlockAllocOvnMappedIpAddr(ctx)
 		addr, err := HostManager.allocOvnMappedIpAddr(ctx)
 		if err != nil {
 			log.Errorf("host %s(%s): alloc vpc mapped addr: %v",
