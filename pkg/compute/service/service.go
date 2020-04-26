@@ -16,7 +16,9 @@ package service
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -59,6 +61,13 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
+
+	if opts.FetchEtcdServiceInfoAndUseEtcdLock {
+		err := initEtcdLockOpts(opts)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
 
 	app := app_common.InitApp(baseOpts, true)
 	InitHandlers(app)
@@ -161,4 +170,40 @@ func initDefaultEtcdClient(opts *common_options.DBOptions) error {
 		return errors.Wrap(err, "init default etcd client")
 	}
 	return nil
+}
+
+func initEtcdLockOpts(opts *options.ComputeOptions) error {
+	etcdEndpoint, err := app_common.FetchEtcdServiceInfo()
+	if err != nil {
+		return errors.Wrap(err, "fetch etcd service info")
+	}
+	if etcdEndpoint != nil {
+		opts.EtcdEndpoints = []string{etcdEndpoint.Url}
+		opts.LockmanMethod = common_options.LockMethodEtcd
+		if len(etcdEndpoint.CertId) > 0 {
+			dir, err := ioutil.TempDir("", "etcd-cluster-tls")
+			if err != nil {
+				return errors.Wrap(err, "create dir etcd cluster tls")
+			}
+			opts.EtcdCert, err = writeFile(dir, "etcd.crt", []byte(etcdEndpoint.Certificate))
+			if err != nil {
+				return errors.Wrap(err, "write file certificate")
+			}
+			opts.EtcdKey, err = writeFile(dir, "etcd.key", []byte(etcdEndpoint.PrivateKey))
+			if err != nil {
+				return errors.Wrap(err, "write file private key")
+			}
+			opts.EtcdCacert, err = writeFile(dir, "etcd-ca.crt", []byte(etcdEndpoint.CaCertificate))
+			if err != nil {
+				return errors.Wrap(err, "write file  cacert")
+			}
+			opts.EtcdUseTLS = true
+		}
+	}
+	return nil
+}
+
+func writeFile(dir, file string, data []byte) (string, error) {
+	p := filepath.Join(dir, file)
+	return p, ioutil.WriteFile(p, data, 0600)
 }
