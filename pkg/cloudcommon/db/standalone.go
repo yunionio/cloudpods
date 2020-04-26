@@ -417,6 +417,12 @@ func (model *SStandaloneResourceBase) AllowPerformSetUserMetadata(ctx context.Co
 func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformSetUserMetadataInput) (jsonutils.JSONObject, error) {
 	dictStore := make(map[string]interface{})
 	for k, v := range input {
+		if len(k) > 64-len(USER_TAG_PREFIX) {
+			return nil, httperrors.NewInputParameterError("input key too long > %d", 64-len(USER_TAG_PREFIX))
+		}
+		if len(v) > 65535 {
+			return nil, httperrors.NewInputParameterError("input value too long > %d", 65535)
+		}
 		dictStore[USER_TAG_PREFIX+k] = v
 	}
 	err := model.SetUserMetadataAll(ctx, dictStore, userCred)

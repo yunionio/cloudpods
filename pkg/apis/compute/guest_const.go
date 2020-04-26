@@ -135,6 +135,7 @@ const (
 	VM_CONVERT        = "convert"
 	VM_CONVERTING     = "converting"
 	VM_CONVERT_FAILED = "convert_failed"
+	VM_CONVERTED      = "converted"
 
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
