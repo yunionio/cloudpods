@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SProxySettingManager struct {
@@ -198,8 +199,19 @@ func (man *SProxySettingManager) PerformTest(ctx context.Context, userCred mccli
 }
 
 func (man *SProxySettingManager) InitializeData() error {
-	_, err := man.FetchById(proxyapi.ProxySettingId_DIRECT)
+	psObj, err := man.FetchById(proxyapi.ProxySettingId_DIRECT)
 	if err == nil {
+		ps := psObj.(*SProxySetting)
+		if !ps.IsPublic || ps.PublicScope != string(rbacutils.ScopeSystem) {
+			_, err = db.Update(ps, func() error {
+				ps.IsPublic = true
+				ps.PublicScope = string(rbacutils.ScopeSystem)
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "Update")
+			}
+		}
 		return nil
 	}
 	if err != sql.ErrNoRows {
@@ -214,6 +226,8 @@ func (man *SProxySettingManager) InitializeData() error {
 	ps.Id = proxyapi.ProxySettingId_DIRECT
 	ps.Name = proxyapi.ProxySettingId_DIRECT
 	ps.Description = "Connect directly"
+	ps.IsPublic = true
+	ps.PublicScope = string(rbacutils.ScopeSystem)
 	if err := man.TableSpec().Insert(ps); err != nil {
 		return err
 	}
