@@ -400,12 +400,9 @@ func (sp *SScalingPolicy) PerformTrigger(ctx context.Context, userCred mcclient.
 		}
 		triggerDesc = trigger
 	}
-	isExec, err := sg.Scale(ctx, triggerDesc, sp)
+	err = sg.Scale(ctx, triggerDesc, sp, sp.CoolingTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "ScalingPolicy.Scale")
-	}
-	if isExec && sp.CoolingTime > 0 {
-		sg.SetAllowScaleTime(time.Now().Add(time.Duration(sp.CoolingTime) * time.Second))
 	}
 	return nil, err
 }
