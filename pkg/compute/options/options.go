@@ -132,6 +132,8 @@ type ComputeOptions struct {
 	EnableHostHealthCheck bool `help:"enable host health check"`
 	HostHealthTimeout     int  `help:"second of wait host reconnect" default:"60"`
 
+	FetchEtcdServiceInfoAndUseEtcdLock bool `default:"true" help:"fetch etcd service info and use etcd lock"`
+
 	SCapabilityOptions
 	SASControllerOptions
 	common_options.CommonOptions
