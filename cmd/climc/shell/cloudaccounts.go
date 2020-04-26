@@ -26,6 +26,28 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
+func parseGcpCredential(filename string) (jsonutils.JSONObject, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	authParams, err := jsonutils.Parse(data)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	for _, k := range []string{
+		"client_email",
+		"project_id",
+		"private_key_id",
+		"private_key",
+	} {
+		v, _ := authParams.Get(k)
+		ret.Add(v, fmt.Sprintf("gcp_%s", k))
+	}
+	return ret, nil
+}
+
 func init() {
 
 	type CloudaccountListOptions struct {
@@ -138,11 +160,7 @@ func init() {
 	R(&options.SGoogleCloudAccountCreateOptions{}, "cloud-account-create-google", "Create a Google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountCreateOptions) error {
 		params := jsonutils.Marshal(args)
 		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Google"), "provider")
-		data, err := ioutil.ReadFile(args.GoogleJsonFile)
-		if err != nil {
-			return err
-		}
-		authParams, err := jsonutils.Parse(data)
+		authParams, err := parseGcpCredential(args.GoogleJsonFile)
 		if err != nil {
 			return err
 		}
@@ -688,11 +706,7 @@ func init() {
 	})
 
 	R(&options.SGoogleCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-google", "Update credential of a Google cloud account", func(s *mcclient.ClientSession, args *options.SGoogleCloudAccountUpdateCredentialOptions) error {
-		data, err := ioutil.ReadFile(args.GoogleJsonFile)
-		if err != nil {
-			return err
-		}
-		params, err := jsonutils.Parse(data)
+		params, err := parseGcpCredential(args.GoogleJsonFile)
 		if err != nil {
 			return err
 		}
