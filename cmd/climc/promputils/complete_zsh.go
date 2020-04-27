@@ -128,11 +128,13 @@ func zshCompGenFlagEntryExtras(f structarg.Argument) string {
 	// allow options for flag
 	extras := ":"
 
-	switch arg := f.(type) {
-	case *structarg.SingleArgument:
+	type iChoices interface {
+		Choices() []string
+	}
+	if hasChoices, ok := f.(iChoices); ok {
 		// process choices
 		var words []string
-		for _, w := range arg.Choices() {
+		for _, w := range hasChoices.Choices() {
 			words = append(words, fmt.Sprintf("%q", w))
 		}
 		if len(words) != 0 {
