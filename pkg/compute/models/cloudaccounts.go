@@ -304,7 +304,7 @@ func (self *SCloudaccount) ValidateUpdateData(
 			return input, errors.Wrap(err, "ValidateProxySettingResourceInput")
 		}
 
-		if proxySetting != nil {
+		if proxySetting != nil && proxySetting.Id != self.ProxySettingId {
 			// updated proxy setting, so do the check
 			proxyFunc := proxySetting.HttpTransportProxyFunc()
 			secret, _ := self.getPassword()
