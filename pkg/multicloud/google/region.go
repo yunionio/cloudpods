@@ -81,7 +81,7 @@ func (region *SRegion) GetProvider() string {
 }
 
 func (region *SRegion) GetStatus() string {
-	if region.Status == "UP" {
+	if region.Status == "UP" || utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
 		return api.CLOUD_REGION_STATUS_INSERVER
 	}
 	return api.CLOUD_REGION_STATUS_OUTOFSERVICE
@@ -733,6 +733,10 @@ func (region *SRegion) GetCapabilities() []string {
 }
 
 func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudDBInstance{}, nil
+	}
+
 	instances, err := region.GetDBInstances(0, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstances")
@@ -746,6 +750,10 @@ func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, erro
 }
 
 func (region *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	instance, err := region.GetDBInstance(instanceId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDBInstance(%s)", instanceId)
@@ -754,6 +762,10 @@ func (region *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.IClo
 }
 
 func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return []cloudprovider.ICloudDBInstanceBackup{}, nil
+	}
+
 	instances, err := region.GetDBInstances(0, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "GetDBInstances")
@@ -774,6 +786,10 @@ func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstance
 }
 
 func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	backup, err := region.GetDBInstanceBackup(backupId)
 	if err != nil {
 		return nil, errors.Wrapf(err, "GetDBInstanceBackup(%s)", backupId)
@@ -782,6 +798,10 @@ func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.
 }
 
 func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	if utils.IsInStringArray(region.Name, MultiRegions) || utils.IsInStringArray(region.Name, DualRegions) {
+		return nil, cloudprovider.ErrNotSupported
+	}
+
 	rds, err := region.CreateDBInstance(desc)
 	if err != nil {
 		return nil, errors.Wrap(err, "CreateDBInstance")
