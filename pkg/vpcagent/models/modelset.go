@@ -26,7 +26,7 @@ import (
 
 type Vpcs map[string]*Vpc
 type Networks map[string]*Network
-type Guestnetworks map[string]*Guestnetwork // guestId as key
+type Guestnetworks map[string]*Guestnetwork // key: guestId/ifname
 
 func (set Vpcs) ModelManager() mcclient_modulebase.IBaseManager {
 	return &mcclient_modules.Vpcs
@@ -106,18 +106,18 @@ func (ms Networks) joinGuestnetworks(subEntries Guestnetworks) bool {
 		m.Guestnetworks = Guestnetworks{}
 	}
 	for _, subEntry := range subEntries {
-		id := subEntry.NetworkId
-		m, ok := ms[id]
+		netId := subEntry.NetworkId
+		m, ok := ms[netId]
 		if !ok {
 			// this can happen when this guestnetwork is just a
 			// stub for external/managed guests and "ms" was
-			// already filtered by conditions like
+			// already filtered out by conditions like
 			// external_id.isnullorempty, etc.
 			continue
 		}
-		subId := subEntry.GuestId
+		subId := subEntry.GuestId + "/" + subEntry.Ifname
 		if _, ok := m.Guestnetworks[subId]; ok {
-			log.Warningf("guestnetwork id %s/%s already joined", id, subId)
+			log.Warningf("guestnetwork net/guest/ifname %s/%s already joined", netId, subId)
 			continue
 		}
 		subEntry.Network = m
@@ -136,7 +136,7 @@ func (set Guestnetworks) NewModel() db.IModel {
 
 func (set Guestnetworks) AddModel(i db.IModel) {
 	m := i.(*Guestnetwork)
-	set[m.GuestId] = m
+	set[m.GuestId+"/"+m.Ifname] = m
 }
 
 func (set Guestnetworks) Copy() apihelper.IModelSet {
