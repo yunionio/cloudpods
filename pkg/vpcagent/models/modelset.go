@@ -211,19 +211,19 @@ func (set Guestnetworks) Copy() apihelper.IModelSet {
 }
 
 func (set Guestnetworks) joinGuests(subEntries Guests) bool {
-	correct := true
 	for _, gn := range set {
 		gId := gn.GuestId
 		g, ok := subEntries[gId]
 		if !ok {
 			if gn.Network != nil && gn.Network.Vpc != nil {
-				log.Warningf("guestnetwork %d(net:%s,ip:%s) guest id %s not found",
-					gn.RowId, gn.NetworkId, gn.IpAddr, gId)
-				correct = false
+				// Only log info instead of error because the
+				// guest could be in pending_deleted state
+				log.Infof("guestnetwork (net:%s,ip:%s) guest id %s not found",
+					gn.NetworkId, gn.IpAddr, gId)
 			}
 			continue
 		}
 		gn.Guest = g
 	}
-	return correct
+	return true
 }
