@@ -750,7 +750,7 @@ func (client *SGoogleClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	accounts := []cloudprovider.SSubAccount{}
 	for _, project := range projects {
 		subAccount := cloudprovider.SSubAccount{}
-		subAccount.Name = client.cpcfg.Name
+		subAccount.Name = project.Name
 		subAccount.Account = fmt.Sprintf("%s/%s", project.ProjectId, client.clientEmail)
 		if project.LifecycleState == "ACTIVE" {
 			subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
