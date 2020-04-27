@@ -984,20 +984,14 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 	confirmPwd, _ := body.GetString("password_confirm")
 	passcode, _ := body.GetString("passcode")
 
-	// 1.验证新密码正确
-	if len(newPwd) < 6 {
-		httperrors.InputParameterError(w, "new password must have at least 6 characters")
-		return
-	}
-
 	if newPwd != confirmPwd {
 		httperrors.InputParameterError(w, "new password mismatch")
 		return
 	}
 
-	// 2.验证原密码正确，且idp_driver为空
+	// 1.验证原密码正确，且idp_driver为空
 	if isLdapUser(user) {
-		httperrors.ForbiddenError(w, "not support reset ldap user password")
+		httperrors.ForbiddenError(w, "not support reset user password")
 		return
 	}
 
@@ -1015,7 +1009,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 		return
 	}
 
-	// 3.如果已开启MFA，验证 随机密码正确
+	// 2.如果已开启MFA，验证 随机密码正确
 	tid := getAuthToken(req)
 	if isMfaEnabled(user) {
 		totp := clientman.TokenMan.GetTotp(tid)
@@ -1026,7 +1020,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 		}
 	}
 
-	// 4.重置密码，清除认证token
+	// 3.重置密码，清除认证token
 	params := jsonutils.NewDict()
 	params.Set("password", jsonutils.NewString(newPwd))
 	ret, err := modules.UsersV3.Patch(s, uid, params)
@@ -1041,7 +1035,7 @@ func (h *AuthHandlers) resetUserPassword(ctx context.Context, w http.ResponseWri
 }
 
 func isLdapUser(user jsonutils.JSONObject) bool {
-	if driver, _ := user.GetString("idp_driver"); driver == "ldap" {
+	if driver, _ := user.GetString("idp_driver"); len(driver) > 0 {
 		return true
 	}
 
