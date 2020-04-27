@@ -1067,7 +1067,7 @@ func (man *SLoadbalancerManager) TotalCount(
 	q := man.Query()
 	q = scopeOwnerIdFilter(q, scope, ownerId)
 	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
-	q = rangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"))
+	q = RangeObjectsFilter(q, rangeObjs, nil, q.Field("zone_id"), q.Field("manager_id"))
 	return q.CountWithError()
 }
 

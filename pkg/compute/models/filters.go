@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func rangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField) *sqlchemy.SQuery {
+func RangeObjectsFilter(q *sqlchemy.SQuery, rangeObjs []db.IStandaloneModel, regionField sqlchemy.IQueryField, zoneField sqlchemy.IQueryField, managerField sqlchemy.IQueryField) *sqlchemy.SQuery {
 	for _, rangeObj := range rangeObjs {
 		q = rangeObjFilter(q, rangeObj, regionField, zoneField, managerField)
 	}
