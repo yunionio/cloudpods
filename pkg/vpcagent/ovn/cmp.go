@@ -9,11 +9,23 @@ import (
 // 2nd value the args to destroy these found records
 func cmp(db *ovnutil.OVNNorthbound, ocver string, irows ...ovnutil.IRow) (bool, []string) {
 	irowsFound := make([]ovnutil.IRow, 0, len(irows))
+	irowsDiff := make([]ovnutil.IRow, 0)
 
 	for _, irow := range irows {
 		irowFound := db.FindOneMatchNonZeros(irow)
 		if irowFound != nil {
 			irowsFound = append(irowsFound, irowFound)
+		} else {
+			// TODO db.FindByIndex()
+			switch row := irow.(type) {
+			case *ovnutil.LogicalSwitchPort:
+				rowQ := &ovnutil.LogicalSwitchPort{
+					Name: row.Name,
+				}
+				if irow := db.FindOneMatchNonZeros(rowQ); irow != nil {
+					irowsDiff = append(irowsDiff, irow)
+				}
+			}
 		}
 	}
 	// mark them anyway even if not all found, to avoid the destroy
@@ -25,5 +37,6 @@ func cmp(db *ovnutil.OVNNorthbound, ocver string, irows ...ovnutil.IRow) (bool, 
 		return true, nil
 	}
 	args := ovnutil.OvnNbctlArgsDestroy(irowsFound)
+	args = append(args, ovnutil.OvnNbctlArgsDestroy(irowsDiff)...)
 	return false, args
 }
