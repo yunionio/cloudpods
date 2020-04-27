@@ -111,6 +111,7 @@ func (self *GuestDeleteTask) OnStartEipDissociate(ctx context.Context, guest *mo
 				return
 			}
 			sourceGuest.RemoveMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, self.UserCred)
+			sourceGuest.StartSyncstatus(ctx, self.UserCred, "")
 		}
 	}
 	eip, _ := guest.GetEip()

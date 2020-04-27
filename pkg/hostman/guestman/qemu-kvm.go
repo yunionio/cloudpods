@@ -931,8 +931,10 @@ func (s *SKVMGuestInstance) delFlatFiles(ctx context.Context) error {
 			connections.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: fpath}
 		}
 		_, err := deployclient.GetDeployClient().DisconnectEsxiDisks(ctx, connections)
-		log.Infof("Disconnect %s esxi disks failed %s", s.GetName(), err)
-		return err
+		if err != nil {
+			log.Errorf("Disconnect %s esxi disks failed %s", s.GetName(), err)
+			return err
+		}
 	}
 	return nil
 }
