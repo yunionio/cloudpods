@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -66,20 +65,13 @@ type SSuggestSysRule struct {
 }
 
 func (man *SSuggestSysRuleManager) FetchSuggestSysAlartSettings(ruleTypes ...string) (map[string]*monitor.SuggestSysRuleDetails, error) {
-	objs := make([]SSuggestSysRule, 0)
 	suggestSysAlerSettingMap := make(map[string]*monitor.SuggestSysRuleDetails, 0)
-	q := man.Query()
-	if q == nil {
-		fmt.Println(" query is nil")
-	}
-	if len(ruleTypes) != 0 {
-		q.Equals("type", ruleTypes)
-	}
-	err := db.FetchModelObjects(man, q, &objs)
-	if err != nil && err != sql.ErrNoRows {
+
+	rules, err := man.GetRules(ruleTypes...)
+	if err != nil {
 		return suggestSysAlerSettingMap, errors.Wrap(err, "FetchSuggestSysAlartSettings")
 	}
-	for _, config := range objs {
+	for _, config := range rules {
 		suggestSysRuleDetails := config.getMoreDetails(monitor.SuggestSysRuleDetails{})
 		if err != nil {
 			return suggestSysAlerSettingMap, errors.Wrap(err, "FetchSuggestSysAlartSettings")
@@ -131,6 +123,10 @@ func (man *SSuggestSysRuleManager) ValidateCreateData(
 	if data.Period == "" {
 		// default 30s
 		data.Period = "30s"
+	}
+	if data.Enabled == nil {
+		enable := true
+		data.Enabled = &enable
 	}
 	if _, err := time.ParseDuration(data.Period); err != nil {
 		return data, httperrors.NewInputParameterError("Invalid period format: %s", data.Period)
@@ -253,4 +249,36 @@ func (self *SSuggestSysRule) PerformEnable(ctx context.Context, userCred mcclien
 		self.PostUpdate(ctx, userCred, query, data)
 	}
 	return nil, nil
+}
+
+func (self *SSuggestSysRuleManager) AllowGetPropertyRuleType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SSuggestSysRuleManager) GetPropertyRuleType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	ruleArr := jsonutils.NewArray()
+	ret.Add(ruleArr, "rule-type")
+	rules, err := self.GetRules()
+	if err != nil {
+		return ret, err
+	}
+	for _, rule := range rules {
+		ruleArr.Add(jsonutils.NewString(rule.Type))
+	}
+	return ret, nil
+}
+
+func (self *SSuggestSysRuleManager) GetRules(tp ...string) ([]SSuggestSysRule, error) {
+	rules := make([]SSuggestSysRule, 0)
+	query := self.Query()
+	if len(tp) > 0 {
+		query.In("type", tp)
+	}
+	err := db.FetchModelObjects(self, query, &rules)
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorln(errors.Wrap(err, "db.FetchModelObjects"))
+		return rules, err
+	}
+	return rules, nil
 }

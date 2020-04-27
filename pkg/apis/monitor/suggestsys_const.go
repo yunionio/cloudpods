@@ -17,6 +17,7 @@ package monitor
 const (
 	EIP_UN_USED  = "EIP_UNUSED"
 	DISK_UN_USED = "DISK_UNUSED"
+	LB_UN_USED   = "LB_UNUSED"
 
 	DRIVER_ACTION = "DELETE"
 
@@ -31,9 +32,11 @@ type MonitorResourceType string
 const (
 	EIP_MONITOR_RES_TYPE  = MonitorResourceType("弹性EIP")
 	DISK_MONITOR_RES_TYPE = MonitorResourceType("云硬盘")
+	LB_MONITOR_RES_TYPE   = MonitorResourceType("负载均衡实例")
 )
 
 const (
 	EIP_MONITOR_SUGGEST  = MonitorSuggest("释放未使用的EIP")
 	DISK_MONITOR_SUGGEST = MonitorSuggest("释放未使用的Disk")
+	LB_MONITOR_SUGGEST   = MonitorSuggest("释放未使用的LB")
 )

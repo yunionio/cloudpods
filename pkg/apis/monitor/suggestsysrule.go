@@ -59,6 +59,7 @@ type SuggestSysRuleDetails struct {
 type SSuggestSysAlertSetting struct {
 	EIPUnused  *EIPUnused  `json:"eip_unused"`
 	DiskUnused *DiskUnused `json:"disk_unused"`
+	LBUnused   *LBUnused   `json:"lb_unused"`
 }
 
 type EIPUnused struct {
@@ -66,4 +67,7 @@ type EIPUnused struct {
 }
 
 type DiskUnused struct {
+}
+
+type LBUnused struct {
 }
