@@ -37,6 +37,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/host_health"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -993,8 +994,12 @@ func (h *SHostInfo) getReservedMem() int {
 }
 
 func (h *SHostInfo) PutHostOffline() {
+	data := jsonutils.NewDict()
+	if options.HostOptions.EnableHealthChecker {
+		data.Set("update_health_status", jsonutils.JSONTrue)
+	}
 	_, err := modules.Hosts.PerformAction(
-		h.GetSession(), h.HostId, "offline", nil)
+		h.GetSession(), h.HostId, "offline", data)
 	if err != nil {
 		h.onFail(err)
 	} else {
@@ -1003,9 +1008,17 @@ func (h *SHostInfo) PutHostOffline() {
 }
 
 func (h *SHostInfo) PutHostOnline() error {
+	data := jsonutils.NewDict()
+	if options.HostOptions.EnableHealthChecker {
+		_, err := host_health.InitHostHealthManager(h.HostId)
+		if err != nil {
+			log.Fatalf("Init host health manager failed %s", err)
+		}
+		data.Set("update_health_status", jsonutils.JSONTrue)
+	}
+
 	_, err := modules.Hosts.PerformAction(
-		h.GetSession(),
-		h.HostId, "online", nil)
+		h.GetSession(), h.HostId, "online", data)
 	return err
 }
 

@@ -72,7 +72,7 @@ type Elect struct {
 	config *EtcdConfig
 
 	mutex       *sync.Mutex
-	subscribers []chan ElectEvent
+	subscribers []chan electEvent
 }
 
 type ticket struct {
@@ -119,18 +119,18 @@ func (elect *Elect) Stop() {
 func (elect *Elect) Start(ctx context.Context) {
 	ctx, elect.stopFunc = context.WithCancel(ctx)
 
-	prev := ElectEventLost
+	prev := electEventLost
 	for {
 		select {
 		case <-ctx.Done():
 			log.Infof("elect bye")
 			return
 		default:
-			now := ElectEventWin
+			now := electEventWin
 			ticket, err := elect.do(ctx)
 			if err != nil {
 				ticket.tearup(ctx)
-				now = ElectEventLost
+				now = electEventLost
 				log.Errorf("elect error: %v", err)
 			}
 			if now != prev {
@@ -173,13 +173,13 @@ func (elect *Elect) do(ctx context.Context) (*ticket, error) {
 	return r, err
 }
 
-func (elect *Elect) Subscribe(ch chan ElectEvent) {
+func (elect *Elect) subscribe(ch chan electEvent) {
 	elect.mutex.Lock()
 	defer elect.mutex.Unlock()
 	elect.subscribers = append(elect.subscribers, ch)
 }
 
-func (elect *Elect) notify(ctx context.Context, ev ElectEvent) {
+func (elect *Elect) notify(ctx context.Context, ev electEvent) {
 	elect.mutex.Lock()
 	defer elect.mutex.Unlock()
 
@@ -193,18 +193,49 @@ func (elect *Elect) notify(ctx context.Context, ev ElectEvent) {
 	}
 }
 
-type ElectEvent int
+func (elect *Elect) SubscribeWithAction(ctx context.Context, onWin, onLost func()) {
+	go func() {
+		ch := make(chan electEvent, 3)
+		var ev electEvent
+		elect.subscribe(ch)
+		for {
+			select {
+			case ev = <-ch:
+			case <-ctx.Done():
+				return
+			}
+		drain:
+			for {
+				select {
+				case ev = <-ch:
+					continue
+				default:
+					break drain
+				}
+			}
+			log.Infof("elect event %s", ev)
+			switch ev {
+			case electEventWin:
+				onWin()
+			case electEventLost:
+				onLost()
+			}
+		}
+	}()
+}
+
+type electEvent int
 
 const (
-	ElectEventWin ElectEvent = iota
-	ElectEventLost
+	electEventWin electEvent = iota
+	electEventLost
 )
 
-func (ev ElectEvent) String() string {
+func (ev electEvent) String() string {
 	switch ev {
-	case ElectEventWin:
+	case electEventWin:
 		return "win"
-	case ElectEventLost:
+	case electEventLost:
 		return "lost"
 	default:
 		return "unexpected"

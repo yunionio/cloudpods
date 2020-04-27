@@ -123,3 +123,9 @@ const (
 	BOOT_MODE_PXE = "pxe"
 	BOOT_MODE_ISO = "iso"
 )
+
+const (
+	HOST_HEALTH_PREFIX         = "/onecloud/kvm/host/health"
+	HOST_HEALTH_STATUS_RUNNING = "running"
+	HOST_HEALTH_LOCK_PREFIX    = "host-health"
+)
