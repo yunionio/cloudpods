@@ -73,7 +73,7 @@ type STemplate struct {
 }
 
 const (
-	verifyUrlPath = "/v2/email-verification/id/{0}/token/{1}?region=%s"
+	verifyUrlPath = "/email-verification/id/{0}/token/{1}?region=%s"
 )
 
 func (tm *STemplateManager) GetEmailUrl() string {
