@@ -465,7 +465,7 @@ func ReportGeneralUsage(
 func RegionUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
 	q := models.CloudregionManager.Query()
 
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.VpcManager.Query("cloudregion_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
 		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
@@ -480,7 +480,7 @@ func RegionUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []s
 func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
 	q := models.ZoneManager.Query()
 
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.HostManager.Query("zone_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
 		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
