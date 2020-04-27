@@ -199,8 +199,8 @@ func ReportCloudRegionUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdent
 }
 
 func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) (Usage, error) {
-	count := RegionUsage(providers, brands, cloudEnv)
-	zone := ZoneUsage(providers, brands, cloudEnv)
+	count := RegionUsage(rangeObjs, providers, brands, cloudEnv)
+	zone := ZoneUsage(rangeObjs, providers, brands, cloudEnv)
 	count.Include(zone)
 
 	var pmemTotal float64
@@ -462,12 +462,13 @@ func ReportGeneralUsage(
 	return
 }
 
-func RegionUsage(providers []string, brands []string, cloudEnv string) Usage {
+func RegionUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
 	q := models.CloudregionManager.Query()
 
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.VpcManager.Query("cloudregion_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
+		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
 		q = q.In("id", subq.SubQuery())
 	}
 
@@ -476,12 +477,13 @@ func RegionUsage(providers []string, brands []string, cloudEnv string) Usage {
 	return count
 }
 
-func ZoneUsage(providers []string, brands []string, cloudEnv string) Usage {
+func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
 	q := models.ZoneManager.Query()
 
 	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		subq := models.HostManager.Query("zone_id")
 		subq = models.CloudProviderFilter(subq, subq.Field("manager_id"), providers, brands, cloudEnv)
+		subq = models.RangeObjectsFilter(subq, rangeObjs, nil, nil, subq.Field("manager_id"))
 		q = q.In("id", subq.SubQuery())
 	}
 
