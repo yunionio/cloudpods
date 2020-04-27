@@ -72,6 +72,7 @@ func (self *GuestConvertEsxiToKvmTask) taskFailed(ctx context.Context, guest *mo
 	targetGuest.SetStatus(self.UserCred, api.VM_CONVERT_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_VM_CONVERT_FAIL, reason, self.UserCred)
 	logclient.AddSimpleActionLog(guest, logclient.ACT_VM_CONVERT, reason, self.UserCred, false)
+	logclient.AddSimpleActionLog(targetGuest, logclient.ACT_VM_CONVERT, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -185,20 +186,20 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
 }
 
 func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
-	guest.SetStatus(self.UserCred, api.VM_READY, "")
+	guest.SetStatus(self.UserCred, api.VM_CONVERTED, "")
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, self.UserCred)
 	if osProfile := guest.GetMetadata("__os_profile__", self.UserCred); len(osProfile) > 0 {
-		guest.SetMetadata(ctx, "__os_profile__", osProfile, self.UserCred)
+		targetGuest.SetMetadata(ctx, "__os_profile__", osProfile, self.UserCred)
 	}
 	if account := guest.GetMetadata(api.VM_METADATA_LOGIN_ACCOUNT, self.UserCred); len(account) > 0 {
-		guest.SetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, account, self.UserCred)
+		targetGuest.SetMetadata(ctx, api.VM_METADATA_LOGIN_ACCOUNT, account, self.UserCred)
 	}
 	if loginKey := guest.GetMetadata(api.VM_METADATA_LOGIN_KEY, self.UserCred); len(loginKey) > 0 {
 		passwd, _ := utils.DescryptAESBase64(guest.Id, loginKey)
 		if len(passwd) > 0 {
 			secret, err := utils.EncryptAESBase64(targetGuest.Id, passwd)
 			if err == nil {
-				guest.SetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, secret, self.UserCred)
+				targetGuest.SetMetadata(ctx, api.VM_METADATA_LOGIN_KEY, secret, self.UserCred)
 			}
 		}
 	}
