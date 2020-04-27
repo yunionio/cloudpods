@@ -1516,3 +1516,19 @@ func (s *SKVMGuestInstance) BlockIoThrottle(ctx context.Context, bps, iops int64
 	task := SGuestBlockIoThrottleTask{s, ctx, bps, iops}
 	return task.Start()
 }
+
+func (s *SKVMGuestInstance) IsSharedStorage() bool {
+	disks, _ := s.Desc.GetArray("disks")
+	for i := 0; i < len(disks); i++ {
+		diskPath, _ := disks[i].GetString("path")
+		disk := storageman.GetManager().GetDiskByPath(diskPath)
+		if disk == nil {
+			log.Errorf("failed find disk by path %s", diskPath)
+			return false
+		}
+		if !utils.IsInStringArray(disk.GetType(), compute.SHARED_STORAGE) {
+			return false
+		}
+	}
+	return true
+}

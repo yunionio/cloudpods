@@ -165,7 +165,8 @@ type SHost struct {
 	// 是否处于维护状态
 	IsMaintenance bool `nullable:"true" default:"false" list:"domain"`
 
-	LastPingAt time.Time ``
+	LastPingAt        time.Time ``
+	EnableHealthCheck bool      `nullable:"true" default:"false"`
 
 	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"domain" update:"domain" create:"domain_optional" default:"shared"`
 
@@ -2521,7 +2522,6 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 }
 
 func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, showReason bool) api.HostDetails {
-
 	server := self.GetBaremetalServer()
 	if server != nil {
 		out.ServerId = server.Id
@@ -3413,10 +3413,16 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 	if self.HostStatus != api.HOST_OFFLINE {
 		_, err := self.SaveUpdates(func() error {
 			self.HostStatus = api.HOST_OFFLINE
+			if jsonutils.QueryBoolean(data, "update_health_status", false) {
+				self.EnableHealthCheck = false
+			}
 			return nil
 		})
 		if err != nil {
 			return nil, err
+		}
+		if hostHealthChecker != nil {
+			hostHealthChecker.UnwatchHost(context.Background(), self.Id)
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, nil, userCred, true)
@@ -3437,6 +3443,7 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 		_, err := self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
 			self.HostStatus = api.HOST_ONLINE
+			self.EnableHealthCheck = true
 			if !self.IsMaintaining() {
 				self.Status = api.BAREMETAL_RUNNING
 			}
@@ -3445,12 +3452,29 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 		if err != nil {
 			return nil, err
 		}
+		if hostHealthChecker != nil {
+			hostHealthChecker.WatchHost(context.Background(), self.Id)
+		}
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 		self.StartSyncAllGuestsStatusTask(ctx, userCred)
 	}
 	return nil, nil
+}
+
+func (self *SHost) AllowPerformAutoMigrateOnHostDown(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "auto-migrate-on-host-down")
+}
+
+func (self *SHost) PerformAutoMigrateOnHostDown(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	val, _ := data.GetString("auto_migrate_on_host_down")
+	return nil, self.SetMetadata(ctx, "__auto_migrate_on_host_down", val, userCred)
 }
 
 func (self *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -4629,12 +4653,14 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	}
 	defer rows.Close()
 
+	data := jsonutils.NewDict()
+	data.Set("update_health_status", jsonutils.JSONFalse)
 	for rows.Next() {
 		var host = new(SHost)
 		q.Row2Struct(rows, host)
 		host.SetModelManager(manager, host)
 		lockman.LockObject(ctx, host)
-		host.PerformOffline(ctx, userCred, nil, nil)
+		host.PerformOffline(ctx, userCred, nil, data)
 		host.MarkGuestUnknown(userCred)
 		lockman.ReleaseObject(ctx, host)
 	}
@@ -4720,7 +4746,7 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	for i := 0; i < len(guests); i++ {
 		lockman.LockObject(ctx, &guests[i])
 		defer lockman.ReleaseObject(ctx, &guests[i])
-		guest, err := guests[i].validateForBatchMigrate(ctx)
+		guest, err := guests[i].validateForBatchMigrate(ctx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -4747,6 +4773,50 @@ func (host *SHost) PerformHostMaintenance(ctx context.Context, userCred mcclient
 	kwargs.Set("guests", jsonutils.Marshal(hostGuests))
 	kwargs.Set("prefer_host_id", jsonutils.NewString(preferHostId))
 	return nil, host.StartMaintainTask(ctx, userCred, kwargs)
+}
+
+func (host *SHost) OnHostDown(ctx context.Context, userCred mcclient.TokenCredential) {
+	log.Errorf("watched host down %s", host.Id)
+	db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, "", userCred)
+	if host.GetMetadata("__auto_migrate_on_host_down", nil) == "enable" {
+		if err := host.MigrateSharedStorageServers(ctx, userCred); err != nil {
+			db.OpsLog.LogEvent(host, db.ACT_HOST_DOWN, fmt.Sprintf("migrate servers failed %s", err), userCred)
+		}
+	}
+	if _, err := host.SaveUpdates(func() error {
+		host.EnableHealthCheck = false
+		return nil
+	}); err != nil {
+		log.Errorf("update host %s failed %s", host.Id, err)
+	}
+}
+
+func (host *SHost) MigrateSharedStorageServers(ctx context.Context, userCred mcclient.TokenCredential) error {
+	var (
+		guests     = host.GetGuests()
+		hostGuests = []*api.GuestBatchMigrateParams{}
+	)
+
+	for i := 0; i < len(guests); i++ {
+		lockman.LockObject(ctx, &guests[i])
+		defer lockman.ReleaseObject(ctx, &guests[i])
+		_, err := guests[i].validateForBatchMigrate(ctx, true)
+		if err != nil {
+			continue
+		} else {
+			bmp := &api.GuestBatchMigrateParams{
+				Id:          guests[i].Id,
+				LiveMigrate: false,
+				RescueMode:  true,
+				OldStatus:   guests[i].Status,
+			}
+			guests[i].SetStatus(userCred, api.VM_START_MIGRATE, "host down")
+			hostGuests = append(hostGuests, bmp)
+		}
+	}
+	kwargs := jsonutils.NewDict()
+	kwargs.Set("guests", jsonutils.Marshal(hostGuests))
+	return GuestManager.StartHostGuestsMigrateTask(ctx, userCred, host, kwargs, "")
 }
 
 func (host *SHost) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {

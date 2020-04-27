@@ -3329,6 +3329,15 @@ func (self *SGuest) guestDisksStorageTypeIsLocal() bool {
 	return true
 }
 
+func (self *SGuest) guestDisksStorageTypeIsShared() bool {
+	for _, gd := range self.GetDisks() {
+		if gd.GetDisk().GetStorage().StorageType == api.STORAGE_LOCAL {
+			return false
+		}
+	}
+	return true
+}
+
 func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
 		return nil, httperrors.NewBadRequestError("Already have backup server")
@@ -4231,7 +4240,7 @@ func (manager *SGuestManager) AllowPerformBatchMigrate(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, manager, "batch-guest-migrate")
 }
 
-func (self *SGuest) validateForBatchMigrate(ctx context.Context) (*SGuest, error) {
+func (self *SGuest) validateForBatchMigrate(ctx context.Context, rescueMode bool) (*SGuest, error) {
 	guest := GuestManager.FetchGuestById(self.Id)
 	if guest.Hypervisor != api.HYPERVISOR_KVM {
 		return guest, httperrors.NewBadRequestError("guest %s hypervisor %s can't migrate",
@@ -4239,6 +4248,12 @@ func (self *SGuest) validateForBatchMigrate(ctx context.Context) (*SGuest, error
 	}
 	if len(guest.BackupHostId) > 0 {
 		return guest, httperrors.NewBadRequestError("guest %s has backup, can't migrate", guest.Name)
+	}
+	if rescueMode {
+		if !guest.guestDisksStorageTypeIsShared() {
+			return guest, httperrors.NewBadRequestError("can't rescue geust %s with local storage", guest.Name)
+		}
+		return guest, nil
 	}
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY, api.VM_UNKNOWN}) {
 		return guest, httperrors.NewBadRequestError("guest %s status %s can't migrate", guest.Name, guest.Status)
@@ -4300,7 +4315,7 @@ func (manager *SGuestManager) PerformBatchMigrate(ctx context.Context, userCred 
 	for i := 0; i < len(guests); i++ {
 		lockman.LockObject(ctx, &guests[i])
 		defer lockman.ReleaseObject(ctx, &guests[i])
-		guest, err := guests[i].validateForBatchMigrate(ctx)
+		guest, err := guests[i].validateForBatchMigrate(ctx, false)
 		if err != nil {
 			return nil, err
 		}
