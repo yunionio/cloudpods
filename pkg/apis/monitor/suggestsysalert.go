@@ -51,6 +51,7 @@ type SuggestSysAlertDetails struct {
 	apis.VirtualResourceDetails
 	compute.CloudregionResourceInfo
 	RuleName string `json:"rule_name"`
+	ShowName string `json:"show_name"`
 	ResType  string `json:"res_type"`
 	Suggest  string `json:"suggest"`
 	Brand    string `json:"brand"`

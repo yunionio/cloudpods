@@ -2,14 +2,12 @@ package suggestsysdrivers
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/apis/monitor"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -23,7 +21,7 @@ type DiskUnused struct {
 
 func NewDiskUnusedDriver() models.ISuggestSysRuleDriver {
 	return &DiskUnused{
-		monitor.DiskUnused{},
+		DiskUnused: monitor.DiskUnused{},
 	}
 }
 
@@ -36,20 +34,11 @@ func (rule *DiskUnused) GetResourceType() string {
 }
 
 func (rule *DiskUnused) DoSuggestSysRule(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	var instance *monitor.SSuggestSysAlertSetting
-	suggestSysSettingMap, err := models.SuggestSysRuleManager.FetchSuggestSysAlartSettings(rule.GetType())
-	if err != nil {
-		log.Errorln("DoSuggestSysRule error :", err)
-		return
-	}
-	if details, ok := suggestSysSettingMap[rule.GetType()]; ok {
-		instance = details.Setting
-	}
-	rule.Run(instance)
+	doSuggestSysRule(ctx, userCred, isStart, rule)
 }
 
 func (rule *DiskUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
-	oldAlert, err := rule.getLastAlerts()
+	oldAlert, err := getLastAlerts(rule)
 	if err != nil {
 		log.Errorln(err)
 		return
@@ -60,18 +49,6 @@ func (rule *DiskUnused) Run(instance *monitor.SSuggestSysAlertSetting) {
 		return
 	}
 	DealAlertData(oldAlert, newAlerts.Value())
-}
-
-func (rule *DiskUnused) getLastAlerts() ([]models.SSuggestSysAlert, error) {
-	oldAlert := make([]models.SSuggestSysAlert, 0)
-	q := models.SuggestSysAlertManager.Query()
-	q.Equals("type", monitor.DISK_UN_USED)
-	err := db.FetchModelObjects(models.SuggestSysAlertManager, q, &oldAlert)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorln(errors.Wrap(err, "db.FetchModelObjects"))
-		return oldAlert, err
-	}
-	return oldAlert, nil
 }
 
 func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSetting) (*jsonutils.JSONArray, error) {
@@ -86,16 +63,11 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 	}
 	DiskUnusedArr := jsonutils.NewArray()
 	for _, disk := range disks.Data {
-		suggestSysAlert := new(models.SSuggestSysAlert)
-		alertData := jsonutils.DeepCopy(disk).(*jsonutils.JSONDict)
-		id, _ := alertData.GetString("id")
-		alertData.Add(jsonutils.NewString(id), "res_id")
-		alertData.Remove("id")
-
-		err := alertData.Unmarshal(suggestSysAlert)
+		suggestSysAlert, err := getSuggestSysAlertFromJson(disk, rule)
 		if err != nil {
 			return DiskUnusedArr, errors.Wrap(err, "getEIPUnused's alertData Unmarshal error")
 		}
+
 		input := &monitor.SSuggestSysAlertSetting{
 			DiskUnused: &monitor.DiskUnused{},
 		}
@@ -107,11 +79,6 @@ func (rule *DiskUnused) getLatestAlerts(instance *monitor.SSuggestSysAlertSettin
 		problem := jsonutils.NewDict()
 		problem.Add(jsonutils.NewString(rule.GetType()), "disk")
 		suggestSysAlert.Problem = problem
-
-		suggestSysAlert.Type = rule.GetType()
-
-		suggestSysAlert.Action = monitor.DRIVER_ACTION
-		suggestSysAlert.ResMeta = disk
 		DiskUnusedArr.Add(jsonutils.Marshal(suggestSysAlert))
 	}
 	return DiskUnusedArr, nil
