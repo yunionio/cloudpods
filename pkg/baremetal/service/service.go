@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/baremetal"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/baremetal/handler"
@@ -65,6 +66,8 @@ func (s *BaremetalService) StartService() {
 	fsdriver.Init(nil)
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
 	handler.InitHandlers(app)
+
+	common_options.StartOptionManager(&o.Options, o.Options.ConfigSyncPeriodSeconds, api.SERVICE_TYPE, api.SERVICE_VERSION, o.OnOptionsChange)
 
 	s.startAgent(app)
 
