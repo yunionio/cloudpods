@@ -323,10 +323,7 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 	if err := v.Validate(data); err != nil {
 		return nil, err
 	}
-
-	proxySetting := v.Model.(*proxy.SProxySetting)
-
-	if proxySetting != nil {
+	if proxySetting, ok := v.Model.(*proxy.SProxySetting); ok && proxySetting.Id != self.ProxySettingId {
 		// updated proxy setting, so do the check
 		proxyFunc := proxySetting.HttpTransportProxyFunc()
 		secret, _ := self.getPassword()
