@@ -346,7 +346,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
 	}
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf("mkdir -p /dev/hugepages/%s\n", uuid)
 		cmd += fmt.Sprintf("mount -t hugetlbfs -o size=%dM hugetlbfs-%s /dev/hugepages/%s\n",
 			mem, uuid, uuid)
@@ -464,7 +464,7 @@ func (s *SKVMGuestInstance) _generateStartScript(data *jsonutils.JSONDict) (stri
 	// #cmd += fmt.Sprintf(" -uuid %s", self.desc["uuid"])
 	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf(" -mem-prealloc -mem-path %s", fmt.Sprintf("/dev/hugepages/%s", uuid))
 	}
 
@@ -676,7 +676,7 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "  rm -f $PID_FILE\n"
 	cmd += "fi\n"
 
-	if options.HostOptions.HugepagesOption == "native" {
+	if s.manager.host.IsHugepagesEnabled() {
 		cmd += fmt.Sprintf("if [ -d /dev/hugepages/%s ]; then\n", uuid)
 		cmd += fmt.Sprintf("  umount /dev/hugepages/%s\n", uuid)
 		cmd += fmt.Sprintf("  rm -rf /dev/hugepages/%s\n", uuid)
