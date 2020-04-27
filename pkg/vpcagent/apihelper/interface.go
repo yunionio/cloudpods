@@ -45,11 +45,12 @@ func SyncModelSets(mssOld IModelSets, s *mcclient.ClientSession, batchSize int) 
 	for i, msNew := range mssNews.ModelSetList() {
 		minUpdatedAt := ModelSetMaxUpdatedAt(mss[i])
 		err = GetModels(&GetModelsOptions{
-			ClientSession: s,
-			ModelManager:  msNew.ModelManager(),
-			MinUpdatedAt:  minUpdatedAt,
-			ModelSet:      msNew,
-			BatchListSize: batchSize,
+			ClientSession:  s,
+			ModelManager:   msNew.ModelManager(),
+			MinUpdatedAt:   minUpdatedAt,
+			ModelSet:       msNew,
+			BatchListSize:  batchSize,
+			IncludeDetails: true,
 		})
 		if err != nil {
 			return
