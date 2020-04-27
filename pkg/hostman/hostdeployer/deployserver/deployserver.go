@@ -216,7 +216,7 @@ func (*DeployerServer) ConnectEsxiDisks(
 			err = errors.Wrapf(err, "disk %s connect block device", req.AccessInfo[i].DiskPath)
 			break
 		}
-		connectedEsxiDisks[req.AccessInfo[i].DiskPath] = disk
+		connectedEsxiDisks[flatFilePath] = disk
 		ret.Disks[i] = &deployapi.EsxiDiskInfo{DiskPath: flatFilePath}
 	}
 	if err != nil {

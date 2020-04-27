@@ -186,8 +186,8 @@ func (self *GuestConvertEsxiToKvmTask) OnHostCreateGuestFailed(
 }
 
 func (self *GuestConvertEsxiToKvmTask) TaskComplete(ctx context.Context, guest, targetGuest *models.SGuest) {
-	guest.SetStatus(self.UserCred, api.VM_CONVERTED, "")
 	guest.SetMetadata(ctx, api.SERVER_META_CONVERTED_SERVER, targetGuest.Id, self.UserCred)
+	guest.SetStatus(self.UserCred, api.VM_CONVERTED, "")
 	if osProfile := guest.GetMetadata("__os_profile__", self.UserCred); len(osProfile) > 0 {
 		targetGuest.SetMetadata(ctx, "__os_profile__", osProfile, self.UserCred)
 	}
