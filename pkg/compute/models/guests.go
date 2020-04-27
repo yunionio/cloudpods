@@ -210,7 +210,7 @@ func (manager *SGuestManager) ListItemFilter(
 	//	q = q.In("id", diskQ.SubQuery())
 	//}
 
-	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").NotEquals("guest_status", api.SG_GUEST_STATUS_PENDING_REMOVE).Snapshot()
+	scalingGroupQ := ScalingGroupGuestManager.Query("guest_id").Snapshot()
 	scalingGroupQ, err = manager.SScalingGroupResourceBaseManager.ListItemFilter(ctx, scalingGroupQ, userCred, query.ScalingGroupFilterListInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "SScaligGroupResourceBaseManager.ListItemFilter")

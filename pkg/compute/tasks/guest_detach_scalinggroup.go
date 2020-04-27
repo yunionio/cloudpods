@@ -120,7 +120,7 @@ func (self *GuestDetachScalingGroupTask) OnDeleteGuestComplete(ctx context.Conte
 	logclient.AddActionLogWithStartable(self, sg, logclient.ACT_REMOVE_GUEST, fmt.Sprintf("Instance '%s' was removed", guestId), self.UserCred, true)
 	if auto, _ := self.Params.Bool("auto"); !auto {
 		// scale; change the desire number
-		_, err := sg.Scale(ctx, SScalingTriggerDesc{guestName}, SScalingActionDesc{})
+		err := sg.Scale(ctx, SScalingTriggerDesc{guestName}, SScalingActionDesc{}, 0)
 		if err != nil {
 			log.Errorf("ScalingGroup '%s' scale after removing instance '%s' failed: %s", sg.GetId(), guestId, err.Error())
 		}

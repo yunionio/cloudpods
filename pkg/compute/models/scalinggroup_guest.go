@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -77,7 +78,7 @@ func (sgg *SScalingGroupGuest) Detach(ctx context.Context, userCred mcclient.Tok
 func (sggm *SScalingGroupGuestManager) Fetch(scalingGroupId, guestId string) ([]SScalingGroupGuest, error) {
 
 	sggs := make([]SScalingGroupGuest, 0)
-	q := sggm.Query().NotEquals("guest_status", compute.SG_GUEST_STATUS_PENDING_REMOVE)
+	q := sggm.Query()
 	if len(scalingGroupId) != 0 {
 		q = q.Equals("scaling_group_id", scalingGroupId)
 	}
@@ -99,4 +100,9 @@ func (sgg *SScalingGroupGuest) SetGuestStatus(status string) error {
 		return nil
 	})
 	return err
+}
+
+func (sggm *SScalingGroupGuestManager) Query(fields ...string) *sqlchemy.SQuery {
+	return sggm.SVirtualJointResourceBaseManager.Query(fields...).NotEquals("guest_status",
+		compute.SG_GUEST_STATUS_PENDING_REMOVE)
 }

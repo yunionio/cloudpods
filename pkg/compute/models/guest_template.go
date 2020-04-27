@@ -458,7 +458,7 @@ func (gt *SGuestTemplate) getMoreDetails(ctx context.Context, userCred mcclient.
 
 	// reset_password
 	if input.ResetPassword == nil {
-		configInfo.ResetPassword = false
+		configInfo.ResetPassword = true
 	} else {
 		configInfo.ResetPassword = *input.ResetPassword
 	}
