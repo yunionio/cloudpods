@@ -337,9 +337,9 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Roles[i].Name = roles[i].Name
 		}
 
-		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, &token)
-		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, &token)
-		token.Token.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, &token)
+		token.Token.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, &token)
+		token.Token.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, &token)
+		token.Token.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, &token)
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {

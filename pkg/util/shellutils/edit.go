@@ -49,5 +49,9 @@ func Edit(yaml string) (string, error) {
 		return "", errors.Wrap(err, "ioutil.ReadFile")
 	}
 
+	if yaml == string(policyBytes) {
+		return "", errors.Error("no change")
+	}
+
 	return string(policyBytes), nil
 }
