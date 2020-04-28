@@ -64,7 +64,7 @@ type SDBInstanceAccount struct {
 	SDBInstanceResourceBase `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
 	// 数据库密码
-	Secret string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	Secret string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	// RDS实例Id
 	// DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
