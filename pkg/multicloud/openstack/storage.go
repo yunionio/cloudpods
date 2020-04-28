@@ -20,9 +20,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
+
+const (
+	DEFAULT_STORAGE_TYPE = "scheduler"
 )
 
 type SExtraSpecs struct {
@@ -74,7 +79,10 @@ func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (storage *SStorage) GetStorageType() string {
-	return strings.ToLower(storage.Name)
+	if len(storage.ExtraSpecs.VolumeBackendName) == 0 {
+		storage.ExtraSpecs.VolumeBackendName = DEFAULT_STORAGE_TYPE
+	}
+	return storage.ExtraSpecs.VolumeBackendName
 }
 
 func (storage *SStorage) GetMediumType() string {
@@ -94,7 +102,10 @@ func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (storage *SStorage) GetStatus() string {
-	return api.STORAGE_ONLINE
+	if utils.IsInStringArray(storage.GetStorageType(), storage.zone.getAvailableStorages()) {
+		return api.STORAGE_ONLINE
+	}
+	return api.STORAGE_OFFLINE
 }
 
 func (storage *SStorage) Refresh() error {

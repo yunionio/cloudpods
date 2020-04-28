@@ -59,7 +59,9 @@ type SZone struct {
 
 	cachedHosts map[string][]string
 
-	schedulerPools []SPool
+	schedulerPools      []SPool
+	availableStorages   []string
+	unavailableStorages []string
 
 	Hosts map[string]map[string]HostState
 }
@@ -173,6 +175,74 @@ func (zone *SZone) fetchStorages() error {
 	nova := &SNovaStorage{zone: zone}
 	zone.istorages = append(zone.istorages, nova)
 	return fmt.Errorf("failed to find storage types by cinder service")
+}
+
+type SCinderService struct {
+	ActiveBackendId string
+	// cinder-volume
+	Binary            string
+	DisabledReason    string
+	Frozen            string
+	Host              string
+	ReplicationStatus string
+	State             string
+	Status            string
+	UpdatedAt         time.Time
+	Zone              string
+}
+
+func (zone *SZone) GetCinderServices() ([]SCinderService, error) {
+	_, resp, err := zone.region.CinderList("/os-services", "", nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "CinderList")
+	}
+	services := []SCinderService{}
+	err = resp.Unmarshal(&services, "services")
+	if err != nil {
+		return nil, errors.Wrap(err, "resp.Unmarshal")
+	}
+	return services, nil
+}
+
+func (zone *SZone) fetchCinderSerivces() error {
+	services, err := zone.GetCinderServices()
+	if err != nil {
+		return errors.Wrap(err, "GetCinderServices")
+	}
+	zone.availableStorages = []string{DEFAULT_STORAGE_TYPE, api.STORAGE_OPENSTACK_NOVA}
+	zone.unavailableStorages = []string{}
+	for _, service := range services {
+		if service.Binary == "cinder-volume" && strings.Contains(service.Host, "@") {
+			hostInfo := strings.Split(service.Host, "@")
+			storage := hostInfo[len(hostInfo)-1]
+			if service.State == "up" && service.Status == "enabled" {
+				zone.availableStorages = append(zone.availableStorages, storage)
+				continue
+			}
+			zone.unavailableStorages = append(zone.unavailableStorages, storage)
+		}
+	}
+	return nil
+}
+
+func (zone *SZone) getAvailableStorages() []string {
+	if zone.availableStorages == nil {
+		err := zone.fetchCinderSerivces()
+		if err != nil {
+			log.Errorf("fetchCinderSerivces error: %v", err)
+		}
+	}
+	return zone.availableStorages
+}
+
+func (zone *SZone) getUnavailableStorage() []string {
+	if zone.unavailableStorages == nil {
+		err := zone.fetchCinderSerivces()
+		if err != nil {
+			log.Errorf("fetchCinderSerivces error: %v", err)
+		}
+	}
+	return zone.unavailableStorages
 }
 
 func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
