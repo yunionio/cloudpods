@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -379,10 +380,24 @@ func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred
 	return data, nil
 }
 
+func validateJoinProject(userCred mcclient.TokenCredential, project *SProject, roleNames []string) error {
+	opsScope, opsPolicySet := policy.PolicyManager.GetMatchedPolicySet(userCred)
+	rbacCred := rbacutils.NewRbacIdentity(project.DomainId, project.Name, roleNames)
+	assignScope, assignPolicySet := policy.PolicyManager.GetMatchedPolicySet(rbacCred)
+	log.Debugf("opsScope: %s assignScope: %s", opsScope, assignScope)
+	if assignScope.HigherThan(opsScope) {
+		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles requires higher privilege scope")
+	}
+	if !opsScope.HigherThan(assignScope) && opsPolicySet.ViolatedBy(assignPolicySet) {
+		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "assigning roles violates operator's policy")
+	}
+	return nil
+}
+
 func (project *SProject) AllowPerformJoin(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject,
+	input api.SProjectAddUserGroupInput,
 ) bool {
 	return db.IsAdminAllowPerform(userCred, project, "join")
 }
@@ -402,6 +417,8 @@ func (project *SProject) PerformJoin(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
+
+	roleNames := make([]string, 0)
 	roles := make([]*SRole, 0)
 	for i := range input.Roles {
 		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
@@ -412,8 +429,16 @@ func (project *SProject) PerformJoin(
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		roles = append(roles, obj.(*SRole))
+		role := obj.(*SRole)
+		roles = append(roles, role)
+		roleNames = append(roleNames, role.Name)
 	}
+
+	err = validateJoinProject(userCred, project, roleNames)
+	if err != nil {
+		return nil, errors.Wrap(err, "validateJoinProject")
+	}
+
 	users := make([]*SUser, 0)
 	for i := range input.Users {
 		obj, err := UserManager.FetchByIdOrName(userCred, input.Users[i])
