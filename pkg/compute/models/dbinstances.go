@@ -1674,8 +1674,8 @@ func (manager *SDBInstanceManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 
-	if keys.ContainsAny(manager.SVpcResourceBaseManager.GetExportKeys()...) {
-		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+	if keys.Contains("vpc") {
+		q, err = manager.SVpcResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"vpc"}))
 		if err != nil {
 			return nil, errors.Wrap(err, "SVpcResourceBaseManager.ListItemExportKeys")
 		}

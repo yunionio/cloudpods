@@ -1142,5 +1142,23 @@ func (manager *SVpcManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 
+	if keys.Contains("wire_count") {
+		wires := WireManager.Query("vpc_id").SubQuery()
+		subq := wires.Query(sqlchemy.COUNT("wire_count"), wires.Field("vpc_id")).GroupBy(wires.Field("vpc_id")).SubQuery()
+		q = q.Join(subq, sqlchemy.Equals(q.Field("id"), subq.Field("vpc_id")))
+		q = q.AppendField(subq.Field("wire_count"))
+	}
+
+	if keys.Contains("network_count") {
+		wires := WireManager.Query("id", "vpc_id").SubQuery()
+		networks := NetworkManager.Query("wire_id").SubQuery()
+		subq := networks.Query(sqlchemy.COUNT("network_count"), wires.Field("vpc_id"))
+		subq = subq.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+		subq = subq.GroupBy(wires.Field("vpc_id"))
+		subqQ := subq.SubQuery()
+		q = q.Join(subqQ, sqlchemy.Equals(q.Field("id"), subqQ.Field("vpc_id")))
+		q = q.AppendField(subqQ.Field("network_count"))
+	}
+
 	return q, nil
 }
