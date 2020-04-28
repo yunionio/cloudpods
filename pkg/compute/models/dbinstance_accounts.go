@@ -59,7 +59,7 @@ type SDBInstanceAccount struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Secret       string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"optional"`
+	Secret       string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
