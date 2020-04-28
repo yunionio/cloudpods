@@ -849,7 +849,7 @@ func (user *SUser) PerformJoin(
 ) (jsonutils.JSONObject, error) {
 	err := joinProjects(user, true, ctx, userCred, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "joinProjects")
 	}
 	return nil, nil
 }
@@ -862,6 +862,21 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 
 	projects := make([]*SProject, 0)
 	roles := make([]*SRole, 0)
+	roleNames := make([]string, 0)
+
+	for i := range input.Roles {
+		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
+			} else {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+		role := obj.(*SRole)
+		roles = append(roles, role)
+		roleNames = append(roleNames, role.Name)
+	}
 
 	for i := range input.Projects {
 		obj, err := ProjectManager.FetchByIdOrName(userCred, input.Projects[i])
@@ -872,18 +887,12 @@ func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mc
 				return httperrors.NewGeneralError(err)
 			}
 		}
-		projects = append(projects, obj.(*SProject))
-	}
-	for i := range input.Roles {
-		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		project := obj.(*SProject)
+		err = validateJoinProject(userCred, project, roleNames)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
-			} else {
-				return httperrors.NewGeneralError(err)
-			}
+			return errors.Wrapf(err, "validateJoinProject %s(%s)", project.Id, project.Name)
 		}
-		roles = append(roles, obj.(*SRole))
+		projects = append(projects, project)
 	}
 
 	for i := range projects {

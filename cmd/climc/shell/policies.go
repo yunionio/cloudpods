@@ -377,7 +377,7 @@ func init() {
 			rbacutils.ScopeUser,
 			rbacutils.ScopeNone,
 		} {
-			m := policy.PolicyManager.MatchedPolicies(scope, token)
+			m := policy.PolicyManager.MatchedPolicyNames(scope, token)
 			fmt.Println("matched", scope, "policies:", m)
 		}
 
