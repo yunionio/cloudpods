@@ -17,7 +17,6 @@ package openstack
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -121,25 +120,13 @@ func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 		return nil, err
 	}
 
-	schedulerPools, err := host.zone.getSchedulerStatsPool()
-	if err != nil {
-		return nil, err
-	}
-
+	storageTypes := host.zone.getAvailableStorages()
+	storageTypes = append(storageTypes, host.zone.getUnavailableStorage()...)
 	result := []cloudprovider.ICloudStorage{}
 
 	for _, istorage := range istorages {
-		if istorage.GetStorageType() == api.STORAGE_OPENSTACK_NOVA {
+		if utils.IsInStringArray(istorage.GetStorageType(), storageTypes) {
 			result = append(result, istorage)
-			continue
-		}
-		if storage := istorage.(*SStorage); len(storage.ExtraSpecs.VolumeBackendName) > 0 {
-			for _, pool := range schedulerPools {
-				if strings.HasPrefix(pool.Name, fmt.Sprintf("%s@%s", host.GetName(), storage.ExtraSpecs.VolumeBackendName)) {
-					result = append(result, istorage)
-					break
-				}
-			}
 		}
 	}
 	return result, nil
@@ -213,12 +200,12 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	BlockDeviceMappingV2 := []map[string]interface{}{}
 
 	if desc.SysDisk.StorageType != api.STORAGE_OPENSTACK_NOVA { //新建volume
-		storage, err := host.zone.getStorageByCategory(desc.SysDisk.StorageType)
+		istorage, err := host.zone.GetIStorageById(desc.SysDisk.StorageExternalId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "GetIStorageById(%s)", desc.SysDisk.StorageExternalId)
 		}
 
-		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, storage.Name, "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
+		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, istorage.GetName(), "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -234,11 +221,11 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 	var _disk *SDisk
 	for _, disk := range desc.DataDisks {
-		storage, err := host.zone.getStorageByCategory(disk.StorageType)
+		istorage, err := host.zone.GetIStorageById(disk.StorageExternalId)
 		if err != nil {
 			break
 		}
-		_disk, err = host.zone.region.CreateDisk("", storage.Name, "", disk.SizeGB, disk.Name)
+		_disk, err = host.zone.region.CreateDisk("", istorage.GetName(), "", disk.SizeGB, disk.Name)
 		if err != nil {
 			break
 		}
