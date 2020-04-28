@@ -17,7 +17,6 @@ package hostinfo
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -70,6 +69,9 @@ type SHostInfo struct {
 	Cpu     *SCPUInfo
 	Mem     *SMemory
 	sysinfo *SSysInfo
+
+	isInit          bool
+	enableHugePages bool
 
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
@@ -134,6 +136,10 @@ func (h *SHostInfo) IsKvmSupport() bool {
 
 func (h *SHostInfo) IsNestedVirtualization() bool {
 	return utils.IsInStringArray("hypervisor", h.Cpu.cpuFeatures)
+}
+
+func (h *SHostInfo) IsHugepagesEnabled() bool {
+	return h.enableHugePages || options.HostOptions.HugepagesOption == "native"
 }
 
 func (h *SHostInfo) Init() error {
@@ -481,34 +487,51 @@ func (h *SHostInfo) GetMemory() (int, error) {
 	return h.Mem.Total, nil // - options.reserved_memory
 }
 
+func (h *SHostInfo) getCurrentHugepageNr() (int64, error) {
+	nrStr, err := fileutils2.FileGetContents("/proc/sys/vm/nr_hugepages")
+	if err != nil {
+		return 0, errors.Wrap(err, "file get content nr hugepages")
+	}
+	nr, err := strconv.Atoi(strings.TrimSpace(nrStr))
+	if err != nil {
+		return 0, errors.Wrap(err, "nr str atoi")
+	}
+	return int64(nr), nil
+}
+
 func (h *SHostInfo) EnableNativeHugepages() error {
-	content, err := ioutil.ReadFile("/proc/sys/vm/nr_hugepages")
+	kv := map[string]string{
+		"/sys/kernel/mm/transparent_hugepage/enabled": "never",
+		"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
+	}
+	for k, v := range kv {
+		sysutils.SetSysConfig(k, v)
+	}
+	nr, err := h.getCurrentHugepageNr()
 	if err != nil {
 		return err
 	}
-	if string(content) == "0\n" {
-		kv := map[string]string{
-			"/sys/kernel/mm/transparent_hugepage/enabled": "never",
-			"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
-		}
-		for k, v := range kv {
-			sysutils.SetSysConfig(k, v)
-		}
-		mem, err := h.GetMemory()
+	mem, err := h.GetMemory()
+	if err != nil {
+		return err
+	}
+	mem -= h.getReservedMem()
+	desiredNr := int64(mem/h.Mem.GetHugepagesizeMb() + 1)
+	if nr < desiredNr {
+		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
+			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", desiredNr)).Run()
 		if err != nil {
 			return err
 		}
-		preAllocPagesNum := mem/h.Mem.GetHugepagesizeMb() + 1
-		err = timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
-		if err != nil {
-			log.Errorln(err)
-			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Output()
-			if err != nil {
-				log.Warningln(err)
-			}
-			return fmt.Errorf("Failed to set native hugepages, " +
-				"the system might have run out of contiguous memory, fall back to 0")
-		}
+	}
+	currentNr, err := h.getCurrentHugepageNr()
+	if err != nil {
+		return err
+	}
+	if currentNr < desiredNr {
+		err = timeutils2.CommandWithTimeout(1, "sh", "-c",
+			fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", nr)).Run()
+		return fmt.Errorf("no enough memory to resize hugepage, current nr %d, desired nr %d", currentNr, desiredNr)
 	}
 	return nil
 }
@@ -870,9 +893,8 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 }
 
 func (h *SHostInfo) updateHostRecord(hostId string) {
-	var isInit bool
 	if len(hostId) == 0 {
-		isInit = true
+		h.isInit = true
 	}
 	content := jsonutils.NewDict()
 	masterIp := h.GetMasterIp()
@@ -933,7 +955,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	var (
 		res jsonutils.JSONObject
 	)
-	if !isInit {
+	if !h.isInit {
 		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
 	} else {
 		res, err = modules.Hosts.CreateInContext(h.GetSession(), content, &modules.Zones, h.ZoneId)
@@ -963,6 +985,27 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 		h.onFail(err)
 		return
 	}
+
+	if options.HostOptions.HugepagesOption != "native" {
+		if h.isInit && len(h.IsolatedDeviceMan.Devices) > 0 {
+			meta := jsonutils.NewDict()
+			meta.Set("__enable_hugepages", jsonutils.NewString("true"))
+			_, err := modules.Hosts.SetMetadata(h.GetSession(), h.HostId, meta)
+			if err != nil {
+				h.onFail(fmt.Sprintf("failed "))
+			}
+			h.enableHugePages = true
+		} else if hugepage, _ := hostbody.GetString("metadata", "__enable_hugepages"); hugepage == "true" {
+			h.enableHugePages = true
+		}
+		if h.enableHugePages {
+			err := h.EnableNativeHugepages()
+			if err != nil {
+				h.onFail(err)
+			}
+		}
+	}
+
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
@@ -1305,6 +1348,7 @@ func (h *SHostInfo) uploadIsolatedDevices() {
 			h.onFail(fmt.Sprintf("Sync device %s: %v", dev.String(), err))
 		}
 	}
+
 	h.deployAdminAuthorizedKeys()
 }
 
