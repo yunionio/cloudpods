@@ -38,4 +38,23 @@ func init() {
 		printList(storages, 0, 0, 0, []string{})
 		return nil
 	})
+
+	type CinderServiceListOptions struct {
+		REGION string `help:"Region Name"`
+		ZONE   string `help:"Zone Name"`
+	}
+
+	shellutils.R(&CinderServiceListOptions{}, "cinder-service-list", "List cinder services", func(cli *openstack.SRegion, args *CinderServiceListOptions) error {
+		izone, err := cli.GetIZoneById(fmt.Sprintf("%s/%s/%s", openstack.CLOUD_PROVIDER_OPENSTACK, args.REGION, args.ZONE))
+		if err != nil {
+			return err
+		}
+		zone := izone.(*openstack.SZone)
+		services, err := zone.GetCinderServices()
+		if err != nil {
+			return err
+		}
+		printList(services, 0, 0, 0, []string{})
+		return nil
+	})
 }
