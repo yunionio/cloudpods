@@ -36,3 +36,7 @@ type CertificateDetails struct {
 	CaCertificate string `json:"ca_certificate"`
 	CaPrivateKey  string `json:"ca_private_key"`
 }
+
+const (
+	ENDPOINT_ETCD_INTERNAL = "etcd-internal"
+)
