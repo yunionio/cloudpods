@@ -47,7 +47,11 @@ func init() {
 			return err
 		}
 
-		printList(result, modules.Vpcs.GetColumns(s))
+		if len(opts.ExportFile) > 0 {
+			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.Vpcs.GetColumns(s))
+		} else {
+			printList(result, modules.Vpcs.GetColumns(s))
+		}
 		return nil
 	})
 

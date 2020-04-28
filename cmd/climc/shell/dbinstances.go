@@ -41,7 +41,12 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(result, modules.DBInstance.GetColumns(s))
+
+		if len(opts.ExportFile) > 0 {
+			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.DBInstance.GetColumns(s))
+		} else {
+			printList(result, modules.DBInstance.GetColumns(s))
+		}
 		return nil
 	})
 
