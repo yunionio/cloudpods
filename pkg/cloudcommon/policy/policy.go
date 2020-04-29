@@ -80,35 +80,42 @@ type SPolicyManager struct {
 	lock *sync.Mutex
 }
 
+type sPolicyData struct {
+	Type     string               `json:"type"`
+	Enabled  bool                 `json:"enabled"`
+	DomainId string               `json:"domain_id"`
+	IsPublic bool                 `json:"is_public"`
+	Policy   jsonutils.JSONObject `json:"policy"`
+}
+
 func parseJsonPolicy(obj jsonutils.JSONObject) (string, *rbacutils.SRbacPolicy, error) {
-	typeStr, err := obj.GetString("type")
+	pData := sPolicyData{}
+	err := obj.Unmarshal(&pData)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "missing type")
+		return "", nil, errors.Wrap(err, "Unmarshal")
 	}
-	domainId, err := obj.GetString("domain_id")
-	if err != nil {
-		return "", nil, errors.Wrap(err, "missing domain_id")
+	if !pData.Enabled {
+		return "", nil, errors.Wrap(httperrors.ErrInputParameter, "not enabled")
+	}
+	if len(pData.Type) == 0 {
+		return "", nil, errors.Wrap(httperrors.ErrInputParameter, "missing type")
 	}
 
-	isPublic := jsonutils.QueryBoolean(obj, "is_public", false)
-
-	blob, err := obj.Get("policy")
-	if err != nil {
-		log.Errorf("get blob error %s", err)
-		return "", nil, errors.Wrap(err, "json.Get")
+	if pData.Policy == nil {
+		return "", nil, errors.Wrap(httperrors.ErrInputParameter, "missing policy")
 	}
 
 	policy := rbacutils.SRbacPolicy{}
-	err = policy.Decode(blob)
+	err = policy.Decode(pData.Policy)
 	if err != nil {
 		log.Errorf("policy decode error %s", err)
 		return "", nil, errors.Wrap(err, "policy.Decode")
 	}
 
-	policy.DomainId = domainId
-	policy.IsPublic = isPublic
+	policy.DomainId = pData.DomainId
+	policy.IsPublic = pData.IsPublic
 
-	return typeStr, &policy, nil
+	return pData.Type, &policy, nil
 }
 
 func remotePolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error) {
@@ -121,7 +128,7 @@ func remotePolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbac
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
-		params.Add(jsonutils.JSONTrue, "admin")
+		params.Add(jsonutils.NewString("system"), "scope")
 		params.Add(jsonutils.JSONTrue, "enabled")
 		result, err := modules.Policies.List(s, params)
 		if err != nil {
@@ -315,42 +322,16 @@ func (manager *SPolicyManager) findPolicyByName(scope rbacutils.TRbacScope, name
 }
 
 func getMatchedPolicyNames(policies map[string]*rbacutils.SRbacPolicy, userCred rbacutils.IRbacIdentity) []string {
-	matchNames := make([]string, 0)
-	maxMatchWeight := 0
-	for k := range policies {
-		isMatched, matchWeight := policies[k].Match(userCred)
-		if !isMatched || matchWeight < maxMatchWeight {
-			continue
-		}
-		if maxMatchWeight < matchWeight {
-			maxMatchWeight = matchWeight
-			matchNames = matchNames[:0]
-		}
-		matchNames = append(matchNames, k)
-	}
+	_, matchNames := rbacutils.GetMatchedPolicies(policies, userCred)
 	return matchNames
 }
 
 func getMatchedPolicyRules(policies map[string]*rbacutils.SRbacPolicy, userCred rbacutils.IRbacIdentity, service string, resource string, action string, extra ...string) ([]rbacutils.SRbacRule, bool) {
-	matchRules := make([]rbacutils.SRbacRule, 0)
-	findMatchPolicy := false
-	maxMatchWeight := 0
-	for k := range policies {
-		isMatched, matchWeight := policies[k].Match(userCred)
-		if !isMatched || matchWeight < maxMatchWeight {
-			continue
-		}
-		if maxMatchWeight < matchWeight {
-			maxMatchWeight = matchWeight
-			matchRules = matchRules[:0]
-		}
-		findMatchPolicy = true
-		rule := policies[k].GetMatchRule(service, resource, action, extra...)
-		if rule != nil {
-			matchRules = append(matchRules, *rule)
-		}
+	matchPolicies, _ := rbacutils.GetMatchedPolicies(policies, userCred)
+	if len(matchPolicies) == 0 {
+		return nil, false
 	}
-	return matchRules, findMatchPolicy
+	return matchPolicies.GetMatchRules(service, resource, action, extra...), true
 }
 
 func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
@@ -520,7 +501,7 @@ func (manager *SPolicyManager) IsScopeCapable(userCred mcclient.TokenCredential,
 	return false
 }
 
-func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userCred rbacutils.IRbacIdentity) []string {
+func (manager *SPolicyManager) MatchedPolicyNames(scope rbacutils.TRbacScope, userCred rbacutils.IRbacIdentity) []string {
 	ret := make([]string, 0)
 	policies, ok := manager.policies[scope]
 	if !ok {
@@ -547,10 +528,25 @@ func (manager *SPolicyManager) RoleMatchPolicies(roleName string) []string {
 	ret := make([]string, 0)
 	for _, policies := range manager.policies {
 		for name, policy := range policies {
-			if policy.MatchRole(roleName) {
+			ident := rbacutils.NewRbacIdentity("", "", []string{roleName})
+			if matched, _ := policy.Match(ident); matched {
 				ret = append(ret, name)
 			}
 		}
 	}
 	return ret
+}
+
+func (manager *SPolicyManager) GetMatchedPolicySet(userCred rbacutils.IRbacIdentity) (rbacutils.TRbacScope, rbacutils.TPolicySet) {
+	for _, scope := range []rbacutils.TRbacScope{
+		rbacutils.ScopeSystem,
+		rbacutils.ScopeDomain,
+		rbacutils.ScopeProject,
+	} {
+		macthed, _ := rbacutils.GetMatchedPolicies(manager.policies[scope], userCred)
+		if len(macthed) > 0 {
+			return scope, macthed
+		}
+	}
+	return rbacutils.ScopeNone, nil
 }

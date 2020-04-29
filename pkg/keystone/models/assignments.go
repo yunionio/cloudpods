@@ -480,9 +480,9 @@ func (manager *SAssignmentManager) queryAll(userId, groupId, roleId, domainId, p
 }
 
 func fetchRoleAssignmentPolicies(ra *api.SRoleAssignment) {
-	ra.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, ra)
-	ra.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, ra)
-	ra.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, ra)
+	ra.Policies.Project = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeProject, ra)
+	ra.Policies.Domain = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeDomain, ra)
+	ra.Policies.System = policy.PolicyManager.MatchedPolicyNames(rbacutils.ScopeSystem, ra)
 }
 
 func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]api.SFetchDomainObject, fetchPolicies bool) api.SRoleAssignment {

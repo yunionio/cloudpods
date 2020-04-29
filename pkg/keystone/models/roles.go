@@ -284,6 +284,10 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	if project.DomainId != role.DomainId && !role.GetIsPublic() {
 		return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
 	}
+	err := validateJoinProject(userCred, project, []string{role.Name})
+	if err != nil {
+		return nil, errors.Wrap(err, "validateJoinProject")
+	}
 	switch obj := ctxObjs[1].(type) {
 	case *SUser:
 		return nil, AssignmentManager.projectAddUser(ctx, userCred, project, obj, role)
