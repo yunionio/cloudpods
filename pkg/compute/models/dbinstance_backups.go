@@ -571,7 +571,7 @@ func (manager *SDBInstanceBackupManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	if keys.ContainsAny("dbinstance") {
-		q, err = manager.SDBInstanceResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		q, err = manager.SDBInstanceResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"dbinstance"}))
 		if err != nil {
 			return nil, errors.Wrap(err, "SDBInstanceResourceBaseManager.ListItemExportKeys")
 		}
