@@ -240,7 +240,7 @@ func getSystemGeneralUsage(userCred mcclient.IIdentityProvider, rangeObjs []db.I
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		VpcUsage("", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem),
+		VpcUsage("", providers, brands, cloudEnv, nil, rbacutils.ScopeSystem, rangeObjs),
 
 		HostAllUsage("", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		HostAllUsage("prepaid_pool", userCred, rbacutils.ScopeSystem, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -328,7 +328,7 @@ func getDomainGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 	count.Add("domain.cpu_commit_rate.running", runningCpuCmtRate)
 
 	count.Include(
-		VpcUsage("domain", providers, brands, cloudEnv, cred, rbacutils.ScopeDomain),
+		VpcUsage("domain", providers, brands, cloudEnv, cred, rbacutils.ScopeDomain, rangeObjs),
 
 		HostAllUsage("", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypeShared}, providers, brands, cloudEnv),
 		HostAllUsage("prepaid_pool", cred, rbacutils.ScopeDomain, rangeObjs, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
@@ -492,10 +492,11 @@ func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []str
 	return count
 }
 
-func VpcUsage(prefix string, providers []string, brands []string, cloudEnv string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) Usage {
+func VpcUsage(prefix string, providers []string, brands []string, cloudEnv string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel) Usage {
 	q := models.VpcManager.Query()
-	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		q = models.CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+		q = models.RangeObjectsFilter(q, rangeObjs, nil, nil, q.Field("manager_id"))
 	}
 	if scope == rbacutils.ScopeDomain {
 		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
