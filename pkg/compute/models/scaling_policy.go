@@ -239,6 +239,17 @@ func (spm *SScalingPolicyManager) ValidateCreateData(ctx context.Context, userCr
 	return input, err
 }
 
+func (sp *SScalingPolicy) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
+	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	// sp.Project must be same with sp.ScalingGroup
+	sg, err := sp.ScalingGroup()
+	if err != nil {
+		return err
+	}
+	ownerId = sg.GetOwnerId()
+	return sp.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+}
+
 func (sp *SScalingPolicy) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// do nothing
 	sp.SetStatus(userCred, api.SP_STATUS_DELETING, "")

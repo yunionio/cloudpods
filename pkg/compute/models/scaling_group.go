@@ -493,6 +493,8 @@ func (sg *SScalingGroup) exec(ctx context.Context, action IScalingAction) (ret s
 	return
 }
 
+var CoolingTimeLocation, _ = time.LoadLocation("Asia/Shanghai")
+
 // Scale will modify SScalingGroup.DesireInstanceNumber and generate SScalingActivity based on the trigger and its
 // corresponding SScalingPolicy.
 func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerDesc, action IScalingAction,
@@ -514,7 +516,8 @@ func (sg *SScalingGroup) Scale(ctx context.Context, triggerDesc IScalingTriggerD
 	}
 	if action.CheckCoolTime() && !sg.AllowScale() {
 		err = scalingActivity.SetReject("",
-			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s", sg.AllowScaleTime.Format("2006-01-02 15:04:05")))
+			fmt.Sprintf("The Cooling Time limit the execution time of the policy to at least: %s",
+				sg.AllowScaleTime.In(CoolingTimeLocation).Format("2006-01-02 15:04:05 -0700")))
 		return nil
 	}
 
