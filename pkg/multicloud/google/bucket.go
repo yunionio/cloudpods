@@ -512,7 +512,7 @@ func (region *SRegion) PutObject(bucket string, name string, input io.Reader, si
 	params.Set("uploadType", "media")
 	header := http.Header{}
 	header.Set("Content-Length", fmt.Sprintf("%v", sizeBytes))
-
+	name = url.QueryEscape(name)
 	err := region.UploadObject(bucket, params, header, input)
 	if err != nil {
 		return errors.Wrap(err, "UploadObject")
