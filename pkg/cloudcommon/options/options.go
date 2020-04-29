@@ -128,8 +128,8 @@ type DBOptions struct {
 	LockmanMethod string `help:"method for lock synchronization" choices:"inmemory|etcd" default:"inmemory"`
 
 	EtcdOptions
-	EtcdLockPrefix string `help:"prefix of etcd lock records"`
-	EtcdLockTTL    int    `help:"ttl of etcd lock records"`
+	EtcdLockPrefix string `help:"prefix of etcd lock records" default:"/onecloud/lockman"`
+	EtcdLockTTL    int    `help:"ttl of etcd lock records" default:"5"`
 }
 
 type EtcdOptions struct {
