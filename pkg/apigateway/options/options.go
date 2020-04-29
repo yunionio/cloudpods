@@ -20,6 +20,7 @@ import (
 
 type GatewayOptions struct {
 	DefaultRegion string `help:"Use default region while region not specific in api request"`
+	CookieDomain  string `help:"specific cookie domain" default:""`
 
 	Timeout int `help:"Timeout in seconds, default is 300" default:"300"`
 
