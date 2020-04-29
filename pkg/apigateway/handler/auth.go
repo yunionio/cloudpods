@@ -614,7 +614,7 @@ func (this *projectRoles) json(user, userId, domain, domainId string, ip string)
 		rbacutils.ScopeProject,
 	} {
 		token := this.getToken(scope, user, userId, domain, domainId, ip)
-		matches := policy.PolicyManager.MatchedPolicies(scope, token)
+		matches := policy.PolicyManager.MatchedPolicyNames(scope, token)
 		obj.Add(jsonutils.NewStringArray(matches), fmt.Sprintf("%s_policies", scope))
 		if len(matches) > 0 {
 			obj.Add(jsonutils.JSONTrue, fmt.Sprintf("%s_capable", scope))
@@ -741,7 +741,7 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 		rbacutils.ScopeDomain,
 		rbacutils.ScopeProject,
 	} {
-		p := policy.PolicyManager.MatchedPolicies(scope, token)
+		p := policy.PolicyManager.MatchedPolicyNames(scope, token)
 		data.Add(jsonutils.NewStringArray(p), fmt.Sprintf("%s_policies", scope))
 		if scope == rbacutils.ScopeSystem {
 			data.Add(jsonutils.NewStringArray(p), "admin_policies")

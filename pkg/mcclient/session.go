@@ -368,6 +368,11 @@ func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	if len(this.zone) > 0 {
 		params.Add(jsonutils.NewString(this.zone), "zone")
 	}
+	if tokenV3, ok := this.token.(*TokenCredentialV3); ok {
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Project), "project_policies")
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.Domain), "domain_policies")
+		params.Add(jsonutils.NewStringArray(tokenV3.Token.Policies.System), "system_policies")
+	}
 	return params
 }
 

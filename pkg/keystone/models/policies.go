@@ -98,6 +98,18 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
+func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policy *rbacutils.SRbacPolicy) error {
+	opsScope, opsPolicySet := policyman.PolicyManager.GetMatchedPolicySet(userCred)
+	if opsScope != rbacutils.ScopeSystem && policy.Scope.HigherThan(opsScope) {
+		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "cannot create policy scope higher than %s", opsScope)
+	}
+	assignPolicySet := rbacutils.TPolicySet{policy}
+	if !opsScope.HigherThan(policy.Scope) && opsPolicySet.ViolatedBy(assignPolicySet) {
+		return errors.Wrap(httperrors.ErrNotSufficientPrivilege, "policy violates operator's policy")
+	}
+	return nil
+}
+
 func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	typeStr, _ := data.GetString("type")
 	if len(typeStr) == 0 {
@@ -113,6 +125,12 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("fail to decode policy data")
 	}
+
+	err = validatePolicyVioldatePrivilege(userCred, &policy)
+	if err != nil {
+		return nil, errors.Wrap(err, "validatePolicyVioldatePrivilege")
+	}
+
 	err = db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
 	if err != nil {
 		return nil, err
@@ -144,6 +162,10 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		/* if p.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionUpdate) == rbacutils.Deny {
 			return nil, httperrors.NewNotSufficientPrivilegeError("not allow to update system-wide policy")
 		} */
+		err = validatePolicyVioldatePrivilege(userCred, &p)
+		if err != nil {
+			return nil, errors.Wrap(err, "validatePolicyVioldatePrivilege")
+		}
 	}
 	if data.Contains("type") {
 		typeStr, _ := data.GetString("type")
