@@ -234,7 +234,7 @@ func (manager *SLoadbalancerClusterResourceBaseManager) ListItemExportKeys(ctx c
 ) (*sqlchemy.SQuery, error) {
 	if keys.ContainsAny(manager.GetExportKeys()...) {
 		var err error
-		subq := LoadbalancerClusterManager.Query("id", "name", "wire_d", "zone_id").SubQuery()
+		subq := LoadbalancerClusterManager.Query("id", "name", "wire_id", "zone_id").SubQuery()
 		q = q.LeftJoin(subq, sqlchemy.Equals(q.Field("cluster_id"), subq.Field("id")))
 
 		if keys.Contains("cluster") {
@@ -247,7 +247,7 @@ func (manager *SLoadbalancerClusterResourceBaseManager) ListItemExportKeys(ctx c
 			}
 		}
 		if keys.Contains("wire") {
-			q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+			q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"wire"}))
 			if err != nil {
 				return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
 			}
