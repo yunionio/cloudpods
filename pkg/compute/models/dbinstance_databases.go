@@ -95,7 +95,7 @@ func (manager *SDBInstanceDatabaseManager) FetchOwnerId(ctx context.Context, dat
 		}
 		return instance.(*SDBInstance).GetOwnerId(), nil
 	}
-	return nil, nil
+	return db.FetchProjectInfo(ctx, data)
 }
 
 func (manager *SDBInstanceDatabaseManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
