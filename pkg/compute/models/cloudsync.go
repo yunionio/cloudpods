@@ -1096,16 +1096,18 @@ func syncPublicCloudProviderInfo(
 		syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	}
 
-	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-	for i := range storageCachePairs {
-		// always sync private cloud cached images
-		if storageCachePairs[i].isNew || syncRange.DeepSync || !driver.GetFactory().IsPublicCloud() {
-			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+	if cloudprovider.IsSupportCompute(driver) {
+		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+		for i := range storageCachePairs {
+			// always sync private cloud cached images
+			if storageCachePairs[i].isNew || syncRange.DeepSync || !driver.GetFactory().IsPublicCloud() {
+				result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 
-			syncResults.Add(StoragecachedimageManager, result)
+				syncResults.Add(StoragecachedimageManager, result)
 
-			msg := result.Result()
-			log.Infof("syncCloudImages result: %s", msg)
+				msg := result.Result()
+				log.Infof("syncCloudImages result: %s", msg)
+			}
 		}
 	}
 
