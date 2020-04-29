@@ -352,7 +352,7 @@ func (group *SGroup) PerformJoin(
 ) (jsonutils.JSONObject, error) {
 	err := joinProjects(group, false, ctx, userCred, input)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "joinProjects")
 	}
 	return nil, nil
 }

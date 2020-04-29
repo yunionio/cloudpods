@@ -18,11 +18,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/utils"
 )
 
 type TRbacResult string
@@ -90,11 +90,14 @@ func (s1 TRbacScope) HigherThan(s2 TRbacScope) bool {
 
 type SRbacPolicy struct {
 	// condition, when the policy takes effects
-	Condition string // deprecated
+	// Deprecated
+	Condition string
 
 	DomainId string
 
-	IsPublic bool
+	IsPublic        bool
+	PublicScope     TRbacScope
+	SharedDomainIds []string
 
 	Projects []string
 	Roles    []string
@@ -102,8 +105,10 @@ type SRbacPolicy struct {
 	Auth     bool // whether needs authentication
 
 	// scope, the scope of the policy, system/domain/project
-	Scope   TRbacScope
-	IsAdmin bool // deprecated, is_admin=true means system scope, is_admin=false means project scope
+	Scope TRbacScope
+	// Deprecated
+	// is_admin=true means scope=system, is_admin=false means scope=project
+	IsAdmin bool
 
 	// rules, the exact rules
 	Rules []SRbacRule
@@ -416,7 +421,7 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 		}
 		return rules, nil
 	default:
-		return nil, errors.WithMessage(ErrUnsuportRuleData, rules.String())
+		return nil, errors.Wrap(ErrUnsuportRuleData, rules.String())
 	}
 }
 
@@ -581,7 +586,45 @@ type IRbacIdentity interface {
 }
 
 func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
-	return len(policy.Roles) == 0 && len(policy.Projects) == 0
+	return (len(policy.DomainId) == 0 || (policy.IsPublic && policy.PublicScope == ScopeSystem)) && len(policy.Roles) == 0 && len(policy.Projects) == 0
+}
+
+func (policy *SRbacPolicy) MatchDomain(domainId string) bool {
+	if len(policy.DomainId) == 0 {
+		return true
+	}
+	if policy.DomainId == domainId {
+		return true
+	}
+	if policy.IsPublic {
+		if policy.PublicScope == ScopeSystem {
+			return true
+		}
+		if utils.IsInStringArray(domainId, policy.SharedDomainIds) {
+			return true
+		}
+	}
+	return false
+}
+
+func (policy *SRbacPolicy) MatchProject(projectName string) bool {
+	if len(policy.Projects) == 0 {
+		return true
+	}
+	if contains(policy.Projects, projectName) {
+		return true
+	}
+	return false
+}
+
+func (policy *SRbacPolicy) MatchRoles(roleNames []string) bool {
+	if len(policy.Roles) == 0 {
+		return true
+	}
+	if intersect(policy.Roles, roleNames) {
+		return true
+	}
+	return false
 }
 
 // check whether policy maches a userCred
@@ -597,18 +640,20 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 		return false, 0
 	}
 	weight := 0
-	if policy.IsPublic || len(policy.DomainId) == 0 || policy.DomainId == userCred.GetProjectDomainId() {
+	if policy.MatchDomain(userCred.GetProjectDomainId()) {
 		if len(policy.DomainId) > 0 {
 			weight += 10
 		}
 		if !policy.IsPublic {
-			weight += 10
-		}
-		if len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles()) {
+			weight += 30 // exact domain match
+		} else if len(policy.SharedDomainIds) > 0 {
+			weight += 20 // shared domain match
+		} // else, system scope match
+		if policy.MatchRoles(userCred.GetRoles()) {
 			if len(policy.Roles) != 0 {
 				weight += 100
 			}
-			if len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName()) {
+			if policy.MatchProject(userCred.GetProjectName()) {
 				if len(policy.Projects) > 0 {
 					weight += 1000
 				}
@@ -624,11 +669,34 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) (bool, int) {
 	return false, 0
 }
 
-func (policy *SRbacPolicy) MatchRole(roleName string) bool {
-	if len(policy.Roles) == 0 || contains(policy.Roles, roleName) {
-		return true
+type sSimpleRbacIdentity struct {
+	domainId    string
+	projectName string
+	roleNames   []string
+}
+
+func (id sSimpleRbacIdentity) GetProjectDomainId() string {
+	return id.domainId
+}
+
+func (id sSimpleRbacIdentity) GetRoles() []string {
+	return id.roleNames
+}
+
+func (id sSimpleRbacIdentity) GetProjectName() string {
+	return id.projectName
+}
+
+func (id sSimpleRbacIdentity) GetLoginIp() string {
+	return ""
+}
+
+func NewRbacIdentity(domainId, projectName string, roleNames []string) IRbacIdentity {
+	return sSimpleRbacIdentity{
+		domainId:    domainId,
+		projectName: projectName,
+		roleNames:   roleNames,
 	}
-	return false
 }
 
 func String2Scope(str string) TRbacScope {
