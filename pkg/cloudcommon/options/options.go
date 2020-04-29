@@ -224,7 +224,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 
 	err = reflectutils.FindAnonymouStructPointer(optStruct, &optionsRef)
 	if err != nil {
-		log.Fatalf("Find common options fail %s", err)
+		log.Fatalf("Find common options fail: %s", err)
 	}
 
 	if optionsRef.Help {

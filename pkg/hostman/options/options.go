@@ -124,11 +124,10 @@ type SHostOptions struct {
 	OvnIntegrationBridge string `help:"name of integration bridge for logical ports" default:"brvpc" default:"$HOST_OVN_INTEGRATION_BRIDGE|brvpc"`
 	OvnMappedBridge      string `help:"name of bridge for mapped traffic management" default:"mapped" default:"$HOST_OVN_MAPPED_BRIDGE|brmapped"`
 
-	EnableHealthChecker   bool   `help:"enable host health checker"`
-	HealthDriver          string `help:"Component save host health state" default:"etcd"`
-	HealthShutdownServers bool   `help:"Host healthor disconenct with controller shutdown shared storage servers" default:"false"`
-	HostHealthTimeout     int    `help:"host health timeout" default:"30"`
-	HostLeaseTimeout      int    `help:"lease timeout" default:"10"`
+	EnableHealthChecker bool   `help:"enable host health checker" default:"true"`
+	HealthDriver        string `help:"Component save host health state" default:"etcd"`
+	HostHealthTimeout   int    `help:"host health timeout" default:"30"`
+	HostLeaseTimeout    int    `help:"lease timeout" default:"10"`
 }
 
 var (
@@ -141,7 +140,6 @@ func Parse() (hostOpts SHostOptions) {
 		commonCfg := &common_options.CommonOptions{}
 		commonCfg.Config = hostOpts.CommonConfigFile
 		common_options.ParseOptions(commonCfg, []string{os.Args[0]}, "common.conf", "host")
-
 		baseOpt := hostOpts.BaseOptions.BaseOptions
 		hostOpts.CommonOptions = *commonCfg
 		// keep base options

@@ -72,6 +72,7 @@ type SHostInfo struct {
 
 	isInit          bool
 	enableHugePages bool
+	onHostDown      string
 
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
@@ -1005,6 +1006,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 			}
 		}
 	}
+	h.onHostDown, _ = hostbody.GetString("metadata", "__on_host_down")
 
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
@@ -1052,8 +1054,8 @@ func (h *SHostInfo) PutHostOffline() {
 
 func (h *SHostInfo) PutHostOnline() error {
 	data := jsonutils.NewDict()
-	if options.HostOptions.EnableHealthChecker {
-		_, err := host_health.InitHostHealthManager(h.HostId)
+	if options.HostOptions.EnableHealthChecker && len(options.HostOptions.EtcdEndpoints) > 0 {
+		_, err := host_health.InitHostHealthManager(h.HostId, h.onHostDown)
 		if err != nil {
 			log.Fatalf("Init host health manager failed %s", err)
 		}
