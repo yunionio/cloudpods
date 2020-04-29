@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/ovsdb/cli_util"
 	"yunion.io/x/ovsdb/schema/ovn_nb"
 	"yunion.io/x/ovsdb/types"
@@ -48,6 +49,7 @@ func DumpOVNNorthbound(ctx context.Context, cli *ovnutil.OvnNbCtl) (*OVNNorthbou
 		&db.LogicalRouter,
 		&db.LogicalRouterPort,
 		&db.LogicalRouterStaticRoute,
+		&db.ACL,
 		&db.DHCPOptions,
 	}
 	args := []string{"--format=json", "list", "<tbl>"}
@@ -227,8 +229,10 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		vpc     = network.Vpc
 		host    = guest.Host
 
+		lportName = gnpName(guestnetwork.NetworkId, guestnetwork.Ifname)
 		ocVersion = fmt.Sprintf("%s.%d", guestnetwork.UpdatedAt, guestnetwork.UpdateVersion)
 		ocGnrRef  = fmt.Sprintf("gnr/%s/%s/%s", vpc.Id, guestnetwork.GuestId, guestnetwork.Ifname)
+		ocAclRef  = fmt.Sprintf("acl/%s/%s/%s", network.Id, guestnetwork.GuestId, guestnetwork.Ifname)
 		dhcpOpt   string
 	)
 
@@ -254,7 +258,7 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	}
 
 	gnp := &ovn_nb.LogicalSwitchPort{
-		Name:          gnpName(guestnetwork.NetworkId, guestnetwork.Ifname),
+		Name:          lportName,
 		Addresses:     []string{fmt.Sprintf("%s %s", guestnetwork.MacAddr, guestnetwork.IpAddr)},
 		PortSecurity:  []string{fmt.Sprintf("%s %s/%d", guestnetwork.MacAddr, guestnetwork.IpAddr, guestnetwork.Network.GuestIpMask)},
 		Dhcpv4Options: &dhcpOpt,
@@ -270,10 +274,29 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 		},
 	}
 
-	allFound, args := cmp(&keeper.DB, ocVersion,
-		gnp,
-		gnr,
-	)
+	var acls []*ovn_nb.ACL
+	{
+		sgrs := guest.OrderedSecurityGroupRules()
+		for _, sgr := range sgrs {
+			acl, err := ruleToAcl(lportName, sgr)
+			if err != nil {
+				log.Errorf("converting security group rule to acl: %v", err)
+				break
+			}
+			acl.ExternalIds = map[string]string{
+				externalKeyOcRef: ocAclRef,
+			}
+			acls = append(acls, acl)
+		}
+	}
+
+	irows := []types.IRow{
+		gnp, gnr,
+	}
+	for _, acl := range acls {
+		irows = append(irows, acl)
+	}
+	allFound, args := cmp(&keeper.DB, ocVersion, irows...)
 	if allFound {
 		return nil
 	}
@@ -281,6 +304,11 @@ func (keeper *OVNNorthboundKeeper) ClaimGuestnetwork(ctx context.Context, guestn
 	args = append(args, ovnCreateArgs(gnr, "gnr")...)
 	args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "ports", "@"+gnp.Name)
 	args = append(args, "--", "add", "Logical_Router", vpcLrName(vpc.Id), "static_routes", "@gnr")
+	for i, acl := range acls {
+		ref := fmt.Sprintf("acl%d", i)
+		args = append(args, ovnCreateArgs(acl, ref)...)
+		args = append(args, "--", "add", "Logical_Switch", netLsName(guestnetwork.NetworkId), "acls", "@"+ref)
+	}
 	return keeper.cli.Must(ctx, "ClaimGuestnetwork", args)
 }
 
@@ -292,6 +320,7 @@ func (keeper *OVNNorthboundKeeper) Mark(ctx context.Context) {
 		&db.LogicalRouter,
 		&db.LogicalRouterPort,
 		&db.LogicalRouterStaticRoute,
+		&db.ACL,
 		&db.DHCPOptions,
 	}
 	for _, itbl := range itbls {
@@ -342,6 +371,25 @@ func (keeper *OVNNorthboundKeeper) Sweep(ctx context.Context) error {
 		}
 		if len(args) > 0 {
 			keeper.cli.Must(ctx, "Sweep static routes", args)
+		}
+	}
+	{
+		var args []string
+		for _, irow := range db.ACL.Rows() {
+			_, ok := irow.GetExternalId(externalKeyOcVersion)
+			if !ok {
+				ref, ok := irow.GetExternalId(externalKeyOcRef)
+				if ok {
+					parts := strings.SplitN(ref, "/", 4)
+					if len(parts) == 4 {
+						networkId := parts[1]
+						args = append(args, "--", "remove", "Logical_Switch", netLsName(networkId), "acls", irow.OvsdbUuid())
+					}
+				}
+			}
+		}
+		if len(args) > 0 {
+			keeper.cli.Must(ctx, "Sweep acls", args)
 		}
 	}
 	return nil
