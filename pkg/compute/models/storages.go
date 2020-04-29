@@ -947,7 +947,10 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = q.Filter(sqlchemy.In(storages.Field("id"), subq.SubQuery()))
 	}
 
-	q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
+	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || cloudEnv != "" {
+		q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
+		q = RangeObjectsFilter(q, rangeObjs, nil, storages.Field("zone_id"), storages.Field("manager_id"))
+	}
 
 	q = q.Distinct()
 
