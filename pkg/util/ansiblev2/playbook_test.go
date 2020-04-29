@@ -59,6 +59,14 @@ func TestPlaybookString(t *testing.T) {
 				"group": "root",
 			},
 		},
+		&IncludeRole{
+			Name: "foo_app_instance",
+			Vars: map[string]interface{}{
+				"dir": "/opt/a",
+			},
+			Tags: []string{"bar", "baz"},
+			When: "ansible_facts['os_family'] == 'RedHat'",
+		},
 	)
 	play.Hosts = "all"
 	configureBlock := NewBlock(
