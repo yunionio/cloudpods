@@ -159,7 +159,7 @@ func OvnNbctlArgsDestroy(irows []types.IRow) []string {
 		case *ovn_nb.LogicalRouterPort:
 			args = append(args, "--", "--if-exists", "lrp-del", irow.OvsdbUuid())
 		case *ovn_nb.LogicalRouterStaticRoute:
-			// find out vpc id/logical router from external_ids
+		case *ovn_nb.ACL:
 		default:
 			if !irow.OvsdbIsRoot() {
 				panic(irow.OvsdbTableName())
