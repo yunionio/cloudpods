@@ -1219,6 +1219,13 @@ func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion
 	return CloudproviderRegionManager.fetchRecordsByQuery(q)
 }
 
+func (provider *SCloudprovider) resetAutoSync() {
+	cprs := provider.GetCloudproviderRegions()
+	for i := range cprs {
+		cprs[i].resetAutoSync()
+	}
+}
+
 func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, wg *sync.WaitGroup, autoSync bool) {
 	provider.markSyncing(userCred)
 	cprs := provider.GetCloudproviderRegions()

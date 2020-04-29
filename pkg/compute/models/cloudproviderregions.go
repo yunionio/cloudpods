@@ -82,6 +82,7 @@ type SCloudproviderregion struct {
 	SyncResults jsonutils.JSONObject `list:"domain"`
 
 	LastDeepSyncAt time.Time `list:"domain"`
+	LastAutoSyncAt time.Time `list:"domain"`
 }
 
 func (manager *SCloudproviderregionManager) GetMasterFieldName() string {
@@ -324,7 +325,7 @@ func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCre
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		self.SyncResults = jsonutils.Marshal(syncResults)
-		if *deepSync {
+		if deepSync != nil && *deepSync {
 			self.LastDeepSyncAt = timeutils.UtcNow()
 		}
 		return nil
@@ -431,8 +432,32 @@ func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredenti
 	})
 }
 
+func (cpr *SCloudproviderregion) resetAutoSync() {
+	_, err := db.Update(cpr, func() error {
+		cpr.LastAutoSyncAt = time.Time{}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("reset LastAutoSyncAt fail %s", err)
+	}
+}
+
 func (cpr *SCloudproviderregion) needAutoSync() bool {
-	if cpr.LastSyncEndAt.IsZero() {
+	if cpr.needAutoSyncInternal() {
+		_, err := db.Update(cpr, func() error {
+			cpr.LastAutoSyncAt = time.Now()
+			return nil
+		})
+		if err != nil {
+			log.Errorf("set LastAutoSyncAt fail %s", err)
+		}
+		return true
+	}
+	return false
+}
+
+func (cpr *SCloudproviderregion) needAutoSyncInternal() bool {
+	if cpr.LastAutoSyncAt.IsZero() {
 		return true
 	}
 	account := cpr.GetAccount()
@@ -451,8 +476,7 @@ func (cpr *SCloudproviderregion) needAutoSync() bool {
 		region := cpr.GetRegion()
 		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
-	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second && rand.Float32() < 0.6 {
-		// add randomness
+	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second {
 		return true
 	}
 	return false
