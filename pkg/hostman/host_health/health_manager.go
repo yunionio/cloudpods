@@ -23,28 +23,39 @@ type SHostHealthManager struct {
 	cli          Client
 	status       Status
 	guestManager *guestman.SGuestManager
+	onHostDown   string
 }
 
-var manager *SHostHealthManager
+const SHUTDOWN_SERVERS = "shutdown-servers"
 
-func InitHostHealthManager(hostId string) (*SHostHealthManager, error) {
+var (
+	manager         *SHostHealthManager
+	HostDownActions = []string{SHUTDOWN_SERVERS}
+)
+
+func InitHostHealthManager(hostId, onHostDown string) (*SHostHealthManager, error) {
 	if manager != nil {
 		return manager, nil
 	}
+	var m *SHostHealthManager
 	switch options.HostOptions.HealthDriver {
 	case "etcd":
 		cli, err := NewEtcdClient(&options.HostOptions.EtcdOptions, hostId)
 		if err != nil {
 			return nil, errors.Wrap(err, "new etcd client")
 		}
-		manager = new(SHostHealthManager)
-		manager.cli = cli
+		m = new(SHostHealthManager)
+		m.cli = cli
 	default:
 		return nil, fmt.Errorf("not support health driver %s", options.HostOptions.HealthDriver)
 	}
-	manager.guestManager = guestman.GetGuestManager()
-	manager.cli.SetOnUnhealthy(manager.OnUnhealth)
-	go manager.StartHealthCheck()
+	m.guestManager = guestman.GetGuestManager()
+	m.onHostDown = onHostDown
+	m.cli.SetOnUnhealthy(m.OnUnhealth)
+	if err := m.StartHealthCheck(); err != nil {
+		return nil, err
+	}
+	manager = m
 	return manager, nil
 }
 
@@ -55,9 +66,13 @@ func (m *SHostHealthManager) StartHealthCheck() error {
 func (m *SHostHealthManager) OnUnhealth() {
 	log.Debugf("Host unhealthy, going to shotdown servers")
 	m.status = UNHEALTHY
-	if options.HostOptions.HealthShutdownServers {
+	if m.onHostDown == SHUTDOWN_SERVERS {
 		m.shutdownServers()
 	}
+}
+
+func (m *SHostHealthManager) SetOnHostDown(onHostDown string) {
+	m.onHostDown = onHostDown
 }
 
 // shutdown servers used shared storage
@@ -67,6 +82,14 @@ func (m *SHostHealthManager) shutdownServers() {
 
 func (m *SHostHealthManager) Stop() error {
 	return m.cli.Stop()
+}
+
+func SetOnHostDown(onHostDown string) error {
+	if manager != nil {
+		manager.SetOnHostDown(onHostDown)
+		return nil
+	}
+	return fmt.Errorf("host health manager not init")
 }
 
 type Client interface {
