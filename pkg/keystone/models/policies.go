@@ -99,6 +99,9 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 }
 
 func validatePolicyVioldatePrivilege(userCred mcclient.TokenCredential, policy *rbacutils.SRbacPolicy) error {
+	if userCred.GetUserName() == api.SystemAdminUser && userCred.GetDomainId() == api.DEFAULT_DOMAIN_ID {
+		return nil
+	}
 	opsScope, opsPolicySet := policyman.PolicyManager.GetMatchedPolicySet(userCred)
 	if opsScope != rbacutils.ScopeSystem && policy.Scope.HigherThan(opsScope) {
 		return errors.Wrapf(httperrors.ErrNotSufficientPrivilege, "cannot create policy scope higher than %s", opsScope)
