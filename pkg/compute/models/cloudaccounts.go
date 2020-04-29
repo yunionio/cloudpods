@@ -961,13 +961,13 @@ func (self *SCloudaccount) GetHostCount() (int, error) {
 
 func (self *SCloudaccount) GetVpcCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
-	q := VpcManager.Query().In("manager_id", subq)
+	q := VpcManager.Query().In("manager_id", subq).IsFalse("is_emulated")
 	return q.CountWithError()
 }
 
 func (self *SCloudaccount) GetStorageCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
-	q := StorageManager.Query().In("manager_id", subq)
+	q := StorageManager.Query().In("manager_id", subq).IsFalse("is_emulated")
 	return q.CountWithError()
 }
 
