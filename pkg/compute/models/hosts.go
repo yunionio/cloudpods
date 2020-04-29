@@ -3474,7 +3474,26 @@ func (self *SHost) PerformAutoMigrateOnHostDown(
 	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	val, _ := data.GetString("auto_migrate_on_host_down")
-	return nil, self.SetMetadata(ctx, "__auto_migrate_on_host_down", val, userCred)
+
+	var meta map[string]interface{}
+	if val == "enable" {
+		meta = map[string]interface{}{
+			"__auto_migrate_on_host_down": "enable",
+			"__on_host_down":              "shutdown-servers",
+		}
+		_, err := self.Request(ctx, userCred, "POST", "/hosts/shutdown-servers-on-host-down",
+			mcclient.GetTokenHeaders(userCred), nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		meta = map[string]interface{}{
+			"__auto_migrate_on_host_down": "disable",
+			"__on_host_down":              "",
+		}
+	}
+
+	return nil, self.SetAllMetadata(ctx, meta, userCred)
 }
 
 func (self *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
