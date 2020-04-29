@@ -275,12 +275,45 @@ func (o ClusterEnableComponentCephCSIOpt) Params() (*jsonutils.JSONDict, error) 
 	return params, nil
 }
 
+type ClusterComponentMonitorStorage struct {
+	Enabled   bool   `help:"Enable this storage" json:"enabled"`
+	SizeMB    int    `help:"Persistent storage size MB" json:"sizeMB"`
+	ClassName string `help:"Storage class name" json:"storageClassName"`
+}
+
+type ClusterComponentMonitorGrafana struct {
+	AdminUser     string                         `help:"Grafana admin user" default:"admin" json:"adminUser"`
+	AdminPassword string                         `help:"Grafana admin user password" json:"adminPassword"`
+	Storage       ClusterComponentMonitorStorage `help:"Storage setting"`
+}
+
+type ClusterComponentMonitorLoki struct {
+	Storage ClusterComponentMonitorStorage `help:"Storage setting"`
+}
+
+type ClusterComponentMonitorPrometheus struct {
+	Storage ClusterComponentMonitorStorage `help:"Storage setting"`
+}
+
+type ClusterComponentMonitorPromtail struct {
+}
+
+type ClusterComponentMonitorSetting struct {
+	Grafana    ClusterComponentMonitorGrafana    `help:"Grafana setting" json:"grafana"`
+	Loki       ClusterComponentMonitorLoki       `help:"Loki setting" json:"loki"`
+	Prometheus ClusterComponentMonitorPrometheus `help:"Prometheus setting" json:"prometheus"`
+	Promtail   ClusterComponentMonitorPromtail   `help:"Promtail setting" json:"promtail"`
+}
+
 type ClusterEnableComponentMonitorOpt struct {
 	ClusterComponentOptions
+	ClusterComponentMonitorSetting
 }
 
 func (o ClusterEnableComponentMonitorOpt) Params() (*jsonutils.JSONDict, error) {
 	params := o.ClusterComponentOptions.Params("monitor")
+	setting := jsonutils.Marshal(o.ClusterComponentMonitorSetting)
+	params.Add(setting, "monitor")
 	return params, nil
 }
 
