@@ -546,6 +546,7 @@ func (manager *SWireManager) totalCountQ(
 	wires := WireManager.Query().SubQuery()
 	q := wires.Query(
 		sqlchemy.COUNT("id").Label("wires_count"),
+		sqlchemy.SUM("emulated_wires_count", wires.Field("is_emulated")),
 		sqlchemy.SUM("net_count", netSQ.Field("net_count")),
 		sqlchemy.SUM("guest_nic_count", netSQ.Field("gnic_count")),
 		sqlchemy.SUM("host_nic_count", netSQ.Field("hnic_count")),
@@ -576,13 +577,14 @@ func (manager *SWireManager) totalCountQ(
 }
 
 type WiresCountStat struct {
-	WiresCount    int
-	NetCount      int
-	GuestNicCount int
-	HostNicCount  int
-	ReservedCount int
-	GroupNicCount int
-	LbNicCount    int
+	WiresCount         int
+	EmulatedWiresCount int
+	NetCount           int
+	GuestNicCount      int
+	HostNicCount       int
+	ReservedCount      int
+	GroupNicCount      int
+	LbNicCount         int
 }
 
 func (wstat WiresCountStat) NicCount() int {
