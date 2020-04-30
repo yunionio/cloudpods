@@ -739,8 +739,10 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 			}
 		}
 		// do limit
-		if limit > 0 && total > limit {
+		if limit > 0 && total-offset > limit {
 			data = data[:limit]
+		} else {
+			data = data[:total-offset]
 		}
 	}
 
