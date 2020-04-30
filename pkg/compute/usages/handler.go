@@ -493,7 +493,7 @@ func ZoneUsage(rangeObjs []db.IStandaloneModel, providers []string, brands []str
 }
 
 func VpcUsage(prefix string, providers []string, brands []string, cloudEnv string, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope, rangeObjs []db.IStandaloneModel) Usage {
-	q := models.VpcManager.Query()
+	q := models.VpcManager.Query().IsFalse("is_emulated")
 	if len(rangeObjs) > 0 || len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		q = models.CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 		q = models.RangeObjectsFilter(q, rangeObjs, nil, nil, q.Field("manager_id"))
@@ -601,7 +601,7 @@ func DisksUsage(
 func WireUsage(rangeObjs []db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
 	result := models.WireManager.TotalCount(rangeObjs, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil, false)
-	count["wires"] = result.WiresCount
+	count["wires"] = result.WiresCount - result.EmulatedWiresCount
 	count["networks"] = result.NetCount
 	count["all.nics.guest"] = result.GuestNicCount
 	count["all.nics.host"] = result.HostNicCount

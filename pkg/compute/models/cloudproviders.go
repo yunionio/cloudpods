@@ -243,15 +243,15 @@ func (self *SCloudprovider) GetGuestCount() (int, error) {
 }
 
 func (self *SCloudprovider) GetHostCount() (int, error) {
-	return HostManager.Query().Equals("manager_id", self.Id).CountWithError()
+	return HostManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
 }
 
 func (self *SCloudprovider) getVpcCount() (int, error) {
-	return VpcManager.Query().Equals("manager_id", self.Id).CountWithError()
+	return VpcManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
 }
 
 func (self *SCloudprovider) getStorageCount() (int, error) {
-	return StorageManager.Query().Equals("manager_id", self.Id).CountWithError()
+	return StorageManager.Query().Equals("manager_id", self.Id).IsFalse("is_emulated").CountWithError()
 }
 
 func (self *SCloudprovider) getStoragecacheCount() (int, error) {
