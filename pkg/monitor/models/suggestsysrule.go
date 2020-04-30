@@ -251,6 +251,22 @@ func (self *SSuggestSysRule) PerformEnable(ctx context.Context, userCred mcclien
 	return nil, nil
 }
 
+func (self *SSuggestSysRule) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "disable")
+}
+
+func (self *SSuggestSysRule) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Enabled.IsTrue() {
+		db.Update(self, func() error {
+			self.Enabled = tristate.False
+			return nil
+		})
+		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+		self.PostUpdate(ctx, userCred, query, data)
+	}
+	return nil, nil
+}
+
 func (self *SSuggestSysRuleManager) AllowGetPropertyRuleType(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
