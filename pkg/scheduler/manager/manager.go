@@ -94,7 +94,7 @@ func (sm *SchedulerManager) start() {
 		sm.CandidateManager.Run,
 		//sm.ReservedPoolManager.Run,
 		//sm.NetworkManager.Run,
-		sm.KubeClusterManager.Start,
+		//sm.KubeClusterManager.Start,
 	}
 	for _, f := range startFuncs {
 		go f()
