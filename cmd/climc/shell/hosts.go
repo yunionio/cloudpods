@@ -802,13 +802,13 @@ func init() {
 	R(&HostAutoMigrateOnHostDownOptions{}, "host-auto-migrate-on-host-down", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *HostAutoMigrateOnHostDownOptions) error {
 		params := jsonutils.NewDict()
 		if args.Disable {
-			params.Set("auto_migrate_on_host_down", jsonutils.NewString("enable"))
-		} else if args.Enable {
 			params.Set("auto_migrate_on_host_down", jsonutils.NewString("disable"))
+		} else if args.Enable {
+			params.Set("auto_migrate_on_host_down", jsonutils.NewString("enable"))
 		} else {
 			return fmt.Errorf("missing input enable or disable")
 		}
-		result, err := modules.Hosts.GetSpecific(s, args.ID, "auto-migrate-on-host-down", params)
+		result, err := modules.Hosts.PerformAction(s, args.ID, "auto-migrate-on-host-down", params)
 		if err != nil {
 			return err
 		}
