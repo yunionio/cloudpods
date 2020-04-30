@@ -82,6 +82,7 @@ type SCloudAccountCreateBaseOptions struct {
 
 	SyncIntervalSeconds int `help:"Interval to synchronize if auto sync is enable" metavar:"SECONDS"`
 
+	Project       string `help:"project for this account"`
 	ProjectDomain string `help:"domain for this account"`
 
 	ProxySetting string `help:"proxy setting id or name" json:"proxy_setting"`
