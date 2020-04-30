@@ -2606,6 +2606,9 @@ func (self *SHost) getMoreDetails(ctx context.Context, out api.HostDetails, show
 		}
 	}
 
+	if self.EnableHealthCheck && hostHealthChecker != nil {
+		out.AllowHealthCheck = true
+	}
 	return out
 }
 
