@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -1598,6 +1597,8 @@ func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred m
 }
 
 func (self *SCloudaccount) enableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, syncIntervalSecs int) error {
+	self.resetAutoSync()
+
 	diff, err := db.Update(self, func() error {
 		if syncIntervalSecs > 0 {
 			self.SyncIntervalSeconds = syncIntervalSecs
@@ -1611,6 +1612,13 @@ func (self *SCloudaccount) enableAutoSync(ctx context.Context, userCred mcclient
 	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 	return nil
+}
+
+func (self *SCloudaccount) resetAutoSync() {
+	providers := self.GetCloudproviders()
+	for i := range providers {
+		providers[i].resetAutoSync()
+	}
 }
 
 func (self *SCloudaccount) AllowPerformDisableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1684,11 +1692,11 @@ func (account *SCloudaccount) shouldProbeStatus() bool {
 		return true
 	}
 	// never synced
-	if account.LastSyncEndAt.IsZero() {
+	if account.ProbeAt.IsZero() {
 		return true
 	}
 	// last sync is long time ago
-	if time.Now().Sub(account.LastSyncEndAt) > time.Duration(options.Options.DisconnectedCloudAccountRetryProbeIntervalHours)*time.Hour {
+	if time.Now().Sub(account.ProbeAt) > time.Duration(options.Options.DisconnectedCloudAccountRetryProbeIntervalHours)*time.Hour {
 		return true
 	}
 	return false
@@ -1741,7 +1749,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].GetEnabled() && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
+		if accounts[i].GetEnabled() && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
