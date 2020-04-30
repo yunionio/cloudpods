@@ -141,6 +141,9 @@ func (host *SHostService) initEtcdConfig() error {
 	if err != nil {
 		return errors.Wrap(err, "fetch etcd service info")
 	}
+	if etcdEndpoint == nil {
+		return nil
+	}
 	if len(options.HostOptions.EtcdEndpoints) == 0 {
 		options.HostOptions.EtcdEndpoints = []string{etcdEndpoint.Url}
 		if len(etcdEndpoint.CertId) > 0 {
