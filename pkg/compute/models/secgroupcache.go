@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSecurityGroupCacheManager struct {
@@ -105,6 +106,25 @@ func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error
 		return provider.GetIRegionById(region.ExternalId)
 	}
 	return nil, fmt.Errorf("failed to find iregion for secgroupcache %s vpc: %s externalId: %s", self.Id, self.VpcId, self.ExternalId)
+}
+
+func (manager *SSecurityGroupCacheManager) FilterByOwner(q *sqlchemy.SQuery, userCred mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if userCred != nil {
+		sq := SecurityGroupManager.Query("id")
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(userCred.GetProjectId()) > 0 {
+				sq = sq.Equals("tenant_id", userCred.GetProjectId())
+				return q.In("secgroup_id", sq)
+			}
+		case rbacutils.ScopeDomain:
+			if len(userCred.GetProjectDomainId()) > 0 {
+				sq = sq.Equals("domain_id", userCred.GetProjectDomainId())
+				return q.In("secgroup_id", sq)
+			}
+		}
+	}
+	return q
 }
 
 func (self *SSecurityGroupCache) GetVpc() (*SVpc, error) {
