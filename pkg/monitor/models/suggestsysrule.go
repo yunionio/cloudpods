@@ -269,7 +269,7 @@ func (self *SSuggestSysRule) PerformDisable(ctx context.Context, userCred mcclie
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
-		self.PostUpdate(ctx, userCred, query, data)
+		self.updateCronjob()
 	}
 	return nil, nil
 }
