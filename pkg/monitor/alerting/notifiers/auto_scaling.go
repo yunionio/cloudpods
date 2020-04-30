@@ -63,9 +63,10 @@ func (as *AutoScalingNotifier) Notify(ctx *alerting.EvalContext, data jsonutils.
 	return nil
 }
 
-func (as *AutoScalingNotifier) ShouldNotify(ctx context.Context, evalContext *alerting.EvalContext, notificationState *models.SAlertnotification) bool {
-	if evalContext.Rule.State == monitor.AlertStateOK || evalContext.NoDataFound {
+func (as *AutoScalingNotifier) ShouldNotify(ctx context.Context, evalContext *alerting.EvalContext,
+	notificationState *models.SAlertnotification) bool {
+	if evalContext.NoDataFound {
 		return false
 	}
-	return true
+	return as.NotifierBase.ShouldNotify(ctx, evalContext, notificationState)
 }
