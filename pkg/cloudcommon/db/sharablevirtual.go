@@ -252,3 +252,10 @@ func (model *SSharableVirtualResourceBase) GetSharableTargetDomainIds() []string
 func (model *SSharableVirtualResourceBase) GetRequiredSharedDomainIds() []string {
 	return []string{model.DomainId}
 }
+
+func (model *SSharableVirtualResourceBase) ValidateDeleteCondition(ctx context.Context) error {
+	if model.IsShared() {
+		return httperrors.NewForbiddenError("%s %s is shared", model.Keyword(), model.Name)
+	}
+	return model.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}

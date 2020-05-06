@@ -91,7 +91,7 @@ func (manager *SGuestImageManager) ValidateCreateData(ctx context.Context, userC
 func (gi *SGuestImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential,
 	ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 
-	err := gi.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := gi.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (gi *SGuestImage) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	for i := range guestJoints {
 		guestJoints[i].Delete(ctx, userCred)
 	}
-	return gi.SVirtualResourceBase.Delete(ctx, userCred)
+	return gi.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (gi *SGuestImage) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential,
@@ -262,7 +262,7 @@ func (gi *SGuestImage) DoCancelPendingDelete(ctx context.Context, userCred mccli
 			return errors.Wrapf(err, "subimage %s cancel delete error", subImages[i].GetId())
 		}
 	}
-	err = gi.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	err = gi.SSharableVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}

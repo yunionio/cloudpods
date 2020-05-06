@@ -145,7 +145,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
-	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
@@ -845,7 +845,7 @@ func (manager *SVpcManager) ListItemFilter(
 
 	q, err = manager.SEnabledStatusInfrasResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusInfrasResourceBaseListInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "SStatusStandaloneResourceBaseManager.ListItemFilter")
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBaseManager.ListItemFilter")
 	}
 
 	q, err = manager.SExternalizedResourceBaseManager.ListItemFilter(ctx, q, userCred, query.ExternalizedResourceBaseListInput)
