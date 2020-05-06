@@ -265,3 +265,10 @@ func (model *SInfrasResourceBase) GetSharableTargetDomainIds() []string {
 func (model *SInfrasResourceBase) GetRequiredSharedDomainIds() []string {
 	return []string{model.DomainId}
 }
+
+func (model *SInfrasResourceBase) ValidateDeleteCondition(ctx context.Context) error {
+	if model.IsShared() {
+		return httperrors.NewForbiddenError("%s %s is shared", model.Keyword(), model.Name)
+	}
+	return model.SDomainLevelResourceBase.ValidateDeleteCondition(ctx)
+}
