@@ -37,6 +37,8 @@ type SDnsRecordManager struct {
 	db.SAdminSharableVirtualResourceBaseManager
 }
 
+var _ db.IAdminSharableVirtualModelManager = DnsRecordManager
+
 var DnsRecordManager *SDnsRecordManager
 
 func init() {
