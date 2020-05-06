@@ -71,11 +71,11 @@ type WireUpdateInput struct {
 	apis.InfrasResourceBaseUpdateInput
 
 	// bandwidth in MB
-	Bandwidth int `json:"bandwidth"`
+	Bandwidth *int `json:"bandwidth"`
 
 	// MTU
 	// example: 1500
-	Mtu int `json:"mtu"`
+	Mtu *int `json:"mtu"`
 }
 
 type WireListInput struct {
