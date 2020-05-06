@@ -641,7 +641,7 @@ func GetVisiableMetadata(model IStandaloneModel, userCred mcclient.TokenCredenti
 	return metaData, nil
 }
 
-func metaList2Map(manager IStandaloneModelManager, userCred mcclient.TokenCredential, metaList []SMetadata) map[string]string {
+func metaList2Map(manager IMetadataBaseModelManager, userCred mcclient.TokenCredential, metaList []SMetadata) map[string]string {
 	metaMap := make(map[string]string)
 
 	hiddenKeys := manager.GetMetadataHiddenKeys()

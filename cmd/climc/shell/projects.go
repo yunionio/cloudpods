@@ -436,4 +436,30 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&options.ResourceMetadataOptions{}, "project-add-tag", "Set tag of a project", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Projects.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ResourceMetadataOptions{}, "project-set-tag", "Replace all tags of a project", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Projects.PerformAction(s, opts.ID, "set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
