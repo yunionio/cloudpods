@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -461,6 +462,7 @@ func SharablePerformPublic(model ISharableBaseModel, ctx context.Context, userCr
 
 	if targetScope != rbacutils.ScopeNone {
 		OpsLog.LogEvent(model, ACT_PUBLIC, shareResult, userCred)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_PUBLIC, shareResult, userCred, true)
 	}
 
 	model.GetIStandaloneModel().ClearSchedDescCache()
@@ -500,6 +502,7 @@ func SharablePerformPrivate(model ISharableBaseModel, ctx context.Context, userC
 	}
 
 	OpsLog.LogEvent(model, ACT_PRIVATE, diff, userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_PRIVATE, diff, userCred, true)
 
 	model.GetIStandaloneModel().ClearSchedDescCache()
 
