@@ -1514,3 +1514,13 @@ func (provider *SCloudprovider) getAccountShareInfo() apis.SAccountShareInfo {
 	account := provider.GetCloudaccount()
 	return account.getAccountShareInfo()
 }
+
+func (provider *SCloudprovider) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	account := provider.GetCloudaccount()
+	if account != nil {
+		if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM {
+			return account.IsSharable(reqUsrId)
+		}
+	}
+	return false
+}
