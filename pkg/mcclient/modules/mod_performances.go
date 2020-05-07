@@ -44,7 +44,7 @@ func (this *PerformanceManager) GetTop5(s *mcclient.ClientSession, params jsonut
 }
 
 func init() {
-	Performances = PerformanceManager{NewMonitorManager("performance", "performances",
+	Performances = PerformanceManager{NewServiceTreeManager("performance", "performances",
 		[]string{"cpu_idle", "memory_usage", "disk_ioread", "disk_iowrite", "traffic_in", "traffic_out"},
 		[]string{})}
 

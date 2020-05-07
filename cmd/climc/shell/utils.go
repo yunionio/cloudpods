@@ -99,7 +99,7 @@ func printBatchResults(results []modulebase.SubmitResult, columns []string) {
 	printutils.PrintJSONBatchResults(results, columns)
 }
 
-func exportList(list *modulebase.ListResult, file string, exportKeys string, exportTexts string, columns []string) {
+func ExportList(list *modulebase.ListResult, file string, exportKeys string, exportTexts string, columns []string) {
 	var keys []string
 	var texts []string
 	if len(exportKeys) > 0 {

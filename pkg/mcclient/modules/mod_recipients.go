@@ -44,7 +44,7 @@ var (
 
 func init() {
 
-	Recipients = RecipientsManager{NewMonitorManager("recipient", "recipients",
+	Recipients = RecipientsManager{NewServiceTreeManager("recipient", "recipients",
 		[]string{"id", "type", "details", "status", "create_by", "update_by", "delete_by", "gmt_create", "gmt_modified", "gmt_delete", "is_deleted", "project_id", "remark"},
 		[]string{})}
 

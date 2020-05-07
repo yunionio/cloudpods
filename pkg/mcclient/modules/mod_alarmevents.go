@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	AlarmEvents = AlarmEventsManager{NewMonitorManager("alarm_event", "alarm_events",
+	AlarmEvents = AlarmEventsManager{NewServiceTreeManager("alarm_event", "alarm_events",
 		[]string{"ID", "metric_name", "host_name", "host_ip", "alarm_condition", "template", "first_alarm_time", "last_alarm_time", "alarm_status", "alarm_times", "ack_time", "ack_status", "ack_wait_time", "upgrade_time", "upgrade_status", "status", "create_by", "update_by", "delete_by", "gmt_create", "gmt_modified", "gmt_delete", "is_deleted", "project_id", "remark"},
 		[]string{})}
 
