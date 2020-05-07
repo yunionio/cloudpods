@@ -141,7 +141,7 @@ type SImage struct {
 }
 
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
-	manager.SVirtualResourceBaseManager.CustomizeHandlerInfo(info)
+	manager.SSharableVirtualResourceBaseManager.CustomizeHandlerInfo(info)
 
 	switch info.GetName(nil) {
 	case "get_details", "create", "update":
@@ -373,12 +373,12 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 }
 
 func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := apis.VirtualResourceCreateInput{}
+	input := apis.SharableVirtualResourceCreateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("unmarshal StandaloneResourceCreateInput fail %s", err)
 	}
-	input, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
+	input, err = manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred m
 }
 
 func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	err := self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
 	}
@@ -532,7 +532,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 }
 
 func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	// if SImage belong to a guest image, pending quota will not be set.
 	if self.IsGuestImage.IsFalse() {
@@ -651,14 +651,14 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			}
 		}
 	}
-	input := apis.VirtualResourceBaseUpdateInput{}
+	input := apis.SharableVirtualResourceBaseUpdateInput{}
 	err := data.Unmarshal(&input)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal")
 	}
-	input, err = self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
+	input, err = self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, input)
 	if err != nil {
-		return nil, errors.Wrap(err, "SVirtualResourceBase.ValidateUpdateData")
+		return nil, errors.Wrap(err, "SSharableVirtualResourceBase.ValidateUpdateData")
 	}
 	data.Update(jsonutils.Marshal(input))
 
@@ -666,11 +666,11 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SImage) PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
+	self.SSharableVirtualResourceBase.PreUpdate(ctx, userCred, query, data)
 }
 
 func (self *SImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("properties") {
 		// update properties
@@ -702,10 +702,10 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsGuestImage.IsTrue() {
 		return httperrors.NewForbiddenError("image is the part of guest image")
 	}
-	if self.IsShared() {
-		return httperrors.NewForbiddenError("image is shared")
-	}
-	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	// if self.IsShared() {
+	// 	return httperrors.NewForbiddenError("image is shared")
+	// }
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SImage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -714,7 +714,7 @@ func (self *SImage) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SImage) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return self.SVirtualResourceBase.Delete(ctx, userCred)
+	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -838,7 +838,7 @@ func (manager *SImageManager) CleanPendingDeleteImages(ctx context.Context, user
 }
 
 func (self *SImage) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
+	err := self.SSharableVirtualResourceBase.DoPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}
@@ -850,7 +850,7 @@ func (self *SImage) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SImage) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
+	err := self.SSharableVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 	if err != nil {
 		return err
 	}
