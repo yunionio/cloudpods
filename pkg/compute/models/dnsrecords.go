@@ -37,6 +37,8 @@ type SDnsRecordManager struct {
 	db.SAdminSharableVirtualResourceBaseManager
 }
 
+var _ db.IAdminSharableVirtualModelManager = DnsRecordManager
+
 var DnsRecordManager *SDnsRecordManager
 
 func init() {
@@ -276,35 +278,38 @@ func (man *SDnsRecordManager) checkRecordValue(typ, val string) error {
 
 func (man *SDnsRecordManager) validateModelData(
 	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	ownerId mcclient.IIdentityProvider,
-	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
-) (*jsonutils.JSONDict, error) {
-	records, err := man.ParseInputInfo(data)
+	isCreate bool,
+) (records []string, err error) {
+	data.Remove("records")
+	records, err = man.ParseInputInfo(data)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if len(records) == 0 {
-		return nil, httperrors.NewInputParameterError("Empty record")
+		if isCreate {
+			err = httperrors.NewInputParameterError("Empty record")
+			return
+		}
+		return
 	}
 	recType := man.getRecordsType(records)
 	name, err := data.GetString("name")
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = man.checkRecordName(recType, name)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if data.Contains("ttl") {
-		jo, err := data.Get("ttl")
+		var (
+			ttl int64
+		)
+		ttl, err = data.Int("ttl")
 		if err != nil {
-			return nil, err
-		}
-		ttl, err := jo.Int()
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid ttl: %s", err)
+			err = httperrors.NewInputParameterError("invalid ttl: %s", err)
+			return
 		}
 		if ttl == 0 {
 			// - Create: use the database default
@@ -312,10 +317,11 @@ func (man *SDnsRecordManager) validateModelData(
 			data.Remove("ttl")
 		} else if ttl < 0 || ttl > 0x7fffffff {
 			// positive values of a signed 32 bit number.
-			return nil, httperrors.NewInputParameterError("invalid ttl: %d", ttl)
+			err = httperrors.NewInputParameterError("invalid ttl: %d", ttl)
+			return
 		}
 	}
-	return data, err
+	return records, nil
 }
 
 func (man *SDnsRecordManager) ValidateCreateData(
@@ -325,7 +331,7 @@ func (man *SDnsRecordManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	data, err := man.validateModelData(ctx, userCred, ownerId, query, data)
+	_, err := man.validateModelData(ctx, data, true)
 	if err != nil {
 		return nil, err
 	}
@@ -402,15 +408,11 @@ func (rec *SDnsRecord) GetInfo() []string {
 
 func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data.UpdateDefault(jsonutils.Marshal(rec))
-	data, err := DnsRecordManager.validateModelData(ctx, userCred, rec.GetOwnerId(), query, data)
+	records, err := DnsRecordManager.validateModelData(ctx, data, false)
 	if err != nil {
 		return nil, err
 	}
-	{
-		records, err := DnsRecordManager.ParseInputInfo(data)
-		if err != nil {
-			return nil, err
-		}
+	if len(records) > 0 {
 		data.Set("records", jsonutils.NewString(strings.Join(records, DNS_RECORDS_SEPARATOR)))
 	}
 	return rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
