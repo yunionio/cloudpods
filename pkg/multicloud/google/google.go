@@ -398,7 +398,7 @@ func (self *SGoogleClient) monitorList(resource string, params map[string]string
 	return jsonRequest(self.client, "GET", GOOGLE_MONITOR_DOMAIN, GOOGLE_MONITOR_API_VERSION, resource, params, nil, self.Debug)
 }
 
-func (self *SGoogleClient) monitorListAll(resource string, params map[string]string, retval interface{}) error {
+func (self *SGoogleClient) monitorListAll(resource string, params map[string]string) (*jsonutils.JSONArray, error) {
 	if params == nil {
 		params = map[string]string{}
 	}
@@ -409,12 +409,12 @@ func (self *SGoogleClient) monitorListAll(resource string, params map[string]str
 		params["pageToken"] = nextPageToken
 		resp, err := self.monitorList(resource, params)
 		if err != nil {
-			return errors.Wrap(err, "monitorList")
+			return nil, errors.Wrap(err, "monitorList")
 		}
 		if resp.Contains("timeSeries") {
 			_series, err := resp.GetArray("timeSeries")
 			if err != nil {
-				return errors.Wrap(err, "resp.GetArray")
+				return nil, errors.Wrap(err, "resp.GetTimeSeries")
 			}
 			timeSeries.Add(_series...)
 		}
@@ -423,7 +423,7 @@ func (self *SGoogleClient) monitorListAll(resource string, params map[string]str
 			break
 		}
 	}
-	return timeSeries.Unmarshal(retval)
+	return timeSeries, nil
 }
 
 func rawRequest(client *http.Client, method httputils.THttpMethod, domain, apiVersion string, resource string, header http.Header, body io.Reader, debug bool) error {
