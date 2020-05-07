@@ -19,12 +19,13 @@ import (
 	"strconv"
 	"time"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+
+	"yunion.io/x/jsonutils"
 )
 
 func (region *SRegion) GetMonitorData(id, serverName, metricName string, since time.Time,
-	until time.Time) (*monitoring.TimeSeriesIterator, error) {
+	until time.Time) (*jsonutils.JSONArray, error) {
 	params := map[string]string{
 		"filter": `metric.type="` + metricName + `" AND metric.labels.instance_name="` + serverName + `"`,
 		//"filter":             "metric.type=" + metricName + " AND metric.labels.instance_name=" + serverName,
@@ -33,11 +34,10 @@ func (region *SRegion) GetMonitorData(id, serverName, metricName string, since t
 		"view":               strconv.FormatInt(int64(monitoringpb.ListTimeSeriesRequest_FULL), 10),
 	}
 	resource := fmt.Sprintf("%s/%s/%s", "projects", id, "timeSeries")
-	//client, _ := monitoring.NewMetricClient(context.Background())
-	rtn := monitoring.TimeSeriesIterator{}
-	err := region.client.monitorListAll(resource, params, &rtn)
+
+	timeSeries, err := region.client.monitorListAll(resource, params)
 	if err != nil {
 		return nil, err
 	}
-	return &rtn, nil
+	return timeSeries, nil
 }
