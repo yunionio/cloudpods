@@ -65,7 +65,7 @@ func (this *StatisticsManager) GetHardware(s *mcclient.ClientSession, params jso
 }
 
 func init() {
-	Statistics = StatisticsManager{NewMonitorManager("statistic", "statistics",
+	Statistics = StatisticsManager{NewServiceTreeManager("statistic", "statistics",
 		[]string{"ID"},
 		[]string{})}
 

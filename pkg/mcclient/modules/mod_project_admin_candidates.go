@@ -21,7 +21,7 @@ var (
 )
 
 func init() {
-	ProjectAdminCandidate = NewMonitorManager("project_admin_candidate", "project_admin_candidates",
+	ProjectAdminCandidate = NewServiceTreeManager("project_admin_candidate", "project_admin_candidates",
 		[]string{"id", "name"},
 		[]string{},
 	)
