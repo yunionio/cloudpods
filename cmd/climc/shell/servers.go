@@ -134,7 +134,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerMetadataOptions{}, "server-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ServerMetadataOptions) error {
+	R(&options.ResourceMetadataOptions{}, "server-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err
@@ -147,7 +147,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerMetadataOptions{}, "server-set-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ServerMetadataOptions) error {
+	R(&options.ResourceMetadataOptions{}, "server-set-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ResourceMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {
 			return err

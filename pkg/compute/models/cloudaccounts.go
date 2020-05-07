@@ -121,7 +121,7 @@ type SCloudaccount struct {
 
 	// 账户余额
 	// example: 124.2
-	Balance float64 `list:"domain"`
+	Balance float64 `list:"domain" width:"20" precision:"6"`
 
 	// 上次账号探测时间
 	ProbeAt time.Time `list:"domain"`

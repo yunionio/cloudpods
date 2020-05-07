@@ -163,9 +163,7 @@ type STag struct {
 	Value string
 }
 
-type StandaloneResourceListInput struct {
-	ResourceBaseListInput
-
+type MetadataResourceListInput struct {
 	// 通过标签过滤
 	Tags []STag `json:"tags"`
 
@@ -176,6 +174,12 @@ type StandaloneResourceListInput struct {
 	WithoutUserMeta bool `json:"without_user_meta"`
 	// 返回列表数据中包含资源的标签数据（Metadata）
 	WithMeta *bool `json:"with_meta"`
+}
+
+type StandaloneResourceListInput struct {
+	ResourceBaseListInput
+
+	MetadataResourceListInput
 
 	// 显示所有的资源，包括模拟的资源
 	ShowEmulated *bool `json:"show_emulated"`

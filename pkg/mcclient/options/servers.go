@@ -633,12 +633,12 @@ type ServerLiveMigrateOptions struct {
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 }
 
-type ServerMetadataOptions struct {
-	ID   string   `help:"ID or name of server" json:"-"`
+type ResourceMetadataOptions struct {
+	ID   string   `help:"ID or name of resources" json:"-"`
 	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 }
 
-func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+func (opts *ResourceMetadataOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
 	for _, tag := range opts.TAGS {
 		info := strings.Split(tag, "=")
