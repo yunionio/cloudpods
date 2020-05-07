@@ -37,6 +37,8 @@ func init() {
 	NotificationManager = NewNotificationManager()
 }
 
+// +onecloud:swagger-gen-model-singular=alert_notification
+// +onecloud:swagger-gen-model-plural=alert_notifications
 type SNotificationManager struct {
 	db.SVirtualResourceBaseManager
 }
