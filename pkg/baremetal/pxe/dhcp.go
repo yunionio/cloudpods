@@ -312,6 +312,7 @@ func (req *dhcpRequest) findBaremetalsByUuid(session *mcclient.ClientSession) (*
 func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modulebase.ListResult, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
+	params.Add(jsonutils.NewString("system"), "scope")
 	if isBaremetal {
 		params.Add(jsonutils.JSONTrue, "is_baremetal")
 	} else {
