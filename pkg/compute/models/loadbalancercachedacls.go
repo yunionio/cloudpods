@@ -67,7 +67,7 @@ type SCachedLoadbalancerAcl struct {
 	SCloudregionResourceBase
 	SLoadbalancerAclResourceBase
 
-	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`                // huawei only
+	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -656,6 +656,6 @@ func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Con
 			return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.ListItemExportKeys")
 		}
 	}
-	
+
 	return q, nil
 }
