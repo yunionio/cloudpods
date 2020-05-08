@@ -49,4 +49,34 @@ func init() {
 		printList(apbs, modules.AnsiblePlaybooksV2.GetColumns(s))
 		return nil
 	})
+	R(&AnsiblePlaybookV2IdOptions{}, "ansibleplaybookv2-run", "Run ansible playbook",
+		func(s *mcclient.ClientSession, opts *AnsiblePlaybookV2IdOptions) error {
+			apb, err := modules.AnsiblePlaybooksV2.PerformAction(s, opts.ID, "run", nil)
+			if err != nil {
+				return err
+			}
+			printObject(apb)
+			return nil
+		},
+	)
+	R(&AnsiblePlaybookV2IdOptions{}, "ansibleplaybookv2-stop", "Stop ansible playbook",
+		func(s *mcclient.ClientSession, opts *AnsiblePlaybookV2IdOptions) error {
+			apb, err := modules.AnsiblePlaybooksV2.PerformAction(s, opts.ID, "stop", nil)
+			if err != nil {
+				return err
+			}
+			printObject(apb)
+			return nil
+		},
+	)
+	R(&AnsiblePlaybookV2IdOptions{}, "ansibleplaybookv2-delete", "Delete ansible playbook",
+		func(s *mcclient.ClientSession, opts *AnsiblePlaybookV2IdOptions) error {
+			apb, err := modules.AnsiblePlaybooksV2.Delete(s, opts.ID, nil)
+			if err != nil {
+				return err
+			}
+			printObject(apb)
+			return nil
+		},
+	)
 }
