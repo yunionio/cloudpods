@@ -386,7 +386,7 @@ func saveCookie(w http.ResponseWriter, name, val, domain string, expire time.Tim
 	cookie := &http.Cookie{Name: name, Value: valenc, Path: "/", Expires: expire, MaxAge: maxAge, HttpOnly: false}
 
 	if len(domain) > 0 {
-		cookie.Domain = options.Options.CookieDomain
+		cookie.Domain = domain
 	}
 
 	http.SetCookie(w, cookie)
