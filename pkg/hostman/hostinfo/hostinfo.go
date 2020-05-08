@@ -846,6 +846,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	}
 	params := jsonutils.NewDict()
 	params.Set("any_mac", jsonutils.NewString(masterMac))
+	params.Set("scope", jsonutils.NewString("system"))
 	res, err := modules.Hosts.List(h.GetSession(), params)
 	if err != nil {
 		h.onFail(err)
