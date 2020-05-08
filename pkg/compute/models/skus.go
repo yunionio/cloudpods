@@ -1537,7 +1537,7 @@ func (manager *SServerSkuManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	if keys.Contains("zone") {
-		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		q, err = manager.SZoneResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"zone"}))
 		if err != nil {
 			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
 		}
