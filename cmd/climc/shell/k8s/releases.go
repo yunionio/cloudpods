@@ -15,8 +15,6 @@
 package k8s
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
@@ -41,11 +39,11 @@ func initRelease() {
 		if err != nil {
 			return err
 		}
-		resources, err := ret.GetString("info", "status", "resources")
+		resources, err := ret.Get("resources")
 		if err != nil {
 			return err
 		}
-		fmt.Println(resources)
+		printObject(resources)
 		return nil
 	})
 

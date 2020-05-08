@@ -24,7 +24,9 @@ type ClusterBaseOptions struct {
 
 func (o ClusterBaseOptions) Params() *jsonutils.JSONDict {
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(o.Cluster), "cluster")
+	if o.Cluster != "" {
+		ret.Add(jsonutils.NewString(o.Cluster), "cluster")
+	}
 	return ret
 }
 
@@ -47,6 +49,7 @@ type BaseListOptions struct {
 	Limit  int    `default:"20" help:"Page limit"`
 	Offset int    `default:"0" help:"Page offset"`
 	Name   string `help:"Search by name"`
+	System *bool  `help:"Show system resource"`
 }
 
 func (o BaseListOptions) Params() *jsonutils.JSONDict {
@@ -59,6 +62,9 @@ func (o BaseListOptions) Params() *jsonutils.JSONDict {
 	}
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
+	}
+	if o.System != nil {
+		params.Add(jsonutils.NewBool(*o.System), "system")
 	}
 	return params
 }

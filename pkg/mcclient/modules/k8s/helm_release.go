@@ -49,7 +49,7 @@ func (m *ReleaseAppManager) Create(session *mcclient.ClientSession, params jsonu
 
 func init() {
 	Releases = &ReleaseManager{
-		NewNamespaceResourceManager("release", "releases", NewColumns(), NewColumns())}
+		NewNamespaceResourceManager("release", "releases", NewNamespaceCols("status", "type"), NewColumns())}
 	dummyReleaseApps = NewReleaseAppManager("releaseapp", "releaseapps")
 	MeterReleaseApps = NewReleaseAppManager("app_meter", "app_meters")
 	ServicetreeReleaseApps = NewReleaseAppManager("app_servicetree", "app_servicetrees")
