@@ -1037,4 +1037,12 @@ func init() {
 		return nil
 	})
 
+	R(&CloudaccountShowOptions{}, "cloud-account-change-owner-candidate-domains", "Show candiate domains of a cloud account changing project", func(s *mcclient.ClientSession, args *CloudaccountShowOptions) error {
+		result, err := modules.Cloudaccounts.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

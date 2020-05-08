@@ -15,6 +15,8 @@
 package compute
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -42,6 +44,34 @@ func init() {
 	}
 	R(&GlobalVpcShowOptions{}, "global-vpc-show", "Show details of a global vpc", func(s *mcclient.ClientSession, args *GlobalVpcShowOptions) error {
 		result, err := modules.GlobalVpcs.GetById(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type GlobalVpcPublicOptions struct {
+		ID            string   `help:"ID or name of global vpc" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
+	}
+	R(&GlobalVpcPublicOptions{}, "global-vpc-public", "Make global vpc public", func(s *mcclient.ClientSession, args *GlobalVpcPublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.GlobalVpcs.PerformAction(s, args.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type GlobalVpcPrivateOptions struct {
+		ID string `help:"ID or name of global vpc" json:"-"`
+	}
+	R(&GlobalVpcPrivateOptions{}, "global-vpc-private", "Make global vpc private", func(s *mcclient.ClientSession, args *GlobalVpcPrivateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.GlobalVpcs.PerformAction(s, args.ID, "private", params)
 		if err != nil {
 			return err
 		}

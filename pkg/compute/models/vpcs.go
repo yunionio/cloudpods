@@ -573,6 +573,7 @@ func (manager *SVpcManager) InitializeData() error {
 			defVpc.Description = "Default VPC"
 			defVpc.Status = api.VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
+			defVpc.IsPublic = true
 			defVpc.PublicScope = string(rbacutils.ScopeSystem)
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
@@ -1093,12 +1094,13 @@ func (manager *SVpcManager) totalCount(
 
 func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{
-		db.ISharableChangeOwnerCandidateDomainIds(vpc),
+		vpc.SManagedResourceBase.GetChangeOwnerCandidateDomainIds(),
 	}
 	globalVpc, _ := vpc.GetGlobalVpc()
 	if globalVpc != nil {
 		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(globalVpc))
 	}
+	log.Debugf("Candidate: %s", candidates)
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(vpc, candidates...)
 }
 
