@@ -464,7 +464,7 @@ github.com/philhofer/fwd
 # github.com/pierrec/lz4 v2.0.5+incompatible
 github.com/pierrec/lz4
 github.com/pierrec/lz4/internal/xxh32
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814
 github.com/pkg/term/termios
@@ -996,6 +996,10 @@ yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20200313080802-57a4ce5966b3
 yunion.io/x/log
 yunion.io/x/log/hooks
+# yunion.io/x/ovsdb v0.0.0-20200508142751-3e60f3fc7d18
+yunion.io/x/ovsdb/cli_util
+yunion.io/x/ovsdb/schema/ovn_nb
+yunion.io/x/ovsdb/types
 # yunion.io/x/pkg v0.0.0-20200416145704-22c189971435
 yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
