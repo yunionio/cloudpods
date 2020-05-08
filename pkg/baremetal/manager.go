@@ -289,7 +289,7 @@ func (i *BmRegisterInput) isTimeout() bool {
 }
 
 // delay task
-func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegisterInput) {
+func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, userCred mcclient.TokenCredential, input *BmRegisterInput) {
 	adminWire, err := m.checkNetworkFromIp(input.RemoteIp)
 	if input.isTimeout() {
 		return
@@ -341,7 +341,7 @@ func (m *SBaremetalManager) RegisterBaremetal(ctx context.Context, input *BmRegi
 	}
 
 	registerTask := tasks.NewBaremetalRegisterTask(
-		m, sshCli, input.Hostname, input.RemoteIp,
+		userCred, m, sshCli, input.Hostname, input.RemoteIp,
 		input.Username, input.Password, input.IpAddr,
 		ipmiMac, ipmiLanChannel, adminWire, ipmiWire,
 	)
@@ -750,11 +750,10 @@ func (b *SBaremetalInstance) SyncStatusBackground() {
 	}()
 }
 
-func (b *SBaremetalInstance) InitializeServer(name string) error {
+func (b *SBaremetalInstance) InitializeServer(s *mcclient.ClientSession, name string) error {
 	params := jsonutils.NewDict()
 	params.Set("name", jsonutils.NewString(name))
-	_, err := modules.Hosts.PerformAction(
-		b.manager.GetClientSession(), b.GetId(), "initialize", params)
+	_, err := modules.Hosts.PerformAction(s, b.GetId(), "initialize", params)
 	return err
 }
 
