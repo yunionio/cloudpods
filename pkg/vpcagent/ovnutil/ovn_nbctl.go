@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/ovsdb/schema/ovn_nb"
+	"yunion.io/x/ovsdb/types"
 	"yunion.io/x/pkg/errors"
 )
 
@@ -138,12 +140,12 @@ func ovnNbctlArgsString(args []string) string {
 	return s
 }
 
-func OvnNbctlArgsDestroy(irows []IRow) []string {
+func OvnNbctlArgsDestroy(irows []types.IRow) []string {
 	sort.Slice(irows, func(i, j int) bool {
 		ri := irows[i]
 		rj := irows[j]
-		iri := ri.OvnIsRoot()
-		irj := rj.OvnIsRoot()
+		iri := ri.OvsdbIsRoot()
+		irj := rj.OvsdbIsRoot()
 		if !iri && irj {
 			return true
 		}
@@ -152,17 +154,17 @@ func OvnNbctlArgsDestroy(irows []IRow) []string {
 	var args []string
 	for _, irow := range irows {
 		switch irow.(type) {
-		case *LogicalSwitchPort:
-			args = append(args, "--", "--if-exists", "lsp-del", irow.OvnUuid())
-		case *LogicalRouterPort:
-			args = append(args, "--", "--if-exists", "lrp-del", irow.OvnUuid())
-		case *LogicalRouterStaticRoute:
+		case *ovn_nb.LogicalSwitchPort:
+			args = append(args, "--", "--if-exists", "lsp-del", irow.OvsdbUuid())
+		case *ovn_nb.LogicalRouterPort:
+			args = append(args, "--", "--if-exists", "lrp-del", irow.OvsdbUuid())
+		case *ovn_nb.LogicalRouterStaticRoute:
 			// find out vpc id/logical router from external_ids
 		default:
-			if !irow.OvnIsRoot() {
-				panic(irow.OvnTableName())
+			if !irow.OvsdbIsRoot() {
+				panic(irow.OvsdbTableName())
 			}
-			args = append(args, "--", "--if-exists", "destroy", irow.OvnTableName(), irow.OvnUuid())
+			args = append(args, "--", "--if-exists", "destroy", irow.OvsdbTableName(), irow.OvsdbUuid())
 		}
 	}
 	return args
