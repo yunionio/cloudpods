@@ -372,7 +372,7 @@ func isUserAllowWebconsole(ctx context.Context, w http.ResponseWriter, req *http
 	return true
 }
 
-func saveCookie(w http.ResponseWriter, name, val string, expire time.Time, base64 bool) {
+func saveCookie(w http.ResponseWriter, name, val, domain string, expire time.Time, base64 bool) {
 	diff := time.Until(expire)
 	maxAge := int(diff.Seconds())
 	// log.Println("Set cookie", name, expire, maxAge, val)
@@ -385,7 +385,7 @@ func saveCookie(w http.ResponseWriter, name, val string, expire time.Time, base6
 	// log.Printf("Set coookie: %s - %s\n", val, valenc)
 	cookie := &http.Cookie{Name: name, Value: valenc, Path: "/", Expires: expire, MaxAge: maxAge, HttpOnly: false}
 
-	if len(options.Options.CookieDomain) > 0 {
+	if len(domain) > 0 {
 		cookie.Domain = options.Options.CookieDomain
 	}
 
@@ -468,7 +468,7 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, token.GetExpires(), true)
+	saveCookie(w, constants.YUNION_AUTH_COOKIE, authCookie, options.Options.CookieDomain, token.GetExpires(), true)
 
 	if len(token.GetProjectId()) > 0 {
 		if body.Contains("isadmin") {
@@ -476,20 +476,20 @@ func (h *AuthHandlers) postLoginHandler(ctx context.Context, w http.ResponseWrit
 			if policy.PolicyManager.IsScopeCapable(token, rbacutils.ScopeSystem) {
 				adminVal, _ = body.GetString("isadmin")
 			}
-			saveCookie(w, "isadmin", adminVal, token.GetExpires(), false)
+			saveCookie(w, "isadmin", adminVal, "", token.GetExpires(), false)
 		}
 		if body.Contains("scope") {
 			scopeStr, _ := body.GetString("scope")
 			if !policy.PolicyManager.IsScopeCapable(token, rbacutils.TRbacScope(scopeStr)) {
 				scopeStr = string(rbacutils.ScopeProject)
 			}
-			saveCookie(w, "scope", scopeStr, token.GetExpires(), false)
+			saveCookie(w, "scope", scopeStr, "", token.GetExpires(), false)
 		}
 		if body.Contains("domain") {
 			domainStr, _ := body.GetString("domain")
-			saveCookie(w, "domain", domainStr, token.GetExpires(), false)
+			saveCookie(w, "domain", domainStr, "", token.GetExpires(), false)
 		}
-		saveCookie(w, "tenant", token.GetProjectId(), token.GetExpires(), false)
+		saveCookie(w, "tenant", token.GetProjectId(), "", token.GetExpires(), false)
 	}
 
 	setAuthHeader(w, tid)
