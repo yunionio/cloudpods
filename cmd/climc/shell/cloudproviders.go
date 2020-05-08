@@ -245,4 +245,13 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&CloudproviderShowOptions{}, "cloud-provider-change-owner-candidate-domains", "Show candiate domains of a cloud provider  changing owner", func(s *mcclient.ClientSession, args *CloudproviderShowOptions) error {
+		result, err := modules.Cloudproviders.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

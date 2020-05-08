@@ -215,4 +215,49 @@ func init() {
 		printObject(storage)
 		return nil
 	})
+
+	type StorageChangeOwnerOptions struct {
+		ID            string `help:"ID or name of storage" json:"-"`
+		ProjectDomain string `json:"project_domain" help:"target domain"`
+	}
+	R(&StorageChangeOwnerOptions{}, "storage-change-owner", "Change owner domain of storage", func(s *mcclient.ClientSession, args *StorageChangeOwnerOptions) error {
+		if len(args.ProjectDomain) == 0 {
+			return fmt.Errorf("empty project_domain")
+		}
+		params := jsonutils.Marshal(args)
+		ret, err := modules.Storages.PerformAction(s, args.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	type StoragePublicOptions struct {
+		ID            string   `help:"ID or name of storage" json:"-"`
+		Scope         string   `help:"sharing scope" choices:"system|domain"`
+		SharedDomains []string `help:"share to domains"`
+	}
+	R(&StoragePublicOptions{}, "storage-public", "Make a storage public", func(s *mcclient.ClientSession, args *StoragePublicOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Storages.PerformAction(s, args.ID, "public", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type StoragePrivateOptions struct {
+		ID string `help:"ID or name of storage" json:"-"`
+	}
+	R(&StoragePrivateOptions{}, "storage-private", "Make a storage private", func(s *mcclient.ClientSession, args *StoragePrivateOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Storages.PerformAction(s, args.ID, "private", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

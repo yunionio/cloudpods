@@ -888,11 +888,11 @@ func (self *SHost) GetFetchUrl(disableHttps bool) string {
 	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, strings.Split(managerUrl.Host, ":")[0], port+40000)
 }
 
-func (self *SHost) GetAttachedStorages(storageType string) []SStorage {
+func (self *SHost) GetAttachedEnabledHostStorages(storageType []string) []SStorage {
 	return self._getAttachedStorages(tristate.False, tristate.True, storageType)
 }
 
-func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled tristate.TriState, storageType string) []SStorage {
+func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled tristate.TriState, storageType []string) []SStorage {
 	storages := StorageManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 	q := storages.Query()
@@ -908,7 +908,7 @@ func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled t
 		q = q.NotEquals("storage_type", api.STORAGE_BAREMETAL)
 	}
 	if len(storageType) > 0 {
-		q = q.Equals("storage_type", storageType)
+		q = q.In("storage_type", storageType)
 	}
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
 	ret := make([]SStorage, 0)
@@ -921,7 +921,7 @@ func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled t
 }
 
 func (self *SHost) SyncAttachedStorageStatus() {
-	storages := self.GetAttachedStorages("")
+	storages := self.GetAttachedEnabledHostStorages(nil)
 	if storages != nil {
 		for _, storage := range storages {
 			storage.SyncStatusWithHosts()
@@ -1212,26 +1212,15 @@ func (cap *SStorageCapacity) toCapacityInfo() api.SStorageCapacityInfo {
 
 func (self *SHost) GetAttachedLocalStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
-	storages := self.GetAttachedStorages("")
+	storages := self.GetAttachedEnabledHostStorages(api.HOST_STORAGE_LOCAL_TYPES)
 	for _, s := range storages {
-		if !utils.IsInStringArray(s.StorageType, api.HOST_STORAGE_LOCAL_TYPES) {
-			continue
-		}
 		ret.Add(s.getStorageCapacity())
 	}
 	return ret
 }
 
 func (self *SHost) GetAttachedLocalStorages() []SStorage {
-	ret := make([]SStorage, 0)
-	storages := self.GetAttachedStorages("")
-	for _, s := range storages {
-		if !utils.IsInStringArray(s.StorageType, api.HOST_STORAGE_LOCAL_TYPES) {
-			continue
-		}
-		ret = append(ret, s)
-	}
-	return ret
+	return self.GetAttachedEnabledHostStorages(api.HOST_STORAGE_LOCAL_TYPES)
 }
 
 func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
@@ -1267,7 +1256,7 @@ func getLeastUsedStorage(storages []SStorage, backend string) *SStorage {
 }
 
 func (self *SHost) GetLeastUsedStorage(backend string) *SStorage {
-	storages := self.GetAttachedStorages("")
+	storages := self.GetAttachedEnabledHostStorages(nil)
 	if storages != nil {
 		return getLeastUsedStorage(storages, backend)
 	}
@@ -2704,7 +2693,7 @@ func (self *SHost) Request(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SHost) GetLocalStoragecache() *SStoragecache {
-	localStorages := self.GetAttachedStorages(api.STORAGE_LOCAL)
+	localStorages := self.GetAttachedLocalStorages()
 	for i := 0; i < len(localStorages); i += 1 {
 		sc := localStorages[i].GetStoragecache()
 		if sc != nil {
@@ -2715,7 +2704,7 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 }
 
 func (self *SHost) GetStoragecache() *SStoragecache {
-	localStorages := self.GetAttachedStorages("")
+	localStorages := self.GetAttachedEnabledHostStorages(nil)
 	for i := 0; i < len(localStorages); i += 1 {
 		sc := localStorages[i].GetStoragecache()
 		if sc != nil {
@@ -5075,15 +5064,20 @@ func (model *SHost) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 }
 
 func (host *SHost) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
-	localStorages := host.GetAttachedLocalStorages()
+	ret, err := host.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	if err != nil {
+		return nil, errors.Wrap(err, "SEnabledStatusInfrasResourceBase.PerformChangeOwner")
+	}
+
+	localStorages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
 	for i := range localStorages {
-		_, err := localStorages[i].PerformChangeOwner(ctx, userCred, query, input)
+		_, err := localStorages[i].performChangeOwnerInternal(ctx, userCred, query, input)
 		if err != nil {
 			return nil, errors.Wrap(err, "local storage change owner")
 		}
 	}
 
-	return host.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+	return ret, nil
 }
 
 func GetHostQuotaKeysFromCreateInput(input api.HostCreateInput) quotas.SDomainRegionalCloudResourceKeys {
@@ -5125,7 +5119,7 @@ func (host *SHost) GetUsages() []db.IUsage {
 
 func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	// perform public for all connected local storage
-	storages := host.GetAttachedLocalStorages()
+	storages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
 	for i := range storages {
 		_, err := storages[i].performPublicInternal(ctx, userCred, query, input)
 		if err != nil {
@@ -5137,7 +5131,7 @@ func (host *SHost) PerformPublic(ctx context.Context, userCred mcclient.TokenCre
 
 func (host *SHost) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPrivateInput) (jsonutils.JSONObject, error) {
 	// perform private for all connected local storage
-	storages := host.GetAttachedLocalStorages()
+	storages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
 	for i := range storages {
 		_, err := storages[i].performPrivateInternal(ctx, userCred, query, input)
 		if err != nil {

@@ -258,6 +258,10 @@ func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, 
 }
 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeProjectOwnerInput) (jsonutils.JSONObject, error) {
+	if model.GetIStandaloneModel().IsShared() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot change owner of shared resource")
+	}
+
 	manager := model.GetModelManager()
 
 	data := jsonutils.Marshal(input)

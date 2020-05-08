@@ -1524,3 +1524,24 @@ func (provider *SCloudprovider) IsSharable(reqUsrId mcclient.IIdentityProvider) 
 	}
 	return false
 }
+
+func (provider *SCloudprovider) AllowGetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return provider.DomainId == userCred.GetProjectDomainId() || db.IsAdminAllowGetSpec(userCred, provider, "change-owner-candidate-domains")
+}
+
+func (provider *SCloudprovider) GetDetailsChangeOwnerCandidateDomains(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (apis.ChangeOwnerCandidateDomainsOutput, error) {
+	return db.IOwnerResourceBaseModelGetChangeOwnerCandidateDomains(provider)
+}
+
+func (provider *SCloudprovider) GetChangeOwnerCandidateDomainIds() []string {
+	account := provider.GetCloudaccount()
+	if account.ShareMode == api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN {
+		return []string{account.DomainId}
+	}
+	// if account's public_scope=domain and share_mode=provider_domain, only allow to share to specific domains
+	if account.PublicScope == string(rbacutils.ScopeDomain) {
+		sharedDomains := account.GetSharedDomains()
+		return append(sharedDomains, account.DomainId)
+	}
+	return []string{}
+}
