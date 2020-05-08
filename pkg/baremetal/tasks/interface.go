@@ -64,7 +64,7 @@ type IBaremetal interface {
 	GetImageCacheUrl() string
 
 	RemoveServer()
-	InitializeServer(name string) error
+	InitializeServer(session *mcclient.ClientSession, name string) error
 	SaveSSHConfig(remoteAddr string, key string) error
 	ServerLoadDesc() error
 }
