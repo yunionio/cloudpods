@@ -28,4 +28,26 @@ type CachedLoadbalancerAclListInput struct {
 	apis.SharableVirtualResourceListInput
 	RegionalFilterListInput
 	ManagedResourceListInput
+	LoadbalancerAclFilterListInput
+}
+
+type LoadbalancerAclResourceInfo struct {
+	// 负载均衡ACL名称
+	Acl string `json:"acl"`
+}
+
+type LoadbalancerAclResourceInput struct {
+	// ACL名称或ID
+	Acl string `json:"acl"`
+
+	// swagger:ignore
+	// Deprecated
+	AclId string `json:"acl_id" "yunion:deprecated-by":"acl"`
+}
+
+type LoadbalancerAclFilterListInput struct {
+	LoadbalancerAclResourceInput
+
+	// 以ACL名称排序
+	OrderByAcl string `json:"order_by_acl"`
 }
