@@ -775,6 +775,7 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 	})
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
+		return err
 	}
 
 	if provider != nil {
@@ -783,7 +784,7 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 	}
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
-	return err
+	return nil
 }
 
 func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider, zone *SZone) (*SStorage, error) {
