@@ -1054,7 +1054,7 @@ func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
 	if len(storageIds) != 0 {
 		return models.StorageManager.FetchStorageById(storageIds[0])
 	}
-	storages := host.GetAttachedStorages("")
+	storages := host.GetAttachedEnabledHostStorages(nil)
 	for i := 0; i < len(storages); i += 1 {
 		if storages[i].StorageType == backend {
 			return &storages[i]

@@ -580,7 +580,7 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig, s
 		storage = host.GetLeastUsedStorage(backend)
 	} else {
 		// unlimited pulic cloud storages
-		storages := host.GetAttachedStorages("")
+		storages := host.GetAttachedEnabledHostStorages(nil)
 		for _, s := range storages {
 			if s.StorageType == backend {
 				tmpS := s

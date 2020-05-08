@@ -2567,7 +2567,7 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 
 func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{
-		net.SSharableVirtualResourceBase.GetChangeOwnerCandidateDomainIds(),
+		db.ISharableChangeOwnerCandidateDomainIds(net),
 	}
 	wire := net.GetWire()
 	if wire != nil {

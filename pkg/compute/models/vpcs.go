@@ -1093,7 +1093,7 @@ func (manager *SVpcManager) totalCount(
 
 func (vpc *SVpc) GetChangeOwnerCandidateDomainIds() []string {
 	candidates := [][]string{
-		vpc.SEnabledStatusInfrasResourceBase.GetChangeOwnerCandidateDomainIds(),
+		db.ISharableChangeOwnerCandidateDomainIds(vpc),
 	}
 	globalVpc, _ := vpc.GetGlobalVpc()
 	if globalVpc != nil {
