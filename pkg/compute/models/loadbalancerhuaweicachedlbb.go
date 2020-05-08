@@ -307,9 +307,19 @@ func newLocalBackendFromCloudLoadbalancerBackend(ctx context.Context, userCred m
 	}
 
 	man := LoadbalancerBackendManager
-	q := man.Query().IsFalse("pending_deleted").Equals("backend_group_id", loadbalancerBackendgroup.Id).Equals("cloudregion_id", lbbgRegion.Id)
-	q = q.Equals("manager_id", lbbgProvider.Id).Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
+	q := man.Query().IsFalse("pending_deleted")
+	q = q.Equals("weight", extLoadbalancerBackend.GetWeight()).Equals("port", extLoadbalancerBackend.GetPort())
 	q = q.Equals("backend_id", guest.Id)
+
+	query := api.LoadbalancerBackendListInput{}
+	query.Cloudregion = lbbgRegion.Id
+	query.BackendGroup = loadbalancerBackendgroup.Id
+	query.Cloudprovider = lbbgProvider.Id
+	q, err = man.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "newLocalBackend.ListItemFilter")
+	}
+
 	//q = q.Equals("address", address)
 	lbbs := []SLoadbalancerBackend{}
 	err = db.FetchModelObjects(man, q, &lbbs)
