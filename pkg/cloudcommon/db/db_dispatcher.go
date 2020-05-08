@@ -352,7 +352,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		showDetails = true
 	}
 	items := make([]interface{}, 0)
-	extraResults := make([]jsonutils.JSONObject, 0)
+	extraResults := make([]*jsonutils.JSONDict, 0)
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -371,7 +371,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			return nil, err
 		}
 
-		if exportKeys != nil {
+		if len(exportKeys) > 0 {
 			rowMap, err := q.Row2Map(rows)
 			if err != nil {
 				return nil, err
@@ -404,26 +404,14 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			}
 		}
 
-		// jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
-		// jsonDict = jsonDict.CopyIncludes([]string(listF)...)
-		// jsonDict.Update(extraData)
-		// ignore GetExtraDetails since release/3.2
-		/*if showDetails && !query.Contains("export_keys") {
-			extraDict, _ := GetExtraDetails(item, ctx, userCred, query, true)
-			if extraDict != nil {
-				// Fix for Now
-				extraDict.Update(jsonDict)
-				jsonDict = extraDict
-			}
-			// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}*/
-		// results = append(results, jsonDict)
 		items = append(items, item)
 	}
 	results := make([]jsonutils.JSONObject, len(items))
-	if showDetails && !query.Contains("export_keys") {
+	if showDetails || len(exportKeys) > 0 {
 		var sortedListFields stringutils2.SSortedStrings
-		if len(fieldFilter) > 0 {
+		if len(exportKeys) > 0 {
+			sortedListFields = exportKeys
+		} else if len(fieldFilter) > 0 {
 			sortedListFields = stringutils2.NewSortedStrings(fieldFilter)
 		}
 		extraRows, err := FetchCustomizeColumns(manager, ctx, userCred, query, items, sortedListFields, true)
@@ -431,9 +419,21 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, errors.Wrap(err, "FetchCustomizeColumns")
 		}
+
 		if len(extraRows) == len(results) {
 			for i := range results {
-				results[i] = extraRows[i].CopyExcludes(listExcludes...)
+				jsonDict := extraRows[i].CopyExcludes(listExcludes...)
+				if i < len(extraResults) {
+					extraResults[i].Update(jsonDict)
+					jsonDict = extraResults[i]
+				}
+				if len(exportKeys) > 0 {
+					jsonDict = jsonDict.CopyIncludes(exportKeys...)
+				}
+				if len(fieldFilter) > 0 {
+					jsonDict = jsonDict.CopyIncludes(fieldFilter...)
+				}
+				results[i] = jsonDict
 			}
 		} else {
 			return nil, httperrors.NewInternalServerError("FetchCustomizeColumns return incorrect number of results")
@@ -441,8 +441,8 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	} else {
 		for i := range items {
 			jsonDict := jsonutils.Marshal(items[i]).(*jsonutils.JSONDict).CopyExcludes(listExcludes...)
-			if i < len(extraResults) {
-				jsonDict.Update(extraResults[i])
+			if len(fieldFilter) > 0 {
+				jsonDict = jsonDict.CopyIncludes(fieldFilter...)
 			}
 			results[i] = jsonDict
 		}
@@ -653,7 +653,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 
 	if pagingConf != nil {
-		q = q.Limit(int(limit) + 1)
+		if limit > 0 {
+			q = q.Limit(int(limit) + 1)
+		}
 		if len(pagingMarker) > 0 {
 			markers := decodePagingMarker(pagingMarker)
 			for markerIdx, marker := range markers {
@@ -671,7 +673,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			return nil, httperrors.NewGeneralError(err)
 		}
 		nextMarkers := make([]string, 0)
-		if int64(len(retList)) > limit {
+		if limit > 0 && int64(len(retList)) > limit {
 			for _, markerField := range pagingConf.MarkerFields {
 				nextMarker, _ := retList[limit].GetString(markerField)
 				nextMarkers = append(nextMarkers, nextMarker)
