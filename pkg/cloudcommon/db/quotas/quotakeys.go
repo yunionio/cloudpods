@@ -134,14 +134,20 @@ func (k SBaseProjectQuotaKeys) Fields() []string {
 	)
 }
 
-func (k SCloudResourceKeys) Fields() []string {
-	return append(k.SBaseProjectQuotaKeys.Fields(),
+func (k SCloudResourceBaseKeys) Fields() []string {
+	return []string{
 		"provider",
 		"brand",
 		"cloud_env",
 		"account_id",
 		"manager_id",
-	)
+	}
+}
+
+func (k SCloudResourceKeys) Fields() []string {
+	ret := k.SBaseProjectQuotaKeys.Fields()
+	ret = append(ret, k.SCloudResourceBaseKeys.Fields()...)
+	return ret
 }
 
 func (k SRegionalCloudResourceKeys) Fields() []string {
@@ -156,6 +162,13 @@ func (k SZonalCloudResourceKeys) Fields() []string {
 	)
 }
 
+func (k SDomainRegionalCloudResourceKeys) Fields() []string {
+	ret := k.SBaseDomainQuotaKeys.Fields()
+	ret = append(ret, k.SCloudResourceBaseKeys.Fields()...)
+	ret = append(ret, "region_id")
+	return ret
+}
+
 func (k SBaseDomainQuotaKeys) Values() []string {
 	return []string{
 		k.DomainId,
@@ -168,14 +181,20 @@ func (k SBaseProjectQuotaKeys) Values() []string {
 	)
 }
 
-func (k SCloudResourceKeys) Values() []string {
-	return append(k.SBaseProjectQuotaKeys.Values(),
+func (k SCloudResourceBaseKeys) Values() []string {
+	return []string{
 		k.Provider,
 		k.Brand,
 		k.CloudEnv,
 		k.AccountId,
 		k.ManagerId,
-	)
+	}
+}
+
+func (k SCloudResourceKeys) Values() []string {
+	ret := k.SBaseProjectQuotaKeys.Values()
+	ret = append(ret, k.SCloudResourceBaseKeys.Values()...)
+	return ret
 }
 
 func (k SRegionalCloudResourceKeys) Values() []string {
@@ -188,6 +207,13 @@ func (k SZonalCloudResourceKeys) Values() []string {
 	return append(k.SRegionalCloudResourceKeys.Values(),
 		k.ZoneId,
 	)
+}
+
+func (k SDomainRegionalCloudResourceKeys) Values() []string {
+	ret := k.SBaseDomainQuotaKeys.Values()
+	ret = append(ret, k.SCloudResourceBaseKeys.Values()...)
+	ret = append(ret, k.RegionId)
+	return ret
 }
 
 func (k1 SBaseDomainQuotaKeys) Compare(ik IQuotaKeys) int {
@@ -214,12 +240,7 @@ func (k1 SBaseProjectQuotaKeys) Compare(ik IQuotaKeys) int {
 	return 0
 }
 
-func (k1 SCloudResourceKeys) Compare(ik IQuotaKeys) int {
-	k2 := ik.(SCloudResourceKeys)
-	r := k1.SBaseProjectQuotaKeys.Compare(k2.SBaseProjectQuotaKeys)
-	if r != 0 {
-		return r
-	}
+func (k1 SCloudResourceBaseKeys) compare(k2 SCloudResourceBaseKeys) int {
 	if k1.CloudEnv < k2.CloudEnv {
 		return -1
 	} else if k1.CloudEnv > k2.CloudEnv {
@@ -234,6 +255,19 @@ func (k1 SCloudResourceKeys) Compare(ik IQuotaKeys) int {
 		return -1
 	} else if k1.Brand > k2.Brand {
 		return 1
+	}
+	return 0
+}
+
+func (k1 SCloudResourceKeys) Compare(ik IQuotaKeys) int {
+	k2 := ik.(SCloudResourceKeys)
+	r := k1.SBaseProjectQuotaKeys.Compare(k2.SBaseProjectQuotaKeys)
+	if r != 0 {
+		return r
+	}
+	r = k1.SCloudResourceBaseKeys.compare(k2.SCloudResourceBaseKeys)
+	if r != 0 {
+		return r
 	}
 	return 0
 }
@@ -261,6 +295,24 @@ func (k1 SZonalCloudResourceKeys) Compare(ik IQuotaKeys) int {
 	if k1.ZoneId < k2.ZoneId {
 		return -1
 	} else if k1.ZoneId > k2.ZoneId {
+		return 1
+	}
+	return 0
+}
+
+func (k1 SDomainRegionalCloudResourceKeys) Compare(ik IQuotaKeys) int {
+	k2 := ik.(SDomainRegionalCloudResourceKeys)
+	r := k1.SBaseDomainQuotaKeys.Compare(k2.SBaseDomainQuotaKeys)
+	if r != 0 {
+		return r
+	}
+	r = k1.SCloudResourceBaseKeys.compare(k2.SCloudResourceBaseKeys)
+	if r != 0 {
+		return r
+	}
+	if k1.RegionId < k2.RegionId {
+		return -1
+	} else if k1.RegionId > k2.RegionId {
 		return 1
 	}
 	return 0
