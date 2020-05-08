@@ -1823,7 +1823,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(commondb); i += 1 {
 		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(ctx, userCred, &commondb[i], commonext[i])
+		err := self.syncWithCloudHostStorage(ctx, userCred, &commondb[i], commonext[i], provider)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1859,7 +1859,7 @@ func (self *SHost) syncRemoveCloudHostStorage(ctx context.Context, userCred mccl
 	return err
 }
 
-func (self *SHost) syncWithCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) syncWithCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, localStorage *SStorage, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) error {
 	// do nothing
 	hs := self.GetHoststorageOfId(localStorage.Id)
 	err := hs.syncWithCloudHostStorage(userCred, extStorage)
@@ -1867,7 +1867,7 @@ func (self *SHost) syncWithCloudHostStorage(ctx context.Context, userCred mcclie
 		return err
 	}
 	s := hs.GetStorage()
-	err = s.syncWithCloudStorage(ctx, userCred, extStorage, nil)
+	err = s.syncWithCloudStorage(ctx, userCred, extStorage, provider)
 	return err
 }
 
