@@ -3,7 +3,6 @@ module yunion.io/x/onecloud
 go 1.12
 
 require (
-	cloud.google.com/go v0.50.0
 	cloud.google.com/go/storage v1.5.0
 	github.com/360EntSecGroup-Skylar/excelize v1.4.0
 	github.com/Azure/azure-sdk-for-go v36.1.0+incompatible
