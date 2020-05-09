@@ -276,8 +276,7 @@ func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) 
 	// which can be used to whitelist ips, domains from http_proxy,
 	// https_proxy setting
 	// oss use no timeout client so as to send/download large files
-	httpClient := httputils.GetAdaptiveTimeoutClient()
-	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
+	httpClient := client.cpcfg.AdaptiveTimeoutHttpClient()
 	cliOpts := []oss.ClientOption{
 		oss.HTTPClient(httpClient),
 	}
