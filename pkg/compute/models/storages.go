@@ -1509,5 +1509,16 @@ func (manager *SStorageManager) ListItemExportKeys(ctx context.Context,
 			return nil, errors.Wrap(err, "SZoneResourceBaseManager.ListItemExportKeys")
 		}
 	}
+	if keys.Contains("schedtag") {
+		schedtagsQ := SchedtagManager.Query("id", "name").SubQuery()
+		storageSchedtagQ := StorageschedtagManager.Query("storage_id", "schedtag_id").SubQuery()
+
+		subQ := storageSchedtagQ.Query(storageSchedtagQ.Field("storage_id"), sqlchemy.GROUP_CONCAT("schedtag", schedtagsQ.Field("name")))
+		subQ = subQ.Join(schedtagsQ, sqlchemy.Equals(schedtagsQ.Field("id"), storageSchedtagQ.Field("schedtag_id")))
+		subQ = subQ.GroupBy(storageSchedtagQ.Field("storage_id"))
+		subQT := subQ.SubQuery()
+		q = q.LeftJoin(subQT, sqlchemy.Equals(q.Field("id"), subQT.Field("storage_id")))
+		q = q.AppendField(subQT.Field("schedtag"))
+	}
 	return q, nil
 }

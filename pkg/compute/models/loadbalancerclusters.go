@@ -423,7 +423,7 @@ func (manager *SLoadbalancerClusterManager) ListItemExportKeys(ctx context.Conte
 		}
 	}
 	if keys.Contains("wire") {
-		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		q, err = manager.SWireResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"wire"}))
 		if err != nil {
 			return nil, errors.Wrap(err, "SWireResourceBaseManager.ListItemExportKeys")
 		}
