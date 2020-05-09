@@ -142,6 +142,10 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 		Type:      "localport",
 		Addresses: []string{fmt.Sprintf("%s %s", mdMac, mdIp)},
 	}
+	routes := []string{
+		mdIp, "0.0.0.0",
+		"0.0.0.0/0", network.GuestGateway,
+	}
 	dhcpopts := &ovnutil.DHCPOptions{
 		Cidr: fmt.Sprintf("%s/%d", network.GuestIpStart, network.GuestIpMask),
 		Options: map[string]string{
@@ -149,7 +153,7 @@ func (keeper *OVNNorthboundKeeper) ClaimNetwork(ctx context.Context, network *ag
 			"server_mac":             dhcpMac,
 			"lease_time":             fmt.Sprintf("%d", 86400),
 			"router":                 network.GuestGateway,
-			"classless_static_route": fmt.Sprintf("{%s/32,0.0.0.0}", mdIp),
+			"classless_static_route": fmt.Sprintf("{%s}", strings.Join(routes, ",")),
 		},
 		ExternalIds: map[string]string{
 			externalKeyOcRef: network.Id,
