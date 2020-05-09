@@ -27,6 +27,8 @@ import (
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/redfish"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -55,22 +57,28 @@ type sBaremetalRegisterTask struct {
 	accessNic *types.SNicDevInfo
 }
 
-func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client,
+func NewBaremetalRegisterTask(
+	userCred mcclient.TokenCredential, bmManager IBmManager, sshCli *ssh.Client,
 	hostname, remoteIp, ipmiUsername, ipmiPassword, ipmiIpAddr string,
 	ipmiMac net.HardwareAddr, ipmiLanChannel int, adminWire, ipmiWire string) *sBaremetalRegisterTask {
 	return &sBaremetalRegisterTask{
-		BmManager:      bmManager,
-		SshCli:         sshCli,
-		Hostname:       hostname,
-		RemoteIp:       remoteIp,
-		IpmiUsername:   ipmiUsername,
-		IpmiPassword:   ipmiPassword,
-		IpmiIpAddr:     ipmiIpAddr,
-		IpmiMac:        ipmiMac,
-		IpmiLanChannel: ipmiLanChannel,
-		AdminWire:      adminWire,
-		IpmiWire:       ipmiWire,
+		sBaremetalPrepareTask: sBaremetalPrepareTask{userCred: userCred},
+		BmManager:             bmManager,
+		SshCli:                sshCli,
+		Hostname:              hostname,
+		RemoteIp:              remoteIp,
+		IpmiUsername:          ipmiUsername,
+		IpmiPassword:          ipmiPassword,
+		IpmiIpAddr:            ipmiIpAddr,
+		IpmiMac:               ipmiMac,
+		IpmiLanChannel:        ipmiLanChannel,
+		AdminWire:             adminWire,
+		IpmiWire:              ipmiWire,
 	}
+}
+
+func (s *sBaremetalRegisterTask) getSession() *mcclient.ClientSession {
+	return auth.GetSession(context.Background(), s.userCred, o.Options.Region, "v2")
 }
 
 func (s *sBaremetalRegisterTask) getAccessDevMacAddr(ip string) (string, error) {
@@ -136,7 +144,7 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() (string, error) {
 	params.Set("host_type", jsonutils.NewString("baremetal"))
 	params.Set("is_baremetal", jsonutils.JSONTrue)
 	params.Set("is_import", jsonutils.JSONTrue)
-	res, err := modules.Hosts.CreateInContext(s.BmManager.GetClientSession(), params, &modules.Zones, zoneId)
+	res, err := modules.Hosts.CreateInContext(s.getSession(), params, &modules.Zones, zoneId)
 	if err != nil {
 		return "", fmt.Errorf("Create baremetal failed: %s", err)
 	}
@@ -295,7 +303,7 @@ func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepa
 }
 
 func (s *sBaremetalRegisterTask) initBaremetalServer() error {
-	if err := s.baremetal.InitializeServer(s.Hostname); err != nil {
+	if err := s.baremetal.InitializeServer(s.getSession(), s.Hostname); err != nil {
 		return fmt.Errorf("Baremteal Create Server Failed %s", err)
 	}
 	// if err := s.baremetal.SaveSSHConfig("", ""); err != nil {
