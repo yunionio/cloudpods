@@ -108,13 +108,20 @@ func (set Guests) joinHosts(subEntries Hosts) bool {
 	for gId, g := range set {
 		hId := g.HostId
 		if hId == "" {
+			// This is possible at guest creation time when host_id
+			// is not decided yet
+			continue
+		}
+		if g.ExternalId != "" {
+			// It was observed that we may receive pubcloud guests
+			// with host_id set from region API
 			continue
 		}
 		h, ok := subEntries[hId]
 		if !ok {
 			log.Warningf("guest %s(%s): host id %s not found",
 				gId, g.Name, hId)
-			correct = false
+			delete(set, gId)
 			continue
 		}
 		g.Host = h
