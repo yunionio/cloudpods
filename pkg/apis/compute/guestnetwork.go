@@ -20,7 +20,7 @@ type GuestnetworkDetails struct {
 	SGuestnetwork
 
 	// IP子网名称
-	Network string
+	Network string `json:"network"`
 }
 
 type GuestnetworkShortDesc struct {

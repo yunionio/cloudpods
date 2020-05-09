@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
@@ -193,4 +194,45 @@ func (manager *SGuestsecgroupManager) ListItemExportKeys(ctx context.Context,
 	}
 
 	return q, nil
+}
+
+func (self *SGuestsecgroup) GetExtraDetails(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	isList bool,
+) (api.GuestsecgroupDetails, error) {
+	return api.GuestsecgroupDetails{}, nil
+}
+
+func (manager *SGuestsecgroupManager) FetchCustomizeColumns(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	objs []interface{},
+	fields stringutils2.SSortedStrings,
+	isList bool,
+) []api.GuestsecgroupDetails {
+	rows := make([]api.GuestsecgroupDetails, len(objs))
+
+	guestRows := manager.SGuestJointsManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	secgroupIds := make([]string, len(rows))
+	for i := range rows {
+		rows[i].GuestJointResourceDetails = guestRows[i]
+		secgroupIds[i] = objs[i].(*SGuestsecgroup).SecgroupId
+	}
+
+	secgroupIdMaps, err := db.FetchIdNameMap2(SecurityGroupManager, secgroupIds)
+	if err != nil {
+		log.Errorf("FetchIdNameMap2 fail %s", err)
+		return rows
+	}
+
+	for i := range rows {
+		if name, ok := secgroupIdMaps[secgroupIds[i]]; ok {
+			rows[i].Secgroup = name
+		}
+	}
+
+	return rows
 }
