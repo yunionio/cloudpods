@@ -183,6 +183,9 @@ func fetchProjects(ctx context.Context, projectIds []string, isDomain bool) map[
 		ret[projects[i].Id] = projects[i]
 	}
 	for _, pid := range projectIds {
+		if len(pid) == 0 {
+			continue
+		}
 		if _, ok := ret[pid]; !ok {
 			// not found
 			var t *STenant
