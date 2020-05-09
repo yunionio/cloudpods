@@ -950,7 +950,8 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.EgressMbps = extLb.GetEgressMbps()
 		lb.ChargeType = extLb.GetChargeType()
 		lb.ManagerId = provider.Id
-
+		lbNetworkIds := getExtLbNetworkIds(extLb)
+		lb.NetworkId = strings.Join(lbNetworkIds, ",")
 		if extLb.GetMetadata() != nil {
 			lb.LBInfo = extLb.GetMetadata()
 		}
