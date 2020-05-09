@@ -320,6 +320,35 @@ func (h *AuthHandlers) doCredentialLogin(ctx context.Context, req *http.Request,
 		}
 	}
 	if len(tenant) == 0 {
+		token3, ok := token.(*mcclient.TokenCredentialV3)
+		if ok {
+			targetLevel := rbacutils.ScopeProject
+			targetProjId := ""
+			for _, r := range token3.Token.RoleAssignments {
+				level := rbacutils.ScopeProject
+				if len(r.Policies.System) > 0 {
+					level = rbacutils.ScopeSystem
+				} else if len(r.Policies.Domain) > 0 {
+					level = rbacutils.ScopeDomain
+				}
+				if len(targetProjId) == 0 || level.HigherThan(targetLevel) {
+					targetProjId = r.Scope.Project.Id
+					targetLevel = level
+				}
+			}
+			if len(targetProjId) > 0 {
+				ntoken, e := auth.Client().SetProject(targetProjId, "", "", token)
+				if e != nil {
+					log.Errorf("fail to change to project %s(%s), reset to empty", targetProjId, e)
+				} else {
+					token = ntoken
+					tenant = targetProjId
+					body.(*jsonutils.JSONDict).Set("scope", jsonutils.NewString(string(targetLevel)))
+				}
+			}
+		}
+	}
+	if len(tenant) == 0 {
 		s := auth.GetAdminSession(ctx, FetchRegion(req), "")
 		projects, e := modules.UsersV3.GetProjects(s, token.GetUserId())
 		if e == nil && len(projects.Data) > 0 {
