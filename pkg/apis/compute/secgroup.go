@@ -213,3 +213,12 @@ type GuestsecgroupListInput struct {
 	GuestJointsListInput
 	SecgroupFilterListInput
 }
+
+type GuestsecgroupDetails struct {
+	GuestJointResourceDetails
+
+	SGuestsecgroup
+
+	// 安全组名称
+	Secgroup string `json:"secgroup"`
+}
