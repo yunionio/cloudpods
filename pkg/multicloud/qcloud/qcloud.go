@@ -429,13 +429,11 @@ func (client *SQcloudClient) GetRegions() []SRegion {
 }
 
 func (client *SQcloudClient) getDefaultClient() (*common.Client, error) {
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, client.cpcfg.ProxyFunc)
-
 	cli, err := common.NewClientWithSecretId(client.secretId, client.secretKey, QCLOUD_DEFAULT_REGION)
 	if err != nil {
 		return nil, err
 	}
+	httpClient := client.cpcfg.HttpClient()
 	cli.WithHttpTransport(httpClient.Transport)
 	return cli, nil
 }

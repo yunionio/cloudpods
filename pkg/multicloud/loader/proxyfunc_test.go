@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func TestProxyFunc(t *testing.T) {
@@ -39,6 +40,14 @@ func TestProxyFunc(t *testing.T) {
 			}
 			t.Errorf("vendor %s: proxyFunc not working", vendor)
 		}
+		t.Run("default client no proxy", func(t *testing.T) {
+			proxied = false
+			client := httputils.GetDefaultClient()
+			client.Get("http://default-client-no-proxy.TestProxyFunc." + vendor + "/")
+			if proxied {
+				t.Errorf("%s: default client proxy changed", vendor)
+			}
+		})
 	}
 
 	t.Parallel()
