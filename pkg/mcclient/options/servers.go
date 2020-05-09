@@ -278,6 +278,7 @@ type ServerCreateOptionalOptions struct {
 
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
+	LoginAccount     string   `help:"Guest login account"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
 	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	InstanceType     string   `help:"instance flavor"`
@@ -378,6 +379,7 @@ func (opts *ServerCreateOptionalOptions) OptionalParams() (*computeapi.ServerCre
 		VcpuCount:          opts.VcpuCount,
 		Keypair:            opts.Keypair,
 		Password:           opts.Password,
+		LoginAccount:       opts.LoginAccount,
 		Cdrom:              opts.Iso,
 		Vga:                opts.Vga,
 		Vdi:                opts.Vdi,

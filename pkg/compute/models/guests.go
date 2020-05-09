@@ -1018,6 +1018,15 @@ func (manager *SGuestManager) validateCreateData(
 		input.ResetPassword = &resetPassword
 	}
 
+	if resetPassword && len(input.LoginAccount) > 0 {
+		if len(input.LoginAccount) > 32 {
+			return nil, httperrors.NewInputParameterError("login_account is longer than 32 chars")
+		}
+		if err := manager.ValidateName(input.LoginAccount); err != nil {
+			return nil, err
+		}
+	}
+
 	// check group
 	if input.InstanceGroupIds != nil && len(input.InstanceGroupIds) != 0 {
 		newGroupIds := make([]string, len(input.InstanceGroupIds))
@@ -3564,6 +3573,10 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	}
 
 	config.Add(jsonutils.NewBool(jsonutils.QueryBoolean(params, "enable_cloud_init", false)), "enable_cloud_init")
+
+	if account, _ := params.GetString("login_account"); len(account) > 0 {
+		config.Set("login_account", jsonutils.NewString(account))
+	}
 
 	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
 	if deployAction == "create" && resetPasswd {

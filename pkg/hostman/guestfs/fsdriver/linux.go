@@ -92,7 +92,16 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
 
-func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
+func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	if len(sUser) > 0 {
+		if err := rootFs.UserAdd(sUser, false); err != nil && !strings.Contains(err.Error(), "already exists") {
+			return "", fmt.Errorf("UserAdd %s: %v", sUser, err)
+		}
+		if err := l.EnableUserSudo(rootFs, sUser); err != nil {
+			return "", fmt.Errorf("EnableUserSudo: %s", err)
+		}
+		return sUser, nil
+	}
 	var selUsr string
 	if defaultRootUser && rootFs.Exists("/root", false) {
 		selUsr = ROOT_USER
@@ -110,7 +119,7 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bo
 			selUsr = ROOT_USER
 		}
 	}
-	return selUsr
+	return selUsr, nil
 }
 
 func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
@@ -1607,8 +1616,8 @@ func (d *SCoreOsRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, pu
 	}
 }
 
-func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
-	return "core"
+func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, user string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
+	return "core", nil
 }
 
 func (d *SCoreOsRootFs) DeployFiles(deploys []*deployapi.DeployContent) error {
