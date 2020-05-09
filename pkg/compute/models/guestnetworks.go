@@ -123,7 +123,7 @@ func (self *SGuestnetwork) GetExtraDetails(
 	return api.GuestnetworkDetails{}, nil
 }
 
-func (manager SGuestnetworkManager) FetchCustomizeColumns(
+func (manager *SGuestnetworkManager) FetchCustomizeColumns(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
