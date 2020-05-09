@@ -33,7 +33,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -153,8 +152,7 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 		return nil, err
 	}
 
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	httpClient := self.cpcfg.HttpClient()
 	client.Sender = httpClient
 
 	self.env = env

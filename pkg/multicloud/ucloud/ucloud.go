@@ -24,7 +24,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*
@@ -102,9 +101,7 @@ type SUcloudClient struct {
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，只能进行同步子账号（项目）、查询region列表等projectId无关的操作。
 func NewUcloudClient(cfg *UcloudClientConfig) (*SUcloudClient, error) {
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, cfg.cpcfg.ProxyFunc)
-
+	httpClient := cfg.cpcfg.HttpClient()
 	client := SUcloudClient{
 		UcloudClientConfig: cfg,
 		httpClient:         httpClient,
