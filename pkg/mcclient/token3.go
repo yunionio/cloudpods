@@ -131,7 +131,7 @@ type KeystoneTokenV3 struct {
 	// 认证上下文
 	Context SAuthContext `json:"context"`
 
-	// 当用户认证时未指定scoepe时，会返回改用户所有的项目
+	// 当用户认证时未指定scope时，会返回该用户所有的项目
 	Projects []KeystoneProjectV3 `json:"projects"`
 	// 返回用户在所有项目的所有角色信息
 	RoleAssignments []api.SRoleAssignment `json:"role_assignments"`
