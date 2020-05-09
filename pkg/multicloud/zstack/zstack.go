@@ -103,9 +103,7 @@ func getSignUrl(uri string) (string, error) {
 }
 
 func NewZStackClient(cfg *ZstackClientConfig) (*SZStackClient, error) {
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, cfg.cpcfg.ProxyFunc)
-
+	httpClient := cfg.cpcfg.HttpClient()
 	cli := &SZStackClient{
 		ZstackClientConfig: cfg,
 		httpClient:         httpClient,

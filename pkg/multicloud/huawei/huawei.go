@@ -27,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*
@@ -143,8 +142,7 @@ func (self *SHuaweiClient) newRegionAPIClient(regionId string) (*client.Client, 
 		return nil, err
 	}
 
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	httpClient := self.cpcfg.HttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil
@@ -156,8 +154,7 @@ func (self *SHuaweiClient) newGeneralAPIClient() (*client.Client, error) {
 		return nil, err
 	}
 
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, self.cpcfg.ProxyFunc)
+	httpClient := self.cpcfg.HttpClient()
 	cli.SetHttpClient(httpClient)
 
 	return cli, nil
