@@ -104,6 +104,29 @@ func (t *ShellTask) MarshalYAML() (interface{}, error) {
 	return r, nil
 }
 
+type IncludeRole struct {
+	Name string
+	Tags []string
+	Vars map[string]interface{}
+	When string
+}
+
+func (r *IncludeRole) MarshalYAML() (interface{}, error) {
+	out := map[string]interface{}{
+		"include_role": map[string]interface{}{"name": r.Name},
+	}
+	if len(r.Tags) > 0 {
+		out["tags"] = r.Tags
+	}
+	if len(r.Vars) > 0 {
+		out["vars"] = r.Vars
+	}
+	if len(r.When) > 0 {
+		out["when"] = r.When
+	}
+	return out, nil
+}
+
 type Block struct {
 	Name          string
 	WithPlugin    string
