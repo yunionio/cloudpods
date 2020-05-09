@@ -1101,7 +1101,7 @@ func (manager *SSnapshotManager) ListItemExportKeys(ctx context.Context,
 		}
 	}
 	if keys.Contains("disk") {
-		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		q, err = manager.SDiskResourceBaseManager.ListItemExportKeys(ctx, q, userCred, stringutils2.NewSortedStrings([]string{"disk"}))
 		if err != nil {
 			return nil, errors.Wrap(err, "SDiskResourceBaseManager.ListItemExportKeys")
 		}
