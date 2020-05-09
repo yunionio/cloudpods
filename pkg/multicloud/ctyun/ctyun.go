@@ -85,8 +85,7 @@ type SCtyunClient struct {
 }
 
 func NewSCtyunClient(cfg *CtyunClientConfig) (*SCtyunClient, error) {
-	httpClient := httputils.GetDefaultClient()
-	httputils.SetClientProxyFunc(httpClient, cfg.cpcfg.ProxyFunc)
+	httpClient := cfg.cpcfg.HttpClient()
 	client := &SCtyunClient{
 		CtyunClientConfig: cfg,
 		httpClient:        httpClient,
