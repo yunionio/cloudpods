@@ -149,7 +149,12 @@ func (self *SLoadbalancer) GetNetworkType() string {
 }
 
 func (self *SLoadbalancer) GetNetworkIds() []string {
-	return []string{self.VipSubnetID}
+	net := self.GetNetwork()
+	if net != nil {
+		return []string{net.GetId()}
+	}
+
+	return []string{}
 }
 
 func (self *SLoadbalancer) GetNetwork() *SNetwork {
