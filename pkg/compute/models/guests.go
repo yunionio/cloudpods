@@ -3185,14 +3185,19 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
-	cancelUsage := SQuota{}
-	cancelUsage.Storage = disk.DiskSize
-	keys, err := self.GetQuotaKeys()
-	if err != nil {
-		return nil, err
+	if pendingUsage != nil {
+		cancelUsage := SQuota{}
+		cancelUsage.Storage = disk.DiskSize
+		keys, err := self.GetQuotaKeys()
+		if err != nil {
+			return nil, err
+		}
+		cancelUsage.SetKeys(keys)
+		err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage, true)
+		if err != nil {
+			return nil, err
+		}
 	}
-	cancelUsage.SetKeys(keys)
-	err = quotas.CancelPendingUsage(ctx, userCred, pendingUsage, &cancelUsage, true)
 
 	return disk, nil
 }
