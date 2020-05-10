@@ -1591,7 +1591,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
 	// else
 	if len(info.ImageId) == 0 && info.SizeMb == 0 {
-		return nil, httperrors.NewInputParameterError("Diskinfo not contains either imageID or size")
+		return nil, httperrors.NewInputParameterError("Diskinfo index %d: both imageID and size are absent", info.Index)
 	}
 	return info, nil
 }
