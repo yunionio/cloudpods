@@ -988,6 +988,7 @@ func init() {
 				config.Hosts[i].HostIp = yamlConfig.Hosts[i].HostIp
 				config.Hosts[i].XmlFilePath = yamlConfig.Hosts[i].XmlFilePath
 				config.Hosts[i].Servers = make([]compute.SLibvirtServerConfig, len(yamlConfig.Hosts[i].Servers))
+				config.Hosts[i].MonitorPath = yamlConfig.Hosts[i].MonitorPath
 				for j := 0; j < len(yamlConfig.Hosts[i].Servers); j++ {
 					config.Hosts[i].Servers[j].MacIp = make(map[string]string)
 					mac := yamlConfig.Hosts[i].Servers[j].Mac
@@ -1010,11 +1011,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		for i := 0; i < len(params); i++ {
-			val := jsonutils.NewDict()
-			val.Set(modules.Servers.KeywordPlural, params[i])
-			params[i] = val
-		}
+		//for i := 0; i < len(params); i++ {
+		//	val := jsonutils.NewDict()
+		//	val.Set(modules.Servers.KeywordPlural, params[i])
+		//	params[i] = val
+		//}
 
 		results := modules.Servers.BatchPerformClassAction(s, "import-from-libvirt", params)
 		printBatchResults(results, modules.Servers.GetColumns(s))
