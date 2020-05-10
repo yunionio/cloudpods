@@ -219,6 +219,7 @@ func (manager *SBucketManager) newFromCloudBucket(
 	}
 
 	SyncCloudProject(userCred, &bucket, provider.GetOwnerId(), extBucket, provider.Id)
+	bucket.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 
 	db.OpsLog.LogEvent(&bucket, db.ACT_CREATE, bucket.GetShortDesc(ctx), userCred)
 
@@ -292,6 +293,7 @@ func (bucket *SBucket) syncWithCloudBucket(
 
 	if provider != nil {
 		SyncCloudProject(userCred, bucket, provider.GetOwnerId(), extBucket, provider.Id)
+		bucket.SyncShareState(ctx, userCred, provider.getAccountShareInfo())
 	}
 
 	return nil

@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/apis"
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -210,37 +209,52 @@ func (model *SSharableVirtualResourceBase) Delete(ctx context.Context, userCred 
 	return model.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
+func (model *SSharableVirtualResourceBase) GetSharedInfo() apis.SShareInfo {
+	ret := apis.SShareInfo{}
+	ret.IsPublic = model.IsPublic
+	ret.PublicScope = rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeNone)
+	ret.SharedDomains = model.GetSharedDomains()
+	ret.SharedProjects = model.GetSharedProjects()
+	// fix
+	if len(ret.SharedDomains) > 0 {
+		ret.PublicScope = rbacutils.ScopeDomain
+		ret.SharedProjects = nil
+		ret.IsPublic = true
+	} else if len(ret.SharedProjects) > 0 {
+		ret.PublicScope = rbacutils.ScopeProject
+		ret.SharedDomains = nil
+		ret.IsPublic = true
+	} else if !ret.IsPublic {
+		ret.PublicScope = rbacutils.ScopeNone
+	}
+	return ret
+}
+
+func (model *SSharableVirtualResourceBase) SaveSharedInfo(src apis.TOwnerSource, ctx context.Context, userCred mcclient.TokenCredential, si apis.SShareInfo) {
+	diff, _ := Update(model, func() error {
+		model.PublicSrc = string(src)
+		model.IsPublic = si.IsPublic
+		model.PublicScope = string(si.PublicScope)
+		return nil
+	})
+	if len(diff) > 0 {
+		OpsLog.LogEvent(model, ACT_SYNC_SHARE, diff, userCred)
+	}
+	SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, si.SharedProjects, nil, nil)
+	SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, si.SharedDomains, nil, nil)
+}
+
 func (model *SSharableVirtualResourceBase) SyncShareState(ctx context.Context, userCred mcclient.TokenCredential, shareInfo apis.SAccountShareInfo) {
+	si := shareInfo.GetProjectShareInfo()
 	if model.PublicSrc != string(apis.OWNER_SOURCE_LOCAL) {
-		diff, _ := Update(model, func() error {
-			model.PublicSrc = string(apis.OWNER_SOURCE_CLOUD)
-			switch shareInfo.ShareMode {
-			case compute.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN:
-				model.IsPublic = true
-				model.PublicScope = string(rbacutils.ScopeDomain)
-				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
-				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
-			case compute.CLOUD_ACCOUNT_SHARE_MODE_PROVIDER_DOMAIN:
-				model.IsPublic = true
-				model.PublicScope = string(rbacutils.ScopeDomain)
-				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
-				SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
-			case compute.CLOUD_ACCOUNT_SHARE_MODE_SYSTEM:
-				model.IsPublic = true
-				if shareInfo.IsPublic && shareInfo.PublicScope == rbacutils.ScopeSystem {
-					model.PublicScope = string(rbacutils.ScopeSystem)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, nil, nil, nil)
-				} else {
-					model.PublicScope = string(rbacutils.ScopeDomain)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetProject, nil, nil, nil)
-					SharedResourceManager.shareToTarget(ctx, userCred, model.GetISharableVirtualModel(), SharedTargetDomain, shareInfo.SharedDomains, nil, nil)
-				}
-			}
-			return nil
-		})
-		if len(diff) > 0 {
-			OpsLog.LogEvent(model, ACT_SYNC_SHARE, diff, userCred)
+		model.SaveSharedInfo(apis.OWNER_SOURCE_CLOUD, ctx, userCred, si)
+	} else {
+		localSi := model.GetSharedInfo()
+		if localSi.IsViolate(si) {
+			newSi := localSi.Intersect(si)
+			newSi.FixProjectShare()
+			// reset to cloud base public_src
+			model.SaveSharedInfo(apis.OWNER_SOURCE_CLOUD, ctx, userCred, newSi)
 		}
 	}
 }
