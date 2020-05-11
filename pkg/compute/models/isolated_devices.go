@@ -759,9 +759,10 @@ func (manager *SIsolatedDeviceManager) FilterByOwner(q *sqlchemy.SQuery, owner m
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
-			hosts := HostManager.Query("id", "domain_id").SubQuery()
+			hostsQ := HostManager.Query("id")
+			hostsQ = HostManager.FilterByOwner(hostsQ, owner, scope)
+			hosts := hostsQ.SubQuery()
 			q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
-			q = q.Filter(sqlchemy.Equals(hosts.Field("domain_id"), owner.GetProjectDomainId()))
 		}
 	}
 	return q
