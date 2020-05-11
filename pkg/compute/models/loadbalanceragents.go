@@ -438,9 +438,11 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 	}
 	agentsData := jsonutils.Marshal(&agents).(*jsonutils.JSONArray)
 	for fieldName, man := range men {
-		keyPlural := man.KeywordPlural()
-		now := time.Now()
-		minT := now
+		var (
+			keyPlural = man.KeywordPlural()
+			now       = time.Now()
+			minT      = now
+		)
 		if len(agents) > 0 {
 			// find min updated_at seen by these active agents
 			for i := 0; i < agentsData.Length(); i++ {
@@ -469,17 +471,13 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 				continue
 			}
 			defer rows.Close()
-			m, err := db.NewModelObject(man)
-			if err != nil {
-				log.Errorf("%s: new model object failed: %s", keyPlural, err)
-				continue
-			}
-			mInitValue := reflect.Indirect(reflect.ValueOf(m))
-			m, _ = db.NewModelObject(man)
 			for rows.Next() {
-				reflect.Indirect(reflect.ValueOf(m)).Set(mInitValue)
-				err := q.Row2Struct(rows, m)
+				m, err := db.NewModelObject(man)
 				if err != nil {
+					log.Errorf("%s: new model object failed: %s", keyPlural, err)
+					continue
+				}
+				if err := q.Row2Struct(rows, m); err != nil {
 					log.Errorf("%s: Row2Struct: %s", keyPlural, err)
 					continue
 				}
