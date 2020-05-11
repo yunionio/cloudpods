@@ -99,7 +99,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 			return
 		}
 	}
-	disk.SetStatus(self.UserCred, api.DISK_READY, "")
+	models.StartResourceSyncStatusTask(ctx, self.GetUserCred(), disk, "DiskSyncstatusTask", "")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
@@ -135,7 +135,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context,
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_DETACH, reason.String(), self.UserCred)
-	disk.SetStatus(self.UserCred, api.DISK_READY, "")
+	models.StartResourceSyncStatusTask(ctx, self.GetUserCred(), disk, "DiskSyncstatusTask", "")
 	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
 		log.Warningf("recover attach disk %s(%s) for guest %s(%s) error: %v", disk.Name, disk.Id, guest.Name, guest.Id, err)
