@@ -42,6 +42,7 @@ type SCachedLoadbalancerAclManager struct {
 	db.SSharableVirtualResourceBaseManager
 	SManagedResourceBaseManager
 	SCloudregionResourceBaseManager
+	SLoadbalancerAclResourceBaseManager
 }
 
 var CachedLoadbalancerAclManager *SCachedLoadbalancerAclManager
@@ -64,9 +65,9 @@ type SCachedLoadbalancerAcl struct {
 	db.SExternalizedResourceBase
 	SManagedResourceBase
 	SCloudregionResourceBase
+	SLoadbalancerAclResourceBase
 
-	AclId      string `width:"128" charset:"ascii" nullable:"false" index:"true" list:"user" create:"required"` // 本地ACL ID
-	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`                // huawei only
+	ListenerId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // huawei only
 }
 
 func (lbacl *SCachedLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -567,6 +568,11 @@ func (manager *SCachedLoadbalancerAclManager) ListItemFilter(
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemFilter")
 	}
 
+	q, err = manager.SLoadbalancerAclResourceBaseManager.ListItemFilter(ctx, q, userCred, query.LoadbalancerAclFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.ListItemFilter")
+	}
+
 	return q, nil
 }
 
@@ -590,6 +596,10 @@ func (manager *SCachedLoadbalancerAclManager) OrderByExtraFields(
 	if err != nil {
 		return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.OrderByExtraFields")
 	}
+	q, err = manager.SLoadbalancerAclResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query.LoadbalancerAclFilterListInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.OrderByExtraFields")
+	}
 
 	return q, nil
 }
@@ -606,6 +616,10 @@ func (manager *SCachedLoadbalancerAclManager) QueryDistinctExtraField(q *sqlchem
 		return q, nil
 	}
 	q, err = manager.SCloudregionResourceBaseManager.QueryDistinctExtraField(q, field)
+	if err == nil {
+		return q, nil
+	}
+	q, err = manager.SLoadbalancerAclResourceBaseManager.QueryDistinctExtraField(q, field)
 	if err == nil {
 		return q, nil
 	}
@@ -634,6 +648,12 @@ func (manager *SCachedLoadbalancerAclManager) ListItemExportKeys(ctx context.Con
 		q, err = manager.SCloudregionResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
 		if err != nil {
 			return nil, errors.Wrap(err, "SCloudregionResourceBaseManager.ListItemExportKeys")
+		}
+	}
+	if keys.ContainsAny(manager.SLoadbalancerAclResourceBaseManager.GetExportKeys()...) {
+		q, err = manager.SLoadbalancerAclResourceBaseManager.ListItemExportKeys(ctx, q, userCred, keys)
+		if err != nil {
+			return nil, errors.Wrap(err, "SLoadbalancerAclResourceBaseManager.ListItemExportKeys")
 		}
 	}
 
