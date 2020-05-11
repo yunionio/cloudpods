@@ -541,10 +541,6 @@ func (region *SRegion) CreateRds(name, databaseVersion, category, instanceType, 
 			"value": "0.0.0.0/0",
 		},
 	}
-	if len(vpcId) > 0 {
-		vpcId = strings.TrimPrefix(vpcId, region.GetGlobalId()+"/")
-		ipConfiguration["privateNetwork"] = vpcId
-	}
 	settings["ipConfiguration"] = ipConfiguration
 	body := map[string]interface{}{
 		"databaseVersion": databaseVersion,
