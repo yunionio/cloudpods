@@ -26,6 +26,9 @@ type GlobalVpcDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 
 	SGlobalVpc
+
+	// vpc数量
+	VpcCount int `json:"vpc_count"`
 }
 
 type GlobalVpcResourceInfo struct {
