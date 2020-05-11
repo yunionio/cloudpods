@@ -819,6 +819,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		secGrp.DomainId = auth.AdminCredential().GetProjectDomainId()
 		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
+		secGrp.PublicScope = string(rbacutils.ScopeSystem)
 		err = manager.TableSpec().Insert(secGrp)
 		if err != nil {
 			log.Errorf("Insert default secgroup failed!!! %s", err)

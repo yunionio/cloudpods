@@ -1011,12 +1011,12 @@ func (model *SWire) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 }
 
 func (wire *SWire) GetChangeOwnerCandidateDomainIds() []string {
-	candidates := [][]string{
-		wire.SInfrasResourceBase.GetChangeOwnerCandidateDomainIds(),
-	}
+	candidates := [][]string{}
 	vpc := wire.GetVpc()
 	if vpc != nil {
-		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(vpc))
+		candidates = append(candidates,
+			vpc.GetChangeOwnerCandidateDomainIds(),
+			db.ISharableChangeOwnerCandidateDomainIds(vpc))
 	}
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(wire, candidates...)
 }

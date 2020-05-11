@@ -94,7 +94,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	}
 
 	// clean all disks on locally attached storages
-	storages := host._getAttachedStorages(tristate.None, tristate.None, api.STORAGE_LOCAL)
+	storages := host._getAttachedStorages(tristate.None, tristate.None, api.HOST_STORAGE_LOCAL_TYPES)
 	for i := range storages {
 		err := storages[i].purgeDisks(ctx, userCred)
 		if err != nil {

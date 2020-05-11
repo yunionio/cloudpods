@@ -2566,11 +2566,13 @@ func (net *SNetwork) PerformStatus(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (net *SNetwork) GetChangeOwnerCandidateDomainIds() []string {
-	candidates := [][]string{
-		net.SSharableVirtualResourceBase.GetChangeOwnerCandidateDomainIds(),
-	}
+	candidates := [][]string{}
 	wire := net.GetWire()
 	if wire != nil {
+		vpc := wire.GetVpc()
+		if vpc != nil {
+			candidates = append(candidates, vpc.GetChangeOwnerCandidateDomainIds())
+		}
 		candidates = append(candidates, db.ISharableChangeOwnerCandidateDomainIds(wire))
 	}
 	return db.ISharableMergeChangeOwnerCandidateDomainIds(net, candidates...)
