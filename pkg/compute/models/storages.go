@@ -1458,6 +1458,21 @@ func (self *SStorage) StartDeleteRbdDisks(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (storage *SStorage) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	// not allow to perform public for locally connected storage
+	if storage.IsLocal() {
+		hosts := storage.GetAttachedHosts()
+		if len(hosts) > 0 {
+			return nil, errors.Wrap(httperrors.ErrForbidden, "not allow to change owner for local storage")
+		}
+	}
+	return storage.performChangeOwnerInternal(ctx, userCred, query, input)
+}
+
+func (storage *SStorage) performChangeOwnerInternal(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	return storage.SEnabledStatusInfrasResourceBase.PerformChangeOwner(ctx, userCred, query, input)
+}
+
 func (storage *SStorage) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformPublicDomainInput) (jsonutils.JSONObject, error) {
 	// not allow to perform public for locally connected storage
 	if storage.IsLocal() {

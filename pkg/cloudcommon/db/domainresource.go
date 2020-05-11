@@ -133,6 +133,10 @@ func (model *SDomainLevelResourceBase) AllowPerformChangeOwner(ctx context.Conte
 }
 
 func (model *SDomainLevelResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformChangeDomainOwnerInput) (jsonutils.JSONObject, error) {
+	if model.GetIStandaloneModel().IsShared() {
+		return nil, errors.Wrap(httperrors.ErrForbidden, "cannot change owner of shared resource")
+	}
+
 	manager := model.GetModelManager()
 
 	data := jsonutils.Marshal(input)
