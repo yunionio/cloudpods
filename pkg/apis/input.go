@@ -88,6 +88,17 @@ type EnabledBaseResourceCreateInput struct {
 	// 该资源是否被管理员*人为*启用或者禁用
 	// required: false
 	Enabled *bool `json:"enabled"`
+
+	// 该资源是否被管理员*人为*禁用, 和enabled互斥
+	// required: false
+	Disabled *bool `json:"disabled"`
+}
+
+func (input *EnabledBaseResourceCreateInput) AfterUnmarshal() {
+	if input.Disabled != nil && input.Enabled == nil {
+		enabled := !(*input.Disabled)
+		input.Enabled = &enabled
+	}
 }
 
 type StatusBaseResourceCreateInput struct {

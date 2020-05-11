@@ -85,6 +85,8 @@ type SCloudAccountCreateBaseOptions struct {
 	Project       string `help:"project for this account"`
 	ProjectDomain string `help:"domain for this account"`
 
+	Disabled *bool `help:"create cloud account with disabled status"`
+
 	ProxySetting string `help:"proxy setting id or name" json:"proxy_setting"`
 }
 

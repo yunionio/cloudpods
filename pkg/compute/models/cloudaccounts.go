@@ -463,18 +463,22 @@ func (manager *SCloudaccountManager) ValidateCreateData(
 }
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.SetEnabled(true)
+	if !data.Contains("enabled") {
+		self.SetEnabled(true)
+	}
 	if len(self.Brand) == 0 {
 		self.Brand = self.Provider
 	}
 	self.DomainId = ownerId.GetProjectDomainId()
 	// self.EnableAutoSync = false
 	// force private and share_mode=account_domain
-	self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
-	self.IsPublic = false
-	self.PublicScope = string(rbacutils.ScopeNone)
-	// mark the public_scope has been set
-	data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
+	if !data.Contains("public_scope") {
+		self.ShareMode = api.CLOUD_ACCOUNT_SHARE_MODE_ACCOUNT_DOMAIN
+		self.IsPublic = false
+		self.PublicScope = string(rbacutils.ScopeNone)
+		// mark the public_scope has been set
+		data.(*jsonutils.JSONDict).Set("public_scope", jsonutils.NewString(self.PublicScope))
+	}
 	return self.SEnabledStatusInfrasResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
@@ -492,9 +496,9 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		log.Errorf("CancelPendingUsage fail %s", err)
 	}
-	// if !self.EnableAutoSync {
-	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
-	// }
+	if self.Enabled.IsTrue() {
+		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+	}
 }
 
 func (self *SCloudaccount) savePassword(secret string) error {
