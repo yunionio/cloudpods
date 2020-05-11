@@ -69,14 +69,22 @@ func (self *SGlobalVpc) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusInfrasResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SGlobalVpc) GetVpcQuery() *sqlchemy.SQuery {
+	return VpcManager.Query().Equals("globalvpc_id", self.Id)
+}
+
 func (self *SGlobalVpc) GetVpcs() ([]SVpc, error) {
 	vpcs := []SVpc{}
-	q := VpcManager.Query().Equals("globalvpc_id", self.Id)
+	q := self.GetVpcQuery()
 	err := db.FetchModelObjects(VpcManager, q, &vpcs)
 	if err != nil {
 		return nil, err
 	}
 	return vpcs, nil
+}
+
+func (self *SGlobalVpc) GetVpcCount() (int, error) {
+	return self.GetVpcQuery().CountWithError()
 }
 
 func (self *SGlobalVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isList bool) (api.GlobalVpcDetails, error) {
@@ -97,6 +105,8 @@ func (manager *SGlobalVpcManager) FetchCustomizeColumns(
 		rows[i] = api.GlobalVpcDetails{
 			EnabledStatusInfrasResourceBaseDetails: stdRows[i],
 		}
+		gv := objs[i].(*SGlobalVpc)
+		rows[i].VpcCount, _ = gv.GetVpcCount()
 	}
 	return rows
 }
