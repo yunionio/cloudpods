@@ -215,8 +215,12 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 	}
 
 	matchRegion := func(r core.Candidater, regionId string) bool {
-		if args.RegionID != "" {
-			if r.Getter().Region().GetId() == regionId {
+		if regionId != "" {
+			region := r.Getter().Region()
+			if region == nil {
+				return false
+			}
+			if region.GetId() == regionId {
 				return true
 			}
 			return false
