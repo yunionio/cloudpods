@@ -217,15 +217,15 @@ func (this *TokenCredentialV2) GetServiceURLs(service, region, zone, endpointTyp
 	return this.ServiceCatalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
-func (this *TokenCredentialV2) GetServicesByInterface(region string, infType string) []ExternalService {
-	return nil
-}
-
 func (this *TokenCredentialV2) GetInternalServices(region string) []string {
 	return nil
 }
 
 func (this *TokenCredentialV2) GetExternalServices(region string) []ExternalService {
+	return nil
+}
+
+func (this *TokenCredentialV2) GetServicesByInterface(region string, infType string) []ExternalService {
 	return nil
 }
 
@@ -331,6 +331,14 @@ func (catalog KeystoneServiceCatalogV2) GetServiceURLs(service, region, zone, en
 		return nil, err
 	}
 	return []string{url}, nil
+}
+
+func (catalog KeystoneServiceCatalogV2) GetInternalServices(region string) []string {
+	return nil
+}
+
+func (catalog KeystoneServiceCatalogV2) GetExternalServices(region string) []ExternalService {
+	return nil
 }
 
 func (catalog KeystoneServiceCatalogV2) GetServicesByInterface(region string, infType string) []ExternalService {
