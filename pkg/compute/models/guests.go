@@ -100,7 +100,7 @@ type SGuest struct {
 	SBillingResourceBase
 	SDeletePreventableResourceBase
 
-	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" index:"true"`
+	SHostResourceBase `width:"36" charset:"ascii" nullable:"true" list:"user" get:"user" index:"true"`
 
 	// CPU大小
 	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"`
@@ -136,7 +136,7 @@ type SGuest struct {
 	// example: default
 	SecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"`
 	// 管理员可见安全组Id
-	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`
+	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"domain"`
 
 	SrcIpCheck  tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
 	SrcMacCheck tristate.TriState `nullable:"false" default:"true" create:"optional" list:"user" update:"user"`
