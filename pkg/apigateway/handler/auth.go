@@ -677,26 +677,57 @@ func getUserAuthCookie(ctx context.Context, s *mcclient.ClientSession, token mcc
 	return info.String(), nil
 }
 
-func getLBAgentInfo(s *mcclient.ClientSession, token mcclient.TokenCredential) (*jsonutils.JSONDict, error) {
+func isLBAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("hb_last_seen.isnotempty()"), "filter.0")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	lbagents, err := modules.LoadbalancerAgents.List(s, params)
+	agents, err := modules.LoadbalancerAgents.List(s, params)
 	if err != nil {
-		return nil, errors.Wrapf(err, "user %s get lbagent", token.GetUserName())
+		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
 	}
 
-	item := jsonutils.NewDict()
-	item.Add(jsonutils.NewString(""), "name")
-	item.Add(jsonutils.NewString("lbagent"), "type")
-	item.Add(jsonutils.JSONTrue, "as_menu")
-	if len(lbagents.Data) > 0 {
-		item.Add(jsonutils.JSONTrue, "status")
+	if len(agents.Data) > 0 {
+		return true, nil
 	} else {
-		item.Add(jsonutils.JSONFalse, "status")
+		return false, nil
 	}
-	return item, nil
+}
+
+func isBaremetalAgentExists(s *mcclient.ClientSession) (bool, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("agent_type.equals(baremetal)"), "filter.0")
+	params.Add(jsonutils.NewInt(1), "limit")
+	params.Add(jsonutils.JSONFalse, "details")
+	agents, err := modules.Baremetalagents.List(s, params)
+	if err != nil {
+		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
+	}
+
+	if len(agents.Data) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func isHostAgentExists(s *mcclient.ClientSession) (bool, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.JSONFalse, "show_emulated")
+	params.Add(jsonutils.JSONFalse, "baremetal")
+	params.Add(jsonutils.NewString("system"), "scope")
+	params.Add(jsonutils.NewInt(1), "limit")
+	params.Add(jsonutils.JSONFalse, "details")
+	agents, err := modules.Baremetalagents.List(s, params)
+	if err != nil {
+		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
+	}
+
+	if len(agents.Data) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.TokenCredential, req *http.Request) (*jsonutils.JSONDict, error) {
@@ -787,43 +818,53 @@ func getUserInfo(ctx context.Context, s *mcclient.ClientSession, token mcclient.
 	menus := jsonutils.NewArray()
 	k8s := jsonutils.NewArray()
 
-	adminToken := auth.AdminCredential()
 	curReg := FetchRegion(req)
-	allsrv := adminToken.GetInternalServices(curReg)
-	alleps := auth.Client().GetServiceCatalog().GetServicesByInterface(curReg, "console")
-
-	if allsrv != nil && len(allsrv) > 0 {
-		for _, srv := range allsrv {
-			item := jsonutils.NewDict()
-			item.Add(jsonutils.NewString(""), "name")
-			item.Add(jsonutils.NewString(srv), "type")
-			item.Add(jsonutils.JSONTrue, "status")
-			if srv == "notify" {
-				item.Add(jsonutils.JSONFalse, "as_menu")
-			} else {
-				item.Add(jsonutils.JSONTrue, "as_menu")
-			}
-			services.Add(item)
-		}
-	} else {
-		log.Errorf("fail to find services????: %#v %s", adminToken, curReg)
+	srvCat := auth.Client().GetServiceCatalog()
+	var allsrv []string
+	var alleps []mcclient.ExternalService
+	if srvCat != nil {
+		allsrv = srvCat.GetInternalServices(curReg)
+		alleps = srvCat.GetServicesByInterface(curReg, "console")
 	}
 
-	log.Infof("getUserInfo getLBAgentInfo")
-	lb, err := getLBAgentInfo(s, adminToken)
-	if err != nil {
-		log.Errorf("getLBAgentInfo fail %s", err)
-	} else {
-		services.Add(lb)
+	log.Infof("getUserInfo checkAgent exists")
+	for _, cf := range []struct {
+		existFunc func(*mcclient.ClientSession) (bool, error)
+		srvName   string
+	}{
+		{
+			existFunc: isLBAgentExists,
+			srvName:   "lbagent",
+		},
+		{
+			existFunc: isBaremetalAgentExists,
+			srvName:   "bmagent",
+		},
+		{
+			existFunc: isHostAgentExists,
+			srvName:   "hostagent",
+		},
+	} {
+		exist, err := cf.existFunc(s)
+		if err != nil {
+			log.Errorf("isLBAgentExists fail %s", err)
+		} else if exist {
+			allsrv = append(allsrv, cf.srvName)
+		}
 	}
 
-	if alleps != nil {
-		for _, ep := range alleps {
-			item := jsonutils.NewDict()
-			item.Add(jsonutils.NewString(ep.Url), "url")
-			item.Add(jsonutils.NewString(ep.Name), "name")
-			menus.Add(item)
-		}
+	for _, srv := range allsrv {
+		item := jsonutils.NewDict()
+		item.Add(jsonutils.NewString(srv), "type")
+		item.Add(jsonutils.JSONTrue, "status")
+		services.Add(item)
+	}
+
+	for _, ep := range alleps {
+		item := jsonutils.NewDict()
+		item.Add(jsonutils.NewString(ep.Url), "url")
+		item.Add(jsonutils.NewString(ep.Name), "name")
+		menus.Add(item)
 	}
 
 	log.Infof("getUserInfo modules.Hosts.Get")

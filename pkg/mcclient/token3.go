@@ -249,16 +249,16 @@ func (this *TokenCredentialV3) GetServiceURLs(service, region, zone, endpointTyp
 	return this.Token.Catalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
-func (this *TokenCredentialV3) GetServicesByInterface(region string, infType string) []ExternalService {
-	return this.Token.Catalog.GetServicesByInterface(region, infType)
-}
-
 func (this *TokenCredentialV3) GetInternalServices(region string) []string {
-	return this.Token.Catalog.getInternalServices(region)
+	return this.Token.Catalog.GetInternalServices(region)
 }
 
 func (this *TokenCredentialV3) GetExternalServices(region string) []ExternalService {
-	return this.Token.Catalog.getExternalServices(region)
+	return this.Token.Catalog.GetExternalServices(region)
+}
+
+func (this *TokenCredentialV3) GetServicesByInterface(region string, infType string) []ExternalService {
+	return this.Token.Catalog.GetServicesByInterface(region, infType)
 }
 
 func (this *TokenCredentialV3) GetEndpoints(region string, endpointType string) []Endpoint {
@@ -277,7 +277,7 @@ func (this *TokenCredentialV3) GetLoginIp() string {
 	return this.Token.Context.Ip
 }
 
-func (catalog KeystoneServiceCatalogV3) getInternalServices(region string) []string {
+func (catalog KeystoneServiceCatalogV3) GetInternalServices(region string) []string {
 	services := make([]string, 0)
 	for i := 0; i < len(catalog); i++ {
 		exit := false
@@ -295,7 +295,7 @@ func (catalog KeystoneServiceCatalogV3) getInternalServices(region string) []str
 	return services
 }
 
-func (catalog KeystoneServiceCatalogV3) getExternalServices(region string) []ExternalService {
+func (catalog KeystoneServiceCatalogV3) GetExternalServices(region string) []ExternalService {
 	return catalog.GetServicesByInterface(region, "console")
 }
 
