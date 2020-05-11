@@ -901,6 +901,9 @@ func (disk *SDisk) doResize(ctx context.Context, userCred mcclient.TokenCredenti
 	}
 	addDisk := sizeMb - disk.DiskSize
 	storage := disk.GetStorage()
+	if storage == nil {
+		return httperrors.NewInternalServerError("disk has no valid storage")
+	}
 	if host := storage.GetMasterHost(); host != nil {
 		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError(err.Error())
@@ -1055,6 +1058,17 @@ func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
 }
 
 func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
+	if !isPurge {
+		storage := self.GetStorage()
+		if storage == nil {
+			// storage is empty, a dirty data, allow delete
+			return nil
+		}
+		host := storage.GetMasterHost()
+		if host == nil {
+			return httperrors.NewBadRequestError("storage of disk no valid host")
+		}
+	}
 	cnt, err := self.GetGuestDiskCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
@@ -1162,6 +1176,9 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 
 func (self *SDisk) GetFetchUrl() string {
 	storage := self.GetStorage()
+	if storage == nil {
+		return ""
+	}
 	host := storage.GetMasterHost()
 	return fmt.Sprintf("%s/disks/%s", host.GetFetchUrl(true), self.Id)
 }
@@ -1387,7 +1404,6 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 	extDisk.Refresh()
 
-	storage := self.GetStorage()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
@@ -1433,6 +1449,10 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
 	if err != nil {
 		return errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
+	}
+	storage := self.GetStorage()
+	if storage == nil {
+		return fmt.Errorf("no valid storage")
 	}
 	err = SnapshotPolicyDiskManager.SyncByDisk(ctx, userCred, snapshotpolicies, syncOwnerId, self, storage)
 	if err != nil {
@@ -1988,6 +2008,9 @@ func (self *SDisk) SwitchToBackup(userCred mcclient.TokenCredential) error {
 
 func (self *SDisk) ClearHostSchedCache() error {
 	storage := self.GetStorage()
+	if storage == nil {
+		return fmt.Errorf("no valid storage")
+	}
 	hosts := storage.GetAllAttachingHosts()
 	if hosts == nil {
 		return fmt.Errorf("get attaching host error")
@@ -2147,7 +2170,11 @@ func (disk *SDisk) validateDiskAutoCreateSnapshot() error {
 	if len(guests) == 0 {
 		return fmt.Errorf("Disks %s not attach guest, can't create snapshot", disk.GetName())
 	}
-	if len(guests) == 1 && utils.IsInStringArray(disk.GetStorage().StorageType, api.FIEL_STORAGE) {
+	storage := disk.GetStorage()
+	if storage == nil {
+		return fmt.Errorf("no valid storage")
+	}
+	if len(guests) == 1 && utils.IsInStringArray(storage.StorageType, api.FIEL_STORAGE) {
 		if !utils.IsInStringArray(guests[0].Status, []string{api.VM_RUNNING, api.VM_READY}) {
 			return fmt.Errorf("Guest(%s) in status(%s) cannot do disk snapshot", guests[0].Id, guests[0].Status)
 		}
@@ -2328,6 +2355,9 @@ func (self *SDisk) GetDynamicConditionInput() *jsonutils.JSONDict {
 
 func (self *SDisk) IsNeedWaitSnapshotsDeleted() (bool, error) {
 	storage := self.GetStorage()
+	if storage == nil {
+		return false, fmt.Errorf("no valid storage")
+	}
 	if storage.StorageType == api.STORAGE_RBD {
 		scnt, err := self.GetSnapshotCount()
 		if err != nil {
@@ -2394,7 +2424,12 @@ func (self *SDisk) syncSnapshots(ctx context.Context, userCred mcclient.TokenCre
 	}
 	provider := self.GetCloudprovider()
 	syncOwnerId := provider.GetOwnerId()
-	region := self.GetStorage().GetRegion()
+	storage := self.GetStorage()
+	if storage == nil {
+		syncResult.Error(fmt.Errorf("no valid storage"))
+		return syncResult
+	}
+	region := storage.GetRegion()
 
 	extSnapshots, err := extDisk.GetISnapshots()
 	if err != nil {
