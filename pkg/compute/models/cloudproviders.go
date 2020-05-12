@@ -1030,7 +1030,7 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+				return nil, httperrors.NewResourceNotFoundError2("cloudaccount", accountStr)
 			} else {
 				return nil, httperrors.NewGeneralError(err)
 			}
@@ -1061,6 +1061,19 @@ func (manager *SCloudproviderManager) ListItemFilter(
 		))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+	}
+
+	if len(query.Cloudregion) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(userCred, query.Cloudregion)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("cloudregion", query.Cloudregion)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		pr := CloudproviderRegionManager.Query().SubQuery()
+		sq := pr.Query(pr.Field("cloudprovider_id")).Equals("cloudregion_id", region.GetId()).Distinct()
+		q = q.In("id", sq)
 	}
 
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query.EnabledStatusStandaloneResourceListInput)
