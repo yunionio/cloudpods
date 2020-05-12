@@ -112,8 +112,11 @@ func (manager *SHostResourceBaseManager) FetchCustomizeColumns(
 	zoneRows := manager.SZoneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, zoneList, fields, isList)
 	managerRows := manager.SManagedResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, managerList, fields, isList)
 	for i := range rows {
-		rows[i].ZoneResourceInfo = zoneRows[i]
-		rows[i].ManagedResourceInfo = managerRows[i]
+		// 避免调度失败的机器返回错误的provider信息
+		if len(hostIds[i]) > 0 {
+			rows[i].ZoneResourceInfo = zoneRows[i]
+			rows[i].ManagedResourceInfo = managerRows[i]
+		}
 	}
 
 	return rows
