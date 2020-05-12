@@ -370,6 +370,10 @@ type ServerCreateInput struct {
 	// requried: false
 	Password string `json:"password"`
 
+	// 登录账户
+	// required: false
+	LoginAccount string `json:"login_account"`
+
 	// 使用ISO光盘启动, 仅KVM平台支持
 	// required: false
 	Cdrom string `json:"cdrom"`

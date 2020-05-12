@@ -125,8 +125,12 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	}
 
 	if len(deployInfo.Password) > 0 {
-		if account := rootfs.GetLoginAccount(partition,
-			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser); len(account) > 0 {
+		account, err := rootfs.GetLoginAccount(partition, deployInfo.LoginAccount,
+			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser)
+		if err != nil {
+			return nil, errors.Wrap(err, "get login account")
+		}
+		if len(account) > 0 {
 			if err = rootfs.DeployPublicKey(partition, account, deployInfo.PublicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)
 			}

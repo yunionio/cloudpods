@@ -107,7 +107,7 @@ func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	}
 }
 
-func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
+func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, sUser string, defaultRootUser bool, windowsDefaultAdminUser bool) (string, error) {
 	confPath := w.rootFs.GetLocalPath("/windows/system32/config", true)
 	tool := winutils.NewWinRegTool(confPath)
 	tool.CheckPath()
@@ -134,7 +134,7 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser 
 			tool.UnlockUser(selUsr)
 		}
 	}
-	return selUsr
+	return selUsr, nil
 }
 
 func (w *SWindowsRootFs) IsWindows10() bool {
