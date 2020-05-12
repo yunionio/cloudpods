@@ -277,6 +277,8 @@ type CloudproviderListInput struct {
 
 	UsableResourceListInput
 
+	CloudregionResourceInput
+
 	CapabilityListInput
 }
 
