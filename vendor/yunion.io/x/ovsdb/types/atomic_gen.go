@@ -36,6 +36,9 @@ func (ag *AtomicGen) Gen() error {
 	if err := ag.genMatches(); err != nil {
 		return err
 	}
+	if err := ag.genIsZero(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -416,6 +419,59 @@ func (ag *AtomicGen) genMatches_(w writer) {
 			w.Writeln(`		return true`)
 			w.Writeln(`	}`)
 			w.Writeln(`	return false`)
+			w.Writeln(`}`)
+			w.Writeln(``)
+		}
+	}
+}
+
+func (ag *AtomicGen) genIsZero() error {
+	w, err := ag.prepGen("atomic_gen_iszero_zz_generated.go")
+	if err != nil {
+		return err
+	}
+	ag.genIsZero_(w)
+	return nil
+}
+
+func (ag *AtomicGen) genIsZero_(w writer) {
+	for _, atom0 := range atomics {
+		var (
+			name0  = atom0.exportName()
+			zero0  = atom0.zeroVal()
+			gotyp0 = atomicGoMap[atom0]
+		)
+		w.Writef(`func IsZero%s(a %s) bool {`, name0, gotyp0)
+		w.Writef(`	return a == %s`, zero0)
+		w.Writeln(`}`)
+		w.Writeln(``)
+
+		w.Writef(`func IsZero%sOptional(a *%s) bool {`, name0, gotyp0)
+		w.Writeln(`	if a == nil {`)
+		w.Writeln(`		return true`)
+		w.Writeln(`	}`)
+		w.Writeln(`	return false`)
+		w.Writeln(`}`)
+		w.Writeln(``)
+
+		w.Writef(`func IsZero%sMultiples(a, b []%s) bool {`, name0, gotyp0)
+		w.Writeln(`	if len(a) == 0 {`)
+		w.Writeln(`		return true`)
+		w.Writeln(`	}`)
+		w.Writeln(`	return false`)
+		w.Writeln(`}`)
+		w.Writeln(``)
+
+		for _, atom1 := range atomics {
+			var (
+				name1  = atom1.exportName()
+				gotyp1 = atomicGoMap[atom1]
+			)
+			w.Writef(`func IsZeroMap%s%s(a map[%s]%s) bool {`, name0, name1, gotyp0, gotyp1)
+			w.Writeln(`	if len(a) == 0 {`)
+			w.Writeln(`		return true`)
+			w.Writeln(`	}`)
+			w.Writef(`	return false`)
 			w.Writeln(`}`)
 			w.Writeln(``)
 		}

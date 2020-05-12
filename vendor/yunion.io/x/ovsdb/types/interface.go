@@ -18,8 +18,15 @@ type IRow interface {
 type ITable interface {
 	OvsdbTableName() string
 	OvsdbIsRoot() bool
+	OvsdbHasIndex() bool
+	OvsdbGetByAnyIndex(IRow) IRow
 
 	Rows() []IRow
 	NewRow() IRow
 	AppendRow(IRow)
+}
+
+type IDatabase interface {
+	FindOneMatchNonZeros(IRow) IRow
+	FindOneMatchByAnyIndex(IRow) IRow
 }

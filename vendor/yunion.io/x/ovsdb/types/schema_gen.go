@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func (sch *Schema) OrderedTableNames() []string {
@@ -45,23 +46,43 @@ func (sch *Schema) gen(w writer) {
 		w.Writef(`%s %s`, fieldName, tblTyp)
 	}
 	w.Writef(`}`)
+	w.Writef(`var _ types.IDatabase = &%s{}`, schTyp)
 	w.Writef(``)
 
 	w.Writef(`func (db %s) FindOneMatchNonZeros(irow types.IRow) types.IRow {`, schTyp)
+	w.Writef(`	switch row := irow.(type) {`)
 	for _, name := range sch.OrderedTableNames() {
 		var (
 			tbl       = sch.Tables[name]
 			rowTyp    = tbl.rowTypeName()
 			fieldName = tbl.tblField()
 		)
-		w.Writef(`switch row := irow.(type) {`)
 		w.Writef(`case *%s:`, rowTyp)
 		w.Writef(`	if r := db.%s.FindOneMatchNonZeros(row); r != nil {`, fieldName)
 		w.Writef(`		return r`)
 		w.Writef(`	}`)
 		w.Writef(`	return nil`)
-		w.Writef(`}`)
 	}
+	w.Writef(`	}`)
+	w.Writef(`	panic(types.ErrBadType)`)
+	w.Writef(`}`)
+	w.Writef(``)
+
+	w.Writef(`func (db %s) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {`, schTyp)
+	w.Writef(`	switch row := irow.(type) {`)
+	for _, name := range sch.OrderedTableNames() {
+		var (
+			tbl       = sch.Tables[name]
+			rowTyp    = tbl.rowTypeName()
+			fieldName = tbl.tblField()
+		)
+		w.Writef(`case *%s:`, rowTyp)
+		w.Writef(`	if r := db.%s.OvsdbGetByAnyIndex(row); r != nil {`, fieldName)
+		w.Writef(`		return r`)
+		w.Writef(`	}`)
+		w.Writef(`	return nil`)
+	}
+	w.Writef(`	}`)
 	w.Writef(`	panic(types.ErrBadType)`)
 	w.Writef(`}`)
 	w.Writef(``)
@@ -138,6 +159,62 @@ func (tbl *Table) gen(w writer) {
 	w.Writef(`}`)
 	w.Writef(``)
 
+	w.Writef(`func (tbl %s) OvsdbHasIndex() bool {`, tblTyp)
+	w.Writef(`	return %v`, len(tbl.Indexes) > 0)
+	w.Writef(`}`)
+	w.Writef(``)
+	getByFuncNames := make([]string, len(tbl.Indexes))
+	for i, index := range tbl.Indexes {
+		fields := make([]string, len(index))
+		matchSufs := make([]string, len(index))
+		for j, colName := range index {
+			col := tbl.Columns[colName]
+			fields[j] = col.goField()
+			matchSufs[j] = col.matchFuncName()
+		}
+		getByFuncNames[i] = strings.Join(fields, "")
+
+		w.Writef(`func (row *%s) MatchBy%s(row1 *%s) bool {`, rowTyp, getByFuncNames[i], rowTyp)
+		for i, field := range fields {
+			w.Writef("if !types.%s(row.%s, row1.%s) {", matchSufs[i], field, field)
+			w.Writef("	return false")
+			w.Writef("}")
+		}
+		w.Writef(`	return true`)
+		w.Writef(`}`)
+		w.Writef(``)
+
+		w.Writef(`func (tbl %s) GetBy%s(row1 *%s) *%s {`, tblTyp, getByFuncNames[i], rowTyp, rowTyp)
+		w.Writef(`	for i := range tbl {`)
+		w.Writef(`		row := &tbl[i]`)
+		w.Writef(`		if row.MatchBy%s(row1) {`, getByFuncNames[i])
+		w.Writef(`			return row`)
+		w.Writef(`		}`)
+		w.Writef(`	}`)
+		w.Writef(`	return nil`)
+		w.Writef(`}`)
+		w.Writef(``)
+	}
+	w.Writef(`func (tbl %s) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {`, tblTyp)
+	if len(tbl.Indexes) > 0 {
+		w.Writef(`	row1 := irow1.(*%s)`, rowTyp)
+	}
+	for i, index := range tbl.Indexes {
+		zeroConds := make([]string, len(index))
+		for j, colName := range index {
+			col := tbl.Columns[colName]
+			zeroConds[j] = fmt.Sprintf("types.%s(row1.%s)", col.isZeroFuncName(), col.goField())
+		}
+		w.Writef("if !(%s) {", strings.Join(zeroConds, "||"))
+		w.Writef("	if row := tbl.GetBy%s(row1); row != nil {", getByFuncNames[i])
+		w.Writef("		return row")
+		w.Writef("	}")
+		w.Writef("}")
+	}
+	w.Writef(`	return nil`)
+	w.Writef(`}`)
+	w.Writef(``)
+
 	w.Writef(`func (tbl %s) FindOneMatchNonZeros(row1 *%s) *%s {`, tblTyp, rowTyp, rowTyp)
 	w.Writef(`	for i := range tbl {`)
 	w.Writef(`		row := &tbl[i]`)
@@ -208,7 +285,7 @@ func (tbl *Table) gen(w writer) {
 	w.Writef(`func (row *%s) MatchNonZeros(row1 *%s) bool {`, rowTyp, rowTyp)
 	for _, colName := range tbl.OrderedColumnNames() {
 		col := tbl.Columns[colName]
-		w.Writef(`if !types.%s(row.%s, row1.%s) {`, col.matchFuncName(), col.goField(), col.goField())
+		w.Writef(`if !types.%s(row.%s, row1.%s) {`, col.matchNonZeroFuncName(), col.goField(), col.goField())
 		w.Writef(`	return false`)
 		w.Writef(`}`)
 	}
@@ -357,6 +434,14 @@ func (col *Column) cmdArgsFuncName() string {
 	return "OvsdbCmdArgs" + col.funcNameSuffix()
 }
 
-func (col *Column) matchFuncName() string {
+func (col *Column) matchNonZeroFuncName() string {
 	return "Match" + col.funcNameSuffix() + "IfNonZero"
+}
+
+func (col *Column) matchFuncName() string {
+	return "Match" + col.funcNameSuffix()
+}
+
+func (col *Column) isZeroFuncName() string {
+	return "IsZero" + col.funcNameSuffix()
 }

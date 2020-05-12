@@ -35,6 +35,14 @@ var (
 		Uuid:    "string",
 	}
 
+	atomicZeroVals = map[Atomic]string{
+		String:  `""`,
+		Integer: `0`,
+		Real:    `0`,
+		Boolean: `false`,
+		Uuid:    `""`,
+	}
+
 	atomics = []Atomic{
 		String,
 		Integer,
@@ -54,6 +62,10 @@ func (a Atomic) goType() string {
 
 func (a Atomic) fmtStr() string {
 	return atomicFmtStrs[a]
+}
+
+func (a Atomic) zeroVal() string {
+	return atomicZeroVals[a]
 }
 
 func (a Atomic) isValid() bool {

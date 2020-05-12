@@ -29,6 +29,8 @@ type OVNNorthbound struct {
 	SSL                      SSLTable
 }
 
+var _ types.IDatabase = &OVNNorthbound{}
+
 func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 	switch row := irow.(type) {
 	case *ACL:
@@ -36,108 +38,164 @@ func (db OVNNorthbound) FindOneMatchNonZeros(irow types.IRow) types.IRow {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *AddressSet:
 		if r := db.AddressSet.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *Connection:
 		if r := db.Connection.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *DHCPOptions:
 		if r := db.DHCPOptions.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *DNS:
 		if r := db.DNS.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *GatewayChassis:
 		if r := db.GatewayChassis.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LoadBalancer:
 		if r := db.LoadBalancer.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LogicalRouter:
 		if r := db.LogicalRouter.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LogicalRouterPort:
 		if r := db.LogicalRouterPort.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LogicalRouterStaticRoute:
 		if r := db.LogicalRouterStaticRoute.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LogicalSwitch:
 		if r := db.LogicalSwitch.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *LogicalSwitchPort:
 		if r := db.LogicalSwitchPort.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *NAT:
 		if r := db.NAT.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *NBGlobal:
 		if r := db.NBGlobal.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *QoS:
 		if r := db.QoS.FindOneMatchNonZeros(row); r != nil {
 			return r
 		}
 		return nil
-	}
-	switch row := irow.(type) {
 	case *SSL:
 		if r := db.SSL.FindOneMatchNonZeros(row); r != nil {
+			return r
+		}
+		return nil
+	}
+	panic(types.ErrBadType)
+}
+
+func (db OVNNorthbound) FindOneMatchByAnyIndex(irow types.IRow) types.IRow {
+	switch row := irow.(type) {
+	case *ACL:
+		if r := db.ACL.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *AddressSet:
+		if r := db.AddressSet.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *Connection:
+		if r := db.Connection.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *DHCPOptions:
+		if r := db.DHCPOptions.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *DNS:
+		if r := db.DNS.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *GatewayChassis:
+		if r := db.GatewayChassis.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LoadBalancer:
+		if r := db.LoadBalancer.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalRouter:
+		if r := db.LogicalRouter.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalRouterPort:
+		if r := db.LogicalRouterPort.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalRouterStaticRoute:
+		if r := db.LogicalRouterStaticRoute.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalSwitch:
+		if r := db.LogicalSwitch.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *LogicalSwitchPort:
+		if r := db.LogicalSwitchPort.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *NAT:
+		if r := db.NAT.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *NBGlobal:
+		if r := db.NBGlobal.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *QoS:
+		if r := db.QoS.OvsdbGetByAnyIndex(row); r != nil {
+			return r
+		}
+		return nil
+	case *SSL:
+		if r := db.SSL.OvsdbGetByAnyIndex(row); r != nil {
 			return r
 		}
 		return nil
@@ -172,6 +230,14 @@ func (tbl ACLTable) NewRow() types.IRow {
 func (tbl *ACLTable) AppendRow(irow types.IRow) {
 	row := irow.(*ACL)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl ACLTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl ACLTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
 }
 
 func (tbl ACLTable) FindOneMatchNonZeros(row1 *ACL) *ACL {
@@ -350,6 +416,37 @@ func (tbl *AddressSetTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl AddressSetTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *AddressSet) MatchByName(row1 *AddressSet) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl AddressSetTable) GetByName(row1 *AddressSet) *AddressSet {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl AddressSetTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*AddressSet)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
+}
+
 func (tbl AddressSetTable) FindOneMatchNonZeros(row1 *AddressSet) *AddressSet {
 	for i := range tbl {
 		row := &tbl[i]
@@ -489,6 +586,37 @@ func (tbl ConnectionTable) NewRow() types.IRow {
 func (tbl *ConnectionTable) AppendRow(irow types.IRow) {
 	row := irow.(*Connection)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl ConnectionTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *Connection) MatchByTarget(row1 *Connection) bool {
+	if !types.MatchString(row.Target, row1.Target) {
+		return false
+	}
+	return true
+}
+
+func (tbl ConnectionTable) GetByTarget(row1 *Connection) *Connection {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByTarget(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl ConnectionTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*Connection)
+	if !(types.IsZeroString(row1.Target)) {
+		if row := tbl.GetByTarget(row1); row != nil {
+			return row
+		}
+	}
+	return nil
 }
 
 func (tbl ConnectionTable) FindOneMatchNonZeros(row1 *Connection) *Connection {
@@ -660,6 +788,14 @@ func (tbl *DHCPOptionsTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl DHCPOptionsTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl DHCPOptionsTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl DHCPOptionsTable) FindOneMatchNonZeros(row1 *DHCPOptions) *DHCPOptions {
 	for i := range tbl {
 		row := &tbl[i]
@@ -801,6 +937,14 @@ func (tbl *DNSTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl DNSTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl DNSTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl DNSTable) FindOneMatchNonZeros(row1 *DNS) *DNS {
 	for i := range tbl {
 		row := &tbl[i]
@@ -933,6 +1077,37 @@ func (tbl GatewayChassisTable) NewRow() types.IRow {
 func (tbl *GatewayChassisTable) AppendRow(irow types.IRow) {
 	row := irow.(*GatewayChassis)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl GatewayChassisTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *GatewayChassis) MatchByName(row1 *GatewayChassis) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl GatewayChassisTable) GetByName(row1 *GatewayChassis) *GatewayChassis {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl GatewayChassisTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*GatewayChassis)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
 }
 
 func (tbl GatewayChassisTable) FindOneMatchNonZeros(row1 *GatewayChassis) *GatewayChassis {
@@ -1090,6 +1265,14 @@ func (tbl *LoadBalancerTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl LoadBalancerTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl LoadBalancerTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl LoadBalancerTable) FindOneMatchNonZeros(row1 *LoadBalancer) *LoadBalancer {
 	for i := range tbl {
 		row := &tbl[i]
@@ -1236,6 +1419,14 @@ func (tbl LogicalRouterTable) NewRow() types.IRow {
 func (tbl *LogicalRouterTable) AppendRow(irow types.IRow) {
 	row := irow.(*LogicalRouter)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl LogicalRouterTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl LogicalRouterTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
 }
 
 func (tbl LogicalRouterTable) FindOneMatchNonZeros(row1 *LogicalRouter) *LogicalRouter {
@@ -1412,6 +1603,37 @@ func (tbl LogicalRouterPortTable) NewRow() types.IRow {
 func (tbl *LogicalRouterPortTable) AppendRow(irow types.IRow) {
 	row := irow.(*LogicalRouterPort)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl LogicalRouterPortTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *LogicalRouterPort) MatchByName(row1 *LogicalRouterPort) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl LogicalRouterPortTable) GetByName(row1 *LogicalRouterPort) *LogicalRouterPort {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl LogicalRouterPortTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*LogicalRouterPort)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
 }
 
 func (tbl LogicalRouterPortTable) FindOneMatchNonZeros(row1 *LogicalRouterPort) *LogicalRouterPort {
@@ -1597,6 +1819,14 @@ func (tbl *LogicalRouterStaticRouteTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl LogicalRouterStaticRouteTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl LogicalRouterStaticRouteTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl LogicalRouterStaticRouteTable) FindOneMatchNonZeros(row1 *LogicalRouterStaticRoute) *LogicalRouterStaticRoute {
 	for i := range tbl {
 		row := &tbl[i]
@@ -1750,6 +1980,14 @@ func (tbl LogicalSwitchTable) NewRow() types.IRow {
 func (tbl *LogicalSwitchTable) AppendRow(irow types.IRow) {
 	row := irow.(*LogicalSwitch)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl LogicalSwitchTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl LogicalSwitchTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
 }
 
 func (tbl LogicalSwitchTable) FindOneMatchNonZeros(row1 *LogicalSwitch) *LogicalSwitch {
@@ -1926,6 +2164,37 @@ func (tbl LogicalSwitchPortTable) NewRow() types.IRow {
 func (tbl *LogicalSwitchPortTable) AppendRow(irow types.IRow) {
 	row := irow.(*LogicalSwitchPort)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl LogicalSwitchPortTable) OvsdbHasIndex() bool {
+	return true
+}
+
+func (row *LogicalSwitchPort) MatchByName(row1 *LogicalSwitchPort) bool {
+	if !types.MatchString(row.Name, row1.Name) {
+		return false
+	}
+	return true
+}
+
+func (tbl LogicalSwitchPortTable) GetByName(row1 *LogicalSwitchPort) *LogicalSwitchPort {
+	for i := range tbl {
+		row := &tbl[i]
+		if row.MatchByName(row1) {
+			return row
+		}
+	}
+	return nil
+}
+
+func (tbl LogicalSwitchPortTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	row1 := irow1.(*LogicalSwitchPort)
+	if !(types.IsZeroString(row1.Name)) {
+		if row := tbl.GetByName(row1); row != nil {
+			return row
+		}
+	}
+	return nil
 }
 
 func (tbl LogicalSwitchPortTable) FindOneMatchNonZeros(row1 *LogicalSwitchPort) *LogicalSwitchPort {
@@ -2146,6 +2415,14 @@ func (tbl *NATTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl NATTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl NATTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl NATTable) FindOneMatchNonZeros(row1 *NAT) *NAT {
 	for i := range tbl {
 		row := &tbl[i]
@@ -2306,6 +2583,14 @@ func (tbl NBGlobalTable) NewRow() types.IRow {
 func (tbl *NBGlobalTable) AppendRow(irow types.IRow) {
 	row := irow.(*NBGlobal)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl NBGlobalTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl NBGlobalTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
 }
 
 func (tbl NBGlobalTable) FindOneMatchNonZeros(row1 *NBGlobal) *NBGlobal {
@@ -2470,6 +2755,14 @@ func (tbl *QoSTable) AppendRow(irow types.IRow) {
 	*tbl = append(*tbl, *row)
 }
 
+func (tbl QoSTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl QoSTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
+}
+
 func (tbl QoSTable) FindOneMatchNonZeros(row1 *QoS) *QoS {
 	for i := range tbl {
 		row := &tbl[i]
@@ -2630,6 +2923,14 @@ func (tbl SSLTable) NewRow() types.IRow {
 func (tbl *SSLTable) AppendRow(irow types.IRow) {
 	row := irow.(*SSL)
 	*tbl = append(*tbl, *row)
+}
+
+func (tbl SSLTable) OvsdbHasIndex() bool {
+	return false
+}
+
+func (tbl SSLTable) OvsdbGetByAnyIndex(irow1 types.IRow) types.IRow {
+	return nil
 }
 
 func (tbl SSLTable) FindOneMatchNonZeros(row1 *SSL) *SSL {
