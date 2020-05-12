@@ -19,15 +19,8 @@ func cmp(db *ovn_nb.OVNNorthbound, ocver string, irows ...types.IRow) (bool, []s
 		if irowFound != nil {
 			irowsFound = append(irowsFound, irowFound)
 		} else {
-			// TODO db.FindByIndex()
-			switch row := irow.(type) {
-			case *ovn_nb.LogicalSwitchPort:
-				rowQ := &ovn_nb.LogicalSwitchPort{
-					Name: row.Name,
-				}
-				if irow := db.FindOneMatchNonZeros(rowQ); irow != nil {
-					irowsDiff = append(irowsDiff, irow)
-				}
+			if irowDiff := db.FindOneMatchByAnyIndex(irow); irowDiff != nil {
+				irowsDiff = append(irowsDiff, irowDiff)
 			}
 		}
 	}
