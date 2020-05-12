@@ -66,9 +66,19 @@ func (ms Vpcs) joinNetworks(subEntries Networks) bool {
 		}
 		m, ok := ms[id]
 		if !ok {
-			log.Warningf("network %s(%s): vpc id %s not found",
-				subEntry.Name, subEntry.Id, id)
-			correct = false
+			if subEntry.ExternalId != "" {
+				log.Warningf("external subnet sneaked in: %s(%s)", subEntry.Name, subEntry.Id)
+				delete(subEntries, subId)
+			} else {
+				log.Warningf("network %s(%s): vpc id %s not found",
+					subEntry.Name, subEntry.Id, id)
+				correct = false
+			}
+			continue
+		}
+		if m.ManagerId != "" || m.ExternalId != "" {
+			log.Warningf("external vpc sneaked in: %s(%s)", m.Name, m.Id)
+			delete(ms, id)
 			continue
 		}
 		if _, ok := m.Networks[subId]; ok {
