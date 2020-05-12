@@ -54,6 +54,15 @@ func ValidateHostResourceInput(userCred mcclient.TokenCredential, input api.Host
 	return hostObj.(*SHost), input, nil
 }
 
+func (self *SHostResourceBase) GetHost() *SHost {
+	obj, err := HostManager.FetchById(self.HostId)
+	if err != nil {
+		log.Errorf("fail to get host by id %s: %s", self.HostId, err)
+		return nil
+	}
+	return obj.(*SHost)
+}
+
 func (manager *SHostResourceBaseManager) getHostIdFieldName() string {
 	if len(manager.hostIdFieldName) > 0 {
 		return manager.hostIdFieldName
@@ -278,4 +287,12 @@ func (manager *SHostResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SZoneResourceBaseManager.GetExportKeys()...)
 	keys = append(keys, manager.SManagedResourceBaseManager.GetExportKeys()...)
 	return keys
+}
+
+func (model *SHostResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	host := model.GetHost()
+	if host != nil {
+		return host.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
 }
