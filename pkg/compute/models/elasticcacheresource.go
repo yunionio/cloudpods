@@ -302,3 +302,11 @@ func (manager *SElasticcacheResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, "zone")
 	return keys
 }
+
+func (self *SElasticcacheResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	cache, _ := self.GetElasticcache()
+	if cache != nil {
+		return cache.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

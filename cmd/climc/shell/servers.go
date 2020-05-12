@@ -1350,4 +1350,14 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&options.ServerShowOptions{}, "server-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *options.ServerShowOptions) error {
+		result, err := modules.Servers.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

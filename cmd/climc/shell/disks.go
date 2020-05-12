@@ -291,4 +291,14 @@ func init() {
 		printObject(srv)
 		return nil
 	})
+
+	R(&DiskDetailOptions{}, "disk-change-owner-candidate-domains", "Get change owner candidate domain list", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
+		result, err := modules.Disks.GetSpecific(s, args.ID, "change-owner-candidate-domains", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
