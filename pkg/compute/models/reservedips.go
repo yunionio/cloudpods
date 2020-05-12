@@ -55,25 +55,25 @@ func init() {
 
 type SReservedip struct {
 	db.SResourceBase
-	SNetworkResourceBase `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	SNetworkResourceBase `width:"36" charset:"ascii" nullable:"false" list:"user"`
 
 	// 自增Id
-	Id int64 `primary:"true" auto_increment:"true" list:"admin"`
+	Id int64 `primary:"true" auto_increment:"true" list:"user"`
 
 	// IP子网Id
-	// NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	// NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 
 	// IP地址
-	IpAddr string `width:"16" charset:"ascii" list:"admin"`
+	IpAddr string `width:"16" charset:"ascii" list:"user"`
 
 	// 预留原因或描述
-	Notes string `width:"512" charset:"utf8" nullable:"true" list:"admin" update:"admin"`
+	Notes string `width:"512" charset:"utf8" nullable:"true" list:"user" update:"user"`
 
 	// 过期时间
-	ExpiredAt time.Time `nullable:"true" list:"admin"`
+	ExpiredAt time.Time `nullable:"true" list:"user"`
 
 	// 状态
-	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"admin" create:"admin_optional" update:"admin"`
+	Status string `width:"12" charset:"ascii" nullable:"false" default:"unknown" list:"user" create:"optional" update:"user"`
 }
 
 func (manager *SReservedipManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -347,13 +347,10 @@ func (manager *SReservedipManager) FilterByOwner(q *sqlchemy.SQuery, owner mccli
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
-			nets := NetworkManager.Query("id", "domain_id", "tenant_id").SubQuery()
-			q = q.Join(nets, sqlchemy.Equals(q.Field("network_id"), nets.Field("id")))
-			if scope == rbacutils.ScopeProject {
-				q = q.Filter(sqlchemy.Equals(nets.Field("tenant_id"), owner.GetProjectId()))
-			} else {
-				q = q.Filter(sqlchemy.Equals(nets.Field("domain_id"), owner.GetProjectDomainId()))
-			}
+			netsQ := NetworkManager.Query("id")
+			netsQ = NetworkManager.FilterByOwner(netsQ, owner, scope)
+			netsSQ := netsQ.SubQuery()
+			q = q.Join(netsSQ, sqlchemy.Equals(q.Field("network_id"), netsSQ.Field("id")))
 		}
 	}
 	return q
