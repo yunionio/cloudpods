@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -199,6 +200,17 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 	BlockDeviceMappingV2 := []map[string]interface{}{}
 
+	diskIds := []string{}
+
+	defer func() {
+		for _, diskId := range diskIds {
+			err = host.zone.region.DeleteDisk(diskId)
+			if err != nil {
+				log.Errorf("clean disk %s error: %v", diskId, err)
+			}
+		}
+	}()
+
 	if desc.SysDisk.StorageType != api.STORAGE_OPENSTACK_NOVA { //新建volume
 		istorage, err := host.zone.GetIStorageById(desc.SysDisk.StorageExternalId)
 		if err != nil {
@@ -207,8 +219,10 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 
 		_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, istorage.GetName(), "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "CreateDisk %s", desc.SysDisk.Name)
 		}
+
+		diskIds = append(diskIds, _sysDisk.GetGlobalId())
 
 		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, map[string]interface{}{
 			"boot_index":            0,
@@ -223,12 +237,13 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	for _, disk := range desc.DataDisks {
 		istorage, err := host.zone.GetIStorageById(disk.StorageExternalId)
 		if err != nil {
-			break
+			return nil, errors.Wrapf(err, "GetIStorageById(%s)", disk.StorageExternalId)
 		}
 		_disk, err = host.zone.region.CreateDisk("", istorage.GetName(), "", disk.SizeGB, disk.Name)
 		if err != nil {
-			break
+			return nil, errors.Wrapf(err, "CreateDisk %s", disk.Name)
 		}
+		diskIds = append(diskIds, _disk.ID)
 
 		mapping := map[string]interface{}{
 			"source_type":           "volume",
@@ -238,14 +253,6 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		}
 
 		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, mapping)
-	}
-	if err != nil {
-		for _, blockMap := range BlockDeviceMappingV2 {
-			if uuid, ok := blockMap["uuid"].(string); ok {
-				host.zone.region.DeleteDisk(uuid)
-			}
-		}
-		return nil, err
 	}
 
 	params := map[string]map[string]interface{}{
@@ -286,6 +293,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	if err != nil {
 		return nil, err
 	}
+	diskIds = []string{}
 	serverId, err := resp.GetString("server", "id")
 	if err != nil {
 		return nil, err
