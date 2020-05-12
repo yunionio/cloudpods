@@ -223,12 +223,9 @@ func (lbagent *SLoadbalancerAgent) undeploy(ctx context.Context, userCred mcclie
 		},
 		Modules: []ansible.Module{
 			{
-				Name: "systemd",
+				Name: "shell",
 				Args: []string{
-					"name=yunion-lbagent",
-					"enabled=no",
-					"state=stopped",
-					"daemon_reload=yes",
+					"systemctl disable --now yunion-lbagent; true",
 				},
 			},
 			{
