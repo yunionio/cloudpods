@@ -32,7 +32,7 @@ var (
 	ReservedIPs ReservedIPManager
 )
 
-func (this *ReservedIPManager) DoBatchReleaseReservedIPs(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *ReservedIPManager) DoBatchReleaseReservedIps(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// params format:
 	// {
 	//     "ips": ["1.2.3.4", "1.1.1.1"],
