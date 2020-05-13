@@ -718,7 +718,7 @@ func isHostAgentExists(s *mcclient.ClientSession) (bool, error) {
 	params.Add(jsonutils.NewString("system"), "scope")
 	params.Add(jsonutils.NewInt(1), "limit")
 	params.Add(jsonutils.JSONFalse, "details")
-	agents, err := modules.Baremetalagents.List(s, params)
+	agents, err := modules.Hosts.List(s, params)
 	if err != nil {
 		return false, errors.Wrap(err, "modules.LoadbalancerAgents.List")
 	}
