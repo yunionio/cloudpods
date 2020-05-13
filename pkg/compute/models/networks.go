@@ -50,10 +50,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-var (
-	ALL_NETWORK_TYPES = api.ALL_NETWORK_TYPES
-)
-
 type SNetworkManager struct {
 	db.SSharableVirtualResourceBaseManager
 }
@@ -1421,7 +1417,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	if len(input.ServerType) == 0 {
 		input.ServerType = api.NETWORK_TYPE_GUEST
-	} else if !utils.IsInStringArray(input.ServerType, ALL_NETWORK_TYPES) {
+	} else if !utils.IsInStringArray(input.ServerType, api.ALL_NETWORK_TYPES) {
 		return input, httperrors.NewInputParameterError("Invalid server_type: %s", input.ServerType)
 	}
 
