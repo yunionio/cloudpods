@@ -51,9 +51,13 @@ func (self *SStatusDomainLevelResourceBase) AllowPerformStatus(ctx context.Conte
 	return IsDomainAllowPerform(userCred, self, "status")
 }
 
+func (self *SStatusDomainLevelResourceBase) GetIStatusDomainLevelModel() IStatusDomainLevelModel {
+	return self.GetVirtualObject().(IStatusDomainLevelModel)
+}
+
 // 更新资源状态
 func (self *SStatusDomainLevelResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, input apis.PerformStatusInput) (jsonutils.JSONObject, error) {
-	err := StatusBasePerformStatus(self, userCred, input)
+	err := StatusBasePerformStatus(self.GetIStatusDomainLevelModel(), userCred, input)
 	if err != nil {
 		return nil, errors.Wrap(err, "StatusBasePerformStatus")
 	}
@@ -61,7 +65,7 @@ func (self *SStatusDomainLevelResourceBase) PerformStatus(ctx context.Context, u
 }
 
 func (model *SStatusDomainLevelResourceBase) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
-	return statusBaseSetStatus(model, userCred, status, reason)
+	return statusBaseSetStatus(model.GetIStatusDomainLevelModel(), userCred, status, reason)
 }
 
 func (manager *SStatusDomainLevelResourceBaseManager) ValidateCreateData(

@@ -363,3 +363,18 @@ type IAdminSharableVirtualModel interface {
 
 	GetIAdminSharableVirtualModel() IAdminSharableVirtualModel
 }
+
+type IStatusStandaloneModel interface {
+	IStandaloneModel
+	IStatusBase
+}
+
+type IStatusDomainLevelModel interface {
+	IDomainLevelModel
+	IStatusBase
+}
+
+type IStatusInfrasModel interface {
+	IInfrasModel
+	IStatusBase
+}
