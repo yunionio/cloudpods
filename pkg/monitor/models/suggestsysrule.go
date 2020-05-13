@@ -222,18 +222,17 @@ func (self *SSuggestSysRule) GetExtraDetails(
 //after create, update Cronjob's info
 func (self *SSuggestSysRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	cronman.GetCronJobManager().Remove(self.Type)
-	if self.Enabled.Bool() {
-		dur, _ := time.ParseDuration(self.Period)
-		cronman.GetCronJobManager().AddJobAtIntervalsWithStartRun(self.Type, dur,
-			suggestSysRuleDrivers[self.Type].DoSuggestSysRule, true)
-	}
+	self.updateCronjob()
 }
 
 //after update, update Cronjob's info
 func (self *SSuggestSysRule) PostUpdate(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.updateCronjob()
+}
+
+func (self *SSuggestSysRule) updateCronjob() {
 	cronman.GetCronJobManager().Remove(self.Type)
 	if self.Enabled.Bool() {
 		dur, _ := time.ParseDuration(self.Period)
@@ -254,7 +253,7 @@ func (self *SSuggestSysRule) PerformEnable(ctx context.Context, userCred mcclien
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
-		self.PostUpdate(ctx, userCred, query, data)
+		self.updateCronjob()
 	}
 	return nil, nil
 }
