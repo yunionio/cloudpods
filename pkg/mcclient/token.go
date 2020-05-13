@@ -87,8 +87,6 @@ type TokenCredential interface {
 	GetServiceCatalog() IServiceCatalog
 	GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject
 
-	GetInternalServices(region string) []string
-	GetExternalServices(region string) []ExternalService
 	GetEndpoints(region string, endpointType string) []Endpoint
 
 	ToJson() jsonutils.JSONObject
