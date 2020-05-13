@@ -305,3 +305,11 @@ func (manager *SWireResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SVpcResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SWireResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	wire := self.GetWire()
+	if wire != nil {
+		return wire.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

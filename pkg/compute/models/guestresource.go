@@ -251,3 +251,11 @@ func (manager *SGuestResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SHostResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SGuestResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	guest := self.GetGuest()
+	if guest != nil {
+		return guest.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}

@@ -1137,3 +1137,7 @@ func (manager *SLoadbalancerManager) ListItemExportKeys(ctx context.Context,
 	}
 	return q, nil
 }
+
+func (self *SLoadbalancer) GetChangeOwnerCandidateDomainIds() []string {
+	return self.SManagedResourceBase.GetChangeOwnerCandidateDomainIds()
+}

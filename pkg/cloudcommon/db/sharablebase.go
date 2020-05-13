@@ -168,7 +168,9 @@ func SharableManagerValidateCreateData(
 			input.IsPublic = &isPublic
 			reqScope = rbacutils.ScopeDomain
 		} else if input.IsPublic != nil && *input.IsPublic {
-			return input, errors.Wrap(httperrors.ErrNotSupported, "domain level resource can be shared to system ONLY")
+			// return input, errors.Wrap(httperrors.ErrNotSupported, "project level resource can be shared to domain or system ONLY")
+			input.IsPublic = nil
+			input.PublicScope = string(rbacutils.ScopeNone)
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)
@@ -178,7 +180,9 @@ func SharableManagerValidateCreateData(
 			input.IsPublic = &isPublic
 			reqScope = rbacutils.ScopeSystem
 		} else if input.IsPublic != nil && *input.IsPublic {
-			return input, errors.Wrap(httperrors.ErrNotSupported, "domain level resource can be shared to system ONLY")
+			// return input, errors.Wrap(httperrors.ErrNotSupported, "domain level resource can be shared to system ONLY")
+			input.IsPublic = nil
+			input.PublicScope = string(rbacutils.ScopeNone)
 		} else {
 			input.IsPublic = nil
 			input.PublicScope = string(rbacutils.ScopeNone)

@@ -260,3 +260,11 @@ func (manager *SNetworkResourceBaseManager) GetExportKeys() []string {
 	keys = append(keys, manager.SWireResourceBaseManager.GetExportKeys()...)
 	return keys
 }
+
+func (self *SNetworkResourceBase) GetChangeOwnerCandidateDomainIds() []string {
+	network := self.GetNetwork()
+	if network != nil {
+		return network.GetChangeOwnerCandidateDomainIds()
+	}
+	return nil
+}
